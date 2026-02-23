@@ -1,0 +1,163 @@
+import type { AffixDef } from '../types';
+
+export const AFFIX_DEFS: AffixDef[] = [
+  // ==================== Prefixes ====================
+  {
+    id: 'flat_damage',
+    name: 'Sharpened',
+    category: 'flat_damage',
+    slot: 'prefix',
+    tiers: {
+      3: { min: 3, max: 8, iLvlReq: 1 },
+      2: { min: 9, max: 16, iLvlReq: 10 },
+      1: { min: 17, max: 25, iLvlReq: 20 },
+    },
+    weight: 100,
+    displayTemplate: '+{value} Damage',
+  },
+  {
+    id: 'percent_damage',
+    name: 'Devastating',
+    category: 'percent_damage',
+    slot: 'prefix',
+    tiers: {
+      3: { min: 5, max: 10, iLvlReq: 1 },
+      2: { min: 11, max: 20, iLvlReq: 10 },
+      1: { min: 21, max: 35, iLvlReq: 20 },
+    },
+    weight: 100,
+    displayTemplate: '+{value}% Damage',
+  },
+  {
+    id: 'attack_speed',
+    name: 'Rapid',
+    category: 'attack_speed',
+    slot: 'prefix',
+    tiers: {
+      3: { min: 3, max: 6, iLvlReq: 1 },
+      2: { min: 7, max: 12, iLvlReq: 10 },
+      1: { min: 13, max: 20, iLvlReq: 20 },
+    },
+    weight: 100,
+    displayTemplate: '+{value}% Attack Speed',
+  },
+  {
+    id: 'flat_life',
+    name: 'Stout',
+    category: 'flat_life',
+    slot: 'prefix',
+    tiers: {
+      3: { min: 10, max: 25, iLvlReq: 1 },
+      2: { min: 26, max: 50, iLvlReq: 10 },
+      1: { min: 51, max: 80, iLvlReq: 20 },
+    },
+    weight: 100,
+    displayTemplate: '+{value} Life',
+  },
+  {
+    id: 'percent_life',
+    name: 'Virile',
+    category: 'percent_life',
+    slot: 'prefix',
+    tiers: {
+      3: { min: 3, max: 6, iLvlReq: 1 },
+      2: { min: 7, max: 12, iLvlReq: 10 },
+      1: { min: 13, max: 20, iLvlReq: 20 },
+    },
+    weight: 100,
+    displayTemplate: '+{value}% Life',
+  },
+  {
+    id: 'flat_armor',
+    name: 'Armored',
+    category: 'flat_armor',
+    slot: 'prefix',
+    tiers: {
+      3: { min: 8, max: 20, iLvlReq: 1 },
+      2: { min: 21, max: 40, iLvlReq: 10 },
+      1: { min: 41, max: 65, iLvlReq: 20 },
+    },
+    weight: 100,
+    displayTemplate: '+{value} Armor',
+  },
+
+  // ==================== Suffixes ====================
+  {
+    id: 'crit_chance',
+    name: 'of Precision',
+    category: 'crit_chance',
+    slot: 'suffix',
+    tiers: {
+      3: { min: 3, max: 6, iLvlReq: 1 },
+      2: { min: 7, max: 12, iLvlReq: 10 },
+      1: { min: 13, max: 20, iLvlReq: 20 },
+    },
+    weight: 100,
+    displayTemplate: '+{value}% Crit Chance',
+  },
+  {
+    id: 'crit_damage',
+    name: 'of Destruction',
+    category: 'crit_damage',
+    slot: 'suffix',
+    tiers: {
+      3: { min: 8, max: 15, iLvlReq: 1 },
+      2: { min: 16, max: 30, iLvlReq: 10 },
+      1: { min: 31, max: 50, iLvlReq: 20 },
+    },
+    weight: 100,
+    displayTemplate: '+{value}% Crit Damage',
+  },
+  {
+    id: 'dodge_chance',
+    name: 'of Evasion',
+    category: 'dodge_chance',
+    slot: 'suffix',
+    tiers: {
+      3: { min: 2, max: 5, iLvlReq: 1 },
+      2: { min: 6, max: 10, iLvlReq: 10 },
+      1: { min: 11, max: 18, iLvlReq: 20 },
+    },
+    weight: 100,
+    displayTemplate: '+{value}% Dodge',
+  },
+  {
+    id: 'fire_resist',
+    name: 'of the Flame',
+    category: 'fire_resist',
+    slot: 'suffix',
+    tiers: {
+      3: { min: 8, max: 15, iLvlReq: 1 },
+      2: { min: 16, max: 25, iLvlReq: 10 },
+      1: { min: 26, max: 40, iLvlReq: 20 },
+    },
+    weight: 100,
+    displayTemplate: '+{value}% Fire Resist',
+  },
+  {
+    id: 'cold_resist',
+    name: 'of the Glacier',
+    category: 'cold_resist',
+    slot: 'suffix',
+    tiers: {
+      3: { min: 8, max: 15, iLvlReq: 1 },
+      2: { min: 16, max: 25, iLvlReq: 10 },
+      1: { min: 26, max: 40, iLvlReq: 20 },
+    },
+    weight: 100,
+    displayTemplate: '+{value}% Cold Resist',
+  },
+  {
+    id: 'lightning_resist',
+    name: 'of the Storm',
+    category: 'lightning_resist',
+    slot: 'suffix',
+    tiers: {
+      3: { min: 8, max: 15, iLvlReq: 1 },
+      2: { min: 16, max: 25, iLvlReq: 10 },
+      1: { min: 26, max: 40, iLvlReq: 20 },
+    },
+    weight: 100,
+    displayTemplate: '+{value}% Lightning Resist',
+  },
+];
