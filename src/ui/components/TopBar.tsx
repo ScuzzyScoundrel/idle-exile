@@ -1,11 +1,11 @@
 import { useGameStore } from '../../store/gameStore';
 
 export default function TopBar() {
-  const { character, gold, currencies } = useGameStore();
+  const { character, gold } = useGameStore();
 
   return (
     <div className="fixed top-0 left-0 right-0 bg-gray-900 border-b border-gray-700 z-50 px-3 py-2">
-      <div className="flex items-center justify-between max-w-lg mx-auto">
+      <div className="flex items-center justify-between max-w-4xl mx-auto">
         {/* Character info */}
         <div className="flex items-center gap-2">
           <span className="text-yellow-400 font-bold text-sm">{character.name}</span>
@@ -29,16 +29,6 @@ export default function TopBar() {
         </div>
       </div>
 
-      {/* Currency row */}
-      <div className="flex gap-2 max-w-lg mx-auto mt-1 overflow-x-auto">
-        {Object.entries(currencies).map(([key, count]) => (
-          count > 0 && (
-            <span key={key} className="text-xs text-gray-400 whitespace-nowrap">
-              {key.slice(0, 3)}: {count}
-            </span>
-          )
-        ))}
-      </div>
     </div>
   );
 }

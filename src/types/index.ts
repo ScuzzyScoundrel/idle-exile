@@ -15,18 +15,21 @@ export type AffixCategory =
   | 'percent_life'
   | 'flat_armor'
   | 'dodge_chance'
+  | 'ability_haste'
   | 'fire_resist'
   | 'cold_resist'
-  | 'lightning_resist';
+  | 'lightning_resist'
+  | 'poison_resist'
+  | 'chaos_resist';
 
-export type AffixTier = 1 | 2 | 3; // T1 best, T3 worst (simplified for prototype)
+export type AffixTier = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 
 export interface AffixDef {
   id: string;
   name: string;
   category: AffixCategory;
   slot: AffixSlot;
-  tiers: Record<AffixTier, { min: number; max: number; iLvlReq: number }>;
+  tiers: Record<AffixTier, { min: number; max: number }>;
   weight: number; // drop weight for rolling
   displayTemplate: string; // e.g. "+{value} Life" or "+{value}% Damage"
 }
@@ -39,9 +42,15 @@ export interface Affix {
 
 // --- Items ---
 
-export type GearSlot = 'weapon' | 'chest' | 'boots' | 'ring';
+export type GearSlot =
+  | 'mainhand' | 'offhand'
+  | 'helmet' | 'neck' | 'shoulders' | 'cloak'
+  | 'chest' | 'bracers' | 'gloves' | 'belt'
+  | 'pants' | 'boots'
+  | 'ring1' | 'ring2'
+  | 'trinket1' | 'trinket2';
 export type ArmorType = 'plate' | 'mail' | 'leather' | 'cloth';
-export type Rarity = 'normal' | 'magic' | 'rare' | 'unique';
+export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
 
 export interface ItemBaseDef {
   id: string;
@@ -75,14 +84,30 @@ export type StatKey =
   | 'life'
   | 'armor'
   | 'dodgeChance'
+  | 'abilityHaste'
   | 'fireResist'
   | 'coldResist'
-  | 'lightningResist';
+  | 'lightningResist'
+  | 'poisonResist'
+  | 'chaosResist';
 
 export type ResolvedStats = Record<StatKey, number>;
 
+// --- Classes ---
+
+export type CharacterClass = 'warrior';
+
+export interface ClassDef {
+  id: CharacterClass;
+  name: string;
+  description: string;
+  baseStatBonuses: Partial<Record<StatKey, number>>;
+  armorAffinity: ArmorType;
+}
+
 export interface Character {
   name: string;
+  class: CharacterClass;
   level: number;
   xp: number;
   xpToNext: number;
@@ -92,17 +117,25 @@ export interface Character {
 
 // --- Zones ---
 
-export type GatheringFocus = 'combat' | 'harvesting' | 'prospecting' | 'scavenging';
+export type HazardType = 'fire' | 'cold' | 'lightning' | 'poison' | 'chaos';
+
+export interface ZoneHazard {
+  type: HazardType;
+  threshold: number;
+}
 
 export interface ZoneDef {
   id: string;
   name: string;
-  region: string;
+  band: number;
+  bandIndex: number;
   description: string;
-  maxTier: number;
   baseClearTime: number; // seconds at power parity
-  iLvlByTier: Record<number, number>; // tier -> item level
+  iLvlMin: number;
+  iLvlMax: number;
   materialDrops: string[];
+  hazards: ZoneHazard[];
+  unlockRequirement?: string; // id of zone that must be accessible first
 }
 
 export interface IdleRunResult {
@@ -118,14 +151,12 @@ export interface IdleRunResult {
 // --- Currencies ---
 
 export type CurrencyType =
-  | 'transmute'
   | 'augment'
   | 'chaos'
-  | 'alchemy'
   | 'divine'
   | 'annul'
   | 'exalt'
-  | 'regal';
+  | 'socket';
 
 export interface CurrencyDef {
   id: CurrencyType;
@@ -143,6 +174,36 @@ export interface CraftResult {
   message: string;
 }
 
+// --- Pending Loot (banked between zone changes) ---
+
+export interface PendingLoot {
+  items: Item[];
+  currencyDrops: Record<CurrencyType, number>;
+  materials: Record<string, number>;
+  goldGained: number;
+  clearsCompleted: number;
+}
+
+// --- Set Bonuses ---
+
+/** Slots that count toward armor-set bonuses. */
+export const SET_SLOTS: GearSlot[] = ['helmet', 'shoulders', 'chest', 'gloves', 'pants', 'boots'];
+
+export type SetBonusThreshold = 2 | 4 | 6;
+
+export interface SetBonusDef {
+  armorType: ArmorType;
+  name: string;
+  thresholds: Record<SetBonusThreshold, Partial<Record<StatKey, number>>>;
+}
+
+export interface ActiveSetBonus {
+  armorType: ArmorType;
+  name: string;
+  count: number;
+  bonuses: { threshold: SetBonusThreshold; stats: Partial<Record<StatKey, number>> }[];
+}
+
 // --- Game State ---
 
 export interface GameState {
@@ -151,12 +212,14 @@ export interface GameState {
   currencies: Record<CurrencyType, number>;
   materials: Record<string, number>;
   gold: number;
+  pendingLoot: PendingLoot;
 
   // Idle state
   currentZoneId: string | null;
-  currentZoneTier: number;
-  currentFocus: GatheringFocus;
   idleStartTime: number | null; // timestamp when idle run started
+
+  // Auto-salvage
+  autoSalvageMinRarity: Rarity;
 
   // Meta
   lastSaveTime: number;

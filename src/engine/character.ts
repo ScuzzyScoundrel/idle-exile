@@ -3,8 +3,10 @@
 // Pure functions: no React, no side effects, no DOM.
 // ============================================================
 
-import type { Character, ResolvedStats, StatKey, Item, GearSlot, AffixCategory } from '../types';
+import type { Character, CharacterClass, ResolvedStats, StatKey, Item, GearSlot, AffixCategory } from '../types';
 import { getAffixDef } from './items';
+import { CLASS_DEFS } from '../data/classes';
+import { calcSetBonuses } from './setBonus';
 
 // --- Base Stats ---
 
@@ -17,9 +19,12 @@ export const BASE_STATS: ResolvedStats = {
   life: 100,
   armor: 0,
   dodgeChance: 0,
+  abilityHaste: 0,
   fireResist: 0,
   coldResist: 0,
   lightningResist: 0,
+  poisonResist: 0,
+  chaosResist: 0,
 };
 
 // --- Affix Category to StatKey mapping ---
@@ -35,9 +40,12 @@ const AFFIX_STAT_MAP: Record<AffixCategory, StatKey> = {
   percent_life: 'life',
   flat_armor: 'armor',
   dodge_chance: 'dodgeChance',
+  ability_haste: 'abilityHaste',
   fire_resist: 'fireResist',
   cold_resist: 'coldResist',
   lightning_resist: 'lightningResist',
+  poison_resist: 'poisonResist',
+  chaos_resist: 'chaosResist',
 };
 
 /** Categories that apply as percentage multipliers rather than flat additions. */
@@ -53,16 +61,19 @@ export function calcXpToNext(level: number): number {
   return Math.floor(100 * Math.pow(1.5, level - 1));
 }
 
-/** Create a fresh level 1 character with the given name. */
-export function createCharacter(name: string): Character {
+/** Create a fresh level 1 character with the given name and class. */
+export function createCharacter(name: string, charClass: CharacterClass = 'warrior'): Character {
   const char: Character = {
     name,
+    class: charClass,
     level: 1,
     xp: 0,
     xpToNext: calcXpToNext(1),
     equipment: {},
     stats: { ...BASE_STATS },
   };
+  // Resolve stats to apply class bonuses
+  char.stats = resolveStats(char);
   return char;
 }
 
@@ -76,6 +87,16 @@ export function createCharacter(name: string): Character {
 export function resolveStats(char: Character): ResolvedStats {
   // Start with a copy of base stats
   const stats: ResolvedStats = { ...BASE_STATS };
+
+  // Apply class base stat bonuses
+  const classDef = CLASS_DEFS[char.class];
+  if (classDef) {
+    for (const [key, val] of Object.entries(classDef.baseStatBonuses)) {
+      if (typeof val === 'number') {
+        stats[key as StatKey] += val;
+      }
+    }
+  }
 
   // Per-level bonuses: +2 damage, +5 life per level (level 1 gets no bonus)
   const bonusLevels = char.level - 1;
@@ -112,6 +133,18 @@ export function resolveStats(char: Character): ResolvedStats {
       } else {
         // Flat bonus: add directly
         stats[statKey] += affix.value;
+      }
+    }
+  }
+
+  // Apply set bonuses (flat additions before percent multipliers)
+  const setBonuses = calcSetBonuses(char.equipment);
+  for (const setBonus of setBonuses) {
+    for (const { stats: bonusStats } of setBonus.bonuses) {
+      for (const [key, val] of Object.entries(bonusStats)) {
+        if (typeof val === 'number') {
+          stats[key as StatKey] += val;
+        }
       }
     }
   }
