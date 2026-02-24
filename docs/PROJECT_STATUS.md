@@ -4,7 +4,7 @@
 > Last updated: 2026-02-24
 
 ## Current Phase
-**Phase 1: Foundation Engine Rework** — COMPLETE. All 6 implementation steps done, build passes, ready for playtesting.
+**Sprint 1A: UI Polish** — COMPLETE. Auto-salvage feedback, loot dismiss, rarity guide, hero page overhaul all done.
 
 ## What Changed (Phase 1 Rework Summary)
 The entire game engine was rewritten to match the updated GDD. Key changes:
@@ -148,8 +148,18 @@ npx vite --host
 | 2026-02-24 | Merge crafting into Inventory tab | Reduces tabs from 4→3, crafting more accessible |
 | 2026-02-24 | Save v6 wipe migration | Too many schema changes to migrate incrementally |
 
+## Sprint 1A Changes (UI Polish)
+- **Bug fix:** `collectIdleResults()` and `stopIdleRun()` now return only kept items (not auto-salvaged ones)
+- **Auto-salvage feedback:** Loot panel shows "Auto-salvaged N items -> +X salvage dust" when items are filtered
+- **Loot dismiss:** X button on "Loot Collected!" panel to close it
+- **Rarity guide:** "?" button on Inventory screen toggles a color-coded table explaining rarity tiers
+- **Hero page overhaul:** Gear slots widened from 64px to 144px with item name + rarity color
+- **ASCII silhouette:** Character silhouette in center of paper doll with name/level
+- **Stat tooltips:** All 13 stats have title-attribute tooltips explaining what they do
+
 ## Priority for Next Session
-1. Playtest the Phase 1 build — verify all systems work end-to-end
-2. Socket currency crafting logic
-3. Offline progression (makes it a real idle game)
-4. Class selection + basic talent tree
+1. Sprint 2A: Weapon Types + Abilities (8 weapon types, 3 passive abilities each)
+2. Sprint 2B: Damage + Survivability Formulas (proper combat engine)
+3. Sprint 2C: Class Mechanics (4 classes with unique mechanics)
+4. Sprint 2D: Gathering Professions
+5. Sprint 2E: Crafting Professions

@@ -67,6 +67,7 @@ export default function InventoryScreen() {
     autoSalvageMinRarity, setAutoSalvageRarity,
   } = useGameStore();
   const [materialsOpen, setMaterialsOpen] = useState(true);
+  const [rarityGuideOpen, setRarityGuideOpen] = useState(false);
   const [currencyOpen, setCurrencyOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [selectedCurrency, setSelectedCurrency] = useState<CurrencyType | null>(null);
@@ -483,6 +484,11 @@ export default function InventoryScreen() {
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
+            <button
+              onClick={() => setRarityGuideOpen(!rarityGuideOpen)}
+              className={`text-[10px] w-5 h-5 rounded-full font-bold transition-colors ${rarityGuideOpen ? 'bg-yellow-600 text-black' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}
+              title="Rarity Guide"
+            >?</button>
             {filteredInventory.length > 0 && (
               <button
                 onClick={handleDisenchantAll}
@@ -493,6 +499,29 @@ export default function InventoryScreen() {
             )}
           </div>
         </div>
+        {rarityGuideOpen && (
+          <div className="bg-gray-900 rounded-lg border border-gray-700 p-3 mb-2 space-y-2">
+            <div className="text-xs font-bold text-gray-300">Rarity Guide</div>
+            <table className="w-full text-[11px]">
+              <thead>
+                <tr className="text-gray-500 border-b border-gray-700">
+                  <th className="text-left py-1 pr-2">Rarity</th>
+                  <th className="text-left py-1 pr-2">Requirement</th>
+                  <th className="text-right py-1">Affixes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td className="py-0.5 text-orange-400 font-semibold">Legendary</td><td className="text-gray-400">Any T1 affix OR 2+ T2</td><td className="text-right text-gray-300">6</td></tr>
+                <tr><td className="py-0.5 text-purple-400 font-semibold">Epic</td><td className="text-gray-400">Any T2 affix</td><td className="text-right text-gray-300">5</td></tr>
+                <tr><td className="py-0.5 text-yellow-400 font-semibold">Rare</td><td className="text-gray-400">Best affix is T3</td><td className="text-right text-gray-300">4</td></tr>
+                <tr><td className="py-0.5 text-blue-400 font-semibold">Uncommon</td><td className="text-gray-400">Best affix is T4-T6</td><td className="text-right text-gray-300">3</td></tr>
+                <tr><td className="py-0.5 text-green-400 font-semibold">Common</td><td className="text-gray-400">All affixes T7+</td><td className="text-right text-gray-300">2</td></tr>
+              </tbody>
+            </table>
+            <div className="text-[10px] text-gray-500">Tier ranges T1 (best) to T10 (worst). Affix tier colors visible on item cards.</div>
+          </div>
+        )}
+
         <div className="flex gap-1 flex-wrap">
           {(['all', ...SLOT_ORDER] as const).map((f) => (
             <button

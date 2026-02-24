@@ -146,6 +146,7 @@ export interface IdleRunResult {
   goldGained: number;
   clearsCompleted: number;
   elapsed: number;
+  autoSalvaged?: { itemsSalvaged: number; dustGained: number };
 }
 
 // --- Currencies ---

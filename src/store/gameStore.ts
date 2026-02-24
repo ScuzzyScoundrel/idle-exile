@@ -82,8 +82,14 @@ function mergePendingLoot(a: PendingLoot, b: PendingLoot): PendingLoot {
   };
 }
 
+/** Auto-salvage stats returned alongside state updates. */
+interface SalvageStats {
+  itemsSalvaged: number;
+  dustGained: number;
+}
+
 /** Apply banked loot to inventory/currencies/materials/gold and clear pendingLoot. */
-function applyPendingLoot(state: GameState, loot: PendingLoot): Partial<GameState> {
+function applyPendingLoot(state: GameState, loot: PendingLoot): { patch: Partial<GameState>; keptItems: Item[]; salvageStats: SalvageStats } {
   const newCurrencies = { ...state.currencies };
   for (const [key, val] of Object.entries(loot.currencyDrops)) {
     newCurrencies[key as CurrencyType] += val;
@@ -98,12 +104,13 @@ function applyPendingLoot(state: GameState, loot: PendingLoot): Partial<GameStat
   const minOrder = RARITY_ORDER[minRarity];
   let keptItems: Item[] = [];
   let autoSalvageDust = 0;
+  let itemsSalvaged = 0;
 
   if (minOrder > 0) {
     for (const item of loot.items) {
       if (RARITY_ORDER[item.rarity] < minOrder) {
-        // Auto-salvage this item
         autoSalvageDust += SALVAGE_DUST[item.rarity];
+        itemsSalvaged++;
       } else {
         keptItems.push(item);
       }
@@ -117,11 +124,15 @@ function applyPendingLoot(state: GameState, loot: PendingLoot): Partial<GameStat
   }
 
   return {
-    inventory: [...state.inventory, ...keptItems],
-    currencies: newCurrencies,
-    materials: newMaterials,
-    gold: state.gold + loot.goldGained,
-    pendingLoot: { ...EMPTY_PENDING_LOOT, currencyDrops: { ...EMPTY_PENDING_LOOT.currencyDrops } },
+    patch: {
+      inventory: [...state.inventory, ...keptItems],
+      currencies: newCurrencies,
+      materials: newMaterials,
+      gold: state.gold + loot.goldGained,
+      pendingLoot: { ...EMPTY_PENDING_LOOT, currencyDrops: { ...EMPTY_PENDING_LOOT.currencyDrops } },
+    },
+    keptItems,
+    salvageStats: { itemsSalvaged, dustGained: autoSalvageDust },
   };
 }
 
@@ -315,19 +326,20 @@ export const useGameStore = create<GameState & GameActions>()(
           totalLoot = mergePendingLoot(totalLoot, currentLoot);
         }
         if (totalLoot.clearsCompleted === 0 && totalLoot.items.length === 0) return null;
-        const applied = applyPendingLoot(state, totalLoot);
+        const { patch, keptItems, salvageStats } = applyPendingLoot(state, totalLoot);
         set({
-          ...applied,
+          ...patch,
           idleStartTime: Date.now(),
         });
         return {
-          items: totalLoot.items,
+          items: keptItems,
           materials: totalLoot.materials,
           currencyDrops: totalLoot.currencyDrops,
           xpGained: 0,
           goldGained: totalLoot.goldGained,
           clearsCompleted: totalLoot.clearsCompleted,
           elapsed: results?.elapsed ?? 0,
+          autoSalvaged: salvageStats.itemsSalvaged > 0 ? salvageStats : undefined,
         };
       },
 
@@ -343,19 +355,20 @@ export const useGameStore = create<GameState & GameActions>()(
           set({ idleStartTime: null });
           return null;
         }
-        const applied = applyPendingLoot(state, totalLoot);
+        const { patch, keptItems, salvageStats } = applyPendingLoot(state, totalLoot);
         set({
-          ...applied,
+          ...patch,
           idleStartTime: null,
         });
         return {
-          items: totalLoot.items,
+          items: keptItems,
           materials: totalLoot.materials,
           currencyDrops: totalLoot.currencyDrops,
           xpGained: 0,
           goldGained: totalLoot.goldGained,
           clearsCompleted: totalLoot.clearsCompleted,
           elapsed: results?.elapsed ?? 0,
+          autoSalvaged: salvageStats.itemsSalvaged > 0 ? salvageStats : undefined,
         };
       },
 

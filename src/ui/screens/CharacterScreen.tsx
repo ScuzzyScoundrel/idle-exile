@@ -1,12 +1,28 @@
 import { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { StatKey, GearSlot, Item, ArmorType, Rarity } from '../../types';
-import { SLOT_CONFIG, slotIcon, slotLabel } from '../slotConfig';
+import { slotIcon, slotLabel } from '../slotConfig';
 import { formatAffix } from '../../engine/items';
 import { CLASS_DEFS } from '../../data/classes';
 import { calcSetBonuses, calcDefensiveEfficiency } from '../../engine/setBonus';
 import { SET_BONUS_DEFS } from '../../data/setBonuses';
 import { ZONE_DEFS } from '../../data/zones';
+
+const STAT_TOOLTIPS: Record<StatKey, string> = {
+  damage: 'Base damage. Contributes to clear power.',
+  attackSpeed: 'Increases attacks per second. Power = damage \u00d7 (1 + atkSpd/100).',
+  critChance: '% chance to crit. Power includes (1 + critChance/100 \u00d7 critDmg/100).',
+  critDamage: 'Multiplier on critical hits. Scales with Crit Chance.',
+  life: 'Health pool. Higher = more survivable.',
+  armor: 'Physical damage reduction.',
+  dodgeChance: '% chance to avoid attacks entirely.',
+  abilityHaste: 'Reduces ability cooldowns (future system).',
+  fireResist: 'Reduces fire hazard penalty. Need \u2265 zone threshold for mastery.',
+  coldResist: 'Reduces cold hazard penalty. Need \u2265 zone threshold for mastery.',
+  lightningResist: 'Reduces lightning hazard penalty. Need \u2265 zone threshold for mastery.',
+  poisonResist: 'Reduces poison hazard penalty. Need \u2265 zone threshold for mastery.',
+  chaosResist: 'Reduces chaos hazard penalty. Need \u2265 zone threshold for mastery.',
+};
 
 const STAT_CONFIG: { key: StatKey; label: string; icon: string; format?: (v: number) => string }[] = [
   { key: 'damage', label: 'Damage', icon: '\u2694\uFE0F' },
@@ -40,6 +56,14 @@ const RARITY_BG: Record<Rarity, string> = {
   legendary: 'bg-orange-950',
 };
 
+const RARITY_TEXT: Record<Rarity, string> = {
+  common: 'text-green-400',
+  uncommon: 'text-blue-400',
+  rare: 'text-yellow-400',
+  epic: 'text-purple-400',
+  legendary: 'text-orange-400',
+};
+
 const TIER_COLORS: Record<number, string> = {
   1: 'text-orange-400',
   2: 'text-purple-400',
@@ -58,6 +82,13 @@ const LEFT_SLOTS: GearSlot[] = ['helmet', 'neck', 'shoulders', 'cloak', 'chest',
 const RIGHT_SLOTS: GearSlot[] = ['gloves', 'belt', 'pants', 'boots', 'ring1', 'ring2'];
 const BOTTOM_SLOTS: GearSlot[] = ['mainhand', 'offhand', 'trinket1', 'trinket2'];
 
+const ASCII_SILHOUETTE = `    O
+   /|\\
+  / | \\
+    |
+   / \\
+  /   \\`;
+
 export default function CharacterScreen() {
   const { character, resetGame, unequipSlot, currentZoneId } = useGameStore();
   const [hoveredSlot, setHoveredSlot] = useState<GearSlot | null>(null);
@@ -69,7 +100,7 @@ export default function CharacterScreen() {
       <div className="bg-gray-800 rounded-lg p-3">
         <div className="flex items-center gap-3">
           <div className="w-14 h-14 bg-gray-700 rounded-full flex items-center justify-center text-2xl border-2 border-yellow-600">
-            \u2694\uFE0F
+            {'\u2694\uFE0F'}
           </div>
           <div className="flex-1">
             <div className="text-xl font-bold text-white">{character.name}</div>
@@ -90,15 +121,15 @@ export default function CharacterScreen() {
         </div>
       </div>
 
-      {/* Paper Doll — WoW-style layout */}
+      {/* Paper Doll — WoW-style layout with wider gear cards */}
       <div className="bg-gray-800 rounded-lg p-3 overflow-hidden">
         <h3 className="text-sm font-bold text-gray-300 mb-2">Equipment</h3>
 
-        <div className="flex gap-1">
+        <div className="flex gap-1.5">
           {/* Left column */}
-          <div className="flex flex-col gap-1 w-16 flex-shrink-0">
+          <div className="flex flex-col gap-1.5 w-36 flex-shrink-0">
             {LEFT_SLOTS.map((slot) => (
-              <EquipSlot
+              <GearSlotCard
                 key={slot}
                 slot={slot}
                 hoveredSlot={hoveredSlot}
@@ -108,20 +139,21 @@ export default function CharacterScreen() {
             ))}
           </div>
 
-          {/* Center — character silhouette */}
+          {/* Center — ASCII character silhouette */}
           <div className="flex-1 min-w-0 flex items-center justify-center">
-            <div className="w-full h-full min-h-[220px] bg-gray-900 rounded-lg border border-gray-700 flex items-center justify-center">
+            <div className="w-full h-full min-h-[280px] bg-gray-900 rounded-lg border border-gray-700 flex items-center justify-center">
               <div className="text-center">
-                <div className="text-4xl opacity-20">\uD83E\uDDCD</div>
-                <div className="text-[10px] text-gray-600 mt-1">Lv {character.level}</div>
+                <pre className="font-mono text-gray-600 text-lg leading-tight select-none">{ASCII_SILHOUETTE}</pre>
+                <div className="text-xs text-gray-500 mt-2 font-semibold">{character.name}</div>
+                <div className="text-[10px] text-gray-600">Lv {character.level} {CLASS_DEFS[character.class]?.name ?? 'Exile'}</div>
               </div>
             </div>
           </div>
 
           {/* Right column */}
-          <div className="flex flex-col gap-1 w-16 flex-shrink-0">
+          <div className="flex flex-col gap-1.5 w-36 flex-shrink-0">
             {RIGHT_SLOTS.map((slot) => (
-              <EquipSlot
+              <GearSlotCard
                 key={slot}
                 slot={slot}
                 hoveredSlot={hoveredSlot}
@@ -133,14 +165,15 @@ export default function CharacterScreen() {
         </div>
 
         {/* Bottom row — weapons + trinkets */}
-        <div className="flex gap-1 justify-center mt-1">
+        <div className="flex gap-1.5 justify-center mt-1.5">
           {BOTTOM_SLOTS.map((slot) => (
-            <EquipSlot
+            <GearSlotCard
               key={slot}
               slot={slot}
               hoveredSlot={hoveredSlot}
               onHover={setHoveredSlot}
               onUnequip={unequipSlot}
+              className="w-36"
             />
           ))}
         </div>
@@ -164,7 +197,7 @@ export default function CharacterScreen() {
         <h3 className="text-sm font-bold text-gray-300 mb-2">Stats</h3>
         <div className="grid grid-cols-2 gap-2">
           {STAT_CONFIG.map(({ key, label, icon, format }) => (
-            <div key={key} className="flex items-center gap-2">
+            <div key={key} className="flex items-center gap-2" title={STAT_TOOLTIPS[key]}>
               <span className="text-sm">{icon}</span>
               <div className="flex-1">
                 <div className="text-xs text-gray-400">{label}</div>
@@ -222,7 +255,6 @@ const STAT_LABELS: Partial<Record<StatKey, string>> = {
 
 function DefensePanel() {
   const { character, currentZoneId } = useGameStore();
-  // Get band from current zone
   const currentZone = currentZoneId ? ZONE_DEFS.find(z => z.id === currentZoneId) : null;
   const band = currentZone?.band ?? 1;
   const defEff = calcDefensiveEfficiency(character.stats, band);
@@ -235,7 +267,6 @@ function DefensePanel() {
     <div className="bg-gray-800 rounded-lg p-3 space-y-3">
       <h3 className="text-sm font-bold text-gray-300">Defense</h3>
 
-      {/* Defensive Efficiency */}
       <div className="flex items-center justify-between">
         <div className="text-xs text-gray-400">Defensive Efficiency (Band {band})</div>
         <div className={`text-sm font-bold ${defEff >= 0.9 ? 'text-green-400' : defEff >= 0.8 ? 'text-yellow-400' : 'text-red-400'}`}>
@@ -249,12 +280,10 @@ function DefensePanel() {
         />
       </div>
 
-      {/* Armor hint */}
       <div className="text-[10px] text-gray-500">
         Armor reduces {physReduction}% physical damage at Band {band}
       </div>
 
-      {/* Set Bonuses */}
       {setBonuses.length > 0 && (
         <div className="space-y-2 pt-1 border-t border-gray-700">
           <div className="text-xs font-semibold text-gray-400">Set Bonuses</div>
@@ -283,17 +312,19 @@ function DefensePanel() {
   );
 }
 
-/** Single equipment slot in the paper doll. */
-function EquipSlot({
+/** WoW-style gear slot card — wider with item name + rarity color. */
+function GearSlotCard({
   slot,
   hoveredSlot,
   onHover,
   onUnequip,
+  className,
 }: {
   slot: GearSlot;
   hoveredSlot: GearSlot | null;
   onHover: (slot: GearSlot | null) => void;
   onUnequip: (slot: GearSlot) => void;
+  className?: string;
 }) {
   const { character } = useGameStore();
   const item = character.equipment[slot];
@@ -311,32 +342,46 @@ function EquipSlot({
     }
   };
 
+  if (!item) {
+    return (
+      <div
+        className={`
+          rounded-lg border-2 border-dashed border-gray-700 bg-gray-900/50
+          flex items-center gap-2 px-2 py-2 cursor-pointer
+          hover:border-gray-500 transition-all
+          ${isShowingTooltip ? 'ring-2 ring-yellow-400' : ''}
+          ${className ?? 'w-full'}
+        `}
+        onMouseEnter={() => onHover(slot)}
+        onMouseLeave={() => onHover(null)}
+        onClick={handleClick}
+        title={`${slotLabel(slot)} \u2014 empty`}
+      >
+        <span className="text-lg opacity-25">{slotIcon(slot)}</span>
+        <span className="text-[10px] text-gray-600">{slotLabel(slot)}</span>
+      </div>
+    );
+  }
+
   return (
     <div
       className={`
-        rounded border-2 p-0.5 transition-all cursor-pointer w-full min-h-[36px]
-        flex flex-col items-center justify-center
-        ${item
-          ? `${RARITY_BORDER[item.rarity]} ${RARITY_BG[item.rarity]} hover:brightness-125`
-          : 'border-gray-700 border-dashed bg-gray-900/50 hover:border-gray-500'}
+        rounded-lg border-2 px-2 py-1.5 cursor-pointer transition-all
+        flex items-center gap-2 min-w-0
+        ${RARITY_BORDER[item.rarity]} ${RARITY_BG[item.rarity]} hover:brightness-125
         ${isShowingTooltip ? 'ring-2 ring-yellow-400' : ''}
+        ${className ?? 'w-full'}
       `}
       onMouseEnter={() => onHover(slot)}
       onMouseLeave={() => onHover(null)}
       onClick={handleClick}
-      title={item ? (isShowingTooltip ? `Tap to unequip ${item.name}` : `Tap to inspect ${item.name}`) : `${slotLabel(slot)} — empty`}
+      title={isShowingTooltip ? `Tap to unequip ${item.name}` : `Tap to inspect ${item.name}`}
     >
-      {item ? (
-        <>
-          <div className="text-xs leading-none">{slotIcon(slot)}</div>
-          <div className="text-[7px] font-semibold truncate w-full text-center text-gray-200 leading-tight">{item.name.split(' ')[0]}</div>
-        </>
-      ) : (
-        <>
-          <div className="text-xs leading-none opacity-30">{slotIcon(slot)}</div>
-          <div className="text-[7px] text-gray-600 leading-tight">{slotLabel(slot)}</div>
-        </>
-      )}
+      <span className="text-base leading-none flex-shrink-0">{slotIcon(slot)}</span>
+      <div className="min-w-0 flex-1">
+        <div className={`text-[11px] font-semibold truncate ${RARITY_TEXT[item.rarity]}`}>{item.name}</div>
+        <div className="text-[9px] text-gray-500">iLvl {item.iLvl} {'\u2022'} {item.rarity}</div>
+      </div>
     </div>
   );
 }

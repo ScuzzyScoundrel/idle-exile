@@ -65,7 +65,7 @@ export default function ZoneScreen() {
 
   const [selectedZone, setSelectedZone] = useState(currentZoneId || ZONE_DEFS[0].id);
   const [elapsed, setElapsed] = useState(0);
-  const [lastResults, setLastResults] = useState<{ items: Item[]; xp: number; gold: number } | null>(null);
+  const [lastResults, setLastResults] = useState<{ items: Item[]; xp: number; gold: number; autoSalvaged?: { count: number; dust: number } } | null>(null);
   const [lootFeed, setLootFeed] = useState<ClearEntry[]>([]);
   const [bankedMsg, setBankedMsg] = useState<string | null>(null);
   const [collapsedBands, setCollapsedBands] = useState<Set<number>>(new Set());
@@ -146,7 +146,14 @@ export default function ZoneScreen() {
   const handleCollect = () => {
     const results = collectIdleResults();
     if (results) {
-      setLastResults({ items: results.items, xp: 0, gold: results.goldGained });
+      setLastResults({
+        items: results.items,
+        xp: 0,
+        gold: results.goldGained,
+        autoSalvaged: results.autoSalvaged
+          ? { count: results.autoSalvaged.itemsSalvaged, dust: results.autoSalvaged.dustGained }
+          : undefined,
+      });
       setLootFeed([]);
       lastClearCount.current = 0;
       setElapsed(0);
@@ -156,7 +163,14 @@ export default function ZoneScreen() {
   const handleStop = () => {
     const results = stopIdleRun();
     if (results) {
-      setLastResults({ items: results.items, xp: 0, gold: results.goldGained });
+      setLastResults({
+        items: results.items,
+        xp: 0,
+        gold: results.goldGained,
+        autoSalvaged: results.autoSalvaged
+          ? { count: results.autoSalvaged.itemsSalvaged, dust: results.autoSalvaged.dustGained }
+          : undefined,
+      });
     }
     setLootFeed([]);
     lastClearCount.current = 0;
@@ -380,7 +394,14 @@ export default function ZoneScreen() {
       {/* Last Collection Results */}
       {lastResults && (
         <div className="bg-gray-800 rounded-lg p-3 space-y-2">
-          <h3 className="text-sm font-bold text-green-400">Loot Collected!</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-green-400">Loot Collected!</h3>
+            <button
+              onClick={() => setLastResults(null)}
+              className="text-gray-500 hover:text-white text-lg leading-none px-1"
+              title="Dismiss"
+            >&times;</button>
+          </div>
           <div className="text-xs text-gray-300">
             +{lastResults.gold} Gold
           </div>
@@ -393,6 +414,11 @@ export default function ZoneScreen() {
               {lastResults.items.length > 5 && (
                 <div className="text-xs text-gray-500">+{lastResults.items.length - 5} more in inventory...</div>
               )}
+            </div>
+          )}
+          {lastResults.autoSalvaged && lastResults.autoSalvaged.count > 0 && (
+            <div className="text-xs text-amber-400 bg-amber-950/50 rounded px-2 py-1">
+              Auto-salvaged {lastResults.autoSalvaged.count} item{lastResults.autoSalvaged.count !== 1 ? 's' : ''} &rarr; +{lastResults.autoSalvaged.dust} salvage dust
             </div>
           )}
         </div>
