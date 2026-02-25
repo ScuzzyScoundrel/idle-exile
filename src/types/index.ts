@@ -50,6 +50,7 @@ export type GearSlot =
   | 'ring1' | 'ring2'
   | 'trinket1' | 'trinket2';
 export type ArmorType = 'plate' | 'mail' | 'leather' | 'cloth';
+export type WeaponType = 'sword' | 'axe' | 'mace' | 'dagger' | 'staff' | 'wand' | 'bow' | 'crossbow';
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
 
 export interface ItemBaseDef {
@@ -57,6 +58,7 @@ export interface ItemBaseDef {
   name: string;
   slot: GearSlot;
   armorType?: ArmorType; // weapons don't have armor type
+  weaponType?: WeaponType; // mainhand items only
   baseStats: Partial<Record<StatKey, number>>; // e.g. base armor, base damage
   iLvl: number;
 }
@@ -71,6 +73,7 @@ export interface Item {
   prefixes: Affix[];
   suffixes: Affix[];
   armorType?: ArmorType;
+  weaponType?: WeaponType;
   baseStats: Partial<Record<StatKey, number>>;
 }
 
@@ -235,6 +238,70 @@ export interface ActiveSetBonus {
   bonuses: { threshold: SetBonusThreshold; stats: Partial<Record<StatKey, number>> }[];
 }
 
+// --- Abilities ---
+
+export type AbilityKind = 'active' | 'passive';
+export type FocusMode = 'combat' | 'harvesting' | 'prospecting' | 'scavenging';
+
+export interface AbilityEffect {
+  damageMult?: number;
+  attackSpeedMult?: number;
+  defenseMult?: number;
+  clearSpeedMult?: number;
+  critChanceBonus?: number;
+  critDamageBonus?: number;
+  xpMult?: number;
+  itemDropMult?: number;
+  materialDropMult?: number;
+  resistBonus?: number;
+  ignoreHazards?: boolean;
+  doubleClears?: boolean;
+}
+
+export interface MutatorDef {
+  id: string;
+  name: string;
+  description: string;
+  effectOverride: Partial<AbilityEffect>;
+  durationBonus?: number;
+}
+
+export interface AbilityDef {
+  id: string;
+  name: string;
+  description: string;
+  weaponType: WeaponType;
+  kind: AbilityKind;
+  icon: string;
+  duration?: number;
+  cooldown?: number;
+  effect: AbilityEffect;
+  mutators: MutatorDef[];
+}
+
+export interface EquippedAbility {
+  abilityId: string;
+  selectedMutatorId: string | null;
+}
+
+export interface AbilityTimerState {
+  abilityId: string;
+  activatedAt: number | null;
+  cooldownUntil: number | null;
+}
+
+export interface FocusModeDef {
+  id: FocusMode;
+  name: string;
+  description: string;
+  icon: string;
+  clearSpeedMult: number;
+  itemDropMult: number;
+  materialDropMult: number;
+  currencyDropMult: number;
+  rarityWeightBoost?: number;
+}
+
 // --- Game State ---
 
 export interface GameState {
@@ -258,6 +325,13 @@ export interface GameState {
 
   // Offline progression
   offlineProgress: OfflineProgressSummary | null;
+
+  // Abilities (Sprint 4)
+  equippedAbilities: (EquippedAbility | null)[];
+  abilityTimers: AbilityTimerState[];
+
+  // Focus mode (Sprint 4)
+  focusMode: FocusMode;
 
   // Meta
   lastSaveTime: number;

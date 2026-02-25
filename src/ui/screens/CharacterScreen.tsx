@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
-import { StatKey, GearSlot, Item, ArmorType, Rarity } from '../../types';
+import { StatKey, GearSlot, Item, ArmorType, Rarity, WeaponType } from '../../types';
 import { slotIcon, slotLabel } from '../slotConfig';
-import { formatAffix } from '../../engine/items';
+import { formatAffix, getEquippedWeaponType } from '../../engine/items';
 import { CLASS_DEFS } from '../../data/classes';
 import { calcSetBonuses, calcDefensiveEfficiency } from '../../engine/setBonus';
 import { SET_BONUS_DEFS } from '../../data/setBonuses';
 import { ZONE_DEFS } from '../../data/zones';
+import { getAbilitiesForWeapon, getAbilityDef } from '../../data/abilities';
 
 const STAT_TOOLTIPS: Record<StatKey, string> = {
   damage: 'Base damage. Contributes to clear power.',
@@ -210,6 +211,9 @@ export default function CharacterScreen() {
         </div>
       </div>
 
+      {/* Abilities Panel */}
+      <AbilityPanel />
+
       {/* Defense & Set Bonuses */}
       <DefensePanel />
 
@@ -225,6 +229,158 @@ export default function CharacterScreen() {
         >
           Reset Game
         </button>
+      </div>
+    </div>
+  );
+}
+
+const WEAPON_TYPE_LABELS: Record<WeaponType, string> = {
+  sword: 'Sword', axe: 'Axe', mace: 'Mace', dagger: 'Dagger',
+  staff: 'Staff', wand: 'Wand', bow: 'Bow', crossbow: 'Crossbow',
+};
+
+const WEAPON_TYPE_ICONS: Record<WeaponType, string> = {
+  sword: '\u2694\uFE0F', axe: '\uD83E\uDE93', mace: '\uD83D\uDD28', dagger: '\uD83D\uDDE1\uFE0F',
+  staff: '\uD83E\uDE84', wand: '\u2728', bow: '\uD83C\uDFF9', crossbow: '\uD83C\uDFAF',
+};
+
+function AbilityPanel() {
+  const { character, equippedAbilities, equipAbility, unequipAbility, selectMutator } = useGameStore();
+  const weaponType = getEquippedWeaponType(character.equipment);
+  const availableAbilities = weaponType ? getAbilitiesForWeapon(weaponType) : [];
+
+  return (
+    <div className="bg-gray-800 rounded-lg p-3 space-y-3">
+      <h3 className="text-sm font-bold text-gray-300">Abilities</h3>
+
+      {/* Weapon Type indicator */}
+      {weaponType ? (
+        <div className="flex items-center gap-2 text-xs text-gray-400">
+          <span className="text-base">{WEAPON_TYPE_ICONS[weaponType]}</span>
+          <span>Equipped: <span className="text-white font-semibold">{WEAPON_TYPE_LABELS[weaponType]}</span></span>
+        </div>
+      ) : (
+        <div className="text-xs text-gray-500">No mainhand weapon equipped</div>
+      )}
+
+      {/* Available abilities for current weapon */}
+      {availableAbilities.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-[10px] text-gray-500 uppercase tracking-wider">Available Abilities</div>
+          {availableAbilities.map((ability) => {
+            // Check if already equipped
+            const equippedSlotIdx = equippedAbilities.findIndex(ea => ea?.abilityId === ability.id);
+            const isEquipped = equippedSlotIdx !== -1;
+
+            return (
+              <div
+                key={ability.id}
+                className={`rounded-lg border p-2 ${
+                  isEquipped
+                    ? 'border-yellow-600 bg-yellow-950/30'
+                    : 'border-gray-700 bg-gray-900/50'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">{ability.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-white">{ability.name}</span>
+                      <span className={`text-[9px] px-1 rounded ${
+                        ability.kind === 'passive' ? 'bg-blue-900 text-blue-300' : 'bg-green-900 text-green-300'
+                      }`}>
+                        {ability.kind}
+                      </span>
+                      {ability.duration && (
+                        <span className="text-[9px] text-gray-500">{ability.duration}s / {ability.cooldown}s CD</span>
+                      )}
+                    </div>
+                    <div className="text-[10px] text-gray-400">{ability.description}</div>
+                  </div>
+                  {isEquipped ? (
+                    <button
+                      onClick={() => unequipAbility(equippedSlotIdx)}
+                      className="text-[10px] px-2 py-1 bg-red-900 hover:bg-red-800 text-red-300 rounded"
+                    >
+                      Remove
+                    </button>
+                  ) : (
+                    <div className="flex gap-1">
+                      {[0, 1, 2, 3].map((slotIdx) => {
+                        const occupied = equippedAbilities[slotIdx] !== null;
+                        return (
+                          <button
+                            key={slotIdx}
+                            onClick={() => equipAbility(slotIdx, ability.id)}
+                            className={`w-6 h-6 rounded text-[9px] font-bold ${
+                              occupied
+                                ? 'bg-gray-700 text-gray-500 hover:bg-yellow-900 hover:text-yellow-300'
+                                : 'bg-green-900 text-green-300 hover:bg-green-800'
+                            }`}
+                            title={`Equip to slot ${slotIdx + 1}${occupied ? ' (replace)' : ''}`}
+                          >
+                            {slotIdx + 1}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Mutator selector when equipped */}
+                {isEquipped && ability.mutators.length > 0 && (
+                  <div className="mt-1.5 ml-8 flex flex-wrap gap-1">
+                    <button
+                      onClick={() => selectMutator(equippedSlotIdx, null)}
+                      className={`text-[9px] px-2 py-0.5 rounded ${
+                        !equippedAbilities[equippedSlotIdx]?.selectedMutatorId
+                          ? 'bg-yellow-600 text-black font-bold'
+                          : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                      }`}
+                    >
+                      Base
+                    </button>
+                    {ability.mutators.map((mut) => (
+                      <button
+                        key={mut.id}
+                        onClick={() => selectMutator(equippedSlotIdx, mut.id)}
+                        className={`text-[9px] px-2 py-0.5 rounded ${
+                          equippedAbilities[equippedSlotIdx]?.selectedMutatorId === mut.id
+                            ? 'bg-yellow-600 text-black font-bold'
+                            : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                        }`}
+                        title={mut.description}
+                      >
+                        {mut.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Equipped Ability Slots summary */}
+      <div className="flex gap-2">
+        {equippedAbilities.map((ea, idx) => {
+          if (!ea) {
+            return (
+              <div key={idx} className="flex-1 h-10 rounded border-2 border-dashed border-gray-700 flex items-center justify-center">
+                <span className="text-gray-600 text-xs">Slot {idx + 1}</span>
+              </div>
+            );
+          }
+          const def = getAbilityDef(ea.abilityId);
+          if (!def) return null;
+          return (
+            <div key={idx} className="flex-1 h-10 rounded border border-yellow-700 bg-yellow-950/30 flex items-center justify-center gap-1 px-1">
+              <span className="text-sm">{def.icon}</span>
+              <span className="text-[9px] text-yellow-300 truncate">{def.name}</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

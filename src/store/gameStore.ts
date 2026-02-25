@@ -10,11 +10,15 @@ import {
   PendingLoot,
   Rarity,
   OfflineProgressSummary,
+  FocusMode,
 } from '../types';
 import { createCharacter, resolveStats, addXp } from '../engine/character';
 import { simulateSingleClear, simulateIdleRun, calcClearTime } from '../engine/zones';
-import { pickBestItem } from '../engine/items';
+import { pickBestItem, getEquippedWeaponType } from '../engine/items';
 import { applyCurrency } from '../engine/crafting';
+import { aggregateAbilityEffects, getIncompatibleAbilities, getEffectiveDuration } from '../engine/abilities';
+import { getAbilityDef } from '../data/abilities';
+import { getFocusModeDef } from '../data/focusModes';
 import { ZONE_DEFS } from '../data/zones';
 import { BAG_UPGRADE_DEFS, getBagDef, calcBagCapacity, BAG_SLOT_COUNT } from '../data/items';
 
@@ -207,6 +211,13 @@ interface GameActions {
   // Offline progression
   claimOfflineProgress: () => void;
 
+  // Abilities (Sprint 4)
+  equipAbility: (slotIndex: number, abilityId: string) => void;
+  unequipAbility: (slotIndex: number) => void;
+  selectMutator: (slotIndex: number, mutatorId: string | null) => void;
+  activateAbility: (abilityId: string) => void;
+  setFocusMode: (mode: FocusMode) => void;
+
   // Settings
   setAutoSalvageRarity: (rarity: Rarity) => void;
 
@@ -229,6 +240,9 @@ function createInitialState(): GameState {
     idleStartTime: null,
     autoSalvageMinRarity: 'common',
     offlineProgress: null,
+    equippedAbilities: [null, null, null, null],
+    abilityTimers: [],
+    focusMode: 'combat' as FocusMode,
     lastSaveTime: Date.now(),
   };
 }
@@ -261,7 +275,23 @@ export const useGameStore = create<GameState & GameActions>()(
             equipment: { ...state.character.equipment, [targetSlot]: item },
           };
           newChar.stats = resolveStats(newChar);
-          return { character: newChar, inventory: newInventory };
+
+          // If mainhand changed, strip incompatible abilities
+          const updates: Partial<GameState> = { character: newChar, inventory: newInventory };
+          if (targetSlot === 'mainhand') {
+            const newWeaponType = item.weaponType ?? null;
+            const incompatible = getIncompatibleAbilities(state.equippedAbilities, newWeaponType);
+            if (incompatible.length > 0) {
+              const newAbilities = state.equippedAbilities.map(ea => {
+                if (ea && incompatible.includes(ea.abilityId)) return null;
+                return ea;
+              });
+              const newTimers = state.abilityTimers.filter(t => !incompatible.includes(t.abilityId));
+              updates.equippedAbilities = newAbilities;
+              updates.abilityTimers = newTimers;
+            }
+          }
+          return updates;
         });
       },
 
@@ -378,8 +408,12 @@ export const useGameStore = create<GameState & GameActions>()(
           bagDrops: {},
         };
 
+        // Compute current ability effects + focus mode for drops
+        const abilityEffect = aggregateAbilityEffects(state.equippedAbilities, state.abilityTimers, Date.now(), false);
+        const focusModeDef = getFocusModeDef(state.focusMode);
+
         for (let i = 0; i < clearCount; i++) {
-          const clear = simulateSingleClear(state.character, zone);
+          const clear = simulateSingleClear(state.character, zone, abilityEffect, focusModeDef);
           if (clear.item) allItems.push(clear.item);
 
           // Accumulate resources
@@ -478,7 +512,9 @@ export const useGameStore = create<GameState & GameActions>()(
         const state = get();
         const zone = ZONE_DEFS.find((z) => z.id === zoneId);
         if (!zone) return 999;
-        return calcClearTime(state.character.stats, zone, state.character.level);
+        const abilityEffect = aggregateAbilityEffects(state.equippedAbilities, state.abilityTimers, Date.now(), false);
+        const focusModeDef = getFocusModeDef(state.focusMode);
+        return calcClearTime(state.character.stats, zone, state.character.level, abilityEffect, focusModeDef);
       },
 
       equipBag: (bagDefId: string, slotIndex: number) => {
@@ -633,6 +669,80 @@ export const useGameStore = create<GameState & GameActions>()(
         });
       },
 
+      equipAbility: (slotIndex: number, abilityId: string) => {
+        set((state) => {
+          const def = getAbilityDef(abilityId);
+          if (!def) return state;
+          // Check weapon compatibility
+          const weaponType = getEquippedWeaponType(state.character.equipment);
+          if (weaponType && def.weaponType !== weaponType) return state;
+
+          const newAbilities = [...state.equippedAbilities];
+          newAbilities[slotIndex] = { abilityId, selectedMutatorId: null };
+
+          // Init timer for active abilities
+          let newTimers = [...state.abilityTimers];
+          if (def.kind === 'active') {
+            // Remove old timer if exists
+            newTimers = newTimers.filter(t => t.abilityId !== abilityId);
+            newTimers.push({ abilityId, activatedAt: null, cooldownUntil: null });
+          }
+
+          return { equippedAbilities: newAbilities, abilityTimers: newTimers };
+        });
+      },
+
+      unequipAbility: (slotIndex: number) => {
+        set((state) => {
+          const equipped = state.equippedAbilities[slotIndex];
+          if (!equipped) return state;
+          const newAbilities = [...state.equippedAbilities];
+          newAbilities[slotIndex] = null;
+          const newTimers = state.abilityTimers.filter(t => t.abilityId !== equipped.abilityId);
+          return { equippedAbilities: newAbilities, abilityTimers: newTimers };
+        });
+      },
+
+      selectMutator: (slotIndex: number, mutatorId: string | null) => {
+        set((state) => {
+          const equipped = state.equippedAbilities[slotIndex];
+          if (!equipped) return state;
+          const newAbilities = [...state.equippedAbilities];
+          newAbilities[slotIndex] = { ...equipped, selectedMutatorId: mutatorId };
+          return { equippedAbilities: newAbilities };
+        });
+      },
+
+      activateAbility: (abilityId: string) => {
+        set((state) => {
+          const equipped = state.equippedAbilities.find(ea => ea?.abilityId === abilityId);
+          if (!equipped) return state;
+          const def = getAbilityDef(abilityId);
+          if (!def || def.kind !== 'active') return state;
+
+          const now = Date.now();
+          const timerIdx = state.abilityTimers.findIndex(t => t.abilityId === abilityId);
+          if (timerIdx === -1) return state;
+
+          const timer = state.abilityTimers[timerIdx];
+          // Check if on cooldown
+          if (timer.cooldownUntil && now < timer.cooldownUntil) return state;
+
+          const duration = getEffectiveDuration(equipped);
+          const newTimers = [...state.abilityTimers];
+          newTimers[timerIdx] = {
+            abilityId,
+            activatedAt: now,
+            cooldownUntil: now + (duration + (def.cooldown ?? 0)) * 1000,
+          };
+          return { abilityTimers: newTimers };
+        });
+      },
+
+      setFocusMode: (mode: FocusMode) => {
+        set({ focusMode: mode });
+      },
+
       setAutoSalvageRarity: (rarity: Rarity) => {
         set({ autoSalvageMinRarity: rarity });
       },
@@ -643,7 +753,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 9,
+      version: 10,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -666,8 +776,24 @@ export const useGameStore = create<GameState & GameActions>()(
             return;
           }
 
-          // Simulate offline loot
-          const result = simulateIdleRun(character, zone, elapsedSeconds);
+          // Clean up stale ability timers
+          if (state.abilityTimers) {
+            state.abilityTimers = state.abilityTimers.map(t => ({
+              ...t,
+              cooldownUntil: t.cooldownUntil && t.cooldownUntil < Date.now() ? null : t.cooldownUntil,
+              activatedAt: null, // Clear active buffs after offline
+            }));
+          }
+
+          // Simulate offline loot — passive-only ability effects
+          const passiveEffect = aggregateAbilityEffects(
+            state.equippedAbilities ?? [null, null, null, null],
+            state.abilityTimers ?? [],
+            Date.now(),
+            true, // offlineMode: passives only
+          );
+          const focusModeDef = getFocusModeDef(state.focusMode ?? 'combat');
+          const result = simulateIdleRun(character, zone, elapsedSeconds, passiveEffect, focusModeDef);
 
           // Dry run to estimate auto-salvage stats for display
           const capacity = calcBagCapacity(state.bagSlots);
@@ -750,6 +876,22 @@ export const useGameStore = create<GameState & GameActions>()(
         if (version < 9) {
           // v9: Add offline progression field
           state.offlineProgress = null;
+        }
+
+        if (version < 10) {
+          // v10: Add abilities, focus mode, weapon types
+          state.equippedAbilities = [null, null, null, null];
+          state.abilityTimers = [];
+          state.focusMode = 'combat' as FocusMode;
+          // Tag existing mainhand items as swords
+          if (state.character?.equipment?.mainhand) {
+            (state.character.equipment.mainhand as Item).weaponType = 'sword';
+          }
+          for (const item of (state.inventory ?? [])) {
+            if (item.slot === 'mainhand' && !item.weaponType) {
+              (item as Item).weaponType = 'sword';
+            }
+          }
         }
 
         return state;

@@ -43,14 +43,20 @@ Gold economy rebalanced (GOLD_PER_BAND 8→3). Offline progression: on app reope
 
 Based on evolution doc Section 18 (Implementation Priority) and current game state.
 
-### Sprint 4: Weapon Types + Abilities
-**Goal:** Abilities come from weapons, not classes (per evolution doc Section 13).
-**Why now:** Combat needs to feel different based on gear choices.
-- [ ] Define 8 weapon types: sword, axe, mace, dagger, staff, wand, bow, crossbow
-- [ ] 3 passive abilities per weapon type (always-on during idle clears)
-- [ ] Abilities modify clear speed formula (damage mult, speed mult, special effects)
-- [ ] Weapon type determines which abilities are available
-- [ ] UI: ability display on character screen, ability effects visible in zone screen
+### Sprint 4: Weapon Types + Abilities + Focus Modes — DONE
+**Goal:** 8 weapon types with 24 abilities (2 active + 1 passive each) + 4 focus modes. Active players clicking abilities = 30-50% faster clears.
+- [x] 8 weapon types: sword, axe, mace, dagger, staff, wand, bow, crossbow (49 new item bases, 56 total mainhand)
+- [x] 24 abilities (3 per weapon): 16 active abilities with cooldowns + 8 passive abilities
+- [x] Mutator system: each ability has 2-3 mutators that modify its effect
+- [x] Ability engine: timestamp-based cooldowns, effect resolution, aggregation
+- [x] 4 focus modes: Combat (balanced), Harvesting (2.5x mats), Prospecting (2x currency), Scavenging (1.5x items)
+- [x] Clear speed integration: abilities + focus modes modify calcClearTime, simulateSingleClear, simulateIdleRun
+- [x] AbilityBar UI on ZoneScreen: 4 slots with cooldown/buff timers, click to activate
+- [x] FocusModeSelector: segmented toggle above zone grid
+- [x] CharacterScreen ability panel: weapon type display, ability list, equip to slots, mutator selection
+- [x] Weapon compatibility: equipping new mainhand auto-removes incompatible abilities
+- [x] Offline: passive-only effects for offline progression, active buffs cleared on return
+- [x] Save v10 migration: existing mainhand items tagged as swords
 
 ### Sprint 5: Class Mechanics
 **Goal:** 4 classes with unique passive mechanics (evolution doc Section 13).

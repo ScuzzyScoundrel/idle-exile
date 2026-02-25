@@ -1,14 +1,77 @@
 import type { ItemBaseDef, CurrencyDef, BagUpgradeDef } from '../types';
 
 export const ITEM_BASE_DEFS: ItemBaseDef[] = [
-  // ==================== Main Hand ====================
-  { id: 'iron_sword', name: 'Iron Sword', slot: 'mainhand', baseStats: { damage: 15 }, iLvl: 1 },
-  { id: 'steel_blade', name: 'Steel Blade', slot: 'mainhand', baseStats: { damage: 25 }, iLvl: 10 },
-  { id: 'obsidian_edge', name: 'Obsidian Edge', slot: 'mainhand', baseStats: { damage: 40 }, iLvl: 20 },
-  { id: 'mithril_blade', name: 'Mithril Blade', slot: 'mainhand', baseStats: { damage: 55 }, iLvl: 30 },
-  { id: 'runic_greatsword', name: 'Runic Greatsword', slot: 'mainhand', baseStats: { damage: 75 }, iLvl: 40 },
-  { id: 'void_cleaver', name: 'Void Cleaver', slot: 'mainhand', baseStats: { damage: 100 }, iLvl: 50 },
-  { id: 'starforged_blade', name: 'Starforged Blade', slot: 'mainhand', baseStats: { damage: 130 }, iLvl: 60 },
+  // ==================== Main Hand — Swords (Balanced) ====================
+  { id: 'iron_sword', name: 'Iron Sword', slot: 'mainhand', weaponType: 'sword', baseStats: { damage: 15 }, iLvl: 1 },
+  { id: 'steel_blade', name: 'Steel Blade', slot: 'mainhand', weaponType: 'sword', baseStats: { damage: 25 }, iLvl: 10 },
+  { id: 'obsidian_edge', name: 'Obsidian Edge', slot: 'mainhand', weaponType: 'sword', baseStats: { damage: 40 }, iLvl: 20 },
+  { id: 'mithril_blade', name: 'Mithril Blade', slot: 'mainhand', weaponType: 'sword', baseStats: { damage: 55 }, iLvl: 30 },
+  { id: 'runic_greatsword', name: 'Runic Greatsword', slot: 'mainhand', weaponType: 'sword', baseStats: { damage: 75 }, iLvl: 40 },
+  { id: 'void_cleaver', name: 'Void Cleaver', slot: 'mainhand', weaponType: 'sword', baseStats: { damage: 100 }, iLvl: 50 },
+  { id: 'starforged_blade', name: 'Starforged Blade', slot: 'mainhand', weaponType: 'sword', baseStats: { damage: 130 }, iLvl: 60 },
+
+  // ==================== Main Hand — Axes (High Damage, +20% over sword) ====================
+  { id: 'rusty_hatchet', name: 'Rusty Hatchet', slot: 'mainhand', weaponType: 'axe', baseStats: { damage: 18 }, iLvl: 1 },
+  { id: 'iron_battleaxe', name: 'Iron Battleaxe', slot: 'mainhand', weaponType: 'axe', baseStats: { damage: 30 }, iLvl: 10 },
+  { id: 'obsidian_cleaver', name: 'Obsidian Cleaver', slot: 'mainhand', weaponType: 'axe', baseStats: { damage: 48 }, iLvl: 20 },
+  { id: 'mithril_waraxe', name: 'Mithril Waraxe', slot: 'mainhand', weaponType: 'axe', baseStats: { damage: 66 }, iLvl: 30 },
+  { id: 'runic_greataxe', name: 'Runic Greataxe', slot: 'mainhand', weaponType: 'axe', baseStats: { damage: 90 }, iLvl: 40 },
+  { id: 'void_reaver', name: 'Void Reaver', slot: 'mainhand', weaponType: 'axe', baseStats: { damage: 120 }, iLvl: 50 },
+  { id: 'starforged_axe', name: 'Starforged Axe', slot: 'mainhand', weaponType: 'axe', baseStats: { damage: 156 }, iLvl: 60 },
+
+  // ==================== Main Hand — Maces (Tanky: damage + armor) ====================
+  { id: 'crude_club', name: 'Crude Club', slot: 'mainhand', weaponType: 'mace', baseStats: { damage: 13, armor: 3 }, iLvl: 1 },
+  { id: 'iron_mace', name: 'Iron Mace', slot: 'mainhand', weaponType: 'mace', baseStats: { damage: 22, armor: 6 }, iLvl: 10 },
+  { id: 'obsidian_hammer', name: 'Obsidian Hammer', slot: 'mainhand', weaponType: 'mace', baseStats: { damage: 35, armor: 11 }, iLvl: 20 },
+  { id: 'mithril_mace', name: 'Mithril Mace', slot: 'mainhand', weaponType: 'mace', baseStats: { damage: 48, armor: 16 }, iLvl: 30 },
+  { id: 'runic_warhammer', name: 'Runic Warhammer', slot: 'mainhand', weaponType: 'mace', baseStats: { damage: 65, armor: 22 }, iLvl: 40 },
+  { id: 'void_maul', name: 'Void Maul', slot: 'mainhand', weaponType: 'mace', baseStats: { damage: 87, armor: 28 }, iLvl: 50 },
+  { id: 'starforged_mace', name: 'Starforged Mace', slot: 'mainhand', weaponType: 'mace', baseStats: { damage: 114, armor: 34 }, iLvl: 60 },
+
+  // ==================== Main Hand — Daggers (Crit-focused: damage + critChance) ====================
+  { id: 'crude_dagger', name: 'Crude Dagger', slot: 'mainhand', weaponType: 'dagger', baseStats: { damage: 10, critChance: 3 }, iLvl: 1 },
+  { id: 'steel_stiletto', name: 'Steel Stiletto', slot: 'mainhand', weaponType: 'dagger', baseStats: { damage: 17, critChance: 5 }, iLvl: 10 },
+  { id: 'obsidian_kris', name: 'Obsidian Kris', slot: 'mainhand', weaponType: 'dagger', baseStats: { damage: 27, critChance: 8 }, iLvl: 20 },
+  { id: 'mithril_dirk', name: 'Mithril Dirk', slot: 'mainhand', weaponType: 'dagger', baseStats: { damage: 37, critChance: 10 }, iLvl: 30 },
+  { id: 'runic_shiv', name: 'Runic Shiv', slot: 'mainhand', weaponType: 'dagger', baseStats: { damage: 50, critChance: 13 }, iLvl: 40 },
+  { id: 'void_fang', name: 'Void Fang', slot: 'mainhand', weaponType: 'dagger', baseStats: { damage: 67, critChance: 16 }, iLvl: 50 },
+  { id: 'starforged_dagger', name: 'Starforged Dagger', slot: 'mainhand', weaponType: 'dagger', baseStats: { damage: 87, critChance: 18 }, iLvl: 60 },
+
+  // ==================== Main Hand — Staves (Ability-focused: damage + abilityHaste) ====================
+  { id: 'gnarled_staff', name: 'Gnarled Staff', slot: 'mainhand', weaponType: 'staff', baseStats: { damage: 12, abilityHaste: 3 }, iLvl: 1 },
+  { id: 'ironshod_staff', name: 'Ironshod Staff', slot: 'mainhand', weaponType: 'staff', baseStats: { damage: 20, abilityHaste: 6 }, iLvl: 10 },
+  { id: 'obsidian_staff', name: 'Obsidian Staff', slot: 'mainhand', weaponType: 'staff', baseStats: { damage: 32, abilityHaste: 10 }, iLvl: 20 },
+  { id: 'mithril_staff', name: 'Mithril Staff', slot: 'mainhand', weaponType: 'staff', baseStats: { damage: 44, abilityHaste: 14 }, iLvl: 30 },
+  { id: 'runic_staff', name: 'Runic Staff', slot: 'mainhand', weaponType: 'staff', baseStats: { damage: 60, abilityHaste: 18 }, iLvl: 40 },
+  { id: 'void_staff', name: 'Void Staff', slot: 'mainhand', weaponType: 'staff', baseStats: { damage: 80, abilityHaste: 22 }, iLvl: 50 },
+  { id: 'starforged_staff', name: 'Starforged Staff', slot: 'mainhand', weaponType: 'staff', baseStats: { damage: 104, abilityHaste: 26 }, iLvl: 60 },
+
+  // ==================== Main Hand — Wands (Utility caster: low damage + high abilityHaste) ====================
+  { id: 'twig_wand', name: 'Twig Wand', slot: 'mainhand', weaponType: 'wand', baseStats: { damage: 8, abilityHaste: 5 }, iLvl: 1 },
+  { id: 'bone_wand', name: 'Bone Wand', slot: 'mainhand', weaponType: 'wand', baseStats: { damage: 14, abilityHaste: 10 }, iLvl: 10 },
+  { id: 'obsidian_wand', name: 'Obsidian Wand', slot: 'mainhand', weaponType: 'wand', baseStats: { damage: 22, abilityHaste: 16 }, iLvl: 20 },
+  { id: 'mithril_wand', name: 'Mithril Wand', slot: 'mainhand', weaponType: 'wand', baseStats: { damage: 30, abilityHaste: 22 }, iLvl: 30 },
+  { id: 'runic_wand', name: 'Runic Wand', slot: 'mainhand', weaponType: 'wand', baseStats: { damage: 41, abilityHaste: 28 }, iLvl: 40 },
+  { id: 'void_wand', name: 'Void Wand', slot: 'mainhand', weaponType: 'wand', baseStats: { damage: 55, abilityHaste: 34 }, iLvl: 50 },
+  { id: 'starforged_wand', name: 'Starforged Wand', slot: 'mainhand', weaponType: 'wand', baseStats: { damage: 71, abilityHaste: 38 }, iLvl: 60 },
+
+  // ==================== Main Hand — Bows (Speed ranged: damage + attackSpeed) ====================
+  { id: 'shortbow', name: 'Shortbow', slot: 'mainhand', weaponType: 'bow', baseStats: { damage: 14, attackSpeed: 2 }, iLvl: 1 },
+  { id: 'recurve_bow', name: 'Recurve Bow', slot: 'mainhand', weaponType: 'bow', baseStats: { damage: 23, attackSpeed: 4 }, iLvl: 10 },
+  { id: 'obsidian_longbow', name: 'Obsidian Longbow', slot: 'mainhand', weaponType: 'bow', baseStats: { damage: 37, attackSpeed: 6 }, iLvl: 20 },
+  { id: 'mithril_bow', name: 'Mithril Bow', slot: 'mainhand', weaponType: 'bow', baseStats: { damage: 51, attackSpeed: 8 }, iLvl: 30 },
+  { id: 'runic_bow', name: 'Runic Bow', slot: 'mainhand', weaponType: 'bow', baseStats: { damage: 69, attackSpeed: 11 }, iLvl: 40 },
+  { id: 'void_bow', name: 'Void Bow', slot: 'mainhand', weaponType: 'bow', baseStats: { damage: 92, attackSpeed: 13 }, iLvl: 50 },
+  { id: 'starforged_bow', name: 'Starforged Bow', slot: 'mainhand', weaponType: 'bow', baseStats: { damage: 120, attackSpeed: 15 }, iLvl: 60 },
+
+  // ==================== Main Hand — Crossbows (Burst ranged: +33% over sword damage) ====================
+  { id: 'hand_crossbow', name: 'Hand Crossbow', slot: 'mainhand', weaponType: 'crossbow', baseStats: { damage: 20 }, iLvl: 1 },
+  { id: 'iron_crossbow', name: 'Iron Crossbow', slot: 'mainhand', weaponType: 'crossbow', baseStats: { damage: 33 }, iLvl: 10 },
+  { id: 'obsidian_arbalest', name: 'Obsidian Arbalest', slot: 'mainhand', weaponType: 'crossbow', baseStats: { damage: 53 }, iLvl: 20 },
+  { id: 'mithril_crossbow', name: 'Mithril Crossbow', slot: 'mainhand', weaponType: 'crossbow', baseStats: { damage: 73 }, iLvl: 30 },
+  { id: 'runic_arbalest', name: 'Runic Arbalest', slot: 'mainhand', weaponType: 'crossbow', baseStats: { damage: 100 }, iLvl: 40 },
+  { id: 'void_crossbow', name: 'Void Crossbow', slot: 'mainhand', weaponType: 'crossbow', baseStats: { damage: 133 }, iLvl: 50 },
+  { id: 'starforged_crossbow', name: 'Starforged Crossbow', slot: 'mainhand', weaponType: 'crossbow', baseStats: { damage: 173 }, iLvl: 60 },
 
   // ==================== Off Hand ====================
   // -- Shields --

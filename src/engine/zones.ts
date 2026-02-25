@@ -3,7 +3,7 @@
 // Pure functions: no React, no side effects, no DOM.
 // ============================================================
 
-import type { Character, ZoneDef, IdleRunResult, Item, CurrencyType, GearSlot, ResolvedStats } from '../types';
+import type { Character, ZoneDef, IdleRunResult, Item, CurrencyType, GearSlot, ResolvedStats, AbilityEffect, FocusModeDef } from '../types';
 import { generateItem } from './items';
 import { calcDefensiveEfficiency } from './setBonus';
 import { BAG_UPGRADE_DEFS } from '../data/items';
@@ -91,14 +91,24 @@ export function calcClearTime(
   charStats: ResolvedStats,
   zone: ZoneDef,
   charLevel: number = 1,
+  abilityEffect?: AbilityEffect,
+  focusMode?: FocusModeDef,
 ): number {
-  const offensivePower =
-    charStats.damage *
-    (1 + charStats.attackSpeed / 100) *
-    (1 + (charStats.critChance / 100) * (charStats.critDamage / 100));
+  // Apply ability effects to stats before power calc
+  const effectiveDamage = charStats.damage * (abilityEffect?.damageMult ?? 1);
+  const effectiveAtkSpd = charStats.attackSpeed * (abilityEffect?.attackSpeedMult ?? 1);
+  const effectiveCritCh = charStats.critChance + (abilityEffect?.critChanceBonus ?? 0);
+  const effectiveCritDm = charStats.critDamage + (abilityEffect?.critDamageBonus ?? 0);
 
-  const defEff = calcDefensiveEfficiency(charStats, zone.band);
-  const hazardMult = calcHazardPenalty(charStats, zone);
+  const offensivePower =
+    effectiveDamage *
+    (1 + effectiveAtkSpd / 100) *
+    (1 + (effectiveCritCh / 100) * (effectiveCritDm / 100));
+
+  let defEff = calcDefensiveEfficiency(charStats, zone.band);
+  defEff *= (abilityEffect?.defenseMult ?? 1);
+
+  const hazardMult = abilityEffect?.ignoreHazards ? 1.0 : calcHazardPenalty(charStats, zone);
   const charPower = offensivePower * defEff * hazardMult;
 
   let clearTime = zone.baseClearTime / (charPower / POWER_DIVISOR);
@@ -111,6 +121,10 @@ export function calcClearTime(
 
   // Floor at CLEAR_TIME_FLOOR_RATIO of baseClearTime, no upper cap
   const floor = zone.baseClearTime * CLEAR_TIME_FLOOR_RATIO;
+
+  // Apply clearSpeedMult and focusMode after base calc
+  clearTime /= (abilityEffect?.clearSpeedMult ?? 1);
+  clearTime /= (focusMode?.clearSpeedMult ?? 1);
   clearTime = Math.max(floor, clearTime);
 
   return clearTime;
@@ -124,8 +138,10 @@ export function simulateIdleRun(
   char: Character,
   zone: ZoneDef,
   elapsed: number,
+  abilityEffect?: AbilityEffect,
+  focusMode?: FocusModeDef,
 ): IdleRunResult {
-  const baseClearTime = calcClearTime(char.stats, zone, char.level);
+  const baseClearTime = calcClearTime(char.stats, zone, char.level, abilityEffect, focusMode);
   const clearsCompleted = Math.floor(elapsed / baseClearTime);
 
   const hasMastery = checkZoneMastery(char.stats, zone);
@@ -143,9 +159,15 @@ export function simulateIdleRun(
   };
   const bagDrops: Record<string, number> = {};
 
-  const itemDropChance = hasMastery
+  let itemDropChance = hasMastery
     ? BASE_ITEM_DROP_CHANCE * MASTERY_DROP_BONUS
     : BASE_ITEM_DROP_CHANCE;
+  itemDropChance *= (abilityEffect?.itemDropMult ?? 1) * (focusMode?.itemDropMult ?? 1);
+
+  const matMult = (abilityEffect?.materialDropMult ?? 1) * (focusMode?.materialDropMult ?? 1);
+  const currMult = focusMode?.currencyDropMult ?? 1;
+  const xpMult = abilityEffect?.xpMult ?? 1;
+  const doubleClear = abilityEffect?.doubleClears ?? false;
 
   for (let i = 0; i < clearsCompleted; i++) {
     // --- Item drops ---
@@ -156,7 +178,8 @@ export function simulateIdleRun(
     }
 
     // --- Material drops ---
-    const matCount = MATERIAL_DROP_MIN + Math.floor(Math.random() * (MATERIAL_DROP_MAX - MATERIAL_DROP_MIN + 1));
+    const baseMats = MATERIAL_DROP_MIN + Math.floor(Math.random() * (MATERIAL_DROP_MAX - MATERIAL_DROP_MIN + 1));
+    const matCount = Math.round(baseMats * matMult) * (doubleClear ? 2 : 1);
     for (let m = 0; m < matCount; m++) {
       const mat = zone.materialDrops[Math.floor(Math.random() * zone.materialDrops.length)];
       materials[mat] = (materials[mat] ?? 0) + 1;
@@ -164,7 +187,9 @@ export function simulateIdleRun(
 
     // --- Currency drops ---
     for (const [type, chance] of Object.entries(CURRENCY_DROP_CHANCES)) {
-      if (Math.random() < chance) currencyDrops[type as CurrencyType]++;
+      if (Math.random() < chance * currMult) {
+        currencyDrops[type as CurrencyType] += doubleClear ? 2 : 1;
+      }
     }
 
     // --- Bag drops ---
@@ -178,8 +203,8 @@ export function simulateIdleRun(
   }
 
   // XP and gold scale with zone band
-  const xpGained = XP_PER_BAND * zone.band * clearsCompleted;
-  const goldGained = GOLD_PER_BAND * zone.band * clearsCompleted;
+  const xpGained = Math.round(XP_PER_BAND * zone.band * clearsCompleted * xpMult);
+  const goldGained = GOLD_PER_BAND * zone.band * clearsCompleted * (doubleClear ? 2 : 1);
 
   return {
     items,
@@ -211,11 +236,19 @@ export interface SingleClearResult {
 export function simulateSingleClear(
   char: Character,
   zone: ZoneDef,
+  abilityEffect?: AbilityEffect,
+  focusMode?: FocusModeDef,
 ): SingleClearResult {
   const hasMastery = checkZoneMastery(char.stats, zone);
-  const itemDropChance = hasMastery
+  let itemDropChance = hasMastery
     ? BASE_ITEM_DROP_CHANCE * MASTERY_DROP_BONUS
     : BASE_ITEM_DROP_CHANCE;
+  itemDropChance *= (abilityEffect?.itemDropMult ?? 1) * (focusMode?.itemDropMult ?? 1);
+
+  const matMult = (abilityEffect?.materialDropMult ?? 1) * (focusMode?.materialDropMult ?? 1);
+  const currMult = focusMode?.currencyDropMult ?? 1;
+  const xpMult = abilityEffect?.xpMult ?? 1;
+  const doubleClear = abilityEffect?.doubleClears ?? false;
 
   // Item drop
   let item: Item | null = null;
@@ -227,7 +260,8 @@ export function simulateSingleClear(
 
   // Materials
   const materials: Record<string, number> = {};
-  const matCount = MATERIAL_DROP_MIN + Math.floor(Math.random() * (MATERIAL_DROP_MAX - MATERIAL_DROP_MIN + 1));
+  const baseMats = MATERIAL_DROP_MIN + Math.floor(Math.random() * (MATERIAL_DROP_MAX - MATERIAL_DROP_MIN + 1));
+  const matCount = Math.round(baseMats * matMult) * (doubleClear ? 2 : 1);
   for (let m = 0; m < matCount; m++) {
     const mat = zone.materialDrops[Math.floor(Math.random() * zone.materialDrops.length)];
     materials[mat] = (materials[mat] ?? 0) + 1;
@@ -238,7 +272,9 @@ export function simulateSingleClear(
     augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, socket: 0,
   };
   for (const [type, chance] of Object.entries(CURRENCY_DROP_CHANCES)) {
-    if (Math.random() < chance) currencyDrops[type as CurrencyType]++;
+    if (Math.random() < chance * currMult) {
+      currencyDrops[type as CurrencyType] += doubleClear ? 2 : 1;
+    }
   }
 
   // Bag drop
@@ -254,8 +290,8 @@ export function simulateSingleClear(
     item,
     materials,
     currencyDrops,
-    goldGained: GOLD_PER_BAND * zone.band,
-    xpGained: XP_PER_BAND * zone.band,
+    goldGained: GOLD_PER_BAND * zone.band * (doubleClear ? 2 : 1),
+    xpGained: Math.round(XP_PER_BAND * zone.band * xpMult),
     bagDrop,
   };
 }

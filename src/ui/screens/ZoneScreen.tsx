@@ -4,6 +4,8 @@ import { ZONE_DEFS, BAND_NAMES } from '../../data/zones';
 import { checkZoneMastery } from '../../engine/zones';
 import { ZoneDef, Rarity } from '../../types';
 import { BAG_UPGRADE_DEFS, calcBagCapacity } from '../../data/items';
+import AbilityBar from '../components/AbilityBar';
+import FocusModeSelector from '../components/FocusModeSelector';
 
 // Band visual theming
 const BAND_GRADIENTS: Record<number, string> = {
@@ -315,6 +317,9 @@ export default function ZoneScreen() {
     <div className="space-y-3">
       <h2 className="text-lg font-bold text-yellow-400">Zones</h2>
 
+      {/* Focus Mode Toggle */}
+      <FocusModeSelector />
+
       {/* Band-grouped zone grid */}
       {bands.map((band) => {
         const bandZones = ZONE_DEFS.filter(z => z.band === band);
@@ -438,6 +443,9 @@ export default function ZoneScreen() {
               )}
             </div>
           </div>
+
+          {/* Ability Bar */}
+          <AbilityBar />
 
           {/* Bags status + overflow warning */}
           {isRunning && (

@@ -1,10 +1,10 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-02-24 (Sprint 3 complete)
+> Last updated: 2026-02-24 (Sprint 4 complete)
 
 ## Current Phase
-**Sprint 3: Offline Progression + Gold Fix** — COMPLETE. When the app reopens after being closed with an active run, elapsed time is detected, loot is simulated via `simulateIdleRun()`, and a full-screen "Welcome Back, Exile!" modal presents the summary. Gold economy rebalanced (GOLD_PER_BAND 8→3). Game deployed to Vercel.
+**Sprint 4: Weapon Types + Abilities + Focus Modes** — COMPLETE. 8 weapon types (56 mainhand bases), 24 abilities with mutators, 4 focus modes. Active players clicking abilities = 30-50% faster clears. Passive abilities always contribute. Focus modes trade clear speed for specific drop types. Save v10.
 
 ## What Changed (Phase 1 Rework Summary)
 The entire game engine was rewritten to match the updated GDD. Key changes:
@@ -46,6 +46,11 @@ The game is live on Vercel and playable locally at `http://localhost:5173/`. Cor
 - Bag slot system: 5 equippable bag slots (6/8/10/12/14 capacity per tier). Buy, equip, sell, salvage bags. Start at 5x Tattered Satchel (30 total), max 5x Void-Touched (70 total)
 - Cannot unequip gear when bags are full
 - **Offline progression**: Close the app, reopen later → "Welcome Back, Exile!" modal shows time away, clears completed, gold/XP/items found, best drop highlight, resource breakdown. "Claim Rewards" processes items into bags (overflow auto-salvaged at claim time). Short absences (<60s) handled by real-time tick instead.
+- **8 weapon types**: Sword (balanced), Axe (high damage), Mace (tanky), Dagger (crit), Staff (ability-focused), Wand (utility), Bow (speed), Crossbow (burst). 56 mainhand bases total.
+- **24 abilities**: Each weapon has 2 active + 1 passive ability. Active abilities have cooldowns and buff durations. Passive abilities always contribute. Each has 2-3 mutators for customization.
+- **Ability bar**: 4 equip slots on ZoneScreen. Click to activate active abilities. Buff timer + cooldown countdown display. Passive abilities show as static "PASSIVE" indicators.
+- **Focus modes**: 4-button toggle: Combat (balanced), Harvesting (no items, 2.5x mats), Prospecting (2x currency), Scavenging (1.5x items). Affects clear speed and drop rates.
+- **Weapon compatibility**: Equipping a new weapon type auto-removes abilities from the old type. Ability panel on Hero tab shows available abilities based on equipped weapon.
 
 ## UI State (3 Tabs)
 - **Zones tab**: 30 zones in 6 band groups displayed as visual card grid (2x2 + boss). Band-themed CSS gradients, single-accordion (one band open at a time). Hazard icons with pulse animation, mastery badges, running indicator. Clear time shown in human-readable format (seconds/minutes/hours/days/years) with color coding (white/yellow/red). Real-time loot feed shows actual item names with rarity colors. Bags status bar shows current fill level and running salvage tally when full. "Collect Resources" button for currencies/materials/gold only (items go to bags immediately).
@@ -59,7 +64,7 @@ Left: helmet, neck, shoulders, cloak, chest, bracers
 Right: gloves, belt, pants, boots, ring1, ring2
 Bottom: mainhand, offhand, trinket1, trinket2
 
-296 item bases defined across 15 slots (no trinket bases yet).
+345 item bases defined across 15 slots (56 mainhand with 8 weapon types, no trinket bases yet).
 
 ## Engine Details
 - **Rarity**: Common (2 affixes, T7+), Uncommon (3, T4-T6), Rare (4, T3), Epic (5, T2), Legendary (6, T1+/2×T2)
@@ -77,7 +82,7 @@ Bottom: mainhand, offhand, trinket1, trinket2
 - **Stats**: `resolveStats(char)` aggregates base + level + gear + affixes, applies % multipliers last
 - **Set bonuses**: 4 armor sets with 2/4/6-piece thresholds
 - **Offline progression**: On rehydrate, if `currentZoneId` + `idleStartTime` exist and elapsed > 60s, runs `simulateIdleRun()` and builds `OfflineProgressSummary`. Modal blocks UI until claimed. Items stored in summary (not applied) so player can free bag space first. Race condition prevented by resetting `idleStartTime = Date.now()` before React renders.
-- **Save**: Zustand persist v9. Migration v8→v9: adds `offlineProgress: null`. `onRehydrateStorage` detects offline time and builds summary.
+- **Save**: Zustand persist v10. Migration v9→v10: adds `equippedAbilities`, `abilityTimers`, `focusMode`, tags existing mainhand as swords. `onRehydrateStorage` detects offline time, builds summary with passive-only ability effects + focus mode, cleans stale timers.
 
 ## Architecture
 ```
@@ -87,17 +92,20 @@ src/
     balance.ts              — Centralized balance config (drop rates, combat formulas, progression, item gen)
     affixes.ts              — 15 affix definitions (7 prefix, 8 suffix, T1-T10)
     zones.ts                — 30 zones across 6 bands, hazard definitions
-    items.ts                — 296 item bases (15 slots) + 6 currency defs + 5 bag upgrade defs
+    items.ts                — 345 item bases (56 mainhand w/ 8 weapon types) + 6 currency defs + 5 bag upgrade defs
+    abilities.ts            — 24 ability defs (8 weapon types x 3) with mutators + helpers
+    focusModes.ts           — 4 focus mode defs (combat/harvesting/prospecting/scavenging)
     classes.ts              — Class definitions (placeholder for future)
     setBonuses.ts           — 4 armor-type set bonus definitions
   engine/                   — Pure TypeScript (no React)
-    items.ts                — Item generation, affix rolling, rarity classification, pickBestItem()
-    zones.ts                — Clear speed calc, idle simulation, hazards, mastery, simulateSingleClear()
+    items.ts                — Item generation, affix rolling, rarity classification, pickBestItem(), getEquippedWeaponType()
+    zones.ts                — Clear speed calc, idle simulation, hazards, mastery, simulateSingleClear() — now accepts AbilityEffect + FocusModeDef
+    abilities.ts            — Ability effect resolution, timer management, aggregation, weapon compatibility
     character.ts            — Stats resolution (13 stats), XP/leveling
     crafting.ts             — 6 currency crafting operations
     setBonus.ts             — Set bonus resolution
   store/
-    gameStore.ts            — Zustand store (state + actions + persistence + v9 migration). processNewClears() for real-time loot. Bag slot actions (equip/sell/salvage/buy). sellItem for gear. Overflow auto-salvage. onRehydrateStorage offline detection + claimOfflineProgress.
+    gameStore.ts            — Zustand store (state + actions + persistence + v10 migration). processNewClears() with ability/focus integration. 5 new ability actions. Weapon swap clears incompatible abilities. onRehydrateStorage with passive-only offline.
   ui/
     slotConfig.ts           — Shared gear slot icons/labels for all 16 slots
     components/
@@ -106,10 +114,12 @@ src/
       NavBar.tsx            — Bottom navigation (Zones/Bags/Hero — 3 tabs)
       TopBar.tsx            — Character info, XP bar, currency counts
       OfflineProgressModal.tsx — "Welcome Back" modal with offline loot summary + claim button
+      AbilityBar.tsx          — 4-slot ability action bar with cooldown/buff timers
+      FocusModeSelector.tsx   — 4-mode segmented toggle (combat/harvesting/prospecting/scavenging)
     screens/
-      ZoneScreen.tsx        — Zone selection by band, hazards, mastery, idle runs
+      ZoneScreen.tsx        — Zone selection by band, hazards, mastery, idle runs + AbilityBar + FocusModeSelector
       InventoryScreen.tsx   — Bag grid + crafting UI + auto-salvage + detail panel
-      CharacterScreen.tsx   — Paper doll (16 slots), 13 stats, materials
+      CharacterScreen.tsx   — Paper doll (16 slots), 13 stats, materials, ability management panel
   App.tsx                   — Main app shell with CSS-hidden tab routing (3 tabs)
   main.tsx                  — Entry point
   index.css                 — Tailwind directives + base styles
@@ -122,7 +132,7 @@ src/
 - [ ] Class selection not implemented (everyone is generic "Exile")
 - [ ] Talent tree not built
 - [ ] Set bonus UI not shown on character screen
-- [ ] Active play / ability buttons not implemented
+- [x] ~~Active play / ability buttons not implemented~~ — DONE (Sprint 4)
 - [ ] Zone familiarity passive not implemented
 - [ ] `simulateIdleRun()` and `simulateSingleClear()` share drop logic but are separate functions — could be refactored to share a core loop
 - [ ] ItemCard component exists but is no longer imported anywhere (orphaned)
@@ -130,7 +140,7 @@ src/
 
 ## What Has NOT Been Built Yet (from GDD MVP scope)
 - [ ] Class selection (GDD Section 3)
-- [ ] Abilities system (simplified from original — GDD still references it)
+- [x] ~~Abilities system~~ — DONE (Sprint 4: 24 abilities, 8 weapon types, mutators, focus modes)
 - [ ] Talent tree (30-50 nodes per class)
 - [ ] Profession crafting Track B (patterns, materials, profession leveling)
 - [ ] Specialization system (one per character)
@@ -249,8 +259,24 @@ npx vite --host
 - **Store changes**: `claimOfflineProgress()` action applies gold, XP, currencies, materials, bag drops, and processes items into bags. `onRehydrateStorage` callback for offline detection. Save v9 migration adds `offlineProgress: null`.
 - **Cloud deploy**: GitHub repo + Vercel hosting. Each browser gets own localStorage = own character. No backend needed.
 
+## Sprint 4 Changes (Weapon Types + Abilities + Focus Modes)
+- **8 weapon types**: Sword, Axe, Mace, Dagger, Staff, Wand, Bow, Crossbow. Each has distinct stat profiles. 49 new mainhand item bases (7 per type x 7 iLvl tiers), 56 total mainhand bases.
+- **24 abilities**: 3 per weapon type (2 active + 1 passive). Active abilities have duration + cooldown (timestamp-based). Passive abilities always contribute.
+- **Mutator system**: Each ability has 2-3 mutators that modify its effect (e.g., longer duration, different stat bonus, swapped effect).
+- **Ability engine**: Pure TS engine (`src/engine/abilities.ts`) resolves effects, manages timers, aggregates passives + active buffs, checks weapon compatibility.
+- **4 focus modes**: Combat (1x all), Harvesting (0x items / 2.5x mats / 0.85x speed), Prospecting (0.5x items / 2x currency), Scavenging (1.5x items / 0.85x speed + rarity boost).
+- **Clear speed integration**: `calcClearTime`, `simulateSingleClear`, and `simulateIdleRun` all accept optional `AbilityEffect` and `FocusModeDef` parameters.
+- **AbilityBar component**: 4-slot bar below progress bar on ZoneScreen. Active abilities show cooldown/buff timers. Click to activate. Passive shows "PASSIVE" label.
+- **FocusModeSelector component**: 4-button segmented toggle above zone grid.
+- **CharacterScreen ability panel**: Shows equipped weapon type, lists available abilities, equip to 4 slots, mutator selection per equipped ability.
+- **Weapon compatibility**: `equipItem` checks weapon type — swapping to a new weapon type auto-removes incompatible abilities and their timers.
+- **Offline progression**: Uses passive-only ability effects (active buffs cleared). Focus mode still applies. Stale ability timers cleaned on rehydrate.
+- **Item generation**: `generateItem` propagates `weaponType` from base to item. `getEquippedWeaponType` helper added.
+- **Save v10 migration**: Adds `equippedAbilities`, `abilityTimers`, `focusMode` fields. Tags existing mainhand items as swords.
+- **Type additions**: `WeaponType`, `AbilityEffect`, `MutatorDef`, `AbilityDef`, `EquippedAbility`, `AbilityTimerState`, `FocusModeDef`, `FocusMode`, `AbilityKind`. Updated `ItemBaseDef`, `Item`, `GameState`.
+
 ## Priority for Next Session
 See `SPRINT_PLAN.md` for full roadmap. Next sprints:
-1. **Sprint 4: Weapon Types + Abilities** — 8 weapon types, 3 passive abilities each
-2. **Sprint 5: Class Mechanics** — 4 classes with unique passive mechanics + talent trees
-3. **Sprint 6: Gathering System** — 5 professions, gathering gear, dual loadouts
+1. **Sprint 5: Class Mechanics** — 4 classes with unique passive mechanics + talent trees
+2. **Sprint 6: Gathering System** — 5 professions, gathering gear, dual loadouts
+3. **Sprint 7: Material Refinement & Crafting Professions**

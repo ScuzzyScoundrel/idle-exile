@@ -3,7 +3,7 @@
 // Pure functions: no React, no side effects, no DOM.
 // ============================================================
 
-import type { Item, Affix, AffixDef, AffixTier, Rarity, GearSlot, StatKey } from '../types';
+import type { Item, Affix, AffixDef, AffixTier, Rarity, GearSlot, StatKey, WeaponType } from '../types';
 import { AFFIX_DEFS } from '../data/affixes';
 import { ITEM_BASE_DEFS } from '../data/items';
 import { TIER_WEIGHTS, AFFIX_COUNT_WEIGHTS } from '../data/balance';
@@ -238,6 +238,7 @@ export function generateItem(slot: GearSlot, iLvl: number): Item {
     prefixes,
     suffixes,
     armorType: base.armorType,
+    weaponType: base.weaponType,
     baseStats: { ...base.baseStats },
   };
 
@@ -347,6 +348,13 @@ export function isUpgradeOver(candidate: Item, equipped: Item): boolean {
     netDelta += (candStats[key] ?? 0) - (eqStats[key] ?? 0);
   }
   return netDelta > 0;
+}
+
+/**
+ * Get the weapon type of the currently equipped mainhand item.
+ */
+export function getEquippedWeaponType(equipment: Partial<Record<GearSlot, Item>>): WeaponType | null {
+  return equipment['mainhand']?.weaponType ?? null;
 }
 
 /**
