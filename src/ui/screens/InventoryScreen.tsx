@@ -839,7 +839,7 @@ function BagUpgradeSection({
       </div>
 
       {/* 5 bag slot cards */}
-      <div className="flex gap-1.5">
+      <div className="grid grid-cols-5 gap-1.5">
         {bagSlots.map((bagId, idx) => {
           const def = getBagDef(bagId);
           const isWeakest = idx === lowestSlotIndex && hasStash;
@@ -847,7 +847,7 @@ function BagUpgradeSection({
             <div
               key={idx}
               className={`
-                flex-1 rounded-lg border-2 p-1.5 text-center
+                min-w-0 rounded-lg border-2 p-1.5 text-center
                 ${BAG_TIER_BORDER[def.tier]}
                 ${isWeakest ? 'ring-1 ring-yellow-400/50 bg-gray-900' : 'bg-gray-900/60'}
               `}
