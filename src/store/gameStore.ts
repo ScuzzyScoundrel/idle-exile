@@ -21,6 +21,12 @@ import { getAbilityDef } from '../data/abilities';
 import { ZONE_DEFS } from '../data/zones';
 import { BAG_UPGRADE_DEFS, getBagDef, calcBagCapacity, BAG_SLOT_COUNT } from '../data/items';
 import { addGatheringXp, calcGatherClearTime, createDefaultGatheringSkills } from '../engine/gathering';
+import { createDefaultCraftingSkills } from '../data/craftingProfessions';
+import { calcRareFindBonus } from '../engine/rareMaterials';
+import { canRefine, refine, canDeconstruct, deconstruct } from '../engine/refinement';
+import { canCraftRecipe, executeCraft, addCraftingXp, getCraftingXpForTier } from '../engine/craftingProfessions';
+import { REFINEMENT_RECIPES } from '../data/refinement';
+import { getCraftingRecipe } from '../data/craftingRecipes';
 
 
 const INITIAL_CURRENCIES: Record<CurrencyType, number> = {
@@ -121,6 +127,7 @@ export interface ProcessClearsResult {
   currencyDrops: Record<CurrencyType, number>;
   materialDrops: Record<string, number>;
   goldGained: number;
+  rareMaterialDrops?: Record<string, number>;
   // Gathering-specific fields
   gatheringXpGained?: number;
 }
@@ -156,8 +163,13 @@ interface GameActions {
   salvageBag: (bagDefId: string) => boolean;
   buyBag: (bagDefId: string) => boolean;
 
-  // Crafting
+  // Crafting (currency)
   craft: (itemId: string, currency: CurrencyType) => CraftResult | null;
+
+  // Crafting professions
+  refineMaterial: (recipeId: string) => boolean;
+  deconstructMaterial: (refinedId: string) => boolean;
+  craftRecipe: (recipeId: string, catalystId?: string) => { item: Item } | null;
 
   // Offline progression
   claimOfflineProgress: () => void;
@@ -191,6 +203,7 @@ function createInitialState(): GameState {
     gatheringSkills: createDefaultGatheringSkills(),
     gatheringEquipment: {},
     selectedGatheringProfession: null,
+    craftingSkills: createDefaultCraftingSkills(),
     autoSalvageMinRarity: 'common',
     offlineProgress: null,
     equippedAbilities: [null, null, null, null],
@@ -352,14 +365,19 @@ export const useGameStore = create<GameState & GameActions>()(
           if (!profession) return null;
 
           const skillLevel = state.gatheringSkills[profession].level;
+          const rareFindBonus = calcRareFindBonus(skillLevel);
           let accMaterials: Record<string, number> = {};
+          let accRareMaterials: Record<string, number> = {};
           let totalGatheringXp = 0;
           const allItems: Item[] = [];
 
           for (let i = 0; i < clearCount; i++) {
-            const result = simulateGatheringClear(skillLevel, zone, profession);
+            const result = simulateGatheringClear(skillLevel, zone, profession, 1.0, 0, rareFindBonus);
             for (const [key, val] of Object.entries(result.materials)) {
               accMaterials[key] = (accMaterials[key] || 0) + val;
+            }
+            for (const [key, val] of Object.entries(result.rareMaterialDrops)) {
+              accRareMaterials[key] = (accRareMaterials[key] || 0) + val;
             }
             totalGatheringXp += result.gatheringXp;
             if (result.gatheringGearDrop) allItems.push(result.gatheringGearDrop);
@@ -368,6 +386,10 @@ export const useGameStore = create<GameState & GameActions>()(
           // Apply materials directly to state
           const newMaterials = { ...state.materials };
           for (const [key, val] of Object.entries(accMaterials)) {
+            newMaterials[key] = (newMaterials[key] || 0) + val;
+          }
+          // Rare materials go into the same materials pool
+          for (const [key, val] of Object.entries(accRareMaterials)) {
             newMaterials[key] = (newMaterials[key] || 0) + val;
           }
 
@@ -396,6 +418,7 @@ export const useGameStore = create<GameState & GameActions>()(
             bagDrops: {},
             currencyDrops: { augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, socket: 0 },
             materialDrops: accMaterials,
+            rareMaterialDrops: accRareMaterials,
             goldGained: 0,
             gatheringXpGained: totalGatheringXp,
           };
@@ -612,6 +635,72 @@ export const useGameStore = create<GameState & GameActions>()(
         return result;
       },
 
+      refineMaterial: (recipeId: string) => {
+        const state = get();
+        const recipe = REFINEMENT_RECIPES.find(r => r.id === recipeId);
+        if (!recipe) return false;
+        if (!canRefine(recipe, state.materials, state.gold)) return false;
+        const { newMaterials, newGold } = refine(recipe, state.materials, state.gold);
+        set({ materials: newMaterials, gold: newGold });
+        return true;
+      },
+
+      deconstructMaterial: (refinedId: string) => {
+        const state = get();
+        if (!canDeconstruct(refinedId, state.materials)) return false;
+        const newMaterials = deconstruct(refinedId, state.materials);
+        set({ materials: newMaterials });
+        return true;
+      },
+
+      craftRecipe: (recipeId: string, catalystId?: string) => {
+        const state = get();
+        const recipe = getCraftingRecipe(recipeId);
+        if (!recipe) return null;
+        if (!canCraftRecipe(recipe, state.craftingSkills, state.materials, state.gold)) return null;
+
+        // Consume materials
+        const newMaterials = { ...state.materials };
+        for (const { materialId, amount } of recipe.materials) {
+          newMaterials[materialId] = (newMaterials[materialId] ?? 0) - amount;
+        }
+        // Consume required catalyst
+        if (recipe.requiredCatalyst) {
+          newMaterials[recipe.requiredCatalyst.rareMaterialId] =
+            (newMaterials[recipe.requiredCatalyst.rareMaterialId] ?? 0) - recipe.requiredCatalyst.amount;
+        }
+        // Consume optional catalyst
+        if (catalystId && !recipe.requiredCatalyst) {
+          newMaterials[catalystId] = (newMaterials[catalystId] ?? 0) - 1;
+        }
+        const newGold = state.gold - recipe.goldCost;
+
+        // Generate item
+        const item = executeCraft(recipe, catalystId);
+
+        // Add crafting XP
+        const xp = getCraftingXpForTier(recipe.tier);
+        const newCraftingSkills = addCraftingXp(state.craftingSkills, recipe.profession, xp);
+
+        // Add item to inventory (overflow → auto-salvage)
+        const { newInventory, newMaterials: matsAfterItems } = addItemsWithOverflow(
+          state.inventory,
+          getInventoryCapacity(state),
+          state.autoSalvageMinRarity,
+          newMaterials,
+          [item],
+        );
+
+        set({
+          materials: matsAfterItems,
+          gold: newGold,
+          craftingSkills: newCraftingSkills,
+          inventory: newInventory,
+        });
+
+        return { item };
+      },
+
       claimOfflineProgress: () => {
         const state = get();
         const progress = state.offlineProgress;
@@ -741,7 +830,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 11,
+      version: 12,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -961,6 +1050,11 @@ export const useGameStore = create<GameState & GameActions>()(
           // Remove old fields
           delete raw.pendingLoot;
           delete raw.focusMode;
+        }
+
+        if (version < 12) {
+          // v12: Crafting professions
+          state.craftingSkills = createDefaultCraftingSkills();
         }
 
         return state;

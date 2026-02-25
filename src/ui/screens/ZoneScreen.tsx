@@ -7,6 +7,7 @@ import { GATHERING_PROFESSION_DEFS } from '../../data/gatheringProfessions';
 import { ZoneDef, Rarity, IdleMode, GatheringProfession } from '../../types';
 import { calcBagCapacity } from '../../data/items';
 import AbilityBar from '../components/AbilityBar';
+import { getRareMaterialDef } from '../../data/rareMaterials';
 
 // Band visual theming
 const BAND_GRADIENTS: Record<number, string> = {
@@ -98,6 +99,7 @@ interface SessionSummary {
   totalClears: number;
   goldEarned: number;
   materials: Record<string, number>;
+  rareMaterials: Record<string, number>;
   currencies: Record<string, number>;
   itemsByRarity: Record<Rarity, number>;
   itemsSalvaged: number;
@@ -110,6 +112,7 @@ function emptySession(): SessionSummary {
     totalClears: 0,
     goldEarned: 0,
     materials: {},
+    rareMaterials: {},
     currencies: {},
     itemsByRarity: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0 },
     itemsSalvaged: 0,
@@ -129,6 +132,13 @@ function accumulateSession(session: SessionSummary, result: ProcessClearsResult,
   s.materials = { ...s.materials };
   for (const [k, v] of Object.entries(result.materialDrops)) {
     s.materials[k] = (s.materials[k] || 0) + v;
+  }
+
+  if (result.rareMaterialDrops) {
+    s.rareMaterials = { ...s.rareMaterials };
+    for (const [k, v] of Object.entries(result.rareMaterialDrops)) {
+      s.rareMaterials[k] = (s.rareMaterials[k] || 0) + v;
+    }
   }
 
   s.currencies = { ...s.currencies };
@@ -653,6 +663,24 @@ export default function ZoneScreen() {
                         {mat.replace(/_/g, ' ')} <span className="text-white">x{count}</span>
                       </span>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Rare Materials */}
+              {Object.keys(session.rareMaterials).length > 0 && (
+                <div className="text-xs">
+                  <span className="text-purple-400 font-semibold">Rare Finds:</span>
+                  <div className="flex flex-wrap gap-1 mt-0.5">
+                    {Object.entries(session.rareMaterials).map(([matId, count]) => {
+                      const def = getRareMaterialDef(matId);
+                      const rarityColor = def ? RARITY_TEXT[def.rarity as Rarity] ?? 'text-gray-300' : 'text-gray-300';
+                      return (
+                        <span key={matId} className={`bg-gray-800 rounded px-1.5 py-0.5 text-[10px] ${rarityColor} animate-pulse`}>
+                          {def?.icon ?? ''} {def?.name ?? matId.replace(/_/g, ' ')} <span className="text-white">x{count}</span>
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
               )}

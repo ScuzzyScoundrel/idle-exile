@@ -283,6 +283,19 @@ export interface AbilityTimerState {
   cooldownUntil: number | null;
 }
 
+// --- Rare Materials ---
+
+export type RareMaterialRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
+
+export interface RareMaterialDef {
+  id: string;
+  profession: GatheringProfession;
+  rarity: RareMaterialRarity;
+  name: string;
+  icon: string;
+  description: string;
+}
+
 // --- Gathering Professions ---
 
 export type GatheringProfession = 'mining' | 'herbalism' | 'skinning' | 'logging' | 'fishing';
@@ -293,6 +306,55 @@ export type GatheringSkills = Record<GatheringProfession, GatheringSkillState>;
 export interface GatheringMilestone {
   level: number;
   type: 'yield_bonus' | 'rare_find' | 'double_gather' | 'mastery';
+  value: number;
+  description: string;
+}
+
+// --- Refinement ---
+
+export type RefinementTrack = 'ore' | 'cloth' | 'leather' | 'wood' | 'herb' | 'fish';
+
+export interface RefinementRecipeDef {
+  id: string;
+  track: RefinementTrack;
+  tier: number;                     // 1-6
+  rawMaterialId: string;
+  rawAmount: number;
+  previousRefinedId: string | null; // null for T1
+  previousRefinedAmount: number;
+  outputId: string;
+  outputName: string;
+  goldCost: number;
+}
+
+// --- Crafting Professions ---
+
+export type CraftingProfession = 'weaponsmith' | 'armorer' | 'tailor' | 'alchemist' | 'jeweler';
+
+export interface CraftingSkillState { level: number; xp: number; }
+export type CraftingSkills = Record<CraftingProfession, CraftingSkillState>;
+
+export interface CraftingRecipeDef {
+  id: string;
+  profession: CraftingProfession;
+  name: string;
+  tier: number;                     // 1-6
+  requiredLevel: number;
+  materials: { materialId: string; amount: number }[];
+  goldCost: number;
+  outputBaseId: string;             // references ITEM_BASE_DEFS id
+  outputILvl: number;
+  isGatheringGear?: boolean;
+  catalystSlot?: boolean;           // true = recipe accepts an optional catalyst
+  requiredCatalyst?: {              // for unique recipes that REQUIRE a specific rare mat
+    rareMaterialId: string;
+    amount: number;
+  };
+}
+
+export interface CraftingMilestone {
+  level: number;
+  type: 'efficiency' | 'bonus_output' | 'quality_boost' | 'mastery';
   value: number;
   description: string;
 }
@@ -319,6 +381,9 @@ export interface GameState {
   gatheringSkills: GatheringSkills;
   gatheringEquipment: Partial<Record<GearSlot, Item>>;
   selectedGatheringProfession: GatheringProfession | null;
+
+  // Crafting professions
+  craftingSkills: CraftingSkills;
 
   // Auto-salvage
   autoSalvageMinRarity: Rarity;

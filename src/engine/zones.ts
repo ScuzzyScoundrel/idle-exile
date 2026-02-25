@@ -7,6 +7,7 @@ import type { Character, ZoneDef, IdleRunResult, Item, CurrencyType, GearSlot, R
 import { generateItem, generateGatheringItem } from './items';
 import { calcDefensiveEfficiency } from './setBonus';
 import { calcGatheringYield } from './gathering';
+import { rollRareMaterialDrop } from './rareMaterials';
 import { BAG_UPGRADE_DEFS } from '../data/items';
 import {
   BASE_ITEM_DROP_CHANCE, MASTERY_DROP_BONUS,
@@ -297,6 +298,7 @@ export interface GatheringClearResult {
   materials: Record<string, number>;
   gatheringXp: number;
   gatheringGearDrop: Item | null;
+  rareMaterialDrops: Record<string, number>;
 }
 
 /**
@@ -307,9 +309,10 @@ export interface GatheringClearResult {
 export function simulateGatheringClear(
   skillLevel: number,
   zone: ZoneDef,
-  _profession: GatheringProfession,
+  profession: GatheringProfession,
   yieldMult: number = 1.0,
   doubleGatherChance: number = 0,
+  rareFindBonus: number = 0,
 ): GatheringClearResult {
   const materials: Record<string, number> = {};
 
@@ -341,5 +344,12 @@ export function simulateGatheringClear(
     gatheringGearDrop = generateGatheringItem(slot, dropILvl);
   }
 
-  return { materials, gatheringXp, gatheringGearDrop };
+  // Roll for rare material drop
+  const rareMaterialDrops: Record<string, number> = {};
+  const rareDrop = rollRareMaterialDrop(profession, zone.band, rareFindBonus);
+  if (rareDrop) {
+    rareMaterialDrops[rareDrop.id] = 1;
+  }
+
+  return { materials, gatheringXp, gatheringGearDrop, rareMaterialDrops };
 }

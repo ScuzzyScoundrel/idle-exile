@@ -3,7 +3,7 @@
 // All tunable game constants in one file.
 // ============================================================
 
-import type { CurrencyType, AffixTier, ResolvedStats } from '../types';
+import type { CurrencyType, AffixTier, ResolvedStats, RareMaterialRarity, Rarity } from '../types';
 
 // =============================================
 // LOOT & DROP RATES
@@ -95,3 +95,43 @@ export const AFFIX_COUNT_WEIGHTS: { count: number; weight: number }[] = [
   { count: 5, weight: 10 },
   { count: 6, weight: 5 },
 ];
+
+// =============================================
+// REFINEMENT
+// =============================================
+
+/** Gold cost per refinement tier. */
+export const REFINEMENT_GOLD_PER_TIER: Record<number, number> = {
+  1: 5, 2: 15, 3: 30, 4: 60, 5: 100, 6: 200,
+};
+
+// =============================================
+// CRAFTING PROFESSIONS
+// =============================================
+
+/** XP earned per craft by tier. */
+export const CRAFTING_XP_PER_TIER: Record<number, number> = {
+  1: 15, 2: 30, 3: 50, 4: 80, 5: 120, 6: 180,
+};
+
+// =============================================
+// RARE MATERIALS & CATALYSTS
+// =============================================
+
+/** Base rare drop rates per rarity per band (6-element arrays for bands 1-6). */
+export const RARE_DROP_BASE_RATES: Record<RareMaterialRarity, number[]> = {
+  common:    [0.08,   0.10,   0.12,   0.14,   0.16,   0.18],
+  uncommon:  [0.01,   0.02,   0.03,   0.04,   0.05,   0.07],
+  rare:      [0.001,  0.003,  0.005,  0.01,   0.015,  0.025],
+  epic:      [0.0001, 0.0005, 0.001,  0.002,  0.005,  0.01],
+  legendary: [0,      0.0001, 0.0002, 0.0005, 0.001,  0.003],
+};
+
+/** When a catalyst is used in crafting: rare mat rarity → guaranteed minimum output rarity. */
+export const CATALYST_RARITY_MAP: Record<RareMaterialRarity, Rarity> = {
+  common: 'uncommon',
+  uncommon: 'rare',
+  rare: 'epic',
+  epic: 'legendary',
+  legendary: 'legendary', // legendary catalyst = legendary + bonus affix roll
+};

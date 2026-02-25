@@ -5,6 +5,7 @@ import OfflineProgressModal from './ui/components/OfflineProgressModal';
 import ZoneScreen from './ui/screens/ZoneScreen';
 import InventoryScreen from './ui/screens/InventoryScreen';
 import CharacterScreen from './ui/screens/CharacterScreen';
+import CraftingScreen from './ui/screens/CraftingScreen';
 import { useGameStore } from './store/gameStore';
 
 function App() {
@@ -22,6 +23,7 @@ function App() {
       <main className="max-w-4xl mx-auto px-3 pt-16 pb-20">
         <div className={activeTab === 'zones' ? '' : 'hidden'}><ZoneScreen /></div>
         <div className={activeTab === 'inventory' ? '' : 'hidden'}><InventoryScreen /></div>
+        <div className={activeTab === 'crafting' ? '' : 'hidden'}><CraftingScreen /></div>
         <div className={activeTab === 'character' ? '' : 'hidden'}><CharacterScreen /></div>
       </main>
 

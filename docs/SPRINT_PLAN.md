@@ -1,6 +1,6 @@
 # Idle Exile — Sprint Plan
 
-> Development roadmap. Updated 2026-02-24.
+> Development roadmap. Updated 2026-02-25.
 > References: `idle-exile-evolution.docx` (design source of truth), `PROJECT_STATUS.md` (current state).
 
 ## Sprint Philosophy
@@ -26,16 +26,22 @@ Auto-salvage feedback, loot dismiss, rarity guide, hero page overhaul, paper dol
 Zone card grid (2x2 + boss), band-themed gradients, single-accordion. Clear time scaling with exponential level penalty + quadratic hazard penalty (multiplicative). Progressive hazard design across all 30 zones (World's Edge = all 5 elements). Exalt iLvl gating fix. Best-tier ★ indicator. Item Level & Tier Gating guide.
 
 ### Sprint 1C: Real-Time Loot, Bag System & Bug Fixes — DONE
-Real-time loot (items drop into bags as clears happen, not batched). Loot feed shows actual item names with rarity colors. Bag capacity system (30 start, 5 tiers of +6 upgrades to 60, from zone drops or gold purchase). Overflow auto-salvage with running tally. "Collect Resources" button for currencies/materials/gold only. Tooltip viewport clipping fix (useLayoutEffect flip-below). Unequip guard when bags full. Save v7 migration.
+Real-time loot (items drop into bags as clears happen). Loot feed shows actual item names with rarity colors. Bag capacity system (30 start, 5 tiers of +6 upgrades to 60, from zone drops or gold purchase). Overflow auto-salvage with running tally. "Collect Resources" button. Tooltip viewport clipping fix. Save v7 migration.
 
 ### Sprint 2: Loot Rarity & Volume Tuning — DONE
-Centralized all balance constants into `src/data/balance.ts`. Reduced item drop chance from 25% to 8% per clear. Increased material drops (2-4 vs 1-2), currency drop rates (+60-80%), and gold per band (8 vs 5). Added upgrade indicators (green triangle badges) on inventory items that are net improvements over equipped gear. Refactored ComparisonPanel to use shared engine logic with readable stat labels.
+Centralized all balance constants into `src/data/balance.ts`. Item drop 25%→8%. Material drops 2-4 vs 1-2. Currency rates +60-80%. Upgrade indicators (green triangle badges). ComparisonPanel refactor.
 
 ### Sprint 2B: Bag Slots, Hover Comparison & Right-Click Equip — DONE
-Replaced flat bag capacity with WoW-style 5-bag-slot system. Each bag has per-tier capacity (6/8/10/12/14). Bags are equippable items with sell/salvage value. Vendor sells T1-T2 only; T3+ from drops/crafting. Buy bags → stash → equip to weakest slot. Added inline stat comparison on hover tooltips (green/red deltas vs equipped). Right-click to equip items. Sell gear for gold (rarity-based + iLvl/5 bonus). Bag slots section moved above loot grid. Save v8 migration. Tooltip widened to w-64.
+5-bag-slot system (6/8/10/12/14 per tier). Bag stash + equip/sell/salvage. Vendor T1-T2 only. Right-click to equip. Hover tooltip comparison. Sell gear for gold. Save v8 migration.
 
 ### Sprint 3: Offline Progression + Gold Fix — DONE
-Gold economy rebalanced (GOLD_PER_BAND 8→3). Offline progression: on app reopen, detects elapsed time, simulates loot via `simulateIdleRun()`, presents "Welcome Back, Exile!" modal with full summary (clears, gold, XP, items, best drop, resources). Items stored in summary until player claims (overflow auto-salvaged at claim time). Race condition prevented by resetting `idleStartTime` in `onRehydrateStorage`. Added bag drops to `simulateIdleRun()`. New `pickBestItem()` helper. Save v9 migration. Deployed to Vercel.
+GOLD_PER_BAND 8→3. Offline progression modal with full summary. simulateIdleRun bag drops. pickBestItem(). Save v9. Vercel deploy.
+
+### Sprint 4: Weapon Types + Abilities + Focus Modes — DONE
+8 weapon types (56 mainhand bases), 24 abilities with mutators, 4 focus modes. AbilityBar + FocusModeSelector. Weapon compatibility. Passive-only offline effects. Save v10.
+
+### Sprint 5: Zone Stabilization + Gathering System — DONE
+Replaced old focus modes with Combat/Gathering toggle. 5 gathering professions (mining/herbalism/skinning/logging/fishing) with skill leveling (1-100), XP curve, milestones. Gathering-specific gear drops with separate affix pool (8 affixes). Auto-apply resources (removed collect button + pendingLoot). Session summary replaces loot feed. Band tabs replace accordion. All 30 zones updated with evolution doc material names, recommendedLevel, gatheringTypes. Zone level badges + underleveled warnings. Gathering skill gates per band (soft warnings). Offline gathering support. Save v11.
 
 ---
 
@@ -43,22 +49,7 @@ Gold economy rebalanced (GOLD_PER_BAND 8→3). Offline progression: on app reope
 
 Based on evolution doc Section 18 (Implementation Priority) and current game state.
 
-### Sprint 4: Weapon Types + Abilities + Focus Modes — DONE
-**Goal:** 8 weapon types with 24 abilities (2 active + 1 passive each) + 4 focus modes. Active players clicking abilities = 30-50% faster clears.
-- [x] 8 weapon types: sword, axe, mace, dagger, staff, wand, bow, crossbow (49 new item bases, 56 total mainhand)
-- [x] 24 abilities (3 per weapon): 16 active abilities with cooldowns + 8 passive abilities
-- [x] Mutator system: each ability has 2-3 mutators that modify its effect
-- [x] Ability engine: timestamp-based cooldowns, effect resolution, aggregation
-- [x] 4 focus modes: Combat (balanced), Harvesting (2.5x mats), Prospecting (2x currency), Scavenging (1.5x items)
-- [x] Clear speed integration: abilities + focus modes modify calcClearTime, simulateSingleClear, simulateIdleRun
-- [x] AbilityBar UI on ZoneScreen: 4 slots with cooldown/buff timers, click to activate
-- [x] FocusModeSelector: segmented toggle above zone grid
-- [x] CharacterScreen ability panel: weapon type display, ability list, equip to slots, mutator selection
-- [x] Weapon compatibility: equipping new mainhand auto-removes incompatible abilities
-- [x] Offline: passive-only effects for offline progression, active buffs cleared on return
-- [x] Save v10 migration: existing mainhand items tagged as swords
-
-### Sprint 5: Class Mechanics
+### Sprint 6: Class Mechanics
 **Goal:** 4 classes with unique passive mechanics (evolution doc Section 13).
 **Why now:** Builds on weapon abilities to create distinct playstyles.
 - [ ] Class selection at character creation (Warrior, Mage, Ranger, Rogue)
@@ -68,16 +59,6 @@ Based on evolution doc Section 18 (Implementation Priority) and current game sta
 - [ ] Rogue: Momentum (consecutive clears without stopping, boosts speed)
 - [ ] Each mechanic affects idle calculations differently
 - [ ] Talent tree: 30-50 nodes per class (modifies class mechanic)
-
-### Sprint 6: Gathering System
-**Goal:** Gathering as a separate activity with its own gear (evolution doc Sections 4-5).
-**Why now:** Material system is placeholder — gathering creates the real material economy.
-- [ ] 5 gathering professions: Mining, Herbalism, Skinning, Logging, Fishing
-- [ ] Gathering skill levels (1-100) with XP and zone skill gates
-- [ ] Gathering mode toggle on zone screen (combat vs gathering)
-- [ ] Gathering gear: separate equipment category with gathering-specific affixes
-- [ ] Dual loadout system (combat set / gathering set)
-- [ ] Gathering clear speed uses gathering gear stats only
 
 ### Sprint 7: Material Refinement & Crafting Professions
 **Goal:** New World-style refinement chains + profession crafting (evolution doc Sections 3, 14).
@@ -98,7 +79,14 @@ Based on evolution doc Section 18 (Implementation Priority) and current game sta
 - [ ] Inventory expansion costs gold
 - [ ] Vendor recipes for gold
 
-### Sprint 9: Player Feedback & Polish
+### Sprint 9: Gathering Gear UI + Dual Loadout
+**Goal:** Complete the gathering gear experience.
+- [ ] Gathering gear equip/swap UI (separate from combat equipment)
+- [ ] Dual loadout system (combat set / gathering set)
+- [ ] Gathering stats affect gathering clear speed
+- [ ] Quick-swap between combat and gathering loadouts
+
+### Sprint 10: Player Feedback & Polish
 **Goal:** Make getting stronger feel good (evolution doc Section 12).
 - [ ] Kill counter / enemies defeated
 - [ ] Clear speed comparison (before/after equipping)
@@ -112,12 +100,12 @@ Based on evolution doc Section 18 (Implementation Priority) and current game sta
 
 | Sprint | Feature | Notes |
 |--------|---------|-------|
-| 10 | Rare currencies (Fracture, Veiled, Mirror) | Deterministic endgame crafting |
-| 11 | Socket system | Socket Shard implementation |
-| 12 | Specialization system | One per character, modifies crafting |
-| 13 | Omen & Catalyst systems | Conditional crafting modifiers |
-| 14 | PWA + mobile polish | Service worker, manifest, installable |
-| 15 | Leaderboards & social | Fastest clears, highest zone, etc. |
-| 16 | Trading & auction house | Player economy |
-| 17 | Seasons/leagues | Seasonal resets with modifiers |
-| 18 | Ascendancy prestige | Endgame progression system |
+| 11 | Rare currencies (Fracture, Veiled, Mirror) | Deterministic endgame crafting |
+| 12 | Socket system | Socket Shard implementation |
+| 13 | Specialization system | One per character, modifies crafting |
+| 14 | Omen & Catalyst systems | Conditional crafting modifiers |
+| 15 | PWA + mobile polish | Service worker, manifest, installable |
+| 16 | Leaderboards & social | Fastest clears, highest zone, etc. |
+| 17 | Trading & auction house | Player economy |
+| 18 | Seasons/leagues | Seasonal resets with modifiers |
+| 19 | Ascendancy prestige | Endgame progression system |
