@@ -75,6 +75,7 @@ export interface Item {
   armorType?: ArmorType;
   weaponType?: WeaponType;
   baseStats: Partial<Record<StatKey, number>>;
+  isGatheringGear?: boolean;
 }
 
 // --- Character ---
@@ -136,7 +137,9 @@ export interface ZoneDef {
   baseClearTime: number; // seconds at power parity
   iLvlMin: number;
   iLvlMax: number;
+  recommendedLevel: number;
   materialDrops: string[];
+  gatheringTypes: GatheringProfession[];
   hazards: ZoneHazard[];
   unlockRequirement?: string; // id of zone that must be accessible first
 }
@@ -208,16 +211,6 @@ export interface BagUpgradeDef {
   salvageValue: number;    // salvage dust received when salvaging
 }
 
-// --- Pending Loot (banked between zone changes) ---
-
-export interface PendingLoot {
-  currencyDrops: Record<CurrencyType, number>;
-  materials: Record<string, number>;
-  goldGained: number;
-  clearsCompleted: number;
-  bagDrops: Record<string, number>;
-}
-
 // --- Set Bonuses ---
 
 /** Slots that count toward armor-set bonuses. */
@@ -241,7 +234,7 @@ export interface ActiveSetBonus {
 // --- Abilities ---
 
 export type AbilityKind = 'active' | 'passive';
-export type FocusMode = 'combat' | 'harvesting' | 'prospecting' | 'scavenging';
+export type IdleMode = 'combat' | 'gathering';
 
 export interface AbilityEffect {
   damageMult?: number;
@@ -290,16 +283,18 @@ export interface AbilityTimerState {
   cooldownUntil: number | null;
 }
 
-export interface FocusModeDef {
-  id: FocusMode;
-  name: string;
+// --- Gathering Professions ---
+
+export type GatheringProfession = 'mining' | 'herbalism' | 'skinning' | 'logging' | 'fishing';
+
+export interface GatheringSkillState { level: number; xp: number; }
+export type GatheringSkills = Record<GatheringProfession, GatheringSkillState>;
+
+export interface GatheringMilestone {
+  level: number;
+  type: 'yield_bonus' | 'rare_find' | 'double_gather' | 'mastery';
+  value: number;
   description: string;
-  icon: string;
-  clearSpeedMult: number;
-  itemDropMult: number;
-  materialDropMult: number;
-  currencyDropMult: number;
-  rarityWeightBoost?: number;
 }
 
 // --- Game State ---
@@ -310,7 +305,6 @@ export interface GameState {
   currencies: Record<CurrencyType, number>;
   materials: Record<string, number>;
   gold: number;
-  pendingLoot: PendingLoot;
 
   // Bag system
   bagSlots: string[];                    // exactly 5 bag def IDs
@@ -319,6 +313,12 @@ export interface GameState {
   // Idle state
   currentZoneId: string | null;
   idleStartTime: number | null; // timestamp when idle run started
+  idleMode: IdleMode;
+
+  // Gathering
+  gatheringSkills: GatheringSkills;
+  gatheringEquipment: Partial<Record<GearSlot, Item>>;
+  selectedGatheringProfession: GatheringProfession | null;
 
   // Auto-salvage
   autoSalvageMinRarity: Rarity;
@@ -329,9 +329,6 @@ export interface GameState {
   // Abilities (Sprint 4)
   equippedAbilities: (EquippedAbility | null)[];
   abilityTimers: AbilityTimerState[];
-
-  // Focus mode (Sprint 4)
-  focusMode: FocusMode;
 
   // Meta
   lastSaveTime: number;

@@ -3,9 +3,10 @@
 // Pure functions: no React, no side effects, no DOM.
 // ============================================================
 
-import type { Character, ZoneDef, IdleRunResult, Item, CurrencyType, GearSlot, ResolvedStats, AbilityEffect, FocusModeDef } from '../types';
-import { generateItem } from './items';
+import type { Character, ZoneDef, IdleRunResult, Item, CurrencyType, GearSlot, ResolvedStats, AbilityEffect, GatheringProfession } from '../types';
+import { generateItem, generateGatheringItem } from './items';
 import { calcDefensiveEfficiency } from './setBonus';
+import { calcGatheringYield } from './gathering';
 import { BAG_UPGRADE_DEFS } from '../data/items';
 import {
   BASE_ITEM_DROP_CHANCE, MASTERY_DROP_BONUS,
@@ -92,7 +93,6 @@ export function calcClearTime(
   zone: ZoneDef,
   charLevel: number = 1,
   abilityEffect?: AbilityEffect,
-  focusMode?: FocusModeDef,
 ): number {
   // Apply ability effects to stats before power calc
   const effectiveDamage = charStats.damage * (abilityEffect?.damageMult ?? 1);
@@ -122,9 +122,8 @@ export function calcClearTime(
   // Floor at CLEAR_TIME_FLOOR_RATIO of baseClearTime, no upper cap
   const floor = zone.baseClearTime * CLEAR_TIME_FLOOR_RATIO;
 
-  // Apply clearSpeedMult and focusMode after base calc
+  // Apply clearSpeedMult after base calc
   clearTime /= (abilityEffect?.clearSpeedMult ?? 1);
-  clearTime /= (focusMode?.clearSpeedMult ?? 1);
   clearTime = Math.max(floor, clearTime);
 
   return clearTime;
@@ -139,9 +138,8 @@ export function simulateIdleRun(
   zone: ZoneDef,
   elapsed: number,
   abilityEffect?: AbilityEffect,
-  focusMode?: FocusModeDef,
 ): IdleRunResult {
-  const baseClearTime = calcClearTime(char.stats, zone, char.level, abilityEffect, focusMode);
+  const baseClearTime = calcClearTime(char.stats, zone, char.level, abilityEffect);
   const clearsCompleted = Math.floor(elapsed / baseClearTime);
 
   const hasMastery = checkZoneMastery(char.stats, zone);
@@ -162,10 +160,9 @@ export function simulateIdleRun(
   let itemDropChance = hasMastery
     ? BASE_ITEM_DROP_CHANCE * MASTERY_DROP_BONUS
     : BASE_ITEM_DROP_CHANCE;
-  itemDropChance *= (abilityEffect?.itemDropMult ?? 1) * (focusMode?.itemDropMult ?? 1);
+  itemDropChance *= (abilityEffect?.itemDropMult ?? 1);
 
-  const matMult = (abilityEffect?.materialDropMult ?? 1) * (focusMode?.materialDropMult ?? 1);
-  const currMult = focusMode?.currencyDropMult ?? 1;
+  const matMult = (abilityEffect?.materialDropMult ?? 1);
   const xpMult = abilityEffect?.xpMult ?? 1;
   const doubleClear = abilityEffect?.doubleClears ?? false;
 
@@ -187,7 +184,7 @@ export function simulateIdleRun(
 
     // --- Currency drops ---
     for (const [type, chance] of Object.entries(CURRENCY_DROP_CHANCES)) {
-      if (Math.random() < chance * currMult) {
+      if (Math.random() < chance) {
         currencyDrops[type as CurrencyType] += doubleClear ? 2 : 1;
       }
     }
@@ -237,16 +234,14 @@ export function simulateSingleClear(
   char: Character,
   zone: ZoneDef,
   abilityEffect?: AbilityEffect,
-  focusMode?: FocusModeDef,
 ): SingleClearResult {
   const hasMastery = checkZoneMastery(char.stats, zone);
   let itemDropChance = hasMastery
     ? BASE_ITEM_DROP_CHANCE * MASTERY_DROP_BONUS
     : BASE_ITEM_DROP_CHANCE;
-  itemDropChance *= (abilityEffect?.itemDropMult ?? 1) * (focusMode?.itemDropMult ?? 1);
+  itemDropChance *= (abilityEffect?.itemDropMult ?? 1);
 
-  const matMult = (abilityEffect?.materialDropMult ?? 1) * (focusMode?.materialDropMult ?? 1);
-  const currMult = focusMode?.currencyDropMult ?? 1;
+  const matMult = (abilityEffect?.materialDropMult ?? 1);
   const xpMult = abilityEffect?.xpMult ?? 1;
   const doubleClear = abilityEffect?.doubleClears ?? false;
 
@@ -272,7 +267,7 @@ export function simulateSingleClear(
     augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, socket: 0,
   };
   for (const [type, chance] of Object.entries(CURRENCY_DROP_CHANCES)) {
-    if (Math.random() < chance * currMult) {
+    if (Math.random() < chance) {
       currencyDrops[type as CurrencyType] += doubleClear ? 2 : 1;
     }
   }
@@ -294,4 +289,57 @@ export function simulateSingleClear(
     xpGained: Math.round(XP_PER_BAND * zone.band * xpMult),
     bagDrop,
   };
+}
+
+// --- Gathering Clear ---
+
+export interface GatheringClearResult {
+  materials: Record<string, number>;
+  gatheringXp: number;
+  gatheringGearDrop: Item | null;
+}
+
+/**
+ * Simulate a single gathering clear.
+ * Only drops profession-relevant materials from the zone, plus gathering XP.
+ * Small chance for gathering gear drop.
+ */
+export function simulateGatheringClear(
+  skillLevel: number,
+  zone: ZoneDef,
+  _profession: GatheringProfession,
+  yieldMult: number = 1.0,
+  doubleGatherChance: number = 0,
+): GatheringClearResult {
+  const materials: Record<string, number> = {};
+
+  // Base 2-4 materials per gather, scaled by yield
+  const baseMats = MATERIAL_DROP_MIN + Math.floor(Math.random() * (MATERIAL_DROP_MAX - MATERIAL_DROP_MIN + 1));
+  const totalYield = calcGatheringYield(skillLevel) * yieldMult;
+  let matCount = Math.round(baseMats * totalYield);
+
+  // Double gather chance
+  if (doubleGatherChance > 0 && Math.random() < doubleGatherChance) {
+    matCount *= 2;
+  }
+
+  // Only drop zone materials (no filtering by profession — all zone mats are relevant)
+  for (let i = 0; i < matCount; i++) {
+    const mat = zone.materialDrops[Math.floor(Math.random() * zone.materialDrops.length)];
+    materials[mat] = (materials[mat] ?? 0) + 1;
+  }
+
+  // Gathering XP: base 5 * zone band
+  const gatheringXp = 5 * zone.band;
+
+  // Small chance for gathering gear (2% per clear)
+  let gatheringGearDrop: Item | null = null;
+  if (Math.random() < 0.02) {
+    const gearSlots: GearSlot[] = ['helmet', 'gloves', 'boots', 'belt', 'chest'];
+    const slot = gearSlots[Math.floor(Math.random() * gearSlots.length)];
+    const dropILvl = zone.iLvlMin + Math.floor(Math.random() * (zone.iLvlMax - zone.iLvlMin + 1));
+    gatheringGearDrop = generateGatheringItem(slot, dropILvl);
+  }
+
+  return { materials, gatheringXp, gatheringGearDrop };
 }

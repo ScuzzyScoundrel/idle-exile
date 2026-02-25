@@ -5,6 +5,7 @@
 
 import type { Item, Affix, AffixDef, AffixTier, Rarity, GearSlot, StatKey, WeaponType } from '../types';
 import { AFFIX_DEFS } from '../data/affixes';
+import { GATHERING_AFFIX_DEFS } from '../data/gatheringAffixes';
 import { ITEM_BASE_DEFS } from '../data/items';
 import { TIER_WEIGHTS, AFFIX_COUNT_WEIGHTS } from '../data/balance';
 import { AFFIX_STAT_MAP } from './character';
@@ -240,6 +241,75 @@ export function generateItem(slot: GearSlot, iLvl: number): Item {
     armorType: base.armorType,
     weaponType: base.weaponType,
     baseStats: { ...base.baseStats },
+  };
+
+  item.rarity = classifyRarity(item);
+  item.name = buildItemName(item);
+
+  return item;
+}
+
+/**
+ * Generate a gathering-specific item for a given gear slot and item level.
+ * Uses gathering affix pool instead of combat affixes. Sets isGatheringGear flag.
+ */
+export function generateGatheringItem(slot: GearSlot, iLvl: number): Item {
+  // Find qualifying bases for this slot
+  let qualifying = ITEM_BASE_DEFS.filter(b => b.slot === slot && b.iLvl <= iLvl);
+  if (qualifying.length === 0) {
+    qualifying = ITEM_BASE_DEFS.filter(b => b.slot === slot);
+  }
+  if (qualifying.length === 0) {
+    return {
+      id: generateId(), baseId: 'unknown', name: `Unknown ${slot}`,
+      slot, rarity: 'common', iLvl, prefixes: [], suffixes: [], baseStats: {},
+      isGatheringGear: true,
+    };
+  }
+
+  const maxILvl = qualifying.reduce((best, cur) => Math.max(best, cur.iLvl), 0);
+  const topBases = qualifying.filter(b => b.iLvl === maxILvl);
+  const base = topBases[Math.floor(Math.random() * topBases.length)];
+
+  const totalAffixes = rollAffixCount();
+  let prefixCount = Math.min(Math.floor(totalAffixes / 2), 3);
+  let suffixCount = Math.min(totalAffixes - prefixCount, 3);
+  if (prefixCount + suffixCount < totalAffixes) {
+    prefixCount = Math.min(totalAffixes - suffixCount, 3);
+  }
+
+  // Roll from gathering affix pool
+  const gatherPrefixes = GATHERING_AFFIX_DEFS.filter(d => d.slot === 'prefix');
+  const gatherSuffixes = GATHERING_AFFIX_DEFS.filter(d => d.slot === 'suffix');
+
+  const prefixes: Affix[] = [];
+  let prefPool = [...gatherPrefixes];
+  for (let i = 0; i < prefixCount && prefPool.length > 0; i++) {
+    const affix = rollAffix(prefPool, iLvl);
+    prefixes.push(affix);
+    prefPool = prefPool.filter(d => d.id !== affix.defId);
+  }
+
+  const suffixes: Affix[] = [];
+  let sufPool = [...gatherSuffixes];
+  for (let i = 0; i < suffixCount && sufPool.length > 0; i++) {
+    const affix = rollAffix(sufPool, iLvl);
+    suffixes.push(affix);
+    sufPool = sufPool.filter(d => d.id !== affix.defId);
+  }
+
+  const item: Item = {
+    id: generateId(),
+    baseId: base.id,
+    name: '',
+    slot,
+    rarity: 'common',
+    iLvl,
+    prefixes,
+    suffixes,
+    armorType: base.armorType,
+    baseStats: { ...base.baseStats },
+    isGatheringGear: true,
   };
 
   item.rarity = classifyRarity(item);

@@ -7,20 +7,20 @@ import {
   CurrencyType,
   GearSlot,
   CraftResult,
-  PendingLoot,
   Rarity,
   OfflineProgressSummary,
-  FocusMode,
+  IdleMode,
+  GatheringProfession,
 } from '../types';
 import { createCharacter, resolveStats, addXp } from '../engine/character';
-import { simulateSingleClear, simulateIdleRun, calcClearTime } from '../engine/zones';
+import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime } from '../engine/zones';
 import { pickBestItem, getEquippedWeaponType } from '../engine/items';
 import { applyCurrency } from '../engine/crafting';
 import { aggregateAbilityEffects, getIncompatibleAbilities, getEffectiveDuration } from '../engine/abilities';
 import { getAbilityDef } from '../data/abilities';
-import { getFocusModeDef } from '../data/focusModes';
 import { ZONE_DEFS } from '../data/zones';
 import { BAG_UPGRADE_DEFS, getBagDef, calcBagCapacity, BAG_SLOT_COUNT } from '../data/items';
+import { addGatheringXp, calcGatherClearTime, createDefaultGatheringSkills } from '../engine/gathering';
 
 
 const INITIAL_CURRENCIES: Record<CurrencyType, number> = {
@@ -30,14 +30,6 @@ const INITIAL_CURRENCIES: Record<CurrencyType, number> = {
   annul: 50,
   exalt: 50,
   socket: 50,
-};
-
-const EMPTY_PENDING_LOOT: PendingLoot = {
-  currencyDrops: { augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, socket: 0 },
-  materials: {},
-  goldGained: 0,
-  clearsCompleted: 0,
-  bagDrops: {},
 };
 
 /** Rarity sort order for auto-salvage comparison. */
@@ -66,29 +58,6 @@ export const SELL_GOLD: Record<Rarity, number> = {
   epic: 20,
   legendary: 50,
 };
-
-/** Combine two PendingLoot objects (resources-only, no items). */
-function mergePendingLoot(a: PendingLoot, b: PendingLoot): PendingLoot {
-  const currencyDrops = { ...a.currencyDrops };
-  for (const [key, val] of Object.entries(b.currencyDrops)) {
-    currencyDrops[key as CurrencyType] += val;
-  }
-  const materials = { ...a.materials };
-  for (const [key, val] of Object.entries(b.materials)) {
-    materials[key] = (materials[key] || 0) + val;
-  }
-  const bagDrops = { ...a.bagDrops };
-  for (const [key, val] of Object.entries(b.bagDrops)) {
-    bagDrops[key] = (bagDrops[key] || 0) + val;
-  }
-  return {
-    currencyDrops,
-    materials,
-    goldGained: a.goldGained + b.goldGained,
-    clearsCompleted: a.clearsCompleted + b.clearsCompleted,
-    bagDrops,
-  };
-}
 
 /** Auto-salvage stats returned alongside state updates. */
 interface SalvageStats {
@@ -143,30 +112,7 @@ function getInventoryCapacity(state: GameState): number {
   return calcBagCapacity(state.bagSlots);
 }
 
-/** Apply pending resource loot (no items) to state. */
-function applyPendingResources(state: GameState, loot: PendingLoot): Partial<GameState> {
-  const newCurrencies = { ...state.currencies };
-  for (const [key, val] of Object.entries(loot.currencyDrops)) {
-    newCurrencies[key as CurrencyType] += val;
-  }
-  const newMaterials = { ...state.materials };
-  for (const [key, val] of Object.entries(loot.materials)) {
-    newMaterials[key] = (newMaterials[key] || 0) + val;
-  }
-  const newBagStash = { ...state.bagStash };
-  for (const [key, val] of Object.entries(loot.bagDrops)) {
-    newBagStash[key] = (newBagStash[key] || 0) + val;
-  }
-  return {
-    currencies: newCurrencies,
-    materials: newMaterials,
-    gold: state.gold + loot.goldGained,
-    bagStash: newBagStash,
-    pendingLoot: { ...EMPTY_PENDING_LOOT, currencyDrops: { ...EMPTY_PENDING_LOOT.currencyDrops }, bagDrops: {} },
-  };
-}
-
-/** Result returned by processNewClears for the loot feed. */
+/** Result returned by processNewClears for the session summary. */
 export interface ProcessClearsResult {
   items: { name: string; rarity: Rarity }[];
   overflowCount: number;
@@ -175,6 +121,8 @@ export interface ProcessClearsResult {
   currencyDrops: Record<CurrencyType, number>;
   materialDrops: Record<string, number>;
   goldGained: number;
+  // Gathering-specific fields
+  gatheringXpGained?: number;
 }
 
 interface GameActions {
@@ -192,12 +140,15 @@ interface GameActions {
   sellItem: (itemId: string) => number | null;
 
   // Zone / Idle
-  startIdleRun: (zoneId: string) => { bankedClears: number } | null;
+  startIdleRun: (zoneId: string) => void;
   processNewClears: (clearCount: number) => ProcessClearsResult | null;
-  collectIdleResults: () => { gold: number; materials: Record<string, number>; currencyDrops: Record<CurrencyType, number>; bagDrops: Record<string, number>; clearsCompleted: number } | null;
-  stopIdleRun: () => { gold: number; materials: Record<string, number>; currencyDrops: Record<CurrencyType, number>; bagDrops: Record<string, number>; clearsCompleted: number } | null;
+  stopIdleRun: () => void;
   grantIdleXp: (xp: number) => void;
   getEstimatedClearTime: (zoneId: string) => number;
+
+  // Mode / Gathering
+  setIdleMode: (mode: IdleMode) => void;
+  setGatheringProfession: (profession: GatheringProfession) => void;
 
   // Bag system
   equipBag: (bagDefId: string, slotIndex: number) => { replacedId: string; capacityDelta: number } | null;
@@ -216,7 +167,6 @@ interface GameActions {
   unequipAbility: (slotIndex: number) => void;
   selectMutator: (slotIndex: number, mutatorId: string | null) => void;
   activateAbility: (abilityId: string) => void;
-  setFocusMode: (mode: FocusMode) => void;
 
   // Settings
   setAutoSalvageRarity: (rarity: Rarity) => void;
@@ -233,16 +183,18 @@ function createInitialState(): GameState {
     currencies: { ...INITIAL_CURRENCIES },
     materials: {},
     gold: 0,
-    pendingLoot: { ...EMPTY_PENDING_LOOT, currencyDrops: { ...EMPTY_PENDING_LOOT.currencyDrops }, bagDrops: {} },
     bagSlots: Array(BAG_SLOT_COUNT).fill('tattered_satchel'),
     bagStash: {},
     currentZoneId: null,
     idleStartTime: null,
+    idleMode: 'combat',
+    gatheringSkills: createDefaultGatheringSkills(),
+    gatheringEquipment: {},
+    selectedGatheringProfession: null,
     autoSalvageMinRarity: 'common',
     offlineProgress: null,
     equippedAbilities: [null, null, null, null],
     abilityTimers: [],
-    focusMode: 'combat' as FocusMode,
     lastSaveTime: Date.now(),
   };
 }
@@ -381,14 +333,10 @@ export const useGameStore = create<GameState & GameActions>()(
       },
 
       startIdleRun: (zoneId: string) => {
-        const state = get();
-        // Bank previous pending resources when switching zones (no item handling)
-        const bankedClears = state.pendingLoot.clearsCompleted;
         set({
           currentZoneId: zoneId,
           idleStartTime: Date.now(),
         });
-        return bankedClears > 0 ? { bankedClears } : null;
       },
 
       processNewClears: (clearCount: number) => {
@@ -398,34 +346,83 @@ export const useGameStore = create<GameState & GameActions>()(
         const zone = ZONE_DEFS.find((z) => z.id === state.currentZoneId);
         if (!zone) return null;
 
-        // Generate drops for each clear
-        const allItems: Item[] = [];
-        const accResources: PendingLoot = {
-          currencyDrops: { augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, socket: 0 },
-          materials: {},
-          goldGained: 0,
-          clearsCompleted: clearCount,
-          bagDrops: {},
-        };
+        // ─── Gathering Mode ───
+        if (state.idleMode === 'gathering') {
+          const profession = state.selectedGatheringProfession;
+          if (!profession) return null;
 
-        // Compute current ability effects + focus mode for drops
+          const skillLevel = state.gatheringSkills[profession].level;
+          let accMaterials: Record<string, number> = {};
+          let totalGatheringXp = 0;
+          const allItems: Item[] = [];
+
+          for (let i = 0; i < clearCount; i++) {
+            const result = simulateGatheringClear(skillLevel, zone, profession);
+            for (const [key, val] of Object.entries(result.materials)) {
+              accMaterials[key] = (accMaterials[key] || 0) + val;
+            }
+            totalGatheringXp += result.gatheringXp;
+            if (result.gatheringGearDrop) allItems.push(result.gatheringGearDrop);
+          }
+
+          // Apply materials directly to state
+          const newMaterials = { ...state.materials };
+          for (const [key, val] of Object.entries(accMaterials)) {
+            newMaterials[key] = (newMaterials[key] || 0) + val;
+          }
+
+          // Add gathering XP
+          const newGatheringSkills = addGatheringXp(state.gatheringSkills, profession, totalGatheringXp);
+
+          // Handle gathering gear drops (into bags)
+          const { newInventory, newMaterials: matsAfterItems, salvageStats, keptItems } = addItemsWithOverflow(
+            state.inventory,
+            getInventoryCapacity(state),
+            state.autoSalvageMinRarity,
+            newMaterials,
+            allItems,
+          );
+
+          set({
+            materials: matsAfterItems,
+            gatheringSkills: newGatheringSkills,
+            inventory: newInventory,
+          });
+
+          return {
+            items: keptItems.map(it => ({ name: it.name, rarity: it.rarity })),
+            overflowCount: salvageStats.itemsSalvaged,
+            dustGained: salvageStats.dustGained,
+            bagDrops: {},
+            currencyDrops: { augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, socket: 0 },
+            materialDrops: accMaterials,
+            goldGained: 0,
+            gatheringXpGained: totalGatheringXp,
+          };
+        }
+
+        // ─── Combat Mode ───
+        const allItems: Item[] = [];
+        const accCurrencies: Record<CurrencyType, number> = { augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, socket: 0 };
+        const accMaterials: Record<string, number> = {};
+        let accGold = 0;
+        const accBagDrops: Record<string, number> = {};
+
         const abilityEffect = aggregateAbilityEffects(state.equippedAbilities, state.abilityTimers, Date.now(), false);
-        const focusModeDef = getFocusModeDef(state.focusMode);
 
         for (let i = 0; i < clearCount; i++) {
-          const clear = simulateSingleClear(state.character, zone, abilityEffect, focusModeDef);
+          const clear = simulateSingleClear(state.character, zone, abilityEffect);
           if (clear.item) allItems.push(clear.item);
 
-          // Accumulate resources
           for (const [key, val] of Object.entries(clear.currencyDrops)) {
-            accResources.currencyDrops[key as CurrencyType] += val;
+            accCurrencies[key as CurrencyType] += val;
           }
           for (const [key, val] of Object.entries(clear.materials)) {
-            accResources.materials[key] = (accResources.materials[key] || 0) + val;
+            accMaterials[key] = (accMaterials[key] || 0) + val;
           }
-          accResources.goldGained += clear.goldGained;
+          accGold += clear.goldGained;
           if (clear.bagDrop) {
-            accResources.bagDrops[clear.bagDrop] = (accResources.bagDrops[clear.bagDrop] || 0) + 1;
+            accBagDrops[clear.bagDrop] = (accBagDrops[clear.bagDrop] || 0) + 1;
           }
         }
 
@@ -438,65 +435,40 @@ export const useGameStore = create<GameState & GameActions>()(
           allItems,
         );
 
-        // Accumulate resources into pendingLoot (collected later via button)
-        const newPending = mergePendingLoot(state.pendingLoot, accResources);
+        // Auto-apply all resources directly to state
+        const newCurrencies = { ...state.currencies };
+        for (const [key, val] of Object.entries(accCurrencies)) {
+          newCurrencies[key as CurrencyType] += val;
+        }
+        for (const [key, val] of Object.entries(accMaterials)) {
+          newMaterials[key] = (newMaterials[key] || 0) + val;
+        }
+        const newBagStash = { ...state.bagStash };
+        for (const [key, val] of Object.entries(accBagDrops)) {
+          newBagStash[key] = (newBagStash[key] || 0) + val;
+        }
 
         set({
           inventory: newInventory,
           materials: newMaterials,
-          pendingLoot: newPending,
+          currencies: newCurrencies,
+          gold: state.gold + accGold,
+          bagStash: newBagStash,
         });
 
         return {
           items: keptItems.map(it => ({ name: it.name, rarity: it.rarity })),
           overflowCount: salvageStats.itemsSalvaged,
           dustGained: salvageStats.dustGained,
-          bagDrops: accResources.bagDrops,
-          currencyDrops: accResources.currencyDrops,
-          materialDrops: accResources.materials,
-          goldGained: accResources.goldGained,
-        };
-      },
-
-      collectIdleResults: () => {
-        const state = get();
-        const loot = state.pendingLoot;
-        if (loot.clearsCompleted === 0) return null;
-
-        const patch = applyPendingResources(state, loot);
-        set({
-          ...patch,
-          idleStartTime: Date.now(),
-        });
-        return {
-          gold: loot.goldGained,
-          materials: loot.materials,
-          currencyDrops: loot.currencyDrops,
-          bagDrops: loot.bagDrops,
-          clearsCompleted: loot.clearsCompleted,
+          bagDrops: accBagDrops,
+          currencyDrops: accCurrencies,
+          materialDrops: accMaterials,
+          goldGained: accGold,
         };
       },
 
       stopIdleRun: () => {
-        const state = get();
-        const loot = state.pendingLoot;
-        if (loot.clearsCompleted === 0) {
-          set({ idleStartTime: null, currentZoneId: null });
-          return null;
-        }
-        const patch = applyPendingResources(state, loot);
-        set({
-          ...patch,
-          idleStartTime: null,
-          currentZoneId: null,
-        });
-        return {
-          gold: loot.goldGained,
-          materials: loot.materials,
-          currencyDrops: loot.currencyDrops,
-          bagDrops: loot.bagDrops,
-          clearsCompleted: loot.clearsCompleted,
-        };
+        set({ idleStartTime: null, currentZoneId: null });
       },
 
       grantIdleXp: (xp: number) => {
@@ -512,9 +484,29 @@ export const useGameStore = create<GameState & GameActions>()(
         const state = get();
         const zone = ZONE_DEFS.find((z) => z.id === zoneId);
         if (!zone) return 999;
+
+        if (state.idleMode === 'gathering') {
+          const profession = state.selectedGatheringProfession;
+          if (!profession) return 999;
+          return calcGatherClearTime(state.gatheringSkills[profession].level, zone);
+        }
+
         const abilityEffect = aggregateAbilityEffects(state.equippedAbilities, state.abilityTimers, Date.now(), false);
-        const focusModeDef = getFocusModeDef(state.focusMode);
-        return calcClearTime(state.character.stats, zone, state.character.level, abilityEffect, focusModeDef);
+        return calcClearTime(state.character.stats, zone, state.character.level, abilityEffect);
+      },
+
+      setIdleMode: (mode: IdleMode) => {
+        const state = get();
+        // Stop run if switching modes while running
+        if (state.idleStartTime) {
+          set({ idleStartTime: null, currentZoneId: null, idleMode: mode });
+        } else {
+          set({ idleMode: mode });
+        }
+      },
+
+      setGatheringProfession: (profession: GatheringProfession) => {
+        set({ selectedGatheringProfession: profession });
       },
 
       equipBag: (bagDefId: string, slotIndex: number) => {
@@ -635,7 +627,7 @@ export const useGameStore = create<GameState & GameActions>()(
         );
 
         // Apply gold
-        let newGold = state.gold + progress.goldGained;
+        const newGold = state.gold + progress.goldGained;
 
         // Apply currencies
         const newCurrencies = { ...state.currencies };
@@ -655,7 +647,7 @@ export const useGameStore = create<GameState & GameActions>()(
         }
 
         // Apply XP
-        let newChar = addXp(state.character, progress.xpGained);
+        const newChar = addXp(state.character, progress.xpGained);
         newChar.stats = resolveStats(newChar);
 
         set({
@@ -739,10 +731,6 @@ export const useGameStore = create<GameState & GameActions>()(
         });
       },
 
-      setFocusMode: (mode: FocusMode) => {
-        set({ focusMode: mode });
-      },
-
       setAutoSalvageRarity: (rarity: Rarity) => {
         set({ autoSalvageMinRarity: rarity });
       },
@@ -753,12 +741,12 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 10,
+      version: 11,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
 
-          const { currentZoneId, idleStartTime, character } = state;
+          const { currentZoneId, idleStartTime, character, idleMode } = state;
           if (!currentZoneId || !idleStartTime) return;
 
           const elapsedSeconds = (Date.now() - idleStartTime) / 1000;
@@ -785,15 +773,67 @@ export const useGameStore = create<GameState & GameActions>()(
             }));
           }
 
-          // Simulate offline loot — passive-only ability effects
+          if (idleMode === 'gathering') {
+            // Gathering mode offline simulation
+            const profession = state.selectedGatheringProfession;
+            if (!profession) {
+              state.currentZoneId = null;
+              state.idleStartTime = null;
+              return;
+            }
+            const skillLevel = state.gatheringSkills[profession].level;
+            const clearTime = calcGatherClearTime(skillLevel, zone);
+            const clearsCompleted = Math.floor(elapsedSeconds / clearTime);
+
+            if (clearsCompleted > 0) {
+              let accMaterials: Record<string, number> = {};
+              let totalGatheringXp = 0;
+              for (let i = 0; i < clearsCompleted; i++) {
+                const result = simulateGatheringClear(skillLevel, zone, profession);
+                for (const [key, val] of Object.entries(result.materials)) {
+                  accMaterials[key] = (accMaterials[key] || 0) + val;
+                }
+                totalGatheringXp += result.gatheringXp;
+              }
+
+              // Apply materials
+              for (const [key, val] of Object.entries(accMaterials)) {
+                state.materials[key] = (state.materials[key] || 0) + val;
+              }
+
+              // Apply gathering XP
+              state.gatheringSkills = addGatheringXp(state.gatheringSkills, profession, totalGatheringXp);
+
+              const summary: OfflineProgressSummary = {
+                zoneId: zone.id,
+                zoneName: zone.name,
+                elapsedSeconds,
+                clearsCompleted,
+                items: [],
+                autoSalvagedCount: 0,
+                autoSalvagedDust: 0,
+                goldGained: 0,
+                xpGained: 0,
+                materials: accMaterials,
+                currencyDrops: { augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, socket: 0 },
+                bagDrops: {},
+                bestItem: null,
+              };
+
+              state.offlineProgress = summary;
+            }
+            state.idleStartTime = Date.now();
+            return;
+          }
+
+          // Combat mode offline simulation — passive-only ability effects
           const passiveEffect = aggregateAbilityEffects(
             state.equippedAbilities ?? [null, null, null, null],
             state.abilityTimers ?? [],
             Date.now(),
             true, // offlineMode: passives only
           );
-          const focusModeDef = getFocusModeDef(state.focusMode ?? 'combat');
-          const result = simulateIdleRun(character, zone, elapsedSeconds, passiveEffect, focusModeDef);
+          const result = simulateIdleRun(character, zone, elapsedSeconds, passiveEffect);
 
           // Dry run to estimate auto-salvage stats for display
           const capacity = calcBagCapacity(state.bagSlots);
@@ -830,17 +870,12 @@ export const useGameStore = create<GameState & GameActions>()(
       migrate: (persisted: unknown, version: number) => {
         const old = persisted as Record<string, unknown>;
         const state = { ...old } as unknown as GameState & GameActions;
+        const raw = state as unknown as Record<string, unknown>;
 
         if (version < 7) {
-          // v7: Add bag system fields, drop any old pendingLoot.items (alpha-stage)
-          const oldPending = old.pendingLoot as Record<string, unknown> | undefined;
-          state.pendingLoot = {
-            currencyDrops: (oldPending?.currencyDrops as Record<CurrencyType, number>) ?? { augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, socket: 0 },
-            materials: (oldPending?.materials as Record<string, number>) ?? {},
-            goldGained: (oldPending?.goldGained as number) ?? 0,
-            clearsCompleted: (oldPending?.clearsCompleted as number) ?? 0,
-            bagDrops: {},
-          };
+          // v7: Add bag system fields
+          raw.bagSlots = Array(BAG_SLOT_COUNT).fill('tattered_satchel');
+          raw.bagStash = {};
         }
 
         if (version < 8) {
@@ -848,13 +883,8 @@ export const useGameStore = create<GameState & GameActions>()(
           const oldCap = (old.inventoryCapacity as number) ?? 30;
           const oldConsumables = (old.consumables as Record<string, number>) ?? {};
 
-          // Start with 5x tattered_satchel
           const bagSlots = Array(BAG_SLOT_COUNT).fill('tattered_satchel') as string[];
-
-          // Count old upgrades from capacity (each was +6, base was 30)
           const upgradeCount = Math.min(Math.floor((oldCap - 30) / 6), 5);
-
-          // Round-robin upgrade slots: bump one tier per upgrade
           const tierOrder = BAG_UPGRADE_DEFS.map(b => b.id);
           for (let i = 0; i < upgradeCount; i++) {
             const slotIdx = i % BAG_SLOT_COUNT;
@@ -868,22 +898,17 @@ export const useGameStore = create<GameState & GameActions>()(
           state.bagSlots = bagSlots;
           state.bagStash = { ...oldConsumables };
 
-          // Clean up old fields
-          delete (state as unknown as Record<string, unknown>).inventoryCapacity;
-          delete (state as unknown as Record<string, unknown>).consumables;
+          delete raw.inventoryCapacity;
+          delete raw.consumables;
         }
 
         if (version < 9) {
-          // v9: Add offline progression field
           state.offlineProgress = null;
         }
 
         if (version < 10) {
-          // v10: Add abilities, focus mode, weapon types
           state.equippedAbilities = [null, null, null, null];
           state.abilityTimers = [];
-          state.focusMode = 'combat' as FocusMode;
-          // Tag existing mainhand items as swords
           if (state.character?.equipment?.mainhand) {
             (state.character.equipment.mainhand as Item).weaponType = 'sword';
           }
@@ -892,6 +917,50 @@ export const useGameStore = create<GameState & GameActions>()(
               (item as Item).weaponType = 'sword';
             }
           }
+        }
+
+        if (version < 11) {
+          // v11: Gathering system + auto-apply resources
+          state.idleMode = 'combat';
+          state.gatheringSkills = createDefaultGatheringSkills();
+          state.gatheringEquipment = {};
+          state.selectedGatheringProfession = null;
+
+          // Flush any remaining pendingLoot into state
+          const pendingLoot = raw.pendingLoot as {
+            currencyDrops?: Record<string, number>;
+            materials?: Record<string, number>;
+            goldGained?: number;
+            bagDrops?: Record<string, number>;
+          } | undefined;
+
+          if (pendingLoot) {
+            if (pendingLoot.currencyDrops) {
+              const currencies = (state.currencies ?? {}) as Record<string, number>;
+              for (const [key, val] of Object.entries(pendingLoot.currencyDrops)) {
+                currencies[key] = (currencies[key] || 0) + val;
+              }
+            }
+            if (pendingLoot.materials) {
+              const materials = (state.materials ?? {}) as Record<string, number>;
+              for (const [key, val] of Object.entries(pendingLoot.materials)) {
+                materials[key] = (materials[key] || 0) + val;
+              }
+            }
+            if (pendingLoot.goldGained) {
+              state.gold = (state.gold || 0) + pendingLoot.goldGained;
+            }
+            if (pendingLoot.bagDrops) {
+              const bagStash = (state.bagStash ?? {}) as Record<string, number>;
+              for (const [key, val] of Object.entries(pendingLoot.bagDrops)) {
+                bagStash[key] = (bagStash[key] || 0) + val;
+              }
+            }
+          }
+
+          // Remove old fields
+          delete raw.pendingLoot;
+          delete raw.focusMode;
         }
 
         return state;

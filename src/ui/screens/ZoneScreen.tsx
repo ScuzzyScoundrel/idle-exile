@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { useGameStore } from '../../store/gameStore';
+import { useGameStore, ProcessClearsResult } from '../../store/gameStore';
 import { ZONE_DEFS, BAND_NAMES } from '../../data/zones';
 import { checkZoneMastery } from '../../engine/zones';
-import { ZoneDef, Rarity } from '../../types';
-import { BAG_UPGRADE_DEFS, calcBagCapacity } from '../../data/items';
+import { canGatherInZone, getGatheringSkillRequirement, calcGatheringXpRequired } from '../../engine/gathering';
+import { GATHERING_PROFESSION_DEFS } from '../../data/gatheringProfessions';
+import { ZoneDef, Rarity, IdleMode, GatheringProfession } from '../../types';
+import { calcBagCapacity } from '../../data/items';
 import AbilityBar from '../components/AbilityBar';
-import FocusModeSelector from '../components/FocusModeSelector';
 
 // Band visual theming
 const BAND_GRADIENTS: Record<number, string> = {
@@ -59,7 +60,7 @@ const HAZARD_STAT_MAP: Record<string, string> = {
   chaos: 'chaosResist',
 };
 
-// Rarity color classes for item names in loot feed
+// Rarity color classes
 const RARITY_TEXT: Record<Rarity, string> = {
   common: 'text-green-400',
   uncommon: 'text-blue-400',
@@ -68,17 +69,14 @@ const RARITY_TEXT: Record<Rarity, string> = {
   legendary: 'text-orange-400',
 };
 
-// A single clear entry for the loot feed
-interface ClearEntry {
-  id: number;
-  clearNumber: number;
-  items: { name: string; rarity: Rarity }[];
-  hadCurrency: boolean;
-  hadMaterial: boolean;
-  hadBag: boolean;
-  overflow: boolean;
-  timestamp: number;
-}
+// Gathering profession icons
+const PROFESSION_ICONS: Record<GatheringProfession, string> = {
+  mining: '\u26CF\uFE0F',
+  herbalism: '\uD83C\uDF3F',
+  skinning: '\uD83E\uDE93',
+  logging: '\uD83E\uDEB5',
+  fishing: '\uD83C\uDFA3',
+};
 
 /** Format seconds into a human-readable duration. */
 function formatClearTime(seconds: number): string {
@@ -95,7 +93,56 @@ function formatClearTime(seconds: number): string {
   return `${d}d ${h}h`;
 }
 
-let clearIdCounter = 0;
+// --- Session Summary ---
+interface SessionSummary {
+  totalClears: number;
+  goldEarned: number;
+  materials: Record<string, number>;
+  currencies: Record<string, number>;
+  itemsByRarity: Record<Rarity, number>;
+  itemsSalvaged: number;
+  dustEarned: number;
+  gatheringXp: number;
+}
+
+function emptySession(): SessionSummary {
+  return {
+    totalClears: 0,
+    goldEarned: 0,
+    materials: {},
+    currencies: {},
+    itemsByRarity: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0 },
+    itemsSalvaged: 0,
+    dustEarned: 0,
+    gatheringXp: 0,
+  };
+}
+
+function accumulateSession(session: SessionSummary, result: ProcessClearsResult, clearCount: number): SessionSummary {
+  const s = { ...session };
+  s.totalClears += clearCount;
+  s.goldEarned += result.goldGained;
+  s.dustEarned += result.dustGained;
+  s.itemsSalvaged += result.overflowCount;
+  s.gatheringXp += result.gatheringXpGained ?? 0;
+
+  s.materials = { ...s.materials };
+  for (const [k, v] of Object.entries(result.materialDrops)) {
+    s.materials[k] = (s.materials[k] || 0) + v;
+  }
+
+  s.currencies = { ...s.currencies };
+  for (const [k, v] of Object.entries(result.currencyDrops)) {
+    if (v > 0) s.currencies[k] = (s.currencies[k] || 0) + v;
+  }
+
+  s.itemsByRarity = { ...s.itemsByRarity };
+  for (const it of result.items) {
+    s.itemsByRarity[it.rarity] = (s.itemsByRarity[it.rarity] || 0) + 1;
+  }
+
+  return s;
+}
 
 // --- Zone Card Component ---
 interface ZoneCardProps {
@@ -107,10 +154,24 @@ interface ZoneCardProps {
   isUnlocked: boolean;
   hasMastery: boolean;
   playerStats: Record<string, number>;
+  charLevel: number;
+  idleMode: IdleMode;
+  selectedProfession: GatheringProfession | null;
+  gatheringSkillLevel: number;
   onSelect: () => void;
 }
 
-function ZoneCard({ zone, band, isBoss, isSelected, isActive, isUnlocked, hasMastery, playerStats, onSelect }: ZoneCardProps) {
+function ZoneCard({
+  zone, band, isBoss, isSelected, isActive, isUnlocked, hasMastery,
+  playerStats, charLevel, idleMode, selectedProfession, gatheringSkillLevel, onSelect,
+}: ZoneCardProps) {
+  const underleveled = charLevel < zone.recommendedLevel;
+  const skillReq = getGatheringSkillRequirement(zone.band);
+  const skillTooLow = idleMode === 'gathering' && selectedProfession && gatheringSkillLevel < skillReq;
+  const hasMatchingProfession = idleMode === 'gathering' && selectedProfession
+    ? zone.gatheringTypes.includes(selectedProfession)
+    : true;
+
   return (
     <button
       onClick={onSelect}
@@ -123,16 +184,17 @@ function ZoneCard({ zone, band, isBoss, isSelected, isActive, isUnlocked, hasMas
           : isSelected
             ? 'border-yellow-400 ring-2 ring-yellow-400/50'
             : `${BAND_BORDERS[band]} hover:brightness-125`}
+        ${idleMode === 'gathering' && !hasMatchingProfession ? 'opacity-30' : ''}
       `}
     >
       {/* Gradient background */}
       <div className={`absolute inset-0 ${BAND_GRADIENTS[band]}`} />
       {/* Dark overlay for readability */}
-      <div className="absolute inset-0 bg-black/30" />
+      <div className={`absolute inset-0 ${skillTooLow ? 'bg-red-950/50' : 'bg-black/30'}`} />
 
       {/* Card content */}
       <div className="relative h-full flex flex-col justify-between p-3">
-        {/* Top: name + hazards + mastery */}
+        {/* Top: name + hazards + mastery + level badge */}
         <div>
           <div className="flex items-center gap-1.5">
             {isBoss && <span className="text-base" title="Boss Zone">{'\u{1F451}'}</span>}
@@ -140,10 +202,16 @@ function ZoneCard({ zone, band, isBoss, isSelected, isActive, isUnlocked, hasMas
             <span className={`font-bold text-sm flex-1 ${isBoss ? 'text-yellow-300' : 'text-white'}`}>
               {zone.name}
             </span>
-            {hasMastery && (
-              <span className="text-green-400 text-xs font-bold px-1 bg-green-400/10 rounded" title="Zone Mastery — all thresholds met">{'\u2713'} Mastery</span>
+            {/* Level badge */}
+            <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
+              underleveled ? 'bg-red-900/60 text-red-300' : 'bg-black/30 text-gray-400'
+            }`}>
+              Lv.{zone.recommendedLevel}
+            </span>
+            {hasMastery && idleMode === 'combat' && (
+              <span className="text-green-400 text-xs font-bold px-1 bg-green-400/10 rounded" title="Zone Mastery">{'\u2713'}</span>
             )}
-            {zone.hazards.map((h, i) => {
+            {idleMode === 'combat' && zone.hazards.map((h, i) => {
               const resist = playerStats[HAZARD_STAT_MAP[h.type]] ?? 0;
               const below = resist < h.threshold;
               return (
@@ -157,15 +225,31 @@ function ZoneCard({ zone, band, isBoss, isSelected, isActive, isUnlocked, hasMas
               );
             })}
           </div>
+          {underleveled && (
+            <div className="text-[10px] text-red-400 mt-0.5">Underleveled</div>
+          )}
+          {skillTooLow && (
+            <div className="text-[10px] text-red-400 mt-0.5">Skill too low (need {skillReq})</div>
+          )}
         </div>
 
         {/* Middle: description */}
         <div className="text-xs text-gray-300/80 leading-snug">{zone.description}</div>
 
-        {/* Bottom: iLvl + materials */}
+        {/* Bottom: iLvl + materials + gathering types */}
         <div className="flex items-center gap-2 text-[11px] text-gray-400">
           <span className="bg-black/30 rounded px-1.5 py-0.5">iLvl {zone.iLvlMin}-{zone.iLvlMax}</span>
-          <span className="truncate">{zone.materialDrops.join(', ')}</span>
+          {idleMode === 'gathering' ? (
+            <span className="flex gap-1">
+              {zone.gatheringTypes.map(gt => (
+                <span key={gt} className={selectedProfession === gt ? 'text-yellow-300' : ''} title={gt}>
+                  {PROFESSION_ICONS[gt]}
+                </span>
+              ))}
+            </span>
+          ) : (
+            <span className="truncate">{zone.materialDrops.join(', ')}</span>
+          )}
         </div>
       </div>
     </button>
@@ -174,22 +258,26 @@ function ZoneCard({ zone, band, isBoss, isSelected, isActive, isUnlocked, hasMas
 
 export default function ZoneScreen() {
   const {
-    character, pendingLoot, inventory, bagSlots,
-    currentZoneId, idleStartTime,
-    startIdleRun, processNewClears, collectIdleResults, stopIdleRun, grantIdleXp, getEstimatedClearTime,
+    character, inventory, bagSlots,
+    currentZoneId, idleStartTime, idleMode,
+    gatheringSkills, selectedGatheringProfession,
+    startIdleRun, processNewClears, stopIdleRun, grantIdleXp, getEstimatedClearTime,
+    setIdleMode, setGatheringProfession,
   } = useGameStore();
 
   const inventoryCapacity = calcBagCapacity(bagSlots);
 
   const [selectedZone, setSelectedZone] = useState(currentZoneId || ZONE_DEFS[0].id);
   const [elapsed, setElapsed] = useState(0);
-  const [lastResults, setLastResults] = useState<{ gold: number; clears: number; bagDrops: Record<string, number> } | null>(null);
-  const [lootFeed, setLootFeed] = useState<ClearEntry[]>([]);
-  const [bankedMsg, setBankedMsg] = useState<string | null>(null);
-  const [expandedBand, setExpandedBand] = useState<number | null>(1);
+  const [selectedBand, setSelectedBand] = useState<number>(() => {
+    if (currentZoneId) {
+      const z = ZONE_DEFS.find(z => z.id === currentZoneId);
+      return z?.band ?? 1;
+    }
+    return 1;
+  });
+  const [session, setSession] = useState<SessionSummary>(emptySession);
   const lastClearCount = useRef(0);
-  const feedRef = useRef<HTMLDivElement>(null);
-  const bankedMsgTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [salvageTally, setSalvageTally] = useState({ count: 0, dust: 0 });
 
   const isRunning = idleStartTime !== null;
@@ -209,32 +297,22 @@ export default function ZoneScreen() {
     return () => clearInterval(interval);
   }, [isRunning, idleStartTime]);
 
-  // Real-time loot processing: call processNewClears when new clears detected
+  // Real-time loot processing
   useEffect(() => {
     if (!isRunning || !runningZone) return;
     const currentClears = Math.floor(elapsed / runningClearTime);
     if (currentClears > lastClearCount.current) {
       const newClears = currentClears - lastClearCount.current;
-      // Grant XP
-      grantIdleXp(10 * runningZone.band * newClears);
-      // Process real drops — items go into bags immediately
+
+      // Grant character XP only in combat mode
+      if (idleMode === 'combat') {
+        grantIdleXp(10 * runningZone.band * newClears);
+      }
+
+      // Process drops (branches on idleMode internally)
       const result = processNewClears(newClears);
-      // Build feed entries (one per clear batch)
       if (result) {
-        const hasCurrency = Object.values(result.currencyDrops).some(v => v > 0);
-        const hasBag = Object.keys(result.bagDrops).length > 0;
-        const entry: ClearEntry = {
-          id: clearIdCounter++,
-          clearNumber: currentClears,
-          items: result.items,
-          hadCurrency: hasCurrency,
-          hadMaterial: true,
-          hadBag: hasBag,
-          overflow: result.overflowCount > 0,
-          timestamp: Date.now(),
-        };
-        setLootFeed((prev) => [entry, ...prev].slice(0, 50));
-        // Accumulate salvage tally
+        setSession(prev => accumulateSession(prev, result, newClears));
         if (result.overflowCount > 0) {
           setSalvageTally(prev => ({
             count: prev.count + result.overflowCount,
@@ -243,152 +321,201 @@ export default function ZoneScreen() {
         }
       }
       lastClearCount.current = currentClears;
-      if (feedRef.current) feedRef.current.scrollTop = 0;
     }
-  }, [elapsed, runningClearTime, isRunning, runningZone, grantIdleXp, processNewClears]);
+  }, [elapsed, runningClearTime, isRunning, runningZone, idleMode, grantIdleXp, processNewClears]);
 
-  useEffect(() => {
-    return () => { if (bankedMsgTimer.current) clearTimeout(bankedMsgTimer.current); };
-  }, []);
-
-  const showBankedMsg = (clears: number) => {
-    if (clears <= 0) return;
-    setBankedMsg(`${clears} clears banked — press Collect Resources to claim`);
-    if (bankedMsgTimer.current) clearTimeout(bankedMsgTimer.current);
-    bankedMsgTimer.current = setTimeout(() => setBankedMsg(null), 3000);
-  };
-
-  const toggleBand = (band: number) => {
-    setExpandedBand(prev => prev === band ? null : band);
-  };
-
-  // Check if a zone is unlocked (all previous zones accessible)
-  const isZoneUnlocked = (z: ZoneDef): boolean => {
-    if (!z.unlockRequirement) return true;
-    // For now, all zones are unlocked (future: track completion)
-    return true;
+  // Check if a zone is unlocked
+  const isZoneUnlocked = (_z: ZoneDef): boolean => {
+    return true; // Future: track completion
   };
 
   const handleStart = () => {
-    setLastResults(null);
-    setLootFeed([]);
+    setSession(emptySession());
     lastClearCount.current = 0;
     setSalvageTally({ count: 0, dust: 0 });
-    const prev = startIdleRun(selectedZone);
-    if (prev) showBankedMsg(prev.bankedClears);
-  };
-
-  const handleCollect = () => {
-    const results = collectIdleResults();
-    if (results) {
-      setLastResults({
-        gold: results.gold,
-        clears: results.clearsCompleted,
-        bagDrops: results.bagDrops,
-      });
-      setLootFeed([]);
-      lastClearCount.current = 0;
-      setSalvageTally({ count: 0, dust: 0 });
-      setElapsed(0);
-    }
+    startIdleRun(selectedZone);
   };
 
   const handleStop = () => {
-    const results = stopIdleRun();
-    if (results) {
-      setLastResults({
-        gold: results.gold,
-        clears: results.clearsCompleted,
-        bagDrops: results.bagDrops,
-      });
-    }
-    setLootFeed([]);
+    stopIdleRun();
+    setElapsed(0);
+    lastClearCount.current = 0;
+  };
+
+  const handleModeSwitch = (mode: IdleMode) => {
+    if (mode === idleMode) return;
+    setSession(emptySession());
     lastClearCount.current = 0;
     setSalvageTally({ count: 0, dust: 0 });
     setElapsed(0);
+    setIdleMode(mode);
   };
 
   const currentClears = isRunning ? Math.floor(elapsed / runningClearTime) : 0;
 
-  // Group zones by band
+  // Band zones
   const bands = [1, 2, 3, 4, 5, 6];
+  const bandZones = ZONE_DEFS.filter(z => z.band === selectedBand);
+  const gridZones = bandZones.filter((_, i) => i < 4);
+  const bossZone = bandZones[4] ?? null;
+
+  // Current gathering skill level for selected profession
+  const currentGatheringLevel = selectedGatheringProfession
+    ? gatheringSkills[selectedGatheringProfession].level
+    : 0;
+  const currentGatheringXp = selectedGatheringProfession
+    ? gatheringSkills[selectedGatheringProfession].xp
+    : 0;
+  const gatheringXpToNext = selectedGatheringProfession
+    ? calcGatheringXpRequired(gatheringSkills[selectedGatheringProfession].level)
+    : 100;
 
   return (
     <div className="space-y-3">
       <h2 className="text-lg font-bold text-yellow-400">Zones</h2>
 
-      {/* Focus Mode Toggle */}
-      <FocusModeSelector />
+      {/* Combat / Gathering Toggle */}
+      <div className="flex gap-1 bg-gray-800 rounded-lg p-1">
+        <button
+          onClick={() => handleModeSwitch('combat')}
+          className={`flex-1 py-2 px-3 rounded-md text-sm font-bold transition-all ${
+            idleMode === 'combat'
+              ? 'bg-red-600 text-white'
+              : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+          }`}
+        >
+          {'\u2694\uFE0F'} Combat
+        </button>
+        <button
+          onClick={() => handleModeSwitch('gathering')}
+          className={`flex-1 py-2 px-3 rounded-md text-sm font-bold transition-all ${
+            idleMode === 'gathering'
+              ? 'bg-green-600 text-white'
+              : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+          }`}
+        >
+          {'\u26CF\uFE0F'} Gathering
+        </button>
+      </div>
 
-      {/* Band-grouped zone grid */}
-      {bands.map((band) => {
-        const bandZones = ZONE_DEFS.filter(z => z.band === band);
-        const isExpanded = expandedBand === band;
-        const gridZones = bandZones.filter((_, i) => i < 4);
-        const bossZone = bandZones[4] ?? null;
-
-        return (
-          <div key={band} className="rounded-lg overflow-hidden">
-            {/* Band header */}
-            <button
-              onClick={() => toggleBand(band)}
-              className={`w-full flex items-center justify-between px-4 py-2.5 text-sm font-bold transition-colors ${BAND_GRADIENTS[band]} hover:brightness-110`}
-            >
-              <span className="flex items-center gap-2">
-                <span className="text-lg">{BAND_EMOJIS[band]}</span>
-                <span className="text-yellow-300">Band {band}</span>
-                <span className="text-white/70">{BAND_NAMES[band]}</span>
-                <span className="text-white/40 text-xs">iLvl {bandZones[0]?.iLvlMin}-{bandZones[bandZones.length - 1]?.iLvlMax}</span>
-              </span>
-              <span className="text-white/50 text-xs">{isExpanded ? '\u25B2' : '\u25BC'}</span>
-            </button>
-
-            {/* Zone cards */}
-            {isExpanded && (
-              <div className="bg-gray-900/50 p-3 space-y-3">
-                {/* 2x2 grid for first 4 zones */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {gridZones.map((z) => (
-                    <ZoneCard
-                      key={z.id}
-                      zone={z}
-                      band={band}
-                      isBoss={false}
-                      isSelected={selectedZone === z.id}
-                      isActive={isRunning && currentZoneId === z.id}
-                      isUnlocked={isZoneUnlocked(z)}
-                      hasMastery={z.hazards.length > 0 && checkZoneMastery(character.stats, z)}
-                      playerStats={character.stats as Record<string, number>}
-                      onSelect={() => isZoneUnlocked(z) && setSelectedZone(z.id)}
-                    />
-                  ))}
-                </div>
-
-                {/* Boss zone — full width */}
-                {bossZone && (
-                  <ZoneCard
-                    zone={bossZone}
-                    band={band}
-                    isBoss={true}
-                    isSelected={selectedZone === bossZone.id}
-                    isActive={isRunning && currentZoneId === bossZone.id}
-                    isUnlocked={isZoneUnlocked(bossZone)}
-                    hasMastery={bossZone.hazards.length > 0 && checkZoneMastery(character.stats, bossZone)}
-                    playerStats={character.stats as Record<string, number>}
-                    onSelect={() => isZoneUnlocked(bossZone) && setSelectedZone(bossZone.id)}
-                  />
-                )}
-              </div>
-            )}
+      {/* Gathering Profession Selector */}
+      {idleMode === 'gathering' && (
+        <div className="space-y-2">
+          <div className="flex gap-1 bg-gray-800/50 rounded-lg p-1">
+            {GATHERING_PROFESSION_DEFS.map(prof => {
+              const skill = gatheringSkills[prof.id];
+              const isActive = selectedGatheringProfession === prof.id;
+              return (
+                <button
+                  key={prof.id}
+                  onClick={() => setGatheringProfession(prof.id)}
+                  className={`flex-1 py-1.5 px-1 rounded-md text-xs font-semibold transition-all ${
+                    isActive
+                      ? 'bg-green-600 text-white'
+                      : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                  }`}
+                  title={prof.description}
+                >
+                  <span className="block text-center">
+                    <span className="text-sm">{PROFESSION_ICONS[prof.id]}</span>
+                    <span className="block text-[10px] mt-0.5">{prof.name}</span>
+                    <span className="block text-[9px] opacity-70">Lv.{skill.level}</span>
+                  </span>
+                </button>
+              );
+            })}
           </div>
-        );
-      })}
+
+          {/* Gathering skill XP bar */}
+          {selectedGatheringProfession && (
+            <div className="bg-gray-800 rounded-lg px-3 py-2">
+              <div className="flex justify-between text-xs mb-1">
+                <span className="text-green-400 font-semibold">
+                  {PROFESSION_ICONS[selectedGatheringProfession]} {selectedGatheringProfession.charAt(0).toUpperCase() + selectedGatheringProfession.slice(1)} Lv.{currentGatheringLevel}
+                </span>
+                <span className="text-gray-500">{currentGatheringXp}/{gatheringXpToNext} XP</span>
+              </div>
+              <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-green-500 rounded-full transition-all duration-300"
+                  style={{ width: `${(currentGatheringXp / gatheringXpToNext) * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Band Tabs */}
+      <div className="flex gap-1 overflow-x-auto pb-1">
+        {bands.map(band => (
+          <button
+            key={band}
+            onClick={() => setSelectedBand(band)}
+            className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+              selectedBand === band
+                ? `${BAND_GRADIENTS[band]} text-white ring-1 ring-yellow-400/50`
+                : 'bg-gray-800 text-gray-500 hover:text-gray-300'
+            }`}
+          >
+            {BAND_EMOJIS[band]} Band {band}
+          </button>
+        ))}
+      </div>
+
+      {/* Band Name */}
+      <div className="text-xs text-gray-500 -mt-1 px-1">
+        {BAND_NAMES[selectedBand]}
+        <span className="text-gray-600 ml-2">iLvl {bandZones[0]?.iLvlMin}-{bandZones[bandZones.length - 1]?.iLvlMax}</span>
+      </div>
+
+      {/* Zone Cards */}
+      <div className="space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {gridZones.map((z) => (
+            <ZoneCard
+              key={z.id}
+              zone={z}
+              band={selectedBand}
+              isBoss={false}
+              isSelected={selectedZone === z.id}
+              isActive={isRunning && currentZoneId === z.id}
+              isUnlocked={isZoneUnlocked(z)}
+              hasMastery={z.hazards.length > 0 && checkZoneMastery(character.stats, z)}
+              playerStats={character.stats as Record<string, number>}
+              charLevel={character.level}
+              idleMode={idleMode}
+              selectedProfession={selectedGatheringProfession}
+              gatheringSkillLevel={currentGatheringLevel}
+              onSelect={() => isZoneUnlocked(z) && setSelectedZone(z.id)}
+            />
+          ))}
+        </div>
+
+        {bossZone && (
+          <ZoneCard
+            zone={bossZone}
+            band={selectedBand}
+            isBoss={true}
+            isSelected={selectedZone === bossZone.id}
+            isActive={isRunning && currentZoneId === bossZone.id}
+            isUnlocked={isZoneUnlocked(bossZone)}
+            hasMastery={bossZone.hazards.length > 0 && checkZoneMastery(character.stats, bossZone)}
+            playerStats={character.stats as Record<string, number>}
+            charLevel={character.level}
+            idleMode={idleMode}
+            selectedProfession={selectedGatheringProfession}
+            gatheringSkillLevel={currentGatheringLevel}
+            onSelect={() => isZoneUnlocked(bossZone) && setSelectedZone(bossZone.id)}
+          />
+        )}
+      </div>
 
       {/* Clear Time Estimate */}
       <div className="text-xs text-gray-400 bg-gray-800 rounded-lg p-2">
         Est. clear time: <span className={`font-mono ${clearTime > 3600 ? 'text-red-400' : clearTime > 300 ? 'text-yellow-400' : 'text-white'}`}>{formatClearTime(clearTime)}</span>
         {' '}&bull;{' '}iLvl: <span className="text-white">{zone.iLvlMin}-{zone.iLvlMax}</span>
-        {zone.hazards.length > 0 && (
+        {idleMode === 'combat' && zone.hazards.length > 0 && (
           <span className="ml-2">
             {zone.hazards.map((h, i) => {
               const playerResist = (character.stats as Record<string, number>)[HAZARD_STAT_MAP[h.type]] ?? 0;
@@ -401,15 +528,30 @@ export default function ZoneScreen() {
             })}
           </span>
         )}
+        {idleMode === 'gathering' && selectedGatheringProfession && (
+          <span className="ml-2 text-green-400">
+            {PROFESSION_ICONS[selectedGatheringProfession]} Skill: {currentGatheringLevel}
+            {!canGatherInZone(currentGatheringLevel, zone) && (
+              <span className="text-red-400 ml-1">(need {getGatheringSkillRequirement(zone.band)})</span>
+            )}
+          </span>
+        )}
       </div>
 
       {/* Start / Running State */}
       {!isRunning ? (
         <button
           onClick={handleStart}
-          className="w-full py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded-lg text-lg transition-all"
+          disabled={idleMode === 'gathering' && !selectedGatheringProfession}
+          className={`w-full py-3 font-bold rounded-lg text-lg transition-all ${
+            idleMode === 'gathering' && !selectedGatheringProfession
+              ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+              : idleMode === 'gathering'
+                ? 'bg-green-600 hover:bg-green-500 text-white'
+                : 'bg-green-600 hover:bg-green-500 text-white'
+          }`}
         >
-          Start Idle Run
+          {idleMode === 'gathering' ? 'Start Gathering' : 'Start Idle Run'}
         </button>
       ) : (
         <div className="space-y-2">
@@ -427,25 +569,29 @@ export default function ZoneScreen() {
             <div className="flex justify-between text-sm mb-1">
               <span className="text-gray-300">
                 {runningZone?.name}
+                {idleMode === 'gathering' && selectedGatheringProfession && (
+                  <span className="text-green-400 ml-2 text-xs">
+                    {PROFESSION_ICONS[selectedGatheringProfession]} Gathering
+                  </span>
+                )}
               </span>
               <span className="text-yellow-400 font-mono">{Math.floor(elapsed)}s</span>
             </div>
             <div className="h-2 bg-gray-700 rounded-full overflow-hidden mb-1">
               <div
-                className="h-full bg-green-500 rounded-full transition-all duration-200"
+                className={`h-full rounded-full transition-all duration-200 ${
+                  idleMode === 'gathering' ? 'bg-green-500' : 'bg-green-500'
+                }`}
                 style={{ width: `${((elapsed % runningClearTime) / runningClearTime) * 100}%` }}
               />
             </div>
             <div className="text-xs text-gray-400">
               Clears: <span className="text-white font-semibold">{currentClears}</span>
-              {pendingLoot.clearsCompleted > 0 && (
-                <span className="text-yellow-500 ml-1">(+{pendingLoot.clearsCompleted} banked)</span>
-              )}
             </div>
           </div>
 
-          {/* Ability Bar */}
-          <AbilityBar />
+          {/* Ability Bar (combat mode only) */}
+          {idleMode === 'combat' && <AbilityBar />}
 
           {/* Bags status + overflow warning */}
           {isRunning && (
@@ -467,65 +613,89 @@ export default function ZoneScreen() {
               </div>
               {inventory.length >= inventoryCapacity && (
                 <div className="text-amber-400/80 text-[10px] mt-0.5">
-                  Gear drops are being auto-salvaged into materials. Upgrade your bags or disenchant items to make room.
+                  Gear drops are being auto-salvaged. Upgrade bags or disenchant items.
                 </div>
               )}
             </div>
           )}
 
-          {/* Live Loot Feed */}
-          {lootFeed.length > 0 && (
-            <div className="bg-gray-900 rounded-lg border border-gray-700 overflow-hidden">
-              <div className="px-2 py-1 bg-gray-800 border-b border-gray-700 flex items-center gap-1">
-                <span className="text-xs font-semibold text-gray-300">{'\u{1F392}'} Loot Feed</span>
-                <span className="text-[10px] text-gray-500 ml-auto">{lootFeed.length} entries</span>
+          {/* Session Summary */}
+          {session.totalClears > 0 && (
+            <div className="bg-gray-900 rounded-lg border border-gray-700 p-3 space-y-2">
+              <div className="text-xs font-bold text-gray-300">Session Summary</div>
+
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                <span className="text-gray-500">Clears</span>
+                <span className="text-white font-semibold">{session.totalClears}</span>
+
+                {session.goldEarned > 0 && (
+                  <>
+                    <span className="text-gray-500">Gold</span>
+                    <span className="text-yellow-400">+{session.goldEarned}</span>
+                  </>
+                )}
+
+                {session.gatheringXp > 0 && (
+                  <>
+                    <span className="text-gray-500">Gathering XP</span>
+                    <span className="text-green-400">+{session.gatheringXp}</span>
+                  </>
+                )}
               </div>
-              <div
-                ref={feedRef}
-                className="max-h-40 overflow-y-auto p-1 space-y-0.5"
-              >
-                {lootFeed.map((entry) => (
-                  <div
-                    key={entry.id}
-                    className="flex items-center gap-1.5 px-1.5 py-0.5 rounded text-xs"
-                  >
-                    <span className="text-gray-500 font-mono text-[10px] w-8 flex-shrink-0">
-                      #{entry.clearNumber}
-                    </span>
-                    <span className="flex gap-1 items-center flex-1 min-w-0">
-                      {entry.items.length > 0 ? (
-                        entry.items.map((it, i) => (
-                          <span key={i} className={`${RARITY_TEXT[it.rarity]} truncate text-[11px]`}>
-                            {'\u{1F6E1}\uFE0F'}{it.name}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-gray-600 text-[10px]">mats + xp</span>
-                      )}
-                      {entry.hadCurrency && <span title="Currency drop">{'\u{1F48E}'}</span>}
-                      {entry.hadBag && <span title="Bag drop!" className="text-yellow-400">{'\u{1F392}'}</span>}
-                    </span>
-                    {entry.overflow && (
-                      <span className="text-amber-400 text-[10px] flex-shrink-0">(bags full)</span>
-                    )}
+
+              {/* Materials */}
+              {Object.keys(session.materials).length > 0 && (
+                <div className="text-xs">
+                  <span className="text-gray-500">Materials:</span>
+                  <div className="flex flex-wrap gap-1 mt-0.5">
+                    {Object.entries(session.materials).map(([mat, count]) => (
+                      <span key={mat} className="bg-gray-800 rounded px-1.5 py-0.5 text-[10px] text-gray-300">
+                        {mat.replace(/_/g, ' ')} <span className="text-white">x{count}</span>
+                      </span>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
+
+              {/* Currencies */}
+              {Object.keys(session.currencies).length > 0 && (
+                <div className="text-xs">
+                  <span className="text-gray-500">Currencies:</span>
+                  <div className="flex flex-wrap gap-1 mt-0.5">
+                    {Object.entries(session.currencies).map(([curr, count]) => (
+                      <span key={curr} className="bg-gray-800 rounded px-1.5 py-0.5 text-[10px] text-purple-300">
+                        {curr} <span className="text-white">x{count}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Items by rarity */}
+              {Object.values(session.itemsByRarity).some(v => v > 0) && (
+                <div className="text-xs">
+                  <span className="text-gray-500">Items:</span>
+                  <div className="flex flex-wrap gap-1 mt-0.5">
+                    {(['legendary', 'epic', 'rare', 'uncommon', 'common'] as Rarity[]).map(r => {
+                      const count = session.itemsByRarity[r];
+                      if (count === 0) return null;
+                      return (
+                        <span key={r} className={`${RARITY_TEXT[r]} text-[10px]`}>
+                          {count} {r}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {session.itemsSalvaged > 0 && (
+                <div className="text-[10px] text-amber-400">
+                  {session.itemsSalvaged} items auto-salvaged (+{session.dustEarned} dust)
+                </div>
+              )}
             </div>
           )}
-
-          <button
-            onClick={handleCollect}
-            disabled={pendingLoot.clearsCompleted === 0}
-            className={`
-              w-full py-3 font-bold rounded-lg text-lg transition-all
-              ${pendingLoot.clearsCompleted > 0
-                ? 'bg-yellow-600 hover:bg-yellow-500 text-black'
-                : 'bg-gray-700 text-gray-500 cursor-not-allowed'}
-            `}
-          >
-            Collect Resources ({pendingLoot.clearsCompleted} clears)
-          </button>
 
           <button
             onClick={handleStop}
@@ -533,38 +703,6 @@ export default function ZoneScreen() {
           >
             Stop Run
           </button>
-        </div>
-      )}
-
-      {/* Banked Loot Notification */}
-      {bankedMsg && (
-        <div className="bg-yellow-950 border border-yellow-700 rounded-lg p-2 text-xs text-yellow-300 animate-pulse">
-          {bankedMsg}
-        </div>
-      )}
-
-      {/* Last Collection Results */}
-      {lastResults && (
-        <div className="bg-gray-800 rounded-lg p-3 space-y-2">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-green-400">Resources Collected!</h3>
-            <button
-              onClick={() => setLastResults(null)}
-              className="text-gray-500 hover:text-white text-lg leading-none px-1"
-              title="Dismiss"
-            >&times;</button>
-          </div>
-          <div className="text-xs text-gray-300">
-            +{lastResults.gold} Gold from {lastResults.clears} clears
-          </div>
-          {Object.keys(lastResults.bagDrops).length > 0 && (
-            <div className="text-xs text-yellow-300">
-              {Object.entries(lastResults.bagDrops).map(([id, count]) => {
-                const def = BAG_UPGRADE_DEFS.find(b => b.id === id);
-                return <div key={id}>+{count} {def?.name ?? id} (check Inventory &rarr; Consumables)</div>;
-              })}
-            </div>
-          )}
         </div>
       )}
     </div>
