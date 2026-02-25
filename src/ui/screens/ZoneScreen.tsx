@@ -70,6 +70,22 @@ const RARITY_TEXT: Record<Rarity, string> = {
   legendary: 'text-orange-400',
 };
 
+const RARITY_BORDER: Record<Rarity, string> = {
+  common: 'border-gray-600',
+  uncommon: 'border-green-600',
+  rare: 'border-blue-600',
+  epic: 'border-purple-600',
+  legendary: 'border-orange-600',
+};
+
+const RARITY_BG: Record<Rarity, string> = {
+  common: 'bg-gray-700/50',
+  uncommon: 'bg-green-900/40',
+  rare: 'bg-blue-900/40',
+  epic: 'bg-purple-900/40',
+  legendary: 'bg-orange-900/40',
+};
+
 // Gathering profession icons
 const PROFESSION_ICONS: Record<GatheringProfession, string> = {
   mining: '\u26CF\uFE0F',
@@ -289,6 +305,7 @@ export default function ZoneScreen() {
   const [session, setSession] = useState<SessionSummary>(emptySession);
   const lastClearCount = useRef(0);
   const [salvageTally, setSalvageTally] = useState({ count: 0, dust: 0 });
+  const modeSwitchingRef = useRef(false);
 
   const isRunning = idleStartTime !== null;
   const zone = ZONE_DEFS.find((z) => z.id === selectedZone)!;
@@ -309,7 +326,7 @@ export default function ZoneScreen() {
 
   // Real-time loot processing
   useEffect(() => {
-    if (!isRunning || !runningZone) return;
+    if (!isRunning || !runningZone || modeSwitchingRef.current) return;
     const currentClears = Math.floor(elapsed / runningClearTime);
     if (currentClears > lastClearCount.current) {
       const newClears = currentClears - lastClearCount.current;
@@ -354,11 +371,14 @@ export default function ZoneScreen() {
 
   const handleModeSwitch = (mode: IdleMode) => {
     if (mode === idleMode) return;
+    modeSwitchingRef.current = true;
+    stopIdleRun();
     setSession(emptySession());
     lastClearCount.current = 0;
     setSalvageTally({ count: 0, dust: 0 });
     setElapsed(0);
     setIdleMode(mode);
+    requestAnimationFrame(() => { modeSwitchingRef.current = false; });
   };
 
   const currentClears = isRunning ? Math.floor(elapsed / runningClearTime) : 0;
@@ -632,52 +652,62 @@ export default function ZoneScreen() {
           {/* Session Summary */}
           {session.totalClears > 0 && (
             <div className="bg-gray-900 rounded-lg border border-gray-700 p-3 space-y-2">
-              <div className="text-xs font-bold text-gray-300">Session Summary</div>
+              {/* Clear count — prominent */}
+              <div className="text-center">
+                <div className="text-2xl font-bold text-white">{session.totalClears}</div>
+                <div className="text-[10px] text-gray-500 uppercase tracking-wide">Clears</div>
+              </div>
 
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                <span className="text-gray-500">Clears</span>
-                <span className="text-white font-semibold">{session.totalClears}</span>
-
+              {/* Stat row — gold / XP / items */}
+              <div className="grid grid-cols-3 gap-2">
                 {session.goldEarned > 0 && (
-                  <>
-                    <span className="text-gray-500">Gold</span>
-                    <span className="text-yellow-400">+{session.goldEarned}</span>
-                  </>
+                  <div className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-center">
+                    <div className="text-xs font-bold text-yellow-400">{session.goldEarned.toLocaleString()}</div>
+                    <div className="text-[10px] text-gray-500">Gold</div>
+                  </div>
                 )}
-
                 {session.gatheringXp > 0 && (
-                  <>
-                    <span className="text-gray-500">Gathering XP</span>
-                    <span className="text-green-400">+{session.gatheringXp}</span>
-                  </>
+                  <div className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-center">
+                    <div className="text-xs font-bold text-green-400">+{session.gatheringXp.toLocaleString()}</div>
+                    <div className="text-[10px] text-gray-500">Gather XP</div>
+                  </div>
+                )}
+                {Object.values(session.itemsByRarity).some(v => v > 0) && (
+                  <div className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-center">
+                    <div className="text-xs font-bold text-white">
+                      {Object.values(session.itemsByRarity).reduce((a, b) => a + b, 0)}
+                    </div>
+                    <div className="text-[10px] text-gray-500">Items</div>
+                  </div>
                 )}
               </div>
 
               {/* Materials */}
               {Object.keys(session.materials).length > 0 && (
-                <div className="text-xs">
-                  <span className="text-gray-500">Materials:</span>
-                  <div className="flex flex-wrap gap-1 mt-0.5">
+                <div>
+                  <div className="text-[10px] text-gray-500 mb-1">Materials</div>
+                  <div className="flex flex-wrap gap-1">
                     {Object.entries(session.materials).map(([mat, count]) => (
-                      <span key={mat} className="bg-gray-800 rounded px-1.5 py-0.5 text-[10px] text-gray-300">
-                        {mat.replace(/_/g, ' ')} <span className="text-white">x{count}</span>
+                      <span key={mat} className="bg-gray-800 rounded px-1.5 py-0.5 text-xs text-gray-300">
+                        {mat.replace(/_/g, ' ')} <span className="text-white font-semibold">x{count}</span>
                       </span>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* Rare Materials */}
+              {/* Rare Materials — highlighted cards */}
               {Object.keys(session.rareMaterials).length > 0 && (
-                <div className="text-xs">
-                  <span className="text-purple-400 font-semibold">Rare Finds:</span>
-                  <div className="flex flex-wrap gap-1 mt-0.5">
+                <div>
+                  <div className="text-[10px] text-purple-400 font-semibold mb-1">Rare Finds</div>
+                  <div className="flex flex-wrap gap-1">
                     {Object.entries(session.rareMaterials).map(([matId, count]) => {
                       const def = getRareMaterialDef(matId);
                       const rarityColor = def ? RARITY_TEXT[def.rarity as Rarity] ?? 'text-gray-300' : 'text-gray-300';
+                      const rarityBorder = def ? RARITY_BORDER[def.rarity as Rarity] ?? 'border-gray-600' : 'border-gray-600';
                       return (
-                        <span key={matId} className={`bg-gray-800 rounded px-1.5 py-0.5 text-[10px] ${rarityColor} animate-pulse`}>
-                          {def?.icon ?? ''} {def?.name ?? matId.replace(/_/g, ' ')} <span className="text-white">x{count}</span>
+                        <span key={matId} className={`bg-gray-800/80 border ${rarityBorder} rounded-md px-2 py-1 text-xs ${rarityColor} animate-pulse`}>
+                          {def?.icon ?? ''} {def?.name ?? matId.replace(/_/g, ' ')} <span className="text-white font-semibold">x{count}</span>
                         </span>
                       );
                     })}
@@ -685,30 +715,30 @@ export default function ZoneScreen() {
                 </div>
               )}
 
-              {/* Currencies */}
+              {/* Currencies — golden highlight */}
               {Object.keys(session.currencies).length > 0 && (
-                <div className="text-xs">
-                  <span className="text-gray-500">Currencies:</span>
-                  <div className="flex flex-wrap gap-1 mt-0.5">
+                <div>
+                  <div className="text-[10px] text-gray-500 mb-1">Currencies</div>
+                  <div className="flex flex-wrap gap-1">
                     {Object.entries(session.currencies).map(([curr, count]) => (
-                      <span key={curr} className="bg-gray-800 rounded px-1.5 py-0.5 text-[10px] text-purple-300">
-                        {curr} <span className="text-white">x{count}</span>
+                      <span key={curr} className="bg-yellow-900/30 border border-yellow-700/50 rounded px-2 py-0.5 text-xs text-yellow-300">
+                        {curr} <span className="text-white font-semibold">x{count}</span>
                       </span>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* Items by rarity */}
+              {/* Items by rarity — colored badges */}
               {Object.values(session.itemsByRarity).some(v => v > 0) && (
-                <div className="text-xs">
-                  <span className="text-gray-500">Items:</span>
-                  <div className="flex flex-wrap gap-1 mt-0.5">
+                <div>
+                  <div className="text-[10px] text-gray-500 mb-1">Items by Rarity</div>
+                  <div className="flex flex-wrap gap-1">
                     {(['legendary', 'epic', 'rare', 'uncommon', 'common'] as Rarity[]).map(r => {
                       const count = session.itemsByRarity[r];
                       if (count === 0) return null;
                       return (
-                        <span key={r} className={`${RARITY_TEXT[r]} text-[10px]`}>
+                        <span key={r} className={`${RARITY_BG[r]} ${RARITY_TEXT[r]} px-2 py-0.5 rounded-full text-xs font-semibold`}>
                           {count} {r}
                         </span>
                       );
@@ -717,9 +747,15 @@ export default function ZoneScreen() {
                 </div>
               )}
 
+              {/* Auto-salvage tally */}
               {session.itemsSalvaged > 0 && (
-                <div className="text-[10px] text-amber-400">
-                  {session.itemsSalvaged} items auto-salvaged (+{session.dustEarned} dust)
+                <div className="bg-amber-900/20 border border-amber-700/40 rounded px-2 py-1 flex items-center justify-between">
+                  <span className="text-xs text-amber-400">
+                    {session.itemsSalvaged} auto-salvaged
+                  </span>
+                  <span className="text-xs text-amber-300 font-semibold">
+                    +{session.dustEarned.toLocaleString()} dust
+                  </span>
                 </div>
               )}
             </div>

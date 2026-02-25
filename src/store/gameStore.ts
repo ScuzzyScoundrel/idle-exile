@@ -168,8 +168,9 @@ interface GameActions {
 
   // Crafting professions
   refineMaterial: (recipeId: string) => boolean;
+  refineMaterialBatch: (recipeId: string, count: number) => number;
   deconstructMaterial: (refinedId: string) => boolean;
-  craftRecipe: (recipeId: string, catalystId?: string) => { item: Item } | null;
+  craftRecipe: (recipeId: string, catalystId?: string) => { item: Item; wasSalvaged: boolean } | null;
 
   // Offline progression
   claimOfflineProgress: () => void;
@@ -182,6 +183,7 @@ interface GameActions {
 
   // Settings
   setAutoSalvageRarity: (rarity: Rarity) => void;
+  setCraftAutoSalvageRarity: (rarity: Rarity) => void;
 
   // Utility
   resetGame: () => void;
@@ -205,6 +207,7 @@ function createInitialState(): GameState {
     selectedGatheringProfession: null,
     craftingSkills: createDefaultCraftingSkills(),
     autoSalvageMinRarity: 'common',
+    craftAutoSalvageMinRarity: 'common',
     offlineProgress: null,
     equippedAbilities: [null, null, null, null],
     abilityTimers: [],
@@ -519,13 +522,7 @@ export const useGameStore = create<GameState & GameActions>()(
       },
 
       setIdleMode: (mode: IdleMode) => {
-        const state = get();
-        // Stop run if switching modes while running
-        if (state.idleStartTime) {
-          set({ idleStartTime: null, currentZoneId: null, idleMode: mode });
-        } else {
-          set({ idleMode: mode });
-        }
+        set({ idleStartTime: null, currentZoneId: null, idleMode: mode });
       },
 
       setGatheringProfession: (profession: GatheringProfession) => {
@@ -645,6 +642,30 @@ export const useGameStore = create<GameState & GameActions>()(
         return true;
       },
 
+      refineMaterialBatch: (recipeId: string, count: number) => {
+        if (count <= 0) return 0;
+        const state = get();
+        const recipe = REFINEMENT_RECIPES.find(r => r.id === recipeId);
+        if (!recipe) return 0;
+
+        let curMaterials = { ...state.materials };
+        let curGold = state.gold;
+        let crafted = 0;
+
+        for (let i = 0; i < count; i++) {
+          if (!canRefine(recipe, curMaterials, curGold)) break;
+          const { newMaterials, newGold } = refine(recipe, curMaterials, curGold);
+          curMaterials = newMaterials;
+          curGold = newGold;
+          crafted++;
+        }
+
+        if (crafted > 0) {
+          set({ materials: curMaterials, gold: curGold });
+        }
+        return crafted;
+      },
+
       deconstructMaterial: (refinedId: string) => {
         const state = get();
         if (!canDeconstruct(refinedId, state.materials)) return false;
@@ -682,11 +703,11 @@ export const useGameStore = create<GameState & GameActions>()(
         const xp = getCraftingXpForTier(recipe.tier);
         const newCraftingSkills = addCraftingXp(state.craftingSkills, recipe.profession, xp);
 
-        // Add item to inventory (overflow → auto-salvage)
-        const { newInventory, newMaterials: matsAfterItems } = addItemsWithOverflow(
+        // Add item to inventory (overflow → auto-salvage using craft threshold)
+        const { newInventory, newMaterials: matsAfterItems, salvageStats } = addItemsWithOverflow(
           state.inventory,
           getInventoryCapacity(state),
-          state.autoSalvageMinRarity,
+          state.craftAutoSalvageMinRarity,
           newMaterials,
           [item],
         );
@@ -698,7 +719,7 @@ export const useGameStore = create<GameState & GameActions>()(
           inventory: newInventory,
         });
 
-        return { item };
+        return { item, wasSalvaged: salvageStats.itemsSalvaged > 0 };
       },
 
       claimOfflineProgress: () => {
@@ -824,13 +845,17 @@ export const useGameStore = create<GameState & GameActions>()(
         set({ autoSalvageMinRarity: rarity });
       },
 
+      setCraftAutoSalvageRarity: (rarity: Rarity) => {
+        set({ craftAutoSalvageMinRarity: rarity });
+      },
+
       resetGame: () => {
         set(createInitialState());
       },
     }),
     {
       name: 'idle-exile-save',
-      version: 12,
+      version: 13,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -1055,6 +1080,11 @@ export const useGameStore = create<GameState & GameActions>()(
         if (version < 12) {
           // v12: Crafting professions
           state.craftingSkills = createDefaultCraftingSkills();
+        }
+
+        if (version < 13) {
+          // v13: Independent craft auto-salvage threshold
+          state.craftAutoSalvageMinRarity = 'common';
         }
 
         return state;

@@ -12,6 +12,7 @@ import { BAG_UPGRADE_DEFS } from '../data/items';
 import {
   BASE_ITEM_DROP_CHANCE, MASTERY_DROP_BONUS,
   MATERIAL_DROP_MIN, MATERIAL_DROP_MAX,
+  COMBAT_MATERIAL_DROP_CHANCE, COMBAT_MATERIAL_DROP_MIN, COMBAT_MATERIAL_DROP_MAX,
   CURRENCY_DROP_CHANCES, GOLD_PER_BAND, XP_PER_BAND, BAG_DROP_CHANCE,
   POWER_DIVISOR, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO,
   HAZARD_PENALTY_FLOOR, HAZARD_OVERCAP_MULT,
@@ -175,12 +176,14 @@ export function simulateIdleRun(
       items.push(generateItem(slot, dropILvl));
     }
 
-    // --- Material drops ---
-    const baseMats = MATERIAL_DROP_MIN + Math.floor(Math.random() * (MATERIAL_DROP_MAX - MATERIAL_DROP_MIN + 1));
-    const matCount = Math.round(baseMats * matMult) * (doubleClear ? 2 : 1);
-    for (let m = 0; m < matCount; m++) {
-      const mat = zone.materialDrops[Math.floor(Math.random() * zone.materialDrops.length)];
-      materials[mat] = (materials[mat] ?? 0) + 1;
+    // --- Material drops (combat: 30% chance, 1-2 mats) ---
+    if (Math.random() < COMBAT_MATERIAL_DROP_CHANCE) {
+      const baseMats = COMBAT_MATERIAL_DROP_MIN + Math.floor(Math.random() * (COMBAT_MATERIAL_DROP_MAX - COMBAT_MATERIAL_DROP_MIN + 1));
+      const matCount = Math.round(baseMats * matMult) * (doubleClear ? 2 : 1);
+      for (let m = 0; m < matCount; m++) {
+        const mat = zone.materialDrops[Math.floor(Math.random() * zone.materialDrops.length)];
+        materials[mat] = (materials[mat] ?? 0) + 1;
+      }
     }
 
     // --- Currency drops ---
@@ -254,13 +257,15 @@ export function simulateSingleClear(
     item = generateItem(slot, dropILvl);
   }
 
-  // Materials
+  // Materials (combat: 30% chance, 1-2 mats)
   const materials: Record<string, number> = {};
-  const baseMats = MATERIAL_DROP_MIN + Math.floor(Math.random() * (MATERIAL_DROP_MAX - MATERIAL_DROP_MIN + 1));
-  const matCount = Math.round(baseMats * matMult) * (doubleClear ? 2 : 1);
-  for (let m = 0; m < matCount; m++) {
-    const mat = zone.materialDrops[Math.floor(Math.random() * zone.materialDrops.length)];
-    materials[mat] = (materials[mat] ?? 0) + 1;
+  if (Math.random() < COMBAT_MATERIAL_DROP_CHANCE) {
+    const baseMats = COMBAT_MATERIAL_DROP_MIN + Math.floor(Math.random() * (COMBAT_MATERIAL_DROP_MAX - COMBAT_MATERIAL_DROP_MIN + 1));
+    const matCount = Math.round(baseMats * matMult) * (doubleClear ? 2 : 1);
+    for (let m = 0; m < matCount; m++) {
+      const mat = zone.materialDrops[Math.floor(Math.random() * zone.materialDrops.length)];
+      materials[mat] = (materials[mat] ?? 0) + 1;
+    }
   }
 
   // Currency drops

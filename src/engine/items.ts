@@ -181,23 +181,28 @@ export function rollAffixes(
  * Generate a complete item for a given gear slot and item level.
  * New system: always 2-6 affixes, rarity derived from affix quality.
  */
-export function generateItem(slot: GearSlot, iLvl: number): Item {
-  // Find qualifying bases for this slot where base iLvl <= given iLvl
-  let qualifying = ITEM_BASE_DEFS.filter(b => b.slot === slot && b.iLvl <= iLvl);
-  if (qualifying.length === 0) {
-    qualifying = ITEM_BASE_DEFS.filter(b => b.slot === slot);
-  }
-  if (qualifying.length === 0) {
-    return {
-      id: generateId(), baseId: 'unknown', name: `Unknown ${slot}`,
-      slot, rarity: 'common', iLvl, prefixes: [], suffixes: [], baseStats: {},
-    };
-  }
+export function generateItem(slot: GearSlot, iLvl: number, baseId?: string): Item {
+  // If a specific base is requested, use it directly
+  let base = baseId ? ITEM_BASE_DEFS.find(b => b.id === baseId) : undefined;
 
-  // Pick the highest qualifying iLvl base, random among ties
-  const maxILvl = qualifying.reduce((best, cur) => Math.max(best, cur.iLvl), 0);
-  const topBases = qualifying.filter(b => b.iLvl === maxILvl);
-  const base = topBases[Math.floor(Math.random() * topBases.length)];
+  if (!base) {
+    // Find qualifying bases for this slot where base iLvl <= given iLvl
+    let qualifying = ITEM_BASE_DEFS.filter(b => b.slot === slot && b.iLvl <= iLvl);
+    if (qualifying.length === 0) {
+      qualifying = ITEM_BASE_DEFS.filter(b => b.slot === slot);
+    }
+    if (qualifying.length === 0) {
+      return {
+        id: generateId(), baseId: 'unknown', name: `Unknown ${slot}`,
+        slot, rarity: 'common', iLvl, prefixes: [], suffixes: [], baseStats: {},
+      };
+    }
+
+    // Pick the highest qualifying iLvl base, random among ties
+    const maxILvl = qualifying.reduce((best, cur) => Math.max(best, cur.iLvl), 0);
+    const topBases = qualifying.filter(b => b.iLvl === maxILvl);
+    base = topBases[Math.floor(Math.random() * topBases.length)];
+  }
 
   // Roll affix count (2-6)
   const totalAffixes = rollAffixCount();
@@ -253,23 +258,28 @@ export function generateItem(slot: GearSlot, iLvl: number): Item {
  * Generate a gathering-specific item for a given gear slot and item level.
  * Uses gathering affix pool instead of combat affixes. Sets isGatheringGear flag.
  */
-export function generateGatheringItem(slot: GearSlot, iLvl: number): Item {
-  // Find qualifying bases for this slot
-  let qualifying = ITEM_BASE_DEFS.filter(b => b.slot === slot && b.iLvl <= iLvl);
-  if (qualifying.length === 0) {
-    qualifying = ITEM_BASE_DEFS.filter(b => b.slot === slot);
-  }
-  if (qualifying.length === 0) {
-    return {
-      id: generateId(), baseId: 'unknown', name: `Unknown ${slot}`,
-      slot, rarity: 'common', iLvl, prefixes: [], suffixes: [], baseStats: {},
-      isGatheringGear: true,
-    };
-  }
+export function generateGatheringItem(slot: GearSlot, iLvl: number, baseId?: string): Item {
+  // If a specific base is requested, use it directly
+  let base = baseId ? ITEM_BASE_DEFS.find(b => b.id === baseId) : undefined;
 
-  const maxILvl = qualifying.reduce((best, cur) => Math.max(best, cur.iLvl), 0);
-  const topBases = qualifying.filter(b => b.iLvl === maxILvl);
-  const base = topBases[Math.floor(Math.random() * topBases.length)];
+  if (!base) {
+    // Find qualifying bases for this slot
+    let qualifying = ITEM_BASE_DEFS.filter(b => b.slot === slot && b.iLvl <= iLvl);
+    if (qualifying.length === 0) {
+      qualifying = ITEM_BASE_DEFS.filter(b => b.slot === slot);
+    }
+    if (qualifying.length === 0) {
+      return {
+        id: generateId(), baseId: 'unknown', name: `Unknown ${slot}`,
+        slot, rarity: 'common', iLvl, prefixes: [], suffixes: [], baseStats: {},
+        isGatheringGear: true,
+      };
+    }
+
+    const maxILvl = qualifying.reduce((best, cur) => Math.max(best, cur.iLvl), 0);
+    const topBases = qualifying.filter(b => b.iLvl === maxILvl);
+    base = topBases[Math.floor(Math.random() * topBases.length)];
+  }
 
   const totalAffixes = rollAffixCount();
   let prefixCount = Math.min(Math.floor(totalAffixes / 2), 3);

@@ -625,7 +625,13 @@ export default function InventoryScreen() {
                 title="Upgrade for equipped slot"
               >{'\u25B2'}</div>
             )}
-            <div className="text-lg">{slotIcon(item.slot)}</div>
+            {item.isCrafted && (
+              <div
+                className="absolute -top-1 -left-1 w-4 h-4 bg-amber-600 rounded-full flex items-center justify-center text-white text-[8px] font-bold shadow-lg z-10 ring-1 ring-amber-400/60"
+                title="Crafted item"
+              >{'\uD83D\uDD28'}</div>
+            )}
+            <div className={`text-lg ${item.isCrafted ? 'ring-1 ring-amber-400/60 rounded' : ''}`}>{slotIcon(item.slot)}</div>
             <div className="text-[10px] font-semibold truncate text-gray-200">{item.name}</div>
             <div className="text-[9px] text-gray-500">
               iLvl {item.iLvl} • {item.prefixes.length + item.suffixes.length}mod

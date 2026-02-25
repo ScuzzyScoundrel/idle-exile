@@ -87,17 +87,19 @@ export function executeCraft(
   recipe: CraftingRecipeDef,
   catalystId?: string,
 ): Item {
-  // Generate the base item
+  // Generate the base item — pass outputBaseId to ensure correct item type
   let item: Item;
   if (recipe.isGatheringGear) {
     item = generateGatheringItem(
       getSlotFromBaseId(recipe.outputBaseId),
       recipe.outputILvl,
+      recipe.outputBaseId,
     );
   } else {
     item = generateItem(
       getSlotFromBaseId(recipe.outputBaseId),
       recipe.outputILvl,
+      recipe.outputBaseId,
     );
   }
 
@@ -125,11 +127,13 @@ export function executeCraft(
         item = generateGatheringItem(
           getSlotFromBaseId(recipe.outputBaseId),
           recipe.outputILvl,
+          recipe.outputBaseId,
         );
       } else {
         item = generateItem(
           getSlotFromBaseId(recipe.outputBaseId),
           recipe.outputILvl,
+          recipe.outputBaseId,
         );
       }
       if (RARITY_RANK[item.rarity] >= RARITY_RANK[minRarity]) break;
@@ -140,6 +144,7 @@ export function executeCraft(
     }
   }
 
+  item.isCrafted = true;
   return item;
 }
 

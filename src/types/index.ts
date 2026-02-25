@@ -76,6 +76,7 @@ export interface Item {
   weaponType?: WeaponType;
   baseStats: Partial<Record<StatKey, number>>;
   isGatheringGear?: boolean;
+  isCrafted?: boolean;
 }
 
 // --- Character ---
@@ -387,6 +388,7 @@ export interface GameState {
 
   // Auto-salvage
   autoSalvageMinRarity: Rarity;
+  craftAutoSalvageMinRarity: Rarity;
 
   // Offline progression
   offlineProgress: OfflineProgressSummary | null;

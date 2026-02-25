@@ -197,6 +197,161 @@ const weaponsmithRecipes: CraftingRecipeDef[] = [
     outputILvl: 55,
     catalystSlot: true,
   },
+
+  // --- Dagger T1-T6 ---
+  {
+    id: 'ws_t1_dagger', profession: 'weaponsmith', name: 'Cindite Dagger', tier: 1, requiredLevel: 1,
+    materials: [{ materialId: 'cindite_ingot', amount: 3 }, { materialId: 'emberwood_plank', amount: 3 }],
+    goldCost: 10, outputBaseId: 'crude_dagger', outputILvl: 5, catalystSlot: true,
+  },
+  {
+    id: 'ws_t2_dagger', profession: 'weaponsmith', name: 'Ferrite Stiletto', tier: 2, requiredLevel: 15,
+    materials: [{ materialId: 'ferrite_ingot', amount: 4 }, { materialId: 'ironwood_plank', amount: 4 }],
+    goldCost: 25, outputBaseId: 'steel_stiletto', outputILvl: 15, catalystSlot: true,
+  },
+  {
+    id: 'ws_t3_dagger', profession: 'weaponsmith', name: 'Alloy Kris', tier: 3, requiredLevel: 30,
+    materials: [{ materialId: 'forged_alloy', amount: 5 }, { materialId: 'steelwood_plank', amount: 5 }],
+    goldCost: 50, outputBaseId: 'obsidian_kris', outputILvl: 25, catalystSlot: true,
+  },
+  {
+    id: 'ws_t4_dagger', profession: 'weaponsmith', name: 'Voidsteel Dirk', tier: 4, requiredLevel: 50,
+    materials: [{ materialId: 'voidsteel_ingot', amount: 6 }, { materialId: 'shadowwood_plank', amount: 6 }],
+    goldCost: 100, outputBaseId: 'mithril_dirk', outputILvl: 35, catalystSlot: true,
+  },
+  {
+    id: 'ws_t5_dagger', profession: 'weaponsmith', name: 'Celesteel Shiv', tier: 5, requiredLevel: 75,
+    materials: [{ materialId: 'celesteel_ingot', amount: 8 }, { materialId: 'dreadwood_plank', amount: 8 }],
+    goldCost: 200, outputBaseId: 'runic_shiv', outputILvl: 45, catalystSlot: true,
+  },
+  {
+    id: 'ws_t6_dagger', profession: 'weaponsmith', name: 'Primordial Fang', tier: 6, requiredLevel: 90,
+    materials: [{ materialId: 'primordial_ingot', amount: 10 }, { materialId: 'primordial_plank', amount: 10 }],
+    goldCost: 500, outputBaseId: 'void_fang', outputILvl: 55, catalystSlot: true,
+  },
+
+  // --- Wand T1-T6 ---
+  {
+    id: 'ws_t1_wand', profession: 'weaponsmith', name: 'Cindite Wand', tier: 1, requiredLevel: 1,
+    materials: [{ materialId: 'cindite_ingot', amount: 3 }, { materialId: 'emberwood_plank', amount: 3 }],
+    goldCost: 10, outputBaseId: 'twig_wand', outputILvl: 5, catalystSlot: true,
+  },
+  {
+    id: 'ws_t2_wand', profession: 'weaponsmith', name: 'Ferrite Wand', tier: 2, requiredLevel: 15,
+    materials: [{ materialId: 'ferrite_ingot', amount: 4 }, { materialId: 'ironwood_plank', amount: 4 }],
+    goldCost: 25, outputBaseId: 'bone_wand', outputILvl: 15, catalystSlot: true,
+  },
+  {
+    id: 'ws_t3_wand', profession: 'weaponsmith', name: 'Alloy Wand', tier: 3, requiredLevel: 30,
+    materials: [{ materialId: 'forged_alloy', amount: 5 }, { materialId: 'steelwood_plank', amount: 5 }],
+    goldCost: 50, outputBaseId: 'obsidian_wand', outputILvl: 25, catalystSlot: true,
+  },
+  {
+    id: 'ws_t4_wand', profession: 'weaponsmith', name: 'Voidsteel Wand', tier: 4, requiredLevel: 50,
+    materials: [{ materialId: 'voidsteel_ingot', amount: 6 }, { materialId: 'shadowwood_plank', amount: 6 }],
+    goldCost: 100, outputBaseId: 'mithril_wand', outputILvl: 35, catalystSlot: true,
+  },
+  {
+    id: 'ws_t5_wand', profession: 'weaponsmith', name: 'Celesteel Wand', tier: 5, requiredLevel: 75,
+    materials: [{ materialId: 'celesteel_ingot', amount: 8 }, { materialId: 'dreadwood_plank', amount: 8 }],
+    goldCost: 200, outputBaseId: 'runic_wand', outputILvl: 45, catalystSlot: true,
+  },
+  {
+    id: 'ws_t6_wand', profession: 'weaponsmith', name: 'Primordial Wand', tier: 6, requiredLevel: 90,
+    materials: [{ materialId: 'primordial_ingot', amount: 10 }, { materialId: 'primordial_plank', amount: 10 }],
+    goldCost: 500, outputBaseId: 'void_wand', outputILvl: 55, catalystSlot: true,
+  },
+
+  // --- Bow T1-T6 ---
+  {
+    id: 'ws_t1_bow', profession: 'weaponsmith', name: 'Cindite Shortbow', tier: 1, requiredLevel: 1,
+    materials: [{ materialId: 'cindite_ingot', amount: 3 }, { materialId: 'emberwood_plank', amount: 3 }],
+    goldCost: 10, outputBaseId: 'shortbow', outputILvl: 5, catalystSlot: true,
+  },
+  {
+    id: 'ws_t2_bow', profession: 'weaponsmith', name: 'Ferrite Recurve', tier: 2, requiredLevel: 15,
+    materials: [{ materialId: 'ferrite_ingot', amount: 4 }, { materialId: 'ironwood_plank', amount: 4 }],
+    goldCost: 25, outputBaseId: 'recurve_bow', outputILvl: 15, catalystSlot: true,
+  },
+  {
+    id: 'ws_t3_bow', profession: 'weaponsmith', name: 'Alloy Longbow', tier: 3, requiredLevel: 30,
+    materials: [{ materialId: 'forged_alloy', amount: 5 }, { materialId: 'steelwood_plank', amount: 5 }],
+    goldCost: 50, outputBaseId: 'obsidian_longbow', outputILvl: 25, catalystSlot: true,
+  },
+  {
+    id: 'ws_t4_bow', profession: 'weaponsmith', name: 'Voidsteel Bow', tier: 4, requiredLevel: 50,
+    materials: [{ materialId: 'voidsteel_ingot', amount: 6 }, { materialId: 'shadowwood_plank', amount: 6 }],
+    goldCost: 100, outputBaseId: 'mithril_bow', outputILvl: 35, catalystSlot: true,
+  },
+  {
+    id: 'ws_t5_bow', profession: 'weaponsmith', name: 'Celesteel Bow', tier: 5, requiredLevel: 75,
+    materials: [{ materialId: 'celesteel_ingot', amount: 8 }, { materialId: 'dreadwood_plank', amount: 8 }],
+    goldCost: 200, outputBaseId: 'runic_bow', outputILvl: 45, catalystSlot: true,
+  },
+  {
+    id: 'ws_t6_bow', profession: 'weaponsmith', name: 'Primordial Bow', tier: 6, requiredLevel: 90,
+    materials: [{ materialId: 'primordial_ingot', amount: 10 }, { materialId: 'primordial_plank', amount: 10 }],
+    goldCost: 500, outputBaseId: 'void_bow', outputILvl: 55, catalystSlot: true,
+  },
+
+  // --- Crossbow T1-T6 ---
+  {
+    id: 'ws_t1_crossbow', profession: 'weaponsmith', name: 'Cindite Crossbow', tier: 1, requiredLevel: 1,
+    materials: [{ materialId: 'cindite_ingot', amount: 3 }, { materialId: 'emberwood_plank', amount: 3 }],
+    goldCost: 10, outputBaseId: 'hand_crossbow', outputILvl: 5, catalystSlot: true,
+  },
+  {
+    id: 'ws_t2_crossbow', profession: 'weaponsmith', name: 'Ferrite Crossbow', tier: 2, requiredLevel: 15,
+    materials: [{ materialId: 'ferrite_ingot', amount: 4 }, { materialId: 'ironwood_plank', amount: 4 }],
+    goldCost: 25, outputBaseId: 'iron_crossbow', outputILvl: 15, catalystSlot: true,
+  },
+  {
+    id: 'ws_t3_crossbow', profession: 'weaponsmith', name: 'Alloy Arbalest', tier: 3, requiredLevel: 30,
+    materials: [{ materialId: 'forged_alloy', amount: 5 }, { materialId: 'steelwood_plank', amount: 5 }],
+    goldCost: 50, outputBaseId: 'obsidian_arbalest', outputILvl: 25, catalystSlot: true,
+  },
+  {
+    id: 'ws_t4_crossbow', profession: 'weaponsmith', name: 'Voidsteel Crossbow', tier: 4, requiredLevel: 50,
+    materials: [{ materialId: 'voidsteel_ingot', amount: 6 }, { materialId: 'shadowwood_plank', amount: 6 }],
+    goldCost: 100, outputBaseId: 'mithril_crossbow', outputILvl: 35, catalystSlot: true,
+  },
+  {
+    id: 'ws_t5_crossbow', profession: 'weaponsmith', name: 'Celesteel Arbalest', tier: 5, requiredLevel: 75,
+    materials: [{ materialId: 'celesteel_ingot', amount: 8 }, { materialId: 'dreadwood_plank', amount: 8 }],
+    goldCost: 200, outputBaseId: 'runic_arbalest', outputILvl: 45, catalystSlot: true,
+  },
+  {
+    id: 'ws_t6_crossbow', profession: 'weaponsmith', name: 'Primordial Crossbow', tier: 6, requiredLevel: 90,
+    materials: [{ materialId: 'primordial_ingot', amount: 10 }, { materialId: 'primordial_plank', amount: 10 }],
+    goldCost: 500, outputBaseId: 'void_crossbow', outputILvl: 55, catalystSlot: true,
+  },
+
+  // --- Staff T1-T4 + T6 (T5 runic_staff already exists) ---
+  {
+    id: 'ws_t1_staff', profession: 'weaponsmith', name: 'Cindite Staff', tier: 1, requiredLevel: 1,
+    materials: [{ materialId: 'cindite_ingot', amount: 3 }, { materialId: 'emberwood_plank', amount: 3 }],
+    goldCost: 10, outputBaseId: 'gnarled_staff', outputILvl: 5, catalystSlot: true,
+  },
+  {
+    id: 'ws_t2_staff', profession: 'weaponsmith', name: 'Ferrite Staff', tier: 2, requiredLevel: 15,
+    materials: [{ materialId: 'ferrite_ingot', amount: 4 }, { materialId: 'ironwood_plank', amount: 4 }],
+    goldCost: 25, outputBaseId: 'ironshod_staff', outputILvl: 15, catalystSlot: true,
+  },
+  {
+    id: 'ws_t3_staff', profession: 'weaponsmith', name: 'Alloy Staff', tier: 3, requiredLevel: 30,
+    materials: [{ materialId: 'forged_alloy', amount: 5 }, { materialId: 'steelwood_plank', amount: 5 }],
+    goldCost: 50, outputBaseId: 'obsidian_staff', outputILvl: 25, catalystSlot: true,
+  },
+  {
+    id: 'ws_t4_staff', profession: 'weaponsmith', name: 'Voidsteel Staff', tier: 4, requiredLevel: 50,
+    materials: [{ materialId: 'voidsteel_ingot', amount: 6 }, { materialId: 'shadowwood_plank', amount: 6 }],
+    goldCost: 100, outputBaseId: 'mithril_staff', outputILvl: 35, catalystSlot: true,
+  },
+  {
+    id: 'ws_t6_staff', profession: 'weaponsmith', name: 'Primordial Staff', tier: 6, requiredLevel: 90,
+    materials: [{ materialId: 'primordial_ingot', amount: 10 }, { materialId: 'primordial_plank', amount: 10 }],
+    goldCost: 500, outputBaseId: 'void_staff', outputILvl: 55, catalystSlot: true,
+  },
 ];
 
 // ─── Armorer Recipes ──────────────────────────────────────────────

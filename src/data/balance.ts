@@ -15,9 +15,14 @@ export const BASE_ITEM_DROP_CHANCE = 0.08;        // was 0.25
 /** Multiplier applied to item drop chance when zone is mastered. */
 export const MASTERY_DROP_BONUS = 1.15;
 
-/** Material drops per clear: uniform random in [min, max]. */
+/** Material drops per clear (gathering base): uniform random in [min, max]. */
 export const MATERIAL_DROP_MIN = 2;               // was 1
 export const MATERIAL_DROP_MAX = 4;               // was 2
+
+/** Combat-specific material drop rates (lower than gathering). */
+export const COMBAT_MATERIAL_DROP_CHANCE = 0.30;   // 30% chance per clear
+export const COMBAT_MATERIAL_DROP_MIN = 1;
+export const COMBAT_MATERIAL_DROP_MAX = 2;
 
 /** Per-clear probability for each currency type. */
 export const CURRENCY_DROP_CHANCES: Record<CurrencyType, number> = {
