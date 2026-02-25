@@ -34,7 +34,7 @@ The entire game engine was rewritten to match the updated GDD. Key changes:
 **6 active currencies:** augment, chaos, divine, annul, exalt, socket (50 each at start)
 
 ## What Is Working Right Now
-The game is playable at `http://localhost:5173/`. Core loop:
+The game is live on Vercel and playable locally at `http://localhost:5173/`. Core loop:
 - Pick a zone from 30 zones grouped by 6 bands
 - Start idle run — items drop into bags in real-time as clears happen (visible in loot feed with rarity-colored item names)
 - When bags are full, gear drops auto-salvage into materials with a running tally displayed
@@ -124,7 +124,7 @@ src/
 - [ ] Set bonus UI not shown on character screen
 - [ ] Active play / ability buttons not implemented
 - [ ] Zone familiarity passive not implemented
-- [ ] `simulateIdleRun()` still exists (used for future offline progression) but real-time uses `simulateSingleClear()` — these share drop logic but are separate functions
+- [ ] `simulateIdleRun()` and `simulateSingleClear()` share drop logic but are separate functions — could be refactored to share a core loop
 - [ ] ItemCard component exists but is no longer imported anywhere (orphaned)
 - [x] ~~Gold economy rebalancing~~ — DONE (GOLD_PER_BAND 8→3, selling gear now meaningful)
 
@@ -143,6 +143,12 @@ cd /home/jerris/idle-exile
 npx vite --host
 # Open http://localhost:5173/
 ```
+
+## Deployment
+- **GitHub:** https://github.com/ScuzzyScoundrel/idle-exile (branch: `master`)
+- **Vercel:** Auto-deploys on `git push origin master`. Connected via `idle-exile` repo.
+- **Second repo:** `ScuzzyScoundrel/scuzzy-idle-exile` also exists (Vercel originally created it). Push to both with `git push vercel master:main` if needed.
+- **No backend:** Each browser gets own localStorage save. No server, no database.
 
 ## Tech Stack
 - Node 18 / TypeScript 5.6
