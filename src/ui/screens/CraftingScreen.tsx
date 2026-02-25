@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { REFINEMENT_TRACK_DEFS } from '../../data/refinement';
 import { getRefinementChain } from '../../engine/refinement';
@@ -7,7 +7,9 @@ import { CRAFTING_PROFESSION_DEFS } from '../../data/craftingProfessions';
 import { getRecipesForProfession } from '../../data/craftingRecipes';
 import { canCraftRecipe } from '../../engine/craftingProfessions';
 import { calcCraftingXpRequired } from '../../engine/craftingProfessions';
+import { getAffixTierRange } from '../../engine/items';
 import { RARE_MATERIAL_DEFS, getRareMaterialDef } from '../../data/rareMaterials';
+import { AFFIX_CATALYST_DEFS } from '../../data/affixCatalysts';
 import { CATALYST_RARITY_MAP } from '../../data/balance';
 import { ITEM_BASE_DEFS } from '../../data/items';
 import { REFINEMENT_RECIPES } from '../../data/refinement';
@@ -82,7 +84,8 @@ function MaterialsPanel() {
 
   // Categorize materials
   const rawIds = new Set(REFINEMENT_RECIPES.map(r => r.rawMaterialId));
-  const refinedIds = new Set(REFINEMENT_RECIPES.map(r => r.outputId));
+  const refinedIds = new Set(REFINEMENT_RECIPES.filter(r => r.track !== 'catalyst').map(r => r.outputId));
+  const affixCatIds = new Set(AFFIX_CATALYST_DEFS.map(d => d.id));
   const rareIds = new Set(RARE_MATERIAL_DEFS.map(d => d.id));
   const miscIds = new Set(['salvage_dust', 'magic_essence']);
 
@@ -90,12 +93,16 @@ function MaterialsPanel() {
 
   const raw: { id: string; count: number }[] = [];
   const refined: { id: string; count: number }[] = [];
+  const affixCats: { id: string; count: number; icon?: string; color?: string }[] = [];
   const rare: { id: string; count: number; icon?: string; color?: string }[] = [];
   const misc: { id: string; count: number }[] = [];
 
   for (const [id, count] of Object.entries(materials)) {
     if (count <= 0) continue;
-    if (rawIds.has(id)) {
+    if (affixCatIds.has(id)) {
+      const def = AFFIX_CATALYST_DEFS.find(d => d.id === id);
+      affixCats.push({ id, count, icon: def?.icon, color: 'text-cyan-400' });
+    } else if (rawIds.has(id)) {
       raw.push({ id, count });
     } else if (refinedIds.has(id)) {
       refined.push({ id, count });
@@ -117,6 +124,7 @@ function MaterialsPanel() {
 
   if (raw.length > 0) categorized.push({ label: 'Raw Materials', items: raw });
   if (refined.length > 0) categorized.push({ label: 'Refined Materials', items: refined });
+  if (affixCats.length > 0) categorized.push({ label: 'Affix Catalysts', items: affixCats });
   if (rare.length > 0) categorized.push({ label: 'Rare Materials', items: rare });
   if (misc.length > 0) categorized.push({ label: 'Misc', items: misc });
 
@@ -315,52 +323,96 @@ function RefinePanel() {
 
 // ─── Craft Panel ─────────────────────────────────────────────────
 
+// Tier left-border colors
+const TIER_BORDER: Record<number, string> = {
+  1: 'border-l-gray-500',
+  2: 'border-l-green-500',
+  3: 'border-l-blue-500',
+  4: 'border-l-purple-500',
+  5: 'border-l-orange-500',
+  6: 'border-l-red-500',
+};
+
+// Slot icon lookup
+const SLOT_ICONS: Record<string, string> = {
+  mainhand: '\u2694\uFE0F', offhand: '\uD83D\uDEE1\uFE0F',
+  helmet: '\u26D1\uFE0F', neck: '\uD83D\uDCAE', shoulders: '\uD83E\uDDD1',
+  cloak: '\uD83E\uDDE5', chest: '\uD83E\uDDB4', bracers: '\uD83D\uDD8A\uFE0F',
+  gloves: '\uD83E\uDDE4', belt: '\u{1F4FF}', pants: '\uD83D\uDC56',
+  boots: '\uD83E\uDD7E', ring1: '\uD83D\uDC8D', ring2: '\uD83D\uDC8D',
+  trinket1: '\u2728', trinket2: '\u2728',
+};
+
+// Derive a category label from a recipe's output base
+function getCategoryForRecipe(recipe: CraftingRecipeDef): string {
+  const base = ITEM_BASE_DEFS.find(b => b.id === recipe.outputBaseId);
+  if (!base) return 'other';
+  if (recipe.profession === 'weaponsmith' && base.weaponType) return base.weaponType;
+  // Use slot as category for non-weapon professions
+  return base.slot;
+}
+
+// Category display labels
+const CATEGORY_LABELS: Record<string, string> = {
+  sword: 'Swords', axe: 'Axes', mace: 'Maces', dagger: 'Daggers',
+  staff: 'Staves', wand: 'Wands', bow: 'Bows', crossbow: 'Crossbows',
+  helmet: 'Helmets', chest: 'Chest', offhand: 'Shields',
+  gloves: 'Gloves', pants: 'Legs', boots: 'Boots',
+  shoulders: 'Shoulders', cloak: 'Cloaks', bracers: 'Bracers',
+  neck: 'Neck', belt: 'Belts',
+  ring1: 'Rings', ring2: 'Rings',
+  trinket1: 'Trinkets', trinket2: 'Trinkets',
+  mainhand: 'Weapons',
+};
+
 function CraftPanel() {
   const { craftingSkills, materials, gold, craftRecipe, craftAutoSalvageMinRarity, setCraftAutoSalvageRarity } = useGameStore();
   const [selectedProfession, setSelectedProfession] = useState<CraftingProfession>('weaponsmith');
-  const [catalysts, setCatalysts] = useState<Record<string, string>>({});
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [rareCatalysts, setRareCatalysts] = useState<Record<string, string>>({});
+  const [affixCatalysts, setAffixCatalysts] = useState<Record<string, string>>({});
   const [flashItem, setFlashItem] = useState<{ name: string; rarity: Rarity; wasSalvaged: boolean } | null>(null);
-  const [expandedRecipe, setExpandedRecipe] = useState<string | null>(null);
 
   const skill = craftingSkills[selectedProfession];
   const xpToNext = calcCraftingXpRequired(skill.level);
   const recipes = getRecipesForProfession(selectedProfession);
 
-  // Group recipes by tier
-  const tiers = new Map<number, CraftingRecipeDef[]>();
-  for (const r of recipes) {
-    const list = tiers.get(r.tier) ?? [];
-    list.push(r);
-    tiers.set(r.tier, list);
-  }
+  // Build category list for this profession
+  const categories = useMemo(() => {
+    const cats = new Set<string>();
+    for (const r of recipes) {
+      cats.add(getCategoryForRecipe(r));
+    }
+    return ['all', ...Array.from(cats).sort()];
+  }, [selectedProfession]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Filter recipes by selected category, then sort by tier then name
+  const filteredRecipes = useMemo(() => {
+    const list = selectedCategory === 'all'
+      ? recipes
+      : recipes.filter(r => getCategoryForRecipe(r) === selectedCategory);
+    return list.sort((a, b) => a.tier - b.tier || a.name.localeCompare(b.name));
+  }, [selectedCategory, selectedProfession]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Available rare materials for catalyst selection
-  const availableCatalysts = RARE_MATERIAL_DEFS.filter(d => (materials[d.id] ?? 0) > 0);
+  const availableRareCatalysts = RARE_MATERIAL_DEFS.filter(d => (materials[d.id] ?? 0) > 0);
+
+  // Available affix catalysts from inventory
+  const availableAffixCatalysts = AFFIX_CATALYST_DEFS.filter(d => (materials[d.id] ?? 0) > 0);
+
+  const handleProfessionChange = (prof: CraftingProfession) => {
+    setSelectedProfession(prof);
+    setSelectedCategory('all');
+  };
 
   const handleCraft = (recipeId: string) => {
-    const catalystId = catalysts[recipeId];
-    const result = craftRecipe(recipeId, catalystId);
+    const catalystId = rareCatalysts[recipeId];
+    const affixCatId = affixCatalysts[recipeId];
+    const result = craftRecipe(recipeId, catalystId || undefined, affixCatId || undefined);
     if (result) {
       setFlashItem({ name: result.item.name, rarity: result.item.rarity, wasSalvaged: result.wasSalvaged });
       setTimeout(() => setFlashItem(null), 2000);
     }
-  };
-
-  // Get weapon/armor type info from base def
-  const getBaseInfo = (baseId: string) => {
-    const base = ITEM_BASE_DEFS.find(b => b.id === baseId);
-    if (!base) return null;
-    return base;
-  };
-
-  // Slot icon lookup
-  const SLOT_ICONS: Record<string, string> = {
-    mainhand: '\u2694\uFE0F', offhand: '\uD83D\uDEE1\uFE0F',
-    helmet: '\u26D1\uFE0F', neck: '\uD83D\uDCAE', shoulders: '\uD83E\uDDD1',
-    cloak: '\uD83E\uDDE5', chest: '\uD83E\uDDB4', bracers: '\uD83D\uDD8A\uFE0F',
-    gloves: '\uD83E\uDDE4', belt: '\u{1F4FF}', pants: '\uD83D\uDC56',
-    boots: '\uD83E\uDD7E', ring1: '\uD83D\uDC8D', ring2: '\uD83D\uDC8D',
-    trinket1: '\u2728', trinket2: '\u2728',
   };
 
   return (
@@ -373,7 +425,7 @@ function CraftPanel() {
           return (
             <button
               key={prof.id}
-              onClick={() => setSelectedProfession(prof.id)}
+              onClick={() => handleProfessionChange(prof.id)}
               className={`flex-1 py-1.5 px-1 rounded-md text-xs font-semibold transition-all ${
                 isActive
                   ? 'bg-blue-600 text-white'
@@ -390,6 +442,25 @@ function CraftPanel() {
           );
         })}
       </div>
+
+      {/* Category sub-tabs */}
+      {categories.length > 2 && (
+        <div className="flex flex-wrap gap-1">
+          {categories.map(cat => (
+            <button
+              key={cat}
+              onClick={() => setSelectedCategory(cat)}
+              className={`px-2 py-1 rounded text-[10px] font-semibold transition-all ${
+                selectedCategory === cat
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+              }`}
+            >
+              {cat === 'all' ? 'All' : CATEGORY_LABELS[cat] ?? cat}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* XP bar */}
       <div className="bg-gray-800 rounded-lg px-3 py-2">
@@ -432,160 +503,159 @@ function CraftPanel() {
         </div>
       )}
 
-      {/* Recipe grid grouped by tier */}
-      <div className="space-y-3">
-        {[...tiers.entries()].sort(([a], [b]) => a - b).map(([tier, tierRecipes]) => (
-          <div key={tier}>
-            <div className="text-xs font-bold text-gray-500 mb-1">Tier {tier}</div>
-            <div className="grid grid-cols-2 gap-2">
-              {tierRecipes.map(recipe => {
-                const levelLocked = skill.level < recipe.requiredLevel;
-                const craftable = !levelLocked && canCraftRecipe(recipe, craftingSkills, materials, gold);
-                const isExpanded = expandedRecipe === recipe.id;
-                const baseInfo = getBaseInfo(recipe.outputBaseId);
+      {/* Full-info recipe cards */}
+      <div className="space-y-2">
+        {filteredRecipes.map(recipe => {
+          const baseInfo = ITEM_BASE_DEFS.find(b => b.id === recipe.outputBaseId);
+          const levelLocked = skill.level < recipe.requiredLevel;
+          const craftable = !levelLocked && canCraftRecipe(recipe, craftingSkills, materials, gold);
+          const tierRange = getAffixTierRange(recipe.outputILvl);
 
-                // Material status: all met?
-                const allMatsMet = recipe.materials.every(
-                  ({ materialId, amount }) => (materials[materialId] ?? 0) >= amount
-                );
-                const goldMet = gold >= recipe.goldCost;
-                const catMet = recipe.requiredCatalyst
-                  ? (materials[recipe.requiredCatalyst.rareMaterialId] ?? 0) >= recipe.requiredCatalyst.amount
-                  : true;
+          // Format base stats for display
+          const baseStatEntries = baseInfo
+            ? Object.entries(baseInfo.baseStats).filter(([, v]) => typeof v === 'number' && v > 0)
+            : [];
 
-                return (
-                  <div
-                    key={recipe.id}
-                    className={`bg-gray-800 rounded-lg border transition-all cursor-pointer ${
-                      levelLocked ? 'border-gray-700 opacity-50' : isExpanded ? 'border-blue-500' : 'border-gray-700 hover:border-gray-500'
-                    }`}
-                    onClick={() => setExpandedRecipe(isExpanded ? null : recipe.id)}
-                  >
-                    {/* Compact card header */}
-                    <div className="p-2">
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <span className="text-sm">{baseInfo ? SLOT_ICONS[baseInfo.slot] ?? '\u2694\uFE0F' : '\u2694\uFE0F'}</span>
-                        <span className="text-xs font-bold text-white flex-1 truncate">
-                          {recipe.name}
-                        </span>
-                        {recipe.requiredCatalyst && (
-                          <span className="text-purple-400 text-[9px] font-bold">UNQ</span>
-                        )}
-                        {levelLocked && (
-                          <span className="text-[9px] text-red-400 font-bold">{'\uD83D\uDD12'}Lv.{recipe.requiredLevel}</span>
-                        )}
-                      </div>
+          // Slot / type label
+          const slotLabel = baseInfo
+            ? baseInfo.weaponType
+              ? `${baseInfo.slot} \u00B7 ${baseInfo.weaponType}`
+              : baseInfo.armorType
+                ? `${baseInfo.slot} \u00B7 ${baseInfo.armorType}`
+                : baseInfo.slot
+            : '';
 
-                      {/* Status dots */}
-                      <div className="flex items-center gap-1.5">
-                        <span className={`w-2 h-2 rounded-full ${allMatsMet ? 'bg-green-500' : 'bg-red-500'}`} title="Materials" />
-                        <span className={`w-2 h-2 rounded-full ${goldMet ? 'bg-yellow-500' : 'bg-red-500'}`} title="Gold" />
-                        {recipe.requiredCatalyst && (
-                          <span className={`w-2 h-2 rounded-full ${catMet ? 'bg-purple-500' : 'bg-red-500'}`} title="Catalyst" />
-                        )}
-                        <span className="flex-1" />
-                        {baseInfo?.weaponType && (
-                          <span className="text-[9px] text-gray-500">{baseInfo.weaponType}</span>
-                        )}
-                        {baseInfo?.armorType && (
-                          <span className="text-[9px] text-gray-500">{baseInfo.armorType}</span>
-                        )}
+          return (
+            <div
+              key={recipe.id}
+              className={`bg-gray-800 rounded-lg border-l-4 border border-gray-700 ${
+                TIER_BORDER[recipe.tier] ?? 'border-l-gray-500'
+              } ${levelLocked ? 'opacity-50' : ''}`}
+            >
+              <div className="p-3 space-y-2">
+                {/* Header row */}
+                <div className="flex items-center gap-2">
+                  <span className="text-base">
+                    {baseInfo ? SLOT_ICONS[baseInfo.slot] ?? '\u2694\uFE0F' : '\u2694\uFE0F'}
+                  </span>
+                  <span className="text-sm font-bold text-white flex-1 truncate">{recipe.name}</span>
+                  {recipe.requiredCatalyst && (
+                    <span className="text-purple-400 text-[10px] font-bold bg-purple-900/30 px-1.5 py-0.5 rounded">UNQ</span>
+                  )}
+                  <span className="text-[10px] text-gray-500">iLvl {recipe.outputILvl} \u00B7 T{recipe.tier}</span>
+                </div>
+
+                {/* Slot / type line */}
+                {slotLabel && (
+                  <div className="text-[10px] text-gray-500 capitalize">{slotLabel}</div>
+                )}
+
+                {/* Level locked overlay */}
+                {levelLocked ? (
+                  <div className="text-xs text-red-400 font-semibold">
+                    {'\uD83D\uDD12'} Requires {selectedProfession} Lv.{recipe.requiredLevel}
+                  </div>
+                ) : (
+                  <>
+                    {/* Base stats + affix info */}
+                    <div className="text-[11px] space-y-0.5">
+                      {baseStatEntries.map(([stat, val]) => (
+                        <div key={stat} className="text-gray-300">
+                          Base: +{val} {stat}
+                        </div>
+                      ))}
+                      <div className="text-gray-500">
+                        Affixes: 2\u20136 random ({tierRange})
                       </div>
                     </div>
 
-                    {/* Expanded details */}
-                    {isExpanded && !levelLocked && (
-                      <div className="px-2 pb-2 border-t border-gray-700 pt-2 space-y-2" onClick={e => e.stopPropagation()}>
-                        {/* Output preview */}
-                        {baseInfo && (
-                          <div className="text-xs text-gray-400 bg-gray-900 rounded p-1.5">
-                            <div className="text-white font-semibold">{baseInfo.name}</div>
-                            <div className="text-[10px]">
-                              {baseInfo.slot} {baseInfo.weaponType ? `(${baseInfo.weaponType})` : baseInfo.armorType ? `(${baseInfo.armorType})` : ''} &bull; iLvl {recipe.outputILvl}
-                            </div>
-                            <div className="text-[10px] text-gray-500">2-6 random affixes</div>
-                            {recipe.catalystSlot && (
-                              <div className="text-[10px] text-purple-400 mt-0.5">
-                                Add catalyst for guaranteed rarity+
-                              </div>
-                            )}
-                          </div>
-                        )}
+                    {/* Materials inline */}
+                    <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[11px]">
+                      {recipe.materials.map(({ materialId, amount }) => {
+                        const have = materials[materialId] ?? 0;
+                        const met = have >= amount;
+                        return (
+                          <span key={materialId} className={met ? 'text-green-400' : 'text-red-400'}>
+                            {formatMatName(materialId)} {have}/{amount} {met ? '\u2713' : '\u2717'}
+                          </span>
+                        );
+                      })}
+                      <span className={gold >= recipe.goldCost ? 'text-yellow-400' : 'text-red-400'}>
+                        {'\uD83D\uDCB0'} {recipe.goldCost}g {gold >= recipe.goldCost ? '\u2713' : '\u2717'}
+                      </span>
+                    </div>
 
-                        {/* Material inputs */}
-                        <div className="flex flex-wrap gap-1.5 text-xs">
-                          {recipe.materials.map(({ materialId, amount }) => {
-                            const have = materials[materialId] ?? 0;
+                    {/* Required catalyst (unique recipes) */}
+                    {recipe.requiredCatalyst && (() => {
+                      const catDef = getRareMaterialDef(recipe.requiredCatalyst!.rareMaterialId);
+                      const have = materials[recipe.requiredCatalyst!.rareMaterialId] ?? 0;
+                      const met = have >= recipe.requiredCatalyst!.amount;
+                      return (
+                        <div className={`text-[11px] ${met ? 'text-purple-400' : 'text-red-400'}`}>
+                          {catDef?.icon} {catDef?.name ?? recipe.requiredCatalyst!.rareMaterialId}: {have}/{recipe.requiredCatalyst!.amount}
+                          {!met && <span className="text-red-500 ml-1">(missing)</span>}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Action row: catalyst dropdowns + craft button */}
+                    <div className="flex items-center gap-1.5 pt-1">
+                      {/* Affix catalyst dropdown */}
+                      {recipe.catalystSlot && !recipe.requiredCatalyst && (
+                        <select
+                          value={affixCatalysts[recipe.id] ?? ''}
+                          onChange={e => setAffixCatalysts(prev => ({ ...prev, [recipe.id]: e.target.value }))}
+                          className="flex-1 min-w-0 bg-gray-700 text-[10px] text-gray-300 rounded px-1.5 py-1.5 border border-gray-600 truncate"
+                          title="Affix Catalyst"
+                        >
+                          <option value="">{'\u2697\uFE0F'} No affix catalyst</option>
+                          {availableAffixCatalysts.map(cat => (
+                            <option key={cat.id} value={cat.id}>
+                              {cat.icon} {cat.name} (x{materials[cat.id]}) {'\u2192'} +{cat.guaranteedAffix.replace(/_/g, ' ')}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+
+                      {/* Rare catalyst dropdown */}
+                      {recipe.catalystSlot && !recipe.requiredCatalyst && (
+                        <select
+                          value={rareCatalysts[recipe.id] ?? ''}
+                          onChange={e => setRareCatalysts(prev => ({ ...prev, [recipe.id]: e.target.value }))}
+                          className="flex-1 min-w-0 bg-gray-700 text-[10px] text-gray-300 rounded px-1.5 py-1.5 border border-gray-600 truncate"
+                          title="Rare Catalyst"
+                        >
+                          <option value="">{'\uD83D\uDC8E'} No rare catalyst</option>
+                          {availableRareCatalysts.map(cat => {
+                            const guaranteed = CATALYST_RARITY_MAP[cat.rarity];
                             return (
-                              <span key={materialId} className={have >= amount ? 'text-green-400' : 'text-red-400'}>
-                                {formatMatName(materialId)} {have}/{amount}
-                              </span>
+                              <option key={cat.id} value={cat.id}>
+                                {cat.icon} {cat.name} (x{materials[cat.id]}) {'\u2192'} {guaranteed}+
+                              </option>
                             );
                           })}
-                          <span className={gold >= recipe.goldCost ? 'text-yellow-400' : 'text-red-400'}>
-                            {recipe.goldCost}g
-                          </span>
-                        </div>
+                        </select>
+                      )}
 
-                        {/* Required catalyst (unique recipes) */}
-                        {recipe.requiredCatalyst && (() => {
-                          const catDef = getRareMaterialDef(recipe.requiredCatalyst!.rareMaterialId);
-                          const have = materials[recipe.requiredCatalyst!.rareMaterialId] ?? 0;
-                          return (
-                            <div className={`text-xs ${catMet ? 'text-purple-400' : 'text-red-400'}`}>
-                              {catDef?.icon} {catDef?.name ?? recipe.requiredCatalyst!.rareMaterialId}: {have}/{recipe.requiredCatalyst!.amount}
-                              {!catMet && <span className="text-red-500 ml-1">(missing)</span>}
-                            </div>
-                          );
-                        })()}
-
-                        {/* Optional catalyst slot */}
-                        {recipe.catalystSlot && !recipe.requiredCatalyst && (
-                          <select
-                            value={catalysts[recipe.id] ?? ''}
-                            onChange={e => setCatalysts(prev => ({ ...prev, [recipe.id]: e.target.value }))}
-                            className="w-full bg-gray-700 text-xs text-gray-300 rounded px-2 py-1 border border-gray-600"
-                            onClick={e => e.stopPropagation()}
-                          >
-                            <option value="">No catalyst</option>
-                            {availableCatalysts.map(cat => {
-                              const guaranteed = CATALYST_RARITY_MAP[cat.rarity];
-                              return (
-                                <option key={cat.id} value={cat.id}>
-                                  {cat.icon} {cat.name} (x{materials[cat.id]}) {'\u2192'} {guaranteed}+
-                                </option>
-                              );
-                            })}
-                          </select>
-                        )}
-
-                        {/* Craft button */}
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleCraft(recipe.id); }}
-                          disabled={!craftable}
-                          className={`w-full py-1.5 rounded text-xs font-bold transition-all ${
-                            craftable
-                              ? 'bg-blue-600 hover:bg-blue-500 text-white'
-                              : 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                          }`}
-                        >
-                          Craft
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Level locked expanded */}
-                    {isExpanded && levelLocked && (
-                      <div className="px-2 pb-2 text-center text-xs text-red-400" onClick={e => e.stopPropagation()}>
-                        Requires {selectedProfession} Lv.{recipe.requiredLevel}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                      {/* Craft button */}
+                      <button
+                        onClick={() => handleCraft(recipe.id)}
+                        disabled={!craftable}
+                        className={`px-4 py-1.5 rounded text-xs font-bold transition-all whitespace-nowrap ${
+                          craftable
+                            ? 'bg-blue-600 hover:bg-blue-500 text-white'
+                            : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                        }`}
+                      >
+                        {'\uD83D\uDD28'} Craft
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

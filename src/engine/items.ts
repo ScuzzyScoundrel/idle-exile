@@ -3,7 +3,7 @@
 // Pure functions: no React, no side effects, no DOM.
 // ============================================================
 
-import type { Item, Affix, AffixDef, AffixTier, Rarity, GearSlot, StatKey, WeaponType } from '../types';
+import type { Item, Affix, AffixDef, AffixTier, AffixCategory, Rarity, GearSlot, StatKey, WeaponType } from '../types';
 import { AFFIX_DEFS } from '../data/affixes';
 import { GATHERING_AFFIX_DEFS } from '../data/gatheringAffixes';
 import { ITEM_BASE_DEFS } from '../data/items';
@@ -46,6 +46,14 @@ export function getAvailableTiers(iLvl: number): AffixTier[] {
     tiers.push(t as AffixTier);
   }
   return tiers;
+}
+
+/**
+ * Get a human-readable tier range string for an item level, e.g. "T7–T10".
+ */
+export function getAffixTierRange(iLvl: number): string {
+  const tiers = getAvailableTiers(iLvl);
+  return `T${tiers[0]}\u2013T${tiers[tiers.length - 1]}`;
 }
 
 /**
@@ -181,7 +189,7 @@ export function rollAffixes(
  * Generate a complete item for a given gear slot and item level.
  * New system: always 2-6 affixes, rarity derived from affix quality.
  */
-export function generateItem(slot: GearSlot, iLvl: number, baseId?: string): Item {
+export function generateItem(slot: GearSlot, iLvl: number, baseId?: string, guaranteedAffix?: AffixCategory): Item {
   // If a specific base is requested, use it directly
   let base = baseId ? ITEM_BASE_DEFS.find(b => b.id === baseId) : undefined;
 
@@ -229,9 +237,41 @@ export function generateItem(slot: GearSlot, iLvl: number, baseId?: string): Ite
     prefixCount++;
   }
 
-  const prefixes = rollAffixes('prefix', prefixCount, iLvl);
-  const excludeIds = prefixes.map(a => a.defId);
+  // Handle guaranteed affix catalyst
+  const guaranteedAffixes: Affix[] = [];
+  let guaranteedExcludeId: string | undefined;
+
+  if (guaranteedAffix) {
+    const gDef = AFFIX_DEFS.find(d => d.category === guaranteedAffix);
+    if (gDef) {
+      const targetSlot = gDef.slot; // 'prefix' or 'suffix'
+      const slotCount = targetSlot === 'prefix' ? prefixCount : suffixCount;
+      if (slotCount > 0) {
+        // Roll one affix from just this def
+        const tier = rollAffixTier(iLvl);
+        const tierData = gDef.tiers[tier];
+        const value = rollAffixValue(tierData.min, tierData.max);
+        guaranteedAffixes.push({ defId: gDef.id, tier, value });
+        guaranteedExcludeId = gDef.id;
+        // Deduct one slot
+        if (targetSlot === 'prefix') prefixCount--;
+        else suffixCount--;
+      }
+    }
+  }
+
+  const prefixes = rollAffixes('prefix', prefixCount, iLvl, guaranteedExcludeId ? [guaranteedExcludeId] : []);
+  const excludeIds = [...prefixes.map(a => a.defId), ...(guaranteedExcludeId ? [guaranteedExcludeId] : [])];
   const suffixes = rollAffixes('suffix', suffixCount, iLvl, excludeIds);
+
+  // Merge guaranteed affix into the correct list
+  const allPrefixes = [...prefixes];
+  const allSuffixes = [...suffixes];
+  for (const ga of guaranteedAffixes) {
+    const gDef = AFFIX_DEFS.find(d => d.id === ga.defId);
+    if (gDef?.slot === 'prefix') allPrefixes.unshift(ga);
+    else allSuffixes.unshift(ga);
+  }
 
   // Build item, then classify rarity from affix quality
   const item: Item = {
@@ -241,8 +281,8 @@ export function generateItem(slot: GearSlot, iLvl: number, baseId?: string): Ite
     slot,
     rarity: 'common', // set below
     iLvl,
-    prefixes,
-    suffixes,
+    prefixes: allPrefixes,
+    suffixes: allSuffixes,
     armorType: base.armorType,
     weaponType: base.weaponType,
     baseStats: { ...base.baseStats },

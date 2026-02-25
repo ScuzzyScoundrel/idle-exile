@@ -313,7 +313,7 @@ export interface GatheringMilestone {
 
 // --- Refinement ---
 
-export type RefinementTrack = 'ore' | 'cloth' | 'leather' | 'wood' | 'herb' | 'fish';
+export type RefinementTrack = 'ore' | 'cloth' | 'leather' | 'wood' | 'herb' | 'fish' | 'catalyst';
 
 export interface RefinementRecipeDef {
   id: string;

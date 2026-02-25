@@ -170,7 +170,7 @@ interface GameActions {
   refineMaterial: (recipeId: string) => boolean;
   refineMaterialBatch: (recipeId: string, count: number) => number;
   deconstructMaterial: (refinedId: string) => boolean;
-  craftRecipe: (recipeId: string, catalystId?: string) => { item: Item; wasSalvaged: boolean } | null;
+  craftRecipe: (recipeId: string, catalystId?: string, affixCatalystId?: string) => { item: Item; wasSalvaged: boolean } | null;
 
   // Offline progression
   claimOfflineProgress: () => void;
@@ -674,7 +674,7 @@ export const useGameStore = create<GameState & GameActions>()(
         return true;
       },
 
-      craftRecipe: (recipeId: string, catalystId?: string) => {
+      craftRecipe: (recipeId: string, catalystId?: string, affixCatalystId?: string) => {
         const state = get();
         const recipe = getCraftingRecipe(recipeId);
         if (!recipe) return null;
@@ -694,10 +694,14 @@ export const useGameStore = create<GameState & GameActions>()(
         if (catalystId && !recipe.requiredCatalyst) {
           newMaterials[catalystId] = (newMaterials[catalystId] ?? 0) - 1;
         }
+        // Consume affix catalyst
+        if (affixCatalystId) {
+          newMaterials[affixCatalystId] = (newMaterials[affixCatalystId] ?? 0) - 1;
+        }
         const newGold = state.gold - recipe.goldCost;
 
         // Generate item
-        const item = executeCraft(recipe, catalystId);
+        const item = executeCraft(recipe, catalystId, affixCatalystId);
 
         // Add crafting XP
         const xp = getCraftingXpForTier(recipe.tier);

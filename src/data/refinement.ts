@@ -17,6 +17,7 @@ export const REFINEMENT_TRACK_DEFS: RefinementTrackDef[] = [
   { id: 'wood',    name: 'Wood',    icon: '🪵' },
   { id: 'herb',    name: 'Herb',    icon: '🌿' },
   { id: 'fish',    name: 'Fish',    icon: '🐟' },
+  { id: 'catalyst', name: 'Catalysts', icon: '⚗️' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -108,6 +109,18 @@ export const REFINEMENT_RECIPES: RefinementRecipeDef[] = [
   recipe('fish', 4, 'abyssal_pearl',  'abyssal_reagent',    'Abyssal Reagent',    'frost_reagent'),
   recipe('fish', 5, 'depthscale',     'tempest_reagent',    'Tempest Reagent',    'abyssal_reagent'),
   recipe('fish', 6, 'genesis_fiber',  'primordial_reagent', 'Primordial Reagent', 'tempest_reagent'),
+
+  // ── Catalysts (T1 only, no chain — uses refined materials as inputs) ────
+  // rawMaterialId = primary ingredient, previousRefinedId = secondary ingredient
+  { id: 'refine_whetstone',         track: 'catalyst', tier: 1, rawMaterialId: 'cindite_ingot',    rawAmount: 3, previousRefinedId: 'emberwood_plank',   previousRefinedAmount: 2, outputId: 'whetstone',         outputName: 'Whetstone',         goldCost: 10 },
+  { id: 'refine_destruction_lens',  track: 'catalyst', tier: 1, rawMaterialId: 'cindite_ingot',    rawAmount: 3, previousRefinedId: 'wispbloom_extract', previousRefinedAmount: 2, outputId: 'destruction_lens',  outputName: 'Destruction Lens',  goldCost: 10 },
+  { id: 'refine_speed_rune',        track: 'catalyst', tier: 1, rawMaterialId: 'emberwood_plank',  rawAmount: 3, previousRefinedId: 'cured_leather',     previousRefinedAmount: 2, outputId: 'speed_rune',        outputName: 'Speed Rune',        goldCost: 10 },
+  { id: 'refine_precision_lens',    track: 'catalyst', tier: 1, rawMaterialId: 'cured_leather',    rawAmount: 3, previousRefinedId: 'wispbloom_extract', previousRefinedAmount: 2, outputId: 'precision_lens',    outputName: 'Precision Lens',    goldCost: 10 },
+  { id: 'refine_brutality_shard',   track: 'catalyst', tier: 1, rawMaterialId: 'cindite_ingot',    rawAmount: 3, previousRefinedId: 'thornweave_cloth',  previousRefinedAmount: 2, outputId: 'brutality_shard',   outputName: 'Brutality Shard',   goldCost: 10 },
+  { id: 'refine_vitality_essence',  track: 'catalyst', tier: 1, rawMaterialId: 'wispbloom_extract', rawAmount: 3, previousRefinedId: 'fish_oil',         previousRefinedAmount: 2, outputId: 'vitality_essence',  outputName: 'Vitality Essence',  goldCost: 10 },
+  { id: 'refine_fortification_kit', track: 'catalyst', tier: 1, rawMaterialId: 'cindite_ingot',    rawAmount: 3, previousRefinedId: 'cured_leather',     previousRefinedAmount: 2, outputId: 'fortification_kit', outputName: 'Fortification Kit', goldCost: 10 },
+  { id: 'refine_evasion_charm',     track: 'catalyst', tier: 1, rawMaterialId: 'cured_leather',    rawAmount: 3, previousRefinedId: 'emberwood_plank',   previousRefinedAmount: 2, outputId: 'evasion_charm',     outputName: 'Evasion Charm',     goldCost: 10 },
+  { id: 'refine_haste_crystal',     track: 'catalyst', tier: 1, rawMaterialId: 'thornweave_cloth', rawAmount: 3, previousRefinedId: 'wispbloom_extract', previousRefinedAmount: 2, outputId: 'haste_crystal',     outputName: 'Haste Crystal',     goldCost: 10 },
 ];
 
 // ---------------------------------------------------------------------------

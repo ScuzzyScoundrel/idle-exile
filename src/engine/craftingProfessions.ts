@@ -8,6 +8,7 @@ import { CRAFTING_MILESTONES } from '../data/craftingProfessions';
 import { CRAFTING_XP_PER_TIER, CATALYST_RARITY_MAP } from '../data/balance';
 import { generateItem, generateGatheringItem } from './items';
 import { getRareMaterialDef } from '../data/rareMaterials';
+import { getAffixCatalystDef } from '../data/affixCatalysts';
 
 /** XP curve for crafting professions — matches gathering curve. */
 const CRAFTING_XP_BASE = 50;
@@ -86,7 +87,12 @@ export function canCraftRecipe(
 export function executeCraft(
   recipe: CraftingRecipeDef,
   catalystId?: string,
+  affixCatalystId?: string,
 ): Item {
+  // Resolve guaranteed affix from affix catalyst
+  const affixCatDef = affixCatalystId ? getAffixCatalystDef(affixCatalystId) : undefined;
+  const guaranteedAffix = affixCatDef?.guaranteedAffix;
+
   // Generate the base item — pass outputBaseId to ensure correct item type
   let item: Item;
   if (recipe.isGatheringGear) {
@@ -100,6 +106,7 @@ export function executeCraft(
       getSlotFromBaseId(recipe.outputBaseId),
       recipe.outputILvl,
       recipe.outputBaseId,
+      guaranteedAffix,
     );
   }
 
