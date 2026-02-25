@@ -1,16 +1,21 @@
 import { useState } from 'react';
 import TopBar from './ui/components/TopBar';
 import NavBar from './ui/components/NavBar';
+import OfflineProgressModal from './ui/components/OfflineProgressModal';
 import ZoneScreen from './ui/screens/ZoneScreen';
 import InventoryScreen from './ui/screens/InventoryScreen';
 import CharacterScreen from './ui/screens/CharacterScreen';
+import { useGameStore } from './store/gameStore';
 
 function App() {
   const [activeTab, setActiveTab] = useState('zones');
+  const offlineProgress = useGameStore((s) => s.offlineProgress);
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
       <TopBar />
+
+      {offlineProgress && <OfflineProgressModal />}
 
       {/* Main content area — padded for top and bottom bars.
           All screens stay mounted (hidden via CSS) so local state persists across tab switches. */}

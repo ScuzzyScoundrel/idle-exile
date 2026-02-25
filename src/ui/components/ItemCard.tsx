@@ -1,5 +1,5 @@
 import { Item, Affix, Rarity, AffixTier } from '../../types';
-import { formatAffix } from '../../engine/items';
+import { formatAffix, getBestTierForILvl } from '../../engine/items';
 import { slotIcon } from '../slotConfig';
 
 const RARITY_COLORS: Record<Rarity, string> = {
@@ -31,11 +31,13 @@ const TIER_COLORS: Record<number, string> = {
   10: 'text-gray-500',
 };
 
-function AffixLine({ affix }: { affix: Affix }) {
+function AffixLine({ affix, bestTier }: { affix: Affix; bestTier: AffixTier }) {
+  const isBest = affix.tier === bestTier;
   return (
     <div className={`text-xs ${TIER_COLORS[affix.tier] || 'text-gray-400'}`}>
       {formatAffix(affix)}
       <span className="text-gray-600 ml-1">(T{affix.tier})</span>
+      {isBest && <span className="text-yellow-500 ml-1" title="Best tier for this item level">★</span>}
     </div>
   );
 }
@@ -73,6 +75,8 @@ export default function ItemCard({ item, onClick, selected, compact }: ItemCardP
         <span>{item.rarity}</span>
         <span>{'\u2022'}</span>
         <span>{item.prefixes.length + item.suffixes.length} affixes</span>
+        <span>{'\u2022'}</span>
+        <span className="text-gray-500">T{getBestTierForILvl(item.iLvl)}+</span>
       </div>
 
       {/* Base Stats */}
@@ -87,8 +91,8 @@ export default function ItemCard({ item, onClick, selected, compact }: ItemCardP
       {/* Affixes */}
       {!compact && (
         <div className="space-y-0.5">
-          {item.prefixes.map((a, i) => <AffixLine key={`p-${i}`} affix={a} />)}
-          {item.suffixes.map((a, i) => <AffixLine key={`s-${i}`} affix={a} />)}
+          {item.prefixes.map((a, i) => <AffixLine key={`p-${i}`} affix={a} bestTier={getBestTierForILvl(item.iLvl)} />)}
+          {item.suffixes.map((a, i) => <AffixLine key={`s-${i}`} affix={a} bestTier={getBestTierForILvl(item.iLvl)} />)}
         </div>
       )}
 

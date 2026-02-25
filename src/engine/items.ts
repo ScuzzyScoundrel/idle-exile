@@ -3,24 +3,11 @@
 // Pure functions: no React, no side effects, no DOM.
 // ============================================================
 
-import type { Item, Affix, AffixDef, AffixTier, Rarity, GearSlot, ItemBaseDef } from '../types';
+import type { Item, Affix, AffixDef, AffixTier, Rarity, GearSlot, ItemBaseDef, StatKey } from '../types';
 import { AFFIX_DEFS } from '../data/affixes';
 import { ITEM_BASE_DEFS } from '../data/items';
-
-// --- Tier Weights ---
-// T10 is most common (worst), T1 is rarest (best)
-export const TIER_WEIGHTS: Record<AffixTier, number> = {
-  10: 20, 9: 18, 8: 16, 7: 13, 6: 10, 5: 8, 4: 6, 3: 4, 2: 3, 1: 2,
-};
-
-// --- Affix Count Weights ---
-const AFFIX_COUNT_WEIGHTS: { count: number; weight: number }[] = [
-  { count: 2, weight: 35 },
-  { count: 3, weight: 30 },
-  { count: 4, weight: 20 },
-  { count: 5, weight: 10 },
-  { count: 6, weight: 5 },
-];
+import { TIER_WEIGHTS, AFFIX_COUNT_WEIGHTS } from '../data/balance';
+import { AFFIX_STAT_MAP } from './character';
 
 // --- Helpers ---
 
@@ -58,6 +45,13 @@ export function getAvailableTiers(iLvl: number): AffixTier[] {
     tiers.push(t as AffixTier);
   }
   return tiers;
+}
+
+/**
+ * Get the best (lowest number) affix tier available at a given iLvl.
+ */
+export function getBestTierForILvl(iLvl: number): AffixTier {
+  return getAvailableTiers(iLvl)[0];
 }
 
 /**
@@ -253,6 +247,40 @@ export function generateItem(slot: GearSlot, iLvl: number): Item {
   return item;
 }
 
+/** Rarity rank for comparison (higher = better). */
+const RARITY_RANK: Record<Rarity, number> = {
+  common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4,
+};
+
+/**
+ * Pick the "best" item from a list — highest rarity wins,
+ * tiebreak by lowest average affix tier (T1 < T10 = better).
+ */
+export function pickBestItem(items: Item[]): Item | null {
+  if (items.length === 0) return null;
+  let best = items[0];
+  let bestRank = RARITY_RANK[best.rarity];
+  let bestAvgTier = avgAffixTier(best);
+
+  for (let i = 1; i < items.length; i++) {
+    const item = items[i];
+    const rank = RARITY_RANK[item.rarity];
+    const avg = avgAffixTier(item);
+    if (rank > bestRank || (rank === bestRank && avg < bestAvgTier)) {
+      best = item;
+      bestRank = rank;
+      bestAvgTier = avg;
+    }
+  }
+  return best;
+}
+
+function avgAffixTier(item: Item): number {
+  const all = [...item.prefixes, ...item.suffixes];
+  if (all.length === 0) return 10;
+  return all.reduce((sum, a) => sum + a.tier, 0) / all.length;
+}
+
 /** Lookup an AffixDef by its id. */
 export function getAffixDef(defId: string): AffixDef | undefined {
   return AFFIX_DEFS.find(d => d.id === defId);
@@ -274,4 +302,69 @@ export function calcItemPower(item: Item): number {
   for (const affix of item.prefixes) power += affix.value;
   for (const affix of item.suffixes) power += affix.value;
   return power;
+}
+
+// --- Upgrade Comparison ---
+
+/**
+ * Calculate an item's total stat contribution mapped to StatKey.
+ * Base stats + all affix values (percent affixes included as raw values
+ * for item-to-item comparison, not final character stats).
+ */
+export function calcItemStatContribution(item: Item): Partial<Record<StatKey, number>> {
+  const stats: Partial<Record<StatKey, number>> = {};
+
+  // Base stats
+  for (const [key, val] of Object.entries(item.baseStats)) {
+    if (typeof val === 'number') {
+      const k = key as StatKey;
+      stats[k] = (stats[k] ?? 0) + val;
+    }
+  }
+
+  // Affix values mapped to StatKey
+  for (const affix of [...item.prefixes, ...item.suffixes]) {
+    const def = getAffixDef(affix.defId);
+    if (!def) continue;
+    const k = AFFIX_STAT_MAP[def.category];
+    stats[k] = (stats[k] ?? 0) + affix.value;
+  }
+
+  return stats;
+}
+
+/**
+ * Returns true if candidate is a net upgrade over equipped.
+ * Simple sum of all stat deltas — no weighting for MVP.
+ */
+export function isUpgradeOver(candidate: Item, equipped: Item): boolean {
+  const candStats = calcItemStatContribution(candidate);
+  const eqStats = calcItemStatContribution(equipped);
+  const allKeys = new Set([...Object.keys(candStats), ...Object.keys(eqStats)]) as Set<StatKey>;
+
+  let netDelta = 0;
+  for (const key of allKeys) {
+    netDelta += (candStats[key] ?? 0) - (eqStats[key] ?? 0);
+  }
+  return netDelta > 0;
+}
+
+/**
+ * Get the equipped item to compare against for a given slot.
+ * Handles ring1/ring2 and trinket1/trinket2 paired-slot fallback.
+ */
+export function getComparisonTarget(
+  slot: GearSlot,
+  equipment: Partial<Record<GearSlot, Item>>,
+): Item | null {
+  const direct = equipment[slot];
+  if (direct) return direct;
+
+  // Paired slot fallback
+  if (slot === 'ring1') return equipment['ring2'] ?? null;
+  if (slot === 'ring2') return equipment['ring1'] ?? null;
+  if (slot === 'trinket1') return equipment['trinket2'] ?? null;
+  if (slot === 'trinket2') return equipment['trinket1'] ?? null;
+
+  return null;
 }

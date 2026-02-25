@@ -1,4 +1,4 @@
-import type { ItemBaseDef, CurrencyDef } from '../types';
+import type { ItemBaseDef, CurrencyDef, BagUpgradeDef } from '../types';
 
 export const ITEM_BASE_DEFS: ItemBaseDef[] = [
   // ==================== Main Hand ====================
@@ -294,6 +294,26 @@ export const ITEM_BASE_DEFS: ItemBaseDef[] = [
   { id: 'astral_prism', name: 'Astral Prism', slot: 'trinket1', baseStats: { damage: 25, critChance: 6 }, iLvl: 50 },
   { id: 'starforged_gem', name: 'Starforged Gem', slot: 'trinket1', baseStats: { damage: 35, critDamage: 30 }, iLvl: 60 },
 ];
+
+export const BAG_UPGRADE_DEFS: BagUpgradeDef[] = [
+  { id: 'tattered_satchel', name: 'Tattered Satchel', capacity: 6, tier: 1, description: 'A worn bag. 6 slots.', goldCost: 50, sellValue: 5, salvageValue: 1 },
+  { id: 'leather_pack', name: 'Leather Pack', capacity: 8, tier: 2, description: 'A sturdy leather pack. 8 slots.', goldCost: 200, sellValue: 25, salvageValue: 2 },
+  { id: 'reinforced_rucksack', name: 'Reinforced Rucksack', capacity: 10, tier: 3, description: 'Metal-braced rucksack. 10 slots.', goldCost: 450, sellValue: 60, salvageValue: 3 },
+  { id: 'enchanted_haversack', name: 'Enchanted Haversack', capacity: 12, tier: 4, description: 'Magically expanded haversack. 12 slots.', goldCost: 800, sellValue: 120, salvageValue: 4 },
+  { id: 'void_touched_sack', name: 'Void-Touched Sack', capacity: 14, tier: 5, description: 'A bag touched by the void. 14 slots.', goldCost: 1250, sellValue: 200, salvageValue: 5 },
+];
+
+export const BAG_SLOT_COUNT = 5;
+
+/** Lookup a BagUpgradeDef by id, fallback to tier 1. */
+export function getBagDef(id: string): BagUpgradeDef {
+  return BAG_UPGRADE_DEFS.find(b => b.id === id) ?? BAG_UPGRADE_DEFS[0];
+}
+
+/** Calculate total inventory capacity from an array of bag slot IDs. */
+export function calcBagCapacity(bagSlots: string[]): number {
+  return bagSlots.reduce((sum, id) => sum + getBagDef(id).capacity, 0);
+}
 
 export const CURRENCY_DEFS: CurrencyDef[] = [
   { id: 'augment', name: 'Augment Shard', description: 'Add one random affix to an item with open slots', icon: '\uD83D\uDFE2', rarity: 'common' },

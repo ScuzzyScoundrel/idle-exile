@@ -1,205 +1,117 @@
 # Idle Exile — Sprint Plan
 
-> Development roadmap broken into focused sprints.
-> Each sprint produces a testable, working increment.
+> Development roadmap. Updated 2026-02-24.
+> References: `idle-exile-evolution.docx` (design source of truth), `PROJECT_STATUS.md` (current state).
 
 ## Sprint Philosophy
-- **Vertical slices**: Each sprint delivers something playable/testable, not just data
-- **Engine first, UI second**: Core math engines before any UI
-- **Data-driven**: Game data lives in config files, not hardcoded
-- **Test as you go**: Each engine system gets unit tests before moving on
+- **Vertical slices**: Each sprint delivers something playable/testable
+- **Engine first, UI second**: Core math before any UI
+- **Data-driven**: Game data in config files, not hardcoded
+- **Follow evolution doc**: Where it conflicts with original GDD, evolution doc wins
 
 ---
 
-## Sprint 0: Foundation (Setup)
-**Goal:** Project scaffolding, tooling, core data types.
-- [ ] Initialize project (Vite + React + TypeScript)
-- [ ] Configure linting (ESLint), formatting (Prettier), testing (Vitest)
-- [ ] Define core TypeScript types/interfaces:
-  - `Item`, `Affix`, `AffixTier`, `AffixPool`
-  - `Character`, `CharacterClass`, `Ability`, `Talent`
-  - `Zone`, `ZoneRegion`, `ZoneTier`, `GatheringFocus`
-  - `Currency`, `Pattern`, `Profession`, `Specialization`
-- [ ] Create game data schema (JSON or TS const objects)
-- [ ] Set up save/load skeleton (localStorage)
-- [ ] Basic app shell with routing
+## Completed Sprints
 
-**Deliverable:** Empty app that builds, lints, tests, with all type definitions in place.
+### Sprint 0: Foundation — DONE
+Project scaffolding, Vite + React + TS + Zustand + Tailwind. Core types defined. Save/load with localStorage. 3-tab app shell (Zones / Bags / Hero).
 
----
+### Sprint 1: Item & Affix Engine — DONE
+15 affix definitions (7 prefix, 8 suffix) with T1-T10 tiers. Weighted tier rolling. iLvl gates tiers (Band 1: T7 best → Band 6: T1). Quality-based rarity (Common→Legendary based on affix quality, not count). 296 item bases across 15 gear slots. 2-6 affixes per item.
 
-## Sprint 1: Item & Affix Engine
-**Goal:** The mathematical heart of the game — generate items with proper RNG affixes.
-- [ ] Affix database: all affix types, tier ranges (T5-T1), weights, valid slots
-- [ ] Item generation engine:
-  - Roll base type, rarity, affix count
-  - Select affixes from weighted pool (respecting prefix/suffix slots)
-  - Roll tier per affix, roll value within tier range
-- [ ] Item level gates (which tiers are available at which iLvl)
-- [ ] Rarity upgrade logic (Normal → Magic → Rare)
-- [ ] Disenchant logic (item → currency shards)
-- [ ] Unit tests: verify distribution, tier gating, slot rules
+### Sprint 1A: UI Polish — DONE
+Auto-salvage feedback, loot dismiss, rarity guide, hero page overhaul, paper doll with item names, stat tooltips.
 
-**Deliverable:** `generateItem(params)` that produces valid, interesting items. Testable in console.
+### Sprint 1B: Zone Overhaul & Scaling — DONE
+Zone card grid (2x2 + boss), band-themed gradients, single-accordion. Clear time scaling with exponential level penalty + quadratic hazard penalty (multiplicative). Progressive hazard design across all 30 zones (World's Edge = all 5 elements). Exalt iLvl gating fix. Best-tier ★ indicator. Item Level & Tier Gating guide.
+
+### Sprint 1C: Real-Time Loot, Bag System & Bug Fixes — DONE
+Real-time loot (items drop into bags as clears happen, not batched). Loot feed shows actual item names with rarity colors. Bag capacity system (30 start, 5 tiers of +6 upgrades to 60, from zone drops or gold purchase). Overflow auto-salvage with running tally. "Collect Resources" button for currencies/materials/gold only. Tooltip viewport clipping fix (useLayoutEffect flip-below). Unequip guard when bags full. Save v7 migration.
+
+### Sprint 2: Loot Rarity & Volume Tuning — DONE
+Centralized all balance constants into `src/data/balance.ts`. Reduced item drop chance from 25% to 8% per clear. Increased material drops (2-4 vs 1-2), currency drop rates (+60-80%), and gold per band (8 vs 5). Added upgrade indicators (green triangle badges) on inventory items that are net improvements over equipped gear. Refactored ComparisonPanel to use shared engine logic with readable stat labels.
+
+### Sprint 2B: Bag Slots, Hover Comparison & Right-Click Equip — DONE
+Replaced flat bag capacity with WoW-style 5-bag-slot system. Each bag has per-tier capacity (6/8/10/12/14). Bags are equippable items with sell/salvage value. Vendor sells T1-T2 only; T3+ from drops/crafting. Buy bags → stash → equip to weakest slot. Added inline stat comparison on hover tooltips (green/red deltas vs equipped). Right-click to equip items. Sell gear for gold (rarity-based + iLvl/5 bonus). Bag slots section moved above loot grid. Save v8 migration. Tooltip widened to w-64.
+
+### Sprint 3: Offline Progression + Gold Fix — DONE
+Gold economy rebalanced (GOLD_PER_BAND 8→3). Offline progression: on app reopen, detects elapsed time, simulates loot via `simulateIdleRun()`, presents "Welcome Back, Exile!" modal with full summary (clears, gold, XP, items, best drop, resources). Items stored in summary until player claims (overflow auto-salvaged at claim time). Race condition prevented by resetting `idleStartTime` in `onRehydrateStorage`. Added bag drops to `simulateIdleRun()`. New `pickBestItem()` helper. Save v9 migration. Deployed to Vercel.
 
 ---
 
-## Sprint 2: Zone & Idle Loop Engine
-**Goal:** The idle core — zones produce loot over time.
-- [ ] Zone database: all zones, regions, material tables, tier scaling
-- [ ] Clear speed calculator: `calcClearTime(character, zone, tier)`
-- [ ] Idle simulation engine: given elapsed time + zone + focus mode, produce:
-  - Items (using Sprint 1 engine)
-  - Materials (zone-specific, tier-appropriate)
-  - Currency drops
-  - XP earned
-- [ ] Gathering focus mode modifiers (Combat/Harvesting/Prospecting/Scavenging)
-- [ ] Offline progression: calculate results for arbitrary time spans
-- [ ] Unit tests: verify loot rates, material distribution, time scaling
+## Current Priority: What to Build Next
 
-**Deliverable:** `simulateIdleRun(character, zone, tier, focus, duration)` → full loot results.
+Based on evolution doc Section 18 (Implementation Priority) and current game state.
 
----
+### Sprint 4: Weapon Types + Abilities
+**Goal:** Abilities come from weapons, not classes (per evolution doc Section 13).
+**Why now:** Combat needs to feel different based on gear choices.
+- [ ] Define 8 weapon types: sword, axe, mace, dagger, staff, wand, bow, crossbow
+- [ ] 3 passive abilities per weapon type (always-on during idle clears)
+- [ ] Abilities modify clear speed formula (damage mult, speed mult, special effects)
+- [ ] Weapon type determines which abilities are available
+- [ ] UI: ability display on character screen, ability effects visible in zone screen
 
-## Sprint 3: Character System Engine
-**Goal:** Classes, stats, abilities, talents — everything that defines a character.
-- [ ] Class definitions: base stats, armor affinity, ability pools
-- [ ] Stat calculation engine: aggregate gear stats + talent bonuses + ability effects
-- [ ] Ability system: 4 slots, mutator selection, synergy detection
-- [ ] Talent tree data structure and allocation logic
-- [ ] Level-up system: XP curve, stat gains, ability unlocks
-- [ ] Respec logic (with cost)
-- [ ] Unit tests: stat aggregation, talent application, ability combos
+### Sprint 5: Class Mechanics
+**Goal:** 4 classes with unique passive mechanics (evolution doc Section 13).
+**Why now:** Builds on weapon abilities to create distinct playstyles.
+- [ ] Class selection at character creation (Warrior, Mage, Ranger, Rogue)
+- [ ] Warrior: Rage (builds during clears, decays between, boosts damage)
+- [ ] Mage: Arcane Charges (build up, discharge for burst, cycle)
+- [ ] Ranger: Tracking (stacks in same zone, boosts rare drops)
+- [ ] Rogue: Momentum (consecutive clears without stopping, boosts speed)
+- [ ] Each mechanic affects idle calculations differently
+- [ ] Talent tree: 30-50 nodes per class (modifies class mechanic)
 
-**Deliverable:** Full character model that feeds into clear speed calculator.
+### Sprint 6: Gathering System
+**Goal:** Gathering as a separate activity with its own gear (evolution doc Sections 4-5).
+**Why now:** Material system is placeholder — gathering creates the real material economy.
+- [ ] 5 gathering professions: Mining, Herbalism, Skinning, Logging, Fishing
+- [ ] Gathering skill levels (1-100) with XP and zone skill gates
+- [ ] Gathering mode toggle on zone screen (combat vs gathering)
+- [ ] Gathering gear: separate equipment category with gathering-specific affixes
+- [ ] Dual loadout system (combat set / gathering set)
+- [ ] Gathering clear speed uses gathering gear stats only
 
----
+### Sprint 7: Material Refinement & Crafting Professions
+**Goal:** New World-style refinement chains + profession crafting (evolution doc Sections 3, 14).
+**Why now:** Builds on gathering to create the full crafting loop.
+- [ ] 6 refinement tracks (ore, cloth, leather, wood, herb, fish)
+- [ ] Chain recipes: T1 raw → refined, T2+ requires previous refined + new raw
+- [ ] Refining UI with gold cost
+- [ ] Material deconstruction (1:2 ratio downward)
+- [ ] 5 crafting professions: Weaponsmith, Armorer, Tailor, Alchemist, Jeweler
+- [ ] Pattern-based item creation from refined materials
+- [ ] Cross-track recipe dependencies (weapons need ingots + planks, etc.)
 
-## Sprint 4: Currency Crafting Engine (Track A)
-**Goal:** All PoE-style currency crafting operations.
-- [ ] Implement all 9 core currencies:
-  - Chaos, Augment, Exalt, Transmute, Alchemy, Divine, Annul, Socket, Regal
-- [ ] Implement rare currencies: Fracture, Veiled, Mirror
-- [ ] Catalyst system: temporary affix category weighting
-- [ ] Omen system: conditional triggers on next craft action
-- [ ] Crafting validation (can this currency be used on this item?)
-- [ ] Crafting history log (for undo/review)
-- [ ] Unit tests: every currency operation, edge cases, fracture locking
+### Sprint 8: Gold Economy
+**Goal:** Gold as meaningful soft currency (evolution doc Section 15).
+- [ ] Gold drops from combat (scales with band)
+- [ ] Refining costs gold
+- [ ] Respec costs gold (scales with points)
+- [ ] Inventory expansion costs gold
+- [ ] Vendor recipes for gold
 
-**Deliverable:** `applyCurrency(item, currency, options)` → modified item. Full test coverage.
-
----
-
-## Sprint 5: Profession Crafting Engine (Track B)
-**Goal:** Pattern-based item creation from materials.
-- [ ] Profession data: all 8 professions, level requirements, material costs
-- [ ] Pattern system: rarity tiers (Common/Rare/Epic/Legendary), charges
-- [ ] Profession crafting engine:
-  - Select pattern + materials → generate item with pattern rules
-  - Guaranteed affixes from pattern + random remainder
-  - Quality scaling based on profession level
-- [ ] Profession leveling: XP from crafting, milestone unlocks
-- [ ] Material inventory management
-- [ ] Unit tests: pattern charge consumption, level gating, output quality scaling
-
-**Deliverable:** `professionCraft(character, pattern, materials)` → crafted item.
-
----
-
-## Sprint 6: Specialization System
-**Goal:** The one-per-character identity system.
-- [ ] Specialization tree data structure (15-20 nodes primary, 8-10 secondary)
-- [ ] Specialization mechanics implementation:
-  - Sanctified Craft, Twinned Craft, Tempered Craft
-  - Illusion Mod, Multi-Craft Proc, Resonance
-  - Signature Mark, Deep Combo Nodes
-- [ ] Primary vs Secondary spec differences
-- [ ] Roll floor bonuses, tier weighting adjustments
-- [ ] Spec switching (with cost/reset)
-- [ ] Integration with profession crafting engine
-- [ ] Unit tests: each mechanic, primary vs secondary differences
-
-**Deliverable:** Specialization modifies profession crafting output. All mechanics testable.
+### Sprint 9: Player Feedback & Polish
+**Goal:** Make getting stronger feel good (evolution doc Section 12).
+- [ ] Kill counter / enemies defeated
+- [ ] Clear speed comparison (before/after equipping)
+- [ ] Milestone notifications (1000 zones cleared, first T2 found, etc.)
+- [ ] Enhanced login screen with offline progress summary
+- [ ] Wishlist / stat filter system
 
 ---
 
-## Sprint 7: UI Shell & Navigation
-**Goal:** The app frame — responsive layout, screens, navigation.
-- [ ] Responsive layout (mobile-first, desktop-friendly)
-- [ ] Screen routing: Home, Character, Zones, Inventory, Crafting, Professions
-- [ ] Global UI state management (selected character, current screen)
-- [ ] Design system: colors, typography, component patterns
-- [ ] Item tooltip component (shows affixes, tiers, sockets)
-- [ ] Basic notification/toast system
+## Post-Core Sprints (Future)
 
-**Deliverable:** Navigable app shell with placeholder content on each screen.
-
----
-
-## Sprint 8: UI — Inventory & Loot
-**Goal:** The loot evaluation experience.
-- [ ] Inventory grid display
-- [ ] Item card component (rarity colors, affix display, tier indicators)
-- [ ] Loot review screen (post-idle results)
-- [ ] Equipment panel (character paper doll or slot grid)
-- [ ] Equip/unequip flow
-- [ ] Disenchant flow (with confirmation)
-- [ ] Item comparison (equipped vs candidate)
-- [ ] Sort/filter inventory
-
-**Deliverable:** Player can review loot, equip items, disenchant junk.
-
----
-
-## Sprint 9: UI — Crafting
-**Goal:** Both crafting tracks in the UI.
-- [ ] Currency crafting UI:
-  - Select item + currency → preview → confirm → animated result
-  - Catalyst application flow
-  - Omen application flow
-  - Fracture/Veiled/Mirror special UIs
-- [ ] Profession crafting UI:
-  - Pattern selection (with charge display)
-  - Material requirement check
-  - Craft execution → result display
-- [ ] Crafting history/log viewer
-
-**Deliverable:** Full crafting experience for both tracks.
-
----
-
-## Sprint 10: UI — Zones & Character
-**Goal:** Zone selection, character sheet, talent tree.
-- [ ] Zone map / zone list with region grouping
-- [ ] Zone detail: tier selection, gathering focus, estimated clear time
-- [ ] "Send to zone" flow → idle timer
-- [ ] Character sheet: stats summary, equipped gear, class info
-- [ ] Talent tree visual (interactive node graph)
-- [ ] Ability loadout editor with mutator selection
-
-**Deliverable:** Full gameplay loop playable in browser.
-
----
-
-## Sprint 11: Polish & Integration
-**Goal:** Save system, offline calc, balance pass, PWA.
-- [ ] Save/load to localStorage (auto-save on state change)
-- [ ] Offline progression on app open (calculate what was earned)
-- [ ] Initial balance pass: drop rates, XP curves, craft costs
-- [ ] PWA setup (service worker, manifest, installable)
-- [ ] Performance audit (large inventories, long idle calcs)
-- [ ] Error boundaries and edge case handling
-- [ ] Basic onboarding / tutorial flow
-
-**Deliverable:** MVP — a complete, playable, saveable idle ARPG.
-
----
-
-## Post-MVP Sprints (Future)
-- **Sprint 12:** Sound effects, animations, visual polish
-- **Sprint 13:** Trading & auction house
-- **Sprint 14:** Group content (dungeons/raids)
-- **Sprint 15:** Guild systems
-- **Sprint 16:** Seasons/leagues framework
-- **Sprint 17:** Ascendancy prestige system
-- **Sprint 18:** Mobile native (React Native or PWA optimization)
+| Sprint | Feature | Notes |
+|--------|---------|-------|
+| 10 | Rare currencies (Fracture, Veiled, Mirror) | Deterministic endgame crafting |
+| 11 | Socket system | Socket Shard implementation |
+| 12 | Specialization system | One per character, modifies crafting |
+| 13 | Omen & Catalyst systems | Conditional crafting modifiers |
+| 14 | PWA + mobile polish | Service worker, manifest, installable |
+| 15 | Leaderboards & social | Fastest clears, highest zone, etc. |
+| 16 | Trading & auction house | Player economy |
+| 17 | Seasons/leagues | Seasonal resets with modifiers |
+| 18 | Ascendancy prestige | Endgame progression system |

@@ -80,7 +80,7 @@ export const ZONE_DEFS: ZoneDef[] = [
     unlockRequirement: 'mossback_creek',
   },
 
-  // ── Band 2: The Frontier (iLvl 11–20, no hazards) ───────────
+  // ── Band 2: The Frontier (iLvl 11–20, single hazards intro) ─
   {
     id: 'ironcrest_ridge',
     name: 'Ironcrest Ridge',
@@ -104,7 +104,7 @@ export const ZONE_DEFS: ZoneDef[] = [
     iLvlMin: 12,
     iLvlMax: 15,
     materialDrops: ['swamp_herb', 'venom_sac'],
-    hazards: [],
+    hazards: [{ type: 'poison', threshold: 20 }],
     unlockRequirement: 'ironcrest_ridge',
   },
   {
@@ -130,7 +130,7 @@ export const ZONE_DEFS: ZoneDef[] = [
     iLvlMin: 16,
     iLvlMax: 18,
     materialDrops: ['crystal_shard', 'iron_ore'],
-    hazards: [],
+    hazards: [{ type: 'lightning', threshold: 20 }],
     unlockRequirement: 'windsworn_steppe',
   },
   {
@@ -143,11 +143,11 @@ export const ZONE_DEFS: ZoneDef[] = [
     iLvlMin: 18,
     iLvlMax: 20,
     materialDrops: ['dark_lumber', 'venom_sac'],
-    hazards: [],
+    hazards: [{ type: 'poison', threshold: 30 }],
     unlockRequirement: 'glintstone_caverns',
   },
 
-  // ── Band 3: Contested Lands (iLvl 21–30, hazards start) ─────
+  // ── Band 3: Contested Lands (iLvl 21–30, single hazards, boss dual) ─
   {
     id: 'emberpeak_caldera',
     name: 'Emberpeak Caldera',
@@ -158,7 +158,7 @@ export const ZONE_DEFS: ZoneDef[] = [
     iLvlMin: 21,
     iLvlMax: 23,
     materialDrops: ['iron_ore', 'glacial_essence'],
-    hazards: [{ type: 'fire', threshold: 40 }],
+    hazards: [{ type: 'fire', threshold: 35 }],
     unlockRequirement: 'rothollow_thicket',
   },
   {
@@ -171,7 +171,7 @@ export const ZONE_DEFS: ZoneDef[] = [
     iLvlMin: 22,
     iLvlMax: 25,
     materialDrops: ['dark_lumber', 'beast_hide'],
-    hazards: [],
+    hazards: [{ type: 'poison', threshold: 35 }],
     unlockRequirement: 'emberpeak_caldera',
   },
   {
@@ -197,7 +197,7 @@ export const ZONE_DEFS: ZoneDef[] = [
     iLvlMin: 26,
     iLvlMax: 28,
     materialDrops: ['swamp_herb', 'dark_lumber'],
-    hazards: [],
+    hazards: [{ type: 'poison', threshold: 40 }],
     unlockRequirement: 'frostmere_depths',
   },
   {
@@ -210,11 +210,14 @@ export const ZONE_DEFS: ZoneDef[] = [
     iLvlMin: 28,
     iLvlMax: 30,
     materialDrops: ['venom_sac', 'swamp_herb'],
-    hazards: [{ type: 'poison', threshold: 30 }],
+    hazards: [
+      { type: 'poison', threshold: 45 },
+      { type: 'cold', threshold: 30 },
+    ],
     unlockRequirement: 'thornwall_basin',
   },
 
-  // ── Band 4: Dark Reaches (iLvl 31–40, multi-hazards) ────────
+  // ── Band 4: Dark Reaches (iLvl 31–40, dual hazards, boss triple) ─
   {
     id: 'obsidian_forge',
     name: 'Obsidian Forge',
@@ -226,8 +229,8 @@ export const ZONE_DEFS: ZoneDef[] = [
     iLvlMax: 33,
     materialDrops: ['iron_ore', 'dark_essence'],
     hazards: [
-      { type: 'fire', threshold: 60 },
-      { type: 'chaos', threshold: 30 },
+      { type: 'fire', threshold: 50 },
+      { type: 'chaos', threshold: 25 },
     ],
     unlockRequirement: 'shimmerfen_bog',
   },
@@ -242,8 +245,8 @@ export const ZONE_DEFS: ZoneDef[] = [
     iLvlMax: 35,
     materialDrops: ['dark_lumber', 'glacial_essence'],
     hazards: [
-      { type: 'cold', threshold: 60 },
-      { type: 'chaos', threshold: 30 },
+      { type: 'cold', threshold: 50 },
+      { type: 'chaos', threshold: 25 },
     ],
     unlockRequirement: 'obsidian_forge',
   },
@@ -257,7 +260,10 @@ export const ZONE_DEFS: ZoneDef[] = [
     iLvlMin: 35,
     iLvlMax: 37,
     materialDrops: ['venom_sac', 'dark_essence'],
-    hazards: [{ type: 'poison', threshold: 60 }],
+    hazards: [
+      { type: 'poison', threshold: 55 },
+      { type: 'fire', threshold: 30 },
+    ],
     unlockRequirement: 'wraithwood',
   },
   {
@@ -270,7 +276,10 @@ export const ZONE_DEFS: ZoneDef[] = [
     iLvlMin: 37,
     iLvlMax: 39,
     materialDrops: ['crystal_shard', 'glacial_essence'],
-    hazards: [{ type: 'cold', threshold: 50 }],
+    hazards: [
+      { type: 'cold', threshold: 55 },
+      { type: 'lightning', threshold: 30 },
+    ],
     unlockRequirement: 'venomspire_ruins',
   },
   {
@@ -283,11 +292,15 @@ export const ZONE_DEFS: ZoneDef[] = [
     iLvlMin: 38,
     iLvlMax: 40,
     materialDrops: ['iron_ore', 'dark_essence'],
-    hazards: [{ type: 'fire', threshold: 55 }],
+    hazards: [
+      { type: 'fire', threshold: 60 },
+      { type: 'lightning', threshold: 40 },
+      { type: 'chaos', threshold: 30 },
+    ],
     unlockRequirement: 'drowned_abyss',
   },
 
-  // ── Band 5: Shattered Realm (iLvl 41–50, high hazards) ──────
+  // ── Band 5: Shattered Realm (iLvl 41–50, dual/triple, boss quad) ─
   {
     id: 'celestine_spire',
     name: 'Celestine Spire',
@@ -298,7 +311,10 @@ export const ZONE_DEFS: ZoneDef[] = [
     iLvlMin: 41,
     iLvlMax: 43,
     materialDrops: ['crystal_shard', 'dark_essence'],
-    hazards: [{ type: 'lightning', threshold: 60 }],
+    hazards: [
+      { type: 'lightning', threshold: 60 },
+      { type: 'cold', threshold: 35 },
+    ],
     unlockRequirement: 'scorched_plateau',
   },
   {
@@ -311,7 +327,10 @@ export const ZONE_DEFS: ZoneDef[] = [
     iLvlMin: 43,
     iLvlMax: 45,
     materialDrops: ['venom_sac', 'beast_hide'],
-    hazards: [{ type: 'poison', threshold: 70 }],
+    hazards: [
+      { type: 'poison', threshold: 65 },
+      { type: 'chaos', threshold: 35 },
+    ],
     unlockRequirement: 'celestine_spire',
   },
   {
@@ -324,7 +343,10 @@ export const ZONE_DEFS: ZoneDef[] = [
     iLvlMin: 45,
     iLvlMax: 47,
     materialDrops: ['crystal_shard', 'iron_ore'],
-    hazards: [{ type: 'lightning', threshold: 80 }],
+    hazards: [
+      { type: 'lightning', threshold: 70 },
+      { type: 'fire', threshold: 40 },
+    ],
     unlockRequirement: 'dreadmaw_caverns',
   },
   {
@@ -337,7 +359,11 @@ export const ZONE_DEFS: ZoneDef[] = [
     iLvlMin: 47,
     iLvlMax: 49,
     materialDrops: ['dark_essence', 'glacial_essence'],
-    hazards: [{ type: 'chaos', threshold: 80 }],
+    hazards: [
+      { type: 'chaos', threshold: 70 },
+      { type: 'cold', threshold: 45 },
+      { type: 'poison', threshold: 40 },
+    ],
     unlockRequirement: 'stormveil_heights',
   },
   {
@@ -350,11 +376,16 @@ export const ZONE_DEFS: ZoneDef[] = [
     iLvlMin: 48,
     iLvlMax: 50,
     materialDrops: ['iron_ore', 'dark_essence'],
-    hazards: [{ type: 'fire', threshold: 80 }],
+    hazards: [
+      { type: 'fire', threshold: 75 },
+      { type: 'lightning', threshold: 50 },
+      { type: 'chaos', threshold: 40 },
+      { type: 'poison', threshold: 30 },
+    ],
     unlockRequirement: 'hollow_throne',
   },
 
-  // ── Band 6: The Endlands (iLvl 51–60, extreme hazards) ──────
+  // ── Band 6: The Endlands (iLvl 51–60, triple→penta, boss all five) ─
   {
     id: 'starfall_basin',
     name: 'Starfall Basin',
@@ -366,8 +397,8 @@ export const ZONE_DEFS: ZoneDef[] = [
     iLvlMax: 53,
     materialDrops: ['crystal_shard', 'dark_essence'],
     hazards: [
-      { type: 'fire', threshold: 60 },
-      { type: 'cold', threshold: 60 },
+      { type: 'fire', threshold: 65 },
+      { type: 'cold', threshold: 65 },
     ],
     unlockRequirement: 'ashenmaw_crater',
   },
@@ -382,11 +413,9 @@ export const ZONE_DEFS: ZoneDef[] = [
     iLvlMax: 55,
     materialDrops: ['dark_essence', 'venom_sac'],
     hazards: [
-      { type: 'fire', threshold: 60 },
-      { type: 'cold', threshold: 60 },
-      { type: 'lightning', threshold: 60 },
-      { type: 'poison', threshold: 60 },
-      { type: 'chaos', threshold: 60 },
+      { type: 'chaos', threshold: 70 },
+      { type: 'poison', threshold: 65 },
+      { type: 'cold', threshold: 50 },
     ],
     unlockRequirement: 'starfall_basin',
   },
@@ -400,7 +429,11 @@ export const ZONE_DEFS: ZoneDef[] = [
     iLvlMin: 55,
     iLvlMax: 57,
     materialDrops: ['iron_ore', 'beast_hide', 'dark_essence'],
-    hazards: [{ type: 'chaos', threshold: 70 }],
+    hazards: [
+      { type: 'fire', threshold: 75 },
+      { type: 'lightning', threshold: 60 },
+      { type: 'chaos', threshold: 50 },
+    ],
     unlockRequirement: 'consuming_dark',
   },
   {
@@ -413,7 +446,12 @@ export const ZONE_DEFS: ZoneDef[] = [
     iLvlMin: 57,
     iLvlMax: 59,
     materialDrops: ['crystal_shard', 'glacial_essence'],
-    hazards: [{ type: 'lightning', threshold: 100 }],
+    hazards: [
+      { type: 'lightning', threshold: 80 },
+      { type: 'cold', threshold: 65 },
+      { type: 'fire', threshold: 55 },
+      { type: 'chaos', threshold: 40 },
+    ],
     unlockRequirement: 'titans_graveyard',
   },
   {
@@ -427,9 +465,11 @@ export const ZONE_DEFS: ZoneDef[] = [
     iLvlMax: 60,
     materialDrops: ['dark_essence', 'crystal_shard', 'glacial_essence'],
     hazards: [
-      { type: 'fire', threshold: 80 },
-      { type: 'cold', threshold: 80 },
-      { type: 'chaos', threshold: 80 },
+      { type: 'fire', threshold: 75 },
+      { type: 'cold', threshold: 75 },
+      { type: 'lightning', threshold: 75 },
+      { type: 'poison', threshold: 75 },
+      { type: 'chaos', threshold: 75 },
     ],
     unlockRequirement: 'eternal_storm',
   },

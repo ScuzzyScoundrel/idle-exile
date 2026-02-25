@@ -7,30 +7,14 @@ import type { Character, CharacterClass, ResolvedStats, StatKey, Item, GearSlot,
 import { getAffixDef } from './items';
 import { CLASS_DEFS } from '../data/classes';
 import { calcSetBonuses } from './setBonus';
-
-// --- Base Stats ---
-
-/** Starting stats for a fresh level 1 character. */
-export const BASE_STATS: ResolvedStats = {
-  damage: 10,
-  attackSpeed: 1,
-  critChance: 5,
-  critDamage: 150,
-  life: 100,
-  armor: 0,
-  dodgeChance: 0,
-  abilityHaste: 0,
-  fireResist: 0,
-  coldResist: 0,
-  lightningResist: 0,
-  poisonResist: 0,
-  chaosResist: 0,
-};
+import {
+  BASE_STATS, DAMAGE_PER_LEVEL, LIFE_PER_LEVEL, XP_BASE, XP_GROWTH,
+} from '../data/balance';
 
 // --- Affix Category to StatKey mapping ---
 
 /** Map from AffixCategory to the StatKey it modifies. */
-const AFFIX_STAT_MAP: Record<AffixCategory, StatKey> = {
+export const AFFIX_STAT_MAP: Record<AffixCategory, StatKey> = {
   flat_damage: 'damage',
   percent_damage: 'damage',
   attack_speed: 'attackSpeed',
@@ -58,7 +42,7 @@ const PERCENT_CATEGORIES: Set<AffixCategory> = new Set([
 
 /** Calculate XP required to reach the next level. */
 export function calcXpToNext(level: number): number {
-  return Math.floor(100 * Math.pow(1.5, level - 1));
+  return Math.floor(XP_BASE * Math.pow(XP_GROWTH, level - 1));
 }
 
 /** Create a fresh level 1 character with the given name and class. */
@@ -98,10 +82,10 @@ export function resolveStats(char: Character): ResolvedStats {
     }
   }
 
-  // Per-level bonuses: +2 damage, +5 life per level (level 1 gets no bonus)
+  // Per-level bonuses (level 1 gets no bonus)
   const bonusLevels = char.level - 1;
-  stats.damage += 2 * bonusLevels;
-  stats.life += 5 * bonusLevels;
+  stats.damage += DAMAGE_PER_LEVEL * bonusLevels;
+  stats.life += LIFE_PER_LEVEL * bonusLevels;
 
   // Collect percent multipliers separately
   const percentBonuses: Partial<Record<StatKey, number>> = {};

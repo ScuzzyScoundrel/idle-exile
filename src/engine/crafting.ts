@@ -4,7 +4,7 @@
 // ============================================================
 
 import type { Item, CurrencyType, CraftResult, Affix, AffixTier } from '../types';
-import { rollAffixes, rollAffixValue, getAffixDef, classifyRarity, buildItemName } from './items';
+import { rollAffixes, rollAffixValue, getAffixDef, classifyRarity, buildItemName, getAvailableTiers, TIER_WEIGHTS } from './items';
 import { AFFIX_DEFS } from '../data/affixes';
 
 // --- Helpers ---
@@ -33,7 +33,11 @@ function reclassify(item: Item): void {
   item.name = buildItemName(item);
 }
 
-/** Roll a single affix forced T1-T3 (weighted: T3=50%, T2=35%, T1=15%). */
+/**
+ * Roll a single affix guaranteed from the top 3 available tiers for the item's iLvl.
+ * Weighted toward the 3rd-best (50%), 2nd-best (35%), best (15%).
+ * Respects iLvl gating — an iLvl 1 item can only get T7 (the best available).
+ */
 function rollForcedHighTierAffix(
   slot: 'prefix' | 'suffix',
   iLvl: number,
@@ -44,7 +48,7 @@ function rollForcedHighTierAffix(
   );
   if (available.length === 0) return null;
 
-  // Weighted random pick
+  // Weighted random pick for affix type
   const totalWeight = available.reduce((sum, d) => sum + d.weight, 0);
   let roll = Math.random() * totalWeight;
   let chosen = available[0];
@@ -56,12 +60,23 @@ function rollForcedHighTierAffix(
     }
   }
 
-  // Forced high tier: T3=50%, T2=35%, T1=15%
-  const tierRoll = Math.random();
+  // Get the top 3 tiers available at this iLvl
+  const tiers = getAvailableTiers(iLvl);
+  const top3 = tiers.slice(0, 3); // sorted best-first (lowest number)
+
   let tier: AffixTier;
-  if (tierRoll < 0.15) { tier = 1; }
-  else if (tierRoll < 0.50) { tier = 2; }
-  else { tier = 3; }
+  if (top3.length === 1) {
+    tier = top3[0];
+  } else if (top3.length === 2) {
+    // 30% best, 70% second-best
+    tier = Math.random() < 0.30 ? top3[0] : top3[1];
+  } else {
+    // 15% best, 35% second-best, 50% third-best
+    const tierRoll = Math.random();
+    if (tierRoll < 0.15) tier = top3[0];
+    else if (tierRoll < 0.50) tier = top3[1];
+    else tier = top3[2];
+  }
 
   const tierData = chosen.tiers[tier];
   const value = rollAffixValue(tierData.min, tierData.max);

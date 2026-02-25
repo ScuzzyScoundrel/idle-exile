@@ -142,11 +142,28 @@ export interface IdleRunResult {
   items: Item[];
   materials: Record<string, number>;
   currencyDrops: Record<CurrencyType, number>;
+  bagDrops: Record<string, number>;
   xpGained: number;
   goldGained: number;
   clearsCompleted: number;
   elapsed: number;
   autoSalvaged?: { itemsSalvaged: number; dustGained: number };
+}
+
+export interface OfflineProgressSummary {
+  zoneId: string;
+  zoneName: string;
+  elapsedSeconds: number;
+  clearsCompleted: number;
+  items: Item[];
+  autoSalvagedCount: number;
+  autoSalvagedDust: number;
+  goldGained: number;
+  xpGained: number;
+  materials: Record<string, number>;
+  currencyDrops: Record<CurrencyType, number>;
+  bagDrops: Record<string, number>;
+  bestItem: Item | null;
 }
 
 // --- Currencies ---
@@ -175,14 +192,27 @@ export interface CraftResult {
   message: string;
 }
 
+// --- Bag Upgrades ---
+
+export interface BagUpgradeDef {
+  id: string;
+  name: string;
+  capacity: number;       // slots this bag provides
+  tier: number;
+  description: string;
+  goldCost: number;
+  sellValue: number;       // gold received when selling a replaced bag
+  salvageValue: number;    // salvage dust received when salvaging
+}
+
 // --- Pending Loot (banked between zone changes) ---
 
 export interface PendingLoot {
-  items: Item[];
   currencyDrops: Record<CurrencyType, number>;
   materials: Record<string, number>;
   goldGained: number;
   clearsCompleted: number;
+  bagDrops: Record<string, number>;
 }
 
 // --- Set Bonuses ---
@@ -215,12 +245,19 @@ export interface GameState {
   gold: number;
   pendingLoot: PendingLoot;
 
+  // Bag system
+  bagSlots: string[];                    // exactly 5 bag def IDs
+  bagStash: Record<string, number>;      // collected but unequipped bags
+
   // Idle state
   currentZoneId: string | null;
   idleStartTime: number | null; // timestamp when idle run started
 
   // Auto-salvage
   autoSalvageMinRarity: Rarity;
+
+  // Offline progression
+  offlineProgress: OfflineProgressSummary | null;
 
   // Meta
   lastSaveTime: number;
