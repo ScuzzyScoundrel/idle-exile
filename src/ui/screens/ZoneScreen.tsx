@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { ZONE_DEFS, BAND_NAMES } from '../../data/zones';
 import { checkZoneMastery } from '../../engine/zones';
-import { ZoneDef, Rarity, CurrencyType } from '../../types';
+import { ZoneDef, Rarity } from '../../types';
 import { BAG_UPGRADE_DEFS, calcBagCapacity } from '../../data/items';
 
 // Band visual theming
@@ -307,7 +307,6 @@ export default function ZoneScreen() {
   };
 
   const currentClears = isRunning ? Math.floor(elapsed / runningClearTime) : 0;
-  const totalPendingClears = currentClears + pendingLoot.clearsCompleted;
 
   // Group zones by band
   const bands = [1, 2, 3, 4, 5, 6];

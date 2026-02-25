@@ -4,7 +4,7 @@
 // ============================================================
 
 import type { Item, CurrencyType, CraftResult, Affix, AffixTier } from '../types';
-import { rollAffixes, rollAffixValue, getAffixDef, classifyRarity, buildItemName, getAvailableTiers, TIER_WEIGHTS } from './items';
+import { rollAffixes, rollAffixValue, getAffixDef, classifyRarity, buildItemName, getAvailableTiers } from './items';
 import { AFFIX_DEFS } from '../data/affixes';
 
 // --- Helpers ---

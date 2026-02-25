@@ -3,7 +3,7 @@
 // Pure functions: no React, no side effects, no DOM.
 // ============================================================
 
-import type { Character, CharacterClass, ResolvedStats, StatKey, Item, GearSlot, AffixCategory } from '../types';
+import type { Character, CharacterClass, ResolvedStats, StatKey, GearSlot, AffixCategory } from '../types';
 import { getAffixDef } from './items';
 import { CLASS_DEFS } from '../data/classes';
 import { calcSetBonuses } from './setBonus';

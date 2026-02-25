@@ -2,7 +2,7 @@
 // Idle Exile — Zone Definitions
 // ============================================================
 
-import type { ZoneDef, ZoneHazard } from '../types';
+import type { ZoneDef } from '../types';
 
 export const BAND_NAMES: Record<number, string> = {
   1: 'The Greenlands',

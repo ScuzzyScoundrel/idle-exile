@@ -703,7 +703,7 @@ export const useGameStore = create<GameState & GameActions>()(
       },
       migrate: (persisted: unknown, version: number) => {
         const old = persisted as Record<string, unknown>;
-        const state = { ...old } as GameState & GameActions;
+        const state = { ...old } as unknown as GameState & GameActions;
 
         if (version < 7) {
           // v7: Add bag system fields, drop any old pendingLoot.items (alpha-stage)
@@ -743,8 +743,8 @@ export const useGameStore = create<GameState & GameActions>()(
           state.bagStash = { ...oldConsumables };
 
           // Clean up old fields
-          delete (state as Record<string, unknown>).inventoryCapacity;
-          delete (state as Record<string, unknown>).consumables;
+          delete (state as unknown as Record<string, unknown>).inventoryCapacity;
+          delete (state as unknown as Record<string, unknown>).consumables;
         }
 
         if (version < 9) {

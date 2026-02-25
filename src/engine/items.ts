@@ -3,7 +3,7 @@
 // Pure functions: no React, no side effects, no DOM.
 // ============================================================
 
-import type { Item, Affix, AffixDef, AffixTier, Rarity, GearSlot, ItemBaseDef, StatKey } from '../types';
+import type { Item, Affix, AffixDef, AffixTier, Rarity, GearSlot, StatKey } from '../types';
 import { AFFIX_DEFS } from '../data/affixes';
 import { ITEM_BASE_DEFS } from '../data/items';
 import { TIER_WEIGHTS, AFFIX_COUNT_WEIGHTS } from '../data/balance';

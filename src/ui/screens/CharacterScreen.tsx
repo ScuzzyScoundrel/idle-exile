@@ -90,7 +90,7 @@ const ASCII_SILHOUETTE = `    O
   /   \\`;
 
 export default function CharacterScreen() {
-  const { character, resetGame, unequipSlot, currentZoneId } = useGameStore();
+  const { character, resetGame, unequipSlot } = useGameStore();
   const [hoveredSlot, setHoveredSlot] = useState<GearSlot | null>(null);
   const hoveredItem = hoveredSlot ? character.equipment[hoveredSlot] ?? null : null;
 

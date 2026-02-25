@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useLayoutEffect, useMemo } from 'react';
 import { useGameStore, SELL_GOLD } from '../../store/gameStore';
 import { Item, Affix, GearSlot, CurrencyType, Rarity, StatKey } from '../../types';
-import { CURRENCY_DEFS, BAG_UPGRADE_DEFS, getBagDef, calcBagCapacity, BAG_SLOT_COUNT } from '../../data/items';
-import { formatAffix, getAffixDef, getBestTierForILvl, isUpgradeOver, getComparisonTarget, calcItemStatContribution } from '../../engine/items';
+import { CURRENCY_DEFS, BAG_UPGRADE_DEFS, getBagDef, calcBagCapacity } from '../../data/items';
+import { formatAffix, getBestTierForILvl, isUpgradeOver, getComparisonTarget, calcItemStatContribution } from '../../engine/items';
 import { slotIcon, slotLabel, DROPPABLE_SLOTS } from '../slotConfig';
 
 const SLOT_ORDER: GearSlot[] = DROPPABLE_SLOTS;
