@@ -95,8 +95,8 @@ export default function ClassPicker() {
   const colors = CLASS_COLORS[selected];
 
   return (
-    <div className="fixed inset-0 z-50 bg-gray-950 flex items-center justify-center p-4 overflow-auto">
-      <div className="w-full max-w-2xl space-y-5">
+    <div className="fixed inset-0 z-50 bg-gray-950 flex items-start justify-center p-4 overflow-auto">
+      <div className="w-full max-w-2xl space-y-5 my-auto">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-yellow-400 mb-1">Choose Your Class</h1>
           <p className="text-sm text-gray-400">Each class has a unique resource mechanic that shapes your playstyle.</p>

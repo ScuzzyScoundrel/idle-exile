@@ -422,14 +422,14 @@ export default function InventoryScreen() {
         {equippedOpen && (
           <div className="px-2 pb-2">
             <div className="flex gap-1.5">
-              <div className="flex-1 flex flex-col gap-1">
+              <div className="flex-1 min-w-0 flex flex-col gap-1">
                 {(['helmet', 'neck', 'shoulders', 'cloak', 'chest', 'bracers'] as GearSlot[]).map((s) => (
                   <EquipSlotCard key={s} slot={s} item={character.equipment[s] ?? null}
                     selectedItemId={selectedItem?.id} selectedCurrency={selectedCurrency}
                     onSelect={handlePaperDollSelect} onHover={showTooltip} onLeave={hideTooltip} />
                 ))}
               </div>
-              <div className="flex-1 flex flex-col gap-1">
+              <div className="flex-1 min-w-0 flex flex-col gap-1">
                 {(['gloves', 'belt', 'pants', 'boots', 'ring1', 'ring2'] as GearSlot[]).map((s) => (
                   <EquipSlotCard key={s} slot={s} item={character.equipment[s] ?? null}
                     selectedItemId={selectedItem?.id} selectedCurrency={selectedCurrency}
@@ -676,7 +676,7 @@ export default function InventoryScreen() {
   );
 
   return (
-    <div>
+    <div className="overflow-x-hidden">
       <div className="hidden lg:grid lg:grid-cols-[1fr_2fr] lg:gap-4">
         <div className="lg:sticky lg:top-16 lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto space-y-3">
           {selectedItem ? renderDetailPanel() : (
@@ -1089,9 +1089,9 @@ function EquipSlotCard({
 
   if (!item) {
     return (
-      <div className="rounded-lg border-2 border-dashed border-gray-700 bg-gray-900/40 flex flex-col items-center justify-center py-1.5">
+      <div className="rounded-lg border-2 border-dashed border-gray-700 bg-gray-900/40 flex flex-col items-center justify-center py-1.5 min-w-0">
         <span className="text-xl opacity-20">{slotIcon(slot)}</span>
-        <span className="text-xs text-gray-600 mt-0.5">{slotLabel(slot)}</span>
+        <span className="text-xs text-gray-600 mt-0.5 truncate w-full text-center px-0.5">{slotLabel(slot)}</span>
       </div>
     );
   }
@@ -1099,7 +1099,7 @@ function EquipSlotCard({
   return (
     <div
       className={`
-        rounded-lg border-2 p-1.5 cursor-pointer transition-all
+        rounded-lg border-2 p-1.5 cursor-pointer transition-all min-w-0
         flex flex-col items-center justify-center text-center
         ${RARITY_BG[item.rarity]} ${RARITY_BORDER_RING[item.rarity]}
         ${isSelected ? 'ring-2 ring-white scale-105' : ''}
