@@ -11,9 +11,12 @@ import {
   OfflineProgressSummary,
   IdleMode,
   GatheringProfession,
+  CombatPhase,
 } from '../types';
 import { createCharacter, resolveStats, addXp } from '../engine/character';
-import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime } from '../engine/zones';
+import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, applyNormalClearHp, createBossEncounter, tickBossFight, generateBossLoot, BossTickResult } from '../engine/zones';
+import { calcDefensiveEfficiency } from '../engine/setBonus';
+import { BOSS_VICTORY_DURATION, BOSS_DEFEAT_RECOVERY } from '../data/balance';
 import { pickBestItem, getEquippedWeaponType } from '../engine/items';
 import { applyCurrency } from '../engine/crafting';
 import { aggregateAbilityEffects, getIncompatibleAbilities, getEffectiveDuration } from '../engine/abilities';
@@ -181,6 +184,13 @@ interface GameActions {
   selectMutator: (slotIndex: number, mutatorId: string | null) => void;
   activateAbility: (abilityId: string) => void;
 
+  // Combat / Boss
+  startBossFight: () => void;
+  tickBoss: (dt: number) => BossTickResult | null;
+  handleBossVictory: () => ProcessClearsResult | null;
+  handleBossDefeat: () => void;
+  checkRecoveryComplete: () => boolean;
+
   // Settings
   setAutoSalvageRarity: (rarity: Rarity) => void;
   setCraftAutoSalvageRarity: (rarity: Rarity) => void;
@@ -211,6 +221,11 @@ function createInitialState(): GameState {
     offlineProgress: null,
     equippedAbilities: [null, null, null, null],
     abilityTimers: [],
+    currentHp: 0,
+    combatPhase: 'clearing' as CombatPhase,
+    bossState: null,
+    zoneClearCounts: {},
+    combatPhaseStartedAt: null,
     lastSaveTime: Date.now(),
   };
 }
@@ -349,9 +364,15 @@ export const useGameStore = create<GameState & GameActions>()(
       },
 
       startIdleRun: (zoneId: string) => {
+        const state = get();
+        const stats = resolveStats(state.character);
         set({
           currentZoneId: zoneId,
           idleStartTime: Date.now(),
+          currentHp: stats.life,
+          combatPhase: 'clearing' as CombatPhase,
+          bossState: null,
+          combatPhaseStartedAt: null,
         });
       },
 
@@ -474,12 +495,27 @@ export const useGameStore = create<GameState & GameActions>()(
           newBagStash[key] = (newBagStash[key] || 0) + val;
         }
 
+        // HP updates: apply damage/regen per clear
+        const stats = resolveStats(state.character);
+        const defEff = calcDefensiveEfficiency(stats, zone.band) * (abilityEffect?.defenseMult ?? 1);
+        let hp = state.currentHp || stats.life;
+        for (let i = 0; i < clearCount; i++) {
+          hp = applyNormalClearHp(hp, stats.life, defEff);
+        }
+
+        // Track clear counts toward boss
+        const zoneId = state.currentZoneId!;
+        const newZoneClearCounts = { ...state.zoneClearCounts };
+        newZoneClearCounts[zoneId] = (newZoneClearCounts[zoneId] || 0) + clearCount;
+
         set({
           inventory: newInventory,
           materials: newMaterials,
           currencies: newCurrencies,
           gold: state.gold + accGold,
           bagStash: newBagStash,
+          currentHp: hp,
+          zoneClearCounts: newZoneClearCounts,
         });
 
         return {
@@ -494,7 +530,13 @@ export const useGameStore = create<GameState & GameActions>()(
       },
 
       stopIdleRun: () => {
-        set({ idleStartTime: null, currentZoneId: null });
+        set({
+          idleStartTime: null,
+          currentZoneId: null,
+          combatPhase: 'clearing' as CombatPhase,
+          bossState: null,
+          combatPhaseStartedAt: null,
+        });
       },
 
       grantIdleXp: (xp: number) => {
@@ -860,6 +902,110 @@ export const useGameStore = create<GameState & GameActions>()(
         });
       },
 
+      startBossFight: () => {
+        const state = get();
+        if (!state.currentZoneId) return;
+        const zone = ZONE_DEFS.find(z => z.id === state.currentZoneId);
+        if (!zone) return;
+        const stats = resolveStats(state.character);
+        const abilityEffect = aggregateAbilityEffects(state.equippedAbilities, state.abilityTimers, Date.now(), false);
+        const boss = createBossEncounter(stats, zone, abilityEffect);
+        set({
+          combatPhase: 'boss_fight' as CombatPhase,
+          bossState: boss,
+          combatPhaseStartedAt: Date.now(),
+        });
+      },
+
+      tickBoss: (dt: number) => {
+        const state = get();
+        if (state.combatPhase !== 'boss_fight' || !state.bossState) return null;
+        const result = tickBossFight(state.bossState, state.currentHp, dt);
+        set({
+          currentHp: result.playerHp,
+          bossState: { ...state.bossState, bossCurrentHp: result.bossHp },
+        });
+        return result;
+      },
+
+      handleBossVictory: () => {
+        const state = get();
+        if (!state.currentZoneId) return null;
+        const zone = ZONE_DEFS.find(z => z.id === state.currentZoneId);
+        if (!zone) return null;
+
+        const bossItems = generateBossLoot(zone);
+        const { newInventory, newMaterials, salvageStats, keptItems } = addItemsWithOverflow(
+          state.inventory,
+          getInventoryCapacity(state),
+          state.autoSalvageMinRarity,
+          state.materials,
+          bossItems,
+        );
+
+        const newZoneClearCounts = { ...state.zoneClearCounts };
+        delete newZoneClearCounts[state.currentZoneId];
+
+        set({
+          inventory: newInventory,
+          materials: newMaterials,
+          combatPhase: 'boss_victory' as CombatPhase,
+          combatPhaseStartedAt: Date.now(),
+          zoneClearCounts: newZoneClearCounts,
+        });
+
+        return {
+          items: keptItems.map(it => ({ name: it.name, rarity: it.rarity })),
+          overflowCount: salvageStats.itemsSalvaged,
+          dustGained: salvageStats.dustGained,
+          bagDrops: {},
+          currencyDrops: { augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, socket: 0 },
+          materialDrops: {},
+          goldGained: 0,
+        };
+      },
+
+      handleBossDefeat: () => {
+        const state = get();
+        const newZoneClearCounts = { ...state.zoneClearCounts };
+        if (state.currentZoneId) {
+          delete newZoneClearCounts[state.currentZoneId];
+        }
+        set({
+          combatPhase: 'boss_defeat' as CombatPhase,
+          currentHp: 0,
+          combatPhaseStartedAt: Date.now(),
+          zoneClearCounts: newZoneClearCounts,
+        });
+      },
+
+      checkRecoveryComplete: () => {
+        const state = get();
+        if (state.combatPhase !== 'boss_victory' && state.combatPhase !== 'boss_defeat') return false;
+        if (!state.combatPhaseStartedAt) return false;
+
+        const elapsed = (Date.now() - state.combatPhaseStartedAt) / 1000;
+        const duration = state.combatPhase === 'boss_victory' ? BOSS_VICTORY_DURATION : BOSS_DEFEAT_RECOVERY;
+        const stats = resolveStats(state.character);
+
+        if (state.combatPhase === 'boss_defeat') {
+          // Linearly regen HP during recovery
+          const progress = Math.min(1, elapsed / duration);
+          set({ currentHp: stats.life * progress });
+        }
+
+        if (elapsed >= duration) {
+          set({
+            combatPhase: 'clearing' as CombatPhase,
+            bossState: null,
+            combatPhaseStartedAt: null,
+            currentHp: stats.life,
+          });
+          return true;
+        }
+        return false;
+      },
+
       setAutoSalvageRarity: (rarity: Rarity) => {
         set({ autoSalvageMinRarity: rarity });
       },
@@ -874,10 +1020,16 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 14,
+      version: 15,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
+
+          // Reset ephemeral combat fields on rehydrate
+          state.currentHp = 0;  // will be set to maxHp on next run start
+          state.combatPhase = 'clearing';
+          state.bossState = null;
+          state.combatPhaseStartedAt = null;
 
           const { currentZoneId, idleStartTime, character, idleMode } = state;
           if (!currentZoneId || !idleStartTime) return;
@@ -1104,6 +1256,15 @@ export const useGameStore = create<GameState & GameActions>()(
         if (version < 13) {
           // v13: Independent craft auto-salvage threshold
           state.craftAutoSalvageMinRarity = 'common';
+        }
+
+        if (version < 15) {
+          // v15: Combat HP + Boss system
+          raw.zoneClearCounts = {};
+          raw.currentHp = 0;
+          raw.combatPhase = 'clearing';
+          raw.bossState = null;
+          raw.combatPhaseStartedAt = null;
         }
 
         if (version < 14) {

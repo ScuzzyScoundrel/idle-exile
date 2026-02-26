@@ -143,6 +143,8 @@ export interface ZoneDef {
   gatheringTypes: GatheringProfession[];
   hazards: ZoneHazard[];
   unlockRequirement?: string; // id of zone that must be accessible first
+  mobName: string;
+  bossName: string;
 }
 
 export interface IdleRunResult {
@@ -171,6 +173,19 @@ export interface OfflineProgressSummary {
   currencyDrops: Record<CurrencyType, number>;
   bagDrops: Record<string, number>;
   bestItem: Item | null;
+}
+
+// --- Combat ---
+
+export type CombatPhase = 'clearing' | 'boss_fight' | 'boss_victory' | 'boss_defeat';
+
+export interface BossState {
+  bossName: string;
+  bossMaxHp: number;
+  bossCurrentHp: number;
+  playerDps: number;   // damage to boss per second
+  bossDps: number;     // damage to player per second
+  startedAt: number;   // timestamp
 }
 
 // --- Currencies ---
@@ -397,6 +412,13 @@ export interface GameState {
   // Abilities (Sprint 4)
   equippedAbilities: (EquippedAbility | null)[];
   abilityTimers: AbilityTimerState[];
+
+  // Combat (v15)
+  currentHp: number;
+  combatPhase: CombatPhase;
+  bossState: BossState | null;
+  zoneClearCounts: Record<string, number>;  // persisted: clears per zone toward boss
+  combatPhaseStartedAt: number | null;
 
   // Meta
   lastSaveTime: number;

@@ -28,6 +28,8 @@ export const ZONE_DEFS: ZoneDef[] = [
     materialDrops: ['emberwood_logs', 'ragged_pelts'],
     gatheringTypes: ['logging', 'skinning'],
     hazards: [],
+    mobName: 'Thicket Crawler',
+    bossName: 'Elder Brambleback',
   },
   {
     id: 'dustvein_hollow',
@@ -43,6 +45,8 @@ export const ZONE_DEFS: ZoneDef[] = [
     gatheringTypes: ['mining'],
     hazards: [],
     unlockRequirement: 'ashwood_thicket',
+    mobName: 'Cave Lurker',
+    bossName: 'Dustvein Matriarch',
   },
   {
     id: 'stillwater_meadow',
@@ -58,6 +62,8 @@ export const ZONE_DEFS: ZoneDef[] = [
     gatheringTypes: ['herbalism'],
     hazards: [],
     unlockRequirement: 'dustvein_hollow',
+    mobName: 'Meadow Stalker',
+    bossName: 'The Fieldwarden',
   },
   {
     id: 'mossback_creek',
@@ -73,6 +79,8 @@ export const ZONE_DEFS: ZoneDef[] = [
     gatheringTypes: ['fishing', 'mining'],
     hazards: [],
     unlockRequirement: 'stillwater_meadow',
+    mobName: 'Creek Snapper',
+    bossName: 'Mossback Ancient',
   },
   {
     id: 'thistlewood_grove',
@@ -88,6 +96,8 @@ export const ZONE_DEFS: ZoneDef[] = [
     gatheringTypes: ['herbalism', 'logging'],
     hazards: [],
     unlockRequirement: 'mossback_creek',
+    mobName: 'Thornfang',
+    bossName: 'Thistlewood Tyrant',
   },
 
   // ── Band 2: The Frontier (iLvl 11–20, single hazards intro) ─
@@ -105,6 +115,8 @@ export const ZONE_DEFS: ZoneDef[] = [
     gatheringTypes: ['mining'],
     hazards: [],
     unlockRequirement: 'thistlewood_grove',
+    mobName: 'Ridge Prowler',
+    bossName: 'Ironcrest Alpha',
   },
   {
     id: 'bogmire_marsh',
@@ -120,6 +132,8 @@ export const ZONE_DEFS: ZoneDef[] = [
     gatheringTypes: ['herbalism'],
     hazards: [{ type: 'poison', threshold: 20 }],
     unlockRequirement: 'ironcrest_ridge',
+    mobName: 'Bog Horror',
+    bossName: 'The Marsh King',
   },
   {
     id: 'windsworn_steppe',
@@ -135,6 +149,8 @@ export const ZONE_DEFS: ZoneDef[] = [
     gatheringTypes: ['skinning', 'herbalism'],
     hazards: [],
     unlockRequirement: 'bogmire_marsh',
+    mobName: 'Steppe Raider',
+    bossName: 'Windsworn Warchief',
   },
   {
     id: 'glintstone_caverns',
@@ -150,6 +166,8 @@ export const ZONE_DEFS: ZoneDef[] = [
     gatheringTypes: ['mining'],
     hazards: [{ type: 'lightning', threshold: 20 }],
     unlockRequirement: 'windsworn_steppe',
+    mobName: 'Crystal Fiend',
+    bossName: 'The Living Geode',
   },
   {
     id: 'rothollow_thicket',
@@ -165,6 +183,8 @@ export const ZONE_DEFS: ZoneDef[] = [
     gatheringTypes: ['logging', 'herbalism'],
     hazards: [{ type: 'poison', threshold: 30 }],
     unlockRequirement: 'glintstone_caverns',
+    mobName: 'Blighted Stalker',
+    bossName: 'Rothollow Abomination',
   },
 
   // ── Band 3: Contested Lands (iLvl 21–30) ─
@@ -182,6 +202,8 @@ export const ZONE_DEFS: ZoneDef[] = [
     gatheringTypes: ['mining'],
     hazards: [{ type: 'fire', threshold: 35 }],
     unlockRequirement: 'rothollow_thicket',
+    mobName: 'Magma Hound',
+    bossName: 'Emberpeak Infernal',
   },
   {
     id: 'silkveil_canopy',
@@ -197,6 +219,8 @@ export const ZONE_DEFS: ZoneDef[] = [
     gatheringTypes: ['herbalism', 'logging'],
     hazards: [{ type: 'poison', threshold: 35 }],
     unlockRequirement: 'emberpeak_caldera',
+    mobName: 'Silkweaver Spider',
+    bossName: 'The Broodmother',
   },
   {
     id: 'frostmere_depths',
@@ -212,6 +236,8 @@ export const ZONE_DEFS: ZoneDef[] = [
     gatheringTypes: ['mining', 'fishing'],
     hazards: [{ type: 'cold', threshold: 40 }],
     unlockRequirement: 'silkveil_canopy',
+    mobName: 'Frost Wraith',
+    bossName: 'Frostmere Leviathan',
   },
   {
     id: 'thornwall_basin',
@@ -227,6 +253,8 @@ export const ZONE_DEFS: ZoneDef[] = [
     gatheringTypes: ['logging', 'skinning'],
     hazards: [{ type: 'poison', threshold: 40 }],
     unlockRequirement: 'frostmere_depths',
+    mobName: 'Thornwall Brute',
+    bossName: 'Basin Overlord',
   },
   {
     id: 'shimmerfen_bog',
@@ -245,6 +273,8 @@ export const ZONE_DEFS: ZoneDef[] = [
       { type: 'cold', threshold: 30 },
     ],
     unlockRequirement: 'thornwall_basin',
+    mobName: 'Fen Lurcher',
+    bossName: 'The Shimmerfen Hydra',
   },
 
   // ── Band 4: Dark Reaches (iLvl 31–40) ─
@@ -265,6 +295,8 @@ export const ZONE_DEFS: ZoneDef[] = [
       { type: 'chaos', threshold: 25 },
     ],
     unlockRequirement: 'shimmerfen_bog',
+    mobName: 'Forge Construct',
+    bossName: 'The Molten Smith',
   },
   {
     id: 'wraithwood',
@@ -283,6 +315,8 @@ export const ZONE_DEFS: ZoneDef[] = [
       { type: 'chaos', threshold: 25 },
     ],
     unlockRequirement: 'obsidian_forge',
+    mobName: 'Shadow Revenant',
+    bossName: 'Wraithwood Sentinel',
   },
   {
     id: 'venomspire_ruins',
@@ -301,6 +335,8 @@ export const ZONE_DEFS: ZoneDef[] = [
       { type: 'fire', threshold: 30 },
     ],
     unlockRequirement: 'wraithwood',
+    mobName: 'Venomspire Cultist',
+    bossName: 'High Toxicant',
   },
   {
     id: 'drowned_abyss',
@@ -319,6 +355,8 @@ export const ZONE_DEFS: ZoneDef[] = [
       { type: 'lightning', threshold: 30 },
     ],
     unlockRequirement: 'venomspire_ruins',
+    mobName: 'Abyssal Terror',
+    bossName: 'Drowned Colossus',
   },
   {
     id: 'scorched_plateau',
@@ -338,6 +376,8 @@ export const ZONE_DEFS: ZoneDef[] = [
       { type: 'chaos', threshold: 30 },
     ],
     unlockRequirement: 'drowned_abyss',
+    mobName: 'Ashborn Ravager',
+    bossName: 'The Scorched One',
   },
 
   // ── Band 5: Shattered Realm (iLvl 41–50) ─
@@ -358,6 +398,8 @@ export const ZONE_DEFS: ZoneDef[] = [
       { type: 'cold', threshold: 35 },
     ],
     unlockRequirement: 'scorched_plateau',
+    mobName: 'Celestine Golem',
+    bossName: 'Spire Guardian',
   },
   {
     id: 'dreadmaw_caverns',
@@ -376,6 +418,8 @@ export const ZONE_DEFS: ZoneDef[] = [
       { type: 'chaos', threshold: 35 },
     ],
     unlockRequirement: 'celestine_spire',
+    mobName: 'Dreadmaw Devourer',
+    bossName: 'The Great Maw',
   },
   {
     id: 'stormveil_heights',
@@ -394,6 +438,8 @@ export const ZONE_DEFS: ZoneDef[] = [
       { type: 'fire', threshold: 40 },
     ],
     unlockRequirement: 'dreadmaw_caverns',
+    mobName: 'Storm Elemental',
+    bossName: 'Stormveil Archon',
   },
   {
     id: 'hollow_throne',
@@ -413,6 +459,8 @@ export const ZONE_DEFS: ZoneDef[] = [
       { type: 'poison', threshold: 40 },
     ],
     unlockRequirement: 'stormveil_heights',
+    mobName: 'Void Acolyte',
+    bossName: 'The Hollow King',
   },
   {
     id: 'ashenmaw_crater',
@@ -433,6 +481,8 @@ export const ZONE_DEFS: ZoneDef[] = [
       { type: 'poison', threshold: 30 },
     ],
     unlockRequirement: 'hollow_throne',
+    mobName: 'Ashenmaw Drake',
+    bossName: 'Ashenmaw Worldeater',
   },
 
   // ── Band 6: The Endlands (iLvl 51–60) ─
@@ -453,6 +503,8 @@ export const ZONE_DEFS: ZoneDef[] = [
       { type: 'cold', threshold: 65 },
     ],
     unlockRequirement: 'ashenmaw_crater',
+    mobName: 'Starborn Aberration',
+    bossName: 'Starfall Celestial',
   },
   {
     id: 'consuming_dark',
@@ -472,6 +524,8 @@ export const ZONE_DEFS: ZoneDef[] = [
       { type: 'cold', threshold: 50 },
     ],
     unlockRequirement: 'starfall_basin',
+    mobName: 'Null Entity',
+    bossName: 'The Consuming Void',
   },
   {
     id: 'titans_graveyard',
@@ -491,6 +545,8 @@ export const ZONE_DEFS: ZoneDef[] = [
       { type: 'chaos', threshold: 50 },
     ],
     unlockRequirement: 'consuming_dark',
+    mobName: 'Bone Titan',
+    bossName: 'The Undying Titan',
   },
   {
     id: 'eternal_storm',
@@ -511,6 +567,8 @@ export const ZONE_DEFS: ZoneDef[] = [
       { type: 'chaos', threshold: 40 },
     ],
     unlockRequirement: 'titans_graveyard',
+    mobName: 'Tempest Incarnate',
+    bossName: 'The Eternal Storm',
   },
   {
     id: 'worlds_edge',
@@ -532,5 +590,7 @@ export const ZONE_DEFS: ZoneDef[] = [
       { type: 'chaos', threshold: 75 },
     ],
     unlockRequirement: 'eternal_storm',
+    mobName: 'Edge Walker',
+    bossName: 'The Final Warden',
   },
 ];

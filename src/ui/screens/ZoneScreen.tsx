@@ -8,6 +8,8 @@ import { ZoneDef, Rarity, IdleMode, GatheringProfession } from '../../types';
 import { calcBagCapacity } from '../../data/items';
 import AbilityBar from '../components/AbilityBar';
 import { getRareMaterialDef } from '../../data/rareMaterials';
+import { BOSS_INTERVAL } from '../../data/balance';
+import { resolveStats } from '../../engine/character';
 
 // Band visual theming
 const BAND_GRADIENTS: Record<number, string> = {
@@ -170,6 +172,124 @@ function accumulateSession(session: SessionSummary, result: ProcessClearsResult,
   return s;
 }
 
+// --- Player HP Bar ---
+function PlayerHpBar({ currentHp, maxHp }: { currentHp: number; maxHp: number }) {
+  const pct = maxHp > 0 ? Math.max(0, Math.min(100, (currentHp / maxHp) * 100)) : 0;
+  const color = pct > 60 ? 'bg-green-500' : pct > 30 ? 'bg-yellow-500' : 'bg-red-500';
+  return (
+    <div className="bg-gray-800/50 rounded-lg border border-gray-700 p-2">
+      <div className="flex justify-between text-xs mb-1">
+        <span className="text-gray-300 font-semibold">HP</span>
+        <span className="text-white font-mono">{Math.ceil(currentHp)}/{maxHp}</span>
+      </div>
+      <div className="h-3 bg-gray-700 rounded-full overflow-hidden">
+        <div className={`h-full ${color} rounded-full transition-all duration-200`}
+             style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+// --- Mob Display (during clearing) ---
+function MobDisplay({ mobName, clearProgress, bossIn }: { mobName: string; clearProgress: number; bossIn: number }) {
+  // Mob HP = inverted clear progress (starts full, drains to 0)
+  const mobHpPct = Math.max(0, Math.min(100, (1 - clearProgress) * 100));
+  return (
+    <div className="bg-gray-800/60 rounded-lg border border-gray-700 p-2">
+      <div className="flex justify-between text-xs mb-1">
+        <span className="text-gray-200 font-semibold">{mobName}</span>
+        <span className="text-gray-400">Boss in {bossIn}</span>
+      </div>
+      <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+        <div className="h-full bg-red-500 rounded-full transition-all duration-200"
+             style={{ width: `${mobHpPct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+// --- Boss Fight Display ---
+function BossFightDisplay({ bossName, bossHp, bossMaxHp, playerHp, maxHp, playerDps, bossDps }: {
+  bossName: string; bossHp: number; bossMaxHp: number;
+  playerHp: number; maxHp: number; playerDps: number; bossDps: number;
+}) {
+  const bossPct = bossMaxHp > 0 ? Math.max(0, (bossHp / bossMaxHp) * 100) : 0;
+  const playerPct = maxHp > 0 ? Math.max(0, (playerHp / maxHp) * 100) : 0;
+  const playerColor = playerPct > 60 ? 'bg-green-500' : playerPct > 30 ? 'bg-yellow-500' : 'bg-red-500';
+  return (
+    <div className="bg-gradient-to-br from-red-950 via-gray-900 to-red-950 rounded-lg border-2 border-red-700 p-3 space-y-2">
+      <div className="text-center text-red-400 font-bold text-xs uppercase tracking-wider">Boss Fight</div>
+      <div className="text-center text-white font-bold text-sm">{bossName}</div>
+      {/* Boss HP */}
+      <div>
+        <div className="flex justify-between text-xs mb-0.5">
+          <span className="text-red-300 font-semibold">Boss HP</span>
+          <span className="text-white font-mono">{Math.ceil(bossHp)}/{bossMaxHp}</span>
+        </div>
+        <div className="h-3 bg-gray-700 rounded-full overflow-hidden">
+          <div className="h-full bg-red-600 rounded-full transition-all duration-100"
+               style={{ width: `${bossPct}%` }} />
+        </div>
+      </div>
+      {/* Player HP */}
+      <div>
+        <div className="flex justify-between text-xs mb-0.5">
+          <span className="text-gray-300 font-semibold">Your HP</span>
+          <span className="text-white font-mono">{Math.ceil(playerHp)}/{maxHp}</span>
+        </div>
+        <div className="h-3 bg-gray-700 rounded-full overflow-hidden">
+          <div className={`h-full ${playerColor} rounded-full transition-all duration-100`}
+               style={{ width: `${playerPct}%` }} />
+        </div>
+      </div>
+      <div className="flex justify-between text-xs text-gray-400">
+        <span>Your DPS: <span className="text-green-400 font-mono">{playerDps.toFixed(1)}</span></span>
+        <span>Boss DPS: <span className="text-red-400 font-mono">{bossDps.toFixed(1)}</span></span>
+      </div>
+    </div>
+  );
+}
+
+// --- Boss Victory Overlay ---
+function BossVictoryOverlay({ bossName, items }: { bossName: string; items: { name: string; rarity: Rarity }[] }) {
+  return (
+    <div className="bg-gradient-to-br from-yellow-950 via-gray-900 to-yellow-950 rounded-lg border-2 border-yellow-500 p-4 text-center space-y-2 animate-pulse">
+      <div className="text-2xl">{'\u{1F451}'}</div>
+      <div className="text-yellow-400 font-bold text-sm">Boss Defeated!</div>
+      <div className="text-white text-xs">{bossName} has been slain!</div>
+      {items.length > 0 && (
+        <div className="flex flex-wrap gap-1 justify-center">
+          {items.map((it, i) => (
+            <span key={i} className={`${RARITY_TEXT[it.rarity]} text-xs bg-gray-800 rounded px-2 py-0.5`}>
+              {it.name}
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="text-gray-500 text-xs">Resuming shortly...</div>
+    </div>
+  );
+}
+
+// --- Boss Defeat Overlay ---
+function BossDefeatOverlay({ bossName, currentHp, maxHp }: { bossName: string; currentHp: number; maxHp: number }) {
+  const pct = maxHp > 0 ? Math.max(0, (currentHp / maxHp) * 100) : 0;
+  return (
+    <div className="bg-gradient-to-br from-red-950 via-gray-900 to-red-950 rounded-lg border-2 border-red-800 p-4 text-center space-y-2">
+      <div className="text-2xl">{'\u{1F480}'}</div>
+      <div className="text-red-400 font-bold text-sm">Defeated!</div>
+      <div className="text-gray-400 text-xs">{bossName} was too strong. Gear up and try again!</div>
+      <div className="mt-2">
+        <div className="text-xs text-gray-500 mb-1">Recovering...</div>
+        <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+          <div className="h-full bg-green-500 rounded-full transition-all duration-200"
+               style={{ width: `${pct}%` }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // --- Zone Card Component ---
 interface ZoneCardProps {
   zone: ZoneDef;
@@ -289,6 +409,8 @@ export default function ZoneScreen() {
     gatheringSkills, selectedGatheringProfession,
     startIdleRun, processNewClears, stopIdleRun, grantIdleXp, getEstimatedClearTime,
     setIdleMode, setGatheringProfession,
+    currentHp, combatPhase, bossState, zoneClearCounts,
+    startBossFight, tickBoss, handleBossVictory, handleBossDefeat, checkRecoveryComplete,
   } = useGameStore();
 
   const inventoryCapacity = calcBagCapacity(bagSlots);
@@ -306,6 +428,8 @@ export default function ZoneScreen() {
   const lastClearCount = useRef(0);
   const [salvageTally, setSalvageTally] = useState({ count: 0, dust: 0 });
   const modeSwitchingRef = useRef(false);
+  const lastTickTimeRef = useRef(Date.now());
+  const [bossLootItems, setBossLootItems] = useState<{ name: string; rarity: Rarity }[]>([]);
 
   const isRunning = idleStartTime !== null;
   const zone = ZONE_DEFS.find((z) => z.id === selectedZone)!;
@@ -315,18 +439,57 @@ export default function ZoneScreen() {
     : clearTime;
   const runningZone = isRunning ? ZONE_DEFS.find(z => z.id === currentZoneId) : null;
 
-  // Timer tick
+  // Compute maxHp for display
+  const maxHp = resolveStats(character).life;
+
+  // Timer tick — combat-phase-aware
   useEffect(() => {
     if (!isRunning || !idleStartTime) return;
+    lastTickTimeRef.current = Date.now();
     const interval = setInterval(() => {
-      setElapsed((Date.now() - idleStartTime) / 1000);
+      const now = Date.now();
+      const phase = useGameStore.getState().combatPhase;
+
+      if (phase === 'clearing') {
+        setElapsed((now - idleStartTime) / 1000);
+      } else if (phase === 'boss_fight') {
+        // Use real delta for boss fights (handles tab throttling)
+        const dt = Math.min((now - lastTickTimeRef.current) / 1000, 2); // cap at 2s to prevent huge jumps
+        const result = tickBoss(dt);
+        if (result) {
+          if (result.outcome === 'victory') {
+            const lootResult = handleBossVictory();
+            if (lootResult) {
+              setBossLootItems(lootResult.items);
+              setSession(prev => accumulateSession(prev, lootResult, 0));
+            }
+          } else if (result.outcome === 'defeat') {
+            handleBossDefeat();
+          }
+        }
+      } else if (phase === 'boss_victory' || phase === 'boss_defeat') {
+        const done = checkRecoveryComplete();
+        if (done) {
+          // Resume clearing — reset elapsed and lastClearCount
+          const state = useGameStore.getState();
+          if (state.idleStartTime) {
+            setElapsed(0);
+            lastClearCount.current = 0;
+            setBossLootItems([]);
+            // Reset idleStartTime to now so elapsed restarts from 0
+            useGameStore.setState({ idleStartTime: Date.now() });
+          }
+        }
+      }
+      lastTickTimeRef.current = now;
     }, 250);
     return () => clearInterval(interval);
-  }, [isRunning, idleStartTime]);
+  }, [isRunning, idleStartTime, tickBoss, handleBossVictory, handleBossDefeat, checkRecoveryComplete]);
 
-  // Real-time loot processing
+  // Real-time loot processing — only during clearing phase
   useEffect(() => {
     if (!isRunning || !runningZone || modeSwitchingRef.current) return;
+    if (combatPhase !== 'clearing') return;
     const currentClears = Math.floor(elapsed / runningClearTime);
     if (currentClears > lastClearCount.current) {
       const newClears = currentClears - lastClearCount.current;
@@ -348,8 +511,17 @@ export default function ZoneScreen() {
         }
       }
       lastClearCount.current = currentClears;
+
+      // Check if boss should spawn (combat mode only)
+      if (idleMode === 'combat' && currentZoneId) {
+        const counts = useGameStore.getState().zoneClearCounts;
+        const zoneCount = counts[currentZoneId] || 0;
+        if (zoneCount > 0 && zoneCount % BOSS_INTERVAL === 0) {
+          startBossFight();
+        }
+      }
     }
-  }, [elapsed, runningClearTime, isRunning, runningZone, idleMode, grantIdleXp, processNewClears]);
+  }, [elapsed, runningClearTime, isRunning, runningZone, idleMode, combatPhase, grantIdleXp, processNewClears, currentZoneId, startBossFight]);
 
   // Check if a zone is unlocked
   const isZoneUnlocked = (_z: ZoneDef): boolean => {
@@ -360,6 +532,7 @@ export default function ZoneScreen() {
     setSession(emptySession());
     lastClearCount.current = 0;
     setSalvageTally({ count: 0, dust: 0 });
+    setBossLootItems([]);
     startIdleRun(selectedZone);
   };
 
@@ -594,34 +767,75 @@ export default function ZoneScreen() {
               Switch to {ZONE_DEFS.find((z) => z.id === selectedZone)?.name}
             </button>
           )}
-          {/* Progress */}
-          <div className="bg-gray-800 rounded-lg p-3">
-            <div className="flex justify-between text-sm mb-1">
-              <span className="text-gray-300">
-                {runningZone?.name}
-                {idleMode === 'gathering' && selectedGatheringProfession && (
-                  <span className="text-green-400 ml-2 text-xs">
-                    {PROFESSION_ICONS[selectedGatheringProfession]} Gathering
-                  </span>
-                )}
-              </span>
-              <span className="text-yellow-400 font-mono">{Math.floor(elapsed)}s</span>
-            </div>
-            <div className="h-2 bg-gray-700 rounded-full overflow-hidden mb-1">
-              <div
-                className={`h-full rounded-full transition-all duration-200 ${
-                  idleMode === 'gathering' ? 'bg-green-500' : 'bg-green-500'
-                }`}
-                style={{ width: `${((elapsed % runningClearTime) / runningClearTime) * 100}%` }}
-              />
-            </div>
-            <div className="text-xs text-gray-400">
-              Clears: <span className="text-white font-semibold">{currentClears}</span>
-            </div>
-          </div>
+          {/* Combat Phase Display */}
+          {idleMode === 'combat' && combatPhase === 'boss_fight' && bossState && (
+            <BossFightDisplay
+              bossName={bossState.bossName}
+              bossHp={bossState.bossCurrentHp}
+              bossMaxHp={bossState.bossMaxHp}
+              playerHp={currentHp}
+              maxHp={maxHp}
+              playerDps={bossState.playerDps}
+              bossDps={bossState.bossDps}
+            />
+          )}
 
-          {/* Ability Bar (combat mode only) */}
-          {idleMode === 'combat' && <AbilityBar />}
+          {idleMode === 'combat' && combatPhase === 'boss_victory' && bossState && (
+            <BossVictoryOverlay bossName={bossState.bossName} items={bossLootItems} />
+          )}
+
+          {idleMode === 'combat' && combatPhase === 'boss_defeat' && bossState && (
+            <BossDefeatOverlay bossName={bossState.bossName} currentHp={currentHp} maxHp={maxHp} />
+          )}
+
+          {/* Normal progress (clearing phase or gathering) */}
+          {(combatPhase === 'clearing' || idleMode === 'gathering') && (
+            <>
+              {/* Player HP Bar (combat only, clearing) */}
+              {idleMode === 'combat' && <PlayerHpBar currentHp={currentHp} maxHp={maxHp} />}
+
+              {/* Mob display (combat) or progress bar (gathering) */}
+              {idleMode === 'combat' && runningZone ? (
+                <MobDisplay
+                  mobName={runningZone.mobName}
+                  clearProgress={runningClearTime > 0 ? (elapsed % runningClearTime) / runningClearTime : 0}
+                  bossIn={BOSS_INTERVAL - ((zoneClearCounts[currentZoneId!] || 0) % BOSS_INTERVAL)}
+                />
+              ) : (
+                <div className="bg-gray-800 rounded-lg p-3">
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-gray-300">
+                      {runningZone?.name}
+                      {idleMode === 'gathering' && selectedGatheringProfession && (
+                        <span className="text-green-400 ml-2 text-xs">
+                          {PROFESSION_ICONS[selectedGatheringProfession]} Gathering
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-yellow-400 font-mono">{Math.floor(elapsed)}s</span>
+                  </div>
+                  <div className="h-2 bg-gray-700 rounded-full overflow-hidden mb-1">
+                    <div
+                      className="h-full bg-green-500 rounded-full transition-all duration-200"
+                      style={{ width: `${((elapsed % runningClearTime) / runningClearTime) * 100}%` }}
+                    />
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    Clears: <span className="text-white font-semibold">{currentClears}</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="text-xs text-gray-500 text-center">
+                Clears: <span className="text-white font-semibold">{currentClears}</span>
+                <span className="mx-2">&bull;</span>
+                <span className="font-mono">{Math.floor(elapsed)}s</span>
+              </div>
+            </>
+          )}
+
+          {/* Ability Bar (combat mode only, not during boss phases) */}
+          {idleMode === 'combat' && combatPhase === 'clearing' && <AbilityBar />}
 
           {/* Bags status + overflow warning */}
           {isRunning && (

@@ -3,7 +3,7 @@
 // Pure functions: no React, no side effects, no DOM.
 // ============================================================
 
-import type { Character, ZoneDef, IdleRunResult, Item, CurrencyType, GearSlot, ResolvedStats, AbilityEffect, GatheringProfession } from '../types';
+import type { Character, ZoneDef, IdleRunResult, Item, CurrencyType, GearSlot, ResolvedStats, AbilityEffect, GatheringProfession, BossState } from '../types';
 import { generateItem, generateGatheringItem } from './items';
 import { calcDefensiveEfficiency } from './setBonus';
 import { calcGatheringYield } from './gathering';
@@ -16,6 +16,9 @@ import {
   CURRENCY_DROP_CHANCES, GOLD_PER_BAND, XP_PER_BAND, BAG_DROP_CHANCE,
   POWER_DIVISOR, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO,
   HAZARD_PENALTY_FLOOR, HAZARD_OVERCAP_MULT,
+  CLEAR_DAMAGE_RATIO, CLEAR_REGEN_RATIO, BOSS_HP_MULTIPLIER,
+  BOSS_DAMAGE_MULTIPLIER, BOSS_ILVL_BONUS, BOSS_DROP_COUNT_MIN,
+  BOSS_DROP_COUNT_MAX,
 } from '../data/balance';
 
 // --- Gear slots used for random item drops ---
@@ -357,4 +360,87 @@ export function simulateGatheringClear(
   }
 
   return { materials, gatheringXp, gatheringGearDrop, rareMaterialDrops };
+}
+
+// ============================================================
+// Combat HP & Boss Mechanics
+// ============================================================
+
+/** Damage taken per normal clear. Linear in defensiveEfficiency range [0.7, 1.0]. */
+export function calcDamagePerClear(maxHp: number, defEff: number): number {
+  const scale = Math.max(0, (1.0 - defEff) / 0.3);  // 1.0 at defEff=0.7, 0 at defEff=1.0
+  return maxHp * CLEAR_DAMAGE_RATIO * scale;
+}
+
+/** HP regen per normal clear. */
+export function calcRegenPerClear(maxHp: number): number {
+  return maxHp * CLEAR_REGEN_RATIO;
+}
+
+/** Apply one clear of HP change. Floor at 1 (can't die to normal mobs). */
+export function applyNormalClearHp(currentHp: number, maxHp: number, defEff: number): number {
+  return Math.max(1, Math.min(maxHp, currentHp - calcDamagePerClear(maxHp, defEff) + calcRegenPerClear(maxHp)));
+}
+
+/** Boss HP pool. */
+export function calcBossMaxHp(zone: ZoneDef): number {
+  return zone.baseClearTime * zone.band * BOSS_HP_MULTIPLIER;
+}
+
+/** Player's offensive DPS (extracted from calcClearTime logic). */
+export function calcPlayerDps(stats: ResolvedStats, abilityEffect?: AbilityEffect): number {
+  const dmg = stats.damage * (abilityEffect?.damageMult ?? 1);
+  const spd = stats.attackSpeed * (abilityEffect?.attackSpeedMult ?? 1);
+  const cc = stats.critChance + (abilityEffect?.critChanceBonus ?? 0);
+  const cd = stats.critDamage + (abilityEffect?.critDamageBonus ?? 0);
+  return dmg * (1 + spd / 100) * (1 + (cc / 100) * (cd / 100));
+}
+
+/** Boss DPS against player. Uses zone pressure + defenses, amplified by multiplier. */
+export function calcBossDps(stats: ResolvedStats, zone: ZoneDef, abilityEffect?: AbilityEffect): number {
+  let defEff = calcDefensiveEfficiency(stats, zone.band);
+  defEff *= (abilityEffect?.defenseMult ?? 1);
+  // Map defEff [0.7, 1.0] → damage scale [1.0, 0.0]
+  const damageScale = Math.max(0, (1.0 - defEff) / 0.3);
+  const zonePressure = 50 * Math.pow(2, zone.band - 1);
+  return zonePressure * damageScale * BOSS_DAMAGE_MULTIPLIER;
+}
+
+/** Create BossState at fight start. */
+export function createBossEncounter(stats: ResolvedStats, zone: ZoneDef, abilityEffect?: AbilityEffect): BossState {
+  return {
+    bossName: zone.bossName,
+    bossMaxHp: calcBossMaxHp(zone),
+    bossCurrentHp: calcBossMaxHp(zone),
+    playerDps: calcPlayerDps(stats, abilityEffect),
+    bossDps: calcBossDps(stats, zone, abilityEffect),
+    startedAt: Date.now(),
+  };
+}
+
+/** Tick boss fight by deltaSeconds. Returns updated state + outcome. */
+export interface BossTickResult {
+  bossHp: number;
+  playerHp: number;
+  outcome: 'ongoing' | 'victory' | 'defeat';
+}
+
+export function tickBossFight(boss: BossState, playerHp: number, dt: number): BossTickResult {
+  const newBossHp = Math.max(0, boss.bossCurrentHp - boss.playerDps * dt);
+  const newPlayerHp = Math.max(0, playerHp - boss.bossDps * dt);
+  if (newBossHp <= 0) return { bossHp: 0, playerHp: Math.max(1, newPlayerHp), outcome: 'victory' };
+  if (newPlayerHp <= 0) return { bossHp: newBossHp, playerHp: 0, outcome: 'defeat' };
+  return { bossHp: newBossHp, playerHp: newPlayerHp, outcome: 'ongoing' };
+}
+
+/** Generate boss loot at boosted iLvl. Uses existing generateItem(). */
+export function generateBossLoot(zone: ZoneDef): Item[] {
+  const count = BOSS_DROP_COUNT_MIN + Math.floor(Math.random() * (BOSS_DROP_COUNT_MAX - BOSS_DROP_COUNT_MIN + 1));
+  const bossILvl = zone.iLvlMax + BOSS_ILVL_BONUS;
+  const items: Item[] = [];
+  for (let i = 0; i < count; i++) {
+    const slot = GEAR_SLOTS[Math.floor(Math.random() * GEAR_SLOTS.length)];
+    items.push(generateItem(slot, bossILvl));
+  }
+  return items;
 }

@@ -1,10 +1,10 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-02-25 (Sprint 6 + Recipe Balancing)
+> Last updated: 2026-02-25 (Combat Overhaul: HP + Boss Encounters)
 
 ## Current Phase
-**Sprint 6 + Recipe Balancing** — COMPLETE. Sprint 6 added 6 refinement tracks (36 recipes), 6 crafting professions, 25 rare gathering materials, catalyst system. QoL iteration added: boosted affix mechanic (rare catalysts force 1 affix to break iLvl tier cap), 10x catalyst costs (100g/13 mats), material panel organized by track, catalyst info on recipe cards, reusable Tooltip component, UI size bump (root 18px + pixel→rem migration). Recipe balancing: 73 new armor recipes (table-driven 6 slots × 6 tiers per armor profession), collapsible category UI, compact 2-column recipe grid with material icon pills, materials panel polish. 205 recipes total. Save v14.
+**Combat Overhaul** — COMPLETE. Added player HP system (drains/regens during clears), mob display with names per zone, boss encounters every 10 clears with own HP pool, boss loot at boosted iLvl (+5), victory/defeat overlays, combat phase state machine. 30 zones updated with mob + boss names. Save v15.
 
 ## What Is Working Right Now
 The game is live on Vercel and playable locally at `http://localhost:5173/`. Core loop:
@@ -18,7 +18,11 @@ The game is live on Vercel and playable locally at `http://localhost:5173/`. Cor
 - Mastery badge when all zone thresholds met
 - Bag slot system: 5 equippable bag slots (6/8/10/12/14 capacity per tier)
 - Cannot unequip gear when bags are full
-- **Offline progression**: Close the app, reopen later → "Welcome Back, Exile!" modal. Works for both combat and gathering modes.
+- **Player HP system**: HP bar drains/regens during normal clears based on defensive efficiency. Can't die to normal mobs (floor at 1 HP). Shows zone difficulty visually.
+- **Mob display**: Each zone has named mobs. Progress bar shows mob HP draining per clear instead of plain progress bar. Boss countdown shown.
+- **Boss encounters**: Every 10 clears, a named boss spawns with its own HP pool. Both player and boss HP bars visible, DPS stats shown. Victory = bonus loot at boosted iLvl. Defeat = no boss loot, 5s recovery period. Stop mid-boss preserves clear counter.
+- **Boss loot**: Drops at zone.iLvlMax + 5 (Band 1 bosses can drop T6 affixes). 1-2 items per boss kill.
+- **Offline progression**: Close the app, reopen later → "Welcome Back, Exile!" modal. Works for both combat and gathering modes. Bosses skipped during offline.
 - **8 weapon types**: Sword, Axe, Mace, Dagger, Staff, Wand, Bow, Crossbow. 56 mainhand bases.
 - **24 abilities**: Each weapon has 2 active + 1 passive ability. Mutator system for customization.
 - **Ability bar**: 4 equip slots on ZoneScreen (combat mode only).
@@ -58,10 +62,12 @@ Bottom: mainhand, offhand, trinket1, trinket2
 - **Rare material drops**: 25 defs (5 professions × 5 rarities). Per-clear roll, highest rarity first. Rates scale with band (common ~8-18%, legendary 0-0.3%). `rareFindBonus` from milestones + gear.
 - **Refinement**: 36 recipes (6 tracks × 6 tiers). T1: 5 raw + gold → 1 refined. T2+: 5 raw + 2 previous refined + gold → 1 refined. Deconstruct: 1 refined → 2 previous tier (T2+ only).
 - **Crafting professions**: 6 professions, level 1-100. XP curve matches gathering. 205 recipes (table-driven armor generation). Catalyst system: optional affix catalyst → guaranteed affix; optional rare mat → guaranteed minimum rarity + 1 boosted affix. `executeCraft()` generates item with reroll loop + boosted affix upgrade.
+- **Combat HP**: `applyNormalClearHp()` per clear. Damage = maxHp * 0.15 * scale(defEff). Regen = maxHp * 0.08. Floor at 1 HP (can't die to mobs).
+- **Boss mechanics**: Every 10 clears via `zoneClearCounts`. `calcBossMaxHp()` = baseClearTime * band * 8. `calcPlayerDps()` and `calcBossDps()` drive real-time simulation. `tickBossFight()` resolves frame-by-frame. `generateBossLoot()` at iLvlMax + 5. Victory/defeat phases with timed recovery.
 - **Auto-apply resources**: `processNewClears()` immediately applies all drops to state. Session summary tracked in UI local state.
 - **Bag system**: 5 equippable bag slots (T1:6→T5:14). Start 30 total, max 70.
 - **Crafting (currencies)**: `applyCurrency(item, type)` — augment, chaos, divine, annul, exalt
-- **Save**: Zustand persist v14. Migrations: v11→v12 adds `craftingSkills`, v12→v13 adds leatherworker + jeweler skills, v13→v14 adds `craftAutoSalvageMinRarity`.
+- **Save**: Zustand persist v15. Migrations: v11→v12 adds `craftingSkills`, v12→v13 adds leatherworker + jeweler skills, v13→v14 adds `craftAutoSalvageMinRarity`, v14→v15 adds `zoneClearCounts` + combat HP fields.
 
 ## Architecture
 ```
@@ -94,7 +100,7 @@ src/
     crafting.ts             — 6 currency crafting operations
     setBonus.ts             — Set bonus resolution
   store/
-    gameStore.ts            — Zustand store (state + actions + persistence + v14 migration). Actions: refineMaterial, deconstructMaterial, craftRecipe + all previous.
+    gameStore.ts            — Zustand store (state + actions + persistence + v15 migration). Actions: startBossFight, tickBoss, handleBossVictory, handleBossDefeat, checkRecoveryComplete + all previous.
   ui/
     slotConfig.ts           — Shared gear slot icons/labels
     components/
@@ -221,6 +227,22 @@ Replaced focus modes with Combat/Gathering toggle. 5 gathering professions with 
 - **Rare catalyst tier-colored text**: Catalyst summary text color matches affix tier quality (T1=orange, T2=purple, T3=blue, T5=green, T6=gray).
 - **"god-tier" → "boosted"**: All user-facing text cleaned up.
 - **Files changed**: `craftingRecipes.ts`, `CraftingScreen.tsx`, `PROJECT_STATUS.md`
+
+### Combat Overhaul (HP System + Boss Encounters)
+- **Player HP system**: HP bar during combat. Damage per clear scales with defensive efficiency (0 damage at defEff=1.0, 15% maxHp at defEff=0.7). Regen 8% maxHp per clear. Floor at 1 HP.
+- **Mob display**: 30 zones updated with `mobName` + `bossName`. Progress bar replaced with mob name + HP bar (inverted clear progress). Boss countdown shown.
+- **Boss encounters**: Every 10 clears per zone. Boss HP = baseClearTime * band * 8. Real-time fight simulation with player DPS vs boss DPS. Tab-throttle-safe using Date.now() delta.
+- **Boss loot**: 1-2 items at iLvlMax + 5 on victory. No loot on defeat. Band 1 bosses can drop T6 affixes.
+- **Victory/defeat phases**: Victory = 2.5s celebration with gold overlay + boss loot display. Defeat = 5s recovery with HP regen animation. Auto-resume to clearing.
+- **State machine**: `CombatPhase` type: clearing → boss_fight → boss_victory/boss_defeat → clearing. `BossState` persists DPS values. `zoneClearCounts` persisted across sessions (can't skip bosses by stopping).
+- **Edge cases**: Stop mid-boss resets phase but preserves clear count. Zone switch resets HP to full. Offline skips bosses. Gathering mode hides HP/boss UI.
+- **New types**: `CombatPhase`, `BossState`. Extended `ZoneDef` (mobName, bossName) + `GameState` (currentHp, combatPhase, bossState, zoneClearCounts, combatPhaseStartedAt).
+- **New balance constants**: CLEAR_DAMAGE_RATIO, CLEAR_REGEN_RATIO, BOSS_INTERVAL, BOSS_HP_MULTIPLIER, BOSS_DAMAGE_MULTIPLIER, BOSS_ILVL_BONUS, BOSS_DROP_COUNT, BOSS_VICTORY_DURATION, BOSS_DEFEAT_RECOVERY.
+- **New engine functions**: calcDamagePerClear, calcRegenPerClear, applyNormalClearHp, calcBossMaxHp, calcPlayerDps, calcBossDps, createBossEncounter, tickBossFight, generateBossLoot.
+- **New store actions**: startBossFight, tickBoss, handleBossVictory, handleBossDefeat, checkRecoveryComplete.
+- **New UI components**: PlayerHpBar, MobDisplay, BossFightDisplay, BossVictoryOverlay, BossDefeatOverlay.
+- **Save v15 migration**: Adds zoneClearCounts + combat HP fields. Ephemeral combat state reset on rehydrate.
+- **Files changed**: types/index.ts, data/balance.ts, data/zones.ts, engine/zones.ts, store/gameStore.ts, ui/screens/ZoneScreen.tsx
 
 ## Priority for Next Session
 See `SPRINT_PLAN.md` for full roadmap. Next sprints:

@@ -149,3 +149,26 @@ export const CATALYST_BEST_TIER: Record<RareMaterialRarity, AffixTier> = {
   epic: 2,
   legendary: 1,
 };
+
+// =============================================
+// COMBAT & BOSS MECHANICS
+// =============================================
+
+/** maxHp fraction taken at worst defenses per normal clear. */
+export const CLEAR_DAMAGE_RATIO = 0.15;
+/** maxHp fraction regenerated per normal clear. */
+export const CLEAR_REGEN_RATIO = 0.08;
+/** Normal clears between boss encounters. */
+export const BOSS_INTERVAL = 10;
+/** bossHp = baseClearTime * band * this. */
+export const BOSS_HP_MULTIPLIER = 8;
+/** Boss hits harder than zone pressure. */
+export const BOSS_DAMAGE_MULTIPLIER = 2.5;
+/** Boss drops at iLvlMax + this. */
+export const BOSS_ILVL_BONUS = 5;
+export const BOSS_DROP_COUNT_MIN = 1;
+export const BOSS_DROP_COUNT_MAX = 2;
+/** Seconds of celebration after boss victory. */
+export const BOSS_VICTORY_DURATION = 2.5;
+/** Seconds of recovery after boss defeat (HP regens visually). */
+export const BOSS_DEFEAT_RECOVERY = 5.0;
