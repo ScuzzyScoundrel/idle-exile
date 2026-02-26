@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useGameStore, ProcessClearsResult } from '../../store/gameStore';
+import { useGameStore, ProcessClearsResult, useHasHydrated } from '../../store/gameStore';
 import { ZONE_DEFS, BAND_NAMES } from '../../data/zones';
 import { checkZoneMastery, applyNormalClearHp } from '../../engine/zones';
 import { calcDefensiveEfficiency } from '../../engine/setBonus';
@@ -171,8 +171,11 @@ function accumulateSession(session: SessionSummary, result: ProcessClearsResult,
 }
 
 // --- Player HP Bar ---
-function PlayerHpBar({ currentHp, maxHp }: { currentHp: number; maxHp: number }) {
+function PlayerHpBar({ currentHp, maxHp, trailHp }: { currentHp: number; maxHp: number; trailHp?: number }) {
   const pct = maxHp > 0 ? Math.max(0, Math.min(100, (currentHp / maxHp) * 100)) : 0;
+  const trailPct = trailHp != null && maxHp > 0
+    ? Math.max(0, Math.min(100, (trailHp / maxHp) * 100))
+    : pct;
   const color = pct > 60 ? 'bg-green-500' : pct > 30 ? 'bg-yellow-500' : 'bg-red-500';
   return (
     <div className="bg-gray-800/50 rounded-lg border border-gray-700 p-2">
@@ -180,8 +183,14 @@ function PlayerHpBar({ currentHp, maxHp }: { currentHp: number; maxHp: number })
         <span className="text-gray-300 font-semibold">HP</span>
         <span className="text-white font-mono">{Math.ceil(currentHp)}/{maxHp}</span>
       </div>
-      <div className="h-3 bg-gray-700 rounded-full overflow-hidden">
-        <div className={`h-full ${color} rounded-full transition-all duration-200`}
+      <div className="h-3 bg-gray-700 rounded-full overflow-hidden relative">
+        {/* Damage trail — shows where HP was, fades to reveal damage taken */}
+        {trailPct > pct && (
+          <div className="absolute h-full bg-red-800/60 rounded-full transition-all duration-500"
+               style={{ width: `${trailPct}%` }} />
+        )}
+        {/* Current interpolated HP */}
+        <div className={`absolute h-full ${color} rounded-full transition-all duration-150`}
              style={{ width: `${pct}%` }} />
       </div>
     </div>
@@ -412,6 +421,7 @@ export default function ZoneScreen() {
     tutorialStep,
   } = useGameStore();
 
+  const hydrated = useHasHydrated();
   const inventoryCapacity = calcBagCapacity(bagSlots);
 
   const [selectedZone, setSelectedZone] = useState(currentZoneId || ZONE_DEFS[0].id);
@@ -801,7 +811,9 @@ export default function ZoneScreen() {
           {(combatPhase === 'clearing' || idleMode === 'gathering') && (
             <>
               {/* Player HP Bar (combat only, clearing) */}
-              {idleMode === 'combat' && <PlayerHpBar currentHp={displayHp} maxHp={maxHp} />}
+              {idleMode === 'combat' && hydrated && (
+                <PlayerHpBar currentHp={displayHp} maxHp={maxHp} trailHp={currentHp} />
+              )}
 
               {/* Mob display (combat) or progress bar (gathering) */}
               {idleMode === 'combat' && runningZone ? (

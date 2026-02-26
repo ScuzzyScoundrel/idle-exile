@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import {
@@ -1421,3 +1422,12 @@ export const useGameStore = create<GameState & GameActions>()(
     }
   )
 );
+
+export function useHasHydrated() {
+  const [hydrated, setHydrated] = useState(useGameStore.persist.hasHydrated());
+  useEffect(() => {
+    const unsub = useGameStore.persist.onFinishHydration(() => setHydrated(true));
+    return unsub;
+  }, []);
+  return hydrated;
+}
