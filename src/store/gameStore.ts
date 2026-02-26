@@ -13,6 +13,7 @@ import {
   IdleMode,
   GatheringProfession,
   CombatPhase,
+  CharacterClass,
 } from '../types';
 import { createCharacter, resolveStats, addXp } from '../engine/character';
 import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, applyNormalClearHp, createBossEncounter, tickBossFight, generateBossLoot, BossTickResult } from '../engine/zones';
@@ -31,6 +32,12 @@ import { canRefine, refine, canDeconstruct, deconstruct } from '../engine/refine
 import { canCraftRecipe, executeCraft, addCraftingXp, getCraftingXpForTier } from '../engine/craftingProfessions';
 import { REFINEMENT_RECIPES } from '../data/refinement';
 import { getCraftingRecipe } from '../data/craftingRecipes';
+import { getClassDef } from '../data/classes';
+import {
+  createResourceState, tickResourceOnClear, tickResourceDecay,
+  resetResourceOnEvent, getClassClearSpeedModifier, getClassDamageModifier,
+  getClassLootModifier, dischargeMageCharges,
+} from '../engine/classResource';
 
 
 const INITIAL_CURRENCIES: Record<CurrencyType, number> = {
@@ -137,6 +144,9 @@ export interface ProcessClearsResult {
 }
 
 interface GameActions {
+  // Class selection
+  selectClass: (classId: CharacterClass) => void;
+
   // Character
   equipItem: (item: Item) => void;
   unequipSlot: (slot: GearSlot) => void;
@@ -185,6 +195,9 @@ interface GameActions {
   selectMutator: (slotIndex: number, mutatorId: string | null) => void;
   activateAbility: (abilityId: string) => void;
 
+  // Class resource
+  tickClassResource: (dtSeconds: number) => void;
+
   // Combat / Boss
   startBossFight: () => void;
   tickBoss: (dt: number) => BossTickResult | null;
@@ -204,7 +217,7 @@ interface GameActions {
 }
 
 function createInitialState(): GameState {
-  const char = createCharacter('Warrior', 'warrior');
+  const char = createCharacter('Exile', 'warrior');
   const starterWeapon: Item = {
     id: generateId(),
     baseId: 'rusty_shortsword',
@@ -244,6 +257,8 @@ function createInitialState(): GameState {
     bossState: null,
     zoneClearCounts: {},
     combatPhaseStartedAt: null,
+    classResource: createResourceState('warrior'),
+    classSelected: false,
     tutorialStep: 1,
     lastSaveTime: Date.now(),
   };
@@ -253,6 +268,23 @@ export const useGameStore = create<GameState & GameActions>()(
   persist(
     (set, get) => ({
       ...createInitialState(),
+
+      selectClass: (classId: CharacterClass) => {
+        set((state) => {
+          const classDef = getClassDef(classId);
+          const newChar: Character = {
+            ...state.character,
+            class: classId,
+            name: classDef.name,
+          };
+          newChar.stats = resolveStats(newChar);
+          return {
+            character: newChar,
+            classResource: createResourceState(classId),
+            classSelected: true,
+          };
+        });
+      },
 
       equipItem: (item: Item) => {
         set((state) => {
@@ -293,6 +325,11 @@ export const useGameStore = create<GameState & GameActions>()(
               updates.abilityTimers = newTimers;
             }
           }
+
+          // Reset class resource on gear swap (Rogue momentum)
+          const cDef = getClassDef(state.character.class);
+          updates.classResource = resetResourceOnEvent(state.classResource, cDef, 'gear_swap');
+
           return updates;
         });
       },
@@ -385,6 +422,14 @@ export const useGameStore = create<GameState & GameActions>()(
       startIdleRun: (zoneId: string) => {
         const state = get();
         const stats = resolveStats(state.character);
+        const classDef = getClassDef(state.character.class);
+
+        // Reset resource if zone changed (Ranger tracking, Rogue momentum)
+        let newResource = state.classResource;
+        if (state.currentZoneId && state.currentZoneId !== zoneId) {
+          newResource = resetResourceOnEvent(newResource, classDef, 'zone_switch');
+        }
+
         set({
           currentZoneId: zoneId,
           idleStartTime: Date.now(),
@@ -392,6 +437,7 @@ export const useGameStore = create<GameState & GameActions>()(
           combatPhase: 'clearing' as CombatPhase,
           bossState: null,
           combatPhaseStartedAt: null,
+          classResource: newResource,
         });
       },
 
@@ -468,16 +514,38 @@ export const useGameStore = create<GameState & GameActions>()(
         }
 
         // ─── Combat Mode ───
+        const classDef = getClassDef(state.character.class);
+        let classRes = state.classResource;
+
         const allItems: Item[] = [];
         const accCurrencies: Record<CurrencyType, number> = { augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, socket: 0 };
         const accMaterials: Record<string, number> = {};
         let accGold = 0;
         const accBagDrops: Record<string, number> = {};
+        let bonusMageClears = 0;
 
         const abilityEffect = aggregateAbilityEffects(state.equippedAbilities, state.abilityTimers, Date.now(), false);
 
+        // Build class resource stacks per clear
+        const zoneId = state.currentZoneId!;
         for (let i = 0; i < clearCount; i++) {
-          const clear = simulateSingleClear(state.character, zone, abilityEffect);
+          classRes = tickResourceOnClear(classRes, classDef, zoneId);
+        }
+
+        // Mage discharge check: at max charges, grant bonus clears
+        const discharge = dischargeMageCharges(classRes, classDef);
+        if (discharge) {
+          bonusMageClears = discharge.bonusClears;
+          classRes = discharge.newState;
+        }
+
+        const totalClears = clearCount + bonusMageClears;
+
+        // Get class loot modifiers (Ranger tracking)
+        const lootMod = getClassLootModifier(classRes, classDef);
+
+        for (let i = 0; i < totalClears; i++) {
+          const clear = simulateSingleClear(state.character, zone, abilityEffect, lootMod.rareFindBonus, lootMod.materialYieldBonus);
           if (clear.item) allItems.push(clear.item);
 
           for (const [key, val] of Object.entries(clear.currencyDrops)) {
@@ -514,7 +582,7 @@ export const useGameStore = create<GameState & GameActions>()(
           newBagStash[key] = (newBagStash[key] || 0) + val;
         }
 
-        // HP updates: apply damage/regen per clear
+        // HP updates: apply damage/regen per clear (use class damage modifier)
         const stats = resolveStats(state.character);
         const defEff = calcDefensiveEfficiency(stats, zone.band) * (abilityEffect?.defenseMult ?? 1);
         let hp = state.currentHp > 0 ? state.currentHp : stats.maxLife;
@@ -522,8 +590,7 @@ export const useGameStore = create<GameState & GameActions>()(
           hp = applyNormalClearHp(hp, stats.maxLife, defEff);
         }
 
-        // Track clear counts toward boss
-        const zoneId = state.currentZoneId!;
+        // Track clear counts toward boss (only real clears, not mage bonus)
         const newZoneClearCounts = { ...state.zoneClearCounts };
         newZoneClearCounts[zoneId] = (newZoneClearCounts[zoneId] || 0) + clearCount;
 
@@ -535,6 +602,7 @@ export const useGameStore = create<GameState & GameActions>()(
           bagStash: newBagStash,
           currentHp: hp,
           zoneClearCounts: newZoneClearCounts,
+          classResource: classRes,
         });
 
         return {
@@ -549,12 +617,15 @@ export const useGameStore = create<GameState & GameActions>()(
       },
 
       stopIdleRun: () => {
+        const state = get();
+        const cDef = getClassDef(state.character.class);
         set({
           idleStartTime: null,
           currentZoneId: null,
           combatPhase: 'clearing' as CombatPhase,
           bossState: null,
           combatPhaseStartedAt: null,
+          classResource: resetResourceOnEvent(state.classResource, cDef, 'stop'),
         });
       },
 
@@ -579,7 +650,10 @@ export const useGameStore = create<GameState & GameActions>()(
         }
 
         const abilityEffect = aggregateAbilityEffects(state.equippedAbilities, state.abilityTimers, Date.now(), false);
-        return calcClearTime(state.character, zone, abilityEffect);
+        const cDef = getClassDef(state.character.class);
+        const classDmgMult = getClassDamageModifier(state.classResource, cDef);
+        const classSpdMult = getClassClearSpeedModifier(state.classResource, cDef);
+        return calcClearTime(state.character, zone, abilityEffect, classDmgMult, classSpdMult);
       },
 
       setIdleMode: (mode: IdleMode) => {
@@ -917,8 +991,31 @@ export const useGameStore = create<GameState & GameActions>()(
             activatedAt: now,
             cooldownUntil: now + (duration + (def.cooldown ?? 0)) * 1000,
           };
-          return { abilityTimers: newTimers };
+
+          // Mage: increment arcane charges on ability activation
+          const updates: Partial<GameState> = { abilityTimers: newTimers };
+          const cDef = getClassDef(state.character.class);
+          if (cDef.resourceType === 'arcane_charges') {
+            let newStacks = state.classResource.stacks + 1;
+            if (cDef.resourceMax !== null) newStacks = Math.min(newStacks, cDef.resourceMax);
+            updates.classResource = { ...state.classResource, stacks: newStacks };
+          }
+
+          return updates;
         });
+      },
+
+      // Class resource time decay (called from 250ms timer)
+      tickClassResource: (dtSeconds: number) => {
+        const state = get();
+        const cDef = getClassDef(state.character.class);
+        if (cDef.resourceDecayRate <= 0 || state.classResource.stacks <= 0) return;
+        // Only decay when not actively clearing
+        if (state.combatPhase === 'clearing' && state.idleStartTime) return;
+        const newResource = tickResourceDecay(state.classResource, cDef, dtSeconds);
+        if (newResource.stacks !== state.classResource.stacks) {
+          set({ classResource: newResource });
+        }
       },
 
       startBossFight: () => {
@@ -1053,7 +1150,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 17,
+      version: 18,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -1415,6 +1512,17 @@ export const useGameStore = create<GameState & GameActions>()(
           }
           // Prep potionSlots for Phase 2
           (raw as Record<string, unknown>).potionSlots = [null, null, null];
+        }
+
+        if (version < 18) {
+          // v18: Class resource system + class selection
+          // Existing saves default to Warrior, skip class picker
+          if (!state.character?.class || state.character.class === 'warrior') {
+            raw.classResource = createResourceState('warrior');
+          } else {
+            raw.classResource = createResourceState(state.character.class as CharacterClass);
+          }
+          raw.classSelected = true;  // Skip picker for existing saves
         }
 
         return state;

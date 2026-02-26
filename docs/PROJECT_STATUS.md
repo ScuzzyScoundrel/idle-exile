@@ -1,10 +1,10 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-02-25 (Combat Overhaul: HP + Boss Encounters)
+> Last updated: 2026-02-26 (Sprint 7A: Classes + Resource Mechanics)
 
 ## Current Phase
-**Combat Overhaul** — COMPLETE. Added player HP system (drains/regens during clears), mob display with names per zone, boss encounters every 10 clears with own HP pool, boss loot at boosted iLvl (+5), victory/defeat overlays, combat phase state machine. 30 zones updated with mob + boss names. Save v15.
+**Sprint 7A: Classes + Resource Mechanics** — COMPLETE. 4 playable classes (Warrior, Mage, Ranger, Rogue) each with unique idle resource mechanic. Class picker on new game. Resource bars on zone screen. Save v18.
 
 ## What Is Working Right Now
 The game is live on Vercel and playable locally at `http://localhost:5173/`. Core loop:
@@ -22,6 +22,10 @@ The game is live on Vercel and playable locally at `http://localhost:5173/`. Cor
 - **Mob display**: Each zone has named mobs. Progress bar shows mob HP draining per clear instead of plain progress bar. Boss countdown shown.
 - **Boss encounters**: Every 10 clears, a named boss spawns with its own HP pool. Both player and boss HP bars visible, DPS stats shown. Victory = bonus loot at boosted iLvl. Defeat = no boss loot, 5s recovery period. Stop mid-boss preserves clear counter.
 - **Boss loot**: Drops at zone.iLvlMax + 5 (Band 1 bosses can drop T6 affixes). 1-2 items per boss kill.
+- **4 playable classes**: Warrior (Rage: +2% dmg/stack, decays idle), Mage (Arcane Charges: build on ability use, discharge for bonus clears), Ranger (Tracking: +0.5% rare find/stack in same zone), Rogue (Momentum: +1% clear speed/stack, uncapped).
+- **Class picker**: New game shows 4-class selection grid with descriptions, stat bonuses, resource mechanic preview. Reset game shows picker again.
+- **Class resource bars**: Visible on zone screen during combat — Warrior red rage bar, Mage blue charge pips, Ranger green tracking bar, Rogue purple momentum counter.
+- **Class stat bonuses**: Warrior (+15% max life, +30 armor, plate affinity), Mage (+15 spell power, +10 cast speed, cloth affinity), Ranger (+30 evasion, +10 move speed, leather affinity), Rogue (+15 attack speed, +10 crit chance, leather affinity).
 - **Offline progression**: Close the app, reopen later → "Welcome Back, Exile!" modal. Works for both combat and gathering modes. Bosses skipped during offline.
 - **8 weapon types**: Sword, Axe, Mace, Dagger, Staff, Wand, Bow, Crossbow. 56 mainhand bases.
 - **24 abilities**: Each weapon has 2 active + 1 passive ability. Mutator system for customization.
@@ -67,7 +71,7 @@ Bottom: mainhand, offhand, trinket1, trinket2
 - **Auto-apply resources**: `processNewClears()` immediately applies all drops to state. Session summary tracked in UI local state.
 - **Bag system**: 5 equippable bag slots (T1:6→T5:14). Start 30 total, max 70.
 - **Crafting (currencies)**: `applyCurrency(item, type)` — augment, chaos, divine, annul, exalt
-- **Save**: Zustand persist v15. Migrations: v11→v12 adds `craftingSkills`, v12→v13 adds leatherworker + jeweler skills, v13→v14 adds `craftAutoSalvageMinRarity`, v14→v15 adds `zoneClearCounts` + combat HP fields.
+- **Save**: Zustand persist v18. Migrations: v11→v12 adds `craftingSkills`, v12→v13 adds leatherworker + jeweler skills, v13→v14 adds `craftAutoSalvageMinRarity`, v14→v15 adds `zoneClearCounts` + combat HP fields, v17→v18 adds `classResource` + `classSelected` (existing saves → Warrior, skip picker).
 
 ## Architecture
 ```
@@ -86,7 +90,7 @@ src/
     zones.ts                — 30 zones with material names, recommendedLevel, gatheringTypes
     items.ts                — 345 item bases (56 mainhand w/ 8 weapon types) + 6 currency defs + 5 bag upgrade defs
     abilities.ts            — 24 ability defs (8 weapon types x 3) with mutators
-    classes.ts              — Class definitions (placeholder)
+    classes.ts              — 4 class definitions with resource config (warrior, mage, ranger, rogue)
     setBonuses.ts           — 4 armor-type set bonus definitions
   engine/                   — Pure TypeScript (no React)
     items.ts                — Item generation, affix rolling, rarity classification, generateGatheringItem()
@@ -96,11 +100,12 @@ src/
     refinement.ts           — canRefine(), refine(), canDeconstruct(), deconstruct(), getRefinementChain()
     craftingProfessions.ts  — addCraftingXp(), canCraftRecipe(), executeCraft(), getCraftingXpForTier()
     abilities.ts            — Ability effect resolution, timer management, aggregation
+    classResource.ts        — Class resource pure functions (create, tick, decay, reset, modifiers)
     character.ts            — Stats resolution (13 stats), XP/leveling
     crafting.ts             — 6 currency crafting operations
     setBonus.ts             — Set bonus resolution
   store/
-    gameStore.ts            — Zustand store (state + actions + persistence + v15 migration). Actions: startBossFight, tickBoss, handleBossVictory, handleBossDefeat, checkRecoveryComplete + all previous.
+    gameStore.ts            — Zustand store (state + actions + persistence + v18 migration). Actions: selectClass, tickClassResource, startBossFight, tickBoss, handleBossVictory, handleBossDefeat, checkRecoveryComplete + all previous.
   ui/
     slotConfig.ts           — Shared gear slot icons/labels
     components/
@@ -109,6 +114,7 @@ src/
       OfflineProgressModal.tsx — "Welcome Back" modal
       AbilityBar.tsx        — 4-slot ability action bar
       Tooltip.tsx           — Reusable hover tooltip component
+      ClassPicker.tsx       — 4-class selection screen (new game / reset)
     screens/
       ZoneScreen.tsx        — Band tabs, Combat/Gathering toggle, profession selector, session summary with rare finds
       InventoryScreen.tsx   — Bag grid + currency crafting UI + auto-salvage + detail panel
@@ -122,7 +128,7 @@ src/
 ## Known Issues / Next Iteration TODO
 - [ ] Socket currency not yet implemented (defined but no crafting logic)
 - [ ] No trinket item bases (trinket1/trinket2 slots empty)
-- [ ] Class selection not implemented (everyone is generic "Exile")
+- [x] Class selection implemented (4 classes with unique resource mechanics)
 - [ ] Talent tree not built
 - [ ] Set bonus UI not shown on character screen
 - [ ] Zone familiarity passive not implemented
@@ -133,7 +139,7 @@ src/
 - [ ] Offline gathering doesn't use rareFindBonus (rare drops only during real-time)
 
 ## What Has NOT Been Built Yet (from GDD MVP scope)
-- [ ] Class selection (GDD Section 3)
+- [x] Class selection (GDD Section 3) — 4 classes with resource mechanics
 - [ ] Talent tree (30-50 nodes per class)
 - [ ] Specialization system (one per character)
 - [ ] Socket crafting logic
@@ -244,8 +250,26 @@ Replaced focus modes with Combat/Gathering toggle. 5 gathering professions with 
 - **Save v15 migration**: Adds zoneClearCounts + combat HP fields. Ephemeral combat state reset on rehydrate.
 - **Files changed**: types/index.ts, data/balance.ts, data/zones.ts, engine/zones.ts, store/gameStore.ts, ui/screens/ZoneScreen.tsx
 
+### Sprint 7A Changes (Classes + Resource Mechanics)
+- **4 playable classes**: Warrior, Mage, Ranger, Rogue — each with unique idle resource mechanic.
+- **Class picker**: Full-screen 4-class selection grid on new game. Shows name, icon, description, base stat bonuses, resource mechanic preview. Confirm button starts game. Shown again on `resetGame()`.
+- **Warrior Rage**: +1 per clear (max 20), decays 1/30s while idle. +2% damage per stack.
+- **Mage Arcane Charges**: +1 on ability activation (max 10). At max, auto-discharge for bonus clears (floor(charges/2)). +5% spell damage, +3% ability haste per charge.
+- **Ranger Tracking**: +1 per clear same zone (max 100). Resets on zone switch. +0.5% rare find, +0.3% material yield per stack.
+- **Rogue Momentum**: +1 per clear (uncapped). Resets on stop/zone switch/gear swap. +1% clear speed per stack.
+- **Class resource bars**: Warrior=red bar, Mage=blue pips with discharge flash, Ranger=green bar, Rogue=purple counter.
+- **Class stat bonuses**: Warrior (+15% max life, +30 armor), Mage (+15 spell power, +10 cast speed), Ranger (+30 evasion, +10 move speed), Rogue (+15 attack speed, +10 crit chance).
+- **Class modifiers in combat**: Warrior/Mage damage bonus applied to DPS calc. Rogue speed bonus applied to clear time. Ranger loot bonus applied to drop rolls.
+- **New types**: `CharacterClass` expanded to 4, `ResourceType`, `ClassResourceState`, `ClassDef` resource config fields.
+- **New engine**: `classResource.ts` — pure functions for resource create/tick/decay/reset/modifiers.
+- **New UI**: `ClassPicker.tsx`, `ClassResourceBar` component in ZoneScreen, class info in CharacterScreen.
+- **Store actions**: `selectClass()`, `tickClassResource()`. Updated: `processNewClears`, `startIdleRun`, `stopIdleRun`, `equipItem`, `activateAbility`.
+- **Save v18 migration**: Adds `classResource` + `classSelected`. Existing saves → Warrior + skip picker.
+- **Files changed**: types/index.ts, data/classes.ts, engine/classResource.ts (new), engine/zones.ts, store/gameStore.ts, App.tsx, ui/components/ClassPicker.tsx (new), ui/screens/ZoneScreen.tsx, ui/screens/CharacterScreen.tsx
+
 ## Priority for Next Session
 See `SPRINT_PLAN.md` for full roadmap. Next sprints:
-1. **Sprint 7: Class Mechanics** — 4 classes with unique passive mechanics + talent trees
-2. **Sprint 8: Gold Economy**
-3. **Sprint 9: Gathering Gear UI + Dual Loadout**
+1. **Sprint 7B: Talent Trees** — 30-50 nodes per class
+2. **Sprint 7C: Expanded Abilities** — New weapon type abilities
+3. **Sprint 8: Gold Economy**
+4. **Sprint 9: Gathering Gear UI + Dual Loadout**

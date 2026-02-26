@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
-import { StatKey, GearSlot, Item, ArmorType, Rarity, WeaponType } from '../../types';
+import { StatKey, GearSlot, Item, ArmorType, Rarity, WeaponType, CharacterClass } from '../../types';
 import { slotIcon, slotLabel } from '../slotConfig';
 import { formatAffix, getEquippedWeaponType } from '../../engine/items';
 import { CLASS_DEFS } from '../../data/classes';
@@ -8,6 +8,20 @@ import { calcSetBonuses, calcDefensiveEfficiency } from '../../engine/setBonus';
 import { SET_BONUS_DEFS } from '../../data/setBonuses';
 import { ZONE_DEFS } from '../../data/zones';
 import { getAbilitiesForWeapon, getAbilityDef } from '../../data/abilities';
+
+const CLASS_ICONS_HERO: Record<CharacterClass, string> = {
+  warrior: '\u2694\uFE0F',
+  mage: '\u2728',
+  ranger: '\uD83C\uDFF9',
+  rogue: '\uD83D\uDDE1\uFE0F',
+};
+
+const CLASS_TEXT_COLORS: Record<CharacterClass, string> = {
+  warrior: 'text-red-400',
+  mage: 'text-blue-400',
+  ranger: 'text-green-400',
+  rogue: 'text-purple-400',
+};
 
 const STAT_TOOLTIPS: Partial<Record<StatKey, string>> = {
   // Attack
@@ -172,7 +186,7 @@ export default function CharacterScreen() {
       <div className="bg-gray-800 rounded-lg p-3">
         <div className="flex items-center gap-3">
           <div className="w-14 h-14 bg-gray-700 rounded-full flex items-center justify-center text-2xl border-2 border-yellow-600">
-            {'\u2694\uFE0F'}
+            {CLASS_ICONS_HERO[character.class] ?? '\u2694\uFE0F'}
           </div>
           <div className="flex-1">
             <div className="text-xl font-bold text-white">{character.name}</div>
@@ -191,6 +205,17 @@ export default function CharacterScreen() {
             </div>
           </div>
         </div>
+
+        {/* Class resource mechanic description */}
+        {CLASS_DEFS[character.class] && (
+          <div className="mt-2 bg-gray-900/50 rounded-lg p-2 text-xs text-gray-300">
+            <span className={`font-semibold ${CLASS_TEXT_COLORS[character.class] ?? 'text-gray-400'}`}>
+              {CLASS_DEFS[character.class].resourceType.replace(/_/g, ' ').toUpperCase()}
+            </span>
+            <span className="text-gray-500"> &mdash; </span>
+            {CLASS_DEFS[character.class].resourceDescription}
+          </div>
+        )}
       </div>
 
       {/* Paper Doll — WoW-style layout with wider gear cards */}

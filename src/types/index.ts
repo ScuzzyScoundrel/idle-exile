@@ -163,7 +163,9 @@ export type ResolvedStats = Record<StatKey, number>;
 
 // --- Classes ---
 
-export type CharacterClass = 'warrior';
+export type CharacterClass = 'warrior' | 'mage' | 'ranger' | 'rogue';
+
+export type ResourceType = 'rage' | 'arcane_charges' | 'tracking' | 'momentum';
 
 export interface ClassDef {
   id: CharacterClass;
@@ -171,6 +173,21 @@ export interface ClassDef {
   description: string;
   baseStatBonuses: Partial<Record<StatKey, number>>;
   armorAffinity: ArmorType;
+  // Resource mechanic config
+  resourceType: ResourceType;
+  resourceMax: number | null;        // null = uncapped (Rogue)
+  resourcePerClear: number;
+  resourceDecayRate: number;          // stacks lost per second (0 = no time decay)
+  resourceDecayOnZoneSwitch: boolean;
+  resourceDecayOnStop: boolean;
+  resourceDecayOnGearSwap: boolean;
+  resourceDescription: string;        // short player-facing summary
+}
+
+export interface ClassResourceState {
+  type: ResourceType;
+  stacks: number;
+  lastZoneId: string | null;          // for Ranger same-zone tracking
 }
 
 export interface Character {
@@ -482,6 +499,10 @@ export interface GameState {
   bossState: BossState | null;
   zoneClearCounts: Record<string, number>;  // persisted: clears per zone toward boss
   combatPhaseStartedAt: number | null;
+
+  // Class resource
+  classResource: ClassResourceState;
+  classSelected: boolean;
 
   // Tutorial
   tutorialStep: number;

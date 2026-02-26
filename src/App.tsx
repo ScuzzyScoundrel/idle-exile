@@ -3,6 +3,7 @@ import TopBar from './ui/components/TopBar';
 import NavBar from './ui/components/NavBar';
 import TutorialOverlay from './ui/components/TutorialOverlay';
 import OfflineProgressModal from './ui/components/OfflineProgressModal';
+import ClassPicker from './ui/components/ClassPicker';
 import ZoneScreen from './ui/screens/ZoneScreen';
 import InventoryScreen from './ui/screens/InventoryScreen';
 import CharacterScreen from './ui/screens/CharacterScreen';
@@ -12,9 +13,15 @@ import { useGameStore } from './store/gameStore';
 function App() {
   const tutorialStep = useGameStore((s) => s.tutorialStep);
   const offlineProgress = useGameStore((s) => s.offlineProgress);
+  const classSelected = useGameStore((s) => s.classSelected);
   const [activeTab, setActiveTab] = useState(() =>
     tutorialStep === 1 ? 'inventory' : 'zones'
   );
+
+  // Show class picker if no class chosen yet (new game or reset)
+  if (!classSelected) {
+    return <ClassPicker />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">

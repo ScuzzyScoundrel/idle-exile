@@ -102,13 +102,17 @@ export function calcPlayerDps(char: Character, abilityEffect?: AbilityEffect): n
 /**
  * Calculate how long (in seconds) a character takes to clear a zone.
  * Uses the new DPS formula with weapon info.
+ * classDamageMult: Warrior rage / Mage charge damage bonus (default 1.0).
+ * classSpeedMult: Rogue momentum speed bonus (default 1.0).
  */
 export function calcClearTime(
   char: Character,
   zone: ZoneDef,
   abilityEffect?: AbilityEffect,
+  classDamageMult: number = 1.0,
+  classSpeedMult: number = 1.0,
 ): number {
-  const playerDps = calcPlayerDps(char, abilityEffect);
+  const playerDps = calcPlayerDps(char, abilityEffect) * classDamageMult;
 
   let defEff = calcDefensiveEfficiency(char.stats, zone.band);
   defEff *= (abilityEffect?.defenseMult ?? 1);
@@ -126,8 +130,8 @@ export function calcClearTime(
 
   const floor = zone.baseClearTime * CLEAR_TIME_FLOOR_RATIO;
 
-  // Apply clearSpeedMult after base calc
-  clearTime /= (abilityEffect?.clearSpeedMult ?? 1);
+  // Apply clearSpeedMult after base calc (ability + class)
+  clearTime /= (abilityEffect?.clearSpeedMult ?? 1) * classSpeedMult;
   clearTime = Math.max(floor, clearTime);
 
   return clearTime;
@@ -214,17 +218,21 @@ export interface SingleClearResult {
 
 /**
  * Generate drops for ONE zone clear. Pure function.
+ * Optional classRareFindBonus / classMaterialYieldBonus from Ranger tracking.
  */
 export function simulateSingleClear(
   char: Character,
   zone: ZoneDef,
   abilityEffect?: AbilityEffect,
+  classRareFindBonus: number = 0,
+  classMaterialYieldBonus: number = 0,
 ): SingleClearResult {
   const hasMastery = checkZoneMastery(char.stats, zone);
   let itemDropChance = hasMastery
     ? BASE_ITEM_DROP_CHANCE * MASTERY_DROP_BONUS
     : BASE_ITEM_DROP_CHANCE;
   itemDropChance *= (abilityEffect?.itemDropMult ?? 1);
+  if (classRareFindBonus > 0) itemDropChance *= (1 + classRareFindBonus);
 
   const matMult = (abilityEffect?.materialDropMult ?? 1);
   const xpMult = abilityEffect?.xpMult ?? 1;
@@ -240,7 +248,8 @@ export function simulateSingleClear(
   const materials: Record<string, number> = {};
   if (Math.random() < COMBAT_MATERIAL_DROP_CHANCE) {
     const baseMats = COMBAT_MATERIAL_DROP_MIN + Math.floor(Math.random() * (COMBAT_MATERIAL_DROP_MAX - COMBAT_MATERIAL_DROP_MIN + 1));
-    const matCount = Math.round(baseMats * matMult) * (doubleClear ? 2 : 1);
+    const yieldMult = 1 + classMaterialYieldBonus; // Ranger tracking bonus
+    const matCount = Math.round(baseMats * matMult * yieldMult) * (doubleClear ? 2 : 1);
     for (let m = 0; m < matCount; m++) {
       const mat = zone.materialDrops[Math.floor(Math.random() * zone.materialDrops.length)];
       materials[mat] = (materials[mat] ?? 0) + 1;
