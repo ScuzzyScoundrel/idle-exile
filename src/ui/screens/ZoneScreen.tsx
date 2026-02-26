@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useGameStore, ProcessClearsResult } from '../../store/gameStore';
 import { ZONE_DEFS, BAND_NAMES } from '../../data/zones';
-import { checkZoneMastery } from '../../engine/zones';
+import { checkZoneMastery, applyNormalClearHp } from '../../engine/zones';
+import { calcDefensiveEfficiency } from '../../engine/setBonus';
 import { canGatherInZone, getGatheringSkillRequirement, calcGatheringXpRequired } from '../../engine/gathering';
 import { GATHERING_PROFESSION_DEFS } from '../../data/gatheringProfessions';
 import { ZoneDef, Rarity, IdleMode, GatheringProfession } from '../../types';
@@ -554,6 +555,16 @@ export default function ZoneScreen() {
 
   const currentClears = isRunning ? Math.floor(elapsed / runningClearTime) : 0;
 
+  // Interpolate HP within the current clear for smooth visual ticking
+  const clearProgress = runningClearTime > 0 ? (elapsed % runningClearTime) / runningClearTime : 0;
+  let displayHp = currentHp;
+  if (isRunning && idleMode === 'combat' && combatPhase === 'clearing' && runningZone) {
+    const stats = resolveStats(character);
+    const defEff = calcDefensiveEfficiency(stats, runningZone.band);
+    const nextHp = applyNormalClearHp(currentHp, stats.maxLife, defEff);
+    displayHp = currentHp + (nextHp - currentHp) * clearProgress;
+  }
+
   // Band zones
   const bands = [1, 2, 3, 4, 5, 6];
   const bandZones = ZONE_DEFS.filter(z => z.band === selectedBand);
@@ -790,7 +801,7 @@ export default function ZoneScreen() {
           {(combatPhase === 'clearing' || idleMode === 'gathering') && (
             <>
               {/* Player HP Bar (combat only, clearing) */}
-              {idleMode === 'combat' && <PlayerHpBar currentHp={currentHp} maxHp={maxHp} />}
+              {idleMode === 'combat' && <PlayerHpBar currentHp={displayHp} maxHp={maxHp} />}
 
               {/* Mob display (combat) or progress bar (gathering) */}
               {idleMode === 'combat' && runningZone ? (

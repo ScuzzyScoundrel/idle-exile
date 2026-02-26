@@ -516,7 +516,7 @@ export const useGameStore = create<GameState & GameActions>()(
         // HP updates: apply damage/regen per clear
         const stats = resolveStats(state.character);
         const defEff = calcDefensiveEfficiency(stats, zone.band) * (abilityEffect?.defenseMult ?? 1);
-        let hp = state.currentHp || stats.maxLife;
+        let hp = state.currentHp > 0 ? state.currentHp : stats.maxLife;
         for (let i = 0; i < clearCount; i++) {
           hp = applyNormalClearHp(hp, stats.maxLife, defEff);
         }
@@ -1057,8 +1057,12 @@ export const useGameStore = create<GameState & GameActions>()(
         return (state, error) => {
           if (error || !state) return;
 
-          // Reset ephemeral combat fields on rehydrate
-          state.currentHp = 0;  // will be set to maxHp on next run start
+          // Preserve persisted HP through rehydration (startIdleRun sets maxLife for new runs)
+          // Clamp to valid range in case of stale data
+          const rehydrateStats = resolveStats(state.character);
+          state.currentHp = (state.currentHp > 0 && state.currentHp <= rehydrateStats.maxLife)
+            ? state.currentHp
+            : rehydrateStats.maxLife;
           state.combatPhase = 'clearing';
           state.bossState = null;
           state.combatPhaseStartedAt = null;
