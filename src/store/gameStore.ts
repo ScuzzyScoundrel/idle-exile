@@ -271,6 +271,8 @@ function createInitialState(): GameState {
     combatPhaseStartedAt: null,
     classResource: createResourceState('warrior'),
     classSelected: false,
+    totalKills: 0,
+    fastestClears: {},
     tutorialStep: 1,
     lastSaveTime: Date.now(),
   };
@@ -649,6 +651,13 @@ export const useGameStore = create<GameState & GameActions>()(
         );
         const newClearTime = calcClearTime(state.character, zone, updatedAbilityEffect, cDmgMult, cSpdMult);
 
+        // Track fastest clear time for this zone
+        const newFastestClears = { ...state.fastestClears };
+        const currentFastest = newFastestClears[zoneId];
+        if (currentFastest === undefined || newClearTime < currentFastest) {
+          newFastestClears[zoneId] = newClearTime;
+        }
+
         set({
           inventory: newInventory,
           materials: newMaterials,
@@ -661,6 +670,8 @@ export const useGameStore = create<GameState & GameActions>()(
           abilityProgress: newAbilityProgress,
           clearStartedAt: newClearStartedAt,
           currentClearTime: newClearTime,
+          totalKills: state.totalKills + totalClears,
+          fastestClears: newFastestClears,
         });
 
         return {
@@ -1316,7 +1327,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 19,
+      version: 20,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -1703,6 +1714,12 @@ export const useGameStore = create<GameState & GameActions>()(
               (ea) => ea ? { abilityId: ea.abilityId, selectedMutatorId: null } : null,
             );
           }
+        }
+
+        if (version < 20) {
+          // v20: Kill counter + fastest clear tracking
+          raw.totalKills = 0;
+          raw.fastestClears = {};
         }
 
         return state;

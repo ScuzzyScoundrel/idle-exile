@@ -571,6 +571,10 @@ export interface GameState {
   classResource: ClassResourceState;
   classSelected: boolean;
 
+  // Stats tracking
+  totalKills: number;
+  fastestClears: Record<string, number>;  // zoneId → fastest clear time in seconds
+
   // Tutorial
   tutorialStep: number;
 

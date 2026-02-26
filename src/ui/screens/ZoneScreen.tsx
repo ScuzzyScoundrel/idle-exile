@@ -782,6 +782,7 @@ export default function ZoneScreen() {
     tutorialStep,
     classResource, tickClassResource,
     clearStartedAt, currentClearTime,
+    totalKills, fastestClears,
   } = useGameStore();
 
   const hydrated = useHasHydrated();
@@ -1112,30 +1113,40 @@ export default function ZoneScreen() {
         )}
       </div>
 
-      {/* Clear Time Estimate */}
-      <div className="text-xs text-gray-400 bg-gray-800 rounded-lg p-2">
-        Est. clear time: <span className={`font-mono ${clearTime > 3600 ? 'text-red-400' : clearTime > 300 ? 'text-yellow-400' : 'text-white'}`}>{formatClearTime(clearTime)}</span>
-        {' '}&bull;{' '}iLvl: <span className="text-white">{zone.iLvlMin}-{zone.iLvlMax}</span>
-        {idleMode === 'combat' && zone.hazards.length > 0 && (
-          <span className="ml-2">
-            {zone.hazards.map((h, i) => {
-              const playerResist = (character.stats as Record<string, number>)[HAZARD_STAT_MAP[h.type]] ?? 0;
-              const belowThreshold = playerResist < h.threshold;
-              return (
-                <span key={i} className={`ml-1 ${belowThreshold ? 'text-red-400' : 'text-green-400'}`}>
-                  {HAZARD_ICONS[h.type]} {Math.floor(playerResist)}/{h.threshold}
-                </span>
-              );
-            })}
-          </span>
-        )}
-        {idleMode === 'gathering' && selectedGatheringProfession && (
-          <span className="ml-2 text-green-400">
-            {PROFESSION_ICONS[selectedGatheringProfession]} Skill: {currentGatheringLevel}
-            {!canGatherInZone(currentGatheringLevel, zone) && (
-              <span className="text-red-400 ml-1">(need {getGatheringSkillRequirement(zone.band)})</span>
+      {/* Clear Time Estimate + Stats */}
+      <div className="text-xs text-gray-400 bg-gray-800 rounded-lg p-2 space-y-1">
+        <div>
+          Est. clear time: <span className={`font-mono ${clearTime > 3600 ? 'text-red-400' : clearTime > 300 ? 'text-yellow-400' : 'text-white'}`}>{formatClearTime(clearTime)}</span>
+          {' '}&bull;{' '}iLvl: <span className="text-white">{zone.iLvlMin}-{zone.iLvlMax}</span>
+          {idleMode === 'combat' && zone.hazards.length > 0 && (
+            <span className="ml-2">
+              {zone.hazards.map((h, i) => {
+                const playerResist = (character.stats as Record<string, number>)[HAZARD_STAT_MAP[h.type]] ?? 0;
+                const belowThreshold = playerResist < h.threshold;
+                return (
+                  <span key={i} className={`ml-1 ${belowThreshold ? 'text-red-400' : 'text-green-400'}`}>
+                    {HAZARD_ICONS[h.type]} {Math.floor(playerResist)}/{h.threshold}
+                  </span>
+                );
+              })}
+            </span>
+          )}
+          {idleMode === 'gathering' && selectedGatheringProfession && (
+            <span className="ml-2 text-green-400">
+              {PROFESSION_ICONS[selectedGatheringProfession]} Skill: {currentGatheringLevel}
+              {!canGatherInZone(currentGatheringLevel, zone) && (
+                <span className="text-red-400 ml-1">(need {getGatheringSkillRequirement(zone.band)})</span>
+              )}
+            </span>
+          )}
+        </div>
+        {idleMode === 'combat' && (
+          <div className="flex gap-3 text-gray-500">
+            <span>{'\u{1F480}'} Kills: <span className="text-white font-semibold">{totalKills.toLocaleString()}</span></span>
+            {fastestClears[selectedZone] != null && (
+              <span>{'\u26A1'} Best: <span className="text-yellow-400 font-mono">{formatClearTime(fastestClears[selectedZone])}</span></span>
             )}
-          </span>
+          </div>
         )}
       </div>
 
