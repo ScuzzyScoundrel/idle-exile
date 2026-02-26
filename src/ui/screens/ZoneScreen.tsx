@@ -8,6 +8,10 @@ import { GATHERING_PROFESSION_DEFS } from '../../data/gatheringProfessions';
 import { ZoneDef, Rarity, IdleMode, GatheringProfession, ClassResourceState } from '../../types';
 import { calcBagCapacity } from '../../data/items';
 import AbilityBar from '../components/AbilityBar';
+import { getAbilitiesForWeapon } from '../../data/abilities';
+import { getEquippedWeaponType } from '../../engine/items';
+import { getUnlockedSlotCount } from '../../engine/abilities';
+import { WeaponType } from '../../types';
 import { getRareMaterialDef } from '../../data/rareMaterials';
 import { BOSS_INTERVAL } from '../../data/balance';
 import { resolveStats } from '../../engine/character';
@@ -493,6 +497,105 @@ function ZoneCard({
   );
 }
 
+// Weapon type icons (subset needed for ability picker)
+const WEAPON_ICONS: Partial<Record<WeaponType, string>> = {
+  sword: '\u2694\uFE0F', axe: '\uD83E\uDE93', mace: '\uD83D\uDD28', dagger: '\uD83D\uDDE1\uFE0F',
+  staff: '\uD83E\uDE84', wand: '\u2728', bow: '\uD83C\uDFF9', crossbow: '\uD83C\uDFAF',
+  greatsword: '\u2694\uFE0F', greataxe: '\uD83E\uDE93', maul: '\uD83D\uDD28',
+  scepter: '\uD83E\uDE84', gauntlet: '\uD83E\uDD4A', tome: '\uD83D\uDCD6',
+};
+
+const KIND_COLORS: Record<string, string> = {
+  passive: 'text-gray-400', buff: 'text-blue-400', instant: 'text-orange-400',
+  proc: 'text-purple-400', toggle: 'text-green-400', ultimate: 'text-yellow-400',
+};
+
+function AbilityPicker() {
+  const {
+    character, equippedAbilities, equipAbility, unequipAbility,
+  } = useGameStore();
+  const [open, setOpen] = useState(false);
+  const weaponType = getEquippedWeaponType(character.equipment);
+  const available = weaponType ? getAbilitiesForWeapon(weaponType) : [];
+  const unlockedSlots = getUnlockedSlotCount(character.level);
+
+  if (!weaponType) return null;
+
+  return (
+    <div className="bg-gray-800 rounded-lg overflow-hidden">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-3 py-2 text-sm font-bold text-gray-300 hover:bg-gray-700 transition-colors"
+      >
+        <span>{WEAPON_ICONS[weaponType]} Abilities</span>
+        <span className="text-xs text-gray-500">{open ? '\u25B2' : '\u25BC'}</span>
+      </button>
+
+      {open && (
+        <div className="px-3 pb-3 space-y-2">
+          {available.map(ability => {
+            const equippedIdx = equippedAbilities.findIndex(ea => ea?.abilityId === ability.id);
+            const isEquipped = equippedIdx !== -1;
+
+            return (
+              <div
+                key={ability.id}
+                className={`flex items-center gap-2 rounded-lg border p-2 ${
+                  isEquipped ? 'border-yellow-700 bg-yellow-950/20' : 'border-gray-700 bg-gray-900/50'
+                }`}
+              >
+                <span className="text-lg">{ability.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-white truncate">{ability.name}</span>
+                    <span className={`text-xs ${KIND_COLORS[ability.kind] ?? 'text-gray-400'}`}>{ability.kind}</span>
+                  </div>
+                  <div className="text-xs text-gray-500 truncate">{ability.description}</div>
+                </div>
+                {isEquipped ? (
+                  <button
+                    onClick={() => unequipAbility(equippedIdx)}
+                    className="text-xs px-2 py-1 bg-red-900 hover:bg-red-800 text-red-300 rounded flex-shrink-0"
+                  >
+                    Remove
+                  </button>
+                ) : (
+                  <div className="flex gap-1 flex-shrink-0">
+                    {[0, 1, 2, 3].map(slotIdx => {
+                      if (slotIdx >= unlockedSlots) {
+                        return (
+                          <div key={slotIdx} className="w-6 h-6 rounded text-xs bg-gray-800 text-gray-600 flex items-center justify-center">
+                            {'\uD83D\uDD12'}
+                          </div>
+                        );
+                      }
+                      const occupied = equippedAbilities[slotIdx] !== null;
+                      return (
+                        <button
+                          key={slotIdx}
+                          onClick={() => equipAbility(slotIdx, ability.id)}
+                          className={`w-6 h-6 rounded text-xs font-bold ${
+                            occupied
+                              ? 'bg-gray-700 text-gray-500 hover:bg-yellow-900 hover:text-yellow-300'
+                              : 'bg-green-900 text-green-300 hover:bg-green-800'
+                          }`}
+                          title={`Slot ${slotIdx + 1}${occupied ? ' (replace)' : ''}`}
+                        >
+                          {slotIdx + 1}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ZoneScreen() {
   const {
     character, inventory, bagSlots,
@@ -862,6 +965,9 @@ export default function ZoneScreen() {
         )}
       </div>
 
+      {/* Ability Picker (combat, before starting) */}
+      {!isRunning && idleMode === 'combat' && <AbilityPicker />}
+
       {/* Start / Running State */}
       {!isRunning ? (
         <button
@@ -962,8 +1068,13 @@ export default function ZoneScreen() {
             </>
           )}
 
-          {/* Ability Bar (combat mode only, not during boss phases) */}
-          {idleMode === 'combat' && combatPhase === 'clearing' && <AbilityBar />}
+          {/* Ability Bar + Picker (combat mode only, not during boss phases) */}
+          {idleMode === 'combat' && combatPhase === 'clearing' && (
+            <>
+              <AbilityBar />
+              <AbilityPicker />
+            </>
+          )}
 
           {/* Bags status + overflow warning */}
           {isRunning && (
