@@ -1,11 +1,54 @@
 import type { CraftingRecipeDef } from '../types';
 import type { CraftingProfession } from '../types';
+import { ITEM_BASE_DEFS } from './items';
 
 // ─── Tier Constants ───────────────────────────────────────────────
 // Gold:  T1=10, T2=25, T3=50, T4=100, T5=200, T6=500
 // iLvl:  T1=5,  T2=15, T3=25, T4=35,  T5=45,  T6=55
 // Level: T1=1,  T2=15, T3=30, T4=50,  T5=75,  T6=90
 // Mats:  T1=3,  T2=4,  T3=5,  T4=6,   T5=8,   T6=10
+
+const ARMOR_TIER_CONFIG = [
+  { tier: 1, reqLevel: 1, iLvl: 5, gold: 10, matAmt: 3 },
+  { tier: 2, reqLevel: 15, iLvl: 15, gold: 25, matAmt: 4 },
+  { tier: 3, reqLevel: 30, iLvl: 25, gold: 50, matAmt: 5 },
+  { tier: 4, reqLevel: 50, iLvl: 35, gold: 100, matAmt: 6 },
+  { tier: 5, reqLevel: 75, iLvl: 45, gold: 200, matAmt: 8 },
+  { tier: 6, reqLevel: 90, iLvl: 55, gold: 500, matAmt: 10 },
+] as const;
+
+/** Table-driven generation of armor recipes: 6 slots × 6 tiers = 36 per profession. */
+function generateArmorRecipes(
+  profession: CraftingProfession,
+  prefix: string,
+  matTracks: [string, string][],
+  baseIdMatrix: Record<string, string[]>,
+): CraftingRecipeDef[] {
+  const result: CraftingRecipeDef[] = [];
+  for (const [slot, baseIds] of Object.entries(baseIdMatrix)) {
+    for (let ti = 0; ti < 6; ti++) {
+      const tc = ARMOR_TIER_CONFIG[ti];
+      const baseId = baseIds[ti];
+      const baseDef = ITEM_BASE_DEFS.find(b => b.id === baseId);
+      result.push({
+        id: `${prefix}_t${tc.tier}_${slot}`,
+        profession,
+        name: baseDef?.name ?? baseId.replace(/_/g, ' '),
+        tier: tc.tier,
+        requiredLevel: tc.reqLevel,
+        materials: [
+          { materialId: matTracks[ti][0], amount: tc.matAmt },
+          { materialId: matTracks[ti][1], amount: tc.matAmt },
+        ],
+        goldCost: tc.gold,
+        outputBaseId: baseId,
+        outputILvl: tc.iLvl,
+        catalystSlot: true,
+      });
+    }
+  }
+  return result;
+}
 
 // ─── Weaponsmith Recipes ──────────────────────────────────────────
 // Uses: ingots (ore track) + planks (wood track)
@@ -417,229 +460,83 @@ const weaponsmithRecipes: CraftingRecipeDef[] = [
 ];
 
 // ─── Armorer Recipes ──────────────────────────────────────────────
-// Plate armor only. Uses: ingots (ore track) + leather (leather track)
+// Plate armor: 6 slots × 6 tiers (generated) + bracer extras. Uses: ingots (ore) + leather
 
 const armorerRecipes: CraftingRecipeDef[] = [
-  // --- Tier 1: Helm + Breastplate ---
-  {
-    id: 'ar_t1_helm', profession: 'armorer', name: 'Cindite Helm', tier: 1, requiredLevel: 1,
-    materials: [{ materialId: 'cindite_ingot', amount: 3 }, { materialId: 'cured_leather', amount: 3 }],
-    goldCost: 10, outputBaseId: 'iron_helm', outputILvl: 5, catalystSlot: true,
-  },
-  {
-    id: 'ar_t1_chest', profession: 'armorer', name: 'Cindite Breastplate', tier: 1, requiredLevel: 1,
-    materials: [{ materialId: 'cindite_ingot', amount: 3 }, { materialId: 'cured_leather', amount: 3 }],
-    goldCost: 10, outputBaseId: 'iron_breastplate', outputILvl: 5, catalystSlot: true,
-  },
+  ...generateArmorRecipes('armorer', 'ar', [
+    ['cindite_ingot', 'cured_leather'],
+    ['ferrite_ingot', 'hardened_leather'],
+    ['forged_alloy', 'reinforced_leather'],
+    ['voidsteel_ingot', 'shadowleather'],
+    ['celesteel_ingot', 'dreadleather'],
+    ['primordial_ingot', 'primordial_leather'],
+  ], {
+    helmet:    ['iron_helm', 'steel_greathelm', 'obsidian_faceplate', 'mithril_helm', 'runic_greathelm', 'void_faceplate'],
+    chest:     ['iron_breastplate', 'steel_cuirass', 'plate_cuirass', 'mithril_cuirass', 'runic_breastplate', 'void_cuirass'],
+    shoulders: ['iron_pauldrons', 'steel_shoulderguards', 'obsidian_mantle', 'mithril_pauldrons', 'runic_shoulderguards', 'void_mantle'],
+    gloves:    ['iron_gauntlets', 'steel_gauntlets', 'obsidian_gauntlets', 'mithril_gauntlets', 'runic_gauntlets', 'void_gauntlets'],
+    pants:     ['iron_legguards', 'steel_legplates', 'obsidian_greaves', 'mithril_legplates', 'runic_legplates', 'void_legplates'],
+    boots:     ['iron_sabatons', 'plated_greaves', 'obsidian_sabatons', 'mithril_sabatons', 'runic_sabatons', 'void_sabatons'],
+  }),
+  // Extra: bracers (not in 6-slot grid)
   {
     id: 'ar_t1_bracers', profession: 'armorer', name: 'Cindite Bracers', tier: 1, requiredLevel: 1,
     materials: [{ materialId: 'cindite_ingot', amount: 3 }, { materialId: 'cured_leather', amount: 3 }],
     goldCost: 10, outputBaseId: 'wrapped_bracers', outputILvl: 5, catalystSlot: true,
-  },
-  // --- Tier 2: Cuirass + Legplates ---
-  {
-    id: 'ar_t2_cuirass', profession: 'armorer', name: 'Ferrite Cuirass', tier: 2, requiredLevel: 15,
-    materials: [{ materialId: 'ferrite_ingot', amount: 4 }, { materialId: 'hardened_leather', amount: 4 }],
-    goldCost: 25, outputBaseId: 'steel_cuirass', outputILvl: 15, catalystSlot: true,
-  },
-  {
-    id: 'ar_t2_legs', profession: 'armorer', name: 'Ferrite Legplates', tier: 2, requiredLevel: 15,
-    materials: [{ materialId: 'ferrite_ingot', amount: 4 }, { materialId: 'hardened_leather', amount: 4 }],
-    goldCost: 25, outputBaseId: 'steel_legplates', outputILvl: 15, catalystSlot: true,
   },
   {
     id: 'ar_t2_bracers', profession: 'armorer', name: 'Ferrite Bracers', tier: 2, requiredLevel: 15,
     materials: [{ materialId: 'ferrite_ingot', amount: 4 }, { materialId: 'hardened_leather', amount: 4 }],
     goldCost: 25, outputBaseId: 'fortified_bracers', outputILvl: 15, catalystSlot: true,
   },
-  // --- Tier 3: Breastplate + Gauntlets ---
-  {
-    id: 'ar_t3_breastplate', profession: 'armorer', name: 'Alloy Breastplate', tier: 3, requiredLevel: 30,
-    materials: [{ materialId: 'forged_alloy', amount: 5 }, { materialId: 'reinforced_leather', amount: 5 }],
-    goldCost: 50, outputBaseId: 'plate_cuirass', outputILvl: 25, catalystSlot: true,
-  },
-  {
-    id: 'ar_t3_gauntlets', profession: 'armorer', name: 'Alloy Gauntlets', tier: 3, requiredLevel: 30,
-    materials: [{ materialId: 'forged_alloy', amount: 5 }, { materialId: 'reinforced_leather', amount: 5 }],
-    goldCost: 50, outputBaseId: 'obsidian_gauntlets', outputILvl: 25, catalystSlot: true,
-  },
-  // --- Tier 4: Cuirass + Gauntlets ---
-  {
-    id: 'ar_t4_plate', profession: 'armorer', name: 'Voidsteel Plate', tier: 4, requiredLevel: 50,
-    materials: [{ materialId: 'voidsteel_ingot', amount: 6 }, { materialId: 'shadowleather', amount: 6 }],
-    goldCost: 100, outputBaseId: 'mithril_cuirass', outputILvl: 35, catalystSlot: true,
-  },
-  {
-    id: 'ar_t4_gauntlets', profession: 'armorer', name: 'Voidsteel Gauntlets', tier: 4, requiredLevel: 50,
-    materials: [{ materialId: 'voidsteel_ingot', amount: 6 }, { materialId: 'shadowleather', amount: 6 }],
-    goldCost: 100, outputBaseId: 'mithril_gauntlets', outputILvl: 35, catalystSlot: true,
-  },
-  // --- Tier 5: Armor + Legguards ---
-  {
-    id: 'ar_t5_armor', profession: 'armorer', name: 'Celesteel Armor', tier: 5, requiredLevel: 75,
-    materials: [{ materialId: 'celesteel_ingot', amount: 8 }, { materialId: 'dreadleather', amount: 8 }],
-    goldCost: 200, outputBaseId: 'runic_breastplate', outputILvl: 45, catalystSlot: true,
-  },
-  {
-    id: 'ar_t5_legguards', profession: 'armorer', name: 'Celesteel Legguards', tier: 5, requiredLevel: 75,
-    materials: [{ materialId: 'celesteel_ingot', amount: 8 }, { materialId: 'dreadleather', amount: 8 }],
-    goldCost: 200, outputBaseId: 'runic_legplates', outputILvl: 45, catalystSlot: true,
-  },
-  // --- Tier 6: Plate + Sabatons ---
-  {
-    id: 'ar_t6_plate', profession: 'armorer', name: 'Primordial Plate', tier: 6, requiredLevel: 90,
-    materials: [{ materialId: 'primordial_ingot', amount: 10 }, { materialId: 'primordial_leather', amount: 10 }],
-    goldCost: 500, outputBaseId: 'void_cuirass', outputILvl: 55, catalystSlot: true,
-  },
-  {
-    id: 'ar_t6_sabatons', profession: 'armorer', name: 'Primordial Sabatons', tier: 6, requiredLevel: 90,
-    materials: [{ materialId: 'primordial_ingot', amount: 10 }, { materialId: 'primordial_leather', amount: 10 }],
-    goldCost: 500, outputBaseId: 'void_sabatons', outputILvl: 55, catalystSlot: true,
-  },
 ];
 
 // ─── Leatherworker Recipes ──────────────────────────────────────
-// Leather armor + cloaks. Uses: leather (leather track) + planks (wood track)
+// Leather armor: 6 slots × 6 tiers (generated) + cloak extras. Uses: leather + planks (wood)
 
 const leatherworkerRecipes: CraftingRecipeDef[] = [
-  // --- Tier 1: Chest + Gloves ---
-  {
-    id: 'lw_t1_chest', profession: 'leatherworker', name: 'Cured Tunic', tier: 1, requiredLevel: 1,
-    materials: [{ materialId: 'cured_leather', amount: 3 }, { materialId: 'emberwood_plank', amount: 3 }],
-    goldCost: 10, outputBaseId: 'rawhide_tunic', outputILvl: 5, catalystSlot: true,
-  },
-  {
-    id: 'lw_t1_gloves', profession: 'leatherworker', name: 'Cured Gloves', tier: 1, requiredLevel: 1,
-    materials: [{ materialId: 'cured_leather', amount: 3 }, { materialId: 'emberwood_plank', amount: 3 }],
-    goldCost: 10, outputBaseId: 'hide_gloves', outputILvl: 5, catalystSlot: true,
-  },
-  // --- Tier 2: Helmet + Boots ---
-  {
-    id: 'lw_t2_helmet', profession: 'leatherworker', name: 'Hardened Cap', tier: 2, requiredLevel: 15,
-    materials: [{ materialId: 'hardened_leather', amount: 4 }, { materialId: 'ironwood_plank', amount: 4 }],
-    goldCost: 25, outputBaseId: 'studded_headband', outputILvl: 15, catalystSlot: true,
-  },
-  {
-    id: 'lw_t2_boots', profession: 'leatherworker', name: 'Hardened Boots', tier: 2, requiredLevel: 15,
-    materials: [{ materialId: 'hardened_leather', amount: 4 }, { materialId: 'ironwood_plank', amount: 4 }],
-    goldCost: 25, outputBaseId: 'studded_boots', outputILvl: 15, catalystSlot: true,
-  },
-  // --- Tier 3: Chest + Shoulders ---
-  {
-    id: 'lw_t3_chest', profession: 'leatherworker', name: 'Nightstalker Vest', tier: 3, requiredLevel: 30,
-    materials: [{ materialId: 'reinforced_leather', amount: 5 }, { materialId: 'steelwood_plank', amount: 5 }],
-    goldCost: 50, outputBaseId: 'nightstalker_vest', outputILvl: 25, catalystSlot: true,
-  },
-  {
-    id: 'lw_t3_shoulders', profession: 'leatherworker', name: 'Nightstalker Shoulders', tier: 3, requiredLevel: 30,
-    materials: [{ materialId: 'reinforced_leather', amount: 5 }, { materialId: 'steelwood_plank', amount: 5 }],
-    goldCost: 50, outputBaseId: 'nightstalker_shoulders', outputILvl: 25, catalystSlot: true,
-  },
-  // --- Tier 4: Pants + Cloak ---
-  {
-    id: 'lw_t4_pants', profession: 'leatherworker', name: 'Shadow Leggings', tier: 4, requiredLevel: 50,
-    materials: [{ materialId: 'shadowleather', amount: 6 }, { materialId: 'shadowwood_plank', amount: 6 }],
-    goldCost: 100, outputBaseId: 'mithril_leggings', outputILvl: 35, catalystSlot: true,
-  },
+  ...generateArmorRecipes('leatherworker', 'lw', [
+    ['cured_leather', 'emberwood_plank'],
+    ['hardened_leather', 'ironwood_plank'],
+    ['reinforced_leather', 'steelwood_plank'],
+    ['shadowleather', 'shadowwood_plank'],
+    ['dreadleather', 'dreadwood_plank'],
+    ['primordial_leather', 'primordial_plank'],
+  ], {
+    helmet:    ['rawhide_cap', 'studded_headband', 'nightstalker_hood', 'mithril_headband', 'runic_hood', 'void_hood'],
+    chest:     ['rawhide_tunic', 'studded_jerkin', 'nightstalker_vest', 'mithril_vest', 'runic_vest', 'void_vest'],
+    shoulders: ['hide_shoulderpads', 'studded_shoulderguards', 'nightstalker_shoulders', 'mithril_shoulderpads', 'runic_shoulderpads', 'void_shoulderpads'],
+    gloves:    ['hide_gloves', 'studded_gloves', 'nightstalker_gloves', 'mithril_hide_gloves', 'runic_hide_gloves', 'void_hide_gloves'],
+    pants:     ['rawhide_pants', 'studded_leggings', 'nightstalker_pants', 'mithril_leggings', 'runic_leggings', 'void_leggings'],
+    boots:     ['leather_boots', 'studded_boots', 'nightstalker_boots', 'mithril_treads', 'runic_treads_leather', 'void_treads'],
+  }),
+  // Extra: cloak
   {
     id: 'lw_t4_cloak', profession: 'leatherworker', name: 'Shadow Cloak', tier: 4, requiredLevel: 50,
     materials: [{ materialId: 'shadowleather', amount: 6 }, { materialId: 'shadowwood_plank', amount: 6 }],
     goldCost: 100, outputBaseId: 'mithril_cloak', outputILvl: 35, catalystSlot: true,
   },
-  // --- Tier 5: Chest + Gloves ---
-  {
-    id: 'lw_t5_chest', profession: 'leatherworker', name: 'Dread Vest', tier: 5, requiredLevel: 75,
-    materials: [{ materialId: 'dreadleather', amount: 8 }, { materialId: 'dreadwood_plank', amount: 8 }],
-    goldCost: 200, outputBaseId: 'runic_vest', outputILvl: 45, catalystSlot: true,
-  },
-  {
-    id: 'lw_t5_gloves', profession: 'leatherworker', name: 'Dread Gloves', tier: 5, requiredLevel: 75,
-    materials: [{ materialId: 'dreadleather', amount: 8 }, { materialId: 'dreadwood_plank', amount: 8 }],
-    goldCost: 200, outputBaseId: 'runic_hide_gloves', outputILvl: 45, catalystSlot: true,
-  },
-  // --- Tier 6: Helmet + Chest ---
-  {
-    id: 'lw_t6_helmet', profession: 'leatherworker', name: 'Primordial Hood', tier: 6, requiredLevel: 90,
-    materials: [{ materialId: 'primordial_leather', amount: 10 }, { materialId: 'primordial_plank', amount: 10 }],
-    goldCost: 500, outputBaseId: 'void_hood', outputILvl: 55, catalystSlot: true,
-  },
-  {
-    id: 'lw_t6_chest', profession: 'leatherworker', name: 'Primordial Vest', tier: 6, requiredLevel: 90,
-    materials: [{ materialId: 'primordial_leather', amount: 10 }, { materialId: 'primordial_plank', amount: 10 }],
-    goldCost: 500, outputBaseId: 'void_vest', outputILvl: 55, catalystSlot: true,
-  },
 ];
 
 // ─── Tailor Recipes ───────────────────────────────────────────────
-// Uses: cloth (cloth track) + extracts (herb track)
+// Cloth armor: 6 slots × 6 tiers (generated). Uses: cloth + extracts (herb)
 
 const tailorRecipes: CraftingRecipeDef[] = [
-  // --- Tier 1 ---
-  {
-    id: 'ta_t1_robe', profession: 'tailor', name: 'Thornweave Robe', tier: 1, requiredLevel: 1,
-    materials: [{ materialId: 'thornweave_cloth', amount: 3 }, { materialId: 'wispbloom_extract', amount: 3 }],
-    goldCost: 10, outputBaseId: 'linen_robe', outputILvl: 5, catalystSlot: true,
-  },
-  {
-    id: 'ta_t1_gloves', profession: 'tailor', name: 'Thornweave Gloves', tier: 1, requiredLevel: 1,
-    materials: [{ materialId: 'thornweave_cloth', amount: 3 }, { materialId: 'wispbloom_extract', amount: 3 }],
-    goldCost: 10, outputBaseId: 'linen_gloves', outputILvl: 5, catalystSlot: true,
-  },
-  // --- Tier 2 ---
-  {
-    id: 'ta_t2_vestment', profession: 'tailor', name: 'Linen Vestment', tier: 2, requiredLevel: 15,
-    materials: [{ materialId: 'woven_linen', amount: 4 }, { materialId: 'potent_tincture', amount: 4 }],
-    goldCost: 25, outputBaseId: 'silk_robe', outputILvl: 15, catalystSlot: true,
-  },
-  {
-    id: 'ta_t2_hood', profession: 'tailor', name: 'Linen Hood', tier: 2, requiredLevel: 15,
-    materials: [{ materialId: 'woven_linen', amount: 4 }, { materialId: 'potent_tincture', amount: 4 }],
-    goldCost: 25, outputBaseId: 'silk_circlet', outputILvl: 15, catalystSlot: true,
-  },
-  // --- Tier 3 ---
-  {
-    id: 'ta_t3_robe', profession: 'tailor', name: 'Silkweave Robe', tier: 3, requiredLevel: 30,
-    materials: [{ materialId: 'silkweave_cloth', amount: 5 }, { materialId: 'lustral_essence', amount: 5 }],
-    goldCost: 50, outputBaseId: 'arcane_vestment', outputILvl: 25, catalystSlot: true,
-  },
-  {
-    id: 'ta_t3_crown', profession: 'tailor', name: 'Silkweave Crown', tier: 3, requiredLevel: 30,
-    materials: [{ materialId: 'silkweave_cloth', amount: 5 }, { materialId: 'lustral_essence', amount: 5 }],
-    goldCost: 50, outputBaseId: 'arcane_crown', outputILvl: 25, catalystSlot: true,
-  },
-  // --- Tier 4 ---
-  {
-    id: 'ta_t4_vestment', profession: 'tailor', name: 'Shadow Vestment', tier: 4, requiredLevel: 50,
-    materials: [{ materialId: 'shadowcloth', amount: 6 }, { materialId: 'shadow_elixir', amount: 6 }],
-    goldCost: 100, outputBaseId: 'mithril_robe', outputILvl: 35, catalystSlot: true,
-  },
-  {
-    id: 'ta_t4_mantle', profession: 'tailor', name: 'Shadow Mantle', tier: 4, requiredLevel: 50,
-    materials: [{ materialId: 'shadowcloth', amount: 6 }, { materialId: 'shadow_elixir', amount: 6 }],
-    goldCost: 100, outputBaseId: 'mithril_epaulets', outputILvl: 35, catalystSlot: true,
-  },
-  // --- Tier 5 ---
-  {
-    id: 'ta_t5_robe', profession: 'tailor', name: 'Aether Robe', tier: 5, requiredLevel: 75,
-    materials: [{ materialId: 'aethercloth', amount: 8 }, { materialId: 'tempest_distillate', amount: 8 }],
-    goldCost: 200, outputBaseId: 'runic_vestment', outputILvl: 45, catalystSlot: true,
-  },
-  {
-    id: 'ta_t5_gloves', profession: 'tailor', name: 'Aether Gloves', tier: 5, requiredLevel: 75,
-    materials: [{ materialId: 'aethercloth', amount: 8 }, { materialId: 'tempest_distillate', amount: 8 }],
-    goldCost: 200, outputBaseId: 'runic_handwraps', outputILvl: 45, catalystSlot: true,
-  },
-  // --- Tier 6 ---
-  {
-    id: 'ta_t6_vestment', profession: 'tailor', name: 'Primordial Vestment', tier: 6, requiredLevel: 90,
-    materials: [{ materialId: 'primordial_cloth', amount: 10 }, { materialId: 'primordial_essence', amount: 10 }],
-    goldCost: 500, outputBaseId: 'void_robe', outputILvl: 55, catalystSlot: true,
-  },
-  {
-    id: 'ta_t6_crown', profession: 'tailor', name: 'Primordial Crown', tier: 6, requiredLevel: 90,
-    materials: [{ materialId: 'primordial_cloth', amount: 10 }, { materialId: 'primordial_essence', amount: 10 }],
-    goldCost: 500, outputBaseId: 'void_circlet', outputILvl: 55, catalystSlot: true,
-  },
+  ...generateArmorRecipes('tailor', 'ta', [
+    ['thornweave_cloth', 'wispbloom_extract'],
+    ['woven_linen', 'potent_tincture'],
+    ['silkweave_cloth', 'lustral_essence'],
+    ['shadowcloth', 'shadow_elixir'],
+    ['aethercloth', 'tempest_distillate'],
+    ['primordial_cloth', 'primordial_essence'],
+  ], {
+    helmet:    ['linen_hood', 'silk_circlet', 'arcane_crown', 'mithril_circlet', 'runic_crown', 'void_circlet'],
+    chest:     ['linen_robe', 'silk_robe', 'arcane_vestment', 'mithril_robe', 'runic_vestment', 'void_robe'],
+    shoulders: ['linen_shawl', 'silk_epaulets', 'arcane_mantle', 'mithril_epaulets', 'runic_epaulets', 'void_epaulets'],
+    gloves:    ['linen_gloves', 'silk_gloves', 'arcane_handwraps', 'mithril_handwraps', 'runic_handwraps', 'void_handwraps'],
+    pants:     ['linen_trousers', 'silk_pants', 'arcane_leggings', 'mithril_trousers', 'runic_trousers', 'void_trousers'],
+    boots:     ['linen_sandals', 'silk_slippers', 'runic_treads', 'mithril_slippers', 'runic_slippers', 'void_slippers'],
+  }),
 ];
 
 // ─── Alchemist Recipes ──────────────────────────────────────────
