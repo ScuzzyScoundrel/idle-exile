@@ -700,12 +700,27 @@ export const useGameStore = create<GameState & GameActions>()(
         }
         const newGold = state.gold - recipe.goldCost;
 
-        // Generate item
-        const item = executeCraft(recipe, catalystId, affixCatalystId);
-
         // Add crafting XP
         const xp = getCraftingXpForTier(recipe.tier);
         const newCraftingSkills = addCraftingXp(state.craftingSkills, recipe.profession, xp);
+
+        // Material-producing recipe (e.g. alchemist catalysts)
+        if (recipe.outputMaterialId) {
+          newMaterials[recipe.outputMaterialId] = (newMaterials[recipe.outputMaterialId] ?? 0) + 1;
+          set({
+            materials: newMaterials,
+            gold: newGold,
+            craftingSkills: newCraftingSkills,
+          });
+          // Return a dummy item for the flash message
+          return {
+            item: { id: '', baseId: '', name: recipe.name, slot: 'trinket1' as const, rarity: 'common' as const, iLvl: 0, prefixes: [], suffixes: [], baseStats: {} },
+            wasSalvaged: false,
+          };
+        }
+
+        // Generate item
+        const item = executeCraft(recipe, catalystId, affixCatalystId);
 
         // Add item to inventory (overflow → auto-salvage using craft threshold)
         const { newInventory, newMaterials: matsAfterItems, salvageStats } = addItemsWithOverflow(
@@ -859,7 +874,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 13,
+      version: 14,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -1089,6 +1104,59 @@ export const useGameStore = create<GameState & GameActions>()(
         if (version < 13) {
           // v13: Independent craft auto-salvage threshold
           state.craftAutoSalvageMinRarity = 'common';
+        }
+
+        if (version < 14) {
+          // v14: Crafting overhaul — add leatherworker, remove mail armor
+          // Add leatherworker skill
+          if (state.craftingSkills && !('leatherworker' in state.craftingSkills)) {
+            (state.craftingSkills as Record<string, { level: number; xp: number }>).leatherworker = { level: 1, xp: 0 };
+          }
+          // Convert mail items to leather equivalents
+          const mailToLeather: Record<string, string> = {
+            // Helmet
+            chain_coif: 'rawhide_cap', linked_visor: 'studded_headband', riveted_helm: 'nightstalker_hood',
+            mithril_coif: 'mithril_headband', runic_visor: 'runic_hood', void_visor: 'void_hood', starforged_coif: 'starforged_headband',
+            // Shoulders
+            chain_spaulders: 'hide_shoulderpads', linked_pauldrons: 'studded_shoulderguards', riveted_shoulders: 'nightstalker_shoulders',
+            mithril_spaulders: 'mithril_shoulderpads', runic_spaulders: 'runic_shoulderpads', void_spaulders: 'void_shoulderpads', starforged_spaulders: 'starforged_shoulderpads',
+            // Chest
+            chain_vest: 'rawhide_tunic', chain_hauberk: 'studded_jerkin', linked_haubergeon: 'nightstalker_vest',
+            mithril_hauberk: 'mithril_vest', runic_hauberk: 'runic_vest', void_hauberk: 'void_vest', starforged_hauberk: 'starforged_vest',
+            // Gloves
+            chain_gloves: 'hide_gloves', linked_gauntlets: 'studded_gloves', riveted_gauntlets: 'nightstalker_gloves',
+            mithril_chain_gloves: 'mithril_hide_gloves', runic_chain_gloves: 'runic_hide_gloves', void_chain_gloves: 'void_hide_gloves', starforged_chain_gloves: 'starforged_hide_gloves',
+            // Pants
+            chain_leggings: 'rawhide_pants', linked_chausses: 'studded_leggings', riveted_leggings: 'nightstalker_pants',
+            mithril_chausses: 'mithril_leggings', runic_chausses: 'runic_leggings', void_chausses: 'void_leggings', starforged_chausses: 'starforged_leggings',
+            // Boots
+            chain_boots: 'leather_boots', linked_boots: 'studded_boots', riveted_treads: 'nightstalker_boots',
+            mithril_boots: 'mithril_treads', runic_boots: 'runic_treads_leather', void_boots: 'void_treads', starforged_boots: 'starforged_treads',
+          };
+          const convertItem = (item: Record<string, unknown>) => {
+            if (item && item.armorType === 'mail') {
+              const newBaseId = mailToLeather[item.baseId as string];
+              if (newBaseId) {
+                item.baseId = newBaseId;
+              }
+              item.armorType = 'leather';
+            }
+          };
+          // Convert equipped items
+          if (state.character?.equipment) {
+            for (const slot of Object.keys(state.character.equipment)) {
+              const item = (state.character.equipment as Record<string, unknown>)[slot];
+              if (item) convertItem(item as Record<string, unknown>);
+            }
+          }
+          // Convert inventory items
+          if (state.inventory) {
+            for (const item of state.inventory) {
+              convertItem(item as unknown as Record<string, unknown>);
+            }
+          }
+          // Prep potionSlots for Phase 2
+          (raw as Record<string, unknown>).potionSlots = [null, null, null];
         }
 
         return state;

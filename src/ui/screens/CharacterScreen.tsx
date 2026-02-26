@@ -388,7 +388,6 @@ function AbilityPanel() {
 
 const ARMOR_TYPE_COLORS: Record<ArmorType, string> = {
   plate: 'text-gray-300',
-  mail: 'text-green-400',
   leather: 'text-amber-400',
   cloth: 'text-purple-400',
 };

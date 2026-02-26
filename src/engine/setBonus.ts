@@ -11,7 +11,7 @@ import { SET_BONUS_DEFS } from '../data/setBonuses';
 
 /** Count how many set-eligible pieces of each armor type are equipped. */
 export function countSetPieces(equipment: Partial<Record<GearSlot, Item>>): Record<ArmorType, number> {
-  const counts: Record<ArmorType, number> = { plate: 0, mail: 0, leather: 0, cloth: 0 };
+  const counts: Record<ArmorType, number> = { plate: 0, leather: 0, cloth: 0 };
   for (const slot of SET_SLOTS) {
     const item = equipment[slot];
     if (item?.armorType) {

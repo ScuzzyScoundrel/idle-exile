@@ -10,22 +10,13 @@ export const SET_BONUS_DEFS: Record<ArmorType, SetBonusDef> = {
       6: { damage: 12, life: 15 },
     },
   },
-  mail: {
-    armorType: 'mail',
-    name: 'Sharpshooter',
-    thresholds: {
-      2: { critChance: 5 },
-      4: { critDamage: 15 },
-      6: { critChance: 5, critDamage: 15 },
-    },
-  },
   leather: {
     armorType: 'leather',
-    name: 'Phantom',
+    name: 'Stalker',
     thresholds: {
-      2: { dodgeChance: 5 },
-      4: { attackSpeed: 5 },
-      6: { dodgeChance: 8, critChance: 3 },
+      2: { dodgeChance: 4, critChance: 3 },
+      4: { attackSpeed: 5, critDamage: 10 },
+      6: { dodgeChance: 6, critChance: 4, critDamage: 10 },
     },
   },
   cloth: {

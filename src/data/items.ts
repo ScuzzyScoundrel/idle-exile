@@ -108,14 +108,6 @@ export const ITEM_BASE_DEFS: ItemBaseDef[] = [
   { id: 'runic_greathelm', name: 'Runic Greathelm', slot: 'helmet', armorType: 'plate', baseStats: { armor: 70 }, iLvl: 40 },
   { id: 'void_faceplate', name: 'Void Faceplate', slot: 'helmet', armorType: 'plate', baseStats: { armor: 92 }, iLvl: 50 },
   { id: 'starforged_helm', name: 'Starforged Helm', slot: 'helmet', armorType: 'plate', baseStats: { armor: 118 }, iLvl: 60 },
-  // -- Mail --
-  { id: 'chain_coif', name: 'Chain Coif', slot: 'helmet', armorType: 'mail', baseStats: { armor: 6, dodgeChance: 1 }, iLvl: 1 },
-  { id: 'linked_visor', name: 'Linked Visor', slot: 'helmet', armorType: 'mail', baseStats: { armor: 14, dodgeChance: 2 }, iLvl: 10 },
-  { id: 'riveted_helm', name: 'Riveted Helm', slot: 'helmet', armorType: 'mail', baseStats: { armor: 25, dodgeChance: 4 }, iLvl: 20 },
-  { id: 'mithril_coif', name: 'Mithril Coif', slot: 'helmet', armorType: 'mail', baseStats: { armor: 34, dodgeChance: 5 }, iLvl: 30 },
-  { id: 'runic_visor', name: 'Runic Visor', slot: 'helmet', armorType: 'mail', baseStats: { armor: 46, dodgeChance: 7 }, iLvl: 40 },
-  { id: 'void_visor', name: 'Void Visor', slot: 'helmet', armorType: 'mail', baseStats: { armor: 60, dodgeChance: 9 }, iLvl: 50 },
-  { id: 'starforged_coif', name: 'Starforged Coif', slot: 'helmet', armorType: 'mail', baseStats: { armor: 78, dodgeChance: 12 }, iLvl: 60 },
   // -- Leather --
   { id: 'rawhide_cap', name: 'Rawhide Cap', slot: 'helmet', armorType: 'leather', baseStats: { armor: 2, dodgeChance: 3 }, iLvl: 1 },
   { id: 'studded_headband', name: 'Studded Headband', slot: 'helmet', armorType: 'leather', baseStats: { armor: 6, dodgeChance: 5 }, iLvl: 10 },
@@ -151,14 +143,6 @@ export const ITEM_BASE_DEFS: ItemBaseDef[] = [
   { id: 'runic_shoulderguards', name: 'Runic Shoulderguards', slot: 'shoulders', armorType: 'plate', baseStats: { armor: 60 }, iLvl: 40 },
   { id: 'void_mantle', name: 'Void Mantle', slot: 'shoulders', armorType: 'plate', baseStats: { armor: 78 }, iLvl: 50 },
   { id: 'starforged_pauldrons', name: 'Starforged Pauldrons', slot: 'shoulders', armorType: 'plate', baseStats: { armor: 100 }, iLvl: 60 },
-  // -- Mail --
-  { id: 'chain_spaulders', name: 'Chain Spaulders', slot: 'shoulders', armorType: 'mail', baseStats: { armor: 5, dodgeChance: 1 }, iLvl: 1 },
-  { id: 'linked_pauldrons', name: 'Linked Pauldrons', slot: 'shoulders', armorType: 'mail', baseStats: { armor: 12, dodgeChance: 2 }, iLvl: 10 },
-  { id: 'riveted_shoulders', name: 'Riveted Shoulders', slot: 'shoulders', armorType: 'mail', baseStats: { armor: 21, dodgeChance: 3 }, iLvl: 20 },
-  { id: 'mithril_spaulders', name: 'Mithril Spaulders', slot: 'shoulders', armorType: 'mail', baseStats: { armor: 29, dodgeChance: 4 }, iLvl: 30 },
-  { id: 'runic_spaulders', name: 'Runic Spaulders', slot: 'shoulders', armorType: 'mail', baseStats: { armor: 39, dodgeChance: 6 }, iLvl: 40 },
-  { id: 'void_spaulders', name: 'Void Spaulders', slot: 'shoulders', armorType: 'mail', baseStats: { armor: 52, dodgeChance: 8 }, iLvl: 50 },
-  { id: 'starforged_spaulders', name: 'Starforged Spaulders', slot: 'shoulders', armorType: 'mail', baseStats: { armor: 67, dodgeChance: 10 }, iLvl: 60 },
   // -- Leather --
   { id: 'hide_shoulderpads', name: 'Hide Shoulderpads', slot: 'shoulders', armorType: 'leather', baseStats: { armor: 2, dodgeChance: 3 }, iLvl: 1 },
   { id: 'studded_shoulderguards', name: 'Studded Shoulderguards', slot: 'shoulders', armorType: 'leather', baseStats: { armor: 5, dodgeChance: 4 }, iLvl: 10 },
@@ -194,14 +178,6 @@ export const ITEM_BASE_DEFS: ItemBaseDef[] = [
   { id: 'runic_breastplate', name: 'Runic Breastplate', slot: 'chest', armorType: 'plate', baseStats: { armor: 84, life: 28 }, iLvl: 40 },
   { id: 'void_cuirass', name: 'Void Cuirass', slot: 'chest', armorType: 'plate', baseStats: { armor: 110, life: 36 }, iLvl: 50 },
   { id: 'starforged_breastplate', name: 'Starforged Breastplate', slot: 'chest', armorType: 'plate', baseStats: { armor: 140, life: 46 }, iLvl: 60 },
-  // -- Mail --
-  { id: 'chain_vest', name: 'Chain Vest', slot: 'chest', armorType: 'mail', baseStats: { armor: 8, dodgeChance: 2 }, iLvl: 1 },
-  { id: 'chain_hauberk', name: 'Chain Hauberk', slot: 'chest', armorType: 'mail', baseStats: { armor: 25, life: 10 }, iLvl: 10 },
-  { id: 'linked_haubergeon', name: 'Linked Haubergeon', slot: 'chest', armorType: 'mail', baseStats: { armor: 32, dodgeChance: 5 }, iLvl: 20 },
-  { id: 'mithril_hauberk', name: 'Mithril Hauberk', slot: 'chest', armorType: 'mail', baseStats: { armor: 44, dodgeChance: 6 }, iLvl: 30 },
-  { id: 'runic_hauberk', name: 'Runic Hauberk', slot: 'chest', armorType: 'mail', baseStats: { armor: 58, dodgeChance: 8 }, iLvl: 40 },
-  { id: 'void_hauberk', name: 'Void Hauberk', slot: 'chest', armorType: 'mail', baseStats: { armor: 76, dodgeChance: 11 }, iLvl: 50 },
-  { id: 'starforged_hauberk', name: 'Starforged Hauberk', slot: 'chest', armorType: 'mail', baseStats: { armor: 98, dodgeChance: 14 }, iLvl: 60 },
   // -- Leather --
   { id: 'rawhide_tunic', name: 'Rawhide Tunic', slot: 'chest', armorType: 'leather', baseStats: { armor: 3, dodgeChance: 4 }, iLvl: 1 },
   { id: 'studded_jerkin', name: 'Studded Jerkin', slot: 'chest', armorType: 'leather', baseStats: { armor: 8, dodgeChance: 6 }, iLvl: 10 },
@@ -237,14 +213,6 @@ export const ITEM_BASE_DEFS: ItemBaseDef[] = [
   { id: 'runic_gauntlets', name: 'Runic Gauntlets', slot: 'gloves', armorType: 'plate', baseStats: { armor: 44 }, iLvl: 40 },
   { id: 'void_gauntlets', name: 'Void Gauntlets', slot: 'gloves', armorType: 'plate', baseStats: { armor: 58 }, iLvl: 50 },
   { id: 'starforged_gauntlets', name: 'Starforged Gauntlets', slot: 'gloves', armorType: 'plate', baseStats: { armor: 74 }, iLvl: 60 },
-  // -- Mail --
-  { id: 'chain_gloves', name: 'Chain Gloves', slot: 'gloves', armorType: 'mail', baseStats: { armor: 4, dodgeChance: 1 }, iLvl: 1 },
-  { id: 'linked_gauntlets', name: 'Linked Gauntlets', slot: 'gloves', armorType: 'mail', baseStats: { armor: 9, dodgeChance: 2 }, iLvl: 10 },
-  { id: 'riveted_gauntlets', name: 'Riveted Gauntlets', slot: 'gloves', armorType: 'mail', baseStats: { armor: 16, dodgeChance: 3 }, iLvl: 20 },
-  { id: 'mithril_chain_gloves', name: 'Mithril Chain Gloves', slot: 'gloves', armorType: 'mail', baseStats: { armor: 22, dodgeChance: 4 }, iLvl: 30 },
-  { id: 'runic_chain_gloves', name: 'Runic Chain Gloves', slot: 'gloves', armorType: 'mail', baseStats: { armor: 30, dodgeChance: 5 }, iLvl: 40 },
-  { id: 'void_chain_gloves', name: 'Void Chain Gloves', slot: 'gloves', armorType: 'mail', baseStats: { armor: 40, dodgeChance: 7 }, iLvl: 50 },
-  { id: 'starforged_chain_gloves', name: 'Starforged Chain Gloves', slot: 'gloves', armorType: 'mail', baseStats: { armor: 52, dodgeChance: 9 }, iLvl: 60 },
   // -- Leather --
   { id: 'hide_gloves', name: 'Hide Gloves', slot: 'gloves', armorType: 'leather', baseStats: { armor: 2, dodgeChance: 2 }, iLvl: 1 },
   { id: 'studded_gloves', name: 'Studded Gloves', slot: 'gloves', armorType: 'leather', baseStats: { armor: 4, dodgeChance: 3 }, iLvl: 10 },
@@ -280,14 +248,6 @@ export const ITEM_BASE_DEFS: ItemBaseDef[] = [
   { id: 'runic_legplates', name: 'Runic Legplates', slot: 'pants', armorType: 'plate', baseStats: { armor: 78 }, iLvl: 40 },
   { id: 'void_legplates', name: 'Void Legplates', slot: 'pants', armorType: 'plate', baseStats: { armor: 102 }, iLvl: 50 },
   { id: 'starforged_legplates', name: 'Starforged Legplates', slot: 'pants', armorType: 'plate', baseStats: { armor: 130 }, iLvl: 60 },
-  // -- Mail --
-  { id: 'chain_leggings', name: 'Chain Leggings', slot: 'pants', armorType: 'mail', baseStats: { armor: 7, dodgeChance: 1 }, iLvl: 1 },
-  { id: 'linked_chausses', name: 'Linked Chausses', slot: 'pants', armorType: 'mail', baseStats: { armor: 16, dodgeChance: 3 }, iLvl: 10 },
-  { id: 'riveted_leggings', name: 'Riveted Leggings', slot: 'pants', armorType: 'mail', baseStats: { armor: 28, dodgeChance: 4 }, iLvl: 20 },
-  { id: 'mithril_chausses', name: 'Mithril Chausses', slot: 'pants', armorType: 'mail', baseStats: { armor: 38, dodgeChance: 5 }, iLvl: 30 },
-  { id: 'runic_chausses', name: 'Runic Chausses', slot: 'pants', armorType: 'mail', baseStats: { armor: 52, dodgeChance: 7 }, iLvl: 40 },
-  { id: 'void_chausses', name: 'Void Chausses', slot: 'pants', armorType: 'mail', baseStats: { armor: 68, dodgeChance: 9 }, iLvl: 50 },
-  { id: 'starforged_chausses', name: 'Starforged Chausses', slot: 'pants', armorType: 'mail', baseStats: { armor: 88, dodgeChance: 12 }, iLvl: 60 },
   // -- Leather --
   { id: 'rawhide_pants', name: 'Rawhide Pants', slot: 'pants', armorType: 'leather', baseStats: { armor: 3, dodgeChance: 3 }, iLvl: 1 },
   { id: 'studded_leggings', name: 'Studded Leggings', slot: 'pants', armorType: 'leather', baseStats: { armor: 7, dodgeChance: 5 }, iLvl: 10 },
@@ -314,14 +274,6 @@ export const ITEM_BASE_DEFS: ItemBaseDef[] = [
   { id: 'runic_sabatons', name: 'Runic Sabatons', slot: 'boots', armorType: 'plate', baseStats: { armor: 52, dodgeChance: 4 }, iLvl: 40 },
   { id: 'void_sabatons', name: 'Void Sabatons', slot: 'boots', armorType: 'plate', baseStats: { armor: 68, dodgeChance: 5 }, iLvl: 50 },
   { id: 'starforged_sabatons', name: 'Starforged Sabatons', slot: 'boots', armorType: 'plate', baseStats: { armor: 88, dodgeChance: 6 }, iLvl: 60 },
-  // -- Mail --
-  { id: 'chain_boots', name: 'Chain Boots', slot: 'boots', armorType: 'mail', baseStats: { armor: 5, dodgeChance: 2 }, iLvl: 1 },
-  { id: 'linked_boots', name: 'Linked Boots', slot: 'boots', armorType: 'mail', baseStats: { armor: 12, dodgeChance: 3 }, iLvl: 10 },
-  { id: 'riveted_treads', name: 'Riveted Treads', slot: 'boots', armorType: 'mail', baseStats: { armor: 18, dodgeChance: 4 }, iLvl: 20 },
-  { id: 'mithril_boots', name: 'Mithril Boots', slot: 'boots', armorType: 'mail', baseStats: { armor: 25, dodgeChance: 5 }, iLvl: 30 },
-  { id: 'runic_boots', name: 'Runic Boots', slot: 'boots', armorType: 'mail', baseStats: { armor: 34, dodgeChance: 7 }, iLvl: 40 },
-  { id: 'void_boots', name: 'Void Boots', slot: 'boots', armorType: 'mail', baseStats: { armor: 45, dodgeChance: 9 }, iLvl: 50 },
-  { id: 'starforged_boots', name: 'Starforged Boots', slot: 'boots', armorType: 'mail', baseStats: { armor: 58, dodgeChance: 11 }, iLvl: 60 },
   // -- Leather --
   { id: 'leather_boots', name: 'Leather Boots', slot: 'boots', armorType: 'leather', baseStats: { armor: 5, dodgeChance: 3 }, iLvl: 1 },
   { id: 'studded_boots', name: 'Studded Boots', slot: 'boots', armorType: 'leather', baseStats: { armor: 5, dodgeChance: 5 }, iLvl: 10 },

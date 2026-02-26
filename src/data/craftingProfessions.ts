@@ -12,11 +12,12 @@ export interface CraftingProfessionDef {
 }
 
 export const CRAFTING_PROFESSION_DEFS: CraftingProfessionDef[] = [
-  { id: 'weaponsmith', name: 'Weaponsmith', icon: '\u2694\uFE0F', description: 'Forge weapons from ingots and planks.' },
-  { id: 'armorer', name: 'Armorer', icon: '\uD83D\uDEE1\uFE0F', description: 'Craft armor from ingots and leather.' },
+  { id: 'weaponsmith', name: 'Weapons', icon: '\u2694\uFE0F', description: 'Forge weapons and offhands from ingots and planks.' },
+  { id: 'armorer', name: 'Armorer', icon: '\uD83D\uDEE1\uFE0F', description: 'Craft plate armor and bracers from ingots and leather.' },
+  { id: 'leatherworker', name: 'Leather', icon: '\uD83E\uDE21', description: 'Craft leather armor and cloaks.' },
   { id: 'tailor', name: 'Tailor', icon: '\uD83E\uDDF5', description: 'Weave cloth armor and enchanted garments.' },
-  { id: 'alchemist', name: 'Alchemist', icon: '\u2697\uFE0F', description: 'Brew potions and flasks from extracts and reagents.' },
-  { id: 'jeweler', name: 'Jeweler', icon: '\uD83D\uDC8D', description: 'Fashion rings, amulets, and trinkets.' },
+  { id: 'alchemist', name: 'Alchemist', icon: '\u2697\uFE0F', description: 'Brew affix catalysts and consumables.' },
+  { id: 'jeweler', name: 'Jeweler', icon: '\uD83D\uDC8D', description: 'Fashion rings, belts, amulets, and trinkets.' },
 ];
 
 /** Milestones unlocked at specific crafting skill levels. */
@@ -46,6 +47,7 @@ export function createDefaultCraftingSkills(): CraftingSkills {
   return {
     weaponsmith: { level: 1, xp: 0 },
     armorer: { level: 1, xp: 0 },
+    leatherworker: { level: 1, xp: 0 },
     tailor: { level: 1, xp: 0 },
     alchemist: { level: 1, xp: 0 },
     jeweler: { level: 1, xp: 0 },

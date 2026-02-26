@@ -84,7 +84,7 @@ function MaterialsPanel() {
 
   // Categorize materials
   const rawIds = new Set(REFINEMENT_RECIPES.map(r => r.rawMaterialId));
-  const refinedIds = new Set(REFINEMENT_RECIPES.filter(r => r.track !== 'catalyst').map(r => r.outputId));
+  const refinedIds = new Set(REFINEMENT_RECIPES.map(r => r.outputId));
   const affixCatIds = new Set(AFFIX_CATALYST_DEFS.map(d => d.id));
   const rareIds = new Set(RARE_MATERIAL_DEFS.map(d => d.id));
   const miscIds = new Set(['salvage_dust', 'magic_essence']);
@@ -345,9 +345,11 @@ const SLOT_ICONS: Record<string, string> = {
 
 // Derive a category label from a recipe's output base
 function getCategoryForRecipe(recipe: CraftingRecipeDef): string {
+  if (recipe.outputMaterialId) return 'catalyst';
   const base = ITEM_BASE_DEFS.find(b => b.id === recipe.outputBaseId);
   if (!base) return 'other';
   if (recipe.profession === 'weaponsmith' && base.weaponType) return base.weaponType;
+  if (recipe.profession === 'weaponsmith' && base.slot === 'offhand') return 'offhand';
   // Use slot as category for non-weapon professions
   return base.slot;
 }
@@ -356,13 +358,15 @@ function getCategoryForRecipe(recipe: CraftingRecipeDef): string {
 const CATEGORY_LABELS: Record<string, string> = {
   sword: 'Swords', axe: 'Axes', mace: 'Maces', dagger: 'Daggers',
   staff: 'Staves', wand: 'Wands', bow: 'Bows', crossbow: 'Crossbows',
-  helmet: 'Helmets', chest: 'Chest', offhand: 'Shields',
+  offhand: 'Offhands',
+  helmet: 'Helmets', chest: 'Chest',
   gloves: 'Gloves', pants: 'Legs', boots: 'Boots',
   shoulders: 'Shoulders', cloak: 'Cloaks', bracers: 'Bracers',
   neck: 'Neck', belt: 'Belts',
   ring1: 'Rings', ring2: 'Rings',
   trinket1: 'Trinkets', trinket2: 'Trinkets',
   mainhand: 'Weapons',
+  catalyst: 'Catalysts',
 };
 
 function CraftPanel() {
@@ -506,10 +510,11 @@ function CraftPanel() {
       {/* Full-info recipe cards */}
       <div className="space-y-2">
         {filteredRecipes.map(recipe => {
-          const baseInfo = ITEM_BASE_DEFS.find(b => b.id === recipe.outputBaseId);
+          const isMaterialRecipe = !!recipe.outputMaterialId;
+          const baseInfo = !isMaterialRecipe ? ITEM_BASE_DEFS.find(b => b.id === recipe.outputBaseId) : null;
           const levelLocked = skill.level < recipe.requiredLevel;
           const craftable = !levelLocked && canCraftRecipe(recipe, craftingSkills, materials, gold);
-          const tierRange = getAffixTierRange(recipe.outputILvl);
+          const tierRange = !isMaterialRecipe ? getAffixTierRange(recipe.outputILvl) : '';
 
           // Format base stats for display
           const baseStatEntries = baseInfo
@@ -525,6 +530,11 @@ function CraftPanel() {
                 : baseInfo.slot
             : '';
 
+          // Material output info for catalyst recipes
+          const affixCatDef = isMaterialRecipe
+            ? AFFIX_CATALYST_DEFS.find(d => d.id === recipe.outputMaterialId)
+            : null;
+
           return (
             <div
               key={recipe.id}
@@ -536,18 +546,33 @@ function CraftPanel() {
                 {/* Header row */}
                 <div className="flex items-center gap-2">
                   <span className="text-base">
-                    {baseInfo ? SLOT_ICONS[baseInfo.slot] ?? '\u2694\uFE0F' : '\u2694\uFE0F'}
+                    {isMaterialRecipe
+                      ? (affixCatDef?.icon ?? '\u2697\uFE0F')
+                      : baseInfo ? SLOT_ICONS[baseInfo.slot] ?? '\u2694\uFE0F' : '\u2694\uFE0F'}
                   </span>
                   <span className="text-sm font-bold text-white flex-1 truncate">{recipe.name}</span>
                   {recipe.requiredCatalyst && (
                     <span className="text-purple-400 text-[10px] font-bold bg-purple-900/30 px-1.5 py-0.5 rounded">UNQ</span>
                   )}
-                  <span className="text-[10px] text-gray-500">iLvl {recipe.outputILvl} \u00B7 T{recipe.tier}</span>
+                  {!isMaterialRecipe && (
+                    <span className="text-[10px] text-gray-500">iLvl {recipe.outputILvl} {'\u00B7'} T{recipe.tier}</span>
+                  )}
                 </div>
 
                 {/* Slot / type line */}
                 {slotLabel && (
                   <div className="text-[10px] text-gray-500 capitalize">{slotLabel}</div>
+                )}
+
+                {/* Material recipe: show output info */}
+                {isMaterialRecipe && (
+                  <div className="text-[11px] text-cyan-400">
+                    {'\u2697\uFE0F'} Produces 1x {formatMatName(recipe.outputMaterialId!)}
+                    {affixCatDef && (
+                      <span className="text-gray-500 ml-1">({'\u2192'} +{affixCatDef.guaranteedAffix.replace(/_/g, ' ')})</span>
+                    )}
+                    <span className="text-gray-500 block">Owned: {materials[recipe.outputMaterialId!] ?? 0}</span>
+                  </div>
                 )}
 
                 {/* Level locked overlay */}
@@ -557,17 +582,19 @@ function CraftPanel() {
                   </div>
                 ) : (
                   <>
-                    {/* Base stats + affix info */}
-                    <div className="text-[11px] space-y-0.5">
-                      {baseStatEntries.map(([stat, val]) => (
-                        <div key={stat} className="text-gray-300">
-                          Base: +{val} {stat}
+                    {/* Base stats + affix info (item recipes only) */}
+                    {!isMaterialRecipe && (
+                      <div className="text-[11px] space-y-0.5">
+                        {baseStatEntries.map(([stat, val]) => (
+                          <div key={stat} className="text-gray-300">
+                            Base: +{val} {stat}
+                          </div>
+                        ))}
+                        <div className="text-gray-500">
+                          Affixes: 2{'\u2013'}6 random ({tierRange})
                         </div>
-                      ))}
-                      <div className="text-gray-500">
-                        Affixes: 2\u20136 random ({tierRange})
                       </div>
-                    </div>
+                    )}
 
                     {/* Materials inline */}
                     <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[11px]">
@@ -600,8 +627,8 @@ function CraftPanel() {
 
                     {/* Action row: catalyst dropdowns + craft button */}
                     <div className="flex items-center gap-1.5 pt-1">
-                      {/* Affix catalyst dropdown */}
-                      {recipe.catalystSlot && !recipe.requiredCatalyst && (
+                      {/* Affix catalyst dropdown (item recipes only) */}
+                      {!isMaterialRecipe && recipe.catalystSlot && !recipe.requiredCatalyst && (
                         <select
                           value={affixCatalysts[recipe.id] ?? ''}
                           onChange={e => setAffixCatalysts(prev => ({ ...prev, [recipe.id]: e.target.value }))}
@@ -617,8 +644,8 @@ function CraftPanel() {
                         </select>
                       )}
 
-                      {/* Rare catalyst dropdown */}
-                      {recipe.catalystSlot && !recipe.requiredCatalyst && (
+                      {/* Rare catalyst dropdown (item recipes only) */}
+                      {!isMaterialRecipe && recipe.catalystSlot && !recipe.requiredCatalyst && (
                         <select
                           value={rareCatalysts[recipe.id] ?? ''}
                           onChange={e => setRareCatalysts(prev => ({ ...prev, [recipe.id]: e.target.value }))}
@@ -643,11 +670,11 @@ function CraftPanel() {
                         disabled={!craftable}
                         className={`px-4 py-1.5 rounded text-xs font-bold transition-all whitespace-nowrap ${
                           craftable
-                            ? 'bg-blue-600 hover:bg-blue-500 text-white'
+                            ? isMaterialRecipe ? 'bg-cyan-600 hover:bg-cyan-500 text-white' : 'bg-blue-600 hover:bg-blue-500 text-white'
                             : 'bg-gray-700 text-gray-500 cursor-not-allowed'
                         }`}
                       >
-                        {'\uD83D\uDD28'} Craft
+                        {isMaterialRecipe ? '\u2697\uFE0F' : '\uD83D\uDD28'} {isMaterialRecipe ? 'Brew' : 'Craft'}
                       </button>
                     </div>
                   </>

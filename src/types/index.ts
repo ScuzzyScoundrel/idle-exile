@@ -49,7 +49,7 @@ export type GearSlot =
   | 'pants' | 'boots'
   | 'ring1' | 'ring2'
   | 'trinket1' | 'trinket2';
-export type ArmorType = 'plate' | 'mail' | 'leather' | 'cloth';
+export type ArmorType = 'plate' | 'leather' | 'cloth';
 export type WeaponType = 'sword' | 'axe' | 'mace' | 'dagger' | 'staff' | 'wand' | 'bow' | 'crossbow';
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
 
@@ -313,7 +313,7 @@ export interface GatheringMilestone {
 
 // --- Refinement ---
 
-export type RefinementTrack = 'ore' | 'cloth' | 'leather' | 'wood' | 'herb' | 'fish' | 'catalyst';
+export type RefinementTrack = 'ore' | 'cloth' | 'leather' | 'wood' | 'herb' | 'fish';
 
 export interface RefinementRecipeDef {
   id: string;
@@ -330,7 +330,7 @@ export interface RefinementRecipeDef {
 
 // --- Crafting Professions ---
 
-export type CraftingProfession = 'weaponsmith' | 'armorer' | 'tailor' | 'alchemist' | 'jeweler';
+export type CraftingProfession = 'weaponsmith' | 'armorer' | 'leatherworker' | 'tailor' | 'alchemist' | 'jeweler';
 
 export interface CraftingSkillState { level: number; xp: number; }
 export type CraftingSkills = Record<CraftingProfession, CraftingSkillState>;
@@ -345,6 +345,7 @@ export interface CraftingRecipeDef {
   goldCost: number;
   outputBaseId: string;             // references ITEM_BASE_DEFS id
   outputILvl: number;
+  outputMaterialId?: string;        // for recipes that produce materials (e.g. catalysts)
   isGatheringGear?: boolean;
   catalystSlot?: boolean;           // true = recipe accepts an optional catalyst
   requiredCatalyst?: {              // for unique recipes that REQUIRE a specific rare mat
