@@ -329,23 +329,73 @@ export interface ActiveSetBonus {
 
 // --- Abilities ---
 
-export type AbilityKind = 'active' | 'passive';
+export type AbilityKind = 'passive' | 'instant' | 'buff' | 'proc' | 'toggle' | 'ultimate';
 export type IdleMode = 'combat' | 'gathering';
 
 export interface AbilityEffect {
+  // Multiplicative
   damageMult?: number;
   attackSpeedMult?: number;
   defenseMult?: number;
   clearSpeedMult?: number;
-  critChanceBonus?: number;
-  critMultiplierBonus?: number;
   xpMult?: number;
   itemDropMult?: number;
   materialDropMult?: number;
+  // Additive
+  critChanceBonus?: number;
+  critMultiplierBonus?: number;
   resistBonus?: number;
+  // Boolean flags
   ignoreHazards?: boolean;
   doubleClears?: boolean;
+  // Stat-scaling (for instant/ultimate abilities)
+  bonusClears?: ScalingFormula;
+  durationFormula?: ScalingFormula;
+  // Proc (for proc abilities)
+  procChance?: number;              // 0-1, chance per clear
+  procEffect?: Partial<AbilityEffect>;
+  // DoT / lingering
+  clearSpeedBuff?: number;          // +X% clear speed for dotDuration seconds
+  dotDuration?: number;             // how long DoT/buff lingers after ability ends
 }
+
+export interface ScalingTerm {
+  stat: StatKey;
+  divisor: number;
+}
+
+export interface ScalingFormula {
+  base: number;
+  scaling?: ScalingTerm[];
+}
+
+// --- Skill Tree ---
+
+export interface SkillTreeNode {
+  id: string;
+  name: string;
+  description: string;
+  tier: number;                         // 1-4 (position in path)
+  effect: Partial<AbilityEffect>;
+  durationBonus?: number;               // +X seconds to duration
+  cooldownReduction?: number;           // -X% cooldown
+  isPathPayoff?: boolean;               // true for the final node
+  requiresNodeId?: string;              // must unlock this node first
+}
+
+export interface SkillTreePath {
+  id: 'A' | 'B' | 'C';
+  name: string;
+  description: string;
+  nodes: SkillTreeNode[];
+}
+
+export interface AbilitySkillTree {
+  paths: [SkillTreePath, SkillTreePath, SkillTreePath];
+  maxPoints: number;
+}
+
+// --- Ability Definitions ---
 
 export interface MutatorDef {
   id: string;
@@ -365,12 +415,13 @@ export interface AbilityDef {
   duration?: number;
   cooldown?: number;
   effect: AbilityEffect;
-  mutators: MutatorDef[];
+  skillTree?: AbilitySkillTree;
+  mutators?: MutatorDef[];              // DEPRECATED — kept for migration
 }
 
 export interface EquippedAbility {
   abilityId: string;
-  selectedMutatorId: string | null;
+  selectedMutatorId: string | null;     // DEPRECATED — kept for migration
 }
 
 export interface AbilityTimerState {
@@ -378,6 +429,17 @@ export interface AbilityTimerState {
   activatedAt: number | null;
   cooldownUntil: number | null;
 }
+
+// --- Ability Progress (XP + Skill Tree State) ---
+
+export interface AbilityProgress {
+  abilityId: string;
+  xp: number;
+  level: number;                        // 0-10
+  allocatedNodes: string[];             // IDs of unlocked skill tree nodes
+}
+
+export const ABILITY_SLOT_UNLOCKS = [1, 5, 12, 20] as const;
 
 // --- Rare Materials ---
 
@@ -489,9 +551,14 @@ export interface GameState {
   // Offline progression
   offlineProgress: OfflineProgressSummary | null;
 
-  // Abilities (Sprint 4)
+  // Abilities
   equippedAbilities: (EquippedAbility | null)[];
   abilityTimers: AbilityTimerState[];
+  abilityProgress: Record<string, AbilityProgress>;
+
+  // Per-clear tracking (bug fix: replaces modulo-based progress)
+  clearStartedAt: number;               // timestamp when current clear began
+  currentClearTime: number;             // current clear duration in seconds
 
   // Combat (v15)
   currentHp: number;

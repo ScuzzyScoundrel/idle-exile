@@ -21,7 +21,13 @@ import { calcDefensiveEfficiency } from '../engine/setBonus';
 import { BOSS_VICTORY_DURATION, BOSS_DEFEAT_RECOVERY, BOSS_VICTORY_HEAL_RATIO } from '../data/balance';
 import { pickBestItem, getEquippedWeaponType, generateId } from '../engine/items';
 import { applyCurrency } from '../engine/crafting';
-import { aggregateAbilityEffects, getIncompatibleAbilities, getEffectiveDuration } from '../engine/abilities';
+import {
+  aggregateAbilityEffects, getIncompatibleAbilities,
+  getEffectiveDuration, getEffectiveCooldown,
+  createAbilityProgress, addAbilityXp, getAbilityXpPerClear,
+  canAllocateNode, allocateNode, respecAbility as respecAbilityEngine, getRespecCost,
+  getUnlockedSlotCount,
+} from '../engine/abilities';
 import { getAbilityDef } from '../data/abilities';
 import { ZONE_DEFS } from '../data/zones';
 import { BAG_UPGRADE_DEFS, getBagDef, calcBagCapacity, BAG_SLOT_COUNT } from '../data/items';
@@ -189,11 +195,14 @@ interface GameActions {
   // Offline progression
   claimOfflineProgress: () => void;
 
-  // Abilities (Sprint 4)
+  // Abilities
   equipAbility: (slotIndex: number, abilityId: string) => void;
   unequipAbility: (slotIndex: number) => void;
   selectMutator: (slotIndex: number, mutatorId: string | null) => void;
   activateAbility: (abilityId: string) => void;
+  allocateAbilityNode: (abilityId: string, nodeId: string) => void;
+  respecAbility: (abilityId: string) => void;
+  toggleAbility: (abilityId: string) => void;
 
   // Class resource
   tickClassResource: (dtSeconds: number) => void;
@@ -252,6 +261,9 @@ function createInitialState(): GameState {
     offlineProgress: null,
     equippedAbilities: [null, null, null, null],
     abilityTimers: [],
+    abilityProgress: {},
+    clearStartedAt: 0,
+    currentClearTime: 0,
     currentHp: 0,
     combatPhase: 'clearing' as CombatPhase,
     bossState: null,
@@ -430,9 +442,31 @@ export const useGameStore = create<GameState & GameActions>()(
           newResource = resetResourceOnEvent(newResource, classDef, 'zone_switch');
         }
 
+        // Calculate initial clear time for this run
+        const zone = ZONE_DEFS.find(z => z.id === zoneId);
+        let initialClearTime = 5;
+        if (zone) {
+          if (state.idleMode === 'gathering') {
+            const profession = state.selectedGatheringProfession;
+            if (profession) {
+              initialClearTime = calcGatherClearTime(state.gatheringSkills[profession].level, zone);
+            }
+          } else {
+            const abilityEffect = aggregateAbilityEffects(
+              state.equippedAbilities, state.abilityTimers, state.abilityProgress, Date.now(), false,
+            );
+            const classDmgMult = getClassDamageModifier(newResource, classDef);
+            const classSpdMult = getClassClearSpeedModifier(newResource, classDef);
+            initialClearTime = calcClearTime(state.character, zone, abilityEffect, classDmgMult, classSpdMult);
+          }
+        }
+
+        const now = Date.now();
         set({
           currentZoneId: zoneId,
-          idleStartTime: Date.now(),
+          idleStartTime: now,
+          clearStartedAt: now,
+          currentClearTime: initialClearTime,
           currentHp: stats.maxLife,
           combatPhase: 'clearing' as CombatPhase,
           bossState: null,
@@ -524,7 +558,7 @@ export const useGameStore = create<GameState & GameActions>()(
         const accBagDrops: Record<string, number> = {};
         let bonusMageClears = 0;
 
-        const abilityEffect = aggregateAbilityEffects(state.equippedAbilities, state.abilityTimers, Date.now(), false);
+        const abilityEffect = aggregateAbilityEffects(state.equippedAbilities, state.abilityTimers, state.abilityProgress, Date.now(), false);
 
         // Build class resource stacks per clear
         const zoneId = state.currentZoneId!;
@@ -594,6 +628,27 @@ export const useGameStore = create<GameState & GameActions>()(
         const newZoneClearCounts = { ...state.zoneClearCounts };
         newZoneClearCounts[zoneId] = (newZoneClearCounts[zoneId] || 0) + clearCount;
 
+        // Add ability XP to all equipped abilities
+        const xpPerClear = getAbilityXpPerClear(zone.band);
+        const totalAbilityXp = xpPerClear * clearCount;
+        const newAbilityProgress = { ...state.abilityProgress };
+        for (const ea of state.equippedAbilities) {
+          if (!ea) continue;
+          const existing = newAbilityProgress[ea.abilityId] ?? createAbilityProgress(ea.abilityId);
+          newAbilityProgress[ea.abilityId] = addAbilityXp(existing, totalAbilityXp);
+        }
+
+        // Advance clearStartedAt for completed clears
+        const newClearStartedAt = state.clearStartedAt + clearCount * state.currentClearTime * 1000;
+
+        // Recalculate currentClearTime for next clear (picks up current ability/class state)
+        const cDmgMult = getClassDamageModifier(classRes, classDef);
+        const cSpdMult = getClassClearSpeedModifier(classRes, classDef);
+        const updatedAbilityEffect = aggregateAbilityEffects(
+          state.equippedAbilities, state.abilityTimers, newAbilityProgress, Date.now(), false,
+        );
+        const newClearTime = calcClearTime(state.character, zone, updatedAbilityEffect, cDmgMult, cSpdMult);
+
         set({
           inventory: newInventory,
           materials: newMaterials,
@@ -603,6 +658,9 @@ export const useGameStore = create<GameState & GameActions>()(
           currentHp: hp,
           zoneClearCounts: newZoneClearCounts,
           classResource: classRes,
+          abilityProgress: newAbilityProgress,
+          clearStartedAt: newClearStartedAt,
+          currentClearTime: newClearTime,
         });
 
         return {
@@ -640,6 +698,12 @@ export const useGameStore = create<GameState & GameActions>()(
 
       getEstimatedClearTime: (zoneId: string) => {
         const state = get();
+
+        // If running this zone, return the tracked currentClearTime
+        if (state.idleStartTime && state.currentZoneId === zoneId && state.currentClearTime > 0) {
+          return state.currentClearTime;
+        }
+
         const zone = ZONE_DEFS.find((z) => z.id === zoneId);
         if (!zone) return 999;
 
@@ -649,7 +713,7 @@ export const useGameStore = create<GameState & GameActions>()(
           return calcGatherClearTime(state.gatheringSkills[profession].level, zone);
         }
 
-        const abilityEffect = aggregateAbilityEffects(state.equippedAbilities, state.abilityTimers, Date.now(), false);
+        const abilityEffect = aggregateAbilityEffects(state.equippedAbilities, state.abilityTimers, state.abilityProgress, Date.now(), false);
         const cDef = getClassDef(state.character.class);
         const classDmgMult = getClassDamageModifier(state.classResource, cDef);
         const classSpdMult = getClassClearSpeedModifier(state.classResource, cDef);
@@ -929,6 +993,10 @@ export const useGameStore = create<GameState & GameActions>()(
         set((state) => {
           const def = getAbilityDef(abilityId);
           if (!def) return state;
+
+          // Check slot is unlocked
+          if (slotIndex >= getUnlockedSlotCount(state.character.level)) return state;
+
           // Check weapon compatibility
           const weaponType = getEquippedWeaponType(state.character.equipment);
           if (weaponType && def.weaponType !== weaponType) return state;
@@ -936,15 +1004,20 @@ export const useGameStore = create<GameState & GameActions>()(
           const newAbilities = [...state.equippedAbilities];
           newAbilities[slotIndex] = { abilityId, selectedMutatorId: null };
 
-          // Init timer for active abilities
+          // Init timer for buff/toggle abilities
           let newTimers = [...state.abilityTimers];
-          if (def.kind === 'active') {
-            // Remove old timer if exists
+          if (def.kind === 'buff' || def.kind === 'toggle' || def.kind === 'instant' || def.kind === 'ultimate') {
             newTimers = newTimers.filter(t => t.abilityId !== abilityId);
             newTimers.push({ abilityId, activatedAt: null, cooldownUntil: null });
           }
 
-          return { equippedAbilities: newAbilities, abilityTimers: newTimers };
+          // Init ability progress if not exists
+          const newProgress = { ...state.abilityProgress };
+          if (!newProgress[abilityId]) {
+            newProgress[abilityId] = createAbilityProgress(abilityId);
+          }
+
+          return { equippedAbilities: newAbilities, abilityTimers: newTimers, abilityProgress: newProgress };
         });
       },
 
@@ -969,12 +1042,70 @@ export const useGameStore = create<GameState & GameActions>()(
         });
       },
 
+      allocateAbilityNode: (abilityId: string, nodeId: string) => {
+        set((state) => {
+          const def = getAbilityDef(abilityId);
+          if (!def) return state;
+          const progress = state.abilityProgress[abilityId];
+          if (!progress) return state;
+          if (!canAllocateNode(def, progress, nodeId)) return state;
+          const newProgress = { ...state.abilityProgress };
+          newProgress[abilityId] = allocateNode(progress, nodeId);
+          return { abilityProgress: newProgress };
+        });
+      },
+
+      respecAbility: (abilityId: string) => {
+        set((state) => {
+          const progress = state.abilityProgress[abilityId];
+          if (!progress) return state;
+          const cost = getRespecCost(progress);
+          if (state.gold < cost) return state;
+          const newProgress = { ...state.abilityProgress };
+          newProgress[abilityId] = respecAbilityEngine(progress);
+          return { abilityProgress: newProgress, gold: state.gold - cost };
+        });
+      },
+
+      toggleAbility: (abilityId: string) => {
+        set((state) => {
+          const timerIdx = state.abilityTimers.findIndex(t => t.abilityId === abilityId);
+          if (timerIdx === -1) return state;
+          const timer = state.abilityTimers[timerIdx];
+          const newTimers = [...state.abilityTimers];
+          newTimers[timerIdx] = {
+            abilityId,
+            activatedAt: timer.activatedAt !== null ? null : Date.now(),
+            cooldownUntil: null,
+          };
+          return { abilityTimers: newTimers };
+        });
+      },
+
       activateAbility: (abilityId: string) => {
         set((state) => {
           const equipped = state.equippedAbilities.find(ea => ea?.abilityId === abilityId);
           if (!equipped) return state;
           const def = getAbilityDef(abilityId);
-          if (!def || def.kind !== 'active') return state;
+          if (!def) return state;
+
+          // Passive and proc abilities can't be activated
+          if (def.kind === 'passive' || def.kind === 'proc') return state;
+
+          // Toggle: delegate
+          if (def.kind === 'toggle') {
+            const timerIdx = state.abilityTimers.findIndex(t => t.abilityId === abilityId);
+            if (timerIdx === -1) return state;
+            const timer = state.abilityTimers[timerIdx];
+            const newTimers = [...state.abilityTimers];
+            // Toggle: activatedAt !== null means ON, null means OFF
+            newTimers[timerIdx] = {
+              abilityId,
+              activatedAt: timer.activatedAt !== null ? null : Date.now(),
+              cooldownUntil: null,
+            };
+            return { abilityTimers: newTimers };
+          }
 
           const now = Date.now();
           const timerIdx = state.abilityTimers.findIndex(t => t.abilityId === abilityId);
@@ -984,13 +1115,26 @@ export const useGameStore = create<GameState & GameActions>()(
           // Check if on cooldown
           if (timer.cooldownUntil && now < timer.cooldownUntil) return state;
 
-          const duration = getEffectiveDuration(equipped);
+          const progress = state.abilityProgress[abilityId];
+          const duration = getEffectiveDuration(def, progress);
+          const cooldown = getEffectiveCooldown(def, progress);
+
           const newTimers = [...state.abilityTimers];
-          newTimers[timerIdx] = {
-            abilityId,
-            activatedAt: now,
-            cooldownUntil: now + (duration + (def.cooldown ?? 0)) * 1000,
-          };
+
+          if (def.kind === 'buff') {
+            newTimers[timerIdx] = {
+              abilityId,
+              activatedAt: now,
+              cooldownUntil: now + (duration + cooldown) * 1000,
+            };
+          } else {
+            // instant / ultimate: fire immediately, go on CD
+            newTimers[timerIdx] = {
+              abilityId,
+              activatedAt: null,
+              cooldownUntil: now + cooldown * 1000,
+            };
+          }
 
           // Mage: increment arcane charges on ability activation
           const updates: Partial<GameState> = { abilityTimers: newTimers };
@@ -999,6 +1143,28 @@ export const useGameStore = create<GameState & GameActions>()(
             let newStacks = state.classResource.stacks + 1;
             if (cDef.resourceMax !== null) newStacks = Math.min(newStacks, cDef.resourceMax);
             updates.classResource = { ...state.classResource, stacks: newStacks };
+          }
+
+          // Mid-clear recalculation: preserve progress % but adjust timing
+          if (state.idleStartTime && state.currentZoneId && state.currentClearTime > 0) {
+            const oldClearTime = state.currentClearTime;
+            const progress2 = (now - state.clearStartedAt) / (oldClearTime * 1000);
+            const clampedProgress = Math.min(Math.max(progress2, 0), 0.99);
+
+            // Recalculate clear time with new ability state
+            const zone = ZONE_DEFS.find(z => z.id === state.currentZoneId);
+            if (zone) {
+              const newAbilityEffect = aggregateAbilityEffects(
+                state.equippedAbilities, newTimers, state.abilityProgress, now, false,
+              );
+              const classDmgMult = getClassDamageModifier(updates.classResource ?? state.classResource, cDef);
+              const classSpdMult = getClassClearSpeedModifier(updates.classResource ?? state.classResource, cDef);
+              const newClearTime = calcClearTime(state.character, zone, newAbilityEffect, classDmgMult, classSpdMult);
+
+              // Adjust clearStartedAt so progress % stays the same
+              updates.clearStartedAt = now - clampedProgress * newClearTime * 1000;
+              updates.currentClearTime = newClearTime;
+            }
           }
 
           return updates;
@@ -1023,7 +1189,7 @@ export const useGameStore = create<GameState & GameActions>()(
         if (!state.currentZoneId) return;
         const zone = ZONE_DEFS.find(z => z.id === state.currentZoneId);
         if (!zone) return;
-        const abilityEffect = aggregateAbilityEffects(state.equippedAbilities, state.abilityTimers, Date.now(), false);
+        const abilityEffect = aggregateAbilityEffects(state.equippedAbilities, state.abilityTimers, state.abilityProgress, Date.now(), false);
         const boss = createBossEncounter(state.character, zone, abilityEffect);
         set({
           combatPhase: 'boss_fight' as CombatPhase,
@@ -1150,7 +1316,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 18,
+      version: 19,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -1249,6 +1415,7 @@ export const useGameStore = create<GameState & GameActions>()(
           const passiveEffect = aggregateAbilityEffects(
             state.equippedAbilities ?? [null, null, null, null],
             state.abilityTimers ?? [],
+            state.abilityProgress ?? {},
             Date.now(),
             true, // offlineMode: passives only
           );
@@ -1523,6 +1690,19 @@ export const useGameStore = create<GameState & GameActions>()(
             raw.classResource = createResourceState(state.character.class as CharacterClass);
           }
           raw.classSelected = true;  // Skip picker for existing saves
+        }
+
+        if (version < 19) {
+          // v19: Ability system overhaul — skill trees, XP, per-clear tracking
+          raw.abilityProgress = {};
+          raw.clearStartedAt = 0;
+          raw.currentClearTime = 0;
+          // Clear old mutator selections (players re-pick via tree)
+          if (state.equippedAbilities) {
+            state.equippedAbilities = (state.equippedAbilities as Array<{ abilityId: string; selectedMutatorId: string | null } | null>).map(
+              (ea) => ea ? { abilityId: ea.abilityId, selectedMutatorId: null } : null,
+            );
+          }
         }
 
         return state;

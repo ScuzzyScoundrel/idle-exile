@@ -504,6 +504,7 @@ export default function ZoneScreen() {
     startBossFight, tickBoss, handleBossVictory, handleBossDefeat, checkRecoveryComplete,
     tutorialStep,
     classResource, tickClassResource,
+    clearStartedAt, currentClearTime,
   } = useGameStore();
 
   const hydrated = useHasHydrated();
@@ -528,8 +529,9 @@ export default function ZoneScreen() {
   const isRunning = idleStartTime !== null;
   const zone = ZONE_DEFS.find((z) => z.id === selectedZone)!;
   const clearTime = getEstimatedClearTime(selectedZone);
-  const runningClearTime = isRunning
-    ? getEstimatedClearTime(currentZoneId!)
+  // When running, use tracked currentClearTime from state (no re-query that could shift)
+  const runningClearTime = isRunning && currentClearTime > 0
+    ? currentClearTime
     : clearTime;
   const runningZone = isRunning ? ZONE_DEFS.find(z => z.id === currentZoneId) : null;
 
@@ -585,41 +587,48 @@ export default function ZoneScreen() {
   }, [isRunning, idleStartTime, tickBoss, handleBossVictory, handleBossDefeat, checkRecoveryComplete, tickClassResource]);
 
   // Real-time loot processing — only during clearing phase
+  // Uses per-clear tracking (clearStartedAt + currentClearTime) instead of modulo
   useEffect(() => {
     if (!isRunning || !runningZone || modeSwitchingRef.current) return;
     if (combatPhase !== 'clearing') return;
-    const currentClears = Math.floor(elapsed / runningClearTime);
-    if (currentClears > lastClearCount.current) {
-      const newClears = currentClears - lastClearCount.current;
 
-      // Grant character XP only in combat mode
-      if (idleMode === 'combat') {
-        grantIdleXp(10 * runningZone.band * newClears);
-      }
+    const state = useGameStore.getState();
+    const now = Date.now();
+    const timeSinceClearStart = now - state.clearStartedAt;
+    const clearDurationMs = state.currentClearTime * 1000;
 
-      // Process drops (branches on idleMode internally)
-      const result = processNewClears(newClears);
-      if (result) {
-        setSession(prev => accumulateSession(prev, result, newClears));
-        if (result.overflowCount > 0) {
-          setSalvageTally(prev => ({
-            count: prev.count + result.overflowCount,
-            dust: prev.dust + result.dustGained,
-          }));
-        }
-      }
-      lastClearCount.current = currentClears;
+    if (clearDurationMs <= 0) return;
 
-      // Check if boss should spawn (combat mode only)
-      if (idleMode === 'combat' && currentZoneId) {
-        const counts = useGameStore.getState().zoneClearCounts;
-        const zoneCount = counts[currentZoneId] || 0;
-        if (zoneCount > 0 && zoneCount % BOSS_INTERVAL === 0) {
-          startBossFight();
-        }
+    // Count completed clears since clearStartedAt
+    const completedClears = Math.floor(timeSinceClearStart / clearDurationMs);
+    if (completedClears <= 0) return;
+
+    // Grant character XP only in combat mode
+    if (idleMode === 'combat') {
+      grantIdleXp(10 * runningZone.band * completedClears);
+    }
+
+    // Process drops (also updates clearStartedAt and currentClearTime in store)
+    const result = processNewClears(completedClears);
+    if (result) {
+      setSession(prev => accumulateSession(prev, result, completedClears));
+      if (result.overflowCount > 0) {
+        setSalvageTally(prev => ({
+          count: prev.count + result.overflowCount,
+          dust: prev.dust + result.dustGained,
+        }));
       }
     }
-  }, [elapsed, runningClearTime, isRunning, runningZone, idleMode, combatPhase, grantIdleXp, processNewClears, currentZoneId, startBossFight]);
+
+    // Check if boss should spawn (combat mode only)
+    if (idleMode === 'combat' && currentZoneId) {
+      const counts = useGameStore.getState().zoneClearCounts;
+      const zoneCount = counts[currentZoneId] || 0;
+      if (zoneCount > 0 && zoneCount % BOSS_INTERVAL === 0) {
+        startBossFight();
+      }
+    }
+  }, [elapsed, isRunning, runningZone, idleMode, combatPhase, grantIdleXp, processNewClears, currentZoneId, startBossFight]);
 
   // Check if a zone is unlocked
   const isZoneUnlocked = (_z: ZoneDef): boolean => {
@@ -652,10 +661,14 @@ export default function ZoneScreen() {
     requestAnimationFrame(() => { modeSwitchingRef.current = false; });
   };
 
-  const currentClears = isRunning ? Math.floor(elapsed / runningClearTime) : 0;
+  const currentClears = session.totalClears;
 
-  // Interpolate HP within the current clear for smooth visual ticking
-  const clearProgress = runningClearTime > 0 ? (elapsed % runningClearTime) / runningClearTime : 0;
+  // Progress within current clear using per-clear tracking (no modulo)
+  const nowMs = Date.now();
+  const clearDurationMs = currentClearTime > 0 ? currentClearTime * 1000 : runningClearTime * 1000;
+  const clearProgress = isRunning && clearDurationMs > 0
+    ? Math.min(1, Math.max(0, (nowMs - clearStartedAt) / clearDurationMs))
+    : 0;
   let displayHp = currentHp;
   if (isRunning && idleMode === 'combat' && combatPhase === 'clearing' && runningZone) {
     const stats = resolveStats(character);
@@ -913,7 +926,7 @@ export default function ZoneScreen() {
               {idleMode === 'combat' && runningZone ? (
                 <MobDisplay
                   mobName={runningZone.mobName}
-                  clearProgress={runningClearTime > 0 ? (elapsed % runningClearTime) / runningClearTime : 0}
+                  clearProgress={clearProgress}
                   bossIn={BOSS_INTERVAL - ((zoneClearCounts[currentZoneId!] || 0) % BOSS_INTERVAL)}
                 />
               ) : (
@@ -932,7 +945,7 @@ export default function ZoneScreen() {
                   <div className="h-2 bg-gray-700 rounded-full overflow-hidden mb-1">
                     <div
                       className="h-full bg-green-500 rounded-full transition-all duration-200"
-                      style={{ width: `${((elapsed % runningClearTime) / runningClearTime) * 100}%` }}
+                      style={{ width: `${clearProgress * 100}%` }}
                     />
                   </div>
                   <div className="text-xs text-gray-400">

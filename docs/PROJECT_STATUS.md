@@ -1,10 +1,10 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-02-26 (Sprint 7A: Classes + Resource Mechanics)
+> Last updated: 2026-02-26 (Sprint 7C-A: Ability System Overhaul)
 
 ## Current Phase
-**Sprint 7A: Classes + Resource Mechanics** — COMPLETE. 4 playable classes (Warrior, Mage, Ranger, Rogue) each with unique idle resource mechanic. Class picker on new game. Resource bars on zone screen. Save v18.
+**Sprint 7C-A: Ability System Overhaul** — COMPLETE. Ability kinds expanded (passive/buff/instant/proc/toggle/ultimate), per-ability skill trees (3 paths x 2 nodes each), ability XP/leveling (0-10), slot unlock progression (Lv.1/5/12/20), per-clear tracking bug fix (no more progress bar jumps), respec system. Save v19.
 
 ## What Is Working Right Now
 The game is live on Vercel and playable locally at `http://localhost:5173/`. Core loop:
@@ -28,7 +28,7 @@ The game is live on Vercel and playable locally at `http://localhost:5173/`. Cor
 - **Class stat bonuses**: Warrior (+15% max life, +30 armor, plate affinity), Mage (+15 spell power, +10 cast speed, cloth affinity), Ranger (+30 evasion, +10 move speed, leather affinity), Rogue (+15 attack speed, +10 crit chance, leather affinity).
 - **Offline progression**: Close the app, reopen later → "Welcome Back, Exile!" modal. Works for both combat and gathering modes. Bosses skipped during offline.
 - **8 weapon types**: Sword, Axe, Mace, Dagger, Staff, Wand, Bow, Crossbow. 56 mainhand bases.
-- **24 abilities**: Each weapon has 2 active + 1 passive ability. Mutator system for customization.
+- **24 abilities**: Each weapon has 2 buff + 1 passive ability. Skill tree system (3 paths per ability, 2 nodes each). Ability XP gains per clear. Slot unlock progression at Lv.1/5/12/20. Respec costs gold.
 - **Ability bar**: 4 equip slots on ZoneScreen (combat mode only).
 - **Combat/Gathering toggle**: Two-button toggle at top of zone screen. Switching modes stops current run.
 - **5 gathering professions**: Mining, Herbalism, Skinning, Logging, Fishing. Each has independent skill level (1-100) with XP progression and milestones at 10/25/50/75/100.
@@ -69,9 +69,11 @@ Bottom: mainhand, offhand, trinket1, trinket2
 - **Combat HP**: `applyNormalClearHp()` per clear. Damage = maxHp * 0.15 * scale(defEff). Regen = maxHp * 0.08. Floor at 1 HP (can't die to mobs).
 - **Boss mechanics**: Every 10 clears via `zoneClearCounts`. `calcBossMaxHp()` = baseClearTime * band * 8. `calcPlayerDps()` and `calcBossDps()` drive real-time simulation. `tickBossFight()` resolves frame-by-frame. `generateBossLoot()` at iLvlMax + 5. Victory/defeat phases with timed recovery.
 - **Auto-apply resources**: `processNewClears()` immediately applies all drops to state. Session summary tracked in UI local state.
+- **Ability system**: 6 ability kinds (passive/buff/instant/proc/toggle/ultimate). Per-ability skill trees with 3 paths x 2 nodes. Ability XP: `10 + floor(band*2)` per clear. XP per level: `100*(level+1)`. Max level 10. Respec cost: `50*level^2` gold. Slot unlock at character Lv.1/5/12/20.
+- **Per-clear tracking**: `clearStartedAt` + `currentClearTime` replace modulo-based progress. Mid-clear ability activation preserves progress % but adjusts remaining time.
 - **Bag system**: 5 equippable bag slots (T1:6→T5:14). Start 30 total, max 70.
 - **Crafting (currencies)**: `applyCurrency(item, type)` — augment, chaos, divine, annul, exalt
-- **Save**: Zustand persist v18. Migrations: v11→v12 adds `craftingSkills`, v12→v13 adds leatherworker + jeweler skills, v13→v14 adds `craftAutoSalvageMinRarity`, v14→v15 adds `zoneClearCounts` + combat HP fields, v17→v18 adds `classResource` + `classSelected` (existing saves → Warrior, skip picker).
+- **Save**: Zustand persist v19. Migrations: v11→v12 adds `craftingSkills`, v12→v13 adds leatherworker + jeweler skills, v13→v14 adds `craftAutoSalvageMinRarity`, v14→v15 adds `zoneClearCounts` + combat HP fields, v17→v18 adds `classResource` + `classSelected`, v18→v19 adds `abilityProgress` + `clearStartedAt` + `currentClearTime` (clears old mutator selections).
 
 ## Architecture
 ```
@@ -89,7 +91,7 @@ src/
     rareMaterials.ts        — 25 rare material defs, drop rates by band, getRareMaterialDef()
     zones.ts                — 30 zones with material names, recommendedLevel, gatheringTypes
     items.ts                — 345 item bases (56 mainhand w/ 8 weapon types) + 6 currency defs + 5 bag upgrade defs
-    abilities.ts            — 24 ability defs (8 weapon types x 3) with mutators
+    abilities.ts            — 24 ability defs (8 weapon types x 3) with skill trees
     classes.ts              — 4 class definitions with resource config (warrior, mage, ranger, rogue)
     setBonuses.ts           — 4 armor-type set bonus definitions
   engine/                   — Pure TypeScript (no React)
@@ -99,13 +101,13 @@ src/
     rareMaterials.ts        — rollRareMaterialDrop(), calcRareFindBonus()
     refinement.ts           — canRefine(), refine(), canDeconstruct(), deconstruct(), getRefinementChain()
     craftingProfessions.ts  — addCraftingXp(), canCraftRecipe(), executeCraft(), getCraftingXpForTier()
-    abilities.ts            — Ability effect resolution, timer management, aggregation
+    abilities.ts            — Ability effect resolution, skill tree, XP, timer management, aggregation
     classResource.ts        — Class resource pure functions (create, tick, decay, reset, modifiers)
     character.ts            — Stats resolution (13 stats), XP/leveling
     crafting.ts             — 6 currency crafting operations
     setBonus.ts             — Set bonus resolution
   store/
-    gameStore.ts            — Zustand store (state + actions + persistence + v18 migration). Actions: selectClass, tickClassResource, startBossFight, tickBoss, handleBossVictory, handleBossDefeat, checkRecoveryComplete + all previous.
+    gameStore.ts            — Zustand store (state + actions + persistence + v19 migration). Actions: selectClass, tickClassResource, startBossFight, tickBoss, handleBossVictory, handleBossDefeat, checkRecoveryComplete, allocateAbilityNode, respecAbility, toggleAbility + all previous.
   ui/
     slotConfig.ts           — Shared gear slot icons/labels
     components/
@@ -267,9 +269,25 @@ Replaced focus modes with Combat/Gathering toggle. 5 gathering professions with 
 - **Save v18 migration**: Adds `classResource` + `classSelected`. Existing saves → Warrior + skip picker.
 - **Files changed**: types/index.ts, data/classes.ts, engine/classResource.ts (new), engine/zones.ts, store/gameStore.ts, App.tsx, ui/components/ClassPicker.tsx (new), ui/screens/ZoneScreen.tsx, ui/screens/CharacterScreen.tsx
 
+### Sprint 7C-A Changes (Ability System Overhaul)
+- **Ability kinds expanded**: `AbilityKind` now: passive, buff, instant, proc, toggle, ultimate. Old 'active' → 'buff'. Old 'passive' unchanged.
+- **Skill tree system**: Each ability has 3 paths (A/B/C) with 2 nodes each. Nodes can grant effect bonuses, duration bonuses, or cooldown reductions. Final node in each path is a "payoff" (overrides rather than stacks).
+- **Ability XP**: All equipped abilities gain XP per clear: `10 + floor(band * 2)`. XP per level: `100 * (level + 1)`. Max level 10 (5,500 total XP). Each level grants 1 skill point.
+- **Slot unlocks**: 4 ability slots unlock at character Lv.1/5/12/20. Locked slots show lock icon + level requirement.
+- **Respec**: Reset skill tree + XP to 0. Cost: `50 * level^2` gold.
+- **Bug fix: Progress bar jumps**: Replaced modulo-based progress (`elapsed % clearTime`) with explicit per-clear tracking (`clearStartedAt` + `currentClearTime`). Mid-clear ability activation preserves progress % but adjusts remaining time — mob HP drains faster, feels impactful.
+- **Mid-clear recalculation**: On ability activate: calculate current progress, recalculate clear time with new effects, adjust clearStartedAt to preserve progress %.
+- **New types**: `ScalingFormula`, `ScalingTerm`, `SkillTreeNode`, `SkillTreePath`, `AbilitySkillTree`, `AbilityProgress`, `ABILITY_SLOT_UNLOCKS`.
+- **New engine functions**: `evaluateFormula`, `resolveAbilityEffect` (tree-based), `getEffectiveDuration`, `getEffectiveCooldown`, `calcBonusClears`, `rollProc`, `getUnlockedSlotCount`, `getAbilityXpForLevel`, `addAbilityXp`, `getAbilityXpPerClear`, `canAllocateNode`, `allocateNode`, `respecAbility`, `getRespecCost`, `createAbilityProgress`.
+- **New store actions**: `allocateAbilityNode`, `respecAbility`, `toggleAbility`.
+- **Updated store actions**: `activateAbility` (new kinds + mid-clear recalc), `processNewClears` (ability XP + per-clear tracking), `startIdleRun` (initializes clearStartedAt/currentClearTime), `getEstimatedClearTime` (returns tracked value when running), `equipAbility` (slot unlock check + abilityProgress init).
+- **Updated UI**: AbilityBar shows slot locks, ability XP bars, kind-specific colors. CharacterScreen AbilityPanel replaced mutator selection with skill tree picker (3 path tabs, node allocation, respec button).
+- **Save v19 migration**: Adds `abilityProgress: {}`, `clearStartedAt: 0`, `currentClearTime: 0`. Clears old mutator selections.
+- **Files changed**: types/index.ts, engine/abilities.ts, data/abilities.ts, store/gameStore.ts, ui/components/AbilityBar.tsx, ui/screens/ZoneScreen.tsx, ui/screens/CharacterScreen.tsx
+
 ## Priority for Next Session
 See `SPRINT_PLAN.md` for full roadmap. Next sprints:
-1. **Sprint 7B: Talent Trees** — 30-50 nodes per class
-2. **Sprint 7C: Expanded Abilities** — New weapon type abilities
+1. **Sprint 7C-B: Full Ability Population** — 50+ abilities from PDF spec (10 per weapon type)
+2. **Sprint 7B: Talent Trees** — 30-50 nodes per class
 3. **Sprint 8: Gold Economy**
 4. **Sprint 9: Gathering Gear UI + Dual Loadout**
