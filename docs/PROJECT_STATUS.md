@@ -1,10 +1,10 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-02-25 (Sprint 6 complete)
+> Last updated: 2026-02-25 (Sprint 6 + QoL iteration)
 
 ## Current Phase
-**Sprint 6: Material Refinement + Crafting Professions + Rare Materials** — COMPLETE. Added 6 refinement tracks (36 recipes), 5 crafting professions (68 recipes), 25 rare gathering materials with rarity-tiered drop rates, catalyst system for guaranteed minimum item rarity. New Craft tab with Refine/Craft sub-panels. 4-tab NavBar. Rare drop notifications in gathering sessions. Save v12.
+**Sprint 6 + QoL Iteration** — COMPLETE. Sprint 6 added 6 refinement tracks (36 recipes), 6 crafting professions (132 recipes), 25 rare gathering materials, catalyst system. QoL iteration added: god-tier affix mechanic (rare catalysts force 1 affix to break iLvl tier cap), 10x catalyst costs (100g/13 mats), material panel organized by track, catalyst info on recipe cards, reusable Tooltip component, UI size bump (root 18px + pixel→rem migration). Save v14.
 
 ## What Is Working Right Now
 The game is live on Vercel and playable locally at `http://localhost:5173/`. Core loop:
@@ -26,15 +26,16 @@ The game is live on Vercel and playable locally at `http://localhost:5173/`. Cor
 - **5 gathering professions**: Mining, Herbalism, Skinning, Logging, Fishing. Each has independent skill level (1-100) with XP progression and milestones at 10/25/50/75/100.
 - **Gathering mode**: Select a profession → zones show which professions can gather there + skill requirements. Gathering drops only profession-relevant materials + gathering XP. Small chance for gathering-specific gear drops. Rare material drops with rarity-tiered rates.
 - **6 refinement tracks**: Ore, Cloth, Leather, Wood, Herb, Fish. Each has 6-tier chain (T1 raw → refined, T2+ requires previous refined + new raw + gold). Deconstruct 1 refined → 2 of previous tier.
-- **5 crafting professions**: Weaponsmith, Armorer, Tailor, Alchemist, Jeweler. Each has independent skill level (1-100) with XP progression. 68 standard recipes + 8 unique catalyst recipes across all professions.
-- **Catalyst system**: Optional rare material catalysts on standard recipes guarantee minimum output rarity (common→uncommon+, uncommon→rare+, etc.). Unique recipes require specific rare materials.
+- **6 crafting professions**: Weaponsmith, Armorer, Leatherworker, Tailor, Alchemist, Jeweler. Each has independent skill level (1-100) with XP progression. 132 recipes across all professions. 3 armor types (plate, leather, cloth). Stalker set bonus on leather. Offhand crafting (Weaponsmith). Alchemist produces affix catalysts. Jeweler crafts rings, belts, neck, trinkets.
+- **Catalyst system**: Optional affix catalysts guarantee specific affixes. Rare material catalysts guarantee minimum output rarity + 1 god-tier affix (breaks iLvl tier cap). Unique recipes require specific rare materials.
+- **God-tier affix mechanic**: When a rare catalyst is used, one random affix is forced to a tier better than the item's iLvl normally allows (common→T6, uncommon→T5, rare→T3, epic→T2, legendary→T1).
 - **25 rare materials**: 5 per gathering profession × 5 rarity tiers (common→legendary). Drop during gathering with band-scaled rates. Used as crafting catalysts.
-- **Craft tab**: Refine sub-panel (track selector → T1-T6 chain with refine/deconstruct buttons). Craft sub-panel (profession selector with level/XP → recipe list grouped by tier with material counts, catalyst dropdown, craft button).
+- **Craft tab**: Materials sub-panel (organized by refinement track with tooltips). Refine sub-panel (track selector → T1-T6 chain with refine/deconstruct buttons). Craft sub-panel (profession selector with level/XP → recipe list with catalyst info summaries, catalyst dropdowns, craft button).
 
 ## UI State (4 Tabs)
 - **Zones tab**: 30 zones shown via horizontal band tab pills. Combat/Gathering toggle. Profession selector + XP bar in gathering mode. Zone cards with level badges, gathering type icons, hazard icons, mastery badges. Session summary with rare material find notifications. Ability bar in combat mode.
 - **Inventory tab ("Loot")**: Two-panel layout with equipped gear + bag grid. Bag slots section. Right-click to equip. Hover tooltips with stat comparison. Currency crafting UI. Auto-salvage filter. 5-tier rarity colors.
-- **Craft tab**: Refine/Craft toggle. Refine: 6 track pills → T1-T6 recipe chain with material counts + refine/deconstruct. Craft: 5 profession pills with level/XP bar → recipes grouped by tier with material requirements, catalyst dropdowns, unique recipe indicators.
+- **Craft tab**: Materials/Refine/Craft toggle. Materials: organized by refinement track (Ore/Cloth/Leather/Wood/Herb/Fish) with tooltips on hover. Refine: 6 track pills → T1-T6 recipe chain. Craft: 6 profession pills with level/XP bar → recipe cards with catalyst info summaries, material requirements, catalyst dropdowns.
 - **Character tab ("Hero")**: Paper doll (16 gear slots), 13 stats including poison/chaos resist, materials list, ability management panel.
 
 All 4 screens stay mounted (CSS hidden) for state persistence across tab switches.
@@ -44,7 +45,7 @@ Left: helmet, neck, shoulders, cloak, chest, bracers
 Right: gloves, belt, pants, boots, ring1, ring2
 Bottom: mainhand, offhand, trinket1, trinket2
 
-345 item bases defined across 15 slots (56 mainhand with 8 weapon types, no trinket bases yet).
+345 item bases defined across 15 slots (56 mainhand with 8 weapon types, no trinket bases yet). 3 armor types: plate, leather, cloth (mail removed).
 
 ## Engine Details
 - **Rarity**: Common (2 affixes, T7+), Uncommon (3, T4-T6), Rare (4, T3), Epic (5, T2), Legendary (6, T1+/2×T2)
@@ -56,23 +57,24 @@ Bottom: mainhand, offhand, trinket1, trinket2
 - **Gathering professions**: 5 professions. XP curve: `50 * 1.35^(level-1)`. Milestones at 10/25/50/75/100. Band skill requirements: 1/15/30/50/75/90.
 - **Rare material drops**: 25 defs (5 professions × 5 rarities). Per-clear roll, highest rarity first. Rates scale with band (common ~8-18%, legendary 0-0.3%). `rareFindBonus` from milestones + gear.
 - **Refinement**: 36 recipes (6 tracks × 6 tiers). T1: 5 raw + gold → 1 refined. T2+: 5 raw + 2 previous refined + gold → 1 refined. Deconstruct: 1 refined → 2 previous tier (T2+ only).
-- **Crafting professions**: 5 professions, level 1-100. XP curve matches gathering. 68 standard recipes + 8 unique recipes. Catalyst system: optional rare mat → guaranteed minimum rarity. `executeCraft()` generates item with reroll loop if below minimum.
+- **Crafting professions**: 6 professions, level 1-100. XP curve matches gathering. 132 recipes. Catalyst system: optional affix catalyst → guaranteed affix; optional rare mat → guaranteed minimum rarity + 1 god-tier affix. `executeCraft()` generates item with reroll loop + god-tier affix upgrade.
 - **Auto-apply resources**: `processNewClears()` immediately applies all drops to state. Session summary tracked in UI local state.
 - **Bag system**: 5 equippable bag slots (T1:6→T5:14). Start 30 total, max 70.
 - **Crafting (currencies)**: `applyCurrency(item, type)` — augment, chaos, divine, annul, exalt
-- **Save**: Zustand persist v12. Migration v11→v12: adds `craftingSkills`.
+- **Save**: Zustand persist v14. Migrations: v11→v12 adds `craftingSkills`, v12→v13 adds leatherworker + jeweler skills, v13→v14 adds `craftAutoSalvageMinRarity`.
 
 ## Architecture
 ```
 src/
   types/index.ts            — All TypeScript interfaces
   data/
-    balance.ts              — Centralized balance config (drop rates, combat formulas, crafting XP, catalyst rarity map)
+    balance.ts              — Centralized balance config (drop rates, combat formulas, crafting XP, catalyst rarity map, god-tier affix tiers)
     affixes.ts              — 15 combat affix definitions (7 prefix, 8 suffix, T1-T10)
     gatheringAffixes.ts     — 8 gathering affix definitions (4 prefix, 4 suffix, T1-T10)
     gatheringProfessions.ts — 5 gathering profession defs, milestones, band skill requirements
-    craftingProfessions.ts  — 5 crafting profession defs, milestones, createDefaultCraftingSkills()
-    craftingRecipes.ts      — 68 standard + 8 unique crafting recipes, getCraftingRecipe(), getRecipesForProfession()
+    craftingProfessions.ts  — 6 crafting profession defs, milestones, createDefaultCraftingSkills()
+    craftingRecipes.ts      — 132 crafting recipes, getCraftingRecipe(), getRecipesForProfession()
+    affixCatalysts.ts       — 9 affix catalyst defs, getAffixCatalystDef()
     refinement.ts           — 36 refinement recipes (6 tracks × 6 tiers), lookup helpers, getDeconstructOutput()
     rareMaterials.ts        — 25 rare material defs, drop rates by band, getRareMaterialDef()
     zones.ts                — 30 zones with material names, recommendedLevel, gatheringTypes
@@ -92,7 +94,7 @@ src/
     crafting.ts             — 6 currency crafting operations
     setBonus.ts             — Set bonus resolution
   store/
-    gameStore.ts            — Zustand store (state + actions + persistence + v12 migration). Actions: refineMaterial, deconstructMaterial, craftRecipe + all previous.
+    gameStore.ts            — Zustand store (state + actions + persistence + v14 migration). Actions: refineMaterial, deconstructMaterial, craftRecipe + all previous.
   ui/
     slotConfig.ts           — Shared gear slot icons/labels
     components/
@@ -100,10 +102,11 @@ src/
       TopBar.tsx            — Character info, XP bar, currency counts
       OfflineProgressModal.tsx — "Welcome Back" modal
       AbilityBar.tsx        — 4-slot ability action bar
+      Tooltip.tsx           — Reusable hover tooltip component
     screens/
       ZoneScreen.tsx        — Band tabs, Combat/Gathering toggle, profession selector, session summary with rare finds
       InventoryScreen.tsx   — Bag grid + currency crafting UI + auto-salvage + detail panel
-      CraftingScreen.tsx    — Refine/Craft toggle. Refine: track pills → T1-T6 chain. Craft: profession pills → recipe list with catalysts.
+      CraftingScreen.tsx    — Materials/Refine/Craft toggle. Materials: track-grouped panel with tooltips. Refine: track pills → T1-T6 chain. Craft: profession pills → recipe list with catalyst info + dropdowns.
       CharacterScreen.tsx   — Paper doll (16 slots), 13 stats, materials, ability management
   App.tsx                   — Main app shell with CSS-hidden tab routing (4 tabs)
   main.tsx                  — Entry point
@@ -199,6 +202,15 @@ Replaced focus modes with Combat/Gathering toggle. 5 gathering professions with 
 - **Store actions**: `refineMaterial()`, `deconstructMaterial()`, `craftRecipe()` with catalyst support + overflow handling.
 - **Files added**: `craftingProfessions.ts`, `craftingRecipes.ts`, `rareMaterials.ts`, `refinement.ts` (data), `craftingProfessions.ts`, `rareMaterials.ts`, `refinement.ts` (engine), `CraftingScreen.tsx`
 - **Save v12 migration**: Adds `craftingSkills`
+
+### Sprint 6 QoL Iteration (Crafting UX + God-Tier Affixes + UI Overhaul)
+- **God-tier affix mechanic**: Rare catalysts force 1 random affix to break iLvl tier cap (CATALYST_BEST_TIER: common→T6, uncommon→T5, rare→T3, epic→T2, legendary→T1). Implemented in `executeCraft()`.
+- **Catalyst cost 10x increase**: Alchemist catalyst recipes 10g/5mats → 100g/13mats.
+- **Material panel organized by track**: Materials sub-panel now groups raw/refined by Ore/Cloth/Leather/Wood/Herb/Fish with track icons. Separate sections for Affix Catalysts, Rare Materials, Misc.
+- **Catalyst info broadcasting**: Affix catalyst cards show guaranteed affix. Rare material cards show rarity + catalyst description. Recipe cards show selected catalyst summary below materials.
+- **Reusable Tooltip component**: `src/ui/components/Tooltip.tsx` — hover info on all materials (raw: gather source + refine target; refined: source material; affix catalyst: guaranteed affix; rare: description + god-tier info).
+- **UI size bump**: Root font-size 16px→18px (`html { font-size: 18px }`). All pixel-based font sizes (`text-[8px]` through `text-[11px]`) migrated to rem-based Tailwind classes (`text-xs`, `text-sm`). Padding increased on recipe/material cards. Applied across CraftingScreen, CharacterScreen, InventoryScreen, ZoneScreen, AbilityBar.
+- **Files changed**: `balance.ts`, `craftingRecipes.ts`, `craftingProfessions.ts`, `Tooltip.tsx` (new), `CraftingScreen.tsx`, `CharacterScreen.tsx`, `InventoryScreen.tsx`, `ZoneScreen.tsx`, `AbilityBar.tsx`, `index.css`
 
 ## Priority for Next Session
 See `SPRINT_PLAN.md` for full roadmap. Next sprints:

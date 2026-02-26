@@ -9,11 +9,12 @@ import { canCraftRecipe } from '../../engine/craftingProfessions';
 import { calcCraftingXpRequired } from '../../engine/craftingProfessions';
 import { getAffixTierRange } from '../../engine/items';
 import { RARE_MATERIAL_DEFS, getRareMaterialDef } from '../../data/rareMaterials';
-import { AFFIX_CATALYST_DEFS } from '../../data/affixCatalysts';
-import { CATALYST_RARITY_MAP } from '../../data/balance';
+import { AFFIX_CATALYST_DEFS, getAffixCatalystDef } from '../../data/affixCatalysts';
+import { CATALYST_RARITY_MAP, CATALYST_BEST_TIER } from '../../data/balance';
 import { ITEM_BASE_DEFS } from '../../data/items';
 import { REFINEMENT_RECIPES } from '../../data/refinement';
-import type { CraftingProfession, CraftingRecipeDef, Rarity } from '../../types';
+import Tooltip from '../components/Tooltip';
+import type { CraftingProfession, CraftingRecipeDef, Rarity, RefinementTrack } from '../../types';
 
 // Rarity color classes
 const RARITY_TEXT: Record<Rarity, string> = {
@@ -41,6 +42,14 @@ const RARITY_BORDER: Record<Rarity, string> = {
 };
 
 type SubTab = 'materials' | 'refine' | 'craft';
+
+// Build track lookups from refinement recipes (static, computed once)
+const rawToTrack = new Map<string, RefinementTrack>();
+const refinedToTrack = new Map<string, RefinementTrack>();
+for (const r of REFINEMENT_RECIPES) {
+  rawToTrack.set(r.rawMaterialId, r.track);
+  refinedToTrack.set(r.outputId, r.track);
+}
 
 export default function CraftingScreen() {
   const [subTab, setSubTab] = useState<SubTab>('materials');
@@ -79,56 +88,74 @@ export default function CraftingScreen() {
 
 // ─── Materials Panel ────────────────────────────────────────────
 
+interface MatItem {
+  id: string;
+  count: number;
+  icon?: string;
+  color?: string;
+  subtitle?: string;
+}
+
 function MaterialsPanel() {
   const { materials } = useGameStore();
 
-  // Categorize materials
-  const rawIds = new Set(REFINEMENT_RECIPES.map(r => r.rawMaterialId));
-  const refinedIds = new Set(REFINEMENT_RECIPES.map(r => r.outputId));
   const affixCatIds = new Set(AFFIX_CATALYST_DEFS.map(d => d.id));
   const rareIds = new Set(RARE_MATERIAL_DEFS.map(d => d.id));
   const miscIds = new Set(['salvage_dust', 'magic_essence']);
 
-  const categorized: { label: string; items: { id: string; count: number; icon?: string; color?: string }[] }[] = [];
-
-  const raw: { id: string; count: number }[] = [];
-  const refined: { id: string; count: number }[] = [];
-  const affixCats: { id: string; count: number; icon?: string; color?: string }[] = [];
-  const rare: { id: string; count: number; icon?: string; color?: string }[] = [];
-  const misc: { id: string; count: number }[] = [];
+  // Group by track
+  const trackGroups = new Map<RefinementTrack, MatItem[]>();
+  const affixCats: MatItem[] = [];
+  const rare: MatItem[] = [];
+  const misc: MatItem[] = [];
 
   for (const [id, count] of Object.entries(materials)) {
     if (count <= 0) continue;
+
     if (affixCatIds.has(id)) {
       const def = AFFIX_CATALYST_DEFS.find(d => d.id === id);
-      affixCats.push({ id, count, icon: def?.icon, color: 'text-cyan-400' });
-    } else if (rawIds.has(id)) {
-      raw.push({ id, count });
-    } else if (refinedIds.has(id)) {
-      refined.push({ id, count });
+      affixCats.push({
+        id, count,
+        icon: def?.icon,
+        color: 'text-cyan-400',
+        subtitle: def ? `\u2192 +${def.guaranteedAffix.replace(/_/g, ' ')}` : undefined,
+      });
     } else if (rareIds.has(id)) {
       const def = getRareMaterialDef(id);
       rare.push({
-        id,
-        count,
+        id, count,
         icon: def?.icon,
         color: def ? RARITY_TEXT[def.rarity as Rarity] : undefined,
+        subtitle: def ? `${def.rarity} catalyst` : undefined,
       });
     } else if (miscIds.has(id)) {
       misc.push({ id, count });
     } else {
-      // Unknown mats go to raw
-      raw.push({ id, count });
+      // Raw or refined — group by track
+      const track = rawToTrack.get(id) ?? refinedToTrack.get(id);
+      if (track) {
+        if (!trackGroups.has(track)) trackGroups.set(track, []);
+        trackGroups.get(track)!.push({ id, count });
+      } else {
+        misc.push({ id, count });
+      }
     }
   }
 
-  if (raw.length > 0) categorized.push({ label: 'Raw Materials', items: raw });
-  if (refined.length > 0) categorized.push({ label: 'Refined Materials', items: refined });
-  if (affixCats.length > 0) categorized.push({ label: 'Affix Catalysts', items: affixCats });
-  if (rare.length > 0) categorized.push({ label: 'Rare Materials', items: rare });
-  if (misc.length > 0) categorized.push({ label: 'Misc', items: misc });
+  const sections: { label: string; icon: string; items: MatItem[] }[] = [];
 
-  if (categorized.length === 0) {
+  // Add track groups in canonical order
+  for (const trackDef of REFINEMENT_TRACK_DEFS) {
+    const items = trackGroups.get(trackDef.id);
+    if (items && items.length > 0) {
+      sections.push({ label: trackDef.name, icon: trackDef.icon, items });
+    }
+  }
+  if (affixCats.length > 0) sections.push({ label: 'Affix Catalysts', icon: '\u2697\uFE0F', items: affixCats });
+  if (rare.length > 0) sections.push({ label: 'Rare Materials', icon: '\uD83D\uDC8E', items: rare });
+  if (misc.length > 0) sections.push({ label: 'Misc', icon: '\uD83D\uDCE6', items: misc });
+
+  if (sections.length === 0) {
     return (
       <div className="bg-gray-800 rounded-lg p-6 text-center text-gray-500 text-sm">
         No materials yet. Go gathering or fight some monsters!
@@ -138,27 +165,71 @@ function MaterialsPanel() {
 
   return (
     <div className="space-y-3">
-      {categorized.map(cat => (
-        <div key={cat.label}>
-          <div className="text-xs font-bold text-gray-500 mb-1">{cat.label}</div>
+      {sections.map(sec => (
+        <div key={sec.label}>
+          <div className="text-xs font-bold text-gray-500 mb-1">{sec.icon} {sec.label}</div>
           <div className="grid grid-cols-4 gap-2">
-            {cat.items.map(item => (
-              <div
-                key={item.id}
-                className="bg-gray-800 rounded-lg p-2 text-center border border-gray-700"
-              >
-                <div className="text-lg">{item.icon ?? '\uD83E\uDEA8'}</div>
-                <div className={`text-[10px] font-semibold truncate ${item.color ?? 'text-gray-300'}`}>
-                  {formatMatName(item.id)}
+            {sec.items.map(item => {
+              const tooltipContent = getMatTooltip(item.id);
+              const card = (
+                <div className="bg-gray-800 rounded-lg p-3 text-center border border-gray-700">
+                  <div className="text-lg">{item.icon ?? '\uD83E\uDEA8'}</div>
+                  <div className={`text-xs font-semibold truncate ${item.color ?? 'text-gray-300'}`}>
+                    {formatMatName(item.id)}
+                  </div>
+                  {item.subtitle && (
+                    <div className="text-xs text-gray-500 truncate">{item.subtitle}</div>
+                  )}
+                  <div className="text-xs text-white font-bold">{item.count}</div>
                 </div>
-                <div className="text-xs text-white font-bold">{item.count}</div>
-              </div>
-            ))}
+              );
+              return tooltipContent ? (
+                <Tooltip key={item.id} content={tooltipContent}>{card}</Tooltip>
+              ) : (
+                <div key={item.id}>{card}</div>
+              );
+            })}
           </div>
         </div>
       ))}
     </div>
   );
+}
+
+/** Generate tooltip text for a material. */
+function getMatTooltip(id: string): string | null {
+  // Affix catalyst
+  const affixDef = AFFIX_CATALYST_DEFS.find(d => d.id === id);
+  if (affixDef) {
+    return `Guarantees +${affixDef.guaranteedAffix.replace(/_/g, ' ')} on crafted gear. Brewed by Alchemist.`;
+  }
+
+  // Rare material
+  const rareDef = getRareMaterialDef(id);
+  if (rareDef) {
+    const minRarity = CATALYST_RARITY_MAP[rareDef.rarity];
+    const bestTier = CATALYST_BEST_TIER[rareDef.rarity];
+    return `${rareDef.description}. Catalyst: ${minRarity}+ item with 1 god-tier T${bestTier} affix.`;
+  }
+
+  // Raw material
+  const rawTrack = rawToTrack.get(id);
+  if (rawTrack) {
+    const trackDef = REFINEMENT_TRACK_DEFS.find(t => t.id === rawTrack);
+    const recipe = REFINEMENT_RECIPES.find(r => r.rawMaterialId === id);
+    const refinedName = recipe ? formatMatName(recipe.outputId) : 'refined materials';
+    return `Gathered via ${trackDef?.name ?? rawTrack}. Refine into ${refinedName}.`;
+  }
+
+  // Refined material
+  const refTrack = refinedToTrack.get(id);
+  if (refTrack) {
+    const recipe = REFINEMENT_RECIPES.find(r => r.outputId === id);
+    const rawName = recipe ? formatMatName(recipe.rawMaterialId) : 'raw materials';
+    return `Refined from ${rawName}. Used in crafting recipes.`;
+  }
+
+  return null;
 }
 
 // ─── Refine Panel ────────────────────────────────────────────────
@@ -180,14 +251,13 @@ function RefinePanel() {
   };
 
   const handleRefineAll = (recipe: typeof chain[0]) => {
-    // Calculate max craftable
     const rawCount = materials[recipe.rawMaterialId] ?? 0;
     const prevCount = recipe.previousRefinedId ? (materials[recipe.previousRefinedId] ?? 0) : Infinity;
     const goldAvail = gold;
 
-    let maxRaw = Math.floor(rawCount / recipe.rawAmount);
-    let maxPrev = recipe.previousRefinedId ? Math.floor(prevCount / recipe.previousRefinedAmount) : Infinity;
-    let maxGold = Math.floor(goldAvail / recipe.goldCost);
+    const maxRaw = Math.floor(rawCount / recipe.rawAmount);
+    const maxPrev = recipe.previousRefinedId ? Math.floor(prevCount / recipe.previousRefinedAmount) : Infinity;
+    const maxGold = Math.floor(goldAvail / recipe.goldCost);
     const max = Math.min(maxRaw, maxPrev, maxGold);
 
     if (max <= 0) return;
@@ -219,7 +289,7 @@ function RefinePanel() {
           >
             <span className="block text-center">
               <span className="text-sm">{track.icon}</span>
-              <span className="block text-[10px] mt-0.5">{track.name}</span>
+              <span className="block text-xs mt-0.5">{track.name}</span>
             </span>
           </button>
         ))}
@@ -278,7 +348,7 @@ function RefinePanel() {
                 <button
                   onClick={() => handleRefine(recipe.id)}
                   disabled={!craftable}
-                  className={`flex-1 py-1.5 rounded text-xs font-bold transition-all ${
+                  className={`flex-1 py-2 rounded text-xs font-bold transition-all ${
                     craftable
                       ? 'bg-amber-600 hover:bg-amber-500 text-white'
                       : 'bg-gray-700 text-gray-500 cursor-not-allowed'
@@ -289,7 +359,7 @@ function RefinePanel() {
                 <button
                   onClick={() => handleRefineAll(recipe)}
                   disabled={!craftable}
-                  className={`px-3 py-1.5 rounded text-xs font-bold transition-all ${
+                  className={`px-3 py-2 rounded text-xs font-bold transition-all ${
                     craftable
                       ? 'bg-amber-700 hover:bg-amber-600 text-amber-200'
                       : 'bg-gray-700 text-gray-500 cursor-not-allowed'
@@ -302,7 +372,7 @@ function RefinePanel() {
                   <button
                     onClick={() => handleDeconstruct(recipe.outputId)}
                     disabled={!deconstructable}
-                    className={`px-3 py-1.5 rounded text-xs font-bold transition-all ${
+                    className={`px-3 py-2 rounded text-xs font-bold transition-all ${
                       deconstructable
                         ? 'bg-red-800 hover:bg-red-700 text-red-200'
                         : 'bg-gray-700 text-gray-500 cursor-not-allowed'
@@ -350,7 +420,6 @@ function getCategoryForRecipe(recipe: CraftingRecipeDef): string {
   if (!base) return 'other';
   if (recipe.profession === 'weaponsmith' && base.weaponType) return base.weaponType;
   if (recipe.profession === 'weaponsmith' && base.slot === 'offhand') return 'offhand';
-  // Use slot as category for non-weapon professions
   return base.slot;
 }
 
@@ -439,8 +508,8 @@ function CraftPanel() {
             >
               <span className="block text-center">
                 <span className="text-sm">{prof.icon}</span>
-                <span className="block text-[10px] mt-0.5">{prof.name}</span>
-                <span className="block text-[9px] opacity-70">Lv.{s.level}</span>
+                <span className="block text-xs mt-0.5">{prof.name}</span>
+                <span className="block text-xs opacity-70">Lv.{s.level}</span>
               </span>
             </button>
           );
@@ -454,7 +523,7 @@ function CraftPanel() {
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`px-2 py-1 rounded text-[10px] font-semibold transition-all ${
+              className={`px-2 py-1 rounded text-xs font-semibold transition-all ${
                 selectedCategory === cat
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
@@ -485,11 +554,11 @@ function CraftPanel() {
 
       {/* Craft auto-salvage dropdown */}
       <div className="flex items-center justify-end gap-2">
-        <label className="text-[10px] text-gray-500">Craft auto-salvage:</label>
+        <label className="text-xs text-gray-500">Craft auto-salvage:</label>
         <select
           value={craftAutoSalvageMinRarity}
           onChange={(e) => setCraftAutoSalvageRarity(e.target.value as Rarity)}
-          className="text-[10px] bg-gray-800 text-gray-300 border border-gray-600 rounded px-1 py-0.5"
+          className="text-xs bg-gray-800 text-gray-300 border border-gray-600 rounded px-1 py-0.5"
         >
           {CRAFT_AUTO_SALVAGE_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -535,6 +604,12 @@ function CraftPanel() {
             ? AFFIX_CATALYST_DEFS.find(d => d.id === recipe.outputMaterialId)
             : null;
 
+          // Selected catalyst info for this recipe
+          const selAffixCatId = affixCatalysts[recipe.id];
+          const selAffixCat = selAffixCatId ? getAffixCatalystDef(selAffixCatId) : null;
+          const selRareCatId = rareCatalysts[recipe.id];
+          const selRareCat = selRareCatId ? getRareMaterialDef(selRareCatId) : null;
+
           return (
             <div
               key={recipe.id}
@@ -542,7 +617,7 @@ function CraftPanel() {
                 TIER_BORDER[recipe.tier] ?? 'border-l-gray-500'
               } ${levelLocked ? 'opacity-50' : ''}`}
             >
-              <div className="p-3 space-y-2">
+              <div className="p-4 space-y-2">
                 {/* Header row */}
                 <div className="flex items-center gap-2">
                   <span className="text-base">
@@ -552,21 +627,21 @@ function CraftPanel() {
                   </span>
                   <span className="text-sm font-bold text-white flex-1 truncate">{recipe.name}</span>
                   {recipe.requiredCatalyst && (
-                    <span className="text-purple-400 text-[10px] font-bold bg-purple-900/30 px-1.5 py-0.5 rounded">UNQ</span>
+                    <span className="text-purple-400 text-xs font-bold bg-purple-900/30 px-1.5 py-0.5 rounded">UNQ</span>
                   )}
                   {!isMaterialRecipe && (
-                    <span className="text-[10px] text-gray-500">iLvl {recipe.outputILvl} {'\u00B7'} T{recipe.tier}</span>
+                    <span className="text-xs text-gray-500">iLvl {recipe.outputILvl} {'\u00B7'} T{recipe.tier}</span>
                   )}
                 </div>
 
                 {/* Slot / type line */}
                 {slotLabel && (
-                  <div className="text-[10px] text-gray-500 capitalize">{slotLabel}</div>
+                  <div className="text-xs text-gray-500 capitalize">{slotLabel}</div>
                 )}
 
                 {/* Material recipe: show output info */}
                 {isMaterialRecipe && (
-                  <div className="text-[11px] text-cyan-400">
+                  <div className="text-sm text-cyan-400">
                     {'\u2697\uFE0F'} Produces 1x {formatMatName(recipe.outputMaterialId!)}
                     {affixCatDef && (
                       <span className="text-gray-500 ml-1">({'\u2192'} +{affixCatDef.guaranteedAffix.replace(/_/g, ' ')})</span>
@@ -584,7 +659,7 @@ function CraftPanel() {
                   <>
                     {/* Base stats + affix info (item recipes only) */}
                     {!isMaterialRecipe && (
-                      <div className="text-[11px] space-y-0.5">
+                      <div className="text-sm space-y-0.5">
                         {baseStatEntries.map(([stat, val]) => (
                           <div key={stat} className="text-gray-300">
                             Base: +{val} {stat}
@@ -597,7 +672,7 @@ function CraftPanel() {
                     )}
 
                     {/* Materials inline */}
-                    <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[11px]">
+                    <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-sm">
                       {recipe.materials.map(({ materialId, amount }) => {
                         const have = materials[materialId] ?? 0;
                         const met = have >= amount;
@@ -618,12 +693,28 @@ function CraftPanel() {
                       const have = materials[recipe.requiredCatalyst!.rareMaterialId] ?? 0;
                       const met = have >= recipe.requiredCatalyst!.amount;
                       return (
-                        <div className={`text-[11px] ${met ? 'text-purple-400' : 'text-red-400'}`}>
+                        <div className={`text-sm ${met ? 'text-purple-400' : 'text-red-400'}`}>
                           {catDef?.icon} {catDef?.name ?? recipe.requiredCatalyst!.rareMaterialId}: {have}/{recipe.requiredCatalyst!.amount}
                           {!met && <span className="text-red-500 ml-1">(missing)</span>}
                         </div>
                       );
                     })()}
+
+                    {/* Selected catalyst info summary */}
+                    {(selAffixCat || selRareCat) && (
+                      <div className="text-xs bg-gray-900/50 rounded px-2 py-1 space-y-0.5">
+                        {selAffixCat && (
+                          <div className="text-cyan-400">
+                            {'\u2697\uFE0F'} {selAffixCat.name} {'\u2192'} Guarantees +{selAffixCat.guaranteedAffix.replace(/_/g, ' ')}
+                          </div>
+                        )}
+                        {selRareCat && (
+                          <div className="text-purple-400">
+                            {'\uD83D\uDC8E'} {selRareCat.name} {'\u2192'} {CATALYST_RARITY_MAP[selRareCat.rarity]}+ item, 1 god-tier T{CATALYST_BEST_TIER[selRareCat.rarity]} affix
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Action row: catalyst dropdowns + craft button */}
                     <div className="flex items-center gap-1.5 pt-1">
@@ -632,7 +723,7 @@ function CraftPanel() {
                         <select
                           value={affixCatalysts[recipe.id] ?? ''}
                           onChange={e => setAffixCatalysts(prev => ({ ...prev, [recipe.id]: e.target.value }))}
-                          className="flex-1 min-w-0 bg-gray-700 text-[10px] text-gray-300 rounded px-1.5 py-1.5 border border-gray-600 truncate"
+                          className="flex-1 min-w-0 bg-gray-700 text-xs text-gray-300 rounded px-1.5 py-2 border border-gray-600 truncate"
                           title="Affix Catalyst"
                         >
                           <option value="">{'\u2697\uFE0F'} No affix catalyst</option>
@@ -649,7 +740,7 @@ function CraftPanel() {
                         <select
                           value={rareCatalysts[recipe.id] ?? ''}
                           onChange={e => setRareCatalysts(prev => ({ ...prev, [recipe.id]: e.target.value }))}
-                          className="flex-1 min-w-0 bg-gray-700 text-[10px] text-gray-300 rounded px-1.5 py-1.5 border border-gray-600 truncate"
+                          className="flex-1 min-w-0 bg-gray-700 text-xs text-gray-300 rounded px-1.5 py-2 border border-gray-600 truncate"
                           title="Rare Catalyst"
                         >
                           <option value="">{'\uD83D\uDC8E'} No rare catalyst</option>
@@ -668,7 +759,7 @@ function CraftPanel() {
                       <button
                         onClick={() => handleCraft(recipe.id)}
                         disabled={!craftable}
-                        className={`px-4 py-1.5 rounded text-xs font-bold transition-all whitespace-nowrap ${
+                        className={`px-4 py-2 rounded text-xs font-bold transition-all whitespace-nowrap ${
                           craftable
                             ? isMaterialRecipe ? 'bg-cyan-600 hover:bg-cyan-500 text-white' : 'bg-blue-600 hover:bg-blue-500 text-white'
                             : 'bg-gray-700 text-gray-500 cursor-not-allowed'

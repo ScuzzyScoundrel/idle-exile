@@ -229,7 +229,7 @@ function ZoneCard({
               {zone.name}
             </span>
             {/* Level badge */}
-            <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
+            <span className={`text-xs px-1.5 py-0.5 rounded font-bold ${
               underleveled ? 'bg-red-900/60 text-red-300' : 'bg-black/30 text-gray-400'
             }`}>
               Lv.{zone.recommendedLevel}
@@ -252,10 +252,10 @@ function ZoneCard({
             })}
           </div>
           {underleveled && (
-            <div className="text-[10px] text-red-400 mt-0.5">Underleveled</div>
+            <div className="text-xs text-red-400 mt-0.5">Underleveled</div>
           )}
           {skillTooLow && (
-            <div className="text-[10px] text-red-400 mt-0.5">Skill too low (need {skillReq})</div>
+            <div className="text-xs text-red-400 mt-0.5">Skill too low (need {skillReq})</div>
           )}
         </div>
 
@@ -263,7 +263,7 @@ function ZoneCard({
         <div className="text-xs text-gray-300/80 leading-snug">{zone.description}</div>
 
         {/* Bottom: iLvl + materials + gathering types */}
-        <div className="flex items-center gap-2 text-[11px] text-gray-400">
+        <div className="flex items-center gap-2 text-sm text-gray-400">
           <span className="bg-black/30 rounded px-1.5 py-0.5">iLvl {zone.iLvlMin}-{zone.iLvlMax}</span>
           {idleMode === 'gathering' ? (
             <span className="flex gap-1">
@@ -448,8 +448,8 @@ export default function ZoneScreen() {
                 >
                   <span className="block text-center">
                     <span className="text-sm">{PROFESSION_ICONS[prof.id]}</span>
-                    <span className="block text-[10px] mt-0.5">{prof.name}</span>
-                    <span className="block text-[9px] opacity-70">Lv.{skill.level}</span>
+                    <span className="block text-xs mt-0.5">{prof.name}</span>
+                    <span className="block text-xs opacity-70">Lv.{skill.level}</span>
                   </span>
                 </button>
               );
@@ -642,7 +642,7 @@ export default function ZoneScreen() {
                 )}
               </div>
               {inventory.length >= inventoryCapacity && (
-                <div className="text-amber-400/80 text-[10px] mt-0.5">
+                <div className="text-amber-400/80 text-xs mt-0.5">
                   Gear drops are being auto-salvaged. Upgrade bags or disenchant items.
                 </div>
               )}
@@ -655,7 +655,7 @@ export default function ZoneScreen() {
               {/* Clear count — prominent */}
               <div className="text-center">
                 <div className="text-2xl font-bold text-white">{session.totalClears}</div>
-                <div className="text-[10px] text-gray-500 uppercase tracking-wide">Clears</div>
+                <div className="text-xs text-gray-500 uppercase tracking-wide">Clears</div>
               </div>
 
               {/* Stat row — gold / XP / items */}
@@ -663,13 +663,13 @@ export default function ZoneScreen() {
                 {session.goldEarned > 0 && (
                   <div className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-center">
                     <div className="text-xs font-bold text-yellow-400">{session.goldEarned.toLocaleString()}</div>
-                    <div className="text-[10px] text-gray-500">Gold</div>
+                    <div className="text-xs text-gray-500">Gold</div>
                   </div>
                 )}
                 {session.gatheringXp > 0 && (
                   <div className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-center">
                     <div className="text-xs font-bold text-green-400">+{session.gatheringXp.toLocaleString()}</div>
-                    <div className="text-[10px] text-gray-500">Gather XP</div>
+                    <div className="text-xs text-gray-500">Gather XP</div>
                   </div>
                 )}
                 {Object.values(session.itemsByRarity).some(v => v > 0) && (
@@ -677,7 +677,7 @@ export default function ZoneScreen() {
                     <div className="text-xs font-bold text-white">
                       {Object.values(session.itemsByRarity).reduce((a, b) => a + b, 0)}
                     </div>
-                    <div className="text-[10px] text-gray-500">Items</div>
+                    <div className="text-xs text-gray-500">Items</div>
                   </div>
                 )}
               </div>
@@ -685,7 +685,7 @@ export default function ZoneScreen() {
               {/* Materials */}
               {Object.keys(session.materials).length > 0 && (
                 <div>
-                  <div className="text-[10px] text-gray-500 mb-1">Materials</div>
+                  <div className="text-xs text-gray-500 mb-1">Materials</div>
                   <div className="flex flex-wrap gap-1">
                     {Object.entries(session.materials).map(([mat, count]) => (
                       <span key={mat} className="bg-gray-800 rounded px-1.5 py-0.5 text-xs text-gray-300">
@@ -699,7 +699,7 @@ export default function ZoneScreen() {
               {/* Rare Materials — highlighted cards */}
               {Object.keys(session.rareMaterials).length > 0 && (
                 <div>
-                  <div className="text-[10px] text-purple-400 font-semibold mb-1">Rare Finds</div>
+                  <div className="text-xs text-purple-400 font-semibold mb-1">Rare Finds</div>
                   <div className="flex flex-wrap gap-1">
                     {Object.entries(session.rareMaterials).map(([matId, count]) => {
                       const def = getRareMaterialDef(matId);
@@ -718,7 +718,7 @@ export default function ZoneScreen() {
               {/* Currencies — golden highlight */}
               {Object.keys(session.currencies).length > 0 && (
                 <div>
-                  <div className="text-[10px] text-gray-500 mb-1">Currencies</div>
+                  <div className="text-xs text-gray-500 mb-1">Currencies</div>
                   <div className="flex flex-wrap gap-1">
                     {Object.entries(session.currencies).map(([curr, count]) => (
                       <span key={curr} className="bg-yellow-900/30 border border-yellow-700/50 rounded px-2 py-0.5 text-xs text-yellow-300">
@@ -732,7 +732,7 @@ export default function ZoneScreen() {
               {/* Items by rarity — colored badges */}
               {Object.values(session.itemsByRarity).some(v => v > 0) && (
                 <div>
-                  <div className="text-[10px] text-gray-500 mb-1">Items by Rarity</div>
+                  <div className="text-xs text-gray-500 mb-1">Items by Rarity</div>
                   <div className="flex flex-wrap gap-1">
                     {(['legendary', 'epic', 'rare', 'uncommon', 'common'] as Rarity[]).map(r => {
                       const count = session.itemsByRarity[r];

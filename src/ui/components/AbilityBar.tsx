@@ -46,7 +46,7 @@ export default function AbilityBar() {
               title={`${def.name}: ${def.description}`}
             >
               <span className="text-xl">{def.icon}</span>
-              <span className="text-[8px] text-blue-400 font-bold mt-0.5">PASSIVE</span>
+              <span className="text-xs text-blue-400 font-bold mt-0.5">PASSIVE</span>
             </div>
           );
         }
@@ -77,13 +77,13 @@ export default function AbilityBar() {
           >
             <span className="text-xl">{def.icon}</span>
             {active && (
-              <span className="text-[9px] text-yellow-300 font-bold">{remainingBuff.toFixed(1)}s</span>
+              <span className="text-xs text-yellow-300 font-bold">{remainingBuff.toFixed(1)}s</span>
             )}
             {!active && onCooldown && (
-              <span className="text-[9px] text-gray-400 font-mono">{remainingCd.toFixed(0)}s</span>
+              <span className="text-xs text-gray-400 font-mono">{remainingCd.toFixed(0)}s</span>
             )}
             {ready && (
-              <span className="text-[8px] text-green-400 font-bold">READY</span>
+              <span className="text-xs text-green-400 font-bold">READY</span>
             )}
           </button>
         );

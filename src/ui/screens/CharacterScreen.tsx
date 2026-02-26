@@ -146,7 +146,7 @@ export default function CharacterScreen() {
               <div className="text-center">
                 <pre className="font-mono text-gray-600 text-lg leading-tight select-none">{ASCII_SILHOUETTE}</pre>
                 <div className="text-xs text-gray-500 mt-2 font-semibold">{character.name}</div>
-                <div className="text-[10px] text-gray-600">Lv {character.level} {CLASS_DEFS[character.class]?.name ?? 'Exile'}</div>
+                <div className="text-xs text-gray-600">Lv {character.level} {CLASS_DEFS[character.class]?.name ?? 'Exile'}</div>
               </div>
             </div>
           </div>
@@ -184,7 +184,7 @@ export default function CharacterScreen() {
       {hoveredItem && (
         <div>
           <ItemTooltip item={hoveredItem} />
-          <div className="text-center text-[10px] text-gray-500 mt-1">Tap slot again to unequip</div>
+          <div className="text-center text-xs text-gray-500 mt-1">Tap slot again to unequip</div>
         </div>
       )}
       {hoveredSlot && !hoveredItem && (
@@ -266,7 +266,7 @@ function AbilityPanel() {
       {/* Available abilities for current weapon */}
       {availableAbilities.length > 0 && (
         <div className="space-y-2">
-          <div className="text-[10px] text-gray-500 uppercase tracking-wider">Available Abilities</div>
+          <div className="text-xs text-gray-500 uppercase tracking-wider">Available Abilities</div>
           {availableAbilities.map((ability) => {
             // Check if already equipped
             const equippedSlotIdx = equippedAbilities.findIndex(ea => ea?.abilityId === ability.id);
@@ -286,21 +286,21 @@ function AbilityPanel() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs font-bold text-white">{ability.name}</span>
-                      <span className={`text-[9px] px-1 rounded ${
+                      <span className={`text-xs px-1 rounded ${
                         ability.kind === 'passive' ? 'bg-blue-900 text-blue-300' : 'bg-green-900 text-green-300'
                       }`}>
                         {ability.kind}
                       </span>
                       {ability.duration && (
-                        <span className="text-[9px] text-gray-500">{ability.duration}s / {ability.cooldown}s CD</span>
+                        <span className="text-xs text-gray-500">{ability.duration}s / {ability.cooldown}s CD</span>
                       )}
                     </div>
-                    <div className="text-[10px] text-gray-400">{ability.description}</div>
+                    <div className="text-xs text-gray-400">{ability.description}</div>
                   </div>
                   {isEquipped ? (
                     <button
                       onClick={() => unequipAbility(equippedSlotIdx)}
-                      className="text-[10px] px-2 py-1 bg-red-900 hover:bg-red-800 text-red-300 rounded"
+                      className="text-xs px-2 py-1 bg-red-900 hover:bg-red-800 text-red-300 rounded"
                     >
                       Remove
                     </button>
@@ -312,7 +312,7 @@ function AbilityPanel() {
                           <button
                             key={slotIdx}
                             onClick={() => equipAbility(slotIdx, ability.id)}
-                            className={`w-6 h-6 rounded text-[9px] font-bold ${
+                            className={`w-6 h-6 rounded text-xs font-bold ${
                               occupied
                                 ? 'bg-gray-700 text-gray-500 hover:bg-yellow-900 hover:text-yellow-300'
                                 : 'bg-green-900 text-green-300 hover:bg-green-800'
@@ -332,7 +332,7 @@ function AbilityPanel() {
                   <div className="mt-1.5 ml-8 flex flex-wrap gap-1">
                     <button
                       onClick={() => selectMutator(equippedSlotIdx, null)}
-                      className={`text-[9px] px-2 py-0.5 rounded ${
+                      className={`text-xs px-2 py-0.5 rounded ${
                         !equippedAbilities[equippedSlotIdx]?.selectedMutatorId
                           ? 'bg-yellow-600 text-black font-bold'
                           : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
@@ -344,7 +344,7 @@ function AbilityPanel() {
                       <button
                         key={mut.id}
                         onClick={() => selectMutator(equippedSlotIdx, mut.id)}
-                        className={`text-[9px] px-2 py-0.5 rounded ${
+                        className={`text-xs px-2 py-0.5 rounded ${
                           equippedAbilities[equippedSlotIdx]?.selectedMutatorId === mut.id
                             ? 'bg-yellow-600 text-black font-bold'
                             : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
@@ -377,7 +377,7 @@ function AbilityPanel() {
           return (
             <div key={idx} className="flex-1 h-10 rounded border border-yellow-700 bg-yellow-950/30 flex items-center justify-center gap-1 px-1">
               <span className="text-sm">{def.icon}</span>
-              <span className="text-[9px] text-yellow-300 truncate">{def.name}</span>
+              <span className="text-xs text-yellow-300 truncate">{def.name}</span>
             </div>
           );
         })}
@@ -435,7 +435,7 @@ function DefensePanel() {
         />
       </div>
 
-      <div className="text-[10px] text-gray-500">
+      <div className="text-xs text-gray-500">
         Armor reduces {physReduction}% physical damage at Band {band}
       </div>
 
@@ -453,7 +453,7 @@ function DefensePanel() {
                   const active = sb.count >= t;
                   const thresholdStats = fullDef.thresholds[t];
                   return (
-                    <div key={t} className={`text-[10px] ml-2 ${active ? 'text-green-400' : 'text-gray-600'}`}>
+                    <div key={t} className={`text-xs ml-2 ${active ? 'text-green-400' : 'text-gray-600'}`}>
                       ({t}pc) {Object.entries(thresholdStats).map(([k, v]) => `+${v} ${STAT_LABELS[k as StatKey] ?? k}`).join(', ')}
                     </div>
                   );
@@ -513,7 +513,7 @@ function GearSlotCard({
         title={`${slotLabel(slot)} \u2014 empty`}
       >
         <span className="text-lg opacity-25">{slotIcon(slot)}</span>
-        <span className="text-[10px] text-gray-600">{slotLabel(slot)}</span>
+        <span className="text-xs text-gray-600">{slotLabel(slot)}</span>
       </div>
     );
   }
@@ -534,8 +534,8 @@ function GearSlotCard({
     >
       <span className="text-base leading-none flex-shrink-0">{slotIcon(slot)}</span>
       <div className="min-w-0 flex-1">
-        <div className={`text-[11px] font-semibold truncate ${RARITY_TEXT[item.rarity]}`}>{item.name}</div>
-        <div className="text-[9px] text-gray-500">iLvl {item.iLvl} {'\u2022'} {item.rarity}</div>
+        <div className={`text-sm font-semibold truncate ${RARITY_TEXT[item.rarity]}`}>{item.name}</div>
+        <div className="text-xs text-gray-500">iLvl {item.iLvl} {'\u2022'} {item.rarity}</div>
       </div>
     </div>
   );
@@ -549,7 +549,7 @@ function ItemTooltip({ item }: { item: Item }) {
         <span className="text-lg">{slotIcon(item.slot)}</span>
         <div>
           <div className="font-bold text-white text-sm">{item.name}</div>
-          <div className="text-[10px] text-gray-400">
+          <div className="text-xs text-gray-400">
             iLvl {item.iLvl} {'\u2022'} {item.rarity} {'\u2022'} {item.prefixes.length + item.suffixes.length} affixes
           </div>
         </div>

@@ -3,10 +3,11 @@
 // Pure functions: no React, no side effects, no DOM.
 // ============================================================
 
-import type { CraftingSkills, CraftingProfession, CraftingRecipeDef, CraftingMilestone, Item, Rarity } from '../types';
+import type { CraftingSkills, CraftingProfession, CraftingRecipeDef, CraftingMilestone, Item, Rarity, RareMaterialRarity, AffixTier } from '../types';
 import { CRAFTING_MILESTONES } from '../data/craftingProfessions';
-import { CRAFTING_XP_PER_TIER, CATALYST_RARITY_MAP } from '../data/balance';
-import { generateItem, generateGatheringItem } from './items';
+import { CRAFTING_XP_PER_TIER, CATALYST_RARITY_MAP, CATALYST_BEST_TIER } from '../data/balance';
+import { generateItem, generateGatheringItem, rollAffixValue, classifyRarity, buildItemName } from './items';
+import { AFFIX_DEFS } from '../data/affixes';
 import { getRareMaterialDef } from '../data/rareMaterials';
 import { getAffixCatalystDef } from '../data/affixCatalysts';
 
@@ -149,6 +150,34 @@ export function executeCraft(
     if (RARITY_RANK[item.rarity] < RARITY_RANK[minRarity]) {
       item.rarity = minRarity;
     }
+  }
+
+  // God-tier affix: rare catalyst forces 1 affix to break iLvl tier cap
+  let catalystRarity: RareMaterialRarity | null = null;
+  if (recipe.requiredCatalyst) {
+    const cd = getRareMaterialDef(recipe.requiredCatalyst.rareMaterialId);
+    if (cd) catalystRarity = cd.rarity;
+  } else if (catalystId) {
+    const cd = getRareMaterialDef(catalystId);
+    if (cd) catalystRarity = cd.rarity;
+  }
+
+  if (catalystRarity) {
+    const bestTier = CATALYST_BEST_TIER[catalystRarity];
+    const allAffixes = [...item.prefixes, ...item.suffixes];
+    if (allAffixes.length > 0) {
+      const target = allAffixes[Math.floor(Math.random() * allAffixes.length)];
+      if (bestTier < target.tier) {
+        const def = AFFIX_DEFS.find(d => d.id === target.defId);
+        if (def?.tiers[bestTier as AffixTier]) {
+          const td = def.tiers[bestTier as AffixTier];
+          target.tier = bestTier as AffixTier;
+          target.value = rollAffixValue(td.min, td.max);
+        }
+      }
+    }
+    item.rarity = classifyRarity(item);
+    item.name = buildItemName(item);
   }
 
   item.isCrafted = true;

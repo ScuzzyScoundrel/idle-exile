@@ -140,3 +140,12 @@ export const CATALYST_RARITY_MAP: Record<RareMaterialRarity, Rarity> = {
   epic: 'legendary',
   legendary: 'legendary', // legendary catalyst = legendary + bonus affix roll
 };
+
+/** Rare catalyst → one affix forced to this tier (breaks iLvl gating). */
+export const CATALYST_BEST_TIER: Record<RareMaterialRarity, AffixTier> = {
+  common: 6,
+  uncommon: 5,
+  rare: 3,
+  epic: 2,
+  legendary: 1,
+};

@@ -648,48 +648,48 @@ const tailorRecipes: CraftingRecipeDef[] = [
 const alchemistRecipes: CraftingRecipeDef[] = [
   {
     id: 'al_whetstone', profession: 'alchemist', name: 'Whetstone', tier: 1, requiredLevel: 1,
-    materials: [{ materialId: 'cindite_ingot', amount: 3 }, { materialId: 'emberwood_plank', amount: 2 }],
-    goldCost: 10, outputBaseId: '', outputILvl: 0, outputMaterialId: 'whetstone',
+    materials: [{ materialId: 'cindite_ingot', amount: 8 }, { materialId: 'emberwood_plank', amount: 5 }],
+    goldCost: 100, outputBaseId: '', outputILvl: 0, outputMaterialId: 'whetstone',
   },
   {
     id: 'al_destruction_lens', profession: 'alchemist', name: 'Destruction Lens', tier: 1, requiredLevel: 1,
-    materials: [{ materialId: 'cindite_ingot', amount: 3 }, { materialId: 'wispbloom_extract', amount: 2 }],
-    goldCost: 10, outputBaseId: '', outputILvl: 0, outputMaterialId: 'destruction_lens',
+    materials: [{ materialId: 'cindite_ingot', amount: 8 }, { materialId: 'wispbloom_extract', amount: 5 }],
+    goldCost: 100, outputBaseId: '', outputILvl: 0, outputMaterialId: 'destruction_lens',
   },
   {
     id: 'al_speed_rune', profession: 'alchemist', name: 'Speed Rune', tier: 1, requiredLevel: 1,
-    materials: [{ materialId: 'emberwood_plank', amount: 3 }, { materialId: 'cured_leather', amount: 2 }],
-    goldCost: 10, outputBaseId: '', outputILvl: 0, outputMaterialId: 'speed_rune',
+    materials: [{ materialId: 'emberwood_plank', amount: 8 }, { materialId: 'cured_leather', amount: 5 }],
+    goldCost: 100, outputBaseId: '', outputILvl: 0, outputMaterialId: 'speed_rune',
   },
   {
     id: 'al_precision_lens', profession: 'alchemist', name: 'Precision Lens', tier: 1, requiredLevel: 1,
-    materials: [{ materialId: 'cured_leather', amount: 3 }, { materialId: 'wispbloom_extract', amount: 2 }],
-    goldCost: 10, outputBaseId: '', outputILvl: 0, outputMaterialId: 'precision_lens',
+    materials: [{ materialId: 'cured_leather', amount: 8 }, { materialId: 'wispbloom_extract', amount: 5 }],
+    goldCost: 100, outputBaseId: '', outputILvl: 0, outputMaterialId: 'precision_lens',
   },
   {
     id: 'al_brutality_shard', profession: 'alchemist', name: 'Brutality Shard', tier: 1, requiredLevel: 1,
-    materials: [{ materialId: 'cindite_ingot', amount: 3 }, { materialId: 'thornweave_cloth', amount: 2 }],
-    goldCost: 10, outputBaseId: '', outputILvl: 0, outputMaterialId: 'brutality_shard',
+    materials: [{ materialId: 'cindite_ingot', amount: 8 }, { materialId: 'thornweave_cloth', amount: 5 }],
+    goldCost: 100, outputBaseId: '', outputILvl: 0, outputMaterialId: 'brutality_shard',
   },
   {
     id: 'al_vitality_essence', profession: 'alchemist', name: 'Vitality Essence', tier: 1, requiredLevel: 1,
-    materials: [{ materialId: 'wispbloom_extract', amount: 3 }, { materialId: 'fish_oil', amount: 2 }],
-    goldCost: 10, outputBaseId: '', outputILvl: 0, outputMaterialId: 'vitality_essence',
+    materials: [{ materialId: 'wispbloom_extract', amount: 8 }, { materialId: 'fish_oil', amount: 5 }],
+    goldCost: 100, outputBaseId: '', outputILvl: 0, outputMaterialId: 'vitality_essence',
   },
   {
     id: 'al_fortification_kit', profession: 'alchemist', name: 'Fortification Kit', tier: 1, requiredLevel: 1,
-    materials: [{ materialId: 'cindite_ingot', amount: 3 }, { materialId: 'cured_leather', amount: 2 }],
-    goldCost: 10, outputBaseId: '', outputILvl: 0, outputMaterialId: 'fortification_kit',
+    materials: [{ materialId: 'cindite_ingot', amount: 8 }, { materialId: 'cured_leather', amount: 5 }],
+    goldCost: 100, outputBaseId: '', outputILvl: 0, outputMaterialId: 'fortification_kit',
   },
   {
     id: 'al_evasion_charm', profession: 'alchemist', name: 'Evasion Charm', tier: 1, requiredLevel: 1,
-    materials: [{ materialId: 'cured_leather', amount: 3 }, { materialId: 'emberwood_plank', amount: 2 }],
-    goldCost: 10, outputBaseId: '', outputILvl: 0, outputMaterialId: 'evasion_charm',
+    materials: [{ materialId: 'cured_leather', amount: 8 }, { materialId: 'emberwood_plank', amount: 5 }],
+    goldCost: 100, outputBaseId: '', outputILvl: 0, outputMaterialId: 'evasion_charm',
   },
   {
     id: 'al_haste_crystal', profession: 'alchemist', name: 'Haste Crystal', tier: 1, requiredLevel: 1,
-    materials: [{ materialId: 'thornweave_cloth', amount: 3 }, { materialId: 'wispbloom_extract', amount: 2 }],
-    goldCost: 10, outputBaseId: '', outputILvl: 0, outputMaterialId: 'haste_crystal',
+    materials: [{ materialId: 'thornweave_cloth', amount: 8 }, { materialId: 'wispbloom_extract', amount: 5 }],
+    goldCost: 100, outputBaseId: '', outputILvl: 0, outputMaterialId: 'haste_crystal',
   },
 ];
 

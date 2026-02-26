@@ -509,7 +509,7 @@ export default function InventoryScreen() {
           {selectedCurrencyDef && (
             <div className="text-xs text-purple-300 px-3 pb-2 space-y-1">
               <div className="bg-purple-950/50 rounded p-2">{selectedCurrencyDef.description}</div>
-              <div className="text-gray-500 text-[10px]">Click an item to apply. Click the orb again to cancel.</div>
+              <div className="text-gray-500 text-xs">Click an item to apply. Click the orb again to cancel.</div>
             </div>
           )}
         </div>
@@ -547,11 +547,11 @@ export default function InventoryScreen() {
           </h2>
           <div className="flex items-center gap-2">
             {/* Auto-salvage dropdown */}
-            <label className="text-[10px] text-gray-500">Auto-salvage:</label>
+            <label className="text-xs text-gray-500">Auto-salvage:</label>
             <select
               value={autoSalvageMinRarity}
               onChange={(e) => setAutoSalvageRarity(e.target.value as Rarity)}
-              className="text-[10px] bg-gray-800 text-gray-300 border border-gray-600 rounded px-1 py-0.5"
+              className="text-xs bg-gray-800 text-gray-300 border border-gray-600 rounded px-1 py-0.5"
             >
               {AUTO_SALVAGE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -560,7 +560,7 @@ export default function InventoryScreen() {
             {filteredInventory.length > 0 && (
               <button
                 onClick={handleDisenchantAll}
-                className="px-2 py-0.5 rounded text-[10px] bg-red-900 hover:bg-red-800 text-red-300 font-semibold"
+                className="px-2 py-0.5 rounded text-xs bg-red-900 hover:bg-red-800 text-red-300 font-semibold"
               >
                 Disenchant All ({filteredInventory.length})
               </button>
@@ -568,7 +568,7 @@ export default function InventoryScreen() {
           </div>
         </div>
         {inventory.length >= inventoryCapacity && (
-          <div className="text-[10px] text-amber-400 bg-amber-950/50 rounded px-2 py-1 mb-1">
+          <div className="text-xs text-amber-400 bg-amber-950/50 rounded px-2 py-1 mb-1">
             Bags full — gear drops from zones will be auto-salvaged into materials.
           </div>
         )}
@@ -627,13 +627,13 @@ export default function InventoryScreen() {
             )}
             {item.isCrafted && (
               <div
-                className="absolute -top-1 -left-1 w-4 h-4 bg-amber-600 rounded-full flex items-center justify-center text-white text-[8px] font-bold shadow-lg z-10 ring-1 ring-amber-400/60"
+                className="absolute -top-1 -left-1 w-4 h-4 bg-amber-600 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg z-10 ring-1 ring-amber-400/60"
                 title="Crafted item"
               >{'\uD83D\uDD28'}</div>
             )}
             <div className={`text-lg ${item.isCrafted ? 'ring-1 ring-amber-400/60 rounded' : ''}`}>{slotIcon(item.slot)}</div>
-            <div className="text-[10px] font-semibold truncate text-gray-200">{item.name}</div>
-            <div className="text-[9px] text-gray-500">
+            <div className="text-xs font-semibold truncate text-gray-200">{item.name}</div>
+            <div className="text-xs text-gray-500">
               iLvl {item.iLvl} • {item.prefixes.length + item.suffixes.length}mod
             </div>
           </div>
@@ -705,12 +705,12 @@ export default function InventoryScreen() {
           }}
         >
           <div className="font-bold text-white text-sm">{tooltip.item.name}</div>
-          <div className="text-[10px] text-gray-400 mb-1.5">
+          <div className="text-xs text-gray-400 mb-1.5">
             iLvl {tooltip.item.iLvl} • {tooltip.item.rarity} • {slotLabel(tooltip.slot)} • <span className="text-gray-500">T{getBestTierForILvl(tooltip.item.iLvl)}+</span>
           </div>
 
           {Object.entries(tooltip.item.baseStats).length > 0 && (
-            <div className="text-[11px] text-gray-500 mb-1">
+            <div className="text-sm text-gray-500 mb-1">
               {Object.entries(tooltip.item.baseStats).map(([k, v]) => (
                 <span key={k} className="mr-2">{v} base {k}</span>
               ))}
@@ -724,13 +724,13 @@ export default function InventoryScreen() {
                 return (
                   <>
                     {tooltip.item.prefixes.map((a, i) => (
-                      <div key={`p-${i}`} className={`text-[11px] ${TIER_COLORS[a.tier]}`}>
+                      <div key={`p-${i}`} className={`text-sm ${TIER_COLORS[a.tier]}`}>
                         {formatAffix(a)} <span className="text-gray-600">(T{a.tier} prefix)</span>
                         {a.tier === best && <span className="text-yellow-500 ml-1">★</span>}
                       </div>
                     ))}
                     {tooltip.item.suffixes.map((a, i) => (
-                      <div key={`s-${i}`} className={`text-[11px] ${TIER_COLORS[a.tier]}`}>
+                      <div key={`s-${i}`} className={`text-sm ${TIER_COLORS[a.tier]}`}>
                         {formatAffix(a)} <span className="text-gray-600">(T{a.tier} suffix)</span>
                         {a.tier === best && <span className="text-yellow-500 ml-1">★</span>}
                       </div>
@@ -740,7 +740,7 @@ export default function InventoryScreen() {
               })()}
             </div>
           ) : (
-            <div className="text-[11px] text-gray-600 italic">No affixes</div>
+            <div className="text-sm text-gray-600 italic">No affixes</div>
           )}
 
           {/* Inline stat comparison for inventory items */}
@@ -758,9 +758,9 @@ export default function InventoryScreen() {
             if (deltas.length === 0) return null;
             return (
               <div className="border-t border-gray-700 pt-1 mt-1 space-y-0.5">
-                <div className="text-[10px] text-gray-500">vs {equipped.name}</div>
+                <div className="text-xs text-gray-500">vs {equipped.name}</div>
                 {deltas.map(d => (
-                  <div key={d.key} className="flex justify-between text-[11px]">
+                  <div key={d.key} className="flex justify-between text-sm">
                     <span className="text-gray-500">{STAT_LABELS[d.key] ?? d.key}</span>
                     <span className={d.delta > 0 ? 'text-green-400' : 'text-red-400'}>
                       {d.delta > 0 ? '+' : ''}{d.delta}
@@ -840,7 +840,7 @@ function BagUpgradeSection({
           Total: <span className="text-white font-semibold">{totalCapacity}</span> slots
         </span>
       </div>
-      <div className="text-[10px] text-gray-500">
+      <div className="text-xs text-gray-500">
         Vendor sells T1-T2 bags. Better bags drop from zones or crafting.
       </div>
 
@@ -859,9 +859,9 @@ function BagUpgradeSection({
               `}
             >
               <div className="text-lg">{'\u{1F392}'}</div>
-              <div className={`text-[9px] font-semibold truncate ${BAG_TIER_TEXT[def.tier]}`}>{def.name}</div>
-              <div className="text-[9px] text-gray-500">{def.capacity} slots</div>
-              {isWeakest && <div className="text-[8px] text-yellow-400 mt-0.5">weakest</div>}
+              <div className={`text-xs font-semibold truncate ${BAG_TIER_TEXT[def.tier]}`}>{def.name}</div>
+              <div className="text-xs text-gray-500">{def.capacity} slots</div>
+              {isWeakest && <div className="text-xs text-yellow-400 mt-0.5">weakest</div>}
             </div>
           );
         })}
@@ -886,8 +886,8 @@ function BagUpgradeSection({
               <div key={id} className="flex items-center justify-between bg-gray-900 rounded px-2 py-1.5">
                 <div className="min-w-0">
                   <span className={`text-xs font-semibold ${BAG_TIER_TEXT[def.tier]}`}>{def.name}</span>
-                  <span className="text-[10px] text-gray-500 ml-1">x{count}</span>
-                  <div className="text-[10px] text-gray-400">{def.capacity} slots • T{def.tier}</div>
+                  <span className="text-xs text-gray-500 ml-1">x{count}</span>
+                  <div className="text-xs text-gray-400">{def.capacity} slots • T{def.tier}</div>
                 </div>
                 <div className="flex gap-1 flex-shrink-0">
                   <button
@@ -930,7 +930,7 @@ function BagUpgradeSection({
             <div key={bag.id} className="flex items-center justify-between bg-gray-900 rounded px-2 py-1.5">
               <div>
                 <span className={`text-xs font-semibold ${BAG_TIER_TEXT[bag.tier]}`}>{bag.name}</span>
-                <div className="text-[10px] text-gray-400">{bag.capacity} slots • T{bag.tier}</div>
+                <div className="text-xs text-gray-400">{bag.capacity} slots • T{bag.tier}</div>
               </div>
               <button
                 onClick={() => buyBag(bag.id)}
@@ -1001,7 +1001,7 @@ function RarityGuide() {
   return (
     <div className="bg-gray-900 rounded-lg border border-gray-700 p-3 space-y-3">
       <div className="text-xs font-bold text-gray-300">Rarity Guide</div>
-      <table className="w-full text-[11px]">
+      <table className="w-full text-sm">
         <thead>
           <tr className="text-gray-500 border-b border-gray-700">
             <th className="text-left py-1 pr-2">Rarity</th>
@@ -1019,7 +1019,7 @@ function RarityGuide() {
 
       <div className="border-t border-gray-700 pt-2">
         <div className="text-xs font-bold text-gray-300 mb-1">Item Level & Tier Gating</div>
-        <table className="w-full text-[11px]">
+        <table className="w-full text-sm">
           <thead>
             <tr className="text-gray-500 border-b border-gray-700">
               <th className="text-left py-1 pr-2">Zone Band</th>
@@ -1038,7 +1038,7 @@ function RarityGuide() {
         </table>
       </div>
 
-      <div className="text-[10px] text-gray-500 space-y-0.5">
+      <div className="text-xs text-gray-500 space-y-0.5">
         <div>Items roll 2-6 affixes randomly. Rarity is based on affix quality, not count.</div>
         <div>A 2-affix item with a T1 roll is still Legendary — great crafting base!</div>
         <div><span className="text-yellow-500">★</span> marks affixes at the best possible tier for the item's level.</div>
@@ -1066,7 +1066,7 @@ function EquipSlotCard({
     return (
       <div className="rounded-lg border-2 border-dashed border-gray-700 bg-gray-900/40 flex flex-col items-center justify-center py-1.5">
         <span className="text-xl opacity-20">{slotIcon(slot)}</span>
-        <span className="text-[8px] text-gray-600 mt-0.5">{slotLabel(slot)}</span>
+        <span className="text-xs text-gray-600 mt-0.5">{slotLabel(slot)}</span>
       </div>
     );
   }
@@ -1085,8 +1085,8 @@ function EquipSlotCard({
       onMouseLeave={onLeave}
     >
       <span className="text-xl leading-none">{slotIcon(slot)}</span>
-      <div className="text-[9px] font-semibold text-gray-200 truncate w-full mt-0.5 px-0.5">{item.name}</div>
-      <div className="text-[8px] text-gray-400">iLvl {item.iLvl}</div>
+      <div className="text-xs font-semibold text-gray-200 truncate w-full mt-0.5 px-0.5">{item.name}</div>
+      <div className="text-xs text-gray-400">iLvl {item.iLvl}</div>
     </div>
   );
 }
