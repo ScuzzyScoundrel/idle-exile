@@ -191,6 +191,9 @@ interface GameActions {
   handleBossDefeat: () => void;
   checkRecoveryComplete: () => boolean;
 
+  // Tutorial
+  advanceTutorial: (step: number) => void;
+
   // Settings
   setAutoSalvageRarity: (rarity: Rarity) => void;
   setCraftAutoSalvageRarity: (rarity: Rarity) => void;
@@ -240,6 +243,7 @@ function createInitialState(): GameState {
     bossState: null,
     zoneClearCounts: {},
     combatPhaseStartedAt: null,
+    tutorialStep: 1,
     lastSaveTime: Date.now(),
   };
 }
@@ -1019,6 +1023,16 @@ export const useGameStore = create<GameState & GameActions>()(
         return false;
       },
 
+      advanceTutorial: (step: number) => {
+        set((state) => {
+          // Only advance forward, or set to 0 (done)
+          if (step === 0 || step > state.tutorialStep) {
+            return { tutorialStep: step };
+          }
+          return state;
+        });
+      },
+
       setAutoSalvageRarity: (rarity: Rarity) => {
         set({ autoSalvageMinRarity: rarity });
       },
@@ -1033,7 +1047,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 16,
+      version: 17,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -1283,6 +1297,61 @@ export const useGameStore = create<GameState & GameActions>()(
         if (version < 16) {
           // v16: Stat system + affix overhaul — clean wipe required
           return createInitialState();
+        }
+
+        if (version < 17) {
+          // v17: Tutorial system + starter weapon for existing saves
+          const hasMainhand = !!(state.character?.equipment?.mainhand);
+          const hasMainhandInBag = (state.inventory ?? []).some(
+            (i: Item) => i.slot === 'mainhand'
+          );
+
+          // Inject starter weapon if player has no mainhand at all
+          if (!hasMainhand && !hasMainhandInBag) {
+            const starterWeapon: Item = {
+              id: generateId(),
+              baseId: 'rusty_shortsword',
+              name: 'Rusty Shortsword',
+              slot: 'mainhand',
+              rarity: 'common',
+              iLvl: 1,
+              prefixes: [],
+              suffixes: [],
+              weaponType: 'sword',
+              baseStats: { flatPhysDamage: 5 },
+              baseDamageMin: 4,
+              baseDamageMax: 8,
+            };
+            state.inventory = [...(state.inventory ?? []), starterWeapon];
+          }
+
+          // Set tutorial step based on progress
+          if (!hasMainhand) {
+            raw.tutorialStep = 1; // Equip weapon
+          } else if (!state.idleStartTime && !state.currentZoneId) {
+            // Never started a run (or not currently running)
+            // Check if they've ever gathered
+            const skills = state.gatheringSkills;
+            const neverGathered = skills && Object.values(skills).every(
+              (s: { level: number; xp: number }) => s.level === 1 && s.xp === 0
+            );
+            if (neverGathered) {
+              raw.tutorialStep = 2; // Guide to zones
+            } else {
+              raw.tutorialStep = 0; // Done
+            }
+          } else {
+            // Has a run going — check gathering
+            const skills = state.gatheringSkills;
+            const neverGathered = skills && Object.values(skills).every(
+              (s: { level: number; xp: number }) => s.level === 1 && s.xp === 0
+            );
+            if (neverGathered) {
+              raw.tutorialStep = 4; // Try gathering
+            } else {
+              raw.tutorialStep = 0; // Done
+            }
+          }
         }
 
         if (version < 14) {

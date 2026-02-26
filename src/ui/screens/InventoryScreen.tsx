@@ -66,6 +66,7 @@ export default function InventoryScreen() {
     equipItem, unequipSlot, disenchantItem, sellItem, craft,
     equipBag, sellBag, salvageBag, buyBag,
     autoSalvageMinRarity, setAutoSalvageRarity,
+    tutorialStep,
   } = useGameStore();
   const inventoryCapacity = calcBagCapacity(bagSlots);
   const [materialsOpen, setMaterialsOpen] = useState(true);
@@ -609,6 +610,7 @@ export default function InventoryScreen() {
               ${RARITY_BG[item.rarity]}
               ${selectedItem?.id === item.id ? 'ring-2 ring-white scale-105' : ''}
               ${selectedCurrency ? 'hover:ring-2 hover:ring-purple-400' : 'hover:brightness-125'}
+              ${tutorialStep === 1 && item.slot === 'mainhand' ? 'ring-2 ring-yellow-400 animate-pulse' : ''}
             `}
             onClick={() => handleItemTileClick(item)}
             onContextMenu={(e) => {

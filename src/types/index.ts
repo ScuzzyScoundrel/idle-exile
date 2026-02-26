@@ -483,6 +483,9 @@ export interface GameState {
   zoneClearCounts: Record<string, number>;  // persisted: clears per zone toward boss
   combatPhaseStartedAt: number | null;
 
+  // Tutorial
+  tutorialStep: number;
+
   // Meta
   lastSaveTime: number;
 }

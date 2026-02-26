@@ -60,6 +60,7 @@ for (const r of REFINEMENT_RECIPES) {
 }
 
 export default function CraftingScreen() {
+  const tutorialStep = useGameStore((s) => s.tutorialStep);
   const [subTab, setSubTab] = useState<SubTab>('materials');
 
   return (
@@ -82,7 +83,7 @@ export default function CraftingScreen() {
                   : tab.key === 'refine' ? 'bg-amber-600 text-white'
                   : 'bg-gray-600 text-white'
                 : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
-            }`}
+            } ${tutorialStep === 6 ? 'ring-2 ring-yellow-400 animate-pulse' : ''}`}
           >
             {tab.icon} {tab.label}
           </button>

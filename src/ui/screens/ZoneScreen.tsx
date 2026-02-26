@@ -408,6 +408,7 @@ export default function ZoneScreen() {
     setIdleMode, setGatheringProfession,
     currentHp, combatPhase, bossState, zoneClearCounts,
     startBossFight, tickBoss, handleBossVictory, handleBossDefeat, checkRecoveryComplete,
+    tutorialStep,
   } = useGameStore();
 
   const inventoryCapacity = calcBagCapacity(bagSlots);
@@ -592,7 +593,7 @@ export default function ZoneScreen() {
             idleMode === 'gathering'
               ? 'bg-green-600 text-white'
               : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
-          }`}
+          } ${tutorialStep === 4 ? 'ring-2 ring-yellow-400 animate-pulse' : ''}`}
         >
           {'\u26CF\uFE0F'} Gathering
         </button>
@@ -749,7 +750,7 @@ export default function ZoneScreen() {
               : idleMode === 'gathering'
                 ? 'bg-green-600 hover:bg-green-500 text-white'
                 : 'bg-green-600 hover:bg-green-500 text-white'
-          }`}
+          } ${tutorialStep === 3 ? 'ring-2 ring-yellow-400 animate-pulse' : ''}`}
         >
           {idleMode === 'gathering' ? 'Start Gathering' : 'Start Idle Run'}
         </button>
