@@ -33,8 +33,8 @@ export const ABILITY_DEFS: AbilityDef[] = [
     weaponType: 'sword', kind: 'passive', icon: '\uD83D\uDDE1\uFE0F',
     effect: { critChanceBonus: 15 },
     mutators: [
-      { id: 'sword_ke_dmg', name: 'Lethal Edge', description: 'Swap to +20% crit damage', effectOverride: { critChanceBonus: 0, critDamageBonus: 20 } },
-      { id: 'sword_ke_bal', name: 'Balanced Edge', description: '+8% crit chance + 8% crit damage', effectOverride: { critChanceBonus: 8, critDamageBonus: 8 } },
+      { id: 'sword_ke_dmg', name: 'Lethal Edge', description: 'Swap to +20% crit damage', effectOverride: { critChanceBonus: 0, critMultiplierBonus: 20 } },
+      { id: 'sword_ke_bal', name: 'Balanced Edge', description: '+8% crit chance + 8% crit damage', effectOverride: { critChanceBonus: 8, critMultiplierBonus: 8 } },
     ],
   },
 
@@ -64,7 +64,7 @@ export const ABILITY_DEFS: AbilityDef[] = [
     weaponType: 'axe', kind: 'passive', icon: '\uD83D\uDCA2',
     effect: { damageMult: 1.2 },
     mutators: [
-      { id: 'axe_hb_crit', name: 'Devastating Blows', description: 'Swap to +15% crit damage', effectOverride: { damageMult: 1.0, critDamageBonus: 15 } },
+      { id: 'axe_hb_crit', name: 'Devastating Blows', description: 'Swap to +15% crit damage', effectOverride: { damageMult: 1.0, critMultiplierBonus: 15 } },
       { id: 'axe_hb_mats', name: 'Scavenging Blows', description: '+10% material drops', effectOverride: { damageMult: 1.1, materialDropMult: 1.1 } },
     ],
   },
@@ -115,7 +115,7 @@ export const ABILITY_DEFS: AbilityDef[] = [
     id: 'dagger_shadow_strike', name: 'Shadow Strike', description: '+50% crit + 100% crit damage for 8s.',
     weaponType: 'dagger', kind: 'active', icon: '\uD83C\uDF11',
     duration: 8, cooldown: 60,
-    effect: { critChanceBonus: 50, critDamageBonus: 100 },
+    effect: { critChanceBonus: 50, critMultiplierBonus: 100 },
     mutators: [
       { id: 'dagger_ss_dur', name: 'Lingering Shadow', description: '+5s duration', effectOverride: {}, durationBonus: 5 },
       { id: 'dagger_ss_dmg', name: 'Assassinate', description: '+50% damage during', effectOverride: { damageMult: 1.5 } },
@@ -124,10 +124,10 @@ export const ABILITY_DEFS: AbilityDef[] = [
   {
     id: 'dagger_lethality', name: 'Lethality', description: '+25% crit damage (passive).',
     weaponType: 'dagger', kind: 'passive', icon: '\uD83D\uDDE1\uFE0F',
-    effect: { critDamageBonus: 25 },
+    effect: { critMultiplierBonus: 25 },
     mutators: [
-      { id: 'dagger_le_chance', name: 'Precision', description: 'Swap to +10% crit chance', effectOverride: { critDamageBonus: 0, critChanceBonus: 10 } },
-      { id: 'dagger_le_speed', name: 'Quick Hands', description: '+15% crit dmg + 10% attack speed', effectOverride: { critDamageBonus: 15, attackSpeedMult: 1.1 } },
+      { id: 'dagger_le_chance', name: 'Precision', description: 'Swap to +10% crit chance', effectOverride: { critMultiplierBonus: 0, critChanceBonus: 10 } },
+      { id: 'dagger_le_speed', name: 'Quick Hands', description: '+15% crit dmg + 10% attack speed', effectOverride: { critMultiplierBonus: 15, attackSpeedMult: 1.1 } },
     ],
   },
 

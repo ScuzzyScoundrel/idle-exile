@@ -44,14 +44,12 @@ const HAZARD_COLORS: Record<string, string> = {
   fire: 'text-red-400',
   cold: 'text-blue-400',
   lightning: 'text-yellow-400',
-  poison: 'text-green-400',
   chaos: 'text-purple-400',
 };
 const HAZARD_ICONS: Record<string, string> = {
   fire: '\u{1F525}',
   cold: '\u2744\uFE0F',
   lightning: '\u26A1',
-  poison: '\u{1F40D}',
   chaos: '\u{1F480}',
 };
 
@@ -59,7 +57,6 @@ const HAZARD_STAT_MAP: Record<string, string> = {
   fire: 'fireResist',
   cold: 'coldResist',
   lightning: 'lightningResist',
-  poison: 'poisonResist',
   chaos: 'chaosResist',
 };
 
@@ -440,7 +437,7 @@ export default function ZoneScreen() {
   const runningZone = isRunning ? ZONE_DEFS.find(z => z.id === currentZoneId) : null;
 
   // Compute maxHp for display
-  const maxHp = resolveStats(character).life;
+  const maxHp = resolveStats(character).maxLife;
 
   // Timer tick — combat-phase-aware
   useEffect(() => {

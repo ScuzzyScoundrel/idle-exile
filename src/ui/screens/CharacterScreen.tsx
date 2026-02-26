@@ -9,36 +9,107 @@ import { SET_BONUS_DEFS } from '../../data/setBonuses';
 import { ZONE_DEFS } from '../../data/zones';
 import { getAbilitiesForWeapon, getAbilityDef } from '../../data/abilities';
 
-const STAT_TOOLTIPS: Record<StatKey, string> = {
-  damage: 'Base damage. Contributes to clear power.',
-  attackSpeed: 'Increases attacks per second. Power = damage \u00d7 (1 + atkSpd/100).',
-  critChance: '% chance to crit. Power includes (1 + critChance/100 \u00d7 critDmg/100).',
-  critDamage: 'Multiplier on critical hits. Scales with Crit Chance.',
-  life: 'Health pool. Higher = more survivable.',
+const STAT_TOOLTIPS: Partial<Record<StatKey, string>> = {
+  // Attack
+  flatPhysDamage: 'Flat physical damage added to attacks.',
+  flatAtkFireDamage: 'Flat fire damage added to attacks.',
+  flatAtkColdDamage: 'Flat cold damage added to attacks.',
+  flatAtkLightningDamage: 'Flat lightning damage added to attacks.',
+  flatAtkChaosDamage: 'Flat chaos damage added to attacks.',
+  attackSpeed: 'Increases attacks per second.',
+  accuracy: 'Chance to hit. Higher = fewer misses.',
+  incPhysDamage: '% increased physical damage.',
+  incAttackDamage: '% increased attack damage.',
+  // Spell
+  spellPower: 'Base spell power for spell skills.',
+  castSpeed: 'Increases casts per second.',
+  incSpellDamage: '% increased spell damage.',
+  // Shared Offensive
+  incElementalDamage: '% increased elemental damage.',
+  critChance: '% chance to critically strike.',
+  critMultiplier: 'Multiplier on critical hits.',
+  abilityHaste: 'Reduces ability cooldowns.',
+  // Defensive
+  maxLife: 'Maximum health pool.',
+  incMaxLife: '% increased maximum life.',
+  lifeRegen: 'Life regenerated per second.',
   armor: 'Physical damage reduction.',
-  dodgeChance: '% chance to avoid attacks entirely.',
-  abilityHaste: 'Reduces ability cooldowns (future system).',
-  fireResist: 'Reduces fire hazard penalty. Need \u2265 zone threshold for mastery.',
-  coldResist: 'Reduces cold hazard penalty. Need \u2265 zone threshold for mastery.',
-  lightningResist: 'Reduces lightning hazard penalty. Need \u2265 zone threshold for mastery.',
-  poisonResist: 'Reduces poison hazard penalty. Need \u2265 zone threshold for mastery.',
-  chaosResist: 'Reduces chaos hazard penalty. Need \u2265 zone threshold for mastery.',
+  evasion: 'Chance to evade attacks.',
+  blockChance: 'Chance to block with shield.',
+  fireResist: 'Reduces fire hazard penalty.',
+  coldResist: 'Reduces cold hazard penalty.',
+  lightningResist: 'Reduces lightning hazard penalty.',
+  chaosResist: 'Reduces chaos hazard penalty.',
+  // Utility
+  movementSpeed: 'Increases movement speed.',
+  itemQuantity: '% increased item quantity from drops.',
+  itemRarity: '% increased item rarity from drops.',
 };
 
-const STAT_CONFIG: { key: StatKey; label: string; icon: string; format?: (v: number) => string }[] = [
-  { key: 'damage', label: 'Damage', icon: '\u2694\uFE0F' },
-  { key: 'attackSpeed', label: 'Attack Speed', icon: '\u26A1', format: (v) => v.toFixed(1) },
-  { key: 'critChance', label: 'Crit Chance', icon: '\uD83C\uDFAF', format: (v) => `${v.toFixed(1)}%` },
-  { key: 'critDamage', label: 'Crit Damage', icon: '\uD83D\uDCA5', format: (v) => `${v.toFixed(0)}%` },
-  { key: 'life', label: 'Life', icon: '\u2764\uFE0F' },
-  { key: 'armor', label: 'Armor', icon: '\uD83D\uDEE1\uFE0F' },
-  { key: 'dodgeChance', label: 'Dodge', icon: '\uD83D\uDCA8', format: (v) => `${v.toFixed(1)}%` },
-  { key: 'abilityHaste', label: 'Ability Haste', icon: '\u23F1\uFE0F', format: (v) => `${v.toFixed(0)}%` },
-  { key: 'fireResist', label: 'Fire Resist', icon: '\uD83D\uDD25', format: (v) => `${v.toFixed(0)}%` },
-  { key: 'coldResist', label: 'Cold Resist', icon: '\u2744\uFE0F', format: (v) => `${v.toFixed(0)}%` },
-  { key: 'lightningResist', label: 'Lightning Resist', icon: '\u26A1', format: (v) => `${v.toFixed(0)}%` },
-  { key: 'poisonResist', label: 'Poison Resist', icon: '\uD83D\uDC0D', format: (v) => `${v.toFixed(0)}%` },
-  { key: 'chaosResist', label: 'Chaos Resist', icon: '\uD83D\uDC80', format: (v) => `${v.toFixed(0)}%` },
+interface StatSection {
+  label: string;
+  stats: { key: StatKey; label: string; icon: string; format?: (v: number) => string }[];
+}
+
+const STAT_SECTIONS: StatSection[] = [
+  {
+    label: 'Attack',
+    stats: [
+      { key: 'flatPhysDamage', label: 'Phys Damage', icon: '\u2694\uFE0F' },
+      { key: 'flatAtkFireDamage', label: 'Fire Atk', icon: '\uD83D\uDD25' },
+      { key: 'flatAtkColdDamage', label: 'Cold Atk', icon: '\u2744\uFE0F' },
+      { key: 'flatAtkLightningDamage', label: 'Lightning Atk', icon: '\u26A1' },
+      { key: 'flatAtkChaosDamage', label: 'Chaos Atk', icon: '\uD83D\uDC80' },
+      { key: 'attackSpeed', label: 'Attack Speed', icon: '\u26A1', format: (v) => v.toFixed(1) },
+      { key: 'accuracy', label: 'Accuracy', icon: '\uD83C\uDFAF' },
+      { key: 'incPhysDamage', label: '% Phys Damage', icon: '\u2694\uFE0F', format: (v) => `${v.toFixed(0)}%` },
+      { key: 'incAttackDamage', label: '% Attack Damage', icon: '\u2694\uFE0F', format: (v) => `${v.toFixed(0)}%` },
+    ],
+  },
+  {
+    label: 'Spell',
+    stats: [
+      { key: 'spellPower', label: 'Spell Power', icon: '\u2728' },
+      { key: 'castSpeed', label: 'Cast Speed', icon: '\u2728', format: (v) => v.toFixed(1) },
+      { key: 'incSpellDamage', label: '% Spell Damage', icon: '\u2728', format: (v) => `${v.toFixed(0)}%` },
+    ],
+  },
+  {
+    label: 'Critical',
+    stats: [
+      { key: 'critChance', label: 'Crit Chance', icon: '\uD83C\uDFAF', format: (v) => `${v.toFixed(1)}%` },
+      { key: 'critMultiplier', label: 'Crit Multiplier', icon: '\uD83D\uDCA5', format: (v) => `${v.toFixed(0)}%` },
+    ],
+  },
+  {
+    label: 'Defense',
+    stats: [
+      { key: 'maxLife', label: 'Max Life', icon: '\u2764\uFE0F' },
+      { key: 'incMaxLife', label: '% Max Life', icon: '\u2764\uFE0F', format: (v) => `${v.toFixed(0)}%` },
+      { key: 'lifeRegen', label: 'Life Regen', icon: '\u2764\uFE0F', format: (v) => v.toFixed(1) },
+      { key: 'armor', label: 'Armor', icon: '\uD83D\uDEE1\uFE0F' },
+      { key: 'evasion', label: 'Evasion', icon: '\uD83D\uDCA8' },
+      { key: 'blockChance', label: 'Block', icon: '\uD83D\uDEE1\uFE0F', format: (v) => `${v.toFixed(1)}%` },
+    ],
+  },
+  {
+    label: 'Resistances',
+    stats: [
+      { key: 'fireResist', label: 'Fire Resist', icon: '\uD83D\uDD25', format: (v) => `${v.toFixed(0)}%` },
+      { key: 'coldResist', label: 'Cold Resist', icon: '\u2744\uFE0F', format: (v) => `${v.toFixed(0)}%` },
+      { key: 'lightningResist', label: 'Lightning Resist', icon: '\u26A1', format: (v) => `${v.toFixed(0)}%` },
+      { key: 'chaosResist', label: 'Chaos Resist', icon: '\uD83D\uDC80', format: (v) => `${v.toFixed(0)}%` },
+    ],
+  },
+  {
+    label: 'Utility',
+    stats: [
+      { key: 'abilityHaste', label: 'Ability Haste', icon: '\u23F1\uFE0F', format: (v) => `${v.toFixed(0)}%` },
+      { key: 'movementSpeed', label: 'Move Speed', icon: '\uD83D\uDC5F', format: (v) => `${v.toFixed(0)}%` },
+      { key: 'itemQuantity', label: 'Item Quantity', icon: '\uD83D\uDCE6', format: (v) => `${v.toFixed(0)}%` },
+      { key: 'itemRarity', label: 'Item Rarity', icon: '\u2B50', format: (v) => `${v.toFixed(0)}%` },
+    ],
+  },
 ];
 
 const RARITY_BORDER: Record<Rarity, string> = {
@@ -194,21 +265,30 @@ export default function CharacterScreen() {
       )}
 
       {/* Stats Grid */}
-      <div className="bg-gray-800 rounded-lg p-3">
-        <h3 className="text-sm font-bold text-gray-300 mb-2">Stats</h3>
-        <div className="grid grid-cols-2 gap-2">
-          {STAT_CONFIG.map(({ key, label, icon, format }) => (
-            <div key={key} className="flex items-center gap-2" title={STAT_TOOLTIPS[key]}>
-              <span className="text-sm">{icon}</span>
-              <div className="flex-1">
-                <div className="text-xs text-gray-400">{label}</div>
-                <div className="text-sm font-semibold text-white">
-                  {format ? format(character.stats[key]) : Math.floor(character.stats[key])}
-                </div>
+      <div className="bg-gray-800 rounded-lg p-3 space-y-3">
+        <h3 className="text-sm font-bold text-gray-300">Stats</h3>
+        {STAT_SECTIONS.map((section) => {
+          const visibleStats = section.stats.filter(({ key }) => character.stats[key] > 0);
+          if (visibleStats.length === 0) return null;
+          return (
+            <div key={section.label}>
+              <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">{section.label}</div>
+              <div className="grid grid-cols-2 gap-2">
+                {visibleStats.map(({ key, label, icon, format }) => (
+                  <div key={key} className="flex items-center gap-2" title={STAT_TOOLTIPS[key]}>
+                    <span className="text-sm">{icon}</span>
+                    <div className="flex-1">
+                      <div className="text-xs text-gray-400">{label}</div>
+                      <div className="text-sm font-semibold text-white">
+                        {format ? format(character.stats[key]) : Math.floor(character.stats[key])}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          ))}
-        </div>
+          );
+        })}
       </div>
 
       {/* Abilities Panel */}
@@ -237,11 +317,15 @@ export default function CharacterScreen() {
 const WEAPON_TYPE_LABELS: Record<WeaponType, string> = {
   sword: 'Sword', axe: 'Axe', mace: 'Mace', dagger: 'Dagger',
   staff: 'Staff', wand: 'Wand', bow: 'Bow', crossbow: 'Crossbow',
+  greatsword: 'Greatsword', greataxe: 'Greataxe', maul: 'Maul',
+  scepter: 'Scepter', gauntlet: 'Gauntlet', tome: 'Tome',
 };
 
 const WEAPON_TYPE_ICONS: Record<WeaponType, string> = {
   sword: '\u2694\uFE0F', axe: '\uD83E\uDE93', mace: '\uD83D\uDD28', dagger: '\uD83D\uDDE1\uFE0F',
   staff: '\uD83E\uDE84', wand: '\u2728', bow: '\uD83C\uDFF9', crossbow: '\uD83C\uDFAF',
+  greatsword: '\u2694\uFE0F', greataxe: '\uD83E\uDE93', maul: '\uD83D\uDD28',
+  scepter: '\uD83E\uDE84', gauntlet: '\uD83E\uDD4A', tome: '\uD83D\uDCD6',
 };
 
 function AbilityPanel() {
@@ -393,19 +477,42 @@ const ARMOR_TYPE_COLORS: Record<ArmorType, string> = {
 };
 
 const STAT_LABELS: Partial<Record<StatKey, string>> = {
-  damage: 'Damage',
-  armor: 'Armor',
-  life: 'Life',
+  flatPhysDamage: 'Phys Damage',
+  flatAtkFireDamage: 'Fire Atk',
+  flatAtkColdDamage: 'Cold Atk',
+  flatAtkLightningDamage: 'Lightning Atk',
+  flatAtkChaosDamage: 'Chaos Atk',
   attackSpeed: 'Atk Speed',
+  accuracy: 'Accuracy',
+  incPhysDamage: '% Phys Damage',
+  incAttackDamage: '% Attack Damage',
+  spellPower: 'Spell Power',
+  flatSpellFireDamage: 'Fire Spell',
+  flatSpellColdDamage: 'Cold Spell',
+  flatSpellLightningDamage: 'Lightning Spell',
+  flatSpellChaosDamage: 'Chaos Spell',
+  castSpeed: 'Cast Speed',
+  incSpellDamage: '% Spell Damage',
+  incElementalDamage: '% Elemental',
+  incFireDamage: '% Fire',
+  incColdDamage: '% Cold',
+  incLightningDamage: '% Lightning',
   critChance: 'Crit Chance',
-  critDamage: 'Crit Damage',
-  dodgeChance: 'Dodge',
+  critMultiplier: 'Crit Multi',
   abilityHaste: 'Ability Haste',
+  maxLife: 'Max Life',
+  incMaxLife: '% Max Life',
+  lifeRegen: 'Life Regen',
+  armor: 'Armor',
+  evasion: 'Evasion',
+  blockChance: 'Block',
   fireResist: 'Fire Resist',
   coldResist: 'Cold Resist',
   lightningResist: 'Lightning Resist',
-  poisonResist: 'Poison Resist',
   chaosResist: 'Chaos Resist',
+  movementSpeed: 'Move Speed',
+  itemQuantity: 'Item Quantity',
+  itemRarity: 'Item Rarity',
 };
 
 function DefensePanel() {

@@ -6,21 +6,42 @@
 
 export type AffixSlot = 'prefix' | 'suffix';
 export type AffixCategory =
-  | 'flat_damage'
-  | 'percent_damage'
+  | 'flat_phys_damage'
+  | 'flat_atk_fire_damage'
+  | 'flat_atk_cold_damage'
+  | 'flat_atk_lightning_damage'
+  | 'flat_atk_chaos_damage'
+  | 'spell_power'
+  | 'flat_spell_fire_damage'
+  | 'flat_spell_cold_damage'
+  | 'flat_spell_lightning_damage'
+  | 'flat_spell_chaos_damage'
+  | 'inc_phys_damage'
+  | 'inc_spell_damage'
+  | 'inc_attack_damage'
+  | 'inc_elemental_damage'
+  | 'inc_fire_damage'
+  | 'inc_cold_damage'
+  | 'inc_lightning_damage'
   | 'attack_speed'
+  | 'cast_speed'
+  | 'accuracy'
   | 'crit_chance'
-  | 'crit_damage'
-  | 'flat_life'
-  | 'percent_life'
-  | 'flat_armor'
-  | 'dodge_chance'
+  | 'crit_multiplier'
   | 'ability_haste'
+  | 'flat_max_life'
+  | 'inc_max_life'
+  | 'life_regen'
+  | 'flat_armor'
+  | 'flat_evasion'
+  | 'block_chance'
   | 'fire_resist'
   | 'cold_resist'
   | 'lightning_resist'
-  | 'poison_resist'
-  | 'chaos_resist';
+  | 'chaos_resist'
+  | 'movement_speed'
+  | 'item_quantity'
+  | 'item_rarity';
 
 export type AffixTier = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 
@@ -29,6 +50,8 @@ export interface AffixDef {
   name: string;
   category: AffixCategory;
   slot: AffixSlot;
+  stat: StatKey;
+  allowedSlots: string[]; // slot group tags for slot-restricted rolling
   tiers: Record<AffixTier, { min: number; max: number }>;
   weight: number; // drop weight for rolling
   displayTemplate: string; // e.g. "+{value} Life" or "+{value}% Damage"
@@ -50,7 +73,11 @@ export type GearSlot =
   | 'ring1' | 'ring2'
   | 'trinket1' | 'trinket2';
 export type ArmorType = 'plate' | 'leather' | 'cloth';
-export type WeaponType = 'sword' | 'axe' | 'mace' | 'dagger' | 'staff' | 'wand' | 'bow' | 'crossbow';
+export type WeaponType =
+  | 'sword' | 'axe' | 'mace' | 'dagger' | 'staff' | 'wand' | 'bow' | 'crossbow'
+  | 'greatsword' | 'greataxe' | 'maul' | 'scepter' | 'gauntlet' | 'tome';
+export type WeaponScalingType = 'attack' | 'spell' | 'hybrid';
+export type OffhandType = 'shield' | 'focus' | 'quiver';
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
 
 export interface ItemBaseDef {
@@ -59,7 +86,11 @@ export interface ItemBaseDef {
   slot: GearSlot;
   armorType?: ArmorType; // weapons don't have armor type
   weaponType?: WeaponType; // mainhand items only
+  offhandType?: OffhandType; // offhand items only
   baseStats: Partial<Record<StatKey, number>>; // e.g. base armor, base damage
+  baseDamageMin?: number; // attack weapon min hit
+  baseDamageMax?: number; // attack weapon max hit
+  baseSpellPower?: number; // spell weapon base SP
   iLvl: number;
 }
 
@@ -74,7 +105,11 @@ export interface Item {
   suffixes: Affix[];
   armorType?: ArmorType;
   weaponType?: WeaponType;
+  offhandType?: OffhandType;
   baseStats: Partial<Record<StatKey, number>>;
+  baseDamageMin?: number;
+  baseDamageMax?: number;
+  baseSpellPower?: number;
   isGatheringGear?: boolean;
   isCrafted?: boolean;
 }
@@ -82,19 +117,47 @@ export interface Item {
 // --- Character ---
 
 export type StatKey =
-  | 'damage'
+  // Attack
+  | 'flatPhysDamage'
+  | 'flatAtkFireDamage'
+  | 'flatAtkColdDamage'
+  | 'flatAtkLightningDamage'
+  | 'flatAtkChaosDamage'
   | 'attackSpeed'
+  | 'accuracy'
+  | 'incPhysDamage'
+  | 'incAttackDamage'
+  // Spell
+  | 'spellPower'
+  | 'flatSpellFireDamage'
+  | 'flatSpellColdDamage'
+  | 'flatSpellLightningDamage'
+  | 'flatSpellChaosDamage'
+  | 'castSpeed'
+  | 'incSpellDamage'
+  // Shared Offensive
+  | 'incElementalDamage'
+  | 'incFireDamage'
+  | 'incColdDamage'
+  | 'incLightningDamage'
   | 'critChance'
-  | 'critDamage'
-  | 'life'
-  | 'armor'
-  | 'dodgeChance'
+  | 'critMultiplier'
   | 'abilityHaste'
+  // Defensive
+  | 'maxLife'
+  | 'incMaxLife'
+  | 'lifeRegen'
+  | 'armor'
+  | 'evasion'
+  | 'blockChance'
   | 'fireResist'
   | 'coldResist'
   | 'lightningResist'
-  | 'poisonResist'
-  | 'chaosResist';
+  | 'chaosResist'
+  // Utility
+  | 'movementSpeed'
+  | 'itemQuantity'
+  | 'itemRarity';
 
 export type ResolvedStats = Record<StatKey, number>;
 
@@ -122,7 +185,7 @@ export interface Character {
 
 // --- Zones ---
 
-export type HazardType = 'fire' | 'cold' | 'lightning' | 'poison' | 'chaos';
+export type HazardType = 'fire' | 'cold' | 'lightning' | 'chaos';
 
 export interface ZoneHazard {
   type: HazardType;
@@ -258,7 +321,7 @@ export interface AbilityEffect {
   defenseMult?: number;
   clearSpeedMult?: number;
   critChanceBonus?: number;
-  critDamageBonus?: number;
+  critMultiplierBonus?: number;
   xpMult?: number;
   itemDropMult?: number;
   materialDropMult?: number;

@@ -1,185 +1,424 @@
-import type { AffixDef, AffixTier } from '../types';
+// ============================================================
+// Idle Exile — Affix Definitions (v16 overhaul)
+// 33 affix types with slot restrictions, 330 total variations.
+// ============================================================
+
+import type { AffixDef, AffixTier, GearSlot, WeaponType, OffhandType } from '../types';
+import { WEAPON_TYPE_META } from './weapons';
 
 /**
  * Helper to build 10-tier value ranges by interpolation.
- * Anchors: T10 (worst) → T1 (best).
- * T10=lowMin, T7~oldT3, T4~oldT2, T1~oldT1.
+ * Anchors: T10 (worst), T8, T6, T4, T2, T1 (best).
+ * Interpolate T9, T7, T5, T3 linearly between neighbors.
  */
 function buildTiers(
   t10Min: number, t10Max: number,
-  t7Min: number, t7Max: number,
+  t8Min: number, t8Max: number,
+  t6Min: number, t6Max: number,
   t4Min: number, t4Max: number,
+  t2Min: number, t2Max: number,
   t1Min: number, t1Max: number,
 ): Record<AffixTier, { min: number; max: number }> {
-  // Interpolate linearly between anchor points
   const lerp = (a: number, b: number, t: number) => Math.round(a + (b - a) * t);
-
   return {
     10: { min: t10Min, max: t10Max },
-    9:  { min: lerp(t10Min, t7Min, 0.33), max: lerp(t10Max, t7Max, 0.33) },
-    8:  { min: lerp(t10Min, t7Min, 0.67), max: lerp(t10Max, t7Max, 0.67) },
-    7:  { min: t7Min, max: t7Max },
-    6:  { min: lerp(t7Min, t4Min, 0.33), max: lerp(t7Max, t4Max, 0.33) },
-    5:  { min: lerp(t7Min, t4Min, 0.67), max: lerp(t7Max, t4Max, 0.67) },
+    9:  { min: lerp(t10Min, t8Min, 0.5), max: lerp(t10Max, t8Max, 0.5) },
+    8:  { min: t8Min, max: t8Max },
+    7:  { min: lerp(t8Min, t6Min, 0.5), max: lerp(t8Max, t6Max, 0.5) },
+    6:  { min: t6Min, max: t6Max },
+    5:  { min: lerp(t6Min, t4Min, 0.5), max: lerp(t6Max, t4Max, 0.5) },
     4:  { min: t4Min, max: t4Max },
-    3:  { min: lerp(t4Min, t1Min, 0.33), max: lerp(t4Max, t1Max, 0.33) },
-    2:  { min: lerp(t4Min, t1Min, 0.67), max: lerp(t4Max, t1Max, 0.67) },
+    3:  { min: lerp(t4Min, t2Min, 0.5), max: lerp(t4Max, t2Max, 0.5) },
+    2:  { min: t2Min, max: t2Max },
     1:  { min: t1Min, max: t1Max },
   };
 }
 
+// ============================================================
+// Slot restriction group tags:
+//   attack_weapons — mainhand where scaling = 'attack' or 'hybrid'
+//   spell_weapons  — mainhand where scaling = 'spell' or 'hybrid'
+//   all_weapons    — any mainhand
+//   main_armor     — helmet, chest, shoulders, cloak, pants, boots
+//   gloves | belt | bracers | rings | amulets | trinkets
+//   shields | focus | quiver
+//   all_armor      — all armor + accessories
+//   accessories    — rings, amulets, trinkets, belt, bracers, neck, cloak
+// ============================================================
+
 export const AFFIX_DEFS: AffixDef[] = [
-  // ==================== Prefixes ====================
+  // ================================================================
+  // PREFIXES — Flat Damage (Attack)
+  // ================================================================
   {
-    id: 'flat_damage',
-    name: 'Sharpened',
-    category: 'flat_damage',
-    slot: 'prefix',
-    // T10: 1-3, T7: 3-8, T4: 9-16, T1: 17-25
-    tiers: buildTiers(1, 3, 3, 8, 9, 16, 17, 25),
-    weight: 100,
-    displayTemplate: '+{value} Damage',
+    id: 'flat_phys_damage', name: 'of Brute Force', category: 'flat_phys_damage',
+    slot: 'prefix', stat: 'flatPhysDamage',
+    allowedSlots: ['attack_weapons', 'gloves', 'rings', 'amulets'],
+    tiers: buildTiers(1, 3, 2, 5, 4, 8, 7, 14, 12, 20, 17, 25),
+    weight: 100, displayTemplate: '+{value} Physical Damage',
   },
   {
-    id: 'percent_damage',
-    name: 'Devastating',
-    category: 'percent_damage',
-    slot: 'prefix',
-    // T10: 1-3, T7: 5-10, T4: 11-20, T1: 21-35
-    tiers: buildTiers(1, 3, 5, 10, 11, 20, 21, 35),
-    weight: 100,
-    displayTemplate: '+{value}% Damage',
+    id: 'flat_atk_fire', name: 'of Embers', category: 'flat_atk_fire_damage',
+    slot: 'prefix', stat: 'flatAtkFireDamage',
+    allowedSlots: ['attack_weapons', 'gloves', 'rings'],
+    tiers: buildTiers(1, 2, 2, 4, 3, 6, 5, 10, 8, 15, 12, 20),
+    weight: 80, displayTemplate: '+{value} Fire Attack Damage',
   },
   {
-    id: 'attack_speed',
-    name: 'Rapid',
-    category: 'attack_speed',
-    slot: 'prefix',
-    // T10: 1-2, T7: 3-6, T4: 7-12, T1: 13-20
-    tiers: buildTiers(1, 2, 3, 6, 7, 12, 13, 20),
-    weight: 100,
-    displayTemplate: '+{value}% Attack Speed',
+    id: 'flat_atk_cold', name: 'of Frost', category: 'flat_atk_cold_damage',
+    slot: 'prefix', stat: 'flatAtkColdDamage',
+    allowedSlots: ['attack_weapons', 'gloves', 'rings'],
+    tiers: buildTiers(1, 2, 2, 4, 3, 6, 5, 10, 8, 15, 12, 20),
+    weight: 80, displayTemplate: '+{value} Cold Attack Damage',
   },
   {
-    id: 'flat_life',
-    name: 'Stout',
-    category: 'flat_life',
-    slot: 'prefix',
-    // T10: 3-8, T7: 10-25, T4: 26-50, T1: 51-80
-    tiers: buildTiers(3, 8, 10, 25, 26, 50, 51, 80),
-    weight: 100,
-    displayTemplate: '+{value} Life',
+    id: 'flat_atk_lightning', name: 'of Sparks', category: 'flat_atk_lightning_damage',
+    slot: 'prefix', stat: 'flatAtkLightningDamage',
+    allowedSlots: ['attack_weapons', 'gloves', 'rings'],
+    tiers: buildTiers(1, 3, 2, 5, 3, 8, 6, 12, 9, 18, 14, 25),
+    weight: 80, displayTemplate: '+{value} Lightning Attack Damage',
   },
   {
-    id: 'percent_life',
-    name: 'Virile',
-    category: 'percent_life',
-    slot: 'prefix',
-    // T10: 1-2, T7: 3-6, T4: 7-12, T1: 13-20
-    tiers: buildTiers(1, 2, 3, 6, 7, 12, 13, 20),
-    weight: 100,
-    displayTemplate: '+{value}% Life',
-  },
-  {
-    id: 'flat_armor',
-    name: 'Armored',
-    category: 'flat_armor',
-    slot: 'prefix',
-    // T10: 2-6, T7: 8-20, T4: 21-40, T1: 41-65
-    tiers: buildTiers(2, 6, 8, 20, 21, 40, 41, 65),
-    weight: 100,
-    displayTemplate: '+{value} Armor',
-  },
-  {
-    id: 'ability_haste',
-    name: 'Hastened',
-    category: 'ability_haste',
-    slot: 'prefix',
-    // T10: 1-2, T7: 3-6, T4: 7-12, T1: 13-20
-    tiers: buildTiers(1, 2, 3, 6, 7, 12, 13, 20),
-    weight: 100,
-    displayTemplate: '+{value}% Ability Haste',
+    id: 'flat_atk_chaos', name: 'of Corruption', category: 'flat_atk_chaos_damage',
+    slot: 'prefix', stat: 'flatAtkChaosDamage',
+    allowedSlots: ['attack_weapons', 'rings', 'amulets'],
+    tiers: buildTiers(1, 2, 1, 3, 2, 5, 4, 8, 6, 12, 10, 16),
+    weight: 60, displayTemplate: '+{value} Chaos Attack Damage',
   },
 
-  // ==================== Suffixes ====================
+  // ================================================================
+  // PREFIXES — Flat Damage (Spell)
+  // ================================================================
   {
-    id: 'crit_chance',
-    name: 'of Precision',
-    category: 'crit_chance',
-    slot: 'suffix',
-    // T10: 1-2, T7: 3-6, T4: 7-12, T1: 13-20
-    tiers: buildTiers(1, 2, 3, 6, 7, 12, 13, 20),
-    weight: 100,
-    displayTemplate: '+{value}% Crit Chance',
+    id: 'spell_power', name: 'of Sorcery', category: 'spell_power',
+    slot: 'prefix', stat: 'spellPower',
+    allowedSlots: ['spell_weapons', 'focus', 'gloves', 'amulets'],
+    tiers: buildTiers(2, 5, 4, 8, 7, 14, 12, 22, 18, 32, 25, 40),
+    weight: 100, displayTemplate: '+{value} Spell Power',
   },
   {
-    id: 'crit_damage',
-    name: 'of Destruction',
-    category: 'crit_damage',
-    slot: 'suffix',
-    // T10: 2-5, T7: 8-15, T4: 16-30, T1: 31-50
-    tiers: buildTiers(2, 5, 8, 15, 16, 30, 31, 50),
-    weight: 100,
-    displayTemplate: '+{value}% Crit Damage',
+    id: 'flat_spell_fire', name: 'of Immolation', category: 'flat_spell_fire_damage',
+    slot: 'prefix', stat: 'flatSpellFireDamage',
+    allowedSlots: ['spell_weapons', 'focus', 'rings'],
+    tiers: buildTiers(1, 2, 2, 4, 3, 6, 5, 10, 8, 15, 12, 20),
+    weight: 80, displayTemplate: '+{value} Fire Spell Damage',
   },
   {
-    id: 'dodge_chance',
-    name: 'of Evasion',
-    category: 'dodge_chance',
-    slot: 'suffix',
-    // T10: 1-2, T7: 2-5, T4: 6-10, T1: 11-18
-    tiers: buildTiers(1, 2, 2, 5, 6, 10, 11, 18),
-    weight: 100,
-    displayTemplate: '+{value}% Dodge',
+    id: 'flat_spell_cold', name: 'of Glaciation', category: 'flat_spell_cold_damage',
+    slot: 'prefix', stat: 'flatSpellColdDamage',
+    allowedSlots: ['spell_weapons', 'focus', 'rings'],
+    tiers: buildTiers(1, 2, 2, 4, 3, 6, 5, 10, 8, 15, 12, 20),
+    weight: 80, displayTemplate: '+{value} Cold Spell Damage',
   },
   {
-    id: 'fire_resist',
-    name: 'of the Flame',
-    category: 'fire_resist',
-    slot: 'suffix',
-    // T10: 2-5, T7: 8-15, T4: 16-25, T1: 26-40
-    tiers: buildTiers(2, 5, 8, 15, 16, 25, 26, 40),
-    weight: 100,
-    displayTemplate: '+{value}% Fire Resist',
+    id: 'flat_spell_lightning', name: 'of Tempest', category: 'flat_spell_lightning_damage',
+    slot: 'prefix', stat: 'flatSpellLightningDamage',
+    allowedSlots: ['spell_weapons', 'focus', 'rings'],
+    tiers: buildTiers(1, 3, 2, 5, 3, 8, 6, 12, 9, 18, 14, 25),
+    weight: 80, displayTemplate: '+{value} Lightning Spell Damage',
   },
   {
-    id: 'cold_resist',
-    name: 'of the Glacier',
-    category: 'cold_resist',
-    slot: 'suffix',
-    // T10: 2-5, T7: 8-15, T4: 16-25, T1: 26-40
-    tiers: buildTiers(2, 5, 8, 15, 16, 25, 26, 40),
-    weight: 100,
-    displayTemplate: '+{value}% Cold Resist',
+    id: 'flat_spell_chaos', name: 'of the Void', category: 'flat_spell_chaos_damage',
+    slot: 'prefix', stat: 'flatSpellChaosDamage',
+    allowedSlots: ['spell_weapons', 'focus', 'amulets'],
+    tiers: buildTiers(1, 2, 1, 3, 2, 5, 4, 8, 6, 12, 10, 16),
+    weight: 60, displayTemplate: '+{value} Chaos Spell Damage',
+  },
+
+  // ================================================================
+  // PREFIXES — Percentage Damage
+  // ================================================================
+  {
+    id: 'inc_phys_damage', name: 'of Tyranny', category: 'inc_phys_damage',
+    slot: 'prefix', stat: 'incPhysDamage',
+    allowedSlots: ['attack_weapons'],
+    tiers: buildTiers(3, 5, 5, 8, 8, 14, 14, 22, 20, 30, 28, 40),
+    weight: 100, displayTemplate: '+{value}% Physical Damage',
   },
   {
-    id: 'lightning_resist',
-    name: 'of the Storm',
-    category: 'lightning_resist',
-    slot: 'suffix',
-    // T10: 2-5, T7: 8-15, T4: 16-25, T1: 26-40
-    tiers: buildTiers(2, 5, 8, 15, 16, 25, 26, 40),
-    weight: 100,
-    displayTemplate: '+{value}% Lightning Resist',
+    id: 'inc_spell_damage_weapon', name: 'of Wizardry', category: 'inc_spell_damage',
+    slot: 'prefix', stat: 'incSpellDamage',
+    allowedSlots: ['spell_weapons'],
+    tiers: buildTiers(3, 5, 5, 8, 8, 14, 14, 22, 20, 30, 28, 40),
+    weight: 100, displayTemplate: '+{value}% Spell Damage',
   },
   {
-    id: 'poison_resist',
-    name: 'of the Viper',
-    category: 'poison_resist',
-    slot: 'suffix',
-    // T10: 2-5, T7: 8-15, T4: 16-25, T1: 26-40
-    tiers: buildTiers(2, 5, 8, 15, 16, 25, 26, 40),
-    weight: 80,
-    displayTemplate: '+{value}% Poison Resist',
+    id: 'inc_spell_damage_armor', name: 'of Incantation', category: 'inc_spell_damage',
+    slot: 'prefix', stat: 'incSpellDamage',
+    allowedSlots: ['gloves', 'amulets', 'trinkets'],
+    tiers: buildTiers(2, 3, 3, 5, 5, 8, 8, 14, 12, 20, 18, 28),
+    weight: 80, displayTemplate: '+{value}% Spell Damage',
   },
   {
-    id: 'chaos_resist',
-    name: 'of the Void',
-    category: 'chaos_resist',
-    slot: 'suffix',
-    // T10: 2-4, T7: 6-12, T4: 13-22, T1: 23-35
-    tiers: buildTiers(2, 4, 6, 12, 13, 22, 23, 35),
-    weight: 60,
-    displayTemplate: '+{value}% Chaos Resist',
+    id: 'inc_attack_damage', name: 'of Aggression', category: 'inc_attack_damage',
+    slot: 'prefix', stat: 'incAttackDamage',
+    allowedSlots: ['attack_weapons', 'gloves', 'amulets'],
+    tiers: buildTiers(2, 3, 3, 5, 5, 8, 8, 14, 12, 20, 18, 28),
+    weight: 80, displayTemplate: '+{value}% Attack Damage',
+  },
+  {
+    id: 'inc_elemental_damage', name: 'of Destruction', category: 'inc_elemental_damage',
+    slot: 'prefix', stat: 'incElementalDamage',
+    allowedSlots: ['all_weapons', 'amulets'],
+    tiers: buildTiers(2, 3, 3, 5, 5, 8, 8, 12, 12, 18, 16, 25),
+    weight: 70, displayTemplate: '+{value}% Elemental Damage',
+  },
+  {
+    id: 'inc_fire_damage', name: 'of Conflagration', category: 'inc_fire_damage',
+    slot: 'prefix', stat: 'incFireDamage',
+    allowedSlots: ['all_weapons', 'rings', 'amulets'],
+    tiers: buildTiers(3, 5, 5, 8, 8, 14, 14, 22, 20, 30, 28, 40),
+    weight: 60, displayTemplate: '+{value}% Fire Damage',
+  },
+  {
+    id: 'inc_cold_damage', name: 'of Blizzards', category: 'inc_cold_damage',
+    slot: 'prefix', stat: 'incColdDamage',
+    allowedSlots: ['all_weapons', 'rings', 'amulets'],
+    tiers: buildTiers(3, 5, 5, 8, 8, 14, 14, 22, 20, 30, 28, 40),
+    weight: 60, displayTemplate: '+{value}% Cold Damage',
+  },
+  {
+    id: 'inc_lightning_damage', name: 'of Storms', category: 'inc_lightning_damage',
+    slot: 'prefix', stat: 'incLightningDamage',
+    allowedSlots: ['all_weapons', 'rings', 'amulets'],
+    tiers: buildTiers(3, 5, 5, 8, 8, 14, 14, 22, 20, 30, 28, 40),
+    weight: 60, displayTemplate: '+{value}% Lightning Damage',
+  },
+
+  // ================================================================
+  // PREFIXES — Speed & Accuracy
+  // ================================================================
+  {
+    id: 'attack_speed', name: 'of Ferocity', category: 'attack_speed',
+    slot: 'prefix', stat: 'attackSpeed',
+    allowedSlots: ['attack_weapons', 'gloves'],
+    tiers: buildTiers(1, 2, 2, 3, 3, 5, 5, 8, 8, 13, 13, 20),
+    weight: 100, displayTemplate: '+{value}% Attack Speed',
+  },
+  {
+    id: 'cast_speed', name: 'of Haste', category: 'cast_speed',
+    slot: 'prefix', stat: 'castSpeed',
+    allowedSlots: ['spell_weapons', 'gloves', 'focus'],
+    tiers: buildTiers(1, 2, 2, 3, 3, 5, 5, 8, 8, 13, 13, 20),
+    weight: 100, displayTemplate: '+{value}% Cast Speed',
+  },
+  {
+    id: 'accuracy', name: 'of Precision', category: 'accuracy',
+    slot: 'prefix', stat: 'accuracy',
+    allowedSlots: ['attack_weapons', 'gloves', 'rings', 'amulets'],
+    tiers: buildTiers(5, 10, 10, 20, 20, 35, 35, 55, 55, 80, 80, 120),
+    weight: 80, displayTemplate: '+{value} Accuracy',
+  },
+
+  // ================================================================
+  // PREFIXES — Defensive
+  // ================================================================
+  {
+    id: 'flat_max_life', name: 'of the Titan', category: 'flat_max_life',
+    slot: 'prefix', stat: 'maxLife',
+    allowedSlots: ['main_armor', 'shields', 'belt', 'bracers', 'amulets', 'rings'],
+    tiers: buildTiers(3, 8, 6, 14, 12, 25, 22, 40, 35, 60, 51, 80),
+    weight: 100, displayTemplate: '+{value} Max Life',
+  },
+  {
+    id: 'inc_max_life', name: 'of Vitality', category: 'inc_max_life',
+    slot: 'prefix', stat: 'incMaxLife',
+    allowedSlots: ['chest', 'belt', 'amulets'],
+    tiers: buildTiers(1, 2, 2, 3, 3, 5, 5, 8, 8, 14, 13, 20),
+    weight: 80, displayTemplate: '+{value}% Max Life',
+  },
+  {
+    id: 'life_regen', name: 'of Regeneration', category: 'life_regen',
+    slot: 'prefix', stat: 'lifeRegen',
+    allowedSlots: ['main_armor', 'belt', 'rings'],
+    tiers: buildTiers(1, 2, 2, 3, 3, 5, 5, 8, 8, 12, 12, 18),
+    weight: 70, displayTemplate: '+{value} Life Regen',
+  },
+  {
+    id: 'flat_armor', name: 'of the Fortress', category: 'flat_armor',
+    slot: 'prefix', stat: 'armor',
+    allowedSlots: ['main_armor', 'shields', 'belt', 'bracers'],
+    tiers: buildTiers(2, 6, 5, 12, 10, 22, 18, 35, 30, 52, 41, 65),
+    weight: 100, displayTemplate: '+{value} Armor',
+  },
+  {
+    id: 'flat_evasion', name: 'of Reflexes', category: 'flat_evasion',
+    slot: 'prefix', stat: 'evasion',
+    allowedSlots: ['main_armor', 'shields', 'belt', 'bracers'],
+    tiers: buildTiers(5, 15, 12, 25, 22, 45, 38, 70, 58, 100, 80, 140),
+    weight: 80, displayTemplate: '+{value} Evasion',
+  },
+
+  // ================================================================
+  // SUFFIXES — Critical
+  // ================================================================
+  {
+    id: 'crit_chance', name: 'of the Hawk', category: 'crit_chance',
+    slot: 'suffix', stat: 'critChance',
+    allowedSlots: ['all_weapons', 'gloves', 'rings', 'amulets'],
+    tiers: buildTiers(1, 2, 2, 3, 3, 5, 5, 8, 8, 14, 13, 20),
+    weight: 100, displayTemplate: '+{value}% Crit Chance',
+  },
+  {
+    id: 'crit_multiplier', name: 'of Devastation', category: 'crit_multiplier',
+    slot: 'suffix', stat: 'critMultiplier',
+    allowedSlots: ['all_weapons', 'gloves', 'amulets', 'trinkets'],
+    tiers: buildTiers(2, 5, 5, 10, 8, 16, 14, 25, 22, 38, 31, 50),
+    weight: 100, displayTemplate: '+{value}% Crit Multiplier',
+  },
+
+  // ================================================================
+  // SUFFIXES — Resistances
+  // ================================================================
+  {
+    id: 'fire_resist', name: 'of the Dragon', category: 'fire_resist',
+    slot: 'suffix', stat: 'fireResist',
+    allowedSlots: ['all_armor', 'shields'],
+    tiers: buildTiers(2, 5, 4, 8, 8, 14, 14, 22, 20, 32, 26, 40),
+    weight: 100, displayTemplate: '+{value}% Fire Resist',
+  },
+  {
+    id: 'cold_resist', name: 'of the Yeti', category: 'cold_resist',
+    slot: 'suffix', stat: 'coldResist',
+    allowedSlots: ['all_armor', 'shields'],
+    tiers: buildTiers(2, 5, 4, 8, 8, 14, 14, 22, 20, 32, 26, 40),
+    weight: 100, displayTemplate: '+{value}% Cold Resist',
+  },
+  {
+    id: 'lightning_resist', name: 'of the Tempest', category: 'lightning_resist',
+    slot: 'suffix', stat: 'lightningResist',
+    allowedSlots: ['all_armor', 'shields'],
+    tiers: buildTiers(2, 5, 4, 8, 8, 14, 14, 22, 20, 32, 26, 40),
+    weight: 100, displayTemplate: '+{value}% Lightning Resist',
+  },
+  {
+    id: 'chaos_resist', name: 'of the Abyss', category: 'chaos_resist',
+    slot: 'suffix', stat: 'chaosResist',
+    allowedSlots: ['all_armor', 'shields'],
+    tiers: buildTiers(2, 4, 3, 6, 6, 12, 10, 18, 16, 28, 23, 35),
+    weight: 60, displayTemplate: '+{value}% Chaos Resist',
+  },
+
+  // ================================================================
+  // SUFFIXES — Utility
+  // ================================================================
+  {
+    id: 'movement_speed', name: 'of Speed', category: 'movement_speed',
+    slot: 'suffix', stat: 'movementSpeed',
+    allowedSlots: ['boots'],
+    tiers: buildTiers(1, 2, 2, 3, 3, 5, 5, 8, 8, 14, 13, 20),
+    weight: 100, displayTemplate: '+{value}% Movement Speed',
+  },
+  {
+    id: 'ability_haste', name: 'of Celerity', category: 'ability_haste',
+    slot: 'suffix', stat: 'abilityHaste',
+    allowedSlots: ['all_weapons', 'gloves', 'amulets', 'trinkets'],
+    tiers: buildTiers(1, 2, 2, 3, 3, 6, 5, 9, 8, 14, 13, 20),
+    weight: 80, displayTemplate: '+{value}% Ability Haste',
+  },
+  {
+    id: 'item_quantity', name: 'of Plunder', category: 'item_quantity',
+    slot: 'suffix', stat: 'itemQuantity',
+    allowedSlots: ['amulets', 'rings', 'trinkets'],
+    tiers: buildTiers(1, 2, 2, 3, 3, 5, 5, 8, 8, 12, 12, 18),
+    weight: 50, displayTemplate: '+{value}% Item Quantity',
+  },
+  {
+    id: 'item_rarity', name: 'of Fortune', category: 'item_rarity',
+    slot: 'suffix', stat: 'itemRarity',
+    allowedSlots: ['amulets', 'rings', 'trinkets'],
+    tiers: buildTiers(2, 4, 4, 8, 8, 14, 14, 22, 22, 34, 30, 45),
+    weight: 50, displayTemplate: '+{value}% Item Rarity',
+  },
+  {
+    id: 'block_chance', name: 'of the Bulwark', category: 'block_chance',
+    slot: 'suffix', stat: 'blockChance',
+    allowedSlots: ['shields'],
+    tiers: buildTiers(1, 2, 2, 3, 3, 5, 5, 8, 8, 12, 12, 18),
+    weight: 100, displayTemplate: '+{value}% Block Chance',
   },
 ];
+
+// ============================================================
+// Slot restriction engine
+// ============================================================
+
+/** Slot group tags → which GearSlots they match. */
+const SLOT_GROUP_MAP: Record<string, GearSlot[]> = {
+  main_armor: ['helmet', 'chest', 'shoulders', 'cloak', 'pants', 'boots'],
+  gloves: ['gloves'],
+  belt: ['belt'],
+  bracers: ['bracers'],
+  rings: ['ring1', 'ring2'],
+  amulets: ['neck'],
+  trinkets: ['trinket1', 'trinket2'],
+  shields: ['offhand'], // further filtered by offhandType
+  focus: ['offhand'],   // further filtered by offhandType
+  quiver: ['offhand'],  // further filtered by offhandType
+  chest: ['chest'],
+  boots: ['boots'],
+  all_armor: [
+    'helmet', 'chest', 'shoulders', 'cloak', 'pants', 'boots',
+    'gloves', 'belt', 'bracers', 'ring1', 'ring2', 'neck',
+    'trinket1', 'trinket2',
+  ],
+  accessories: ['ring1', 'ring2', 'neck', 'trinket1', 'trinket2', 'belt', 'bracers', 'cloak'],
+  // Weapon groups are handled specially below
+  attack_weapons: ['mainhand'],
+  spell_weapons: ['mainhand'],
+  all_weapons: ['mainhand'],
+};
+
+/**
+ * Filter AFFIX_DEFS to affixes valid for a given gear context.
+ *
+ * @param gearSlot - The slot being rolled for
+ * @param weaponType - If mainhand, the weapon type
+ * @param offhandType - If offhand, the offhand type (shield/focus/quiver)
+ * @param affixSlot - 'prefix' or 'suffix' filter (optional)
+ */
+export function getAffixesForSlot(
+  gearSlot: GearSlot,
+  weaponType?: WeaponType,
+  offhandType?: OffhandType,
+  affixSlot?: 'prefix' | 'suffix',
+): AffixDef[] {
+  return AFFIX_DEFS.filter(def => {
+    // Filter by prefix/suffix if requested
+    if (affixSlot && def.slot !== affixSlot) return false;
+
+    // Check if any of the affix's allowed slot groups match this gear slot
+    return def.allowedSlots.some(group => {
+      // Weapon scaling groups — only match mainhand with correct scaling
+      if (group === 'attack_weapons') {
+        if (gearSlot !== 'mainhand' || !weaponType) return false;
+        const meta = WEAPON_TYPE_META[weaponType];
+        return meta.scaling === 'attack' || meta.scaling === 'hybrid';
+      }
+      if (group === 'spell_weapons') {
+        if (gearSlot !== 'mainhand' || !weaponType) return false;
+        const meta = WEAPON_TYPE_META[weaponType];
+        return meta.scaling === 'spell' || meta.scaling === 'hybrid';
+      }
+      if (group === 'all_weapons') {
+        return gearSlot === 'mainhand';
+      }
+
+      // Offhand type groups
+      if (group === 'shields') {
+        return gearSlot === 'offhand' && offhandType === 'shield';
+      }
+      if (group === 'focus') {
+        return gearSlot === 'offhand' && offhandType === 'focus';
+      }
+      if (group === 'quiver') {
+        return gearSlot === 'offhand' && offhandType === 'quiver';
+      }
+
+      // Standard slot groups
+      const slots = SLOT_GROUP_MAP[group];
+      if (!slots) return false;
+      return slots.includes(gearSlot);
+    });
+  });
+}

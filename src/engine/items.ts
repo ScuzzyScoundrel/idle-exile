@@ -1,14 +1,13 @@
 // ============================================================
-// Idle Exile — Item Generation Engine
+// Idle Exile — Item Generation Engine (v16)
 // Pure functions: no React, no side effects, no DOM.
 // ============================================================
 
-import type { Item, Affix, AffixDef, AffixTier, AffixCategory, Rarity, GearSlot, StatKey, WeaponType } from '../types';
-import { AFFIX_DEFS } from '../data/affixes';
+import type { Item, Affix, AffixDef, AffixTier, AffixCategory, Rarity, GearSlot, StatKey, WeaponType, OffhandType } from '../types';
+import { AFFIX_DEFS, getAffixesForSlot } from '../data/affixes';
 import { GATHERING_AFFIX_DEFS } from '../data/gatheringAffixes';
 import { ITEM_BASE_DEFS } from '../data/items';
 import { TIER_WEIGHTS, AFFIX_COUNT_WEIGHTS } from '../data/balance';
-import { AFFIX_STAT_MAP } from './character';
 
 // --- Helpers ---
 
@@ -24,15 +23,8 @@ export function rollAffixValue(min: number, max: number): number {
 
 /**
  * Get available tiers based on item level (band-based gating).
- * Higher iLvl unlocks access to better (lower number) tiers.
  */
 export function getAvailableTiers(iLvl: number): AffixTier[] {
-  // iLvl 1-10: T10-T7 only
-  // iLvl 11-20: T10-T5
-  // iLvl 21-30: T10-T4
-  // iLvl 31-40: T10-T3
-  // iLvl 41-50: T10-T2
-  // iLvl 51-60: T10-T1
   let minTier: AffixTier;
   if (iLvl >= 51) minTier = 1;
   else if (iLvl >= 41) minTier = 2;
@@ -49,7 +41,7 @@ export function getAvailableTiers(iLvl: number): AffixTier[] {
 }
 
 /**
- * Get a human-readable tier range string for an item level, e.g. "T7–T10".
+ * Get a human-readable tier range string for an item level.
  */
 export function getAffixTierRange(iLvl: number): string {
   const tiers = getAvailableTiers(iLvl);
@@ -80,11 +72,6 @@ export function rollAffixTier(iLvl: number): AffixTier {
 
 /**
  * Classify item rarity based on affix quality (tier).
- * - Legendary: any T1 affix OR 2+ T2 affixes
- * - Epic: any T2 affix
- * - Rare: any T3 affix
- * - Uncommon: any T4-T6 affix
- * - Common: all T7 or worse
  */
 export function classifyRarity(item: Item): Rarity {
   const allAffixes = [...item.prefixes, ...item.suffixes];
@@ -109,8 +96,6 @@ export function classifyRarity(item: Item): Rarity {
 
 /**
  * Build a display name for an item based on its affixes and base.
- * Format: [first prefix name] Base Name [first suffix name]
- * Common items with no affixes just use the base name.
  */
 export function buildItemName(item: Item): string {
   const baseDef = ITEM_BASE_DEFS.find(b => b.id === item.baseId);
@@ -164,17 +149,20 @@ export function rollAffix(availableDefs: AffixDef[], iLvl: number): Affix {
 }
 
 /**
- * Roll `count` unique affixes of the given slot type.
- * Filters AFFIX_DEFS to the correct slot, removes excluded defIds,
- * and ensures no duplicate defIds in the result.
+ * Roll `count` unique affixes of the given slot type, filtered by gear context.
+ * Uses slot-restricted affix pool from getAffixesForSlot().
  */
 export function rollAffixes(
-  slot: 'prefix' | 'suffix',
+  affixSlot: 'prefix' | 'suffix',
   count: number,
   iLvl: number,
+  gearSlot: GearSlot,
+  weaponType?: WeaponType,
+  offhandType?: OffhandType,
   exclude: string[] = [],
 ): Affix[] {
-  const available = AFFIX_DEFS.filter(d => d.slot === slot && !exclude.includes(d.id));
+  const available = getAffixesForSlot(gearSlot, weaponType, offhandType, affixSlot)
+    .filter(d => !exclude.includes(d.id));
   const result: Affix[] = [];
   let pool = [...available];
   for (let i = 0; i < count && pool.length > 0; i++) {
@@ -187,14 +175,12 @@ export function rollAffixes(
 
 /**
  * Generate a complete item for a given gear slot and item level.
- * New system: always 2-6 affixes, rarity derived from affix quality.
+ * Uses slot-restricted affix rolling.
  */
 export function generateItem(slot: GearSlot, iLvl: number, baseId?: string, guaranteedAffix?: AffixCategory): Item {
-  // If a specific base is requested, use it directly
   let base = baseId ? ITEM_BASE_DEFS.find(b => b.id === baseId) : undefined;
 
   if (!base) {
-    // Find qualifying bases for this slot where base iLvl <= given iLvl
     let qualifying = ITEM_BASE_DEFS.filter(b => b.slot === slot && b.iLvl <= iLvl);
     if (qualifying.length === 0) {
       qualifying = ITEM_BASE_DEFS.filter(b => b.slot === slot);
@@ -206,29 +192,23 @@ export function generateItem(slot: GearSlot, iLvl: number, baseId?: string, guar
       };
     }
 
-    // Pick the highest qualifying iLvl base, random among ties
     const maxILvl = qualifying.reduce((best, cur) => Math.max(best, cur.iLvl), 0);
     const topBases = qualifying.filter(b => b.iLvl === maxILvl);
     base = topBases[Math.floor(Math.random() * topBases.length)];
   }
 
-  // Roll affix count (2-6)
   const totalAffixes = rollAffixCount();
 
-  // Split into prefixes (max 3) and suffixes (max 3)
   let prefixCount: number;
   let suffixCount: number;
 
-  // Distribute: try to balance, but respect max 3 each
   const half = Math.floor(totalAffixes / 2);
   prefixCount = Math.min(half, 3);
   suffixCount = Math.min(totalAffixes - prefixCount, 3);
-  // If we still need more, add to the other side
   if (prefixCount + suffixCount < totalAffixes) {
     prefixCount = Math.min(totalAffixes - suffixCount, 3);
   }
 
-  // Add some randomness to distribution
   if (prefixCount > 1 && suffixCount < 3 && Math.random() < 0.5) {
     prefixCount--;
     suffixCount++;
@@ -237,34 +217,37 @@ export function generateItem(slot: GearSlot, iLvl: number, baseId?: string, guar
     prefixCount++;
   }
 
+  // Extract gear context for slot-restricted rolling
+  const weaponType = base.weaponType;
+  const offhandType = base.offhandType;
+
   // Handle guaranteed affix catalyst
   const guaranteedAffixes: Affix[] = [];
   let guaranteedExcludeId: string | undefined;
 
   if (guaranteedAffix) {
-    const gDef = AFFIX_DEFS.find(d => d.category === guaranteedAffix);
+    const gDef = getAffixesForSlot(slot, weaponType, offhandType)
+      .find(d => d.category === guaranteedAffix);
     if (gDef) {
-      const targetSlot = gDef.slot; // 'prefix' or 'suffix'
+      const targetSlot = gDef.slot;
       const slotCount = targetSlot === 'prefix' ? prefixCount : suffixCount;
       if (slotCount > 0) {
-        // Roll one affix from just this def
         const tier = rollAffixTier(iLvl);
         const tierData = gDef.tiers[tier];
         const value = rollAffixValue(tierData.min, tierData.max);
         guaranteedAffixes.push({ defId: gDef.id, tier, value });
         guaranteedExcludeId = gDef.id;
-        // Deduct one slot
         if (targetSlot === 'prefix') prefixCount--;
         else suffixCount--;
       }
     }
   }
 
-  const prefixes = rollAffixes('prefix', prefixCount, iLvl, guaranteedExcludeId ? [guaranteedExcludeId] : []);
+  const prefixes = rollAffixes('prefix', prefixCount, iLvl, slot, weaponType, offhandType,
+    guaranteedExcludeId ? [guaranteedExcludeId] : []);
   const excludeIds = [...prefixes.map(a => a.defId), ...(guaranteedExcludeId ? [guaranteedExcludeId] : [])];
-  const suffixes = rollAffixes('suffix', suffixCount, iLvl, excludeIds);
+  const suffixes = rollAffixes('suffix', suffixCount, iLvl, slot, weaponType, offhandType, excludeIds);
 
-  // Merge guaranteed affix into the correct list
   const allPrefixes = [...prefixes];
   const allSuffixes = [...suffixes];
   for (const ga of guaranteedAffixes) {
@@ -273,19 +256,22 @@ export function generateItem(slot: GearSlot, iLvl: number, baseId?: string, guar
     else allSuffixes.unshift(ga);
   }
 
-  // Build item, then classify rarity from affix quality
   const item: Item = {
     id: generateId(),
     baseId: base.id,
-    name: '', // set below
+    name: '',
     slot,
-    rarity: 'common', // set below
+    rarity: 'common',
     iLvl,
     prefixes: allPrefixes,
     suffixes: allSuffixes,
     armorType: base.armorType,
     weaponType: base.weaponType,
+    offhandType: base.offhandType,
     baseStats: { ...base.baseStats },
+    baseDamageMin: base.baseDamageMin,
+    baseDamageMax: base.baseDamageMax,
+    baseSpellPower: base.baseSpellPower,
   };
 
   item.rarity = classifyRarity(item);
@@ -296,14 +282,11 @@ export function generateItem(slot: GearSlot, iLvl: number, baseId?: string, guar
 
 /**
  * Generate a gathering-specific item for a given gear slot and item level.
- * Uses gathering affix pool instead of combat affixes. Sets isGatheringGear flag.
  */
 export function generateGatheringItem(slot: GearSlot, iLvl: number, baseId?: string): Item {
-  // If a specific base is requested, use it directly
   let base = baseId ? ITEM_BASE_DEFS.find(b => b.id === baseId) : undefined;
 
   if (!base) {
-    // Find qualifying bases for this slot
     let qualifying = ITEM_BASE_DEFS.filter(b => b.slot === slot && b.iLvl <= iLvl);
     if (qualifying.length === 0) {
       qualifying = ITEM_BASE_DEFS.filter(b => b.slot === slot);
@@ -328,7 +311,6 @@ export function generateGatheringItem(slot: GearSlot, iLvl: number, baseId?: str
     prefixCount = Math.min(totalAffixes - suffixCount, 3);
   }
 
-  // Roll from gathering affix pool
   const gatherPrefixes = GATHERING_AFFIX_DEFS.filter(d => d.slot === 'prefix');
   const gatherSuffixes = GATHERING_AFFIX_DEFS.filter(d => d.slot === 'suffix');
 
@@ -374,8 +356,7 @@ const RARITY_RANK: Record<Rarity, number> = {
 };
 
 /**
- * Pick the "best" item from a list — highest rarity wins,
- * tiebreak by lowest average affix tier (T1 < T10 = better).
+ * Pick the "best" item from a list.
  */
 export function pickBestItem(items: Item[]): Item | null {
   if (items.length === 0) return null;
@@ -429,13 +410,10 @@ export function calcItemPower(item: Item): number {
 
 /**
  * Calculate an item's total stat contribution mapped to StatKey.
- * Base stats + all affix values (percent affixes included as raw values
- * for item-to-item comparison, not final character stats).
  */
 export function calcItemStatContribution(item: Item): Partial<Record<StatKey, number>> {
   const stats: Partial<Record<StatKey, number>> = {};
 
-  // Base stats
   for (const [key, val] of Object.entries(item.baseStats)) {
     if (typeof val === 'number') {
       const k = key as StatKey;
@@ -443,11 +421,10 @@ export function calcItemStatContribution(item: Item): Partial<Record<StatKey, nu
     }
   }
 
-  // Affix values mapped to StatKey
   for (const affix of [...item.prefixes, ...item.suffixes]) {
     const def = getAffixDef(affix.defId);
     if (!def) continue;
-    const k = AFFIX_STAT_MAP[def.category];
+    const k = def.stat;
     stats[k] = (stats[k] ?? 0) + affix.value;
   }
 
@@ -456,7 +433,6 @@ export function calcItemStatContribution(item: Item): Partial<Record<StatKey, nu
 
 /**
  * Returns true if candidate is a net upgrade over equipped.
- * Simple sum of all stat deltas — no weighting for MVP.
  */
 export function isUpgradeOver(candidate: Item, equipped: Item): boolean {
   const candStats = calcItemStatContribution(candidate);
@@ -479,7 +455,6 @@ export function getEquippedWeaponType(equipment: Partial<Record<GearSlot, Item>>
 
 /**
  * Get the equipped item to compare against for a given slot.
- * Handles ring1/ring2 and trinket1/trinket2 paired-slot fallback.
  */
 export function getComparisonTarget(
   slot: GearSlot,
@@ -488,7 +463,6 @@ export function getComparisonTarget(
   const direct = equipment[slot];
   if (direct) return direct;
 
-  // Paired slot fallback
   if (slot === 'ring1') return equipment['ring2'] ?? null;
   if (slot === 'ring2') return equipment['ring1'] ?? null;
   if (slot === 'trinket1') return equipment['trinket2'] ?? null;

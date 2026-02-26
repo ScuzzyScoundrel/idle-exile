@@ -3,9 +3,9 @@
 // Pure functions: no React, no side effects, no DOM.
 // ============================================================
 
-import type { Item, CurrencyType, CraftResult, Affix, AffixTier } from '../types';
+import type { Item, CurrencyType, CraftResult, Affix, AffixTier, GearSlot, WeaponType, OffhandType } from '../types';
 import { rollAffixes, rollAffixValue, getAffixDef, classifyRarity, buildItemName, getAvailableTiers } from './items';
-import { AFFIX_DEFS } from '../data/affixes';
+import { getAffixesForSlot } from '../data/affixes';
 
 // --- Helpers ---
 
@@ -41,11 +41,13 @@ function reclassify(item: Item): void {
 function rollForcedHighTierAffix(
   slot: 'prefix' | 'suffix',
   iLvl: number,
-  exclude: string[],
+  gearSlot: GearSlot,
+  weaponType?: WeaponType,
+  offhandType?: OffhandType,
+  exclude: string[] = [],
 ): Affix | null {
-  const available = AFFIX_DEFS.filter(
-    (d) => d.slot === slot && !exclude.includes(d.id),
-  );
+  const available = getAffixesForSlot(gearSlot, weaponType, offhandType, slot)
+    .filter((d) => !exclude.includes(d.id));
   if (available.length === 0) return null;
 
   // Weighted random pick for affix type
@@ -114,7 +116,7 @@ export function applyCurrency(item: Item, currency: CurrencyType): CraftResult {
       }
 
       const exclude = existingDefIds(newItem);
-      const newAffixes = rollAffixes(addSlot, 1, item.iLvl, exclude);
+      const newAffixes = rollAffixes(addSlot, 1, item.iLvl, item.slot, item.weaponType, item.offhandType, exclude);
       if (newAffixes.length === 0) {
         return { success: false, item, message: 'No available affixes to add.' };
       }
@@ -156,7 +158,7 @@ export function applyCurrency(item: Item, currency: CurrencyType): CraftResult {
 
       // Add one random affix of the same slot type
       const exclude = existingDefIds(newItem);
-      const replacement = rollAffixes(picked.slot, 1, item.iLvl, exclude);
+      const replacement = rollAffixes(picked.slot, 1, item.iLvl, item.slot, item.weaponType, item.offhandType, exclude);
       if (replacement.length > 0) {
         if (picked.slot === 'prefix') {
           newItem.prefixes.push(replacement[0]);
@@ -245,7 +247,7 @@ export function applyCurrency(item: Item, currency: CurrencyType): CraftResult {
       }
 
       const exclude = existingDefIds(newItem);
-      const newAffix = rollForcedHighTierAffix(addSlot, item.iLvl, exclude);
+      const newAffix = rollForcedHighTierAffix(addSlot, item.iLvl, item.slot, item.weaponType, item.offhandType, exclude);
       if (!newAffix) {
         return { success: false, item, message: 'No available affixes to add.' };
       }

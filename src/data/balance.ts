@@ -10,32 +10,32 @@ import type { CurrencyType, AffixTier, ResolvedStats, RareMaterialRarity, Rarity
 // =============================================
 
 /** Base probability of an item dropping per zone clear. */
-export const BASE_ITEM_DROP_CHANCE = 0.08;        // was 0.25
+export const BASE_ITEM_DROP_CHANCE = 0.08;
 
 /** Multiplier applied to item drop chance when zone is mastered. */
 export const MASTERY_DROP_BONUS = 1.15;
 
 /** Material drops per clear (gathering base): uniform random in [min, max]. */
-export const MATERIAL_DROP_MIN = 2;               // was 1
-export const MATERIAL_DROP_MAX = 4;               // was 2
+export const MATERIAL_DROP_MIN = 2;
+export const MATERIAL_DROP_MAX = 4;
 
 /** Combat-specific material drop rates (lower than gathering). */
-export const COMBAT_MATERIAL_DROP_CHANCE = 0.30;   // 30% chance per clear
+export const COMBAT_MATERIAL_DROP_CHANCE = 0.30;
 export const COMBAT_MATERIAL_DROP_MIN = 1;
 export const COMBAT_MATERIAL_DROP_MAX = 2;
 
 /** Per-clear probability for each currency type. */
 export const CURRENCY_DROP_CHANCES: Record<CurrencyType, number> = {
-  augment: 0.10,   // was 0.06
-  chaos:   0.05,   // was 0.03
-  divine:  0.025,  // was 0.015
-  annul:   0.025,  // was 0.015
-  exalt:   0.015,  // was 0.008
-  socket:  0.035,  // was 0.02
+  augment: 0.10,
+  chaos:   0.05,
+  divine:  0.025,
+  annul:   0.025,
+  exalt:   0.015,
+  socket:  0.035,
 };
 
 /** Gold gained per clear = GOLD_PER_BAND * zone.band. */
-export const GOLD_PER_BAND = 3;                   // was 8
+export const GOLD_PER_BAND = 3;
 
 /** XP gained per clear = XP_PER_BAND * zone.band. */
 export const XP_PER_BAND = 10;
@@ -63,21 +63,81 @@ export const HAZARD_PENALTY_FLOOR = 0.05;
 export const HAZARD_OVERCAP_MULT = 0.95;
 
 // =============================================
+// ZONE COMBAT CONSTANTS (new v16)
+// =============================================
+
+/** Base zone physical damage used in defensive efficiency formula. */
+export const ZONE_PHYS_DAMAGE_BASE = 50;
+
+/** Base zone accuracy for hit chance calculation. */
+export const ZONE_ACCURACY_BASE = 50;
+
+/** Divisor for accuracy-based hit chance: hitChance = accuracy / (accuracy + ACCURACY_DIVISOR). */
+export const ACCURACY_DIVISOR = 500;
+
+/** Block damage reduction multiplier (blocked hits deal 25% damage). */
+export const BLOCK_REDUCTION = 0.75;
+
+/** Maximum block chance percentage. */
+export const BLOCK_CAP = 75;
+
+// =============================================
 // CHARACTER PROGRESSION
 // =============================================
 
-/** Starting stats for a fresh level 1 character. */
+/** Starting stats for a fresh level 1 character (all ~30 keys). */
 export const BASE_STATS: ResolvedStats = {
-  damage: 10, attackSpeed: 1, critChance: 5, critDamage: 150,
-  life: 100, armor: 0, dodgeChance: 0, abilityHaste: 0,
-  fireResist: 0, coldResist: 0, lightningResist: 0, poisonResist: 0, chaosResist: 0,
+  // Attack
+  flatPhysDamage: 5,
+  flatAtkFireDamage: 0,
+  flatAtkColdDamage: 0,
+  flatAtkLightningDamage: 0,
+  flatAtkChaosDamage: 0,
+  attackSpeed: 0,
+  accuracy: 100,
+  incPhysDamage: 0,
+  incAttackDamage: 0,
+  // Spell
+  spellPower: 0,
+  flatSpellFireDamage: 0,
+  flatSpellColdDamage: 0,
+  flatSpellLightningDamage: 0,
+  flatSpellChaosDamage: 0,
+  castSpeed: 0,
+  incSpellDamage: 0,
+  // Shared Offensive
+  incElementalDamage: 0,
+  incFireDamage: 0,
+  incColdDamage: 0,
+  incLightningDamage: 0,
+  critChance: 5,
+  critMultiplier: 150,
+  abilityHaste: 0,
+  // Defensive
+  maxLife: 100,
+  incMaxLife: 0,
+  lifeRegen: 0,
+  armor: 0,
+  evasion: 0,
+  blockChance: 0,
+  fireResist: 0,
+  coldResist: 0,
+  lightningResist: 0,
+  chaosResist: 0,
+  // Utility
+  movementSpeed: 0,
+  itemQuantity: 0,
+  itemRarity: 0,
 };
 
-/** Flat damage gained per level beyond 1. */
-export const DAMAGE_PER_LEVEL = 2;
+/** Flat physical damage gained per level beyond 1. */
+export const PHYS_DAMAGE_PER_LEVEL = 1;
 
-/** Flat life gained per level beyond 1. */
-export const LIFE_PER_LEVEL = 5;
+/** Flat max life gained per level beyond 1. */
+export const MAX_LIFE_PER_LEVEL = 5;
+
+/** Flat accuracy gained per level beyond 1. */
+export const ACCURACY_PER_LEVEL = 5;
 
 /** XP curve: XP to next level = XP_BASE * XP_GROWTH^(level-1). */
 export const XP_BASE = 100;
@@ -138,7 +198,7 @@ export const CATALYST_RARITY_MAP: Record<RareMaterialRarity, Rarity> = {
   uncommon: 'rare',
   rare: 'epic',
   epic: 'legendary',
-  legendary: 'legendary', // legendary catalyst = legendary + bonus affix roll
+  legendary: 'legendary',
 };
 
 /** Rare catalyst → one affix forced to this tier (breaks iLvl gating). */

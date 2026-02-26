@@ -35,8 +35,10 @@ export const GATHERING_AFFIX_DEFS: AffixDef[] = [
   {
     id: 'gather_speed',
     name: 'Swift',
-    category: 'attack_speed', // reuse stat category for speed
+    category: 'attack_speed',
     slot: 'prefix',
+    stat: 'attackSpeed',
+    allowedSlots: ['gathering'],
     tiers: buildTiers(1, 2, 3, 6, 7, 12, 13, 20),
     weight: 100,
     displayTemplate: '+{value}% Gather Speed',
@@ -44,8 +46,10 @@ export const GATHERING_AFFIX_DEFS: AffixDef[] = [
   {
     id: 'yield_bonus',
     name: 'Bountiful',
-    category: 'flat_damage', // repurpose for gathering yield
+    category: 'flat_phys_damage',
     slot: 'prefix',
+    stat: 'flatPhysDamage',
+    allowedSlots: ['gathering'],
     tiers: buildTiers(1, 3, 4, 8, 9, 15, 16, 25),
     weight: 100,
     displayTemplate: '+{value}% Yield Bonus',
@@ -53,8 +57,10 @@ export const GATHERING_AFFIX_DEFS: AffixDef[] = [
   {
     id: 'double_gather',
     name: 'Plentiful',
-    category: 'crit_chance', // repurpose for double chance
+    category: 'crit_chance',
     slot: 'prefix',
+    stat: 'critChance',
+    allowedSlots: ['gathering'],
     tiers: buildTiers(1, 2, 2, 4, 5, 8, 9, 15),
     weight: 80,
     displayTemplate: '+{value}% Double Gather Chance',
@@ -62,8 +68,10 @@ export const GATHERING_AFFIX_DEFS: AffixDef[] = [
   {
     id: 'prospectors_eye',
     name: "Prospector's",
-    category: 'percent_damage', // repurpose for rare resource chance
+    category: 'inc_phys_damage',
     slot: 'prefix',
+    stat: 'incPhysDamage',
+    allowedSlots: ['gathering'],
     tiers: buildTiers(1, 2, 2, 4, 5, 8, 9, 12),
     weight: 60,
     displayTemplate: '+{value}% Bonus Rare Resource Chance',
@@ -73,8 +81,10 @@ export const GATHERING_AFFIX_DEFS: AffixDef[] = [
   {
     id: 'rare_find',
     name: 'of Discovery',
-    category: 'crit_damage', // repurpose for rare find
+    category: 'crit_multiplier',
     slot: 'suffix',
+    stat: 'critMultiplier',
+    allowedSlots: ['gathering'],
     tiers: buildTiers(1, 2, 3, 5, 6, 10, 11, 18),
     weight: 100,
     displayTemplate: '+{value}% Rare Material Chance',
@@ -82,8 +92,10 @@ export const GATHERING_AFFIX_DEFS: AffixDef[] = [
   {
     id: 'skill_boost',
     name: 'of Expertise',
-    category: 'flat_life', // repurpose for skill level bonus
+    category: 'flat_max_life',
     slot: 'suffix',
+    stat: 'maxLife',
+    allowedSlots: ['gathering'],
     tiers: buildTiers(1, 1, 1, 2, 2, 3, 3, 5),
     weight: 80,
     displayTemplate: '+{value} Gathering Skill Levels',
@@ -91,8 +103,10 @@ export const GATHERING_AFFIX_DEFS: AffixDef[] = [
   {
     id: 'efficiency',
     name: 'of Efficiency',
-    category: 'flat_armor', // repurpose for refining cost reduction
+    category: 'flat_armor',
     slot: 'suffix',
+    stat: 'armor',
+    allowedSlots: ['gathering'],
     tiers: buildTiers(1, 2, 3, 5, 6, 10, 11, 18),
     weight: 60,
     displayTemplate: '+{value}% Refining Efficiency',
@@ -100,8 +114,10 @@ export const GATHERING_AFFIX_DEFS: AffixDef[] = [
   {
     id: 'zone_mastery',
     name: 'of Mastery',
-    category: 'dodge_chance', // repurpose for zone-specific bonus
+    category: 'flat_evasion',
     slot: 'suffix',
+    stat: 'evasion',
+    allowedSlots: ['gathering'],
     tiers: buildTiers(1, 3, 4, 8, 9, 15, 16, 25),
     weight: 60,
     displayTemplate: '+{value}% Zone Yield Bonus',

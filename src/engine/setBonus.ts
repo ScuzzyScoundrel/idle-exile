@@ -1,11 +1,12 @@
 // ============================================================
-// Idle Exile — Set Bonus & Defensive Efficiency Engine
+// Idle Exile — Set Bonus & Defensive Efficiency Engine (v16)
 // Pure functions: no React, no side effects, no DOM.
 // ============================================================
 
 import type { ArmorType, GearSlot, Item, ResolvedStats, ActiveSetBonus, SetBonusThreshold } from '../types';
 import { SET_SLOTS } from '../types';
 import { SET_BONUS_DEFS } from '../data/setBonuses';
+import { BLOCK_CAP, BLOCK_REDUCTION } from '../data/balance';
 
 // --- Set Bonus Calculation ---
 
@@ -52,36 +53,52 @@ export function calcSetBonuses(equipment: Partial<Record<GearSlot, Item>>): Acti
   return active;
 }
 
-// --- Defensive Efficiency ---
+// --- Defensive Efficiency (v16 multi-component) ---
 
 /**
  * Calculate defensive efficiency for a character at a given zone band.
  *
- * zonePressure     = 50 * 2^(band-1)
- * physMitigation   = armor / (armor + zonePressure)
- * effectiveDodge   = min(dodgeChance, 75) / 100
- * avgResist        = (fire + cold + lightning + poison + chaos) / 5
- * elemMitigation   = min(avgResist, 75) / 100
+ * zonePressure = 50 * 2^(band-1)
  *
- * physDamage       = zonePressure * 0.6 * (1 - physMit) * (1 - dodge)
- * elemDamage       = zonePressure * 0.4 * (1 - elemMit) * (1 - dodge)
- * totalDamage      = physDamage + elemDamage
+ * Components:
+ *   Armor:   armor / (armor + zonePressure * 10)
+ *   Evasion: evasion / (evasion + 500)  → dodge chance
+ *   Life:    maxLife / (maxLife + zonePressure * 2.5)
+ *   Block:   min(blockChance, 75) / 100 * 0.75  → avg reduction
+ *   Resist:  avg of (resist / 75) for each resist, capped at 1.0
  *
- * survivalRatio    = life / (life + totalDamage)
- * defensiveEff     = 0.7 + 0.3 * survivalRatio     // range [0.7, ~1.0]
+ * DefEff = weighted average of components, min 0.2
  */
 export function calcDefensiveEfficiency(stats: ResolvedStats, band: number): number {
   const zonePressure = 50 * Math.pow(2, band - 1);
 
-  const physMit = stats.armor / (stats.armor + zonePressure);
-  const dodge = Math.min(stats.dodgeChance, 75) / 100;
-  const avgResist = (stats.fireResist + stats.coldResist + stats.lightningResist + stats.poisonResist + stats.chaosResist) / 5;
-  const elemMit = Math.min(avgResist, 75) / 100;
+  // Armor mitigation
+  const armorComponent = stats.armor / (stats.armor + zonePressure * 10);
 
-  const physDamage = zonePressure * 0.6 * (1 - physMit) * (1 - dodge);
-  const elemDamage = zonePressure * 0.4 * (1 - elemMit) * (1 - dodge);
-  const totalDamage = physDamage + elemDamage;
+  // Evasion → dodge chance
+  const dodgeChance = stats.evasion / (stats.evasion + 500);
 
-  const survivalRatio = stats.life / (stats.life + totalDamage);
-  return 0.7 + 0.3 * survivalRatio;
+  // Life component
+  const lifeComponent = stats.maxLife / (stats.maxLife + zonePressure * 2.5);
+
+  // Block component
+  const effectiveBlock = Math.min(stats.blockChance, BLOCK_CAP) / 100 * BLOCK_REDUCTION;
+
+  // Resist component (average of 4 resists, each capped at 75)
+  const resistAvg = (
+    Math.min(stats.fireResist, 75) +
+    Math.min(stats.coldResist, 75) +
+    Math.min(stats.lightningResist, 75) +
+    Math.min(stats.chaosResist, 75)
+  ) / 4 / 75;
+
+  // Weighted blend: armor 25%, dodge 20%, life 25%, block 10%, resist 20%
+  const raw = armorComponent * 0.25
+    + dodgeChance * 0.20
+    + lifeComponent * 0.25
+    + effectiveBlock * 0.10
+    + resistAvg * 0.20;
+
+  // Scale to [0.2, 1.0] range
+  return Math.max(0.2, 0.2 + 0.8 * raw);
 }

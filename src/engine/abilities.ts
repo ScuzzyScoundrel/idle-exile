@@ -88,7 +88,7 @@ export function mergeEffect(target: AbilityEffect, source: AbilityEffect): Abili
     defenseMult: (target.defenseMult ?? 1) * (source.defenseMult ?? 1),
     clearSpeedMult: (target.clearSpeedMult ?? 1) * (source.clearSpeedMult ?? 1),
     critChanceBonus: (target.critChanceBonus ?? 0) + (source.critChanceBonus ?? 0),
-    critDamageBonus: (target.critDamageBonus ?? 0) + (source.critDamageBonus ?? 0),
+    critMultiplierBonus: (target.critMultiplierBonus ?? 0) + (source.critMultiplierBonus ?? 0),
     xpMult: (target.xpMult ?? 1) * (source.xpMult ?? 1),
     itemDropMult: (target.itemDropMult ?? 1) * (source.itemDropMult ?? 1),
     materialDropMult: (target.materialDropMult ?? 1) * (source.materialDropMult ?? 1),

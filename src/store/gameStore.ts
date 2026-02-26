@@ -369,7 +369,7 @@ export const useGameStore = create<GameState & GameActions>()(
         set({
           currentZoneId: zoneId,
           idleStartTime: Date.now(),
-          currentHp: stats.life,
+          currentHp: stats.maxLife,
           combatPhase: 'clearing' as CombatPhase,
           bossState: null,
           combatPhaseStartedAt: null,
@@ -498,9 +498,9 @@ export const useGameStore = create<GameState & GameActions>()(
         // HP updates: apply damage/regen per clear
         const stats = resolveStats(state.character);
         const defEff = calcDefensiveEfficiency(stats, zone.band) * (abilityEffect?.defenseMult ?? 1);
-        let hp = state.currentHp || stats.life;
+        let hp = state.currentHp || stats.maxLife;
         for (let i = 0; i < clearCount; i++) {
-          hp = applyNormalClearHp(hp, stats.life, defEff);
+          hp = applyNormalClearHp(hp, stats.maxLife, defEff);
         }
 
         // Track clear counts toward boss
@@ -560,7 +560,7 @@ export const useGameStore = create<GameState & GameActions>()(
         }
 
         const abilityEffect = aggregateAbilityEffects(state.equippedAbilities, state.abilityTimers, Date.now(), false);
-        return calcClearTime(state.character.stats, zone, state.character.level, abilityEffect);
+        return calcClearTime(state.character, zone, abilityEffect);
       },
 
       setIdleMode: (mode: IdleMode) => {
@@ -907,9 +907,8 @@ export const useGameStore = create<GameState & GameActions>()(
         if (!state.currentZoneId) return;
         const zone = ZONE_DEFS.find(z => z.id === state.currentZoneId);
         if (!zone) return;
-        const stats = resolveStats(state.character);
         const abilityEffect = aggregateAbilityEffects(state.equippedAbilities, state.abilityTimers, Date.now(), false);
-        const boss = createBossEncounter(stats, zone, abilityEffect);
+        const boss = createBossEncounter(state.character, zone, abilityEffect);
         set({
           combatPhase: 'boss_fight' as CombatPhase,
           bossState: boss,
@@ -991,7 +990,7 @@ export const useGameStore = create<GameState & GameActions>()(
         if (state.combatPhase === 'boss_defeat') {
           // Linearly regen HP during recovery
           const progress = Math.min(1, elapsed / duration);
-          set({ currentHp: stats.life * progress });
+          set({ currentHp: stats.maxLife * progress });
         }
 
         if (elapsed >= duration) {
@@ -999,7 +998,7 @@ export const useGameStore = create<GameState & GameActions>()(
             combatPhase: 'clearing' as CombatPhase,
             bossState: null,
             combatPhaseStartedAt: null,
-            currentHp: stats.life,
+            currentHp: stats.maxLife,
           });
           return true;
         }
@@ -1020,7 +1019,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 15,
+      version: 16,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -1265,6 +1264,11 @@ export const useGameStore = create<GameState & GameActions>()(
           raw.combatPhase = 'clearing';
           raw.bossState = null;
           raw.combatPhaseStartedAt = null;
+        }
+
+        if (version < 16) {
+          // v16: Stat system + affix overhaul — clean wipe required
+          return createInitialState();
         }
 
         if (version < 14) {
