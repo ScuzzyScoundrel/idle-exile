@@ -7,8 +7,8 @@ export const CLASS_DEFS: Record<string, ClassDef> = {
     description: 'Tanky and consistent. Favors heavy armor and raw durability.',
     baseStatBonuses: {
       maxLife: 25,
-      armor: 10,
-      flatPhysDamage: 3,
+      armor: 30,
+      flatPhysDamage: 5,
       critMultiplier: 10,
     },
     armorAffinity: 'plate',

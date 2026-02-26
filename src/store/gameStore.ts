@@ -17,7 +17,7 @@ import { createCharacter, resolveStats, addXp } from '../engine/character';
 import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, applyNormalClearHp, createBossEncounter, tickBossFight, generateBossLoot, BossTickResult } from '../engine/zones';
 import { calcDefensiveEfficiency } from '../engine/setBonus';
 import { BOSS_VICTORY_DURATION, BOSS_DEFEAT_RECOVERY } from '../data/balance';
-import { pickBestItem, getEquippedWeaponType } from '../engine/items';
+import { pickBestItem, getEquippedWeaponType, generateId } from '../engine/items';
 import { applyCurrency } from '../engine/crafting';
 import { aggregateAbilityEffects, getIncompatibleAbilities, getEffectiveDuration } from '../engine/abilities';
 import { getAbilityDef } from '../data/abilities';
@@ -201,9 +201,23 @@ interface GameActions {
 
 function createInitialState(): GameState {
   const char = createCharacter('Warrior', 'warrior');
+  const starterWeapon: Item = {
+    id: generateId(),
+    baseId: 'rusty_shortsword',
+    name: 'Rusty Shortsword',
+    slot: 'mainhand',
+    rarity: 'common',
+    iLvl: 1,
+    prefixes: [],
+    suffixes: [],
+    weaponType: 'sword',
+    baseStats: { flatPhysDamage: 5 },
+    baseDamageMin: 4,
+    baseDamageMax: 8,
+  };
   return {
     character: { ...char, stats: resolveStats(char) },
-    inventory: [],
+    inventory: [starterWeapon],
     currencies: { ...INITIAL_CURRENCIES },
     materials: {},
     gold: 0,

@@ -9,6 +9,7 @@ export const ITEM_BASE_DEFS: ItemBaseDef[] = [
   // ============================================================
 
   // ==================== Swords (1H Attack, balanced) ====================
+  { id: 'rusty_shortsword', name: 'Rusty Shortsword', slot: 'mainhand', weaponType: 'sword', baseStats: { flatPhysDamage: 5 }, baseDamageMin: 4, baseDamageMax: 8, iLvl: 1 },
   { id: 'iron_sword',        name: 'Iron Sword',        slot: 'mainhand', weaponType: 'sword', baseStats: { flatPhysDamage: 15 }, baseDamageMin: 10, baseDamageMax: 20, iLvl: 1 },
   { id: 'steel_blade',       name: 'Steel Blade',       slot: 'mainhand', weaponType: 'sword', baseStats: { flatPhysDamage: 25 }, baseDamageMin: 18, baseDamageMax: 32, iLvl: 10 },
   { id: 'obsidian_edge',     name: 'Obsidian Edge',     slot: 'mainhand', weaponType: 'sword', baseStats: { flatPhysDamage: 40 }, baseDamageMin: 30, baseDamageMax: 50, iLvl: 20 },

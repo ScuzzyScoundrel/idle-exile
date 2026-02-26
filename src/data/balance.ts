@@ -48,7 +48,7 @@ export const BAG_DROP_CHANCE = 0.015;
 // =============================================
 
 /** charPower divisor in clearTime formula: baseClearTime / (charPower / POWER_DIVISOR). */
-export const POWER_DIVISOR = 50;
+export const POWER_DIVISOR = 25;
 
 /** Exponential penalty per level below zone iLvlMin. 10 levels below = 1.12^10 ~ 3.1x. */
 export const LEVEL_PENALTY_BASE = 1.12;
@@ -88,13 +88,13 @@ export const BLOCK_CAP = 75;
 /** Starting stats for a fresh level 1 character (all ~30 keys). */
 export const BASE_STATS: ResolvedStats = {
   // Attack
-  flatPhysDamage: 5,
+  flatPhysDamage: 8,
   flatAtkFireDamage: 0,
   flatAtkColdDamage: 0,
   flatAtkLightningDamage: 0,
   flatAtkChaosDamage: 0,
   attackSpeed: 0,
-  accuracy: 100,
+  accuracy: 250,
   incPhysDamage: 0,
   incAttackDamage: 0,
   // Spell
