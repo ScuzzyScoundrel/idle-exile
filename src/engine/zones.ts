@@ -17,7 +17,7 @@ import {
   CURRENCY_DROP_CHANCES, GOLD_PER_BAND, XP_PER_BAND, BAG_DROP_CHANCE,
   POWER_DIVISOR, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO,
   HAZARD_PENALTY_FLOOR, HAZARD_OVERCAP_MULT,
-  CLEAR_DAMAGE_RATIO, CLEAR_REGEN_RATIO, BOSS_HP_MULTIPLIER,
+  CLEAR_DAMAGE_RATIO, CLEAR_REGEN_RATIO, MIN_CLEAR_NET_DAMAGE_RATIO, BOSS_HP_MULTIPLIER,
   BOSS_DAMAGE_MULTIPLIER, BOSS_ILVL_BONUS, BOSS_DROP_COUNT_MIN,
   BOSS_DROP_COUNT_MAX,
 } from '../data/balance';
@@ -345,7 +345,9 @@ export function calcRegenPerClear(maxHp: number): number {
 
 /** Apply one clear of HP change. Floor at 1 (can't die to normal mobs). */
 export function applyNormalClearHp(currentHp: number, maxHp: number, defEff: number): number {
-  return Math.max(1, Math.min(maxHp, currentHp - calcDamagePerClear(maxHp, defEff) + calcRegenPerClear(maxHp)));
+  const gross = calcDamagePerClear(maxHp, defEff) - calcRegenPerClear(maxHp);
+  const netDamage = Math.max(maxHp * MIN_CLEAR_NET_DAMAGE_RATIO, gross);
+  return Math.max(1, currentHp - netDamage);
 }
 
 /** Boss HP pool. */

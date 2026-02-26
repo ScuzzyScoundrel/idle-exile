@@ -16,7 +16,7 @@ import {
 import { createCharacter, resolveStats, addXp } from '../engine/character';
 import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, applyNormalClearHp, createBossEncounter, tickBossFight, generateBossLoot, BossTickResult } from '../engine/zones';
 import { calcDefensiveEfficiency } from '../engine/setBonus';
-import { BOSS_VICTORY_DURATION, BOSS_DEFEAT_RECOVERY } from '../data/balance';
+import { BOSS_VICTORY_DURATION, BOSS_DEFEAT_RECOVERY, BOSS_VICTORY_HEAL_RATIO } from '../data/balance';
 import { pickBestItem, getEquippedWeaponType, generateId } from '../engine/items';
 import { applyCurrency } from '../engine/crafting';
 import { aggregateAbilityEffects, getIncompatibleAbilities, getEffectiveDuration } from '../engine/abilities';
@@ -1012,11 +1012,16 @@ export const useGameStore = create<GameState & GameActions>()(
         }
 
         if (elapsed >= duration) {
+          // Victory: partial heal (HP carries across cycles)
+          // Defeat: full heal (the recovery time is punishment enough)
+          const healedHp = state.combatPhase === 'boss_victory'
+            ? state.currentHp + (stats.maxLife - state.currentHp) * BOSS_VICTORY_HEAL_RATIO
+            : stats.maxLife;
           set({
             combatPhase: 'clearing' as CombatPhase,
             bossState: null,
             combatPhaseStartedAt: null,
-            currentHp: stats.maxLife,
+            currentHp: Math.min(stats.maxLife, healedHp),
           });
           return true;
         }
