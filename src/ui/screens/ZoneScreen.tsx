@@ -1157,28 +1157,38 @@ export default function ZoneScreen() {
       {!isRunning ? (
         <button
           onClick={handleStart}
-          disabled={idleMode === 'gathering' && !selectedGatheringProfession}
+          disabled={idleMode === 'gathering' && (!selectedGatheringProfession || !canGatherInZone(currentGatheringLevel, zone))}
           className={`w-full py-3 font-bold rounded-lg text-lg transition-all ${
-            idleMode === 'gathering' && !selectedGatheringProfession
+            idleMode === 'gathering' && (!selectedGatheringProfession || !canGatherInZone(currentGatheringLevel, zone))
               ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
               : idleMode === 'gathering'
                 ? 'bg-green-600 hover:bg-green-500 text-white'
                 : 'bg-green-600 hover:bg-green-500 text-white'
           } ${tutorialStep === 3 ? 'ring-2 ring-yellow-400 animate-pulse' : ''}`}
         >
-          {idleMode === 'gathering' ? 'Start Gathering' : 'Start Idle Run'}
+          {idleMode === 'gathering' && selectedGatheringProfession && !canGatherInZone(currentGatheringLevel, zone)
+            ? `Requires ${selectedGatheringProfession.charAt(0).toUpperCase() + selectedGatheringProfession.slice(1)} Lv.${getGatheringSkillRequirement(zone.band)}`
+            : idleMode === 'gathering' ? 'Start Gathering' : 'Start Idle Run'}
         </button>
       ) : (
         <div className="space-y-2">
           {/* Switch zone button */}
-          {selectedZone !== currentZoneId && (
-            <button
-              onClick={handleStart}
-              className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-sm transition-all"
-            >
-              Switch to {ZONE_DEFS.find((z) => z.id === selectedZone)?.name}
-            </button>
-          )}
+          {selectedZone !== currentZoneId && (() => {
+            const canSwitch = !(idleMode === 'gathering' && selectedGatheringProfession && !canGatherInZone(currentGatheringLevel, zone));
+            return (
+              <button
+                onClick={handleStart}
+                disabled={!canSwitch}
+                className={`w-full py-2 font-bold rounded-lg text-sm transition-all ${
+                  canSwitch ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                {canSwitch
+                  ? `Switch to ${ZONE_DEFS.find((z) => z.id === selectedZone)?.name}`
+                  : `Requires ${selectedGatheringProfession!.charAt(0).toUpperCase() + selectedGatheringProfession!.slice(1)} Lv.${getGatheringSkillRequirement(zone.band)}`}
+              </button>
+            );
+          })()}
           {/* Combat Phase Display */}
           {idleMode === 'combat' && combatPhase === 'boss_fight' && bossState && (
             <BossFightDisplay

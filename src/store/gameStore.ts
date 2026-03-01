@@ -31,7 +31,7 @@ import {
 import { getAbilityDef } from '../data/abilities';
 import { ZONE_DEFS } from '../data/zones';
 import { BAG_UPGRADE_DEFS, getBagDef, calcBagCapacity, BAG_SLOT_COUNT } from '../data/items';
-import { addGatheringXp, calcGatherClearTime, createDefaultGatheringSkills } from '../engine/gathering';
+import { addGatheringXp, calcGatherClearTime, createDefaultGatheringSkills, canGatherInZone } from '../engine/gathering';
 import { createDefaultCraftingSkills } from '../data/craftingProfessions';
 import { calcRareFindBonus } from '../engine/rareMaterials';
 import { canRefine, refine, canDeconstruct, deconstruct } from '../engine/refinement';
@@ -438,6 +438,15 @@ export const useGameStore = create<GameState & GameActions>()(
         const stats = resolveStats(state.character);
         const classDef = getClassDef(state.character.class);
 
+        // Enforce gathering skill lock — reject if skill too low for zone
+        if (state.idleMode === 'gathering') {
+          const profession = state.selectedGatheringProfession;
+          const zone = ZONE_DEFS.find(z => z.id === zoneId);
+          if (!profession || !zone || !canGatherInZone(state.gatheringSkills[profession].level, zone)) {
+            return;
+          }
+        }
+
         // Reset resource if zone changed (Ranger tracking, Rogue momentum)
         let newResource = state.classResource;
         if (state.currentZoneId && state.currentZoneId !== zoneId) {
@@ -736,7 +745,44 @@ export const useGameStore = create<GameState & GameActions>()(
       },
 
       setGatheringProfession: (profession: GatheringProfession) => {
-        set({ selectedGatheringProfession: profession });
+        const state = get();
+        const wasRunning = state.idleStartTime !== null && state.idleMode === 'gathering';
+        const runningZone = state.currentZoneId;
+
+        // If a gathering run is active, stop it first
+        if (wasRunning) {
+          const cDef = getClassDef(state.character.class);
+          set({
+            idleStartTime: null,
+            currentZoneId: null,
+            combatPhase: 'clearing' as CombatPhase,
+            bossState: null,
+            combatPhaseStartedAt: null,
+            classResource: resetResourceOnEvent(state.classResource, cDef, 'stop'),
+            selectedGatheringProfession: profession,
+          });
+
+          // Restart in the same zone with the new profession's clear time
+          if (runningZone) {
+            const zone = ZONE_DEFS.find(z => z.id === runningZone);
+            if (zone && canGatherInZone(get().gatheringSkills[profession].level, zone)) {
+              const newClearTime = calcGatherClearTime(get().gatheringSkills[profession].level, zone);
+              const now = Date.now();
+              set({
+                currentZoneId: runningZone,
+                idleStartTime: now,
+                clearStartedAt: now,
+                currentClearTime: newClearTime,
+                currentHp: resolveStats(get().character).maxLife,
+                combatPhase: 'clearing' as CombatPhase,
+                bossState: null,
+                combatPhaseStartedAt: null,
+              });
+            }
+          }
+        } else {
+          set({ selectedGatheringProfession: profession });
+        }
       },
 
       equipBag: (bagDefId: string, slotIndex: number) => {

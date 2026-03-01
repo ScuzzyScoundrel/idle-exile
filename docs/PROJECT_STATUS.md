@@ -1,14 +1,14 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-01 (Post-Sprint 7C-A QoL)
+> Last updated: 2026-03-01 (Post-Sprint 8A)
 
 ## Current Phase
-**Sprint 7C-A: Ability System Overhaul** — COMPLETE. Plus QoL additions:
-- Mobile overflow fixes (class picker + inventory screen)
-- Ability picker on zone screen (full management: equip/remove, XP bars, skill trees, respec)
-- Kill counter + per-zone fastest clear time tracking
-- Save v20.
+**Sprint 8A: Gathering System Bugs** — COMPLETE.
+- Fixed gathering profession mid-run exploit (switching profession now stops + restarts run with correct clear time)
+- Fixed gathering zone skill lock enforcement (engine rejects runs in zones where skill is too low)
+- Disabled Start/Switch buttons on zone screen when gathering skill is insufficient (shows requirement)
+- Next: Sprint 8B (Combat & Ability Bugs)
 
 ## What Is Working Right Now
 The game is live on Vercel and playable locally at `http://localhost:5173/`. Core loop:
@@ -289,9 +289,14 @@ Replaced focus modes with Combat/Gathering toggle. 5 gathering professions with 
 - **Save v19 migration**: Adds `abilityProgress: {}`, `clearStartedAt: 0`, `currentClearTime: 0`. Clears old mutator selections.
 - **Files changed**: types/index.ts, engine/abilities.ts, data/abilities.ts, store/gameStore.ts, ui/components/AbilityBar.tsx, ui/screens/ZoneScreen.tsx, ui/screens/CharacterScreen.tsx
 
+### Sprint 8A Changes (Gathering System Bugs)
+- **Fixed profession mid-run exploit**: `setGatheringProfession` (gameStore.ts) now stops the current gathering run and restarts with the new profession's clear time. Previously only swapped the profession ID, allowing fast clear speed to route XP to a low-level profession.
+- **Fixed zone skill lock enforcement**: `startIdleRun` (gameStore.ts) now calls `canGatherInZone()` and returns early if the gathering skill is too low. Previously the lock was visual-only.
+- **Disabled Start/Switch buttons**: ZoneScreen Start button and Switch Zone button are now disabled + show requirement text when gathering skill is insufficient for the selected zone.
+- **Files changed**: `store/gameStore.ts`, `ui/screens/ZoneScreen.tsx`
+
 ## Priority for Next Session
-See `SPRINT_PLAN.md` for full roadmap. Next sprints:
-1. **Sprint 7C-B: Full Ability Population** — 50+ abilities from PDF spec (10 per weapon type)
-2. **Sprint 7B: Talent Trees** — 30-50 nodes per class
-3. **Sprint 8: Gold Economy**
-4. **Sprint 9: Gathering Gear UI + Dual Loadout**
+See `SPRINT_PLAN.md` for full roadmap. Next sprint:
+1. **Sprint 8B: Combat & Ability Bugs** — weapon passives not affecting clear speed, exalt on crafted items, HP drain rebalance
+2. **Sprint 8C: Mobile UX Foundation** — mobile detection, tap-friendly inventory, bottom sheets
+3. **Sprint 8D: Currency & Equip UX Fixes** — one-shot currency, mobile unequip, multi-tab conflict, weapon restrictions
