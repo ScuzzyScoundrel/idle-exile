@@ -1,10 +1,14 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-02-26 (Sprint 7C-A: Ability System Overhaul)
+> Last updated: 2026-03-01 (Post-Sprint 7C-A QoL)
 
 ## Current Phase
-**Sprint 7C-A: Ability System Overhaul** — COMPLETE. Ability kinds expanded (passive/buff/instant/proc/toggle/ultimate), per-ability skill trees (3 paths x 2 nodes each), ability XP/leveling (0-10), slot unlock progression (Lv.1/5/12/20), per-clear tracking bug fix (no more progress bar jumps), respec system. Save v19.
+**Sprint 7C-A: Ability System Overhaul** — COMPLETE. Plus QoL additions:
+- Mobile overflow fixes (class picker + inventory screen)
+- Ability picker on zone screen (full management: equip/remove, XP bars, skill trees, respec)
+- Kill counter + per-zone fastest clear time tracking
+- Save v20.
 
 ## What Is Working Right Now
 The game is live on Vercel and playable locally at `http://localhost:5173/`. Core loop:
@@ -73,7 +77,7 @@ Bottom: mainhand, offhand, trinket1, trinket2
 - **Per-clear tracking**: `clearStartedAt` + `currentClearTime` replace modulo-based progress. Mid-clear ability activation preserves progress % but adjusts remaining time.
 - **Bag system**: 5 equippable bag slots (T1:6→T5:14). Start 30 total, max 70.
 - **Crafting (currencies)**: `applyCurrency(item, type)` — augment, chaos, divine, annul, exalt
-- **Save**: Zustand persist v19. Migrations: v11→v12 adds `craftingSkills`, v12→v13 adds leatherworker + jeweler skills, v13→v14 adds `craftAutoSalvageMinRarity`, v14→v15 adds `zoneClearCounts` + combat HP fields, v17→v18 adds `classResource` + `classSelected`, v18→v19 adds `abilityProgress` + `clearStartedAt` + `currentClearTime` (clears old mutator selections).
+- **Save**: Zustand persist v20. v19→v20 adds `totalKills` + `fastestClears`. Migrations: v11→v12 adds `craftingSkills`, v12→v13 adds leatherworker + jeweler skills, v13→v14 adds `craftAutoSalvageMinRarity`, v14→v15 adds `zoneClearCounts` + combat HP fields, v17→v18 adds `classResource` + `classSelected`, v18→v19 adds `abilityProgress` + `clearStartedAt` + `currentClearTime` (clears old mutator selections).
 
 ## Architecture
 ```
