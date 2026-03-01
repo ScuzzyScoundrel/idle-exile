@@ -1,7 +1,7 @@
 # Idle Exile — Sprint Plan & Roadmap
 
 > **Full development roadmap.** Read `PROJECT_STATUS.md` first for current state.
-> Last updated: 2026-03-01 (Post-Sprint 8A)
+> Last updated: 2026-03-01 (Post-Sprint 8B)
 
 ## Micro-Sprint Workflow
 
@@ -38,6 +38,7 @@ Each conversation = one micro-sprint (3-5 focused changes):
 | 7A | 4 classes (Warrior/Mage/Ranger/Rogue) with resource mechanics |
 | 7C-A | Ability system overhaul: 6 kinds, skill trees (3 paths x 2 nodes), ability XP, slot unlocks, respec |
 | **8A** | **Gathering bugs: profession mid-run exploit, zone skill lock enforcement, UI button disable** |
+| **8B** | **Combat bugs: ability resistBonus applied to combat calcs, HP drain variance (removed constant floor), exalt code verified correct** |
 
 See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
 
@@ -46,7 +47,7 @@ See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
 ## PHASE 1: CRITICAL BUG FIXES
 
 ### Sprint 8B: Combat & Ability Bugs
-**Status:** NOT STARTED
+**Status:** COMPLETE
 **Files:** `engine/zones.ts`, `engine/abilities.ts`, `store/gameStore.ts`, `data/balance.ts`, `engine/crafting.ts`
 
 1. **Fix weapon passives not affecting clear speed**

@@ -17,7 +17,7 @@ import {
   CURRENCY_DROP_CHANCES, GOLD_PER_BAND, XP_PER_BAND, BAG_DROP_CHANCE,
   POWER_DIVISOR, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO,
   HAZARD_PENALTY_FLOOR, HAZARD_OVERCAP_MULT,
-  CLEAR_DAMAGE_RATIO, CLEAR_REGEN_RATIO, MIN_CLEAR_NET_DAMAGE_RATIO, BOSS_HP_MULTIPLIER,
+  CLEAR_DAMAGE_RATIO, CLEAR_REGEN_RATIO, BOSS_HP_MULTIPLIER,
   BOSS_DAMAGE_MULTIPLIER, BOSS_ILVL_BONUS, BOSS_DROP_COUNT_MIN,
   BOSS_DROP_COUNT_MAX,
 } from '../data/balance';
@@ -40,6 +40,20 @@ const HAZARD_STAT_MAP: Record<string, keyof ResolvedStats> = {
   lightning: 'lightningResist',
   chaos: 'chaosResist',
 };
+
+// --- Ability Effect Helpers ---
+
+/** Apply ability resistBonus to stats for combat calculations. */
+export function applyAbilityResists(stats: ResolvedStats, abilityEffect?: AbilityEffect): ResolvedStats {
+  if (!abilityEffect?.resistBonus) return stats;
+  return {
+    ...stats,
+    fireResist: stats.fireResist + abilityEffect.resistBonus,
+    coldResist: stats.coldResist + abilityEffect.resistBonus,
+    lightningResist: stats.lightningResist + abilityEffect.resistBonus,
+    chaosResist: stats.chaosResist + abilityEffect.resistBonus,
+  };
+}
 
 // --- Functions ---
 
@@ -114,10 +128,13 @@ export function calcClearTime(
 ): number {
   const playerDps = calcPlayerDps(char, abilityEffect) * classDamageMult;
 
-  let defEff = calcDefensiveEfficiency(char.stats, zone.band);
+  // Apply ability resist bonus to stats for defense/hazard calculations
+  const effectiveStats = applyAbilityResists(char.stats, abilityEffect);
+
+  let defEff = calcDefensiveEfficiency(effectiveStats, zone.band);
   defEff *= (abilityEffect?.defenseMult ?? 1);
 
-  const hazardMult = abilityEffect?.ignoreHazards ? 1.0 : calcHazardPenalty(char.stats, zone);
+  const hazardMult = abilityEffect?.ignoreHazards ? 1.0 : calcHazardPenalty(effectiveStats, zone);
   const charPower = playerDps * defEff * hazardMult;
 
   let clearTime = zone.baseClearTime / (charPower / POWER_DIVISOR);
@@ -352,11 +369,18 @@ export function calcRegenPerClear(maxHp: number): number {
   return maxHp * CLEAR_REGEN_RATIO;
 }
 
-/** Apply one clear of HP change. Floor at 1 (can't die to normal mobs). */
+/**
+ * Apply one clear of HP change. Floor at 1 (can't die to normal mobs).
+ * Damage has variance (70%-130% of base) so HP isn't a flat drain.
+ * Good defense can fully out-regen damage — no artificial minimum floor.
+ */
 export function applyNormalClearHp(currentHp: number, maxHp: number, defEff: number): number {
-  const gross = calcDamagePerClear(maxHp, defEff) - calcRegenPerClear(maxHp);
-  const netDamage = Math.max(maxHp * MIN_CLEAR_NET_DAMAGE_RATIO, gross);
-  return Math.max(1, currentHp - netDamage);
+  const baseDamage = calcDamagePerClear(maxHp, defEff);
+  const damage = baseDamage * (0.7 + Math.random() * 0.6); // 70% to 130% variance
+  const regen = calcRegenPerClear(maxHp);
+  const netChange = damage - regen; // positive = net damage, negative = net heal
+  const newHp = currentHp - netChange;
+  return Math.max(1, Math.min(maxHp, newHp)); // clamp to [1, maxHp]
 }
 
 /** Boss HP pool. */
@@ -366,7 +390,8 @@ export function calcBossMaxHp(zone: ZoneDef): number {
 
 /** Boss DPS against player. Uses zone pressure + defenses, amplified by multiplier. */
 export function calcBossDps(char: Character, zone: ZoneDef, abilityEffect?: AbilityEffect): number {
-  let defEff = calcDefensiveEfficiency(char.stats, zone.band);
+  const effectiveStats = applyAbilityResists(char.stats, abilityEffect);
+  let defEff = calcDefensiveEfficiency(effectiveStats, zone.band);
   defEff *= (abilityEffect?.defenseMult ?? 1);
   // Map defEff [0.2, 1.0] → damage scale [1.0, 0.0]
   const damageScale = Math.max(0, (1.0 - defEff) / 0.8);

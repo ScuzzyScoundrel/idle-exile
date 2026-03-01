@@ -218,8 +218,6 @@ export const CATALYST_BEST_TIER: Record<RareMaterialRarity, AffixTier> = {
 export const CLEAR_DAMAGE_RATIO = 0.15;
 /** maxHp fraction regenerated per normal clear. */
 export const CLEAR_REGEN_RATIO = 0.08;
-/** Minimum net HP loss per clear as fraction of maxHp (ensures HP always drops). */
-export const MIN_CLEAR_NET_DAMAGE_RATIO = 0.02;
 /** Normal clears between boss encounters. */
 export const BOSS_INTERVAL = 10;
 /** bossHp = baseClearTime * band * this. */

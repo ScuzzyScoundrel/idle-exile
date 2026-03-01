@@ -1,14 +1,14 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-01 (Post-Sprint 8A)
+> Last updated: 2026-03-01 (Post-Sprint 8B)
 
 ## Current Phase
-**Sprint 8A: Gathering System Bugs** — COMPLETE.
-- Fixed gathering profession mid-run exploit (switching profession now stops + restarts run with correct clear time)
-- Fixed gathering zone skill lock enforcement (engine rejects runs in zones where skill is too low)
-- Disabled Start/Switch buttons on zone screen when gathering skill is insufficient (shows requirement)
-- Next: Sprint 8B (Combat & Ability Bugs)
+**Sprint 8B: Combat & Ability Bugs** — COMPLETE.
+- Fixed ability `resistBonus` not applied in combat calculations — abilities like Crushing Force (+10 all resists) and Elemental Ward (+50 resists) now affect defensive efficiency and hazard penalty via new `applyAbilityResists()` helper
+- Fixed HP drain constant minimum — removed `MIN_CLEAR_NET_DAMAGE_RATIO` (0.02 floor). Damage per clear now has 70-130% variance. Good defense can fully out-regen damage instead of always losing 2% HP. HP clamped to [1, maxHp].
+- Investigated exalt currency on crafted items — code is correct (guard checks both prefix AND suffix sides, picks side with room). No change needed.
+- Next: Sprint 8C (Mobile UX Foundation)
 
 ## What Is Working Right Now
 The game is live on Vercel and playable locally at `http://localhost:5173/`. Core loop:
@@ -70,7 +70,7 @@ Bottom: mainhand, offhand, trinket1, trinket2
 - **Rare material drops**: 25 defs (5 professions × 5 rarities). Per-clear roll, highest rarity first. Rates scale with band (common ~8-18%, legendary 0-0.3%). `rareFindBonus` from milestones + gear.
 - **Refinement**: 36 recipes (6 tracks × 6 tiers). T1: 5 raw + gold → 1 refined. T2+: 5 raw + 2 previous refined + gold → 1 refined. Deconstruct: 1 refined → 2 previous tier (T2+ only).
 - **Crafting professions**: 6 professions, level 1-100. XP curve matches gathering. 205 recipes (table-driven armor generation). Catalyst system: optional affix catalyst → guaranteed affix; optional rare mat → guaranteed minimum rarity + 1 boosted affix. `executeCraft()` generates item with reroll loop + boosted affix upgrade.
-- **Combat HP**: `applyNormalClearHp()` per clear. Damage = maxHp * 0.15 * scale(defEff). Regen = maxHp * 0.08. Floor at 1 HP (can't die to mobs).
+- **Combat HP**: `applyNormalClearHp()` per clear. Damage = maxHp * 0.15 * scale(defEff) * variance(0.7-1.3). Regen = maxHp * 0.08. No minimum drain floor — good defense can fully heal. Floor at 1 HP (can't die to mobs). Ability `resistBonus` now applied to defEff and hazard calcs via `applyAbilityResists()`.
 - **Boss mechanics**: Every 10 clears via `zoneClearCounts`. `calcBossMaxHp()` = baseClearTime * band * 8. `calcPlayerDps()` and `calcBossDps()` drive real-time simulation. `tickBossFight()` resolves frame-by-frame. `generateBossLoot()` at iLvlMax + 5. Victory/defeat phases with timed recovery.
 - **Auto-apply resources**: `processNewClears()` immediately applies all drops to state. Session summary tracked in UI local state.
 - **Ability system**: 6 ability kinds (passive/buff/instant/proc/toggle/ultimate). Per-ability skill trees with 3 paths x 2 nodes. Ability XP: `10 + floor(band*2)` per clear. XP per level: `100*(level+1)`. Max level 10. Respec cost: `50*level^2` gold. Slot unlock at character Lv.1/5/12/20.
@@ -144,9 +144,8 @@ src/
 **See `SPRINT_PLAN.md` for the full roadmap with detailed implementation notes.**
 
 Immediate priority (Phase 1 — Critical Bug Fixes):
-1. **Sprint 8B** — Combat & ability bugs (weapon passives, exalt fix, HP drain rebalance)
-2. **Sprint 8C** — Mobile UX foundation (touch detection, tap interactions, bottom sheets)
-3. **Sprint 8D** — Currency & equip UX (one-shot currency, multi-tab conflict, weapon restrictions)
+1. **Sprint 8C** — Mobile UX foundation (touch detection, tap interactions, bottom sheets)
+2. **Sprint 8D** — Currency & equip UX (one-shot currency, multi-tab conflict, weapon restrictions)
 
 Then Phase 2 (Balance), Phase 3 (UX/UI Overhaul), Phase 4 (New Features) — all detailed in SPRINT_PLAN.md.
 
@@ -300,6 +299,12 @@ Replaced focus modes with Combat/Gathering toggle. 5 gathering professions with 
 - **Fixed zone skill lock enforcement**: `startIdleRun` (gameStore.ts) now calls `canGatherInZone()` and returns early if the gathering skill is too low. Previously the lock was visual-only.
 - **Disabled Start/Switch buttons**: ZoneScreen Start button and Switch Zone button are now disabled + show requirement text when gathering skill is insufficient for the selected zone.
 - **Files changed**: `store/gameStore.ts`, `ui/screens/ZoneScreen.tsx`
+
+### Sprint 8B Changes (Combat & Ability Bugs)
+- **Fixed ability resistBonus not applied**: New `applyAbilityResists()` helper in `engine/zones.ts` creates modified stats with ability resist bonus before passing to `calcDefensiveEfficiency` and `calcHazardPenalty`. Applied in `calcClearTime`, `calcBossDps`, and `processNewClears` HP calculation. Previously, abilities like Crushing Force (+10 all resists), Elemental Ward (+50 resists), and skill tree resist nodes had no actual combat effect.
+- **Fixed HP drain constant minimum**: Removed `MIN_CLEAR_NET_DAMAGE_RATIO` (0.02). Damage per clear now has 70-130% variance (was flat). Good defense can fully out-regen damage — no more artificial 2% maxHp drain per clear. HP clamped to [1, maxHp] (can still heal up to full between clears).
+- **Exalt currency investigated**: Code is correct — `!canPrefix && !canSuffix` guard already handles one-sided affix distributions. No change needed.
+- **Files changed**: `engine/zones.ts`, `data/balance.ts`, `store/gameStore.ts`
 
 ## Micro-Sprint Workflow
 Each conversation = one micro-sprint (3-5 related changes):

@@ -16,7 +16,7 @@ import {
   CharacterClass,
 } from '../types';
 import { createCharacter, resolveStats, addXp } from '../engine/character';
-import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, applyNormalClearHp, createBossEncounter, tickBossFight, generateBossLoot, BossTickResult } from '../engine/zones';
+import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, applyNormalClearHp, createBossEncounter, tickBossFight, generateBossLoot, applyAbilityResists, BossTickResult } from '../engine/zones';
 import { calcDefensiveEfficiency } from '../engine/setBonus';
 import { BOSS_VICTORY_DURATION, BOSS_DEFEAT_RECOVERY, BOSS_VICTORY_HEAL_RATIO } from '../data/balance';
 import { pickBestItem, getEquippedWeaponType, generateId } from '../engine/items';
@@ -627,9 +627,10 @@ export const useGameStore = create<GameState & GameActions>()(
           newBagStash[key] = (newBagStash[key] || 0) + val;
         }
 
-        // HP updates: apply damage/regen per clear (use class damage modifier)
+        // HP updates: apply damage/regen per clear (include ability resist bonus)
         const stats = resolveStats(state.character);
-        const defEff = calcDefensiveEfficiency(stats, zone.band) * (abilityEffect?.defenseMult ?? 1);
+        const effectiveStats = applyAbilityResists(stats, abilityEffect);
+        const defEff = calcDefensiveEfficiency(effectiveStats, zone.band) * (abilityEffect?.defenseMult ?? 1);
         let hp = state.currentHp > 0 ? state.currentHp : stats.maxLife;
         for (let i = 0; i < clearCount; i++) {
           hp = applyNormalClearHp(hp, stats.maxLife, defEff);
