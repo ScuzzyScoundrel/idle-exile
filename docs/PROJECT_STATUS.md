@@ -324,7 +324,8 @@ Replaced focus modes with Combat/Gathering toggle. 5 gathering professions with 
 - **Files changed**: `ui/screens/InventoryScreen.tsx`, `ui/screens/CharacterScreen.tsx`, `store/gameStore.ts`, `engine/items.ts`, `App.tsx`
 
 ### Sprint 8E Changes (Combat Rebalance)
-- **Boss HP rework**: Old formula `baseClearTime * band * 4` gave tiny HP pools (60-100 for band 1), causing sub-1s kills. New formula: `max(75 * band^2, playerDps * 8)`. Band^2 static component scales with progression, DPS floor ensures minimum 8s fight even when massively overgeared. `BOSS_DAMAGE_MULTIPLIER` 2.5→1.5.
+- **Boss HP rework**: Formula now `BOSS_BASE_HP(150) * band^2`. Band 1: 150 HP, Band 3: 1350 HP, Band 6: 5400 HP. No DPS floor — overgeared players melt bosses fast (intended). Appropriately-geared fights last 10-15s. `BOSS_DAMAGE_MULTIPLIER` 2.5→1.5.
+- **Boss victory screen**: Extended from 2.5s to 5s. Now shows fight stats: duration (ms for fast kills), boss HP, your DPS, boss DPS, plus loot. Even a 0.5s kill shows results for 5s.
 - **Boss spawn consistency**: `zoneClearCounts` now reset when starting a new run. Boss always spawns after exactly 10 clears. Previously, leftover counts from stopped runs caused bosses after 1/3/5 clears unpredictably.
 - **Defense/clear speed philosophy split**: Removed `defEff` from `charPower` in `calcClearTime()`. New formula: `charPower = playerDps * hazardMult`. Defense only affects damage taken (HP drain + boss DPS). `POWER_DIVISOR` 25→50 to compensate for removed defEff factor.
 - **XP scaling with zone level**: New `calcXpScale(playerLevel, zoneIlvl)` in `engine/zones.ts`. Each player level above zone iLvlMin = -10% XP (floor at 10%). Applied in `simulateIdleRun`, `simulateSingleClear`, and ZoneScreen real-time XP grant. Prevents farming zone 1 for fast XP.

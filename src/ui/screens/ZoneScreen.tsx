@@ -263,19 +263,53 @@ function BossFightDisplay({ bossName, bossHp, bossMaxHp, playerHp, maxHp, player
 }
 
 // --- Boss Victory Overlay ---
-function BossVictoryOverlay({ bossName, items }: { bossName: string; items: { name: string; rarity: Rarity }[] }) {
+interface BossVictoryProps {
+  bossName: string;
+  items: { name: string; rarity: Rarity }[];
+  fightDuration: number;
+  playerDps: number;
+  bossDps: number;
+  bossMaxHp: number;
+}
+
+function BossVictoryOverlay({ bossName, items, fightDuration, playerDps, bossDps, bossMaxHp }: BossVictoryProps) {
   return (
-    <div className="bg-gradient-to-br from-yellow-950 via-gray-900 to-yellow-950 rounded-lg border-2 border-yellow-500 p-4 text-center space-y-2 animate-pulse">
+    <div className="bg-gradient-to-br from-yellow-950 via-gray-900 to-yellow-950 rounded-lg border-2 border-yellow-500 p-4 text-center space-y-3">
       <div className="text-2xl">{'\u{1F451}'}</div>
       <div className="text-yellow-400 font-bold text-sm">Boss Defeated!</div>
       <div className="text-white text-xs">{bossName} has been slain!</div>
+
+      {/* Fight Stats */}
+      <div className="grid grid-cols-2 gap-2 text-xs">
+        <div className="bg-black/30 rounded px-2 py-1.5">
+          <div className="text-gray-500">Fight Time</div>
+          <div className="text-white font-bold font-mono">{fightDuration < 1 ? `${(fightDuration * 1000).toFixed(0)}ms` : `${fightDuration.toFixed(1)}s`}</div>
+        </div>
+        <div className="bg-black/30 rounded px-2 py-1.5">
+          <div className="text-gray-500">Boss HP</div>
+          <div className="text-white font-bold font-mono">{bossMaxHp.toLocaleString()}</div>
+        </div>
+        <div className="bg-black/30 rounded px-2 py-1.5">
+          <div className="text-gray-500">Your DPS</div>
+          <div className="text-green-400 font-bold font-mono">{playerDps.toFixed(1)}</div>
+        </div>
+        <div className="bg-black/30 rounded px-2 py-1.5">
+          <div className="text-gray-500">Boss DPS</div>
+          <div className="text-red-400 font-bold font-mono">{bossDps.toFixed(1)}</div>
+        </div>
+      </div>
+
+      {/* Loot */}
       {items.length > 0 && (
-        <div className="flex flex-wrap gap-1 justify-center">
-          {items.map((it, i) => (
-            <span key={i} className={`${RARITY_TEXT[it.rarity]} text-xs bg-gray-800 rounded px-2 py-0.5`}>
-              {it.name}
-            </span>
-          ))}
+        <div>
+          <div className="text-xs text-gray-500 mb-1">Loot</div>
+          <div className="flex flex-wrap gap-1 justify-center">
+            {items.map((it, i) => (
+              <span key={i} className={`${RARITY_TEXT[it.rarity]} text-xs bg-gray-800 rounded px-2 py-0.5`}>
+                {it.name}
+              </span>
+            ))}
+          </div>
         </div>
       )}
       <div className="text-gray-500 text-xs">Resuming shortly...</div>
@@ -803,6 +837,7 @@ export default function ZoneScreen() {
   const modeSwitchingRef = useRef(false);
   const lastTickTimeRef = useRef(Date.now());
   const [bossLootItems, setBossLootItems] = useState<{ name: string; rarity: Rarity }[]>([]);
+  const [bossFightStats, setBossFightStats] = useState<{ duration: number; playerDps: number; bossDps: number; bossMaxHp: number } | null>(null);
 
   const isRunning = idleStartTime !== null;
   const zone = ZONE_DEFS.find((z) => z.id === selectedZone)!;
@@ -823,7 +858,7 @@ export default function ZoneScreen() {
   if (idleMode === 'combat') {
     const pDps = calcPlayerDps(character);
     const bDps = calcBossDps(character, zone);
-    const bHp = calcBossMaxHp(zone, pDps);
+    const bHp = calcBossMaxHp(zone);
     bossTimeToKill = pDps > 0 ? bHp / pDps : Infinity;
     bossTimeToDie = bDps > 0 ? maxHp / bDps : Infinity;
     if (bossTimeToKill >= bossTimeToDie) dangerLevel = 'deadly';
@@ -854,6 +889,17 @@ export default function ZoneScreen() {
         const result = tickBoss(dt);
         if (result) {
           if (result.outcome === 'victory') {
+            // Capture fight stats before handleBossVictory modifies state
+            const bState = useGameStore.getState().bossState;
+            if (bState) {
+              const duration = (Date.now() - bState.startedAt) / 1000;
+              setBossFightStats({
+                duration,
+                playerDps: bState.playerDps,
+                bossDps: bState.bossDps,
+                bossMaxHp: bState.bossMaxHp,
+              });
+            }
             const lootResult = handleBossVictory();
             if (lootResult) {
               setBossLootItems(lootResult.items);
@@ -937,6 +983,7 @@ export default function ZoneScreen() {
     lastClearCount.current = 0;
     setSalvageTally({ count: 0, dust: 0 });
     setBossLootItems([]);
+    setBossFightStats(null);
     startIdleRun(selectedZone);
   };
 
@@ -1243,7 +1290,14 @@ export default function ZoneScreen() {
           )}
 
           {idleMode === 'combat' && combatPhase === 'boss_victory' && bossState && (
-            <BossVictoryOverlay bossName={bossState.bossName} items={bossLootItems} />
+            <BossVictoryOverlay
+              bossName={bossState.bossName}
+              items={bossLootItems}
+              fightDuration={bossFightStats?.duration ?? 0}
+              playerDps={bossFightStats?.playerDps ?? 0}
+              bossDps={bossFightStats?.bossDps ?? 0}
+              bossMaxHp={bossFightStats?.bossMaxHp ?? 0}
+            />
           )}
 
           {idleMode === 'combat' && combatPhase === 'boss_defeat' && bossState && (

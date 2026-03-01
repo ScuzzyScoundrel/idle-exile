@@ -221,18 +221,16 @@ export const CLEAR_DAMAGE_RATIO = 0.15;
 export const CLEAR_REGEN_RATIO = 0.08;
 /** Normal clears between boss encounters. */
 export const BOSS_INTERVAL = 10;
-/** Base boss HP (band 1). Scales with band^2. */
-export const BOSS_BASE_HP = 75;
-/** Boss always takes at least this many seconds to kill (DPS floor). */
-export const BOSS_MIN_FIGHT_SECONDS = 8;
+/** Base boss HP (band 1). Scales with band^2. Overgeared players melt it fast — that's intended. */
+export const BOSS_BASE_HP = 150;
 /** Boss hits harder than zone pressure. Reduced in 8E (was 2.5). */
 export const BOSS_DAMAGE_MULTIPLIER = 1.5;
 /** Boss drops at iLvlMax + this. */
 export const BOSS_ILVL_BONUS = 5;
 export const BOSS_DROP_COUNT_MIN = 1;
 export const BOSS_DROP_COUNT_MAX = 2;
-/** Seconds of celebration after boss victory. */
-export const BOSS_VICTORY_DURATION = 2.5;
+/** Seconds of celebration after boss victory (shows loot + fight stats). */
+export const BOSS_VICTORY_DURATION = 5.0;
 /** Seconds of recovery after boss defeat (HP regens visually). */
 export const BOSS_DEFEAT_RECOVERY = 5.0;
 /** Fraction of missing HP healed after boss victory (1.0 = full heal). */
