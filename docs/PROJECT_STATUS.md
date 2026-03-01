@@ -131,26 +131,32 @@ src/
   index.css                 — Tailwind directives + base styles
 ```
 
-## Known Issues / Next Iteration TODO
-- [ ] Socket currency not yet implemented (defined but no crafting logic)
+## Known Issues & Technical Debt
+- [ ] Socket currency defined but no crafting logic
 - [ ] No trinket item bases (trinket1/trinket2 slots empty)
-- [x] Class selection implemented (4 classes with unique resource mechanics)
-- [ ] Talent tree not built
 - [ ] Set bonus UI not shown on character screen
 - [ ] Zone familiarity passive not implemented
 - [ ] `simulateIdleRun()` and `simulateSingleClear()` share drop logic — could refactor
 - [ ] ItemCard component exists but is no longer imported anywhere (orphaned)
-- [ ] Gathering gear equip/swap UI not built (gatheringEquipment in state but no UI yet)
-- [ ] Dual loadout system (combat set / gathering set) not built yet
 - [ ] Offline gathering doesn't use rareFindBonus (rare drops only during real-time)
 
-## What Has NOT Been Built Yet (from GDD MVP scope)
-- [x] Class selection (GDD Section 3) — 4 classes with resource mechanics
-- [ ] Talent tree (30-50 nodes per class)
-- [ ] Specialization system (one per character)
-- [ ] Socket crafting logic
-- [ ] More affix variety (slot-specific affixes)
-- [ ] Gathering gear equip/swap UI + dual loadout
+## What's Next
+**See `SPRINT_PLAN.md` for the full roadmap with detailed implementation notes.**
+
+Immediate priority (Phase 1 — Critical Bug Fixes):
+1. **Sprint 8B** — Combat & ability bugs (weapon passives, exalt fix, HP drain rebalance)
+2. **Sprint 8C** — Mobile UX foundation (touch detection, tap interactions, bottom sheets)
+3. **Sprint 8D** — Currency & equip UX (one-shot currency, multi-tab conflict, weapon restrictions)
+
+Then Phase 2 (Balance), Phase 3 (UX/UI Overhaul), Phase 4 (New Features) — all detailed in SPRINT_PLAN.md.
+
+Unfinished from original GDD scope (integrated into roadmap):
+- Talent tree (30-50 nodes per class) — not yet scheduled
+- Specialization system (one per character) — not yet scheduled
+- Socket crafting logic — not yet scheduled
+- More affix variety (slot-specific affixes) — not yet scheduled
+- Gathering gear equip/swap UI + dual loadout — Sprint 10I
+- Full ability population (50+ abilities, 10 per weapon type) — not yet scheduled
 
 ## How to Run
 ```bash
@@ -295,8 +301,15 @@ Replaced focus modes with Combat/Gathering toggle. 5 gathering professions with 
 - **Disabled Start/Switch buttons**: ZoneScreen Start button and Switch Zone button are now disabled + show requirement text when gathering skill is insufficient for the selected zone.
 - **Files changed**: `store/gameStore.ts`, `ui/screens/ZoneScreen.tsx`
 
-## Priority for Next Session
-See `SPRINT_PLAN.md` for full roadmap. Next sprint:
-1. **Sprint 8B: Combat & Ability Bugs** — weapon passives not affecting clear speed, exalt on crafted items, HP drain rebalance
-2. **Sprint 8C: Mobile UX Foundation** — mobile detection, tap-friendly inventory, bottom sheets
-3. **Sprint 8D: Currency & Equip UX Fixes** — one-shot currency, mobile unequip, multi-tab conflict, weapon restrictions
+## Micro-Sprint Workflow
+Each conversation = one micro-sprint (3-5 related changes):
+1. **Read** `docs/PROJECT_STATUS.md` + relevant files only
+2. **Execute** 3-5 related changes (same system/area)
+3. **Build** `npm run build` (catches unused imports/vars that `tsc --noEmit` misses)
+4. **Update** `docs/PROJECT_STATUS.md` with changes made
+5. **Commit + push** `git push origin master`
+
+Rules:
+- Never try to do more than 5 related changes per session
+- Group changes by system (engine OR UI, not both unless tightly coupled)
+- If a sprint touches >6 files, it's too big — split it
