@@ -1,15 +1,15 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-01 (Post-Sprint 8C)
+> Last updated: 2026-03-01 (Post-Sprint 8D)
 
 ## Current Phase
-**Sprint 8C: Mobile UX Foundation** — COMPLETE.
-- Created `useIsMobile()` hook (`ui/hooks/useIsMobile.ts`) — detects touch-primary devices via `matchMedia('(pointer: coarse)')`, listens for changes.
-- Updated `Tooltip.tsx` for mobile — on touch devices, tooltips show on tap (not hover) and dismiss on tap-outside via `pointerdown` listener. Desktop hover behavior unchanged.
-- Updated `InventoryScreen.tsx` — on mobile, hover tooltips suppressed on item tiles and equip slot cards. Item detail panel renders as fixed bottom sheet overlay (max 60vh, rounded top, backdrop dismiss) instead of inline below inventory. Non-mobile small screens keep inline layout.
-- Updated `CharacterScreen.tsx` — `GearSlotCard` suppresses `onMouseEnter`/`onMouseLeave` on mobile. Click-to-inspect/unequip pattern works cleanly on touch. No ghost hover states.
-- Next: Sprint 8D (Currency & Equip UX Fixes)
+**Sprint 8D: Currency & Equip UX Fixes** — COMPLETE.
+- **Currency one-shot UX**: Selecting a currency + clicking an item now auto-deselects the currency after successful application. On mobile, a confirmation dialog appears before applying ("Apply Chaos Orb to Iron Sword?"). Eliminates accidental mass-application.
+- **Mobile unequip button**: CharacterScreen gear slot tooltip now shows an explicit "Unequip" button below the item details. On mobile, first tap = inspect, second tap = dismiss (instead of unreliable implicit unequip). Desktop retains click-to-unequip.
+- **Multi-tab guard**: New `useTabGuard()` hook (`ui/hooks/useTabGuard.ts`) uses localStorage heartbeat to detect duplicate tabs. Second tab shows blocking modal: "Game Open in Another Tab" with Retry button. Prevents save data conflicts from concurrent writes.
+- **Weapon equip restrictions**: 2H weapons (greatsword, greataxe, maul, staff, bow, crossbow, tome) auto-unequip offhand when equipped. Offhand blocked if mainhand is 2H. Quivers require bow/crossbow mainhand. New `isTwoHandedWeapon()` helper in `engine/items.ts`.
+- Next: Sprint 8E (Combat Rebalance) — Phase 2
 
 ## What Is Working Right Now
 The game is live on Vercel and playable locally at `http://localhost:5173/`. Core loop:
@@ -144,10 +144,10 @@ src/
 ## What's Next
 **See `SPRINT_PLAN.md` for the full roadmap with detailed implementation notes.**
 
-Immediate priority (Phase 1 — Critical Bug Fixes):
-1. **Sprint 8D** — Currency & equip UX (one-shot currency, multi-tab conflict, weapon restrictions)
+Immediate priority (Phase 2 — Balance & Systems Rework):
+1. **Sprint 8E** — Combat Rebalance (boss encounters, defense transparency, XP scaling, clear speed/defense split)
 
-Then Phase 2 (Balance), Phase 3 (UX/UI Overhaul), Phase 4 (New Features) — all detailed in SPRINT_PLAN.md.
+Then Phase 3 (UX/UI Overhaul), Phase 4 (New Features) — all detailed in SPRINT_PLAN.md.
 
 Unfinished from original GDD scope (integrated into roadmap):
 - Talent tree (30-50 nodes per class) — not yet scheduled
@@ -314,6 +314,14 @@ Replaced focus modes with Combat/Gathering toggle. 5 gathering professions with 
 - **Hover suppression**: All `onMouseEnter`/`onMouseLeave` handlers on item tiles, equipped slot cards (InventoryScreen), and gear slot cards (CharacterScreen) are suppressed on mobile. Prevents ghost hover states on touch devices.
 - **Files added**: `ui/hooks/useIsMobile.ts`
 - **Files changed**: `ui/components/Tooltip.tsx`, `ui/screens/InventoryScreen.tsx`, `ui/screens/CharacterScreen.tsx`
+
+### Sprint 8D Changes (Currency & Equip UX Fixes)
+- **Currency one-shot**: `handleCraft()` in InventoryScreen now calls `setSelectedCurrency(null)` after successful currency application. On mobile, `confirm()` dialog before applying. Help text updated.
+- **Mobile unequip button**: CharacterScreen shows explicit "Unequip" button below the item tooltip when a gear slot is inspected. Mobile: first tap = inspect, second tap = dismiss tooltip. Desktop: retains click-to-unequip on the slot itself.
+- **Multi-tab guard**: New `useTabGuard()` hook in `ui/hooks/useTabGuard.ts`. Uses localStorage heartbeat (2s interval, 5s stale threshold). Cleans up on `beforeunload`. Second tab sees blocking modal in App.tsx with Retry button.
+- **Weapon equip restrictions**: New `isTwoHandedWeapon()` in `engine/items.ts`. 2H weapons: greatsword, greataxe, maul, staff, bow, crossbow, tome. `equipItem` in gameStore: 2H mainhand auto-unequips offhand. Offhand blocked if mainhand is 2H. Quiver requires bow/crossbow mainhand.
+- **Files added**: `ui/hooks/useTabGuard.ts`
+- **Files changed**: `ui/screens/InventoryScreen.tsx`, `ui/screens/CharacterScreen.tsx`, `store/gameStore.ts`, `engine/items.ts`, `App.tsx`
 
 ## Micro-Sprint Workflow
 Each conversation = one micro-sprint (3-5 related changes):

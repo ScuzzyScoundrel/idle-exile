@@ -284,10 +284,18 @@ export default function CharacterScreen() {
       </div>
 
       {/* Item Tooltip — shown below paper doll when hovering/tapping */}
-      {hoveredItem && (
+      {hoveredItem && hoveredSlot && (
         <div>
           <ItemTooltip item={hoveredItem} />
-          <div className="text-center text-xs text-gray-500 mt-1">Tap slot again to unequip</div>
+          <button
+            onClick={() => {
+              unequipSlot(hoveredSlot);
+              setHoveredSlot(null);
+            }}
+            className="w-full mt-1 py-2 bg-yellow-700 hover:bg-yellow-600 text-white text-sm rounded-lg font-semibold"
+          >
+            Unequip {hoveredItem.name}
+          </button>
         </div>
       )}
       {hoveredSlot && !hoveredItem && (
@@ -795,7 +803,12 @@ function GearSlotCard({
       return;
     }
     if (isShowingTooltip) {
-      onUnequip(slot);
+      // On mobile, unequip is handled by explicit button below tooltip
+      if (isMobile) {
+        onHover(null);
+      } else {
+        onUnequip(slot);
+      }
     } else {
       onHover(slot);
     }

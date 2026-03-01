@@ -232,6 +232,11 @@ export default function InventoryScreen() {
 
   const handleCraft = (item: Item) => {
     if (!selectedCurrency) return;
+    // Mobile confirmation before applying currency
+    if (isMobile) {
+      const currDef = CURRENCY_DEFS.find(c => c.id === selectedCurrency);
+      if (currDef && !confirm(`Apply ${currDef.name} to ${item.name}?`)) return;
+    }
     const affixKey = (a: Affix) => `${a.defId}:${a.tier}:${a.value}`;
     const beforeAll = [...item.prefixes, ...item.suffixes];
     const beforeKeys = new Set(beforeAll.map(affixKey));
@@ -248,6 +253,8 @@ export default function InventoryScreen() {
         setCraftDiff({ itemId: result.item.id, added, removed, addedKeys });
         if (craftDiffTimer.current) clearTimeout(craftDiffTimer.current);
         craftDiffTimer.current = setTimeout(() => setCraftDiff(null), 4000);
+        // One-shot: auto-deselect currency after successful application
+        setSelectedCurrency(null);
       } else {
         showFeedback('craft', result.message);
       }
@@ -513,7 +520,7 @@ export default function InventoryScreen() {
           {selectedCurrencyDef && (
             <div className="text-xs text-purple-300 px-3 pb-2 space-y-1">
               <div className="bg-purple-950/50 rounded p-2">{selectedCurrencyDef.description}</div>
-              <div className="text-gray-500 text-xs">Click an item to apply. Click the orb again to cancel.</div>
+              <div className="text-gray-500 text-xs">Click an item to apply. Auto-deselects after use.</div>
             </div>
           )}
         </div>

@@ -19,7 +19,7 @@ import { createCharacter, resolveStats, addXp } from '../engine/character';
 import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, applyNormalClearHp, createBossEncounter, tickBossFight, generateBossLoot, applyAbilityResists, BossTickResult } from '../engine/zones';
 import { calcDefensiveEfficiency } from '../engine/setBonus';
 import { BOSS_VICTORY_DURATION, BOSS_DEFEAT_RECOVERY, BOSS_VICTORY_HEAL_RATIO } from '../data/balance';
-import { pickBestItem, getEquippedWeaponType, generateId } from '../engine/items';
+import { pickBestItem, getEquippedWeaponType, generateId, isTwoHandedWeapon } from '../engine/items';
 import { applyCurrency } from '../engine/crafting';
 import {
   aggregateAbilityEffects, getIncompatibleAbilities,
@@ -313,14 +313,41 @@ export const useGameStore = create<GameState & GameActions>()(
             targetSlot = alt;
           }
 
-          const currentlyEquipped = state.character.equipment[targetSlot];
+          // ── Weapon equip restrictions ──
+          const newEquipment = { ...state.character.equipment };
           const newInventory = state.inventory.filter((i) => i.id !== item.id);
+
+          if (targetSlot === 'mainhand' && item.weaponType && isTwoHandedWeapon(item.weaponType)) {
+            // 2H weapon: auto-unequip offhand
+            const offhand = newEquipment['offhand'];
+            if (offhand) {
+              newInventory.push(offhand);
+              delete newEquipment['offhand'];
+            }
+          }
+
+          if (targetSlot === 'offhand') {
+            const mainhand = newEquipment['mainhand'];
+            // Block offhand if mainhand is 2H
+            if (mainhand?.weaponType && isTwoHandedWeapon(mainhand.weaponType)) {
+              return state; // Reject — 2H weapon prevents offhand
+            }
+            // Quiver requires bow or crossbow
+            if (item.offhandType === 'quiver') {
+              if (!mainhand?.weaponType || (mainhand.weaponType !== 'bow' && mainhand.weaponType !== 'crossbow')) {
+                return state; // Reject — quiver needs ranged mainhand
+              }
+            }
+          }
+
+          const currentlyEquipped = newEquipment[targetSlot];
           if (currentlyEquipped) {
             newInventory.push(currentlyEquipped);
           }
+          newEquipment[targetSlot] = item;
           const newChar: Character = {
             ...state.character,
-            equipment: { ...state.character.equipment, [targetSlot]: item },
+            equipment: newEquipment,
           };
           newChar.stats = resolveStats(newChar);
 

@@ -453,6 +453,15 @@ export function getEquippedWeaponType(equipment: Partial<Record<GearSlot, Item>>
   return equipment['mainhand']?.weaponType ?? null;
 }
 
+/** Two-handed weapon types that prevent offhand use. */
+const TWO_HANDED_WEAPONS: ReadonlySet<WeaponType> = new Set([
+  'greatsword', 'greataxe', 'maul', 'staff', 'bow', 'crossbow', 'tome',
+]);
+
+export function isTwoHandedWeapon(type: WeaponType): boolean {
+  return TWO_HANDED_WEAPONS.has(type);
+}
+
 /**
  * Get the equipped item to compare against for a given slot.
  */
