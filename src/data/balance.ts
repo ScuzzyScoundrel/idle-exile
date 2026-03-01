@@ -47,8 +47,9 @@ export const BAG_DROP_CHANCE = 0.015;
 // COMBAT & CLEAR SPEED
 // =============================================
 
-/** charPower divisor in clearTime formula: baseClearTime / (charPower / POWER_DIVISOR). */
-export const POWER_DIVISOR = 25;
+/** charPower divisor in clearTime formula: baseClearTime / (charPower / POWER_DIVISOR).
+ *  Tuned for offense-only charPower (defEff removed from clear speed in 8E). */
+export const POWER_DIVISOR = 50;
 
 /** Exponential penalty per level below zone iLvlMin. 10 levels below = 1.12^10 ~ 3.1x. */
 export const LEVEL_PENALTY_BASE = 1.12;
@@ -220,10 +221,10 @@ export const CLEAR_DAMAGE_RATIO = 0.15;
 export const CLEAR_REGEN_RATIO = 0.08;
 /** Normal clears between boss encounters. */
 export const BOSS_INTERVAL = 10;
-/** bossHp = baseClearTime * band * this. */
-export const BOSS_HP_MULTIPLIER = 8;
-/** Boss hits harder than zone pressure. */
-export const BOSS_DAMAGE_MULTIPLIER = 2.5;
+/** bossHp = baseClearTime * band * this. Reduced in 8E (was 8). */
+export const BOSS_HP_MULTIPLIER = 4;
+/** Boss hits harder than zone pressure. Reduced in 8E (was 2.5). */
+export const BOSS_DAMAGE_MULTIPLIER = 1.5;
 /** Boss drops at iLvlMax + this. */
 export const BOSS_ILVL_BONUS = 5;
 export const BOSS_DROP_COUNT_MIN = 1;

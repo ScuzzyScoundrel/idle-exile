@@ -1,7 +1,7 @@
 # Idle Exile — Sprint Plan & Roadmap
 
 > **Full development roadmap.** Read `PROJECT_STATUS.md` first for current state.
-> Last updated: 2026-03-01 (Post-Sprint 8D)
+> Last updated: 2026-03-01 (Post-Sprint 8E)
 
 ## Micro-Sprint Workflow
 
@@ -41,6 +41,7 @@ Each conversation = one micro-sprint (3-5 focused changes):
 | **8B** | **Combat bugs: ability resistBonus applied to combat calcs, HP drain variance (removed constant floor), exalt code verified correct. Hotfix: gathering clear stuck at 100% (missing clearStartedAt advance)** |
 | **8C** | **Mobile UX foundation: useIsMobile hook, Tooltip tap support, inventory bottom sheet on mobile, hover suppression on touch devices** |
 | **8D** | **Currency & equip UX: one-shot currency application, mobile unequip button, multi-tab localStorage guard, weapon 1H/2H equip restrictions** |
+| **8E** | **Combat rebalance: boss HP/DMG reduced, defense removed from clear speed, XP scaling with zone level, boss danger indicator** |
 
 See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
 
@@ -122,7 +123,7 @@ See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
 ## PHASE 2: BALANCE & SYSTEMS REWORK
 
 ### Sprint 8E: Combat Rebalance
-**Status:** NOT STARTED
+**Status:** COMPLETE
 **Files:** `engine/zones.ts`, `engine/character.ts`, `data/balance.ts`
 
 1. **Rebalance boss encounters**

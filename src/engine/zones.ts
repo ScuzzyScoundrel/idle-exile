@@ -128,14 +128,13 @@ export function calcClearTime(
 ): number {
   const playerDps = calcPlayerDps(char, abilityEffect) * classDamageMult;
 
-  // Apply ability resist bonus to stats for defense/hazard calculations
+  // Apply ability resist bonus to stats for hazard calculations
   const effectiveStats = applyAbilityResists(char.stats, abilityEffect);
 
-  let defEff = calcDefensiveEfficiency(effectiveStats, zone.band);
-  defEff *= (abilityEffect?.defenseMult ?? 1);
-
+  // Defense does NOT affect clear speed (8E philosophy: offense=speed, defense=survivability).
+  // Only hazards slow you down if resists are lacking.
   const hazardMult = abilityEffect?.ignoreHazards ? 1.0 : calcHazardPenalty(effectiveStats, zone);
-  const charPower = playerDps * defEff * hazardMult;
+  const charPower = playerDps * hazardMult;
 
   let clearTime = zone.baseClearTime / (charPower / POWER_DIVISOR);
 
@@ -152,6 +151,15 @@ export function calcClearTime(
   clearTime = Math.max(floor, clearTime);
 
   return clearTime;
+}
+
+/**
+ * XP scaling based on player level vs zone iLvl.
+ * Overleveled zones give drastically reduced XP.
+ * Each level above zone = -10% XP. Floor at 10%.
+ */
+export function calcXpScale(playerLevel: number, zoneIlvl: number): number {
+  return Math.max(0.1, Math.min(1.0, 1 - (playerLevel - zoneIlvl) * 0.1));
 }
 
 /**
@@ -216,7 +224,8 @@ export function simulateIdleRun(
     }
   }
 
-  const xpGained = Math.round(XP_PER_BAND * zone.band * clearsCompleted * xpMult);
+  const xpScale = calcXpScale(char.level, zone.iLvlMin);
+  const xpGained = Math.round(XP_PER_BAND * zone.band * clearsCompleted * xpMult * xpScale);
   const goldGained = GOLD_PER_BAND * zone.band * clearsCompleted * (doubleClear ? 2 : 1);
 
   return { items, materials, currencyDrops, bagDrops, xpGained, goldGained, clearsCompleted, elapsed };
@@ -290,12 +299,13 @@ export function simulateSingleClear(
     }
   }
 
+  const xpScale = calcXpScale(char.level, zone.iLvlMin);
   return {
     item,
     materials,
     currencyDrops,
     goldGained: GOLD_PER_BAND * zone.band * (doubleClear ? 2 : 1),
-    xpGained: Math.round(XP_PER_BAND * zone.band * xpMult),
+    xpGained: Math.round(XP_PER_BAND * zone.band * xpMult * xpScale),
     bagDrop,
   };
 }

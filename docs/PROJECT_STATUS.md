@@ -1,15 +1,15 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-01 (Post-Sprint 8D)
+> Last updated: 2026-03-01 (Post-Sprint 8E)
 
 ## Current Phase
-**Sprint 8D: Currency & Equip UX Fixes** — COMPLETE.
-- **Currency one-shot UX**: Selecting a currency + clicking an item now auto-deselects the currency after successful application. On mobile, a confirmation dialog appears before applying ("Apply Chaos Orb to Iron Sword?"). Eliminates accidental mass-application.
-- **Mobile unequip button**: CharacterScreen gear slot tooltip now shows an explicit "Unequip" button below the item details. On mobile, first tap = inspect, second tap = dismiss (instead of unreliable implicit unequip). Desktop retains click-to-unequip.
-- **Multi-tab guard**: New `useTabGuard()` hook (`ui/hooks/useTabGuard.ts`) uses localStorage heartbeat to detect duplicate tabs. Second tab shows blocking modal: "Game Open in Another Tab" with Retry button. Prevents save data conflicts from concurrent writes.
-- **Weapon equip restrictions**: 2H weapons (greatsword, greataxe, maul, staff, bow, crossbow, tome) auto-unequip offhand when equipped. Offhand blocked if mainhand is 2H. Quivers require bow/crossbow mainhand. New `isTwoHandedWeapon()` helper in `engine/items.ts`.
-- Next: Sprint 8E (Combat Rebalance) — Phase 2
+**Sprint 8E: Combat Rebalance** — COMPLETE.
+- **Boss rebalance**: `BOSS_HP_MULTIPLIER` 8→4, `BOSS_DAMAGE_MULTIPLIER` 2.5→1.5. Bosses now beatable in reasonable time with appropriate gear.
+- **Defense/clear speed philosophy split**: Defense no longer affects clear speed. `charPower = playerDps * hazardMult` (removed `defEff`). Offense = faster clears, defense = survive harder content/bosses. `POWER_DIVISOR` 25→50 to compensate.
+- **XP scaling with zone level**: New `calcXpScale()` in `engine/zones.ts`. Each player level above zone iLvlMin = -10% XP (floor 10%). Prevents farming low-level zones for fast XP. Applied in real-time grants, `simulateSingleClear`, and `simulateIdleRun`.
+- **Defense transparency**: Zone info panel now shows boss danger indicator (Safe/Risky/Deadly) with kill-time vs die-time. Shows XP penalty % when farming overleveled zones.
+- Next: Sprint 8F (Item Level & Affix Rework) — Phase 2
 
 ## What Is Working Right Now
 The game is live on Vercel and playable locally at `http://localhost:5173/`. Core loop:
@@ -63,7 +63,7 @@ Bottom: mainhand, offhand, trinket1, trinket2
 ## Engine Details
 - **Rarity**: Common (2 affixes, T7+), Uncommon (3, T4-T6), Rare (4, T3), Epic (5, T2), Legendary (6, T1+/2×T2)
 - **Affix tiers**: T1 (best) through T10 (worst), weighted drop rates favor lower tiers
-- **Combat clear speed**: `baseClearTime / (charPower / 50)` then `* 1.12^levelDelta`. Power = `offensivePower * defEff * hazardMult`. No upper cap. Floor at 20% of baseClearTime.
+- **Combat clear speed**: `baseClearTime / (charPower / 50)` then `* 1.12^levelDelta`. Power = `playerDps * hazardMult` (defense removed in 8E). No upper cap. Floor at 20% of baseClearTime.
 - **Gathering clear speed**: `baseClearTime * 2 / (1 + skillLevel / 25)`. Scales with profession skill level.
 - **Level scaling**: Exponential penalty for being under-leveled: each level below zone iLvlMin = 12% longer.
 - **Hazards**: Quadratic penalty per hazard, multiplicative across all hazards.
@@ -145,7 +145,7 @@ src/
 **See `SPRINT_PLAN.md` for the full roadmap with detailed implementation notes.**
 
 Immediate priority (Phase 2 — Balance & Systems Rework):
-1. **Sprint 8E** — Combat Rebalance (boss encounters, defense transparency, XP scaling, clear speed/defense split)
+1. **Sprint 8F** — Item Level & Affix Rework (weighted tiers, currency rework, crafting material iLvl, armor type badges)
 
 Then Phase 3 (UX/UI Overhaul), Phase 4 (New Features) — all detailed in SPRINT_PLAN.md.
 
@@ -322,6 +322,14 @@ Replaced focus modes with Combat/Gathering toggle. 5 gathering professions with 
 - **Weapon equip restrictions**: New `isTwoHandedWeapon()` in `engine/items.ts`. 2H weapons: greatsword, greataxe, maul, staff, bow, crossbow, tome. `equipItem` in gameStore: 2H mainhand auto-unequips offhand. Offhand blocked if mainhand is 2H. Quiver requires bow/crossbow mainhand.
 - **Files added**: `ui/hooks/useTabGuard.ts`
 - **Files changed**: `ui/screens/InventoryScreen.tsx`, `ui/screens/CharacterScreen.tsx`, `store/gameStore.ts`, `engine/items.ts`, `App.tsx`
+
+### Sprint 8E Changes (Combat Rebalance)
+- **Boss rebalance**: `BOSS_HP_MULTIPLIER` 8→4, `BOSS_DAMAGE_MULTIPLIER` 2.5→1.5. Bosses now take ~10-15s with appropriate gear instead of being nearly unbeatable.
+- **Defense/clear speed philosophy split**: Removed `defEff` from `charPower` in `calcClearTime()`. New formula: `charPower = playerDps * hazardMult`. Defense only affects damage taken (HP drain + boss DPS). `POWER_DIVISOR` 25→50 to compensate for removed defEff factor.
+- **XP scaling with zone level**: New `calcXpScale(playerLevel, zoneIlvl)` in `engine/zones.ts`. Each player level above zone iLvlMin = -10% XP (floor at 10%). Applied in `simulateIdleRun`, `simulateSingleClear`, and ZoneScreen real-time XP grant. Prevents farming zone 1 for fast XP.
+- **Boss danger indicator**: Zone info panel shows "Boss: Safe/Risky/Deadly" with estimated time-to-kill and time-to-die. Risky = fight is close, Deadly = boss kills you first. Color-coded green/yellow/red.
+- **XP penalty display**: When player is overleveled for a zone, shows "XP: X%" in the zone info panel.
+- **Files changed**: `data/balance.ts`, `engine/zones.ts`, `ui/screens/ZoneScreen.tsx`
 
 ## Micro-Sprint Workflow
 Each conversation = one micro-sprint (3-5 related changes):

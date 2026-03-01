@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useGameStore, ProcessClearsResult, useHasHydrated } from '../../store/gameStore';
 import { ZONE_DEFS, BAND_NAMES } from '../../data/zones';
-import { checkZoneMastery, applyNormalClearHp } from '../../engine/zones';
+import { checkZoneMastery, applyNormalClearHp, calcPlayerDps, calcBossMaxHp, calcBossDps, calcXpScale } from '../../engine/zones';
 import { calcDefensiveEfficiency } from '../../engine/setBonus';
 import { canGatherInZone, getGatheringSkillRequirement, calcGatheringXpRequired } from '../../engine/gathering';
 import { GATHERING_PROFESSION_DEFS } from '../../data/gatheringProfessions';
@@ -816,6 +816,24 @@ export default function ZoneScreen() {
   // Compute maxHp for display
   const maxHp = resolveStats(character).maxLife;
 
+  // Boss danger assessment for selected zone (combat mode)
+  let dangerLevel: 'safe' | 'risky' | 'deadly' = 'safe';
+  let bossTimeToKill = 0;
+  let bossTimeToDie = Infinity;
+  if (idleMode === 'combat') {
+    const pDps = calcPlayerDps(character);
+    const bDps = calcBossDps(character, zone);
+    const bHp = calcBossMaxHp(zone);
+    bossTimeToKill = pDps > 0 ? bHp / pDps : Infinity;
+    bossTimeToDie = bDps > 0 ? maxHp / bDps : Infinity;
+    if (bossTimeToKill >= bossTimeToDie) dangerLevel = 'deadly';
+    else if (bossTimeToKill >= bossTimeToDie * 0.7) dangerLevel = 'risky';
+    else dangerLevel = 'safe';
+  }
+
+  // XP scaling for selected zone
+  const xpScale = calcXpScale(character.level, zone.iLvlMin);
+
   // Timer tick — combat-phase-aware
   useEffect(() => {
     if (!isRunning || !idleStartTime) return;
@@ -883,7 +901,8 @@ export default function ZoneScreen() {
 
     // Grant character XP only in combat mode
     if (idleMode === 'combat') {
-      grantIdleXp(10 * runningZone.band * completedClears);
+      const runXpScale = calcXpScale(character.level, runningZone.iLvlMin);
+      grantIdleXp(Math.round(10 * runningZone.band * completedClears * runXpScale));
     }
 
     // Process drops (also updates clearStartedAt and currentClearTime in store)
@@ -1141,10 +1160,31 @@ export default function ZoneScreen() {
           )}
         </div>
         {idleMode === 'combat' && (
-          <div className="flex gap-3 text-gray-500">
+          <div className="flex flex-wrap gap-3 text-gray-500">
             <span>{'\u{1F480}'} Kills: <span className="text-white font-semibold">{totalKills.toLocaleString()}</span></span>
             {fastestClears[selectedZone] != null && (
               <span>{'\u26A1'} Best: <span className="text-yellow-400 font-mono">{formatClearTime(fastestClears[selectedZone])}</span></span>
+            )}
+            {/* Boss danger indicator */}
+            <span>
+              Boss:{' '}
+              <span className={`font-semibold ${
+                dangerLevel === 'safe' ? 'text-green-400' :
+                dangerLevel === 'risky' ? 'text-yellow-400' : 'text-red-400'
+              }`}>
+                {dangerLevel === 'safe' ? 'Safe' : dangerLevel === 'risky' ? 'Risky' : 'Deadly'}
+              </span>
+              {bossTimeToKill < Infinity && (
+                <span className="text-gray-600 ml-1">
+                  ({formatClearTime(bossTimeToKill)} kill / {bossTimeToDie < Infinity ? formatClearTime(bossTimeToDie) : '\u221E'} die)
+                </span>
+              )}
+            </span>
+            {/* XP penalty for overleveled zones */}
+            {xpScale < 1.0 && (
+              <span className="text-yellow-500">
+                XP: {Math.round(xpScale * 100)}%
+              </span>
             )}
           </div>
         )}
