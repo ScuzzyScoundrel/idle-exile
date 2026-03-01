@@ -500,6 +500,9 @@ export const useGameStore = create<GameState & GameActions>()(
         }
 
         const now = Date.now();
+        // Reset zone clear count so boss is always BOSS_INTERVAL clears away
+        const newZoneClearCounts = { ...state.zoneClearCounts };
+        delete newZoneClearCounts[zoneId];
         set({
           currentZoneId: zoneId,
           idleStartTime: now,
@@ -510,6 +513,7 @@ export const useGameStore = create<GameState & GameActions>()(
           bossState: null,
           combatPhaseStartedAt: null,
           classResource: newResource,
+          zoneClearCounts: newZoneClearCounts,
         });
       },
 

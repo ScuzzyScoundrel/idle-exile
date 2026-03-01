@@ -823,7 +823,7 @@ export default function ZoneScreen() {
   if (idleMode === 'combat') {
     const pDps = calcPlayerDps(character);
     const bDps = calcBossDps(character, zone);
-    const bHp = calcBossMaxHp(zone);
+    const bHp = calcBossMaxHp(zone, pDps);
     bossTimeToKill = pDps > 0 ? bHp / pDps : Infinity;
     bossTimeToDie = bDps > 0 ? maxHp / bDps : Infinity;
     if (bossTimeToKill >= bossTimeToDie) dangerLevel = 'deadly';

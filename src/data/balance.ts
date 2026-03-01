@@ -221,8 +221,10 @@ export const CLEAR_DAMAGE_RATIO = 0.15;
 export const CLEAR_REGEN_RATIO = 0.08;
 /** Normal clears between boss encounters. */
 export const BOSS_INTERVAL = 10;
-/** bossHp = baseClearTime * band * this. Reduced in 8E (was 8). */
-export const BOSS_HP_MULTIPLIER = 4;
+/** Base boss HP (band 1). Scales with band^2. */
+export const BOSS_BASE_HP = 75;
+/** Boss always takes at least this many seconds to kill (DPS floor). */
+export const BOSS_MIN_FIGHT_SECONDS = 8;
 /** Boss hits harder than zone pressure. Reduced in 8E (was 2.5). */
 export const BOSS_DAMAGE_MULTIPLIER = 1.5;
 /** Boss drops at iLvlMax + this. */

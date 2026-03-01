@@ -5,7 +5,7 @@
 
 ## Current Phase
 **Sprint 8E: Combat Rebalance** — COMPLETE.
-- **Boss rebalance**: `BOSS_HP_MULTIPLIER` 8→4, `BOSS_DAMAGE_MULTIPLIER` 2.5→1.5. Bosses now beatable in reasonable time with appropriate gear.
+- **Boss rebalance**: Replaced old `baseClearTime * band * multiplier` formula with `BOSS_BASE_HP(75) * band^2` + DPS floor (`playerDps * 8s`). Band 1 bosses ~75 HP (fresh player: 15s fight). Overgeared players always face at least 8s fight. `BOSS_DAMAGE_MULTIPLIER` 2.5→1.5.
 - **Defense/clear speed philosophy split**: Defense no longer affects clear speed. `charPower = playerDps * hazardMult` (removed `defEff`). Offense = faster clears, defense = survive harder content/bosses. `POWER_DIVISOR` 25→50 to compensate.
 - **XP scaling with zone level**: New `calcXpScale()` in `engine/zones.ts`. Each player level above zone iLvlMin = -10% XP (floor 10%). Prevents farming low-level zones for fast XP. Applied in real-time grants, `simulateSingleClear`, and `simulateIdleRun`.
 - **Defense transparency**: Zone info panel now shows boss danger indicator (Safe/Risky/Deadly) with kill-time vs die-time. Shows XP penalty % when farming overleveled zones.
@@ -72,7 +72,7 @@ Bottom: mainhand, offhand, trinket1, trinket2
 - **Refinement**: 36 recipes (6 tracks × 6 tiers). T1: 5 raw + gold → 1 refined. T2+: 5 raw + 2 previous refined + gold → 1 refined. Deconstruct: 1 refined → 2 previous tier (T2+ only).
 - **Crafting professions**: 6 professions, level 1-100. XP curve matches gathering. 205 recipes (table-driven armor generation). Catalyst system: optional affix catalyst → guaranteed affix; optional rare mat → guaranteed minimum rarity + 1 boosted affix. `executeCraft()` generates item with reroll loop + boosted affix upgrade.
 - **Combat HP**: `applyNormalClearHp()` per clear. Damage = maxHp * 0.15 * scale(defEff) * variance(0.7-1.3). Regen = maxHp * 0.08. No minimum drain floor — good defense can fully heal. Floor at 1 HP (can't die to mobs). Ability `resistBonus` now applied to defEff and hazard calcs via `applyAbilityResists()`.
-- **Boss mechanics**: Every 10 clears via `zoneClearCounts`. `calcBossMaxHp()` = baseClearTime * band * 8. `calcPlayerDps()` and `calcBossDps()` drive real-time simulation. `tickBossFight()` resolves frame-by-frame. `generateBossLoot()` at iLvlMax + 5. Victory/defeat phases with timed recovery.
+- **Boss mechanics**: Every 10 clears (count resets on new run). `calcBossMaxHp(zone, playerDps)` = `max(75 * band^2, playerDps * 8)`. `calcPlayerDps()` and `calcBossDps()` drive real-time simulation. `tickBossFight()` resolves frame-by-frame. `generateBossLoot()` at iLvlMax + 5. Victory/defeat phases with timed recovery.
 - **Auto-apply resources**: `processNewClears()` immediately applies all drops to state. Session summary tracked in UI local state.
 - **Ability system**: 6 ability kinds (passive/buff/instant/proc/toggle/ultimate). Per-ability skill trees with 3 paths x 2 nodes. Ability XP: `10 + floor(band*2)` per clear. XP per level: `100*(level+1)`. Max level 10. Respec cost: `50*level^2` gold. Slot unlock at character Lv.1/5/12/20.
 - **Per-clear tracking**: `clearStartedAt` + `currentClearTime` replace modulo-based progress. Mid-clear ability activation preserves progress % but adjusts remaining time.
@@ -324,12 +324,13 @@ Replaced focus modes with Combat/Gathering toggle. 5 gathering professions with 
 - **Files changed**: `ui/screens/InventoryScreen.tsx`, `ui/screens/CharacterScreen.tsx`, `store/gameStore.ts`, `engine/items.ts`, `App.tsx`
 
 ### Sprint 8E Changes (Combat Rebalance)
-- **Boss rebalance**: `BOSS_HP_MULTIPLIER` 8→4, `BOSS_DAMAGE_MULTIPLIER` 2.5→1.5. Bosses now take ~10-15s with appropriate gear instead of being nearly unbeatable.
+- **Boss HP rework**: Old formula `baseClearTime * band * 4` gave tiny HP pools (60-100 for band 1), causing sub-1s kills. New formula: `max(75 * band^2, playerDps * 8)`. Band^2 static component scales with progression, DPS floor ensures minimum 8s fight even when massively overgeared. `BOSS_DAMAGE_MULTIPLIER` 2.5→1.5.
+- **Boss spawn consistency**: `zoneClearCounts` now reset when starting a new run. Boss always spawns after exactly 10 clears. Previously, leftover counts from stopped runs caused bosses after 1/3/5 clears unpredictably.
 - **Defense/clear speed philosophy split**: Removed `defEff` from `charPower` in `calcClearTime()`. New formula: `charPower = playerDps * hazardMult`. Defense only affects damage taken (HP drain + boss DPS). `POWER_DIVISOR` 25→50 to compensate for removed defEff factor.
 - **XP scaling with zone level**: New `calcXpScale(playerLevel, zoneIlvl)` in `engine/zones.ts`. Each player level above zone iLvlMin = -10% XP (floor at 10%). Applied in `simulateIdleRun`, `simulateSingleClear`, and ZoneScreen real-time XP grant. Prevents farming zone 1 for fast XP.
 - **Boss danger indicator**: Zone info panel shows "Boss: Safe/Risky/Deadly" with estimated time-to-kill and time-to-die. Risky = fight is close, Deadly = boss kills you first. Color-coded green/yellow/red.
 - **XP penalty display**: When player is overleveled for a zone, shows "XP: X%" in the zone info panel.
-- **Files changed**: `data/balance.ts`, `engine/zones.ts`, `ui/screens/ZoneScreen.tsx`
+- **Files changed**: `data/balance.ts`, `engine/zones.ts`, `store/gameStore.ts`, `ui/screens/ZoneScreen.tsx`
 
 ## Micro-Sprint Workflow
 Each conversation = one micro-sprint (3-5 related changes):

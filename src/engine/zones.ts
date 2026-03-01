@@ -17,7 +17,7 @@ import {
   CURRENCY_DROP_CHANCES, GOLD_PER_BAND, XP_PER_BAND, BAG_DROP_CHANCE,
   POWER_DIVISOR, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO,
   HAZARD_PENALTY_FLOOR, HAZARD_OVERCAP_MULT,
-  CLEAR_DAMAGE_RATIO, CLEAR_REGEN_RATIO, BOSS_HP_MULTIPLIER,
+  CLEAR_DAMAGE_RATIO, CLEAR_REGEN_RATIO, BOSS_BASE_HP, BOSS_MIN_FIGHT_SECONDS,
   BOSS_DAMAGE_MULTIPLIER, BOSS_ILVL_BONUS, BOSS_DROP_COUNT_MIN,
   BOSS_DROP_COUNT_MAX,
 } from '../data/balance';
@@ -393,9 +393,11 @@ export function applyNormalClearHp(currentHp: number, maxHp: number, defEff: num
   return Math.max(1, Math.min(maxHp, newHp)); // clamp to [1, maxHp]
 }
 
-/** Boss HP pool. */
-export function calcBossMaxHp(zone: ZoneDef): number {
-  return zone.baseClearTime * zone.band * BOSS_HP_MULTIPLIER;
+/** Boss HP pool. Static component scales with band^2. DPS floor prevents instant kills. */
+export function calcBossMaxHp(zone: ZoneDef, playerDps: number = 0): number {
+  const zoneHp = BOSS_BASE_HP * zone.band * zone.band;
+  const dpsFloor = playerDps * BOSS_MIN_FIGHT_SECONDS;
+  return Math.round(Math.max(zoneHp, dpsFloor));
 }
 
 /** Boss DPS against player. Uses zone pressure + defenses, amplified by multiplier. */
@@ -411,11 +413,13 @@ export function calcBossDps(char: Character, zone: ZoneDef, abilityEffect?: Abil
 
 /** Create BossState at fight start. */
 export function createBossEncounter(char: Character, zone: ZoneDef, abilityEffect?: AbilityEffect): BossState {
+  const pDps = calcPlayerDps(char, abilityEffect);
+  const bossHp = calcBossMaxHp(zone, pDps);
   return {
     bossName: zone.bossName,
-    bossMaxHp: calcBossMaxHp(zone),
-    bossCurrentHp: calcBossMaxHp(zone),
-    playerDps: calcPlayerDps(char, abilityEffect),
+    bossMaxHp: bossHp,
+    bossCurrentHp: bossHp,
+    playerDps: pDps,
     bossDps: calcBossDps(char, zone, abilityEffect),
     startedAt: Date.now(),
   };
