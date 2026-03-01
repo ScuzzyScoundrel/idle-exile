@@ -1,15 +1,15 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-01 (Post-Sprint 8B-hotfix)
+> Last updated: 2026-03-01 (Post-Sprint 8C)
 
 ## Current Phase
-**Sprint 8B + Hotfix: Combat & Ability Bugs + Gathering Fix** — COMPLETE.
-- Fixed ability `resistBonus` not applied in combat calculations — abilities like Crushing Force (+10 all resists) and Elemental Ward (+50 resists) now affect defensive efficiency and hazard penalty via new `applyAbilityResists()` helper
-- Fixed HP drain constant minimum — removed `MIN_CLEAR_NET_DAMAGE_RATIO` (0.02 floor). Damage per clear now has 70-130% variance. Good defense can fully out-regen damage instead of always losing 2% HP. HP clamped to [1, maxHp].
-- Investigated exalt currency on crafted items — code is correct (guard checks both prefix AND suffix sides, picks side with room). No change needed.
-- **Hotfix: Fixed gathering clear stuck at 100%** — `processNewClears` gathering path was missing `clearStartedAt` advancement and `currentClearTime` recalculation. Progress bar never reset after a gathering clear, causing infinite clears per tick. Now advances `clearStartedAt` and recalculates clear time with potentially leveled-up skill.
-- Next: Sprint 8C (Mobile UX Foundation)
+**Sprint 8C: Mobile UX Foundation** — COMPLETE.
+- Created `useIsMobile()` hook (`ui/hooks/useIsMobile.ts`) — detects touch-primary devices via `matchMedia('(pointer: coarse)')`, listens for changes.
+- Updated `Tooltip.tsx` for mobile — on touch devices, tooltips show on tap (not hover) and dismiss on tap-outside via `pointerdown` listener. Desktop hover behavior unchanged.
+- Updated `InventoryScreen.tsx` — on mobile, hover tooltips suppressed on item tiles and equip slot cards. Item detail panel renders as fixed bottom sheet overlay (max 60vh, rounded top, backdrop dismiss) instead of inline below inventory. Non-mobile small screens keep inline layout.
+- Updated `CharacterScreen.tsx` — `GearSlotCard` suppresses `onMouseEnter`/`onMouseLeave` on mobile. Click-to-inspect/unequip pattern works cleanly on touch. No ghost hover states.
+- Next: Sprint 8D (Currency & Equip UX Fixes)
 
 ## What Is Working Right Now
 The game is live on Vercel and playable locally at `http://localhost:5173/`. Core loop:
@@ -145,8 +145,7 @@ src/
 **See `SPRINT_PLAN.md` for the full roadmap with detailed implementation notes.**
 
 Immediate priority (Phase 1 — Critical Bug Fixes):
-1. **Sprint 8C** — Mobile UX foundation (touch detection, tap interactions, bottom sheets)
-2. **Sprint 8D** — Currency & equip UX (one-shot currency, multi-tab conflict, weapon restrictions)
+1. **Sprint 8D** — Currency & equip UX (one-shot currency, multi-tab conflict, weapon restrictions)
 
 Then Phase 2 (Balance), Phase 3 (UX/UI Overhaul), Phase 4 (New Features) — all detailed in SPRINT_PLAN.md.
 
@@ -307,6 +306,14 @@ Replaced focus modes with Combat/Gathering toggle. 5 gathering professions with 
 - **Exalt currency investigated**: Code is correct — `!canPrefix && !canSuffix` guard already handles one-sided affix distributions. No change needed.
 - **Hotfix: Fixed gathering clear stuck at 100%**: `processNewClears` gathering path never advanced `clearStartedAt` or recalculated `currentClearTime` after clears completed. Combat mode did this correctly but gathering mode was missing it. Progress calc `(now - clearStartedAt) / (currentClearTime * 1000)` grew past 100%, triggering infinite clears. Fix: advance `clearStartedAt` by completed clears and recalculate gather clear time with new skill level.
 - **Files changed**: `engine/zones.ts`, `data/balance.ts`, `store/gameStore.ts`
+
+### Sprint 8C Changes (Mobile UX Foundation)
+- **New `useIsMobile()` hook**: `src/ui/hooks/useIsMobile.ts`. Detects touch-primary devices via `matchMedia('(pointer: coarse)')`. Reactive — listens for media query changes.
+- **Tooltip tap support**: `Tooltip.tsx` now uses tap-to-show/tap-outside-to-dismiss on mobile instead of hover. Uses `pointerdown` event listener for outside dismiss. Desktop hover preserved.
+- **Inventory bottom sheet**: On mobile, the item detail panel renders as a fixed bottom sheet overlay (`max-h-[60vh]`, rounded top, semi-transparent backdrop). Tap backdrop or close button to dismiss. Non-mobile small screens keep the old inline layout below inventory.
+- **Hover suppression**: All `onMouseEnter`/`onMouseLeave` handlers on item tiles, equipped slot cards (InventoryScreen), and gear slot cards (CharacterScreen) are suppressed on mobile. Prevents ghost hover states on touch devices.
+- **Files added**: `ui/hooks/useIsMobile.ts`
+- **Files changed**: `ui/components/Tooltip.tsx`, `ui/screens/InventoryScreen.tsx`, `ui/screens/CharacterScreen.tsx`
 
 ## Micro-Sprint Workflow
 Each conversation = one micro-sprint (3-5 related changes):

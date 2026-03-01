@@ -4,6 +4,7 @@ import { Item, Affix, GearSlot, CurrencyType, Rarity, StatKey } from '../../type
 import { CURRENCY_DEFS, BAG_UPGRADE_DEFS, getBagDef, calcBagCapacity } from '../../data/items';
 import { formatAffix, getBestTierForILvl, isUpgradeOver, getComparisonTarget, calcItemStatContribution } from '../../engine/items';
 import { slotIcon, slotLabel, DROPPABLE_SLOTS } from '../slotConfig';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 const SLOT_ORDER: GearSlot[] = DROPPABLE_SLOTS;
 
@@ -68,7 +69,9 @@ export default function InventoryScreen() {
     autoSalvageMinRarity, setAutoSalvageRarity,
     tutorialStep,
   } = useGameStore();
+  const isMobile = useIsMobile();
   const inventoryCapacity = calcBagCapacity(bagSlots);
+  const detailRef = useRef<HTMLDivElement>(null);
   const [materialsOpen, setMaterialsOpen] = useState(true);
   const [currencyOpen, setCurrencyOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
@@ -426,14 +429,14 @@ export default function InventoryScreen() {
                 {(['helmet', 'neck', 'shoulders', 'cloak', 'chest', 'bracers'] as GearSlot[]).map((s) => (
                   <EquipSlotCard key={s} slot={s} item={character.equipment[s] ?? null}
                     selectedItemId={selectedItem?.id} selectedCurrency={selectedCurrency}
-                    onSelect={handlePaperDollSelect} onHover={showTooltip} onLeave={hideTooltip} />
+                    onSelect={handlePaperDollSelect} onHover={showTooltip} onLeave={hideTooltip} isMobile={isMobile} />
                 ))}
               </div>
               <div className="flex-1 min-w-0 flex flex-col gap-1">
                 {(['gloves', 'belt', 'pants', 'boots', 'ring1', 'ring2'] as GearSlot[]).map((s) => (
                   <EquipSlotCard key={s} slot={s} item={character.equipment[s] ?? null}
                     selectedItemId={selectedItem?.id} selectedCurrency={selectedCurrency}
-                    onSelect={handlePaperDollSelect} onHover={showTooltip} onLeave={hideTooltip} />
+                    onSelect={handlePaperDollSelect} onHover={showTooltip} onLeave={hideTooltip} isMobile={isMobile} />
                 ))}
               </div>
             </div>
@@ -441,7 +444,7 @@ export default function InventoryScreen() {
               {(['mainhand', 'offhand', 'trinket1', 'trinket2'] as GearSlot[]).map((s) => (
                 <EquipSlotCard key={s} slot={s} item={character.equipment[s] ?? null}
                   selectedItemId={selectedItem?.id} selectedCurrency={selectedCurrency}
-                  onSelect={handlePaperDollSelect} onHover={showTooltip} onLeave={hideTooltip} />
+                  onSelect={handlePaperDollSelect} onHover={showTooltip} onLeave={hideTooltip} isMobile={isMobile} />
               ))}
             </div>
           </div>
@@ -618,8 +621,8 @@ export default function InventoryScreen() {
               equipItem(item);
               setSelectedItem(null);
             }}
-            onMouseEnter={(e) => showTooltip(e, item, item.slot)}
-            onMouseLeave={hideTooltip}
+            onMouseEnter={isMobile ? undefined : (e) => showTooltip(e, item, item.slot)}
+            onMouseLeave={isMobile ? undefined : hideTooltip}
           >
             {upgradeSet.has(item.id) && (
               <div
@@ -691,9 +694,27 @@ export default function InventoryScreen() {
 
       <div className="lg:hidden space-y-3">
         {renderInventoryColumn()}
-        {selectedItem && renderDetailPanel()}
+        {/* Non-mobile small screens: inline detail */}
+        {!isMobile && selectedItem && renderDetailPanel()}
         <RarityGuide />
       </div>
+
+      {/* Mobile bottom sheet overlay */}
+      {isMobile && selectedItem && (
+        <div className="lg:hidden fixed inset-x-0 bottom-0 z-[9998] flex flex-col max-h-[60vh]">
+          <div
+            className="fixed inset-0 bg-black/40"
+            onClick={() => setSelectedItem(null)}
+          />
+          <div
+            ref={detailRef}
+            className="relative bg-gray-900 border-t border-gray-600 rounded-t-2xl overflow-y-auto p-3 shadow-2xl"
+          >
+            <div className="w-10 h-1 bg-gray-600 rounded-full mx-auto mb-2" />
+            {renderDetailPanel()}
+          </div>
+        </div>
+      )}
 
       {/* Fixed-position hover tooltip */}
       {tooltip && (
@@ -1075,7 +1096,7 @@ function RarityGuide() {
 }
 
 function EquipSlotCard({
-  slot, item, selectedItemId, selectedCurrency, onSelect, onHover, onLeave,
+  slot, item, selectedItemId, selectedCurrency, onSelect, onHover, onLeave, isMobile,
 }: {
   slot: GearSlot;
   item: Item | null;
@@ -1084,6 +1105,7 @@ function EquipSlotCard({
   onSelect: (item: Item, slot: GearSlot) => void;
   onHover: (e: React.MouseEvent, item: Item, slot: GearSlot) => void;
   onLeave: () => void;
+  isMobile: boolean;
 }) {
   const isSelected = item != null && item.id === selectedItemId;
 
@@ -1106,8 +1128,8 @@ function EquipSlotCard({
         ${selectedCurrency ? 'hover:ring-2 hover:ring-purple-400' : 'hover:brightness-125'}
       `}
       onClick={() => onSelect(item, slot)}
-      onMouseEnter={(e) => onHover(e, item, slot)}
-      onMouseLeave={onLeave}
+      onMouseEnter={isMobile ? undefined : (e) => onHover(e, item, slot)}
+      onMouseLeave={isMobile ? undefined : onLeave}
     >
       <span className="text-xl leading-none">{slotIcon(slot)}</span>
       <div className="text-xs font-semibold text-gray-200 truncate w-full mt-0.5 px-0.5">{item.name}</div>

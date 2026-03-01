@@ -1,7 +1,7 @@
 # Idle Exile — Sprint Plan & Roadmap
 
 > **Full development roadmap.** Read `PROJECT_STATUS.md` first for current state.
-> Last updated: 2026-03-01 (Post-Sprint 8B-hotfix)
+> Last updated: 2026-03-01 (Post-Sprint 8C)
 
 ## Micro-Sprint Workflow
 
@@ -39,6 +39,7 @@ Each conversation = one micro-sprint (3-5 focused changes):
 | 7C-A | Ability system overhaul: 6 kinds, skill trees (3 paths x 2 nodes), ability XP, slot unlocks, respec |
 | **8A** | **Gathering bugs: profession mid-run exploit, zone skill lock enforcement, UI button disable** |
 | **8B** | **Combat bugs: ability resistBonus applied to combat calcs, HP drain variance (removed constant floor), exalt code verified correct. Hotfix: gathering clear stuck at 100% (missing clearStartedAt advance)** |
+| **8C** | **Mobile UX foundation: useIsMobile hook, Tooltip tap support, inventory bottom sheet on mobile, hover suppression on touch devices** |
 
 See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
 
@@ -69,7 +70,7 @@ See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
    - Higher level zones = more damage, better defense = less, but with variance
 
 ### Sprint 8C: Mobile UX Foundation
-**Status:** NOT STARTED
+**Status:** COMPLETE
 **Files:** `ui/screens/InventoryScreen.tsx`, `ui/components/Tooltip.tsx`, new `ui/hooks/useIsMobile.ts`
 
 1. **Add mobile detection hook**

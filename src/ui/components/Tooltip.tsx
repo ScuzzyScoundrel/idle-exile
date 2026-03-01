@@ -1,4 +1,5 @@
-import { useState, useRef, useCallback, type ReactNode } from 'react';
+import { useState, useRef, useCallback, useEffect, type ReactNode } from 'react';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 interface TooltipProps {
   content: ReactNode;
@@ -11,26 +12,59 @@ export default function Tooltip({ content, children, delay = 200 }: TooltipProps
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
+
+  const updatePos = useCallback(() => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const x = Math.min(rect.left + rect.width / 2, window.innerWidth - 120);
+      const y = rect.top - 4;
+      setPos({ x: Math.max(8, x), y });
+    }
+  }, []);
 
   const show = useCallback(() => {
     timerRef.current = setTimeout(() => {
-      if (triggerRef.current) {
-        const rect = triggerRef.current.getBoundingClientRect();
-        const x = Math.min(rect.left + rect.width / 2, window.innerWidth - 120);
-        const y = rect.top - 4;
-        setPos({ x: Math.max(8, x), y });
-      }
+      updatePos();
       setVisible(true);
     }, delay);
-  }, [delay]);
+  }, [delay, updatePos]);
 
   const hide = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     setVisible(false);
   }, []);
 
+  const handleTap = useCallback(() => {
+    if (!isMobile) return;
+    if (visible) {
+      setVisible(false);
+    } else {
+      updatePos();
+      setVisible(true);
+    }
+  }, [isMobile, visible, updatePos]);
+
+  // Tap-outside dismiss on mobile
+  useEffect(() => {
+    if (!isMobile || !visible) return;
+    const handler = (e: PointerEvent) => {
+      if (triggerRef.current && !triggerRef.current.contains(e.target as Node)) {
+        setVisible(false);
+      }
+    };
+    document.addEventListener('pointerdown', handler, true);
+    return () => document.removeEventListener('pointerdown', handler, true);
+  }, [isMobile, visible]);
+
   return (
-    <div ref={triggerRef} onMouseEnter={show} onMouseLeave={hide} className="relative">
+    <div
+      ref={triggerRef}
+      onMouseEnter={isMobile ? undefined : show}
+      onMouseLeave={isMobile ? undefined : hide}
+      onClick={handleTap}
+      className="relative"
+    >
       {children}
       {visible && (
         <div

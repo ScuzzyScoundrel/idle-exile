@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { StatKey, GearSlot, Item, ArmorType, Rarity, WeaponType, CharacterClass } from '../../types';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { slotIcon, slotLabel } from '../slotConfig';
 import { formatAffix, getEquippedWeaponType } from '../../engine/items';
 import { CLASS_DEFS } from '../../data/classes';
@@ -179,6 +180,7 @@ const ASCII_SILHOUETTE = `    O
 
 export default function CharacterScreen() {
   const { character, resetGame, unequipSlot } = useGameStore();
+  const isMobile = useIsMobile();
   const [hoveredSlot, setHoveredSlot] = useState<GearSlot | null>(null);
   const hoveredItem = hoveredSlot ? character.equipment[hoveredSlot] ?? null : null;
 
@@ -234,6 +236,7 @@ export default function CharacterScreen() {
                 hoveredSlot={hoveredSlot}
                 onHover={setHoveredSlot}
                 onUnequip={unequipSlot}
+                isMobile={isMobile}
               />
             ))}
           </div>
@@ -258,6 +261,7 @@ export default function CharacterScreen() {
                 hoveredSlot={hoveredSlot}
                 onHover={setHoveredSlot}
                 onUnequip={unequipSlot}
+                isMobile={isMobile}
               />
             ))}
           </div>
@@ -273,6 +277,7 @@ export default function CharacterScreen() {
               onHover={setHoveredSlot}
               onUnequip={unequipSlot}
               className="w-36"
+              isMobile={isMobile}
             />
           ))}
         </div>
@@ -771,12 +776,14 @@ function GearSlotCard({
   onHover,
   onUnequip,
   className,
+  isMobile,
 }: {
   slot: GearSlot;
   hoveredSlot: GearSlot | null;
   onHover: (slot: GearSlot | null) => void;
   onUnequip: (slot: GearSlot) => void;
   className?: string;
+  isMobile: boolean;
 }) {
   const { character } = useGameStore();
   const item = character.equipment[slot];
@@ -804,8 +811,8 @@ function GearSlotCard({
           ${isShowingTooltip ? 'ring-2 ring-yellow-400' : ''}
           ${className ?? 'w-full'}
         `}
-        onMouseEnter={() => onHover(slot)}
-        onMouseLeave={() => onHover(null)}
+        onMouseEnter={isMobile ? undefined : () => onHover(slot)}
+        onMouseLeave={isMobile ? undefined : () => onHover(null)}
         onClick={handleClick}
         title={`${slotLabel(slot)} \u2014 empty`}
       >
@@ -824,8 +831,8 @@ function GearSlotCard({
         ${isShowingTooltip ? 'ring-2 ring-yellow-400' : ''}
         ${className ?? 'w-full'}
       `}
-      onMouseEnter={() => onHover(slot)}
-      onMouseLeave={() => onHover(null)}
+      onMouseEnter={isMobile ? undefined : () => onHover(slot)}
+      onMouseLeave={isMobile ? undefined : () => onHover(null)}
       onClick={handleClick}
       title={isShowingTooltip ? `Tap to unequip ${item.name}` : `Tap to inspect ${item.name}`}
     >
