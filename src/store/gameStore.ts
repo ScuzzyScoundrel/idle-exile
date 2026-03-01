@@ -539,10 +539,18 @@ export const useGameStore = create<GameState & GameActions>()(
             allItems,
           );
 
+          // Advance clearStartedAt for completed clears (prevents 100% stuck bug)
+          const newClearStartedAt = state.clearStartedAt + clearCount * state.currentClearTime * 1000;
+
+          // Recalculate clear time with potentially leveled-up skill
+          const newGatherClearTime = calcGatherClearTime(newGatheringSkills[profession].level, zone);
+
           set({
             materials: matsAfterItems,
             gatheringSkills: newGatheringSkills,
             inventory: newInventory,
+            clearStartedAt: newClearStartedAt,
+            currentClearTime: newGatherClearTime,
           });
 
           return {

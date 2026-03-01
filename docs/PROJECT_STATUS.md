@@ -1,13 +1,14 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-01 (Post-Sprint 8B)
+> Last updated: 2026-03-01 (Post-Sprint 8B-hotfix)
 
 ## Current Phase
-**Sprint 8B: Combat & Ability Bugs** — COMPLETE.
+**Sprint 8B + Hotfix: Combat & Ability Bugs + Gathering Fix** — COMPLETE.
 - Fixed ability `resistBonus` not applied in combat calculations — abilities like Crushing Force (+10 all resists) and Elemental Ward (+50 resists) now affect defensive efficiency and hazard penalty via new `applyAbilityResists()` helper
 - Fixed HP drain constant minimum — removed `MIN_CLEAR_NET_DAMAGE_RATIO` (0.02 floor). Damage per clear now has 70-130% variance. Good defense can fully out-regen damage instead of always losing 2% HP. HP clamped to [1, maxHp].
 - Investigated exalt currency on crafted items — code is correct (guard checks both prefix AND suffix sides, picks side with room). No change needed.
+- **Hotfix: Fixed gathering clear stuck at 100%** — `processNewClears` gathering path was missing `clearStartedAt` advancement and `currentClearTime` recalculation. Progress bar never reset after a gathering clear, causing infinite clears per tick. Now advances `clearStartedAt` and recalculates clear time with potentially leveled-up skill.
 - Next: Sprint 8C (Mobile UX Foundation)
 
 ## What Is Working Right Now
@@ -304,6 +305,7 @@ Replaced focus modes with Combat/Gathering toggle. 5 gathering professions with 
 - **Fixed ability resistBonus not applied**: New `applyAbilityResists()` helper in `engine/zones.ts` creates modified stats with ability resist bonus before passing to `calcDefensiveEfficiency` and `calcHazardPenalty`. Applied in `calcClearTime`, `calcBossDps`, and `processNewClears` HP calculation. Previously, abilities like Crushing Force (+10 all resists), Elemental Ward (+50 resists), and skill tree resist nodes had no actual combat effect.
 - **Fixed HP drain constant minimum**: Removed `MIN_CLEAR_NET_DAMAGE_RATIO` (0.02). Damage per clear now has 70-130% variance (was flat). Good defense can fully out-regen damage — no more artificial 2% maxHp drain per clear. HP clamped to [1, maxHp] (can still heal up to full between clears).
 - **Exalt currency investigated**: Code is correct — `!canPrefix && !canSuffix` guard already handles one-sided affix distributions. No change needed.
+- **Hotfix: Fixed gathering clear stuck at 100%**: `processNewClears` gathering path never advanced `clearStartedAt` or recalculated `currentClearTime` after clears completed. Combat mode did this correctly but gathering mode was missing it. Progress calc `(now - clearStartedAt) / (currentClearTime * 1000)` grew past 100%, triggering infinite clears. Fix: advance `clearStartedAt` by completed clears and recalculate gather clear time with new skill level.
 - **Files changed**: `engine/zones.ts`, `data/balance.ts`, `store/gameStore.ts`
 
 ## Micro-Sprint Workflow
