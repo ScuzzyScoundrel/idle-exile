@@ -60,6 +60,7 @@ Each conversation = one micro-sprint (3-5 focused changes):
 | **10I** | **Auto-Cast Engine + Priority: activateSkillBarSlot rewritten (click bug fix), tickAutoCast with GCD + priority, auto-cast UI toggle** |
 | **10J** | **Cleanup Old Systems: 5 legacy files deleted, bridge code removed, skillBar 8→5 slots, v26 migration** |
 | **10K-A** | **Real-Time Combat Engine: tickCombat fires skills on cast interval, mob HP drains live, MobDisplay uses real HP bar** |
+| **10K-B1** | **Boss Unification: boss fights use tickCombat (per-hit rolls), removed tickBoss/tickBossFight dead code** |
 
 See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
 

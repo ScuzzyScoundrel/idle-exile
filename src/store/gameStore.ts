@@ -21,7 +21,7 @@ import {
   SkillTimerState,
 } from '../types';
 import { createCharacter, resolveStats, addXp, getWeaponDamageInfo } from '../engine/character';
-import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, simulateCombatClear, applyNormalClearHp, createBossEncounter, tickBossFight, generateBossLoot, applyAbilityResists, calcHazardPenalty, BossTickResult } from '../engine/zones';
+import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, simulateCombatClear, applyNormalClearHp, createBossEncounter, generateBossLoot, applyAbilityResists, calcHazardPenalty } from '../engine/zones';
 import { calcMobHp, calcSkillCastInterval, rollSkillCast } from '../engine/unifiedSkills';
 import { calcDefensiveEfficiency } from '../engine/setBonus';
 import { BOSS_VICTORY_DURATION, BOSS_DEFEAT_RECOVERY, BOSS_VICTORY_HEAL_RATIO, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO, SKILL_GCD } from '../data/balance';
@@ -283,12 +283,11 @@ interface GameActions {
   // Class resource
   tickClassResource: (dtSeconds: number) => void;
 
-  // Real-time combat (10K-A)
-  tickCombat: (dt: number) => CombatTickResult;
+  // Real-time combat (10K-A, extended 10K-B1 for boss)
+  tickCombat: (dtSec: number) => CombatTickResult;
 
   // Combat / Boss
   startBossFight: () => void;
-  tickBoss: (dt: number) => BossTickResult | null;
   handleBossVictory: () => ProcessClearsResult | null;
   handleBossDefeat: () => void;
   checkRecoveryComplete: () => boolean;
@@ -1695,10 +1694,11 @@ export const useGameStore = create<GameState & GameActions>()(
 
       // ── Real-Time Combat Tick (10K-A) ──
 
-      tickCombat: (_dt: number): CombatTickResult => {
-        const noResult: CombatTickResult = { mobKills: 0, skillFired: false, damageDealt: 0, skillId: null, isCrit: false };
+      tickCombat: (dtSec: number): CombatTickResult => {
+        const noResult: CombatTickResult = { mobKills: 0, skillFired: false, damageDealt: 0, skillId: null, isCrit: false, isHit: false };
         const state = get();
-        if (state.combatPhase !== 'clearing') return noResult;
+        const phase = state.combatPhase;
+        if (phase !== 'clearing' && phase !== 'boss_fight') return noResult;
         if (!state.currentZoneId || !state.idleStartTime) return noResult;
         if (state.idleMode !== 'combat') return noResult;
 
@@ -1732,12 +1732,78 @@ export const useGameStore = create<GameState & GameActions>()(
         const castIntervalMs = castInterval * 1000;
 
         // Check if enough time has passed since last cast
-        if (now - state.lastSkillCastAt < castIntervalMs) return noResult;
+        if (now - state.lastSkillCastAt < castIntervalMs) {
+          // Even if no skill fires, boss still damages player each tick
+          if (phase === 'boss_fight' && state.bossState) {
+            const bossDmg = state.bossState.bossDps * dtSec;
+            const newPlayerHp = Math.max(0, state.currentHp - bossDmg);
+            if (newPlayerHp <= 0) {
+              set({ currentHp: 0 });
+              return { ...noResult, bossOutcome: 'defeat' };
+            }
+            set({ currentHp: newPlayerHp });
+            return { ...noResult, bossOutcome: 'ongoing' };
+          }
+          return noResult;
+        }
 
         // Fire skill
         const { avgDamage, spellPower } = getWeaponDamageInfo(state.character.equipment);
         const roll = rollSkillCast(skill, effectiveStats, avgDamage, spellPower, damageMult);
 
+        // ── Boss fight path ──
+        if (phase === 'boss_fight' && state.bossState) {
+          let totalDamage = 0;
+          let newBossHp = state.bossState.bossCurrentHp;
+
+          if (roll.isHit) {
+            newBossHp -= roll.damage;
+            totalDamage = roll.damage;
+          }
+
+          // Boss continuous damage to player
+          const bossDmg = state.bossState.bossDps * dtSec;
+          const newPlayerHp = Math.max(0, state.currentHp - bossDmg);
+
+          // Check outcomes
+          if (newBossHp <= 0) {
+            set({
+              bossState: { ...state.bossState, bossCurrentHp: 0 },
+              currentHp: Math.max(1, newPlayerHp),
+              lastSkillCastAt: now,
+            });
+            return {
+              mobKills: 0, skillFired: true, damageDealt: totalDamage,
+              skillId: skill.id, isCrit: roll.isCrit, isHit: roll.isHit,
+              bossOutcome: 'victory',
+            };
+          }
+          if (newPlayerHp <= 0) {
+            set({
+              bossState: { ...state.bossState, bossCurrentHp: newBossHp },
+              currentHp: 0,
+              lastSkillCastAt: now,
+            });
+            return {
+              mobKills: 0, skillFired: true, damageDealt: totalDamage,
+              skillId: skill.id, isCrit: roll.isCrit, isHit: roll.isHit,
+              bossOutcome: 'defeat',
+            };
+          }
+
+          set({
+            bossState: { ...state.bossState, bossCurrentHp: newBossHp },
+            currentHp: newPlayerHp,
+            lastSkillCastAt: now,
+          });
+          return {
+            mobKills: 0, skillFired: true, damageDealt: totalDamage,
+            skillId: skill.id, isCrit: roll.isCrit, isHit: roll.isHit,
+            bossOutcome: 'ongoing',
+          };
+        }
+
+        // ── Normal clearing path ──
         let currentMobHp = state.currentMobHp;
         let mobKills = 0;
         let totalDamage = 0;
@@ -1767,6 +1833,7 @@ export const useGameStore = create<GameState & GameActions>()(
           damageDealt: totalDamage,
           skillId: skill.id,
           isCrit: roll.isCrit,
+          isHit: roll.isHit,
         };
       },
 
@@ -1781,18 +1848,8 @@ export const useGameStore = create<GameState & GameActions>()(
           combatPhase: 'boss_fight' as CombatPhase,
           bossState: boss,
           combatPhaseStartedAt: Date.now(),
+          lastSkillCastAt: Date.now(),
         });
-      },
-
-      tickBoss: (dt: number) => {
-        const state = get();
-        if (state.combatPhase !== 'boss_fight' || !state.bossState) return null;
-        const result = tickBossFight(state.bossState, state.currentHp, dt);
-        set({
-          currentHp: result.playerHp,
-          bossState: { ...state.bossState, bossCurrentHp: result.bossHp },
-        });
-        return result;
       },
 
       handleBossVictory: () => {

@@ -669,7 +669,7 @@ export default function ZoneScreen() {
     startIdleRun, processNewClears, stopIdleRun, grantIdleXp, getEstimatedClearTime,
     setIdleMode, setGatheringProfession,
     currentHp, combatPhase, bossState, zoneClearCounts,
-    startBossFight, tickBoss, handleBossVictory, handleBossDefeat, checkRecoveryComplete,
+    startBossFight, handleBossVictory, handleBossDefeat, checkRecoveryComplete,
     tutorialStep,
     classResource, tickClassResource, tickAutoCast,
     clearStartedAt, currentClearTime,
@@ -763,30 +763,27 @@ export default function ZoneScreen() {
           }
         }
       } else if (phase === 'boss_fight') {
-        // Use real delta for boss fights (handles tab throttling)
-        const dt = Math.min((now - lastTickTimeRef.current) / 1000, 2); // cap at 2s to prevent huge jumps
-        const result = tickBoss(dt);
-        if (result) {
-          if (result.outcome === 'victory') {
-            // Capture fight stats before handleBossVictory modifies state
-            const bState = useGameStore.getState().bossState;
-            if (bState) {
-              const duration = (Date.now() - bState.startedAt) / 1000;
-              setBossFightStats({
-                duration,
-                playerDps: bState.playerDps,
-                bossDps: bState.bossDps,
-                bossMaxHp: bState.bossMaxHp,
-              });
-            }
-            const lootResult = handleBossVictory();
-            if (lootResult) {
-              setBossLootItems(lootResult.items);
-              setSession(prev => accumulateSession(prev, lootResult, 0));
-            }
-          } else if (result.outcome === 'defeat') {
-            handleBossDefeat();
+        // Boss uses same tickCombat — skill-based hits instead of flat DPS
+        const bossResult = tickCombat(dtSec);
+        if (bossResult.bossOutcome === 'victory') {
+          // Capture fight stats before handleBossVictory modifies state
+          const bState = useGameStore.getState().bossState;
+          if (bState) {
+            const duration = (Date.now() - bState.startedAt) / 1000;
+            setBossFightStats({
+              duration,
+              playerDps: bState.playerDps,
+              bossDps: bState.bossDps,
+              bossMaxHp: bState.bossMaxHp,
+            });
           }
+          const lootResult = handleBossVictory();
+          if (lootResult) {
+            setBossLootItems(lootResult.items);
+            setSession(prev => accumulateSession(prev, lootResult, 0));
+          }
+        } else if (bossResult.bossOutcome === 'defeat') {
+          handleBossDefeat();
         }
       } else if (phase === 'boss_victory' || phase === 'boss_defeat' || phase === 'zone_defeat') {
         const done = checkRecoveryComplete();
@@ -805,7 +802,7 @@ export default function ZoneScreen() {
       lastTickTimeRef.current = now;
     }, 250);
     return () => clearInterval(interval);
-  }, [isRunning, idleStartTime, tickBoss, handleBossVictory, handleBossDefeat, checkRecoveryComplete, tickClassResource, tickAutoCast, tickCombat, grantIdleXp, processNewClears, startBossFight]);
+  }, [isRunning, idleStartTime, handleBossVictory, handleBossDefeat, checkRecoveryComplete, tickClassResource, tickAutoCast, tickCombat, grantIdleXp, processNewClears, startBossFight]);
 
   // Gathering mode loot processing — time-based (combat uses tickCombat in tick loop)
   useEffect(() => {

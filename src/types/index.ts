@@ -281,13 +281,15 @@ export interface CombatClearResult {
   dotDamage: number;      // Damage from DoT ticks (subset of totalDamage)
 }
 
-/** Result of one real-time combat tick (10K-A). */
+/** Result of one real-time combat tick (10K-A, extended 10K-B1 for boss). */
 export interface CombatTickResult {
   mobKills: number;
   skillFired: boolean;
   damageDealt: number;
   skillId: string | null;
   isCrit: boolean;
+  isHit: boolean;
+  bossOutcome?: 'ongoing' | 'victory' | 'defeat';
 }
 
 export type CombatPhase = 'clearing' | 'boss_fight' | 'boss_victory' | 'boss_defeat' | 'zone_defeat';

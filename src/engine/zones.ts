@@ -607,21 +607,6 @@ export function createBossEncounter(char: Character, zone: ZoneDef, abilityEffec
   };
 }
 
-/** Tick boss fight by deltaSeconds. */
-export interface BossTickResult {
-  bossHp: number;
-  playerHp: number;
-  outcome: 'ongoing' | 'victory' | 'defeat';
-}
-
-export function tickBossFight(boss: BossState, playerHp: number, dt: number): BossTickResult {
-  const newBossHp = Math.max(0, boss.bossCurrentHp - boss.playerDps * dt);
-  const newPlayerHp = Math.max(0, playerHp - boss.bossDps * dt);
-  if (newBossHp <= 0) return { bossHp: 0, playerHp: Math.max(1, newPlayerHp), outcome: 'victory' };
-  if (newPlayerHp <= 0) return { bossHp: newBossHp, playerHp: 0, outcome: 'defeat' };
-  return { bossHp: newBossHp, playerHp: newPlayerHp, outcome: 'ongoing' };
-}
-
 /** Generate boss loot at boosted iLvl. */
 export function generateBossLoot(zone: ZoneDef): Item[] {
   const count = BOSS_DROP_COUNT_MIN + Math.floor(Math.random() * (BOSS_DROP_COUNT_MAX - BOSS_DROP_COUNT_MIN + 1));

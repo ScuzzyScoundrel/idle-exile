@@ -1,10 +1,22 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-02 (Post-Sprint 10K-A: Real-Time Combat Engine)
+> Last updated: 2026-03-02 (Post-Sprint 10K-B1: Boss Unification)
 
 ## Current Phase
-**Sprint 10K-A: Real-Time Combat Engine** — COMPLETE.
+**Sprint 10K-B1: Boss Unification into tickCombat** — COMPLETE.
+
+- **Boss fights now use per-hit skill model**: `tickCombat()` handles both `clearing` and `boss_fight` phases. Player attacks boss via `rollSkillCast()` (same accuracy/crit/variance as normal mobs). Boss deals continuous `bossDps * dtSec` damage to player.
+- **Dead code removed**: `tickBossFight()`, `BossTickResult` interface (engine/zones.ts), `tickBoss` store action — all deleted.
+- **CombatTickResult extended**: New fields `isHit: boolean` and `bossOutcome?: 'ongoing' | 'victory' | 'defeat'`.
+- **Boss damage between casts**: Even when skill isn't ready to fire, boss still damages player each tick (handled in early return path).
+- **`startBossFight` sets `lastSkillCastAt`**: Ensures first skill cast fires immediately when boss fight begins.
+- **ZoneScreen updated**: `boss_fight` block calls `tickCombat(dtSec)` and checks `bossOutcome` instead of old `tickBoss(dt)` + `result.outcome`.
+- **Bundle size**: 497 kB.
+
+**Next: Sprint 10K-B2** (Combat Visual Feedback: skill flash, damage floaters, combat log). See `COMBAT_OVERHAUL.md` for full roadmap.
+
+**Sprint 10K-A: Real-Time Combat Engine** — COMPLETE (previous).
 
 - **Real-time combat tick**: New `tickCombat()` store action fires active skill on cast interval, tracks mob HP, returns kills per tick. Called every 250ms from ZoneScreen timer loop.
 - **Engine functions**: `calcSkillCastInterval()` computes speed-adjusted cast time, `rollSkillCast()` rolls hit/miss/crit with +/-10% variance. Both in `engine/unifiedSkills.ts`.
@@ -12,11 +24,8 @@
 - **Mob HP bar is real**: MobDisplay now shows actual HP draining per skill cast (was time-based progress approximation).
 - **Combat mode only**: Gathering mode untouched (keeps time-based model). Offline progression untouched. Boss fights untouched.
 - **Safety cap**: 10 kills/tick maximum to prevent infinite loops on very fast clears.
-- **Mob HP initialized**: `startIdleRun` sets mob HP from `calcMobHp(zone)`. `checkRecoveryComplete` resets mob HP when resuming after boss fight.
 - **New type**: `CombatTickResult` interface. New constant: `COMBAT_TICK_INTERVAL = 250`.
 - **Bundle size**: 497 kB.
-
-**Next: Sprint 10K-B** (Combat UI Polish + Boss Unification). See `COMBAT_OVERHAUL.md` for full roadmap.
 
 **Sprint 10J: Cleanup Old Systems** — COMPLETE (previous).
 

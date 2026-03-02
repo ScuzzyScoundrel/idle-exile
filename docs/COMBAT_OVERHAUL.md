@@ -4,7 +4,7 @@
 > At the start of any session, read this file to pick up where the last session left off.
 > Last updated: 2026-03-02
 
-## Current Sprint: **10K-A — Real-Time Combat Engine** ✅ COMPLETE
+## Current Sprint: **10K-B1 — Boss Unification** ✅ COMPLETE
 
 ---
 
@@ -65,23 +65,46 @@
 - [x] Gathering mode unchanged (keeps time-based model)
 - [x] `npm run build` passes
 
-### What does NOT change (deferred to 10K-B):
+### What does NOT change (deferred):
 - Offline progression (still uses `simulateIdleRun()` deterministic model)
-- Boss fights (still use `tickBoss(dt)`)
-- Visual feedback (skill slot flash, damage numbers)
-- Multi-skill rotation
+- Visual feedback (skill slot flash, damage numbers) → 10K-B2
+- Multi-skill rotation → 10M
 
 ---
 
-## Sprint 10K-B: Combat UI Polish + Boss Unification
-**Goal:** Visual feedback for combat ticks, unify boss fights with same model.
+## Sprint 10K-B1: Boss Unification into tickCombat
+**Goal:** Unify boss fights into the same per-hit skill model as normal clearing. Remove old flat-DPS `tickBoss`/`tickBossFight`.
+**Status:** COMPLETE
+
+### What was done:
+- [x] Extended `CombatTickResult` with `isHit: boolean` and `bossOutcome?: 'ongoing' | 'victory' | 'defeat'`
+- [x] Removed `BossTickResult` interface and `tickBossFight()` function from `engine/zones.ts`
+- [x] Widened `tickCombat` guard from `clearing`-only to `clearing || boss_fight`
+- [x] Boss fight path: player attacks via `rollSkillCast()`, boss deals continuous `bossDps * dtSec`
+- [x] Boss outcomes: HP <= 0 → victory, player HP <= 0 → defeat
+- [x] Removed `tickBoss` from `GameActions` interface and implementation
+- [x] `startBossFight` now sets `lastSkillCastAt: Date.now()` for immediate first cast
+- [x] ZoneScreen tick loop: `boss_fight` block calls `tickCombat(dtSec)` instead of `tickBoss(dt)`
+- [x] Removed `tickBoss` from store destructuring and dependency arrays
+- [x] `npm run build` passes
+
+### Key decisions:
+- Boss still deals flat continuous DPS to player (no per-hit rolls for boss attacks). Only player attacks become skill-based.
+- `BossState.playerDps` kept as snapshot for victory overlay stats. Not used for damage calc.
+- `dtSec` parameter now meaningful: used for boss damage application.
+- Between skill casts, boss still damages player (handled in the "not ready to cast" early return).
+
+---
+
+## Sprint 10K-B2: Combat Visual Feedback
+**Goal:** Visual feedback for combat ticks.
 **Status:** NOT STARTED
 
 ### Checklist:
 - [ ] Visual feedback: skill slots flash on activation
 - [ ] Damage numbers floating up from mob display
-- [ ] Boss fights use same real-time tickCombat model
 - [ ] Combat log (compact, scrolling) showing recent casts + damage
+- [ ] BossFightDisplay cleanup (remove "Your DPS" line — now skill-based)
 - [ ] `npm run build` passes
 - [ ] Manual test: skills visually fire during combat
 
