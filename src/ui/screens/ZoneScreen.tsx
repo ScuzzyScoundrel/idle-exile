@@ -671,7 +671,7 @@ export default function ZoneScreen() {
     currentHp, combatPhase, bossState, zoneClearCounts,
     startBossFight, tickBoss, handleBossVictory, handleBossDefeat, checkRecoveryComplete,
     tutorialStep,
-    classResource, tickClassResource,
+    classResource, tickClassResource, tickAutoCast,
     clearStartedAt, currentClearTime,
     totalKills, fastestClears,
     lastClearResult,
@@ -723,6 +723,7 @@ export default function ZoneScreen() {
       // Tick class resource decay (Warrior rage) every 250ms
       const dtSec = Math.min((now - lastTickTimeRef.current) / 1000, 2);
       tickClassResource(dtSec);
+      tickAutoCast();
 
       if (phase === 'clearing') {
         setElapsed((now - idleStartTime) / 1000);
@@ -769,7 +770,7 @@ export default function ZoneScreen() {
       lastTickTimeRef.current = now;
     }, 250);
     return () => clearInterval(interval);
-  }, [isRunning, idleStartTime, tickBoss, handleBossVictory, handleBossDefeat, checkRecoveryComplete, tickClassResource]);
+  }, [isRunning, idleStartTime, tickBoss, handleBossVictory, handleBossDefeat, checkRecoveryComplete, tickClassResource, tickAutoCast]);
 
   // Real-time loot processing — only during clearing phase
   // Uses per-clear tracking (clearStartedAt + currentClearTime) instead of modulo

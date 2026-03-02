@@ -1,20 +1,32 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-02 (Post-Sprint 10H: Skill Bar UI)
+> Last updated: 2026-03-02 (Post-Sprint 10I: Auto-Cast Engine + Priority)
 
 ## Current Phase
-**Sprint 10H: Skill Bar UI** — COMPLETE.
+**Sprint 10I: Auto-Cast Engine + Priority** — COMPLETE.
+
+- **Click bug fixed**: `activateSkillBarSlot` rewritten to work directly from unified `skillBar`/`skillTimers` state instead of delegating to broken `activateAbility` path. Handles toggle (no GCD), buff/instant/ultimate (with GCD), legacy abilityTimer bridge, mage arcane charges, mid-clear recalculation.
+- **Auto-cast engine**: New `tickAutoCast` action iterates skill bar slots 0→7 in priority order. Toggles auto-ON immediately (no GCD). Buffs/instants/ultimates check individual cooldown AND global cooldown, fire when ready. `break` on GCD hit (no point checking more slots). Called from 250ms tick loop in ZoneScreen. Only fires during `clearing` or `boss_fight` phases.
+- **Global Cooldown (GCD)**: New `SKILL_GCD = 1.0` constant in `balance.ts`. New `lastSkillActivation: number` state field. Buffs/instants/ultimates respect 1s gap between activations. Toggles skip GCD (set-and-forget). Creates natural rotation feel.
+- **Priority order**: Slot 0 fires before slot 1 when both are ready. Players control priority by reordering skill bar slots.
+- **Auto-cast defaults changed**: All newly equipped skills now default to `autoCast: true` (was false for buff/toggle/instant/ultimate). Idle game — everything should fire by default.
+- **Rehydrate fix**: Existing saves upgraded to `autoCast: true` for all equipped skills. `lastSkillActivation` reset to 0 on rehydrate.
+- **Auto-cast UI indicator**: Green "A" in top-left corner of toggle/buff/instant/ultimate skill bar slots. Click "A" to toggle autoCast on/off. `e.stopPropagation()` prevents triggering manual activation.
+- **New engine helper**: `getSkillEffectiveCooldown()` in `engine/unifiedSkills.ts` wraps `getEffectiveCooldown()` for unified skill system.
+- **Module-level optimization**: `REVERSE_ABILITY_MAP` built once at module scope (was rebuilt on every click).
+- **Bundle size**: 500 kB.
+
+**Next: Sprint 10J** (Cleanup Old Systems). See SPRINT_PLAN.md.
+
+**Sprint 10H: Skill Bar UI** — COMPLETE (previous).
 
 - **New `SkillBar.tsx` component**: 8-slot horizontal bar replacing old `AbilityBar`. Reads from unified `skillBar`/`skillProgress`/`skillTimers`. Smaller slots (w-14 h-14) for mobile fit. Kind-based border colors (active=yellow, passive=gray, buff=blue, toggle=green, instant=orange, ultimate=yellow, proc=purple). Timer display with 250ms refresh. XP bars at bottom. Slots 5-7 show locked "Soon". Slots 1-4 use `ABILITY_SLOT_UNLOCKS` progression.
-- **New `activateSkillBarSlot` store action**: Reads `skillBar[slotIndex]`, skips non-activatable kinds (active/passive/proc), builds reverse ID map from `ABILITY_ID_MIGRATION`, delegates to `activateAbility(oldAbilityId)`. Reuses all existing activation logic.
 - **Rewritten `SkillPanel.tsx`**: Unified skill browser showing all skill kinds. Equipped bar overview (compact 5-slot strip with select-to-target). Kind filter tabs (All/Active/Buff/Passive/Toggle/Instant). Available skills grid with DPS comparison for active skills. Inline skill tree management via `SkillTreeView` local component. Equip/unequip via unified `equipToSkillBar`/`unequipSkillBarSlot`.
 - **ZoneScreen updated**: `AbilityBar` → `SkillBar`, `AbilityPicker` → `SkillPicker`. Old `AbilityPicker` (~135 lines) and `ZoneSkillTreeView` (~75 lines) removed. New `SkillPicker` is simpler (~80 lines) — shows available skills with slot equip buttons, no tree management. SkillBar now visible during boss fights too.
 - **CharacterScreen updated**: Removed `AbilityPanel` (~170 lines), `SkillTreeView` (~120 lines), `KIND_BADGE_COLORS`, `WEAPON_TYPE_LABELS`, `WEAPON_TYPE_ICONS`. Updated `SkillPanel` handles everything.
 - **Bundle size reduced**: 496 kB (was 502 kB) — net reduction despite new components.
 - **Old `AbilityBar.tsx` still exists**: Not imported anywhere. Will be removed in Sprint 10J cleanup.
-
-**Next: Sprint 10I** (Auto-Cast Engine + Priority). See SPRINT_PLAN.md.
 
 **Sprint 10G: Skill Bar Store + Migration v25** — COMPLETE (previous).
 
@@ -162,7 +174,7 @@ src/
     crafting.ts             — 6 currency crafting operations
     setBonus.ts             — Set bonus resolution
   store/
-    gameStore.ts            — Zustand store (state + actions + persistence + v25 migration). Actions: selectClass, tickClassResource, startBossFight, tickBoss, handleBossVictory, handleBossDefeat, checkRecoveryComplete, allocateAbilityNode, respecAbility, toggleAbility, equipToSkillBar, unequipSkillBarSlot, toggleSkillAutoCast, reorderSkillBar, activateSkillBarSlot + all previous.
+    gameStore.ts            — Zustand store (state + actions + persistence + v25 migration). Actions: selectClass, tickClassResource, tickAutoCast, startBossFight, tickBoss, handleBossVictory, handleBossDefeat, checkRecoveryComplete, allocateAbilityNode, respecAbility, toggleAbility, equipToSkillBar, unequipSkillBarSlot, toggleSkillAutoCast, reorderSkillBar, activateSkillBarSlot + all previous.
   ui/
     slotConfig.ts           — Shared gear slot icons/labels
     components/
@@ -199,9 +211,7 @@ src/
 **See `SPRINT_PLAN.md` for the full roadmap with detailed implementation notes.**
 
 Immediate priority:
-1. **Sprint 10H**: Skill Bar UI (8-slot bar with auto-cast visuals, replace AbilityBar + SkillPanel)
-2. **Sprint 10I**: Auto-Cast Engine + Priority (all equipped skills fire in bar order)
-3. **Sprint 10J**: Cleanup Old Systems (remove deprecated types, old data/engine files)
+1. **Sprint 10J**: Cleanup Old Systems (remove deprecated types, old data/engine files, AbilityBar.tsx)
 
 ## How to Run
 ```bash
@@ -500,6 +510,16 @@ Replaced focus modes with Combat/Gathering toggle. 5 gathering professions with 
 - **No save migration**: No state changes. UI-only sprint.
 - **Files added**: `src/ui/components/SkillBar.tsx`
 - **Files changed**: `src/store/gameStore.ts`, `src/ui/components/SkillPanel.tsx`, `src/ui/screens/ZoneScreen.tsx`, `src/ui/screens/CharacterScreen.tsx`
+
+### Sprint 10I Changes (Auto-Cast Engine + Priority)
+- **Click bug fixed**: `activateSkillBarSlot` rewritten from broken delegation to `activateAbility(oldId)` → proper `set()` action working directly from `skillBar`/`skillTimers` state. Handles all kinds: toggle (flip activatedAt, no GCD), buff (set activatedAt + cooldownUntil), instant/ultimate (null activatedAt + cooldownUntil). Bridges to legacy `abilityTimers`. Mage arcane charge increment. Mid-clear recalculation preserving progress %.
+- **Auto-cast engine** (`tickAutoCast` store action): Called from 250ms tick in ZoneScreen. Only fires during `clearing`/`boss_fight` phases. Iterates slots 0→7 (priority order). Toggles: auto-ON if OFF, no GCD. Buff/instant/ultimate: checks individual cooldown + GCD, fires if ready. `break` on GCD hit (optimization). Re-reads state via `get()` after each activation since `activateSkillBarSlot` does `set()`.
+- **Global Cooldown**: `SKILL_GCD = 1.0` in `data/balance.ts`. `lastSkillActivation: number` added to `GameState` (ephemeral, reset to 0 on rehydrate). Toggles skip GCD. Buff/instant/ultimate respect GCD. Creates rotation feel.
+- **Auto-cast defaults**: `equipToSkillBar` now sets `autoCast: true` for ALL skill kinds (was false for buff/toggle/instant/ultimate). Rehydrate fix upgrades existing saves.
+- **Auto-cast UI**: Green "A" indicator in top-left of toggle/buff/instant/ultimate SkillBar slots. Click toggles `autoCast` via `toggleSkillAutoCast`. `e.stopPropagation()` prevents manual activation.
+- **New engine function**: `getSkillEffectiveCooldown()` in `engine/unifiedSkills.ts` — wraps `getEffectiveCooldown()` with SkillProgress→AbilityProgress conversion.
+- **Module-level `REVERSE_ABILITY_MAP`**: Built once from `ABILITY_ID_MIGRATION` at module scope (was rebuilt per click).
+- **Files changed**: `src/engine/unifiedSkills.ts`, `src/types/index.ts`, `src/data/balance.ts`, `src/store/gameStore.ts`, `src/ui/screens/ZoneScreen.tsx`, `src/ui/components/SkillBar.tsx`
 
 ### Sprint 10G Changes (Skill Bar Store + Migration v25)
 - **3 new GameState fields** (`types/index.ts`): `skillBar: (EquippedSkill | null)[]` (8 unified slots), `skillProgress: Record<string, SkillProgress>`, `skillTimers: SkillTimerState[]`.

@@ -689,6 +689,9 @@ export interface GameState {
   // Per-clear combat sim result (v25 — ephemeral, not persisted)
   lastClearResult: CombatClearResult | null;
 
+  // Auto-cast GCD tracking (ephemeral)
+  lastSkillActivation: number;
+
   // Tutorial
   tutorialStep: number;
 

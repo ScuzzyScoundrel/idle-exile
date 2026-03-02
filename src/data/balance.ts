@@ -283,3 +283,10 @@ export const BOSS_VICTORY_DURATION = 5.0;
 export const BOSS_DEFEAT_RECOVERY = 5.0;
 /** Fraction of missing HP healed after boss victory (1.0 = full heal). */
 export const BOSS_VICTORY_HEAL_RATIO = 0.6;
+
+// =============================================
+// SKILL AUTO-CAST
+// =============================================
+
+/** Global cooldown between skill activations (seconds). */
+export const SKILL_GCD = 1.0;

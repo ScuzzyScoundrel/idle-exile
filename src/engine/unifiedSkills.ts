@@ -11,7 +11,7 @@ import type {
 import { calcSkillDamagePerCast, calcSkillDps } from './skills';
 import {
   resolveAbilityEffect, mergeEffect, getEffectiveDuration,
-  isAbilityActive,
+  getEffectiveCooldown, isAbilityActive,
 } from './abilities';
 import { getUnifiedSkillDef } from '../data/unifiedSkills';
 
@@ -92,6 +92,25 @@ export function getSkillEffectiveDuration(
   } : undefined;
 
   return getEffectiveDuration(skill as any, abilityProgress);
+}
+
+/**
+ * Get effective cooldown for a skill (base + tree bonuses).
+ */
+export function getSkillEffectiveCooldown(
+  skill: SkillDef,
+  progress: SkillProgress | undefined,
+): number {
+  if (!skill.cooldown) return 0;
+
+  const abilityProgress: AbilityProgress | undefined = progress ? {
+    abilityId: progress.skillId,
+    xp: progress.xp,
+    level: progress.level,
+    allocatedNodes: progress.allocatedNodes,
+  } : undefined;
+
+  return getEffectiveCooldown(skill as any, abilityProgress);
 }
 
 /**

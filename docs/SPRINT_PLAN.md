@@ -56,6 +56,8 @@ Each conversation = one micro-sprint (3-5 focused changes):
 | **10E** | **Elemental Skill Diversity: 10 skills changed element, 3 new skills, 51 total. Every weapon has meaningful elemental choices** |
 | **10F** | **Unified SkillDef Type + Data: SkillDef merges 51 active + 24 abilities = 75 unified defs, new engine with delegation** |
 | **10G** | **Skill Bar Store + v25 Migration: 8-slot skillBar in store, engine reads switched, old actions bridged, v24→v25 migration** |
+| **10H** | **Skill Bar UI: 8-slot SkillBar component, rewritten SkillPanel, SkillPicker on ZoneScreen, AbilityPanel removed** |
+| **10I** | **Auto-Cast Engine + Priority: activateSkillBarSlot rewritten (click bug fix), tickAutoCast with GCD + priority, auto-cast UI toggle** |
 
 See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
 
@@ -341,20 +343,22 @@ See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
 5. **Old actions bridged**: `equipAbility`, `unequipAbility`, `toggleAbility`, `activateAbility`, `equipSkill`, `equipItem`, `unequipSlot` all mirror to unified skillBar
 
 ### Sprint 10H: Skill Bar UI
-**Status:** NOT STARTED
+**Status:** COMPLETE
 **Files:** `ui/components/SkillBar.tsx` (new), `ui/components/SkillPanel.tsx`, `ui/screens/ZoneScreen.tsx`, `ui/screens/CharacterScreen.tsx`
 
-1. **8-slot horizontal skill bar** — replaces AbilityBar, kind-colored borders, auto-cast overlays
-2. **Unified SkillPanel** — browse all skills (damage + buff + passive), category filters
-3. **Auto-cast visuals** — button "presses" when skill fires, cooldown sweep, buff duration ring
+1. **8-slot horizontal skill bar** — replaces AbilityBar, kind-colored borders, timer display
+2. **Unified SkillPanel** — browse all skills (damage + buff + passive), category filters, inline skill trees
+3. **SkillPicker** — simple equip/unequip on ZoneScreen
 
 ### Sprint 10I: Auto-Cast Engine + Priority
-**Status:** NOT STARTED
-**Files:** `engine/unifiedSkills.ts`, `store/gameStore.ts`, `ui/components/SkillBar.tsx`
+**Status:** COMPLETE
+**Files:** `engine/unifiedSkills.ts`, `types/index.ts`, `data/balance.ts`, `store/gameStore.ts`, `ui/screens/ZoneScreen.tsx`, `ui/components/SkillBar.tsx`
 
-1. **Auto-cast queue** — skills fire in bar order (slot 0 = highest priority)
-2. **activateSkill action** — works for all kinds (buffs set timer, instants fire, toggles flip)
-3. **Drag-to-reorder** — players set priority by reordering bar slots
+1. **Click bug fixed** — `activateSkillBarSlot` rewritten to work from unified state (not broken legacy path)
+2. **Auto-cast engine** — `tickAutoCast` fires skills in bar order (slot 0 = highest priority), 1s GCD between activations
+3. **GCD system** — `SKILL_GCD = 1.0`, toggles skip GCD, buff/instant/ultimate respect GCD
+4. **Auto-cast UI** — green "A" indicator on activatable slots, click to toggle on/off
+5. **Default autoCast: true** — all skills auto-fire by default (idle game), rehydrate fix for old saves
 
 ### Sprint 10J: Cleanup Old Systems
 **Status:** NOT STARTED

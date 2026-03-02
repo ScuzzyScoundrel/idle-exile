@@ -32,6 +32,7 @@ export default function SkillBar() {
   const skillTimers = useGameStore(s => s.skillTimers);
   const character = useGameStore(s => s.character);
   const activateSkillBarSlot = useGameStore(s => s.activateSkillBarSlot);
+  const toggleSkillAutoCast = useGameStore(s => s.toggleSkillAutoCast);
   const [now, setNow] = useState(Date.now());
 
   // Refresh every 250ms for smooth countdown display
@@ -180,6 +181,15 @@ export default function SkillBar() {
               `}
               title={`${def.name}: ${def.description} (${isOn ? 'ON' : 'OFF'})`}
             >
+              {/* Auto-cast indicator */}
+              <span
+                className={`absolute top-0 left-0.5 text-[9px] font-bold cursor-pointer z-10 select-none
+                  ${equipped.autoCast ? 'text-green-400' : 'text-gray-600'}`}
+                onClick={(e) => { e.stopPropagation(); toggleSkillAutoCast(idx); }}
+                title={equipped.autoCast ? 'Auto-cast ON (click to disable)' : 'Auto-cast OFF (click to enable)'}
+              >
+                A
+              </span>
               <span className="text-lg">{def.icon}</span>
               <span className={`text-xs font-bold ${isOn ? 'text-green-300' : 'text-gray-500'}`}>
                 {isOn ? 'ON' : 'OFF'}
@@ -209,6 +219,15 @@ export default function SkillBar() {
             `}
             title={`${def.name}: ${def.description}${isActive ? ` (${remainingBuff.toFixed(1)}s)` : isOnCooldown ? ` (CD: ${remainingCd.toFixed(0)}s)` : ' (Ready!)'}`}
           >
+            {/* Auto-cast indicator */}
+            <span
+              className={`absolute top-0 left-0.5 text-[9px] font-bold cursor-pointer z-10 select-none
+                ${equipped.autoCast ? 'text-green-400' : 'text-gray-600'}`}
+              onClick={(e) => { e.stopPropagation(); toggleSkillAutoCast(idx); }}
+              title={equipped.autoCast ? 'Auto-cast ON (click to disable)' : 'Auto-cast OFF (click to enable)'}
+            >
+              A
+            </span>
             <span className="text-lg">{def.icon}</span>
             {isActive && (
               <span className="text-xs text-yellow-300 font-bold">{remainingBuff.toFixed(1)}s</span>

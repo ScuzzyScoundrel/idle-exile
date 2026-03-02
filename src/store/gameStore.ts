@@ -23,7 +23,7 @@ import { createCharacter, resolveStats, addXp, getWeaponDamageInfo } from '../en
 import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, simulateCombatClear, applyNormalClearHp, createBossEncounter, tickBossFight, generateBossLoot, applyAbilityResists, calcHazardPenalty, BossTickResult } from '../engine/zones';
 import { calcMobHp } from '../engine/skills';
 import { calcDefensiveEfficiency } from '../engine/setBonus';
-import { BOSS_VICTORY_DURATION, BOSS_DEFEAT_RECOVERY, BOSS_VICTORY_HEAL_RATIO, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO } from '../data/balance';
+import { BOSS_VICTORY_DURATION, BOSS_DEFEAT_RECOVERY, BOSS_VICTORY_HEAL_RATIO, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO, SKILL_GCD } from '../data/balance';
 import { pickBestItem, getEquippedWeaponType, generateId, isTwoHandedWeapon } from '../engine/items';
 import { applyCurrency } from '../engine/crafting';
 import {
@@ -51,7 +51,7 @@ import {
 } from '../engine/classResource';
 import { getDefaultSkillForWeapon } from '../engine/skills';
 import { getSkillDef } from '../data/skills';
-import { aggregateSkillBarEffects, getPrimaryDamageSkill } from '../engine/unifiedSkills';
+import { aggregateSkillBarEffects, getPrimaryDamageSkill, getSkillEffectiveDuration, getSkillEffectiveCooldown } from '../engine/unifiedSkills';
 import { getUnifiedSkillDef, ABILITY_ID_MIGRATION } from '../data/unifiedSkills';
 
 
@@ -92,6 +92,12 @@ export const SELL_GOLD: Record<Rarity, number> = {
   epic: 20,
   legendary: 50,
 };
+
+// Build once: reverse map from unified skill ID → old ability ID
+const REVERSE_ABILITY_MAP: Record<string, string> = {};
+for (const [oldId, newId] of Object.entries(ABILITY_ID_MIGRATION)) {
+  REVERSE_ABILITY_MAP[newId] = oldId;
+}
 
 /** Auto-salvage stats returned alongside state updates. */
 interface SalvageStats {
@@ -308,6 +314,7 @@ interface GameActions {
   toggleSkillAutoCast: (slotIndex: number) => void;
   reorderSkillBar: (fromSlot: number, toSlot: number) => void;
   activateSkillBarSlot: (slotIndex: number) => void;
+  tickAutoCast: () => void;
 
   // Tutorial
   advanceTutorial: (step: number) => void;
@@ -375,6 +382,7 @@ function createInitialState(): GameState {
     skillProgress: {},
     skillTimers: [],
     lastClearResult: null,
+    lastSkillActivation: 0,
     tutorialStep: 1,
     lastSaveTime: Date.now(),
   };
@@ -1710,8 +1718,7 @@ export const useGameStore = create<GameState & GameActions>()(
           newSkillBar[existingIdx] = null;
         }
 
-        // autoCast defaults: active/passive/proc = true, buff/toggle/instant/ultimate = false
-        const autoCast = skillDef.kind === 'active' || skillDef.kind === 'passive' || skillDef.kind === 'proc';
+        const autoCast = true; // All skills auto-cast by default (idle game)
         newSkillBar[slotIndex] = { skillId, autoCast };
 
         const updates: Partial<GameState> = { skillBar: newSkillBar };
@@ -1799,20 +1806,156 @@ export const useGameStore = create<GameState & GameActions>()(
       },
 
       activateSkillBarSlot: (slotIndex: number) => {
+        set((state) => {
+          const equipped = state.skillBar[slotIndex];
+          if (!equipped) return state;
+          const def = getUnifiedSkillDef(equipped.skillId);
+          if (!def) return state;
+          if (def.kind === 'active' || def.kind === 'passive' || def.kind === 'proc') return state;
+
+          const now = Date.now();
+
+          const progress = state.skillProgress[equipped.skillId];
+          const stIdx = state.skillTimers.findIndex(t => t.skillId === equipped.skillId);
+          if (stIdx === -1) return state;
+          const timer = state.skillTimers[stIdx];
+
+          const newSkillTimers = [...state.skillTimers];
+          const updates: Partial<GameState> = {};
+
+          // === TOGGLE (no GCD — set-and-forget) ===
+          if (def.kind === 'toggle') {
+            const newActivatedAt = timer.activatedAt !== null ? null : now;
+            newSkillTimers[stIdx] = { skillId: equipped.skillId, activatedAt: newActivatedAt, cooldownUntil: null };
+            updates.skillTimers = newSkillTimers;
+
+            // Bridge to legacy abilityTimers
+            const oldId = REVERSE_ABILITY_MAP[equipped.skillId] ?? equipped.skillId;
+            const legacyIdx = state.abilityTimers.findIndex(t => t.abilityId === oldId);
+            if (legacyIdx !== -1) {
+              const newAbilityTimers = [...state.abilityTimers];
+              newAbilityTimers[legacyIdx] = { abilityId: oldId, activatedAt: newActivatedAt, cooldownUntil: null };
+              updates.abilityTimers = newAbilityTimers;
+            }
+
+            return updates;
+          }
+
+          // === BUFF / INSTANT / ULTIMATE ===
+          // GCD check (only for non-toggle skills)
+          if (state.lastSkillActivation && now - state.lastSkillActivation < SKILL_GCD * 1000) return state;
+
+          // Cooldown check
+          if (timer.cooldownUntil && now < timer.cooldownUntil) return state;
+
+          const duration = getSkillEffectiveDuration(def, progress);
+          const cooldown = getSkillEffectiveCooldown(def, progress);
+
+          if (def.kind === 'buff') {
+            newSkillTimers[stIdx] = {
+              skillId: equipped.skillId,
+              activatedAt: now,
+              cooldownUntil: now + (duration + cooldown) * 1000,
+            };
+          } else {
+            // instant / ultimate: fire immediately, go on CD
+            newSkillTimers[stIdx] = {
+              skillId: equipped.skillId,
+              activatedAt: null,
+              cooldownUntil: now + cooldown * 1000,
+            };
+          }
+          updates.skillTimers = newSkillTimers;
+          updates.lastSkillActivation = now;
+
+          // Bridge to legacy abilityTimers
+          const oldId = REVERSE_ABILITY_MAP[equipped.skillId] ?? equipped.skillId;
+          const legacyIdx = state.abilityTimers.findIndex(t => t.abilityId === oldId);
+          if (legacyIdx !== -1) {
+            const newAbilityTimers = [...state.abilityTimers];
+            newAbilityTimers[legacyIdx] = {
+              abilityId: oldId,
+              activatedAt: newSkillTimers[stIdx].activatedAt,
+              cooldownUntil: newSkillTimers[stIdx].cooldownUntil,
+            };
+            updates.abilityTimers = newAbilityTimers;
+          }
+
+          // Mage: increment arcane charges on ability activation
+          const cDef = getClassDef(state.character.class);
+          if (cDef.resourceType === 'arcane_charges') {
+            let newStacks = state.classResource.stacks + 1;
+            if (cDef.resourceMax !== null) newStacks = Math.min(newStacks, cDef.resourceMax);
+            updates.classResource = { ...state.classResource, stacks: newStacks };
+          }
+
+          // Mid-clear recalculation (preserve progress % but adjust timing)
+          if (state.idleStartTime && state.currentZoneId && state.currentClearTime > 0) {
+            const oldClearTime = state.currentClearTime;
+            const prog = (now - state.clearStartedAt) / (oldClearTime * 1000);
+            const clampedProgress = Math.min(Math.max(prog, 0), 0.99);
+            const zone = ZONE_DEFS.find(z => z.id === state.currentZoneId);
+            if (zone) {
+              const newAbilityEffect = aggregateSkillBarEffects(
+                state.skillBar, state.skillProgress, updates.skillTimers ?? state.skillTimers, now, false,
+              );
+              const classDmgMult = getClassDamageModifier(updates.classResource ?? state.classResource, cDef);
+              const classSpdMult = getClassClearSpeedModifier(updates.classResource ?? state.classResource, cDef);
+              const { clearTime: newClearTime, clearResult: newClearResult } = computeNextClear(
+                state, zone, newAbilityEffect, classDmgMult, classSpdMult,
+              );
+              updates.clearStartedAt = now - clampedProgress * newClearTime * 1000;
+              updates.currentClearTime = newClearTime;
+              updates.lastClearResult = newClearResult;
+            }
+          }
+
+          return updates;
+        });
+      },
+
+      tickAutoCast: () => {
         const state = get();
-        const equipped = state.skillBar[slotIndex];
-        if (!equipped) return;
-        const def = getUnifiedSkillDef(equipped.skillId);
-        if (!def) return;
-        // Only manually-activatable kinds
-        if (def.kind === 'active' || def.kind === 'passive' || def.kind === 'proc') return;
-        // Build reverse map: newId → oldId
-        const reverseMap: Record<string, string> = {};
-        for (const [oldId, newId] of Object.entries(ABILITY_ID_MIGRATION)) {
-          reverseMap[newId] = oldId;
+        // Only during active combat
+        if (!state.idleStartTime || !state.currentZoneId) return;
+        const phase = state.combatPhase;
+        if (phase !== 'clearing' && phase !== 'boss_fight') return;
+
+        const now = Date.now();
+
+        for (let i = 0; i < state.skillBar.length; i++) {
+          const equipped = state.skillBar[i];
+          if (!equipped || !equipped.autoCast) continue;
+
+          const def = getUnifiedSkillDef(equipped.skillId);
+          if (!def) continue;
+          if (def.kind === 'active' || def.kind === 'passive' || def.kind === 'proc') continue;
+
+          const timer = state.skillTimers.find(t => t.skillId === equipped.skillId);
+          if (!timer) continue;
+
+          // Toggle: auto-activate if OFF (no GCD)
+          if (def.kind === 'toggle') {
+            if (timer.activatedAt === null) {
+              get().activateSkillBarSlot(i);
+            }
+            continue;
+          }
+
+          // Buff/Instant/Ultimate: check readiness + GCD
+          const freshState = get(); // Re-read after possible prior activation
+          if (freshState.lastSkillActivation && now - freshState.lastSkillActivation < SKILL_GCD * 1000) break;
+
+          const progress = freshState.skillProgress[equipped.skillId];
+          const duration = getSkillEffectiveDuration(def, progress);
+          const freshTimer = freshState.skillTimers.find(t => t.skillId === equipped.skillId);
+          const isActive = freshTimer?.activatedAt != null && now < freshTimer.activatedAt + duration * 1000;
+          const isOnCooldown = freshTimer?.cooldownUntil != null && now < freshTimer.cooldownUntil;
+
+          if (!isActive && !isOnCooldown) {
+            get().activateSkillBarSlot(i);
+          }
         }
-        const oldAbilityId = reverseMap[equipped.skillId] ?? equipped.skillId;
-        get().activateAbility(oldAbilityId);
       },
 
       // Class resource time decay (called from 250ms timer)
@@ -2013,6 +2156,17 @@ export const useGameStore = create<GameState & GameActions>()(
           if (!state.skillBar) state.skillBar = [null, null, null, null, null, null, null, null];
           if (!state.skillProgress) state.skillProgress = {};
           if (!state.skillTimers) state.skillTimers = [];
+
+          // Reset ephemeral GCD state
+          state.lastSkillActivation = 0;
+
+          // Ensure all equipped skills default to autoCast: true (fix for pre-10I saves)
+          if (state.skillBar) {
+            state.skillBar = state.skillBar.map((s: EquippedSkill | null) => {
+              if (s && !s.autoCast) return { ...s, autoCast: true };
+              return s;
+            }) as (EquippedSkill | null)[];
+          }
 
           // Clean up stale ability timers
           if (state.abilityTimers) {
