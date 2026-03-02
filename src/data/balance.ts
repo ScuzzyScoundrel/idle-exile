@@ -151,13 +151,17 @@ export const XP_GROWTH = 1.5;
 /**
  * iLvl-scaled affix tier weights.
  * At low iLvl: high tiers (T10) dominate, low tiers (T1) near-impossible.
- * At iLvl cap: all tiers converge to equal weight.
- * Formula: lerp(TIER_LOW_WEIGHTS[tier], TIER_HIGH_WEIGHT, clamp(iLvl / TIER_ILVL_CAP, 0, 1))
+ * At iLvl cap: T10 still most common, T1 still rare (chase tier).
+ * Formula: lerp(TIER_LOW_WEIGHTS[tier], TIER_HIGH_WEIGHTS[tier], clamp(iLvl / TIER_ILVL_CAP, 0, 1))
  */
 export const TIER_ILVL_CAP = 70;
-export const TIER_HIGH_WEIGHT = 5;
+/** Weights at iLvl 0 — high tiers dominate completely. */
 export const TIER_LOW_WEIGHTS: Record<AffixTier, number> = {
-  10: 50, 9: 40, 8: 30, 7: 20, 6: 12, 5: 6, 4: 3, 3: 1, 2: 0.3, 1: 0.01,
+  10: 50, 9: 40, 8: 30, 7: 20, 6: 12, 5: 6, 4: 3, 3: 1, 2: 0.3, 1: 0.02,
+};
+/** Weights at iLvl cap — T1 is still a chase tier (~1.4%), T10 still most common (~20%). */
+export const TIER_HIGH_WEIGHTS: Record<AffixTier, number> = {
+  10: 15, 9: 13, 8: 11, 7: 9, 6: 8, 5: 7, 4: 5, 3: 3, 2: 2, 1: 1,
 };
 
 /** How many affixes an item rolls (weighted). */

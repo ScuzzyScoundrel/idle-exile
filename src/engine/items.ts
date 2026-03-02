@@ -7,7 +7,7 @@ import type { Item, Affix, AffixDef, AffixTier, AffixCategory, Rarity, GearSlot,
 import { AFFIX_DEFS, getAffixesForSlot } from '../data/affixes';
 import { GATHERING_AFFIX_DEFS } from '../data/gatheringAffixes';
 import { ITEM_BASE_DEFS } from '../data/items';
-import { TIER_LOW_WEIGHTS, TIER_HIGH_WEIGHT, TIER_ILVL_CAP, AFFIX_COUNT_WEIGHTS } from '../data/balance';
+import { TIER_LOW_WEIGHTS, TIER_HIGH_WEIGHTS, TIER_ILVL_CAP, AFFIX_COUNT_WEIGHTS } from '../data/balance';
 
 // --- Helpers ---
 
@@ -23,15 +23,15 @@ export function rollAffixValue(min: number, max: number): number {
 
 /**
  * Get iLvl-scaled weights for ALL 10 affix tiers.
- * Low iLvl: T10 dominates (~50), T1 near-zero (~0.01).
- * High iLvl (70+): all tiers converge to equal weight (5).
+ * Low iLvl: T10 dominates (~50), T1 near-zero (~0.02).
+ * High iLvl (70+): T10 still most common (~20%), T1 still rare chase tier (~1.4%).
  */
 export function getWeightedTiers(iLvl: number): Record<AffixTier, number> {
   const t = Math.min(1, Math.max(0, iLvl / TIER_ILVL_CAP));
   const result = {} as Record<AffixTier, number>;
   for (let i = 1; i <= 10; i++) {
     const tier = i as AffixTier;
-    result[tier] = TIER_LOW_WEIGHTS[tier] + (TIER_HIGH_WEIGHT - TIER_LOW_WEIGHTS[tier]) * t;
+    result[tier] = TIER_LOW_WEIGHTS[tier] + (TIER_HIGH_WEIGHTS[tier] - TIER_LOW_WEIGHTS[tier]) * t;
   }
   return result;
 }
