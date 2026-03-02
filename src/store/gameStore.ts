@@ -685,13 +685,14 @@ export const useGameStore = create<GameState & GameActions>()(
           newBagStash[key] = (newBagStash[key] || 0) + val;
         }
 
-        // HP updates: apply damage/regen per clear (include ability resist bonus)
+        // HP updates: apply damage/regen per clear (include ability resist bonus + level scaling)
         const stats = resolveStats(state.character);
         const effectiveStats = applyAbilityResists(stats, abilityEffect);
-        const defEff = calcDefensiveEfficiency(effectiveStats, zone.band) * (abilityEffect?.defenseMult ?? 1);
+        const defEff = calcDefensiveEfficiency(effectiveStats, zone.band, zone.iLvlMin) * (abilityEffect?.defenseMult ?? 1);
         let hp = state.currentHp > 0 ? state.currentHp : stats.maxLife;
+        const clearTimeSec = state.currentClearTime;
         for (let i = 0; i < clearCount; i++) {
-          hp = applyNormalClearHp(hp, stats.maxLife, defEff);
+          hp = applyNormalClearHp(hp, stats.maxLife, defEff, state.character.level, zone.iLvlMin, clearTimeSec, stats.lifeRegen);
           if (hp <= 0) { hp = 0; break; }
         }
         const zoneDeath = hp <= 0 && state.idleMode === 'combat';

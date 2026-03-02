@@ -1,17 +1,18 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-01 (Post-Sprint 9B)
+> Last updated: 2026-03-01 (Post-Sprint 9C)
 
 ## Current Phase
-**Sprint 9B: Loot Screen Overhaul** — COMPLETE.
-- **Mobile compact gear strip**: On mobile, the collapsible equipped gear section renders as a single-row horizontal scroll strip of 16 compact slot tiles (44x44px) instead of the 2-column paper doll. Tap = select item. Desktop paper doll unchanged.
-- **Auto-sell toggle**: New Salvage/Sell segmented toggle next to the rarity threshold dropdown. Salvage = auto-salvage for essence (existing behavior). Sell = auto-sell for gold (base gold + iLvl/5). Overflow items always salvage regardless. New `autoDisposalAction` state field with save v23 migration.
-- **Armor type badges on bag tiles**: Small P/L/C badge in bottom-right corner of armor item tiles in the bag grid. Plate=silver, Leather=brown, Cloth=purple.
-- **Mobile currency in bottom sheet**: Compact currency pill selector row inside the item detail panel (bottom sheet) on mobile. Tap currency → "Apply" button appears. Desktop currency bar unchanged.
-- **Offline auto-sell display**: Offline progress modal shows "~X will be auto-sold on claim (+Yg)" when auto-sell is active.
-- Previous 9A changes still active: desktop layout widening, combat status bar.
-- Next: Additional UX/UI improvements or new features
+**Sprint 9C: Combat Difficulty Overhaul** — COMPLETE.
+- **Level-based damage multiplier**: New `calcLevelDamageMult()` in `engine/zones.ts`. Underleveled: exponential damage increase (`1.12^delta`). Overleveled: linear reduction (`1 - delta*0.06`, floor 0.30). Applied to both normal clear damage and boss DPS.
+- **Minimum unavoidable damage when underleveled**: When zone iLvl > player level, enforces minimum net damage per clear (`maxHp * 0.02 * levelDelta`). Prevents capped-resist immortality. 5 levels under = minimum 10% maxHp net loss per clear.
+- **`lifeRegen` stat now functional in combat**: `calcRegenPerClear()` now adds `lifeRegen * clearTime` bonus regen from gear. Faster clears = less regen from lifeRegen (natural balance). The `lifeRegen` affix on gear finally does something.
+- **Intra-band zone pressure scaling**: `calcDefensiveEfficiency()` now accepts optional `zoneILvlMin` to refine pressure within a band. Last zone in a band has ~40% more pressure than first zone. Band base iLvls: [1, 11, 21, 31, 41, 51].
+- **Boss level scaling**: `calcBossDps()` multiplied by `calcLevelDamageMult()`. Underleveled boss fights are genuinely dangerous, overleveled are quick wins.
+- **5 new balance constants**: `LEVEL_DAMAGE_BASE`, `OVERLEVEL_DAMAGE_REDUCTION`, `OVERLEVEL_DAMAGE_FLOOR`, `UNDERLEVEL_MIN_NET_DAMAGE`, `ZONE_ILVL_PRESSURE_SCALE`.
+- Previous 9A/9B changes still active.
+- Next: True damage/mitigation system driven by gear stats and abilities (replace level-based stopgap)
 
 ## What Is Working Right Now
 The game is live on Vercel and playable locally at `http://localhost:5173/`. Core loop:
@@ -73,8 +74,8 @@ Bottom: mainhand, offhand, trinket1, trinket2
 - **Rare material drops**: 25 defs (5 professions × 5 rarities). Per-clear roll, highest rarity first. Rates scale with band (common ~8-18%, legendary 0-0.3%). `rareFindBonus` from milestones + gear.
 - **Refinement**: 36 recipes (6 tracks × 6 tiers). T1: 5 raw + gold → 1 refined. T2+: 5 raw + 2 previous refined + gold → 1 refined. Deconstruct: 1 refined → 2 previous tier (T2+ only).
 - **Crafting professions**: 6 professions, level 1-100. XP curve: `50 * 1.10^(level-1)` (softened from 1.35 in 8G). Gold costs: T1=10, T2=25, T3=35, T4=70, T5=200, T6=500. 205 recipes (table-driven armor generation). Catalyst system: optional affix catalyst → guaranteed affix; optional rare mat → guaranteed minimum rarity + 1 boosted affix. `executeCraft()` generates item with reroll loop + boosted affix upgrade.
-- **Combat HP**: `applyNormalClearHp()` per clear. Damage = maxHp * 0.15 * scale(defEff) * variance(0.7-1.3). Regen = maxHp * 0.08. No minimum drain floor — good defense can fully heal. **Death possible**: HP can reach 0, triggering `zone_defeat` recovery phase (5s, resets boss counter). Ability `resistBonus` now applied to defEff and hazard calcs via `applyAbilityResists()`.
-- **Boss mechanics**: Every 10 clears (count resets on new run or zone death). `calcBossMaxHp(zone)` = `150 * band^2`. `calcBossDps()` = zone-specific pressure (`BOSS_DPS_BASE * band^1.5 + baseClearTime * 0.2`) + hazard bonus (15% per unresisted hazard) * damageScale * multiplier(1.0). `calcPlayerDps()` drives real-time simulation. `tickBossFight()` resolves frame-by-frame. `generateBossLoot()` at iLvlMax + 5. Victory/defeat/zone_defeat phases with timed recovery.
+- **Combat HP**: `applyNormalClearHp()` per clear. Damage = maxHp * 0.15 * scale(defEff) * levelDamageMult * variance(0.7-1.3). Regen = maxHp * 0.08 + lifeRegen * clearTime. When underleveled: minimum net damage floor = maxHp * 0.02 * levelDelta (prevents immortality via regen). `calcLevelDamageMult()`: underleveled = `1.12^delta` exponential, overleveled = `1 - delta*0.06` linear (floor 0.30). `calcDefensiveEfficiency()` accepts optional `zoneILvlMin` for intra-band pressure refinement (+4% per iLvl above band base). **Death possible**: HP can reach 0, triggering `zone_defeat` recovery phase (5s, resets boss counter). Ability `resistBonus` applied via `applyAbilityResists()`.
+- **Boss mechanics**: Every 10 clears (count resets on new run or zone death). `calcBossMaxHp(zone)` = `150 * band^2`. `calcBossDps()` = zone-specific pressure (`BOSS_DPS_BASE * band^1.5 + baseClearTime * 0.2`) + hazard bonus (15% per unresisted hazard) * damageScale * multiplier(1.0) * `calcLevelDamageMult()`. Underleveled boss fights are deadly. `calcPlayerDps()` drives real-time simulation. `tickBossFight()` resolves frame-by-frame. `generateBossLoot()` at iLvlMax + 5. Victory/defeat/zone_defeat phases with timed recovery.
 - **Auto-apply resources**: `processNewClears()` immediately applies all drops to state. Session summary tracked in UI local state.
 - **Ability system**: 6 ability kinds (passive/buff/instant/proc/toggle/ultimate). Per-ability skill trees with 3 paths x 2 nodes. Ability XP: `10 + floor(band*2)` per clear. XP per level: `100*(level+1)`. Max level 10. Respec cost: `50*level^2` gold. Slot unlock at character Lv.1/5/12/20.
 - **Per-clear tracking**: `clearStartedAt` + `currentClearTime` replace modulo-based progress. Mid-clear ability activation preserves progress % but adjusts remaining time.
@@ -384,6 +385,16 @@ Replaced focus modes with Combat/Gathering toggle. 5 gathering professions with 
 - **Save v23 migration**: Adds `autoDisposalAction: 'salvage'` to existing saves. Bumps version 22→23.
 - **New types**: `autoDisposalAction` on GameState, `autoSoldCount`/`autoSoldGold` on ProcessClearsResult + OfflineProgressSummary.
 - **Files changed**: `types/index.ts`, `store/gameStore.ts`, `ui/screens/InventoryScreen.tsx`, `ui/components/OfflineProgressModal.tsx`
+
+### Sprint 9C Changes (Combat Difficulty Overhaul)
+- **Level-based damage multiplier**: New `calcLevelDamageMult(playerLevel, zoneILvlMin)` in `engine/zones.ts`. Underleveled (zone > player): exponential `LEVEL_DAMAGE_BASE(1.12)^delta`. Overleveled (player > zone): linear `1 - delta * OVERLEVEL_DAMAGE_REDUCTION(0.06)`, floor at `OVERLEVEL_DAMAGE_FLOOR(0.30)`. At-level: 1.0.
+- **Minimum unavoidable damage when underleveled**: In `applyNormalClearHp()`, when `zoneILvlMin > playerLevel`, enforces `minNetDamage = maxHp * UNDERLEVEL_MIN_NET_DAMAGE(0.02) * levelDelta` as floor on net change. 5 levels under = min 10% maxHp loss per clear. Prevents capped-resist immortality.
+- **`lifeRegen` stat functional in combat**: `calcRegenPerClear(maxHp, clearTime, lifeRegen)` adds `lifeRegen * clearTime` bonus. Faster clears = less regen from gear (natural balance). Slow clears (underleveled) = more regen (small mercy). The `lifeRegen` prefix affix now has combat value.
+- **Intra-band zone pressure scaling**: `calcDefensiveEfficiency(stats, band, zoneILvlMin?)` refines `zonePressure *= (1 + (zoneILvlMin - bandBaseILvl) * ZONE_ILVL_PRESSURE_SCALE(0.04))`. Band base iLvls: [1, 11, 21, 31, 41, 51]. Last zone in band has ~40% more pressure than first.
+- **Boss level scaling**: `calcBossDps()` multiplied by `calcLevelDamageMult()`. Also uses zone-refined `calcDefensiveEfficiency()` with `zoneILvlMin`.
+- **5 new balance constants**: `LEVEL_DAMAGE_BASE(1.12)`, `OVERLEVEL_DAMAGE_REDUCTION(0.06)`, `OVERLEVEL_DAMAGE_FLOOR(0.30)`, `UNDERLEVEL_MIN_NET_DAMAGE(0.02)`, `ZONE_ILVL_PRESSURE_SCALE(0.04)`.
+- **Updated callers**: `processNewClears()` in gameStore passes `character.level`, `zone.iLvlMin`, `currentClearTime`, `stats.lifeRegen` to combat functions. ZoneScreen display HP interpolation updated. CharacterScreen DefensePanel passes `zoneILvlMin` for accurate display.
+- **Files changed**: `data/balance.ts`, `engine/zones.ts`, `engine/setBonus.ts`, `store/gameStore.ts`, `ui/screens/ZoneScreen.tsx`, `ui/screens/CharacterScreen.tsx`
 
 ## Micro-Sprint Workflow
 Each conversation = one micro-sprint (3-5 related changes):

@@ -20,6 +20,7 @@ import {
   CLEAR_DAMAGE_RATIO, CLEAR_REGEN_RATIO, BOSS_BASE_HP,
   BOSS_DAMAGE_MULTIPLIER, BOSS_DPS_BASE, BOSS_DPS_ZONE_FACTOR, BOSS_HAZARD_DAMAGE_RATIO,
   BOSS_ILVL_BONUS, BOSS_DROP_COUNT_MIN, BOSS_DROP_COUNT_MAX,
+  LEVEL_DAMAGE_BASE, OVERLEVEL_DAMAGE_REDUCTION, OVERLEVEL_DAMAGE_FLOOR, UNDERLEVEL_MIN_NET_DAMAGE,
 } from '../data/balance';
 
 // --- Gear slots used for random item drops ---
@@ -368,27 +369,58 @@ export function simulateGatheringClear(
 // Combat HP & Boss Mechanics
 // ============================================================
 
-/** Damage taken per normal clear. */
-export function calcDamagePerClear(maxHp: number, defEff: number): number {
-  const scale = Math.max(0, (1.0 - defEff) / 0.8); // wider range with new min 0.2
-  return maxHp * CLEAR_DAMAGE_RATIO * scale;
+/**
+ * Level-based damage multiplier for combat.
+ * Underleveled: exponential — zones hit MUCH harder.
+ * Overleveled: linear reduction with floor — trivial farm.
+ */
+export function calcLevelDamageMult(playerLevel: number, zoneILvlMin: number): number {
+  const delta = zoneILvlMin - playerLevel;
+  if (delta > 0) {
+    // Underleveled: exponential damage increase
+    return Math.pow(LEVEL_DAMAGE_BASE, delta);
+  } else if (delta < 0) {
+    // Overleveled: linear damage reduction, floor at OVERLEVEL_DAMAGE_FLOOR
+    return Math.max(OVERLEVEL_DAMAGE_FLOOR, 1 + delta * OVERLEVEL_DAMAGE_REDUCTION);
+  }
+  return 1.0;
 }
 
-/** HP regen per normal clear. */
-export function calcRegenPerClear(maxHp: number): number {
-  return maxHp * CLEAR_REGEN_RATIO;
+/** Damage taken per normal clear. levelDamageMult amplifies when underleveled. */
+export function calcDamagePerClear(maxHp: number, defEff: number, levelDamageMult: number = 1.0): number {
+  const scale = Math.max(0, (1.0 - defEff) / 0.8); // wider range with new min 0.2
+  return maxHp * CLEAR_DAMAGE_RATIO * scale * levelDamageMult;
+}
+
+/** HP regen per normal clear. lifeRegen stat from gear contributes based on clear duration. */
+export function calcRegenPerClear(maxHp: number, clearTime: number = 0, lifeRegen: number = 0): number {
+  return maxHp * CLEAR_REGEN_RATIO + lifeRegen * clearTime;
 }
 
 /**
  * Apply one clear of HP change. Can die (HP reaches 0) if defense is too low.
  * Damage has variance (70%-130% of base) so HP isn't a flat drain.
- * Good defense can fully out-regen damage.
+ * When underleveled, a minimum net damage floor prevents immortality via regen.
  */
-export function applyNormalClearHp(currentHp: number, maxHp: number, defEff: number): number {
-  const baseDamage = calcDamagePerClear(maxHp, defEff);
+export function applyNormalClearHp(
+  currentHp: number, maxHp: number, defEff: number,
+  playerLevel: number = 0, zoneILvlMin: number = 0,
+  clearTime: number = 0, lifeRegen: number = 0,
+): number {
+  const levelDamageMult = (playerLevel > 0 && zoneILvlMin > 0)
+    ? calcLevelDamageMult(playerLevel, zoneILvlMin) : 1.0;
+  const baseDamage = calcDamagePerClear(maxHp, defEff, levelDamageMult);
   const damage = baseDamage * (0.7 + Math.random() * 0.6); // 70% to 130% variance
-  const regen = calcRegenPerClear(maxHp);
-  const netChange = damage - regen; // positive = net damage, negative = net heal
+  const regen = calcRegenPerClear(maxHp, clearTime, lifeRegen);
+  let netChange = damage - regen; // positive = net damage, negative = net heal
+
+  // Minimum unavoidable net damage when underleveled (prevents immortality)
+  const levelDelta = zoneILvlMin - playerLevel;
+  if (levelDelta > 0) {
+    const minNetDamage = maxHp * UNDERLEVEL_MIN_NET_DAMAGE * levelDelta;
+    netChange = Math.max(netChange, minNetDamage);
+  }
+
   const newHp = currentHp - netChange;
   return Math.max(0, Math.min(maxHp, newHp)); // clamp to [0, maxHp] — 0 = death
 }
@@ -399,10 +431,10 @@ export function calcBossMaxHp(zone: ZoneDef): number {
 }
 
 /** Boss DPS against player. Zone-specific: baseClearTime drives variation within band,
- *  hazards add bonus damage based on player resists. */
+ *  hazards add bonus damage based on player resists. Level scaling applied. */
 export function calcBossDps(char: Character, zone: ZoneDef, abilityEffect?: AbilityEffect): number {
   const effectiveStats = applyAbilityResists(char.stats, abilityEffect);
-  let defEff = calcDefensiveEfficiency(effectiveStats, zone.band);
+  let defEff = calcDefensiveEfficiency(effectiveStats, zone.band, zone.iLvlMin);
   defEff *= (abilityEffect?.defenseMult ?? 1);
   // Map defEff [0.2, 1.0] → damage scale [1.0, 0.0]
   const damageScale = Math.max(0, (1.0 - defEff) / 0.8);
@@ -418,7 +450,10 @@ export function calcBossDps(char: Character, zone: ZoneDef, abilityEffect?: Abil
     hazardBonus += basePressure * BOSS_HAZARD_DAMAGE_RATIO * (1 - reduction);
   }
 
-  return (basePressure + hazardBonus) * damageScale * BOSS_DAMAGE_MULTIPLIER;
+  // Level scaling: underleveled bosses hit harder, overleveled are easy
+  const levelMult = calcLevelDamageMult(char.level, zone.iLvlMin);
+
+  return (basePressure + hazardBonus) * damageScale * BOSS_DAMAGE_MULTIPLIER * levelMult;
 }
 
 /** Create BossState at fight start. */

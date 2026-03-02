@@ -722,7 +722,7 @@ function DefensePanel() {
   const { character, currentZoneId } = useGameStore();
   const currentZone = currentZoneId ? ZONE_DEFS.find(z => z.id === currentZoneId) : null;
   const band = currentZone?.band ?? 1;
-  const defEff = calcDefensiveEfficiency(character.stats, band);
+  const defEff = calcDefensiveEfficiency(character.stats, band, currentZone?.iLvlMin);
   const setBonuses = calcSetBonuses(character.equipment);
 
   const zonePressure = 50 * Math.pow(2, band - 1);

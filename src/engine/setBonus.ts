@@ -6,7 +6,7 @@
 import type { ArmorType, GearSlot, Item, ResolvedStats, ActiveSetBonus, SetBonusThreshold } from '../types';
 import { SET_SLOTS } from '../types';
 import { SET_BONUS_DEFS } from '../data/setBonuses';
-import { BLOCK_CAP, BLOCK_REDUCTION } from '../data/balance';
+import { BLOCK_CAP, BLOCK_REDUCTION, ZONE_ILVL_PRESSURE_SCALE } from '../data/balance';
 
 // --- Set Bonus Calculation ---
 
@@ -55,10 +55,13 @@ export function calcSetBonuses(equipment: Partial<Record<GearSlot, Item>>): Acti
 
 // --- Defensive Efficiency (v16 multi-component) ---
 
+/** Band base iLvls for intra-band pressure scaling. */
+const BAND_BASE_ILVLS = [1, 11, 21, 31, 41, 51];
+
 /**
  * Calculate defensive efficiency for a character at a given zone band.
  *
- * zonePressure = 50 * 2^(band-1)
+ * zonePressure = 50 * 2^(band-1), optionally refined by zoneILvlMin within band.
  *
  * Components:
  *   Armor:   armor / (armor + zonePressure * 10)
@@ -69,8 +72,14 @@ export function calcSetBonuses(equipment: Partial<Record<GearSlot, Item>>): Acti
  *
  * DefEff = weighted average of components, min 0.2
  */
-export function calcDefensiveEfficiency(stats: ResolvedStats, band: number): number {
-  const zonePressure = 50 * Math.pow(2, band - 1);
+export function calcDefensiveEfficiency(stats: ResolvedStats, band: number, zoneILvlMin?: number): number {
+  let zonePressure = 50 * Math.pow(2, band - 1);
+
+  // Intra-band pressure refinement: last zone in a band has ~40% more pressure than first
+  if (zoneILvlMin !== undefined) {
+    const bandBaseILvl = BAND_BASE_ILVLS[band - 1] ?? 1;
+    zonePressure *= (1 + (zoneILvlMin - bandBaseILvl) * ZONE_ILVL_PRESSURE_SCALE);
+  }
 
   // Armor mitigation
   const armorComponent = stats.armor / (stats.armor + zonePressure * 10);

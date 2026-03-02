@@ -241,6 +241,17 @@ export const CATALYST_ILVL_BONUS: Record<RareMaterialRarity, number> = {
 export const CLEAR_DAMAGE_RATIO = 0.15;
 /** maxHp fraction regenerated per normal clear. */
 export const CLEAR_REGEN_RATIO = 0.08;
+
+/** Damage amp per level underleveled (exponential). 5 levels under = 1.76x damage taken. */
+export const LEVEL_DAMAGE_BASE = 1.12;
+/** Damage reduction per level overleveled (linear). 5 levels over = 0.70x damage. */
+export const OVERLEVEL_DAMAGE_REDUCTION = 0.06;
+/** Minimum damage multiplier when overleveled (floor). */
+export const OVERLEVEL_DAMAGE_FLOOR = 0.30;
+/** Unavoidable net damage per level gap when underleveled (fraction of maxHp). Harsh. */
+export const UNDERLEVEL_MIN_NET_DAMAGE = 0.02;
+/** Zone pressure increase per iLvl above band base (intra-band difficulty gradient). */
+export const ZONE_ILVL_PRESSURE_SCALE = 0.04;
 /** Normal clears between boss encounters. */
 export const BOSS_INTERVAL = 10;
 /** Base boss HP (band 1). Scales with band^2. Overgeared players melt it fast — that's intended. */

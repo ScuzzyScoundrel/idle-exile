@@ -1022,8 +1022,8 @@ export default function ZoneScreen() {
   let displayHp = currentHp;
   if (isRunning && idleMode === 'combat' && combatPhase === 'clearing' && runningZone) {
     const stats = resolveStats(character);
-    const defEff = calcDefensiveEfficiency(stats, runningZone.band);
-    const nextHp = applyNormalClearHp(currentHp, stats.maxLife, defEff);
+    const defEff = calcDefensiveEfficiency(stats, runningZone.band, runningZone.iLvlMin);
+    const nextHp = applyNormalClearHp(currentHp, stats.maxLife, defEff, character.level, runningZone.iLvlMin, currentClearTime, stats.lifeRegen);
     displayHp = currentHp + (nextHp - currentHp) * clearProgress;
   }
 
