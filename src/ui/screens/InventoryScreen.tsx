@@ -330,9 +330,8 @@ export default function InventoryScreen() {
     return (
       <div className="space-y-3">
         <div className={`rounded-lg border-2 p-3 space-y-2 ${RARITY_BG[selectedItem.rarity]}`}>
-          <div className="flex items-center gap-2">
-            <ItemIcon item={selectedItem} size="lg" />
-            <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between">
+            <div className="min-w-0">
               <div className="font-bold text-white">{selectedItem.name}</div>
               <div className="text-xs text-gray-400 flex items-center gap-1 flex-wrap">
                 <span>iLvl {selectedItem.iLvl} • {selectedItem.rarity} • {selectedItem.prefixes.length + selectedItem.suffixes.length} affixes • <span className="text-gray-500">T{getBestTierForILvl(selectedItem.iLvl)}+</span></span>
@@ -345,9 +344,12 @@ export default function InventoryScreen() {
             </div>
             <button
               onClick={() => { setSelectedItem(null); setSelectedCurrency(null); }}
-              className="text-gray-500 hover:text-white text-lg leading-none px-1"
+              className="text-gray-500 hover:text-white text-lg leading-none px-1 flex-shrink-0"
               title="Deselect"
             >✕</button>
+          </div>
+          <div className="flex justify-center">
+            <ItemIcon item={selectedItem} size="lg" className="!w-20 !h-20" />
           </div>
 
           {Object.entries(selectedItem.baseStats).length > 0 && (
