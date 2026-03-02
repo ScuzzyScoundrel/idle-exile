@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { StatKey, GearSlot, Item, ArmorType, Rarity, WeaponType, CharacterClass } from '../../types';
 import { useIsMobile } from '../hooks/useIsMobile';
-import { slotIcon, slotLabel } from '../slotConfig';
+import { slotLabel } from '../slotConfig';
+import { ItemIcon, SlotIcon } from '../itemIcon';
 import { formatAffix, getEquippedWeaponType } from '../../engine/items';
 import { CLASS_DEFS } from '../../data/classes';
 import { calcSetBonuses, calcDefensiveEfficiency } from '../../engine/setBonus';
@@ -829,7 +830,7 @@ function GearSlotCard({
         onClick={handleClick}
         title={`${slotLabel(slot)} \u2014 empty`}
       >
-        <span className="text-lg opacity-25">{slotIcon(slot)}</span>
+        <SlotIcon slot={slot} size="md" className="opacity-25" />
         <span className="text-xs text-gray-600">{slotLabel(slot)}</span>
       </div>
     );
@@ -849,7 +850,7 @@ function GearSlotCard({
       onClick={handleClick}
       title={isShowingTooltip ? `Tap to unequip ${item.name}` : `Tap to inspect ${item.name}`}
     >
-      <span className="text-base leading-none flex-shrink-0">{slotIcon(slot)}</span>
+      <ItemIcon item={item} size="md" className="flex-shrink-0" />
       <div className="min-w-0 flex-1">
         <div className={`text-sm font-semibold truncate ${RARITY_TEXT[item.rarity]}`}>{item.name}</div>
         <div className="text-xs text-gray-500">iLvl {item.iLvl} {'\u2022'} {item.rarity}</div>
@@ -863,7 +864,7 @@ function ItemTooltip({ item }: { item: Item }) {
   return (
     <div className={`rounded-lg border-2 p-3 space-y-1.5 ${RARITY_BORDER[item.rarity]} ${RARITY_BG[item.rarity]}`}>
       <div className="flex items-center gap-2">
-        <span className="text-lg">{slotIcon(item.slot)}</span>
+        <ItemIcon item={item} size="lg" />
         <div>
           <div className="font-bold text-white text-sm">{item.name}</div>
           <div className="text-xs text-gray-400">

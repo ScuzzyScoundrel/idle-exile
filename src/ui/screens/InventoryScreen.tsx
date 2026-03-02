@@ -3,7 +3,8 @@ import { useGameStore, SELL_GOLD } from '../../store/gameStore';
 import { Item, Affix, GearSlot, CurrencyType, Rarity, StatKey, ArmorType } from '../../types';
 import { CURRENCY_DEFS, BAG_UPGRADE_DEFS, getBagDef, calcBagCapacity } from '../../data/items';
 import { formatAffix, getBestTierForILvl, isUpgradeOver, getComparisonTarget, calcItemStatContribution } from '../../engine/items';
-import { slotIcon, slotLabel, DROPPABLE_SLOTS } from '../slotConfig';
+import { slotLabel, DROPPABLE_SLOTS } from '../slotConfig';
+import { ItemIcon, SlotIcon, getSlotEmoji } from '../itemIcon';
 import { useIsMobile } from '../hooks/useIsMobile';
 
 const SLOT_ORDER: GearSlot[] = DROPPABLE_SLOTS;
@@ -58,6 +59,22 @@ const RARITY_BORDER_RING: Record<Rarity, string> = {
   rare: 'border-yellow-500',
   epic: 'border-purple-500',
   legendary: 'border-orange-500',
+};
+
+const RARITY_TILE_BORDER: Record<Rarity, string> = {
+  common: 'border-gray-600',
+  uncommon: 'border-green-500',
+  rare: 'border-blue-500',
+  epic: 'border-purple-500',
+  legendary: 'border-orange-500',
+};
+
+const RARITY_GRADIENT: Record<Rarity, string> = {
+  common: 'from-gray-800/60',
+  uncommon: 'from-green-900/50',
+  rare: 'from-blue-900/50',
+  epic: 'from-purple-900/50',
+  legendary: 'from-orange-900/50',
 };
 
 const ARMOR_TYPE_BADGE: Record<ArmorType, { label: string; cls: string }> = {
@@ -315,7 +332,7 @@ export default function InventoryScreen() {
       <div className="space-y-3">
         <div className={`rounded-lg border-2 p-3 space-y-2 ${RARITY_BG[selectedItem.rarity]}`}>
           <div className="flex items-center gap-2">
-            <span className="text-xl">{slotIcon(selectedItem.slot)}</span>
+            <ItemIcon item={selectedItem} size="lg" />
             <div className="flex-1 min-w-0">
               <div className="font-bold text-white">{selectedItem.name}</div>
               <div className="text-xs text-gray-400 flex items-center gap-1 flex-wrap">
@@ -478,7 +495,7 @@ export default function InventoryScreen() {
                         ${selectedCurrency ? 'hover:ring-2 hover:ring-purple-400' : ''}`}
                       onClick={() => item && handlePaperDollSelect(item, s)}
                     >
-                      <span className="text-lg">{slotIcon(s)}</span>
+                      {item ? <ItemIcon item={item} size="md" /> : <SlotIcon slot={s} size="md" />}
                     </div>
                   );
                 })}
@@ -608,7 +625,7 @@ export default function InventoryScreen() {
                 filter === f ? 'bg-yellow-600 text-black' : 'bg-gray-800 text-gray-400'
               }`}
             >
-              {f === 'all' ? 'All' : `${slotIcon(f)} ${slotLabel(f)}`}
+              {f === 'all' ? 'All' : `${getSlotEmoji(f)} ${slotLabel(f)}`}
             </button>
           ))}
           <div className="flex-1" />
@@ -627,13 +644,14 @@ export default function InventoryScreen() {
       </div>
 
       {/* Item Grid */}
-      <div className="grid grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5">
+      <div className="grid grid-cols-5 sm:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-1.5">
         {filteredInventory.map((item) => (
           <div
             key={item.id}
             className={`
-              relative rounded-lg border p-1.5 cursor-pointer transition-all text-center
-              ${RARITY_BG[item.rarity]}
+              relative aspect-square rounded-lg border-2 cursor-pointer transition-all
+              flex items-center justify-center overflow-hidden bg-gray-900
+              ${RARITY_TILE_BORDER[item.rarity]}
               ${selectedItem?.id === item.id ? 'ring-2 ring-white scale-105' : ''}
               ${selectedCurrency ? 'hover:ring-2 hover:ring-purple-400' : 'hover:brightness-125'}
               ${tutorialStep === 1 && item.slot === 'mainhand' ? 'ring-2 ring-yellow-400 animate-pulse' : ''}
@@ -647,36 +665,36 @@ export default function InventoryScreen() {
             onMouseEnter={isMobile ? undefined : (e) => showTooltip(e, item, item.slot)}
             onMouseLeave={isMobile ? undefined : hideTooltip}
           >
+            {/* Rarity gradient overlay */}
+            <div className={`absolute inset-0 bg-gradient-to-t ${RARITY_GRADIENT[item.rarity]} to-transparent pointer-events-none`} />
+            {/* Icon */}
+            <ItemIcon item={item} size="lg" />
+            {/* Badges */}
             {upgradeSet.has(item.id) && (
               <div
-                className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg z-10"
+                className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center text-white text-[9px] font-bold shadow-lg z-10"
                 title="Upgrade for equipped slot"
               >{'\u25B2'}</div>
             )}
             {item.isCrafted && (
               <div
-                className="absolute -top-1 -left-1 w-4 h-4 bg-amber-600 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg z-10 ring-1 ring-amber-400/60"
+                className="absolute -top-1 -left-1 w-3.5 h-3.5 bg-amber-600 rounded-full flex items-center justify-center text-white text-[8px] font-bold shadow-lg z-10 ring-1 ring-amber-400/60"
                 title="Crafted item"
               >{'\uD83D\uDD28'}</div>
             )}
             {item.armorType && (
-              <div className={`absolute -bottom-0.5 -right-0.5 px-1 py-px rounded text-[8px] font-bold shadow-sm z-10 ${ARMOR_TYPE_BADGE[item.armorType].cls}`}>
+              <div className={`absolute bottom-0 right-0 px-0.5 py-px rounded-tl text-[7px] font-bold z-10 ${ARMOR_TYPE_BADGE[item.armorType].cls}`}>
                 {item.armorType === 'plate' ? 'P' : item.armorType === 'leather' ? 'L' : 'C'}
               </div>
             )}
-            <div className={`text-lg ${item.isCrafted ? 'ring-1 ring-amber-400/60 rounded' : ''}`}>{slotIcon(item.slot)}</div>
-            <div className="text-xs font-semibold truncate text-gray-200">{item.name}</div>
-            <div className="text-xs text-gray-500">
-              iLvl {item.iLvl} • {item.prefixes.length + item.suffixes.length}mod
-            </div>
           </div>
         ))}
-        {Array.from({ length: Math.max(0, 12 - filteredInventory.length) }).map((_, i) => (
+        {Array.from({ length: Math.max(0, 10 - filteredInventory.length) }).map((_, i) => (
           <div
             key={`empty-${i}`}
-            className="rounded-lg border-2 border-dashed border-gray-700 bg-gray-900/30 p-1.5 text-center flex flex-col items-center justify-center min-h-[64px]"
+            className="aspect-square rounded-lg border-2 border-dashed border-gray-700 bg-gray-900/30 flex items-center justify-center"
           >
-            <div className="text-lg opacity-15">🎒</div>
+            <span className="text-lg opacity-15">{'\uD83C\uDF92'}</span>
           </div>
         ))}
       </div>
@@ -1141,7 +1159,7 @@ function EquipSlotCard({
   if (!item) {
     return (
       <div className="rounded-lg border-2 border-dashed border-gray-700 bg-gray-900/40 flex flex-col items-center justify-center py-1.5 min-w-0">
-        <span className="text-xl opacity-20">{slotIcon(slot)}</span>
+        <SlotIcon slot={slot} size="lg" className="opacity-20" />
         <span className="text-xs text-gray-600 mt-0.5 truncate w-full text-center px-0.5">{slotLabel(slot)}</span>
       </div>
     );
@@ -1160,7 +1178,7 @@ function EquipSlotCard({
       onMouseEnter={isMobile ? undefined : (e) => onHover(e, item, slot)}
       onMouseLeave={isMobile ? undefined : onLeave}
     >
-      <span className="text-xl leading-none">{slotIcon(slot)}</span>
+      <ItemIcon item={item} size="md" />
       <div className="text-xs font-semibold text-gray-200 truncate w-full mt-0.5 px-0.5">{item.name}</div>
       <div className="text-xs text-gray-400">iLvl {item.iLvl}</div>
     </div>

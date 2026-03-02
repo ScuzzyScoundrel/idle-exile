@@ -1,9 +1,20 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-01 (Post-Sprint 9C)
+> Last updated: 2026-03-01 (Post-Graphic Item Icons Sprint)
 
 ## Current Phase
+**Graphic Item Icons: Integration Sprint** — COMPLETE.
+- **New `src/ui/itemIcon.tsx`**: `getItemIconKey(item)` resolves icon key from weaponType → offhandType → armorType+slot → slot. `<ItemIcon>` renders graphic icon with emoji fallback (404 cache prevents repeat hits). `<SlotIcon>` for empty equip slots. `getSlotEmoji()` for text contexts.
+- **Icon-only bag tiles**: Bag grid changed from 3-col text tiles to compact square icon tiles (5/6/8/10 cols at mobile/sm/lg/xl). Rarity shown via colored border (`RARITY_TILE_BORDER`) + subtle gradient overlay (`RARITY_GRADIENT`). Item name/stats shown only on hover/tap (tooltip/bottom sheet).
+- **Inventory screen**: All 7 `slotIcon()` call sites replaced — detail panel header, mobile gear strip, filter bar (emoji via `getSlotEmoji`), bag grid, EquipSlotCard empty/equipped states.
+- **Character screen**: All 3 `slotIcon()` call sites replaced — GearSlotCard empty/equipped, ItemTooltip.
+- **Asset directory**: `public/icons/gear/` created. Place `{key}.webp` files to progressively replace emoji. 41 unique keys covering all weapon types, armor type+slot combos, and accessories.
+- **Zero visual regression**: Without icon files, all `<img>` 404 once → emoji fallback renders identically to before. Icons appear progressively as files are added.
+- **Future**: Extend to per-tier icons (`sword_t3.webp` → `sword.webp` → emoji`). No component changes needed.
+- Previous 9A/9B/9C changes still active.
+- Next: Generate icon assets via ComfyUI pipeline, or new features
+
 **Sprint 9C: Combat Difficulty Overhaul** — COMPLETE.
 - **Level-based damage multiplier**: New `calcLevelDamageMult()` in `engine/zones.ts`. Underleveled: exponential damage increase (`1.12^delta`). Overleveled: linear reduction (`1 - delta*0.06`, floor 0.30). Applied to both normal clear damage and boss DPS.
 - **Minimum unavoidable damage when underleveled**: When zone iLvl > player level, enforces minimum net damage per clear (`maxHp * 0.02 * levelDelta`). Prevents capped-resist immortality. 5 levels under = minimum 10% maxHp net loss per clear.
@@ -12,7 +23,6 @@
 - **Boss level scaling**: `calcBossDps()` multiplied by `calcLevelDamageMult()`. Underleveled boss fights are genuinely dangerous, overleveled are quick wins.
 - **5 new balance constants**: `LEVEL_DAMAGE_BASE`, `OVERLEVEL_DAMAGE_REDUCTION`, `OVERLEVEL_DAMAGE_FLOOR`, `UNDERLEVEL_MIN_NET_DAMAGE`, `ZONE_ILVL_PRESSURE_SCALE`.
 - Previous 9A/9B changes still active.
-- Next: True damage/mitigation system driven by gear stats and abilities (replace level-based stopgap)
 
 ## What Is Working Right Now
 The game is live on Vercel and playable locally at `http://localhost:5173/`. Core loop:
@@ -50,7 +60,7 @@ The game is live on Vercel and playable locally at `http://localhost:5173/`. Cor
 
 ## UI State (4 Tabs)
 - **Zones tab**: 30 zones shown via horizontal band tab pills. Combat/Gathering toggle. Profession selector + XP bar in gathering mode. Zone cards with level badges, gathering type icons, hazard icons, mastery badges. Session summary with rare material find notifications. Ability bar in combat mode.
-- **Inventory tab ("Loot")**: Two-panel layout with equipped gear + bag grid. Bag slots section. Right-click to equip. Hover tooltips with stat comparison. Currency crafting UI. Auto-salvage filter. 5-tier rarity colors.
+- **Inventory tab ("Loot")**: Two-panel layout with equipped gear + bag grid. Square icon-only tiles (5-10 cols) with rarity borders + gradient overlays. Name/stats on hover/tap only. Graphic icon support with emoji fallback. Bag slots section. Right-click to equip. Hover tooltips with stat comparison. Currency crafting UI. Auto-salvage filter. 5-tier rarity colors.
 - **Craft tab**: Materials/Refine/Craft toggle. Materials: organized by refinement track with rarity borders and icon pills, tooltips on hover. Refine: 6 track pills → T1-T6 recipe chain. Craft: 6 profession pills with level/XP bar → collapsible category sections with 2-column compact recipe cards, material icon pills, tier badges, catalyst dropdowns.
 - **Character tab ("Hero")**: Paper doll (16 gear slots), 13 stats including poison/chaos resist, materials list, ability management panel.
 
