@@ -87,6 +87,7 @@ export default function InventoryScreen() {
   const inventoryCapacity = calcBagCapacity(bagSlots);
   const detailRef = useRef<HTMLDivElement>(null);
   const [materialsOpen, setMaterialsOpen] = useState(true);
+  const [bagSlotsOpen, setBagSlotsOpen] = useState(true);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [selectedCurrency, setSelectedCurrency] = useState<CurrencyType | null>(null);
   const [filter, setFilter] = useState<GearSlot | 'all'>('all');
@@ -514,30 +515,28 @@ export default function InventoryScreen() {
         )}
       </div>
 
-      {/* Currency Bar */}
-      {/* Feedback Toast */}
-      {disenchantMsg && (
-        <div className="bg-purple-950 border border-purple-700 rounded-lg p-2 text-xs text-purple-300">
-          {disenchantMsg}
-        </div>
-      )}
-      {craftMsg && (
-        <div className="bg-purple-950 border border-purple-700 rounded-lg p-2 text-xs text-purple-300">
-          {craftMsg}
-        </div>
-      )}
-
-      {/* Bag Slots (above loot) */}
-      <BagUpgradeSection
-        bagSlots={bagSlots}
-        bagStash={bagStash}
-        gold={gold}
-        inventory={inventory}
-        equipBag={equipBag}
-        sellBag={sellBag}
-        salvageBag={salvageBag}
-        buyBag={buyBag}
-      />
+      {/* Bag Slots (collapsible) */}
+      <div className="bg-gray-800 rounded-lg">
+        <button
+          onClick={() => setBagSlotsOpen(!bagSlotsOpen)}
+          className="w-full flex items-center justify-between px-3 py-2 text-sm font-bold text-gray-300 hover:bg-gray-700 transition-colors rounded-t-lg"
+        >
+          <span>{'\u{1F392}'} Bag Slots</span>
+          <span className="text-xs text-gray-500">{bagSlotsOpen ? '\u25B2' : '\u25BC'}</span>
+        </button>
+        {bagSlotsOpen && (
+          <BagUpgradeSection
+            bagSlots={bagSlots}
+            bagStash={bagStash}
+            gold={gold}
+            inventory={inventory}
+            equipBag={equipBag}
+            sellBag={sellBag}
+            salvageBag={salvageBag}
+            buyBag={buyBag}
+          />
+        )}
+      </div>
 
       {/* Inventory Header + Filters */}
       <div>
@@ -584,6 +583,17 @@ export default function InventoryScreen() {
             ))}
           </select>
         </div>
+        {/* Feedback Toast (near actions so visible on mobile) */}
+        {disenchantMsg && (
+          <div className="bg-purple-950 border border-purple-700 rounded-lg p-2 text-xs text-purple-300 mb-1">
+            {disenchantMsg}
+          </div>
+        )}
+        {craftMsg && (
+          <div className="bg-purple-950 border border-purple-700 rounded-lg p-2 text-xs text-purple-300 mb-1">
+            {craftMsg}
+          </div>
+        )}
         {inventory.length >= inventoryCapacity && (
           <div className="text-xs text-amber-400 bg-amber-950/50 rounded px-2 py-1 mb-1">
             Bags full — gear drops from zones will be auto-salvaged into materials.
@@ -876,18 +886,14 @@ function BagUpgradeSection({
   };
 
   return (
-    <div className="bg-gray-800 rounded-lg p-3 space-y-2">
+    <div className="px-3 pb-3 space-y-2">
       <div className="flex items-center justify-between">
-        <div
-          className="text-sm font-bold text-gray-300 cursor-help"
-          title="Bags can be purchased from the vendor (T1-T2 only), found as zone drops, or crafted."
-        >{'\u{1F392}'} Bag Slots</div>
-        <span className="text-xs text-gray-400">
+        <div className="text-xs text-gray-500">
+          Vendor sells T1-T2 bags. Better bags drop from zones or crafting.
+        </div>
+        <span className="text-xs text-gray-400 shrink-0 ml-2">
           Total: <span className="text-white font-semibold">{totalCapacity}</span> slots
         </span>
-      </div>
-      <div className="text-xs text-gray-500">
-        Vendor sells T1-T2 bags. Better bags drop from zones or crafting.
       </div>
 
       {/* 5 bag slot cards */}
