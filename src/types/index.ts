@@ -259,6 +259,17 @@ export interface OfflineProgressSummary {
 
 // --- Combat ---
 
+/** Result of simulating one combat clear with per-hit rolls. */
+export interface CombatClearResult {
+  clearTime: number;      // Simulated clear time in seconds
+  totalCasts: number;     // Skill casts during clear
+  hits: number;           // Successful hits
+  crits: number;          // Critical hits (subset of hits)
+  misses: number;         // Missed attacks (spells always hit -> 0)
+  totalDamage: number;    // Total damage dealt to mob
+  dotDamage: number;      // Damage from DoT ticks (subset of totalDamage)
+}
+
 export type CombatPhase = 'clearing' | 'boss_fight' | 'boss_victory' | 'boss_defeat' | 'zone_defeat';
 
 export interface BossState {
@@ -612,6 +623,9 @@ export interface GameState {
 
   // Active skills (v24)
   equippedSkills: (string | null)[];  // ActiveSkillDef IDs, 4 slots
+
+  // Per-clear combat sim result (v25 — ephemeral, not persisted)
+  lastClearResult: CombatClearResult | null;
 
   // Tutorial
   tutorialStep: number;

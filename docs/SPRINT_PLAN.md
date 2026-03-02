@@ -1,7 +1,7 @@
 # Idle Exile — Sprint Plan & Roadmap
 
 > **Full development roadmap.** Read `PROJECT_STATUS.md` first for current state.
-> Last updated: 2026-03-01 (Post-Sprint 8E)
+> Last updated: 2026-03-01 (Post-Sprint 10B)
 
 ## Micro-Sprint Workflow
 
@@ -42,6 +42,15 @@ Each conversation = one micro-sprint (3-5 focused changes):
 | **8C** | **Mobile UX foundation: useIsMobile hook, Tooltip tap support, inventory bottom sheet on mobile, hover suppression on touch devices** |
 | **8D** | **Currency & equip UX: one-shot currency application, mobile unequip button, multi-tab localStorage guard, weapon 1H/2H equip restrictions** |
 | **8E** | **Combat rebalance: boss HP/DMG reduced, defense removed from clear speed, XP scaling with zone level, boss danger indicator** |
+| **8E-2** | **Combat rebalance tuning: adjusted boss HP/DMG scaling, level damage multipliers** |
+| **8F** | **Item level & affix rework: weighted tier rolling, exalt tiers, armor type badges** |
+| **8G** | **Crafting & economy tuning: XP curves, gold audit, salvage dust usage** |
+| **9A** | **Desktop layout optimization: full viewport, side-by-side panels, gear comparison** |
+| **9B** | **Loot screen overhaul: mobile-first inventory, auto-sell, armor badges** |
+| **9C** | **Crafting screen polish: material tooltips, zone drops, batch crafting** |
+| **9D** | **Tutorial system rework: step-by-step flow, tutorial index** |
+| **10A** | **Active Skills Foundation: 48 skill defs across 8 weapon types, tag-based DPS engine (calcSkillDps), v24 migration** |
+| **10B** | **Per-Clear Combat Sim: simulateCombatClear with per-hit rolls (crits/misses/DoT), variable clear times, CombatClearResult** |
 
 See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
 
@@ -264,9 +273,63 @@ See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
 
 ---
 
-## PHASE 4: NEW FEATURES
+## PHASE 4: ACTIVE SKILLS & COMBAT
 
-### Sprint 10A: Zone Mastery System
+### Sprint 10A: Active Skills Foundation
+**Status:** COMPLETE
+**Files:** `types/index.ts`, `data/skills.ts` (new), `engine/skills.ts` (new), `engine/zones.ts`, `store/gameStore.ts`
+
+1. **48 active skill definitions** across 8 weapon types (6 per weapon)
+2. **Tag-based DPS engine** (`calcSkillDps`) with PoE-style additive %increased
+3. **Auto-equip default skill** based on weapon type
+4. **v24 save migration** for equippedSkills array
+
+### Sprint 10B: Per-Clear Combat Sim
+**Status:** COMPLETE
+**Files:** `engine/skills.ts`, `types/index.ts`, `engine/zones.ts`, `store/gameStore.ts`
+
+1. **`calcSkillDamagePerCast()`** extracted from `calcSkillDps()` for shared use
+2. **`simulateCombatClear()`** — per-hit rolls (hit/crit/miss, DoT stacking, damage variance)
+3. **`CombatClearResult`** type with clearTime, hits, crits, misses, damage stats
+4. **Variable clear times** — lucky crits = faster, miss streaks = slower
+5. **Offline/boss stays deterministic** — expected-value DPS for performance
+
+### Sprint 10C: Skill Equip UI + Skill Detail Panel
+**Status:** NOT STARTED
+**Files:** `ui/screens/CharacterScreen.tsx`, `ui/components/SkillPanel.tsx` (new)
+
+1. **Skill equip interface** — browse available skills for equipped weapon, equip/swap
+2. **Skill detail panel** — show tags, DPS breakdown, combat stats from lastClearResult
+3. **Combat log summary** — display hits/crits/misses from last clear on zone screen
+
+### Sprint 10D: Multi-Skill Rotation Engine
+**Status:** NOT STARTED
+**Files:** `engine/zones.ts`, `engine/skills.ts`, `store/gameStore.ts`
+
+1. **Multi-skill sim** — all 4 equipped skills used in rotation during clear
+2. **Cooldown-based rotation** — spammable + cooldown skills interleave
+3. **Priority system** — highest DPS skill used when available
+
+### Sprint 10E: Per-Skill Specialization Trees
+**Status:** NOT STARTED
+**Files:** `types/index.ts`, `data/skillTrees.ts` (new), `engine/skills.ts`
+
+1. **Skill-specific talent trees** — 3 paths per skill, enhance playstyle
+2. **Skill XP** — using a skill earns XP toward unlocking its tree nodes
+
+### Sprint 10F: Class Talent Trees
+**Status:** NOT STARTED
+**Files:** `types/index.ts`, `data/classTalents.ts` (new), `engine/classResource.ts`
+
+1. **30-50 passive nodes per class** from GDD Section 3
+2. **Talent points** earned on level-up
+3. **Class-defining build choices**
+
+---
+
+## PHASE 5: NEW FEATURES
+
+### Sprint 11A: Zone Mastery System
 **Status:** NOT STARTED
 **Files:** `types/index.ts`, `data/zones.ts`, `engine/zones.ts`, `store/gameStore.ts`, `ui/screens/ZoneScreen.tsx`
 
@@ -280,7 +343,7 @@ See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
    - Cosmetic badge upgrades (bronze -> silver -> gold -> platinum -> diamond)
    - Small permanent bonuses per zone
 
-### Sprint 10B: Mob Loot Tables & Zone Identity
+### Sprint 11B: Mob Loot Tables & Zone Identity
 **Status:** NOT STARTED
 **Files:** `types/index.ts`, `data/zones.ts`, `data/mobLootTables.ts` (new), `engine/zones.ts`
 
@@ -296,7 +359,7 @@ See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
    - Each zone boss has 1-3 exclusive items
    - Makes every zone worth checking out
 
-### Sprint 10C: Crafting Components
+### Sprint 11C: Crafting Components
 **Status:** NOT STARTED
 **Files:** `types/index.ts`, `data/craftingRecipes.ts`, `data/components.ts` (new), `engine/craftingProfessions.ts`
 
@@ -308,7 +371,7 @@ See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
 2. **Component recipes**
    - Each profession gets 3-5 component recipes feeding into main recipes
 
-### Sprint 10D: Health Potions & Death System
+### Sprint 11D: Health Potions & Death System
 **Status:** NOT STARTED
 **Files:** `types/index.ts`, `engine/zones.ts`, `store/gameStore.ts`, `ui/screens/ZoneScreen.tsx`
 
@@ -325,7 +388,7 @@ See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
    - Toggle on ability bar: abilities auto-activate on cooldown
    - Simple interval check in tick loop
 
-### Sprint 10E: Shop Tab
+### Sprint 11E: Shop Tab
 **Status:** NOT STARTED
 **Files:** `types/index.ts`, `store/gameStore.ts`, `ui/screens/ShopScreen.tsx` (new), `ui/components/NavBar.tsx`
 
@@ -339,7 +402,7 @@ See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
 3. **Rare rotating stock**
    - Small chance for uncommon/rare items in shop rotation
 
-### Sprint 10F: Class Buffs & Auto-Sell
+### Sprint 11F: Class Buffs & Auto-Sell
 **Status:** NOT STARTED
 **Files:** `data/classes.ts`, `engine/classResource.ts`, `store/gameStore.ts`
 
@@ -354,7 +417,7 @@ See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
    - Same as auto-salvage but sells for gold
    - Dropdown selector for min rarity threshold
 
-### Sprint 10G: Enchanting Profession
+### Sprint 11G: Enchanting Profession
 **Status:** NOT STARTED
 **Files:** `types/index.ts`, `data/craftingProfessions.ts`, `data/craftingRecipes.ts`, `engine/craftingProfessions.ts`
 
@@ -364,7 +427,7 @@ See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
    - One enchant per slot
    - Higher profession level = better enchants
 
-### Sprint 10H: Cooking Profession
+### Sprint 11H: Cooking Profession
 **Status:** NOT STARTED
 **Files:** `types/index.ts`, `data/craftingProfessions.ts`, `data/craftingRecipes.ts`, `engine/craftingProfessions.ts`
 
@@ -373,7 +436,7 @@ See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
    - Food provides timed buffs (1-2 hours): +damage, +defense, +XP, +rare find
    - One food buff active at a time
 
-### Sprint 10I: Gathering/Crafting Gear Sets & Dual Loadout
+### Sprint 11I: Gathering/Crafting Gear Sets & Dual Loadout
 **Status:** NOT STARTED
 **Files:** `types/index.ts`, `store/gameStore.ts`, `ui/screens/CharacterScreen.tsx`
 
@@ -386,7 +449,7 @@ See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
    - Gear with gathering affixes (skill XP bonus, rare find, material yield)
    - Only useful in gathering mode
 
-### Sprint 10J: Character System
+### Sprint 11J: Character System
 **Status:** NOT STARTED
 **Files:** `types/index.ts`, `store/gameStore.ts`, `ui/components/TopBar.tsx`
 
@@ -398,7 +461,7 @@ See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
    - Multiple save slots in localStorage (keyed by character name)
    - Character select screen on launch if multiple characters exist
 
-### Sprint 10K: Attack Swing Timer
+### Sprint 11K: Attack Swing Timer
 **Status:** NOT STARTED
 **Files:** `engine/zones.ts`, `store/gameStore.ts`, `ui/screens/ZoneScreen.tsx`
 

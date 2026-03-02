@@ -12,6 +12,60 @@ import { POWER_DIVISOR } from '../data/balance';
 // --- Tag-Based DPS Calculation ---
 
 /**
+ * Compute base damage per skill cast BEFORE hit/crit/speed multipliers.
+ * = baseDmg (with flat additions) * incMult * hitCount
+ * Shared by calcSkillDps (expected-value) and simulateCombatClear (per-hit).
+ */
+export function calcSkillDamagePerCast(
+  skill: ActiveSkillDef,
+  stats: ResolvedStats,
+  weaponAvgDmg: number,
+  weaponSpellPower: number,
+): number {
+  const tags = skill.tags;
+  const isAttack = tags.includes('Attack');
+  const isSpell = tags.includes('Spell');
+
+  // --- Step 1: Base damage ---
+  let baseDmg = skill.baseDamage;
+
+  if (isAttack) {
+    baseDmg += weaponAvgDmg * skill.weaponDamagePercent;
+    if (tags.includes('Physical')) baseDmg += stats.flatPhysDamage;
+    if (tags.includes('Fire')) baseDmg += stats.flatAtkFireDamage;
+    if (tags.includes('Cold')) baseDmg += stats.flatAtkColdDamage;
+    if (tags.includes('Lightning')) baseDmg += stats.flatAtkLightningDamage;
+    if (tags.includes('Chaos')) baseDmg += stats.flatAtkChaosDamage;
+  }
+
+  if (isSpell) {
+    baseDmg += (weaponSpellPower + stats.spellPower) * skill.spellPowerRatio;
+    if (tags.includes('Fire')) baseDmg += stats.flatSpellFireDamage;
+    if (tags.includes('Cold')) baseDmg += stats.flatSpellColdDamage;
+    if (tags.includes('Lightning')) baseDmg += stats.flatSpellLightningDamage;
+    if (tags.includes('Chaos')) baseDmg += stats.flatSpellChaosDamage;
+  }
+
+  if (baseDmg <= 0) return 0;
+
+  // --- Step 2: %increased (all ADDITIVE) ---
+  let totalInc = 0;
+  if (isAttack) totalInc += stats.incAttackDamage;
+  if (isSpell) totalInc += stats.incSpellDamage;
+  if (tags.includes('Physical')) totalInc += stats.incPhysDamage;
+  if (tags.includes('Fire')) totalInc += stats.incFireDamage + stats.incElementalDamage;
+  if (tags.includes('Cold')) totalInc += stats.incColdDamage + stats.incElementalDamage;
+  if (tags.includes('Lightning')) totalInc += stats.incLightningDamage + stats.incElementalDamage;
+
+  const incMult = 1 + totalInc / 100;
+
+  // --- Hit count ---
+  const hitCount = skill.hitCount ?? 1;
+
+  return baseDmg * incMult * hitCount;
+}
+
+/**
  * Calculate DPS for an active skill given resolved character stats and weapon info.
  *
  * Uses PoE-style ADDITIVE %increased:
@@ -29,75 +83,31 @@ export function calcSkillDps(
   weaponAvgDmg: number,
   weaponSpellPower: number,
 ): number {
+  const dmgPerCast = calcSkillDamagePerCast(skill, stats, weaponAvgDmg, weaponSpellPower);
+  if (dmgPerCast <= 0) return 0;
+
   const tags = skill.tags;
   const isAttack = tags.includes('Attack');
   const isSpell = tags.includes('Spell');
 
-  // --- Step 1: Base damage ---
-  let baseDmg = skill.baseDamage;
-
-  if (isAttack) {
-    // Attack skills add weapon physical damage scaled by weaponDamagePercent
-    baseDmg += weaponAvgDmg * skill.weaponDamagePercent;
-
-    // Add flat elemental matching tags
-    if (tags.includes('Physical')) baseDmg += stats.flatPhysDamage;
-    if (tags.includes('Fire')) baseDmg += stats.flatAtkFireDamage;
-    if (tags.includes('Cold')) baseDmg += stats.flatAtkColdDamage;
-    if (tags.includes('Lightning')) baseDmg += stats.flatAtkLightningDamage;
-    if (tags.includes('Chaos')) baseDmg += stats.flatAtkChaosDamage;
-  }
-
-  if (isSpell) {
-    // Spell skills use spell power
-    baseDmg += (weaponSpellPower + stats.spellPower) * skill.spellPowerRatio;
-
-    // Add flat spell elemental matching tags
-    if (tags.includes('Fire')) baseDmg += stats.flatSpellFireDamage;
-    if (tags.includes('Cold')) baseDmg += stats.flatSpellColdDamage;
-    if (tags.includes('Lightning')) baseDmg += stats.flatSpellLightningDamage;
-    if (tags.includes('Chaos')) baseDmg += stats.flatSpellChaosDamage;
-  }
-
-  if (baseDmg <= 0) return 0;
-
-  // --- Step 2: %increased (all ADDITIVE) ---
-  let totalInc = 0;
-
-  if (isAttack) totalInc += stats.incAttackDamage;
-  if (isSpell) totalInc += stats.incSpellDamage;
-  if (tags.includes('Physical')) totalInc += stats.incPhysDamage;
-  if (tags.includes('Fire')) totalInc += stats.incFireDamage + stats.incElementalDamage;
-  if (tags.includes('Cold')) totalInc += stats.incColdDamage + stats.incElementalDamage;
-  if (tags.includes('Lightning')) totalInc += stats.incLightningDamage + stats.incElementalDamage;
-  // Chaos intentionally has NO incElementalDamage — hardest to scale
-
-  const incMult = 1 + totalInc / 100;
-
-  // --- Step 3: Speed multiplier ---
+  // --- Speed multiplier ---
   let speedMult = 1.0;
   if (isAttack) speedMult = 1 + stats.attackSpeed / 100;
   if (isSpell) speedMult = 1 + stats.castSpeed / 100;
 
-  // --- Step 4: Hit chance (Attack only; Spells always hit) ---
+  // --- Hit chance (Attack only; Spells always hit) ---
   const hitChance = isAttack ? calcHitChance(stats.accuracy) : 1.0;
 
-  // --- Step 5: Crit multiplier ---
+  // --- Crit multiplier (expected value) ---
   const critMult = 1 + (stats.critChance / 100) * ((stats.critMultiplier - 100) / 100);
 
-  // --- Step 6: Hit count ---
-  const hitCount = skill.hitCount ?? 1;
+  // --- Per-second DPS ---
+  const effectiveDmgPerCast = dmgPerCast * hitChance * critMult;
+  let dps = (effectiveDmgPerCast / skill.castTime) * speedMult;
 
-  // --- Step 7: Per-second DPS ---
-  const dmgPerCast = baseDmg * incMult * hitChance * critMult * hitCount;
-  let dps = (dmgPerCast / skill.castTime) * speedMult;
-
-  // --- Step 8: DoT bonus ---
+  // --- DoT bonus ---
   if (skill.dotDuration && skill.dotDamagePercent) {
-    // DoT effective DPS: (hitDmg * dotDmgPct * dotDuration) / castTime
-    // This represents the sustained DPS from stacking DoTs
-    const hitDmgPerCast = baseDmg * incMult * hitChance * critMult * hitCount;
-    const dotDpsBonus = (hitDmgPerCast * skill.dotDamagePercent * skill.dotDuration) / skill.castTime * speedMult;
+    const dotDpsBonus = (effectiveDmgPerCast * skill.dotDamagePercent * skill.dotDuration) / skill.castTime * speedMult;
     dps += dotDpsBonus;
   }
 

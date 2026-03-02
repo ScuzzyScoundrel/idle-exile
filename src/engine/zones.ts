@@ -3,11 +3,11 @@
 // Pure functions: no React, no side effects, no DOM.
 // ============================================================
 
-import type { Character, ZoneDef, IdleRunResult, Item, CurrencyType, GearSlot, ResolvedStats, AbilityEffect, GatheringProfession, BossState } from '../types';
+import type { Character, ZoneDef, IdleRunResult, Item, CurrencyType, GearSlot, ResolvedStats, AbilityEffect, GatheringProfession, BossState, CombatClearResult, ActiveSkillDef } from '../types';
 import { generateItem, generateGatheringItem } from './items';
 import { calcDefensiveEfficiency } from './setBonus';
 import { calcTotalDps, getWeaponDamageInfo } from './character';
-import { calcSkillDps, getDefaultSkillForWeapon } from './skills';
+import { calcSkillDps, calcSkillDamagePerCast, getDefaultSkillForWeapon } from './skills';
 import { getSkillDef } from '../data/skills';
 import { calcGatheringYield } from './gathering';
 import { rollRareMaterialDrop } from './rareMaterials';
@@ -176,6 +176,120 @@ export function calcClearTime(
   clearTime = Math.max(floor, clearTime);
 
   return clearTime;
+}
+
+/**
+ * Simulate one combat clear with per-hit rolls (crits, misses, DoT ticks).
+ * Used for real-time clears only — offline uses expected-value calcClearTime().
+ *
+ * Returns raw fight time BEFORE clear speed / floor / level penalty adjustments.
+ * The caller (store) applies those post-sim modifiers.
+ */
+export function simulateCombatClear(
+  skill: ActiveSkillDef,
+  stats: ResolvedStats,
+  weaponAvgDmg: number,
+  weaponSpellPower: number,
+  mobHp: number,
+  abilityDamageMult: number,
+  abilityAttackSpeedMult: number,
+): CombatClearResult {
+  const baseDmgPerCast = calcSkillDamagePerCast(skill, stats, weaponAvgDmg, weaponSpellPower) * abilityDamageMult;
+  if (baseDmgPerCast <= 0) {
+    return { clearTime: 999, totalCasts: 0, hits: 0, crits: 0, misses: 0, totalDamage: 0, dotDamage: 0 };
+  }
+
+  const tags = skill.tags;
+  const isAttack = tags.includes('Attack');
+  const isSpell = tags.includes('Spell');
+
+  // Hit chance: attacks use accuracy formula, spells always hit
+  const hitChance = isAttack ? stats.accuracy / (stats.accuracy + 500) : 1.0;
+
+  // Crit
+  const critChance = Math.min(stats.critChance, 100) / 100;
+  const critDmgMult = stats.critMultiplier / 100; // e.g. 150 -> 1.5x
+
+  // Speed
+  let speedMult = 1.0;
+  if (isAttack) speedMult = (1 + stats.attackSpeed / 100) * abilityAttackSpeedMult;
+  if (isSpell) speedMult = (1 + stats.castSpeed / 100) * abilityAttackSpeedMult;
+  const castInterval = skill.castTime / speedMult;
+
+  // DoT tracking
+  interface DotStack { remaining: number; dps: number; }
+  const dotStacks: DotStack[] = [];
+  const hasDoT = !!(skill.dotDuration && skill.dotDamagePercent);
+
+  let remainingHp = mobHp;
+  let elapsed = 0;
+  let totalCasts = 0;
+  let hits = 0;
+  let crits = 0;
+  let misses = 0;
+  let totalDamage = 0;
+  let dotDamage = 0;
+
+  const MAX_CASTS = 500; // Safety cap
+
+  while (remainingHp > 0 && totalCasts < MAX_CASTS) {
+    // (a) Tick active DoT stacks for castInterval
+    for (let i = dotStacks.length - 1; i >= 0; i--) {
+      const stack = dotStacks[i];
+      const tickTime = Math.min(castInterval, stack.remaining);
+      const tickDmg = stack.dps * tickTime;
+      remainingHp -= tickDmg;
+      totalDamage += tickDmg;
+      dotDamage += tickDmg;
+      stack.remaining -= castInterval;
+      if (stack.remaining <= 0) dotStacks.splice(i, 1);
+    }
+
+    // (b) Check if mob died from DoTs
+    if (remainingHp <= 0) break;
+
+    // (c) Roll hit
+    totalCasts++;
+    if (Math.random() > hitChance) {
+      misses++;
+      elapsed += castInterval;
+      continue;
+    }
+
+    // (d) Roll crit
+    const isCrit = Math.random() < critChance;
+    if (isCrit) crits++;
+    hits++;
+
+    // (e) Damage with +/-10% variance
+    const variance = 0.9 + Math.random() * 0.2;
+    const damage = baseDmgPerCast * variance * (isCrit ? critDmgMult : 1);
+
+    // (f) Apply damage
+    remainingHp -= damage;
+    totalDamage += damage;
+
+    // (g) Apply DoT if skill has one
+    if (hasDoT && remainingHp > 0) {
+      dotStacks.push({
+        remaining: skill.dotDuration!,
+        dps: damage * skill.dotDamagePercent!,
+      });
+    }
+
+    // (h) Advance time
+    elapsed += castInterval;
+  }
+
+  return {
+    clearTime: Math.max(0.1, elapsed),
+    totalCasts,
+    hits,
+    crits,
+    misses,
+    totalDamage,
+    dotDamage,
+  };
 }
 
 /**

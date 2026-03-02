@@ -14,11 +14,13 @@ import {
   GatheringProfession,
   CombatPhase,
   CharacterClass,
+  CombatClearResult,
 } from '../types';
-import { createCharacter, resolveStats, addXp } from '../engine/character';
-import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, applyNormalClearHp, createBossEncounter, tickBossFight, generateBossLoot, applyAbilityResists, BossTickResult } from '../engine/zones';
+import { createCharacter, resolveStats, addXp, getWeaponDamageInfo } from '../engine/character';
+import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, simulateCombatClear, applyNormalClearHp, createBossEncounter, tickBossFight, generateBossLoot, applyAbilityResists, calcHazardPenalty, BossTickResult } from '../engine/zones';
+import { calcMobHp } from '../engine/skills';
 import { calcDefensiveEfficiency } from '../engine/setBonus';
-import { BOSS_VICTORY_DURATION, BOSS_DEFEAT_RECOVERY, BOSS_VICTORY_HEAL_RATIO } from '../data/balance';
+import { BOSS_VICTORY_DURATION, BOSS_DEFEAT_RECOVERY, BOSS_VICTORY_HEAL_RATIO, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO } from '../data/balance';
 import { pickBestItem, getEquippedWeaponType, generateId, isTwoHandedWeapon } from '../engine/items';
 import { applyCurrency } from '../engine/crafting';
 import {
@@ -45,6 +47,7 @@ import {
   getClassLootModifier, dischargeMageCharges,
 } from '../engine/classResource';
 import { getDefaultSkillForWeapon } from '../engine/skills';
+import { getSkillDef } from '../data/skills';
 
 
 const INITIAL_CURRENCIES: Record<CurrencyType, number> = {
@@ -160,6 +163,68 @@ export interface ProcessClearsResult {
   rareMaterialDrops?: Record<string, number>;
   // Gathering-specific fields
   gatheringXpGained?: number;
+}
+
+/**
+ * Compute clear time for next clear using per-hit combat sim.
+ * Falls back to expected-value calcClearTime if no skill is available.
+ */
+function computeNextClear(
+  state: GameState,
+  zone: import('../types').ZoneDef,
+  abilityEffect: import('../types').AbilityEffect | undefined,
+  classDamageMult: number,
+  classSpeedMult: number,
+): { clearTime: number; clearResult: CombatClearResult | null } {
+  // Get active skill
+  const activeSkillId = state.equippedSkills?.[0];
+  const skillDef = activeSkillId ? getSkillDef(activeSkillId) : null;
+  const skill = skillDef ?? getDefaultSkillForWeapon(
+    state.character.equipment.mainhand?.weaponType ?? 'sword',
+    state.character.level,
+  );
+
+  if (!skill) {
+    // No skill -> expected-value fallback
+    return {
+      clearTime: calcClearTime(state.character, zone, abilityEffect, classDamageMult, classSpeedMult, state.equippedSkills),
+      clearResult: null,
+    };
+  }
+
+  const stats = resolveStats(state.character);
+  const effectiveStats: import('../types').ResolvedStats = { ...stats };
+  if (abilityEffect?.critChanceBonus) effectiveStats.critChance += abilityEffect.critChanceBonus;
+  if (abilityEffect?.critMultiplierBonus) effectiveStats.critMultiplier += abilityEffect.critMultiplierBonus;
+
+  const { avgDamage, spellPower } = getWeaponDamageInfo(state.character.equipment);
+  const mobHp = calcMobHp(zone);
+
+  // Hazard penalty: unresisted hazards make effective mob HP higher
+  const hazardMult = abilityEffect?.ignoreHazards ? 1.0 : calcHazardPenalty(
+    applyAbilityResists(stats, abilityEffect), zone,
+  );
+
+  let effectiveMobHp = mobHp / hazardMult;
+
+  // Level penalty: underleveled = mob effectively tougher
+  const levelDelta = Math.max(0, zone.iLvlMin - state.character.level);
+  if (levelDelta > 0) effectiveMobHp *= Math.pow(LEVEL_PENALTY_BASE, levelDelta);
+
+  const damageMult = (abilityEffect?.damageMult ?? 1) * classDamageMult;
+  const atkSpeedMult = abilityEffect?.attackSpeedMult ?? 1;
+
+  const result = simulateCombatClear(
+    skill, effectiveStats, avgDamage, spellPower,
+    effectiveMobHp, damageMult, atkSpeedMult,
+  );
+
+  // Post-sim: apply clear speed bonuses + floor
+  let clearTime = result.clearTime;
+  clearTime /= (abilityEffect?.clearSpeedMult ?? 1) * classSpeedMult;
+  clearTime = Math.max(clearTime, zone.baseClearTime * CLEAR_TIME_FLOOR_RATIO);
+
+  return { clearTime, clearResult: { ...result, clearTime } };
 }
 
 interface GameActions {
@@ -290,6 +355,7 @@ function createInitialState(): GameState {
     totalKills: 0,
     fastestClears: {},
     equippedSkills: [null, null, null, null],
+    lastClearResult: null,
     tutorialStep: 1,
     lastSaveTime: Date.now(),
   };
@@ -513,6 +579,7 @@ export const useGameStore = create<GameState & GameActions>()(
         // Calculate initial clear time for this run
         const zone = ZONE_DEFS.find(z => z.id === zoneId);
         let initialClearTime = 5;
+        let clearResult: CombatClearResult | null = null;
         if (zone) {
           if (state.idleMode === 'gathering') {
             const profession = state.selectedGatheringProfession;
@@ -525,7 +592,9 @@ export const useGameStore = create<GameState & GameActions>()(
             );
             const classDmgMult = getClassDamageModifier(newResource, classDef);
             const classSpdMult = getClassClearSpeedModifier(newResource, classDef);
-            initialClearTime = calcClearTime(state.character, zone, abilityEffect, classDmgMult, classSpdMult, state.equippedSkills);
+            const sim = computeNextClear(state, zone, abilityEffect, classDmgMult, classSpdMult);
+            initialClearTime = sim.clearTime;
+            clearResult = sim.clearResult;
           }
         }
 
@@ -542,6 +611,7 @@ export const useGameStore = create<GameState & GameActions>()(
           combatPhase: 'clearing' as CombatPhase,
           bossState: null,
           combatPhaseStartedAt: null,
+          lastClearResult: clearResult,
           classResource: newResource,
           zoneClearCounts: newZoneClearCounts,
         });
@@ -741,7 +811,10 @@ export const useGameStore = create<GameState & GameActions>()(
         const updatedAbilityEffect = aggregateAbilityEffects(
           state.equippedAbilities, state.abilityTimers, newAbilityProgress, Date.now(), false,
         );
-        const newClearTime = calcClearTime(state.character, zone, updatedAbilityEffect, cDmgMult, cSpdMult, state.equippedSkills);
+        const simState = { ...state, abilityProgress: newAbilityProgress } as GameState;
+        const { clearTime: newClearTime, clearResult: newClearResult } = computeNextClear(
+          simState, zone, updatedAbilityEffect, cDmgMult, cSpdMult,
+        );
 
         // Track fastest clear time for this zone
         const newFastestClears = { ...state.fastestClears };
@@ -762,6 +835,7 @@ export const useGameStore = create<GameState & GameActions>()(
           abilityProgress: newAbilityProgress,
           clearStartedAt: newClearStartedAt,
           currentClearTime: newClearTime,
+          lastClearResult: newClearResult,
           totalKills: state.totalKills + totalClears,
           fastestClears: newFastestClears,
           // Zone death: enter recovery phase
@@ -793,6 +867,7 @@ export const useGameStore = create<GameState & GameActions>()(
           combatPhase: 'clearing' as CombatPhase,
           bossState: null,
           combatPhaseStartedAt: null,
+          lastClearResult: null,
           classResource: resetResourceOnEvent(state.classResource, cDef, 'stop'),
         });
       },
@@ -1391,11 +1466,14 @@ export const useGameStore = create<GameState & GameActions>()(
               );
               const classDmgMult = getClassDamageModifier(updates.classResource ?? state.classResource, cDef);
               const classSpdMult = getClassClearSpeedModifier(updates.classResource ?? state.classResource, cDef);
-              const newClearTime = calcClearTime(state.character, zone, newAbilityEffect, classDmgMult, classSpdMult, state.equippedSkills);
+              const { clearTime: newClearTime, clearResult: newClearResult } = computeNextClear(
+                state, zone, newAbilityEffect, classDmgMult, classSpdMult,
+              );
 
               // Adjust clearStartedAt so progress % stays the same
               updates.clearStartedAt = now - clampedProgress * newClearTime * 1000;
               updates.currentClearTime = newClearTime;
+              updates.lastClearResult = newClearResult;
             }
           }
 
@@ -1570,6 +1648,7 @@ export const useGameStore = create<GameState & GameActions>()(
           state.combatPhase = 'clearing';
           state.bossState = null;
           state.combatPhaseStartedAt = null;
+          state.lastClearResult = null;
 
           // Auto-assign default active skill if weapon equipped but no skill set
           if (state.character?.equipment?.mainhand?.weaponType && (!state.equippedSkills || !state.equippedSkills[0])) {
