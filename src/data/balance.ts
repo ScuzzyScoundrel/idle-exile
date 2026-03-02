@@ -244,12 +244,12 @@ export const CATALYST_ILVL_BONUS: Record<RareMaterialRarity, number> = {
 // =============================================
 
 /** maxHp fraction regenerated per normal clear (passive base regen). */
-export const CLEAR_REGEN_RATIO = 0.08;
+export const CLEAR_REGEN_RATIO = 0.12;
 
 /** Damage amp per level underleveled (exponential). 5 levels under = 1.76x damage taken. */
 export const LEVEL_DAMAGE_BASE = 1.12;
 /** Damage reduction per level overleveled (linear). 5 levels over = 0.70x damage. */
-export const OVERLEVEL_DAMAGE_REDUCTION = 0.06;
+export const OVERLEVEL_DAMAGE_REDUCTION = 0.10;
 /** Minimum damage multiplier when overleveled (floor). */
 export const OVERLEVEL_DAMAGE_FLOOR = 0.30;
 /** Unavoidable net damage per level gap when underleveled (fraction of maxHp). Harsh. */
@@ -280,7 +280,7 @@ export const BOSS_VICTORY_HEAL_RATIO = 0.6;
 /** Seconds between zone attacks during normal clears. */
 export const ZONE_ATTACK_INTERVAL = 1.0;
 /** Base zone damage per hit at band 1. Scales linearly with band. */
-export const ZONE_DMG_BASE = 12;
+export const ZONE_DMG_BASE = 8;
 /** Fraction of zone damage that's physical (rest is elemental). */
 export const ZONE_PHYS_RATIO = 0.7;
 /** Boss damage per hit base. Scales with band^2. */
@@ -288,9 +288,9 @@ export const BOSS_DMG_PER_HIT_BASE = 8;
 /** Seconds between boss attacks. */
 export const BOSS_ATTACK_INTERVAL = 1.5;
 /** Innate life leech: fraction of damage dealt that heals player. */
-export const LEECH_PERCENT = 0.02;
+export const LEECH_PERCENT = 0.03;
 /** Max regen per clear as fraction of maxHP (prevents immortality). */
-export const MAX_REGEN_RATIO = 0.25;
+export const MAX_REGEN_RATIO = 0.40;
 
 // =============================================
 // SKILL AUTO-CAST
