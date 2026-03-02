@@ -62,7 +62,7 @@ type IconSize = 'sm' | 'md' | 'lg';
 const SIZE_CLASS: Record<IconSize, string> = {
   sm: 'w-5 h-5',
   md: 'w-9 h-9',
-  lg: 'w-3/4 h-3/4',
+  lg: 'w-12 h-12',
 };
 
 const EMOJI_SIZE: Record<IconSize, string> = {

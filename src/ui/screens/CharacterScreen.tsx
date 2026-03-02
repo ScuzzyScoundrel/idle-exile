@@ -151,14 +151,6 @@ const RARITY_BG: Record<Rarity, string> = {
   legendary: 'bg-orange-950',
 };
 
-const RARITY_TEXT: Record<Rarity, string> = {
-  common: 'text-green-400',
-  uncommon: 'text-blue-400',
-  rare: 'text-yellow-400',
-  epic: 'text-purple-400',
-  legendary: 'text-orange-400',
-};
-
 const TIER_COLORS: Record<number, string> = {
   1: 'text-orange-400',
   2: 'text-purple-400',
@@ -241,13 +233,13 @@ export default function CharacterScreen() {
         )}
       </div>
 
-      {/* Paper Doll — WoW-style layout with wider gear cards */}
+      {/* Paper Doll — icon grid layout */}
       <div className="bg-gray-800 rounded-lg p-3 overflow-hidden">
         <h3 className="text-sm font-bold text-gray-300 mb-2">Equipment</h3>
 
         <div className="flex gap-1.5">
           {/* Left column */}
-          <div className="flex flex-col gap-1.5 w-36 flex-shrink-0">
+          <div className="flex flex-col gap-1.5 w-16 flex-shrink-0">
             {LEFT_SLOTS.map((slot) => (
               <GearSlotCard
                 key={slot}
@@ -262,7 +254,7 @@ export default function CharacterScreen() {
 
           {/* Center — ASCII character silhouette */}
           <div className="flex-1 min-w-0 flex items-center justify-center">
-            <div className="w-full h-full min-h-[280px] bg-gray-900 rounded-lg border border-gray-700 flex items-center justify-center">
+            <div className="w-full h-full bg-gray-900 rounded-lg border border-gray-700 flex items-center justify-center">
               <div className="text-center">
                 <pre className="font-mono text-gray-600 text-lg leading-tight select-none">{ASCII_SILHOUETTE}</pre>
                 <div className="text-xs text-gray-500 mt-2 font-semibold">{character.name}</div>
@@ -272,7 +264,7 @@ export default function CharacterScreen() {
           </div>
 
           {/* Right column */}
-          <div className="flex flex-col gap-1.5 w-36 flex-shrink-0">
+          <div className="flex flex-col gap-1.5 w-16 flex-shrink-0">
             {RIGHT_SLOTS.map((slot) => (
               <GearSlotCard
                 key={slot}
@@ -295,7 +287,7 @@ export default function CharacterScreen() {
               hoveredSlot={hoveredSlot}
               onHover={setHoveredSlot}
               onUnequip={unequipSlot}
-              className="w-36"
+              className="w-16"
               isMobile={isMobile}
             />
           ))}
@@ -852,8 +844,8 @@ function GearSlotCard({
     return (
       <div
         className={`
-          rounded-lg border-2 border-dashed border-gray-700 bg-gray-900/50
-          flex items-center gap-2 px-2 py-2 cursor-pointer
+          aspect-square rounded-lg border-2 border-dashed border-gray-700 bg-gray-900/50
+          flex items-center justify-center cursor-pointer
           hover:border-gray-500 transition-all
           ${isShowingTooltip ? 'ring-2 ring-yellow-400' : ''}
           ${className ?? 'w-full'}
@@ -864,7 +856,6 @@ function GearSlotCard({
         title={`${slotLabel(slot)} \u2014 empty`}
       >
         <SlotIcon slot={slot} size="md" className="opacity-25" />
-        <span className="text-xs text-gray-600">{slotLabel(slot)}</span>
       </div>
     );
   }
@@ -872,8 +863,8 @@ function GearSlotCard({
   return (
     <div
       className={`
-        rounded-lg border-2 px-2 py-1.5 cursor-pointer transition-all
-        flex items-center gap-2 min-w-0
+        aspect-square rounded-lg border-2 cursor-pointer transition-all
+        flex items-center justify-center min-w-0
         ${RARITY_BORDER[item.rarity]} ${RARITY_BG[item.rarity]} hover:brightness-125
         ${isShowingTooltip ? 'ring-2 ring-yellow-400' : ''}
         ${className ?? 'w-full'}
@@ -883,11 +874,7 @@ function GearSlotCard({
       onClick={handleClick}
       title={isShowingTooltip ? `Tap to unequip ${item.name}` : `Tap to inspect ${item.name}`}
     >
-      <ItemIcon item={item} size="md" className="flex-shrink-0" />
-      <div className="min-w-0 flex-1">
-        <div className={`text-sm font-semibold truncate ${RARITY_TEXT[item.rarity]}`}>{item.name}</div>
-        <div className="text-xs text-gray-500">iLvl {item.iLvl} {'\u2022'} {item.rarity}</div>
-      </div>
+      <ItemIcon item={item} size="lg" />
     </div>
   );
 }
