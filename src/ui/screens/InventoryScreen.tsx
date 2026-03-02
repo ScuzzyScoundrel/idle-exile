@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useLayoutEffect, useMemo } from 'react';
 import { useGameStore, SELL_GOLD } from '../../store/gameStore';
-import { Item, Affix, GearSlot, CurrencyType, Rarity, StatKey } from '../../types';
+import { Item, Affix, GearSlot, CurrencyType, Rarity, StatKey, ArmorType } from '../../types';
 import { CURRENCY_DEFS, BAG_UPGRADE_DEFS, getBagDef, calcBagCapacity } from '../../data/items';
 import { formatAffix, getBestTierForILvl, isUpgradeOver, getComparisonTarget, calcItemStatContribution } from '../../engine/items';
 import { slotIcon, slotLabel, DROPPABLE_SLOTS } from '../slotConfig';
@@ -51,6 +51,12 @@ const RARITY_BORDER_RING: Record<Rarity, string> = {
   rare: 'border-yellow-500',
   epic: 'border-purple-500',
   legendary: 'border-orange-500',
+};
+
+const ARMOR_TYPE_BADGE: Record<ArmorType, { label: string; cls: string }> = {
+  plate:   { label: 'Plate',   cls: 'bg-gray-600 text-gray-200' },
+  leather: { label: 'Leather', cls: 'bg-amber-900 text-amber-200' },
+  cloth:   { label: 'Cloth',   cls: 'bg-purple-900 text-purple-200' },
 };
 
 const AUTO_SALVAGE_OPTIONS: { value: Rarity; label: string }[] = [
@@ -309,8 +315,13 @@ export default function InventoryScreen() {
             <span className="text-xl">{slotIcon(selectedItem.slot)}</span>
             <div className="flex-1 min-w-0">
               <div className="font-bold text-white">{selectedItem.name}</div>
-              <div className="text-xs text-gray-400">
-                iLvl {selectedItem.iLvl} • {selectedItem.rarity} • {selectedItem.prefixes.length + selectedItem.suffixes.length} affixes • <span className="text-gray-500">T{getBestTierForILvl(selectedItem.iLvl)}+</span>
+              <div className="text-xs text-gray-400 flex items-center gap-1 flex-wrap">
+                <span>iLvl {selectedItem.iLvl} • {selectedItem.rarity} • {selectedItem.prefixes.length + selectedItem.suffixes.length} affixes • <span className="text-gray-500">T{getBestTierForILvl(selectedItem.iLvl)}+</span></span>
+                {selectedItem.armorType && ARMOR_TYPE_BADGE[selectedItem.armorType] && (
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold leading-none ${ARMOR_TYPE_BADGE[selectedItem.armorType].cls}`}>
+                    {ARMOR_TYPE_BADGE[selectedItem.armorType].label}
+                  </span>
+                )}
               </div>
             </div>
             <button
@@ -735,8 +746,13 @@ export default function InventoryScreen() {
           }}
         >
           <div className="font-bold text-white text-sm">{tooltip.item.name}</div>
-          <div className="text-xs text-gray-400 mb-1.5">
-            iLvl {tooltip.item.iLvl} • {tooltip.item.rarity} • {slotLabel(tooltip.slot)} • <span className="text-gray-500">T{getBestTierForILvl(tooltip.item.iLvl)}+</span>
+          <div className="text-xs text-gray-400 mb-1.5 flex items-center gap-1 flex-wrap">
+            <span>iLvl {tooltip.item.iLvl} • {tooltip.item.rarity} • {slotLabel(tooltip.slot)} • <span className="text-gray-500">T{getBestTierForILvl(tooltip.item.iLvl)}+</span></span>
+            {tooltip.item.armorType && ARMOR_TYPE_BADGE[tooltip.item.armorType] && (
+              <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold leading-none ${ARMOR_TYPE_BADGE[tooltip.item.armorType].cls}`}>
+                {ARMOR_TYPE_BADGE[tooltip.item.armorType].label}
+              </span>
+            )}
           </div>
 
           {Object.entries(tooltip.item.baseStats).length > 0 && (

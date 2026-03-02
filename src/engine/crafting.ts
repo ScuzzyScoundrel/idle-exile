@@ -4,7 +4,7 @@
 // ============================================================
 
 import type { Item, CurrencyType, CraftResult, Affix, AffixTier, GearSlot, WeaponType, OffhandType } from '../types';
-import { rollAffixes, rollAffixValue, getAffixDef, classifyRarity, buildItemName, getAvailableTiers } from './items';
+import { rollAffixes, rollAffixValue, getAffixDef, classifyRarity, buildItemName, getBestTierForILvl } from './items';
 import { getAffixesForSlot } from '../data/affixes';
 
 // --- Helpers ---
@@ -62,9 +62,12 @@ function rollForcedHighTierAffix(
     }
   }
 
-  // Get the top 3 tiers available at this iLvl
-  const tiers = getAvailableTiers(iLvl);
-  const top3 = tiers.slice(0, 3); // sorted best-first (lowest number)
+  // Get the top 3 realistic tiers for this iLvl (best realistic + next 2)
+  const bestTier = getBestTierForILvl(iLvl);
+  const top3: AffixTier[] = [];
+  for (let t = bestTier; t <= 10 && top3.length < 3; t++) {
+    top3.push(t as AffixTier);
+  }
 
   let tier: AffixTier;
   if (top3.length === 1) {

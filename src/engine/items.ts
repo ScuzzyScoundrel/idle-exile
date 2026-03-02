@@ -7,7 +7,7 @@ import type { Item, Affix, AffixDef, AffixTier, AffixCategory, Rarity, GearSlot,
 import { AFFIX_DEFS, getAffixesForSlot } from '../data/affixes';
 import { GATHERING_AFFIX_DEFS } from '../data/gatheringAffixes';
 import { ITEM_BASE_DEFS } from '../data/items';
-import { TIER_WEIGHTS, AFFIX_COUNT_WEIGHTS } from '../data/balance';
+import { TIER_LOW_WEIGHTS, TIER_HIGH_WEIGHT, TIER_ILVL_CAP, AFFIX_COUNT_WEIGHTS } from '../data/balance';
 
 // --- Helpers ---
 
@@ -22,52 +22,49 @@ export function rollAffixValue(min: number, max: number): number {
 }
 
 /**
- * Get available tiers based on item level (band-based gating).
+ * Get iLvl-scaled weights for ALL 10 affix tiers.
+ * Low iLvl: T10 dominates (~50), T1 near-zero (~0.01).
+ * High iLvl (70+): all tiers converge to equal weight (5).
  */
-export function getAvailableTiers(iLvl: number): AffixTier[] {
-  let minTier: AffixTier;
-  if (iLvl >= 51) minTier = 1;
-  else if (iLvl >= 41) minTier = 2;
-  else if (iLvl >= 31) minTier = 3;
-  else if (iLvl >= 21) minTier = 4;
-  else if (iLvl >= 11) minTier = 5;
-  else minTier = 7;
-
-  const tiers: AffixTier[] = [];
-  for (let t = minTier; t <= 10; t++) {
-    tiers.push(t as AffixTier);
+export function getWeightedTiers(iLvl: number): Record<AffixTier, number> {
+  const t = Math.min(1, Math.max(0, iLvl / TIER_ILVL_CAP));
+  const result = {} as Record<AffixTier, number>;
+  for (let i = 1; i <= 10; i++) {
+    const tier = i as AffixTier;
+    result[tier] = TIER_LOW_WEIGHTS[tier] + (TIER_HIGH_WEIGHT - TIER_LOW_WEIGHTS[tier]) * t;
   }
-  return tiers;
+  return result;
 }
 
 /**
- * Get a human-readable tier range string for an item level.
- */
-export function getAffixTierRange(iLvl: number): string {
-  const tiers = getAvailableTiers(iLvl);
-  return `T${tiers[0]}\u2013T${tiers[tiers.length - 1]}`;
-}
-
-/**
- * Get the best (lowest number) affix tier available at a given iLvl.
+ * Get the best (lowest number) affix tier that has a realistic chance of dropping.
+ * "Realistic" = at least 1% of total weight.
  */
 export function getBestTierForILvl(iLvl: number): AffixTier {
-  return getAvailableTiers(iLvl)[0];
+  const weights = getWeightedTiers(iLvl);
+  const total = Object.values(weights).reduce((sum, w) => sum + w, 0);
+  for (let t = 1; t <= 10; t++) {
+    if (weights[t as AffixTier] / total >= 0.01) return t as AffixTier;
+  }
+  return 10 as AffixTier;
 }
 
 /**
- * Roll a random affix tier using weighted selection from available tiers.
+ * Roll a random affix tier using iLvl-scaled weighted selection across all 10 tiers.
  */
 export function rollAffixTier(iLvl: number): AffixTier {
-  const available = getAvailableTiers(iLvl);
-  const pool = available.map(t => ({ tier: t, weight: TIER_WEIGHTS[t] }));
-  const totalWeight = pool.reduce((sum, e) => sum + e.weight, 0);
+  const weights = getWeightedTiers(iLvl);
+  const entries = [];
+  for (let i = 1; i <= 10; i++) {
+    entries.push({ tier: i as AffixTier, weight: weights[i as AffixTier] });
+  }
+  const totalWeight = entries.reduce((sum, e) => sum + e.weight, 0);
   let roll = Math.random() * totalWeight;
-  for (const entry of pool) {
+  for (const entry of entries) {
     roll -= entry.weight;
     if (roll <= 0) return entry.tier;
   }
-  return pool[pool.length - 1].tier;
+  return 10 as AffixTier;
 }
 
 /**

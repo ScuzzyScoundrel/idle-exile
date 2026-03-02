@@ -148,9 +148,16 @@ export const XP_GROWTH = 1.5;
 // ITEM GENERATION
 // =============================================
 
-/** Tier drop weights: T10 most common, T1 rarest. */
-export const TIER_WEIGHTS: Record<AffixTier, number> = {
-  10: 20, 9: 18, 8: 16, 7: 13, 6: 10, 5: 8, 4: 6, 3: 4, 2: 3, 1: 2,
+/**
+ * iLvl-scaled affix tier weights.
+ * At low iLvl: high tiers (T10) dominate, low tiers (T1) near-impossible.
+ * At iLvl cap: all tiers converge to equal weight.
+ * Formula: lerp(TIER_LOW_WEIGHTS[tier], TIER_HIGH_WEIGHT, clamp(iLvl / TIER_ILVL_CAP, 0, 1))
+ */
+export const TIER_ILVL_CAP = 70;
+export const TIER_HIGH_WEIGHT = 5;
+export const TIER_LOW_WEIGHTS: Record<AffixTier, number> = {
+  10: 50, 9: 40, 8: 30, 7: 20, 6: 12, 5: 6, 4: 3, 3: 1, 2: 0.3, 1: 0.01,
 };
 
 /** How many affixes an item rolls (weighted). */

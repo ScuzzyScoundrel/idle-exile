@@ -1,16 +1,16 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-01 (Post-Sprint 8E-2)
+> Last updated: 2026-03-01 (Post-Sprint 8F-1)
 
 ## Current Phase
-**Sprint 8E-2: Combat Rebalance Iteration** — COMPLETE.
-- **Boss DPS rework**: Replaced exponential `50 * 2^(band-1)` base pressure with zone-specific formula: `BOSS_DPS_BASE(4) * band^1.5 + baseClearTime * 0.2`. Different zones within the same band now deal different boss damage. `BOSS_DAMAGE_MULTIPLIER` 1.5→1.0.
-- **Boss hazard damage**: Each zone hazard adds up to 15% bonus boss damage, reduced by player resists. Fire/cold/lightning/chaos zones have mechanically distinct bosses.
-- **Zone death system**: Players can now die during normal clears (HP floor removed: 1→0). Death triggers `zone_defeat` recovery phase (same duration as boss defeat), resets boss clear counter, fully heals after recovery.
-- **Removed boss danger indicator**: "Boss: Safe/Risky/Deadly (kill time / die time)" removed — was spoiling fight outcomes before they happened.
-- Previous 8E changes still active: Defense/clear speed split, XP scaling, boss HP = `150 * band^2`, boss victory screen with fight stats.
-- Next: Sprint 8F (Item Level & Affix Rework) — Phase 2
+**Sprint 8F-1: Item Level & Affix Rework (Part 1)** — COMPLETE.
+- **iLvl-scaled affix tier weights**: Replaced hard tier gating (`getAvailableTiers` with iLvl breakpoints) with smooth weight interpolation (`getWeightedTiers`). ALL tiers (T1-T10) can now drop at ANY iLvl, but weights shift dramatically. At iLvl 1: T10 weight=50, T1 weight=0.01 (~0.006% chance). At iLvl 70: all tiers converge to weight=5 (10% each). Linear interpolation between low/high iLvl weights. Config in `balance.ts`: `TIER_ILVL_CAP=70`, `TIER_HIGH_WEIGHT=5`, `TIER_LOW_WEIGHTS` per tier.
+- **Realistic best tier**: `getBestTierForILvl` now returns the best tier with ≥1% probability (replaces old hard cutoff). Star indicator (★) and "T{n}+" display adapt automatically.
+- **Exalt currency adapted**: Exalt now picks top 3 tiers starting from the realistic best tier (preserves "good tier for item's iLvl" behavior).
+- **Armor type badges**: All armor items now show a colored Plate/Leather/Cloth badge in the inventory detail panel and hover tooltip. Plate=silver, Leather=brown, Cloth=purple.
+- Previous 8E-2 changes still active.
+- Next: Sprint 8F-2 (Currency rework: Greater/Perfect Exalt + crafting material tier → iLvl bonus)
 
 ## What Is Working Right Now
 The game is live on Vercel and playable locally at `http://localhost:5173/`. Core loop:
@@ -63,7 +63,7 @@ Bottom: mainhand, offhand, trinket1, trinket2
 
 ## Engine Details
 - **Rarity**: Common (2 affixes, T7+), Uncommon (3, T4-T6), Rare (4, T3), Epic (5, T2), Legendary (6, T1+/2×T2)
-- **Affix tiers**: T1 (best) through T10 (worst), weighted drop rates favor lower tiers
+- **Affix tiers**: T1 (best) through T10 (worst). All tiers can drop at any iLvl via smooth weight interpolation (low iLvl: T10 dominates, high iLvl: equal chance). `getWeightedTiers(iLvl)` in `engine/items.ts`.
 - **Combat clear speed**: `baseClearTime / (charPower / 50)` then `* 1.12^levelDelta`. Power = `playerDps * hazardMult` (defense removed in 8E). No upper cap. Floor at 20% of baseClearTime.
 - **Gathering clear speed**: `baseClearTime * 2 / (1 + skillLevel / 25)`. Scales with profession skill level.
 - **Level scaling**: Exponential penalty for being under-leveled: each level below zone iLvlMin = 12% longer.
@@ -146,7 +146,7 @@ src/
 **See `SPRINT_PLAN.md` for the full roadmap with detailed implementation notes.**
 
 Immediate priority (Phase 2 — Balance & Systems Rework):
-1. **Sprint 8F** — Item Level & Affix Rework (weighted tiers, currency rework, crafting material iLvl, armor type badges)
+1. **Sprint 8F-2** — Currency rework (Greater/Perfect Exalt) + crafting material tier → iLvl bonus
 
 Then Phase 3 (UX/UI Overhaul), Phase 4 (New Features) — all detailed in SPRINT_PLAN.md.
 
@@ -342,6 +342,13 @@ Replaced focus modes with Combat/Gathering toggle. 5 gathering professions with 
 - **Removed boss danger indicator**: "Boss: Safe/Risky/Deadly (kill / die times)" removed from zone info panel. Was spoiling outcomes. Removed `calcPlayerDps`, `calcBossMaxHp`, `calcBossDps` imports from ZoneScreen.
 - **New CombatPhase**: `'zone_defeat'` added to `CombatPhase` union type.
 - **Files changed**: `types/index.ts`, `data/balance.ts`, `engine/zones.ts`, `store/gameStore.ts`, `ui/screens/ZoneScreen.tsx`
+
+### Sprint 8F-1 Changes (Item Level & Affix Rework Part 1)
+- **iLvl-scaled affix tier weights**: Replaced `getAvailableTiers()` (hard iLvl breakpoints that blocked tiers entirely) with `getWeightedTiers(iLvl)` (smooth lerp across all 10 tiers). At iLvl 1: T10=50 weight (31%), T1=0.01 weight (0.006%). At iLvl 70: all tiers=5 weight (10% each). Removed `TIER_WEIGHTS` constant, added `TIER_ILVL_CAP(70)`, `TIER_HIGH_WEIGHT(5)`, `TIER_LOW_WEIGHTS` per-tier map.
+- **Realistic best tier**: `getBestTierForILvl()` now returns lowest tier with ≥1% total weight probability (replaces old hard cutoff). UI star (★) and "T{n}+" text adapt smoothly.
+- **Exalt adapted**: `rollForcedHighTierAffix()` now uses `getBestTierForILvl()` + next 2 tiers (was `getAvailableTiers().slice(0,3)`). Preserves "good tier for item's iLvl" intent.
+- **Armor type badges**: Plate (silver), Leather (brown), Cloth (purple) badge shown on item detail panel + hover tooltip in InventoryScreen. Uses existing `item.armorType` field (already on all armor items).
+- **Files changed**: `data/balance.ts`, `engine/items.ts`, `engine/crafting.ts`, `ui/screens/InventoryScreen.tsx`
 
 ## Micro-Sprint Workflow
 Each conversation = one micro-sprint (3-5 related changes):
