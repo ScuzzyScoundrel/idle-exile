@@ -1,10 +1,28 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-02 (Post-Sprint 10N: Skill XP + Passive Points)
+> Last updated: 2026-03-02 (Post-Sprint 10O: Per-Hit Defense System)
 
 ## Current Phase
-**Sprint 10N: Skill XP + Passive Points** — COMPLETE.
+**Sprint 10O: Per-Hit Defense System** — COMPLETE.
+
+- **Per-hit defense pipeline**: Every incoming zone/boss attack rolls through: dodge (evasion vs accuracy) → block (chance, blocked hits deal 25%) → armor mitigation (PoE-style) → resist mitigation (average capped resists). Replaces abstract `calcDefensiveEfficiency()` in combat math.
+- **New engine functions**: `rollZoneAttack()` (single hit through defense pipeline), `simulateClearDefense()` (all zone hits per clear with regen/leech), `calcBossAttackProfile()` (per-hit boss stats).
+- **Normal clears**: Zone attacks N times per clear (`clearTime / ZONE_ATTACK_INTERVAL`). Base damage: `ZONE_DMG_BASE * band * levelMult`. 70% physical / 30% elemental split. Each hit rolled through full pipeline.
+- **Boss fights**: Boss attacks at intervals (`bossAttackInterval = 1.5s`) instead of flat DPS. Uses `bossNextAttackAt` timestamp for discrete attacks through defense pipeline. Player gets passive regen per tick + life leech (2% of damage dealt).
+- **Life leech**: Innate 2% of damage dealt heals player. Applied per-clear (estimated from last clear damage) and per boss skill cast.
+- **Regen cap**: Total healing per clear capped at 25% of maxHP (`MAX_REGEN_RATIO`). Prevents regen stacking trivializing content.
+- **BossState expanded**: New fields `bossDamagePerHit`, `bossAttackInterval`, `bossNextAttackAt`, `bossAccuracy`, `bossPhysRatio`. `bossDps` kept as computed display value for UI.
+- **calcDefensiveEfficiency kept for UI**: Still used as summary "defense rating" on zone cards. No longer drives combat math.
+- **7 new balance constants**: `ZONE_ATTACK_INTERVAL`, `ZONE_DMG_BASE`, `ZONE_PHYS_RATIO`, `BOSS_DMG_PER_HIT_BASE`, `BOSS_ATTACK_INTERVAL`, `LEECH_PERCENT`, `MAX_REGEN_RATIO`.
+- **Removed constants**: `CLEAR_DAMAGE_RATIO`, `BOSS_DPS_BASE`, `BOSS_DPS_ZONE_FACTOR`, `BOSS_DAMAGE_MULTIPLIER`.
+- **No save migration needed**: BossState is ephemeral (created fresh each fight). Per-clear defense applied immediately.
+- **Save version**: v27 (unchanged).
+- **Bundle size**: ~504 kB.
+
+**Next sprint TBD.** Potential: boss attack timer UI, mob type differentiation, skill discovery/unlocks.
+
+**Sprint 10N: Skill XP + Passive Points** — COMPLETE (previous).
 
 - **All skills earn XP**: Removed `kind === 'active'` filter in `processNewClears()`. All equipped skills (active, buff, passive, toggle, etc.) now earn equal XP per clear. Must be equipped in skill bar.
 - **Max level raised**: 10 → 20. New constant `SKILL_MAX_LEVEL = 20` in `data/balance.ts`.
@@ -14,8 +32,6 @@
 - **No save migration needed**: `skillProgress` entries created on-the-fly. Active skills start at level 0.
 - **Save version**: v27 (unchanged).
 - **Bundle size**: 503 kB.
-
-**Next sprint TBD.** See `COMBAT_OVERHAUL.md` for skill passive tree design vision.
 
 **Sprint 10M: Multi-Skill Rotation (Foundation)** — COMPLETE (previous).
 

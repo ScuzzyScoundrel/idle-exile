@@ -21,12 +21,12 @@ import {
   SkillTimerState,
   ActiveSkillDef,
   SkillDef,
+  ResolvedStats,
 } from '../types';
 import { createCharacter, resolveStats, addXp, getWeaponDamageInfo } from '../engine/character';
-import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, simulateCombatClear, applyNormalClearHp, createBossEncounter, generateBossLoot, applyAbilityResists, calcHazardPenalty } from '../engine/zones';
+import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, simulateCombatClear, createBossEncounter, generateBossLoot, applyAbilityResists, calcHazardPenalty, simulateClearDefense, rollZoneAttack } from '../engine/zones';
 import { calcMobHp, calcSkillCastInterval, rollSkillCast } from '../engine/unifiedSkills';
-import { calcDefensiveEfficiency } from '../engine/setBonus';
-import { BOSS_VICTORY_DURATION, BOSS_DEFEAT_RECOVERY, BOSS_VICTORY_HEAL_RATIO, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO, SKILL_GCD, ACTIVE_SKILL_GCD } from '../data/balance';
+import { BOSS_VICTORY_DURATION, BOSS_DEFEAT_RECOVERY, BOSS_VICTORY_HEAL_RATIO, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO, SKILL_GCD, ACTIVE_SKILL_GCD, LEECH_PERCENT } from '../data/balance';
 import { pickBestItem, generateId, isTwoHandedWeapon } from '../engine/items';
 import { applyCurrency } from '../engine/crafting';
 import {
@@ -197,7 +197,7 @@ function computeNextClear(
   }
 
   const stats = resolveStats(state.character);
-  const effectiveStats: import('../types').ResolvedStats = { ...stats };
+  const effectiveStats: ResolvedStats = { ...stats };
   if (abilityEffect?.critChanceBonus) effectiveStats.critChance += abilityEffect.critChanceBonus;
   if (abilityEffect?.critMultiplierBonus) effectiveStats.critMultiplier += abilityEffect.critMultiplierBonus;
 
@@ -817,14 +817,24 @@ export const useGameStore = create<GameState & GameActions>()(
           newBagStash[key] = (newBagStash[key] || 0) + val;
         }
 
-        // HP updates: apply damage/regen per clear (include ability resist bonus + level scaling)
+        // HP updates: per-hit defense pipeline per clear
         const stats = resolveStats(state.character);
         const effectiveStats = applyAbilityResists(stats, abilityEffect);
-        const defEff = calcDefensiveEfficiency(effectiveStats, zone.band, zone.iLvlMin) * (abilityEffect?.defenseMult ?? 1);
+        // Apply defenseMult from abilities to armor/evasion/block
+        const defenseBuffedStats: ResolvedStats = abilityEffect?.defenseMult
+          ? { ...effectiveStats,
+              armor: effectiveStats.armor * (abilityEffect.defenseMult),
+              evasion: effectiveStats.evasion * (abilityEffect.defenseMult),
+            }
+          : effectiveStats;
         let hp = state.currentHp > 0 ? state.currentHp : stats.maxLife;
         const clearTimeSec = state.currentClearTime;
+        // Estimate damage dealt per clear for leech calculation
+        const estimatedDmgDealt = state.lastClearResult?.totalDamage ?? (stats.maxLife * 0.5);
         for (let i = 0; i < clearCount; i++) {
-          hp = applyNormalClearHp(hp, stats.maxLife, defEff, state.character.level, zone.iLvlMin, clearTimeSec, stats.lifeRegen);
+          const result = simulateClearDefense(hp, stats.maxLife, defenseBuffedStats, zone,
+            state.character.level, clearTimeSec, estimatedDmgDealt);
+          hp = result.newHp;
           if (hp <= 0) { hp = 0; break; }
         }
         const zoneDeath = hp <= 0 && state.idleMode === 'combat';
@@ -1709,16 +1719,31 @@ export const useGameStore = create<GameState & GameActions>()(
 
         const now = Date.now();
 
-        // Helper: apply boss damage to player (used in both GCD-blocked and skill-fire paths)
+        // Helper: apply boss per-hit attacks + passive regen to player
         const applyBossDamage = (): CombatTickResult => {
           if (phase === 'boss_fight' && state.bossState) {
-            const bossDmg = state.bossState.bossDps * dtSec;
-            const newPlayerHp = Math.max(0, state.currentHp - bossDmg);
-            if (newPlayerHp <= 0) {
-              set({ currentHp: 0 });
+            const bs = state.bossState;
+            const bossStats = resolveStats(state.character);
+            const abilEff = aggregateSkillBarEffects(state.skillBar, state.skillProgress, state.skillTimers, now, false);
+            const defStats = applyAbilityResists(bossStats, abilEff);
+            let playerHp = state.currentHp;
+
+            // Check if boss attack is due
+            let nextAttack = bs.bossNextAttackAt;
+            if (now >= nextAttack) {
+              const roll = rollZoneAttack(bs.bossDamagePerHit, bs.bossPhysRatio, bs.bossAccuracy, defStats);
+              playerHp -= roll.damage;
+              nextAttack = now + bs.bossAttackInterval * 1000;
+            }
+
+            // Passive regen per tick
+            playerHp = Math.min(bossStats.maxLife, playerHp + bossStats.lifeRegen * dtSec);
+
+            if (playerHp <= 0) {
+              set({ currentHp: 0, bossState: { ...bs, bossNextAttackAt: nextAttack } });
               return { ...noResult, bossOutcome: 'defeat' };
             }
-            set({ currentHp: newPlayerHp });
+            set({ currentHp: playerHp, bossState: { ...bs, bossNextAttackAt: nextAttack } });
             return { ...noResult, bossOutcome: 'ongoing' };
           }
           return noResult;
@@ -1803,23 +1828,39 @@ export const useGameStore = create<GameState & GameActions>()(
 
         // ── Boss fight path ──
         if (phase === 'boss_fight' && state.bossState) {
+          const bs = state.bossState;
           let totalDamage = 0;
-          let newBossHp = state.bossState.bossCurrentHp;
+          let newBossHp = bs.bossCurrentHp;
 
           if (roll.isHit) {
             newBossHp -= roll.damage;
             totalDamage = roll.damage;
           }
 
-          // Boss continuous damage to player
-          const bossDmg = state.bossState.bossDps * dtSec;
-          const newPlayerHp = Math.max(0, state.currentHp - bossDmg);
+          // Boss per-hit attack (if attack timer is due)
+          let playerHp = state.currentHp;
+          let nextAttack = bs.bossNextAttackAt;
+          if (now >= nextAttack) {
+            const bossRoll = rollZoneAttack(bs.bossDamagePerHit, bs.bossPhysRatio, bs.bossAccuracy, effectiveStats);
+            playerHp -= bossRoll.damage;
+            nextAttack = now + bs.bossAttackInterval * 1000;
+          }
+
+          // Passive regen per tick
+          playerHp = Math.min(stats.maxLife, playerHp + stats.lifeRegen * dtSec);
+
+          // Life leech from player's attack
+          if (roll.isHit) {
+            playerHp = Math.min(stats.maxLife, playerHp + roll.damage * LEECH_PERCENT);
+          }
+
+          const updatedBoss = { ...bs, bossCurrentHp: newBossHp, bossNextAttackAt: nextAttack };
 
           // Check outcomes
           if (newBossHp <= 0) {
             set({
-              bossState: { ...state.bossState, bossCurrentHp: 0 },
-              currentHp: Math.max(1, newPlayerHp),
+              bossState: { ...updatedBoss, bossCurrentHp: 0 },
+              currentHp: Math.max(1, playerHp),
               nextActiveSkillAt,
               skillTimers: newTimers,
             });
@@ -1829,9 +1870,9 @@ export const useGameStore = create<GameState & GameActions>()(
               bossOutcome: 'victory',
             };
           }
-          if (newPlayerHp <= 0) {
+          if (playerHp <= 0) {
             set({
-              bossState: { ...state.bossState, bossCurrentHp: newBossHp },
+              bossState: updatedBoss,
               currentHp: 0,
               nextActiveSkillAt,
               skillTimers: newTimers,
@@ -1844,8 +1885,8 @@ export const useGameStore = create<GameState & GameActions>()(
           }
 
           set({
-            bossState: { ...state.bossState, bossCurrentHp: newBossHp },
-            currentHp: newPlayerHp,
+            bossState: updatedBoss,
+            currentHp: playerHp,
             nextActiveSkillAt,
             skillTimers: newTimers,
           });

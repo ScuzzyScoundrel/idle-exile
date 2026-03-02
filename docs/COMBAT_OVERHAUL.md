@@ -4,7 +4,7 @@
 > At the start of any session, read this file to pick up where the last session left off.
 > Last updated: 2026-03-02
 
-## Current Sprint: **10N — Skill XP + Passive Points** ✅ COMPLETE
+## Current Sprint: **10O — Per-Hit Defense System** ✅ COMPLETE
 
 ---
 
@@ -198,6 +198,35 @@
 
 ### No save migration needed:
 `skillProgress` entries are created on-the-fly when missing. Active skills start at level 0, XP 0. Existing saves work seamlessly.
+
+---
+
+## Sprint 10O: Per-Hit Defense System
+**Goal:** Replace abstract `calcDefensiveEfficiency()` combat math with per-hit defense rolls mirroring the offense pipeline. Each incoming attack rolls: dodge → block → armor → resist.
+**Status:** COMPLETE
+
+### Checklist:
+- [x] `rollZoneAttack()` — single hit through dodge/block/armor/resist pipeline
+- [x] `simulateClearDefense()` — N zone attacks per clear with regen/leech
+- [x] `calcBossAttackProfile()` — per-hit boss stats (replaces `calcBossDps`)
+- [x] BossState expanded: `bossDamagePerHit`, `bossAttackInterval`, `bossNextAttackAt`, `bossAccuracy`, `bossPhysRatio`
+- [x] `processNewClears()` uses `simulateClearDefense` instead of `applyNormalClearHp`
+- [x] `tickCombat()` boss path: per-hit attacks at intervals + regen + leech (replaces `bossDps * dtSec`)
+- [x] `applyBossDamage()` helper: per-hit boss attacks with `bossNextAttackAt` tracking
+- [x] 7 new balance constants, 4 old constants removed
+- [x] `calcDefensiveEfficiency()` kept for UI display only
+- [x] ZoneScreen HP interpolation updated (deterministic estimate for smooth preview)
+- [x] `npm run build` passes (~504 kB)
+
+### Files modified:
+- `data/balance.ts` — new constants (ZONE_ATTACK_INTERVAL, ZONE_DMG_BASE, ZONE_PHYS_RATIO, BOSS_DMG_PER_HIT_BASE, BOSS_ATTACK_INTERVAL, LEECH_PERCENT, MAX_REGEN_RATIO), removed CLEAR_DAMAGE_RATIO/BOSS_DPS_BASE/BOSS_DPS_ZONE_FACTOR/BOSS_DAMAGE_MULTIPLIER
+- `types/index.ts` — BossState interface expanded with per-hit fields
+- `engine/zones.ts` — rollZoneAttack, simulateClearDefense, calcBossAttackProfile, updated createBossEncounter, removed applyNormalClearHp/calcDamagePerClear/calcRegenPerClear/calcBossDps
+- `store/gameStore.ts` — processNewClears HP section + tickCombat boss path + applyBossDamage helper
+- `ui/screens/ZoneScreen.tsx` — removed applyNormalClearHp import, deterministic HP interpolation
+
+### No save migration needed:
+BossState is ephemeral (created fresh each boss fight). Per-clear defense applied immediately on existing saves.
 
 ---
 

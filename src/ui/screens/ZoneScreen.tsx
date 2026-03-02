@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useGameStore, ProcessClearsResult, useHasHydrated } from '../../store/gameStore';
 import { ZONE_DEFS, BAND_NAMES } from '../../data/zones';
-import { checkZoneMastery, applyNormalClearHp, calcXpScale } from '../../engine/zones';
+import { checkZoneMastery, calcXpScale } from '../../engine/zones';
 import { calcDefensiveEfficiency } from '../../engine/setBonus';
 import { canGatherInZone, getGatheringSkillRequirement, calcGatheringXpRequired } from '../../engine/gathering';
 import { GATHERING_PROFESSION_DEFS } from '../../data/gatheringProfessions';
@@ -945,9 +945,13 @@ export default function ZoneScreen() {
     : 0;
   let displayHp = currentHp;
   if (isRunning && idleMode === 'combat' && combatPhase === 'clearing' && runningZone) {
+    // Deterministic HP preview for smooth interpolation (actual combat uses per-hit rolls)
     const stats = resolveStats(character);
     const defEff = calcDefensiveEfficiency(stats, runningZone.band, runningZone.iLvlMin);
-    const nextHp = applyNormalClearHp(currentHp, stats.maxLife, defEff, character.level, runningZone.iLvlMin, currentClearTime, stats.lifeRegen);
+    const estDamage = stats.maxLife * 0.15 * Math.max(0, (1 - defEff) / 0.8);
+    const estRegen = stats.maxLife * 0.08 + stats.lifeRegen * currentClearTime;
+    const estNetChange = estDamage - estRegen;
+    const nextHp = Math.max(0, Math.min(stats.maxLife, currentHp - estNetChange));
     displayHp = currentHp + (nextHp - currentHp) * clearProgress;
   }
 

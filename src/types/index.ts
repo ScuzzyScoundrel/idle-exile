@@ -298,9 +298,14 @@ export interface BossState {
   bossName: string;
   bossMaxHp: number;
   bossCurrentHp: number;
-  playerDps: number;   // damage to boss per second
-  bossDps: number;     // damage to player per second
-  startedAt: number;   // timestamp
+  playerDps: number;           // damage to boss per second (kept for victory overlay stats)
+  bossDps: number;             // effective boss DPS (computed from per-hit: dmg/interval, for UI display)
+  bossDamagePerHit: number;    // base damage per boss attack
+  bossAttackInterval: number;  // seconds between boss attacks
+  bossNextAttackAt: number;    // timestamp of next boss attack (ms)
+  bossAccuracy: number;        // boss accuracy for dodge calc
+  bossPhysRatio: number;       // physical vs elemental split (0-1)
+  startedAt: number;           // timestamp
 }
 
 // --- Currencies ---

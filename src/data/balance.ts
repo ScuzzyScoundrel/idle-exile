@@ -243,9 +243,7 @@ export const CATALYST_ILVL_BONUS: Record<RareMaterialRarity, number> = {
 // COMBAT & BOSS MECHANICS
 // =============================================
 
-/** maxHp fraction taken at worst defenses per normal clear. */
-export const CLEAR_DAMAGE_RATIO = 0.15;
-/** maxHp fraction regenerated per normal clear. */
+/** maxHp fraction regenerated per normal clear (passive base regen). */
 export const CLEAR_REGEN_RATIO = 0.08;
 
 /** Damage amp per level underleveled (exponential). 5 levels under = 1.76x damage taken. */
@@ -262,16 +260,7 @@ export const ZONE_ILVL_PRESSURE_SCALE = 0.04;
 export const BOSS_INTERVAL = 10;
 /** Base boss HP (band 1). Scales with band^2. Overgeared players melt it fast — that's intended. */
 export const BOSS_BASE_HP = 150;
-/** Boss damage multiplier (tuning knob). Set to 1.0 in 8E-2 — base pressure formula handles scaling. */
-export const BOSS_DAMAGE_MULTIPLIER = 1.0;
-
-/** Boss DPS base: combined with band^1.5 for per-band scaling. */
-export const BOSS_DPS_BASE = 4;
-
-/** Zone-specific boss variation: baseClearTime * this factor added to base pressure. */
-export const BOSS_DPS_ZONE_FACTOR = 0.2;
-
-/** Each unresisted hazard adds this fraction of base pressure as bonus boss damage. */
+/** Each unresisted hazard adds this fraction of base boss damage as bonus elemental damage. */
 export const BOSS_HAZARD_DAMAGE_RATIO = 0.15;
 /** Boss drops at iLvlMax + this. */
 export const BOSS_ILVL_BONUS = 5;
@@ -283,6 +272,25 @@ export const BOSS_VICTORY_DURATION = 5.0;
 export const BOSS_DEFEAT_RECOVERY = 5.0;
 /** Fraction of missing HP healed after boss victory (1.0 = full heal). */
 export const BOSS_VICTORY_HEAL_RATIO = 0.6;
+
+// =============================================
+// PER-HIT DEFENSE SYSTEM
+// =============================================
+
+/** Seconds between zone attacks during normal clears. */
+export const ZONE_ATTACK_INTERVAL = 1.0;
+/** Base zone damage per hit at band 1. Scales linearly with band. */
+export const ZONE_DMG_BASE = 12;
+/** Fraction of zone damage that's physical (rest is elemental). */
+export const ZONE_PHYS_RATIO = 0.7;
+/** Boss damage per hit base. Scales with band^2. */
+export const BOSS_DMG_PER_HIT_BASE = 8;
+/** Seconds between boss attacks. */
+export const BOSS_ATTACK_INTERVAL = 1.5;
+/** Innate life leech: fraction of damage dealt that heals player. */
+export const LEECH_PERCENT = 0.02;
+/** Max regen per clear as fraction of maxHP (prevents immortality). */
+export const MAX_REGEN_RATIO = 0.25;
 
 // =============================================
 // SKILL AUTO-CAST

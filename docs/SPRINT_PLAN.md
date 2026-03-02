@@ -65,6 +65,7 @@ Each conversation = one micro-sprint (3-5 focused changes):
 | **10L** | **Cooldown UI + Visual Polish: floater centering/rounding fixes, cooldown sweep overlays, active buff sweep** |
 | **10M** | **Multi-Skill Rotation: cooldown-based rotation engine, per-skill CDs (3-12s tiers), GCD system, cooldown sweep UI, any-slot equip** |
 | **10N** | **Skill XP + Passive Points: all equipped skills earn XP, max level 20, quadratic XP curve, level badges on skill bar** |
+| **10O** | **Per-Hit Defense System: rollZoneAttack pipeline (dodge→block→armor→resist), simulateClearDefense, boss per-hit attacks, life leech, regen cap** |
 
 See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
 

@@ -5,7 +5,6 @@
 
 import type { Character, ZoneDef, IdleRunResult, Item, CurrencyType, GearSlot, ResolvedStats, AbilityEffect, GatheringProfession, BossState, CombatClearResult, ActiveSkillDef } from '../types';
 import { generateItem, generateGatheringItem } from './items';
-import { calcDefensiveEfficiency } from './setBonus';
 import { calcTotalDps, getWeaponDamageInfo } from './character';
 import { calcSkillDps, calcSkillDamagePerCast, getDefaultSkillForWeapon } from './unifiedSkills';
 import { getSkillDef } from '../data/unifiedSkills';
@@ -19,10 +18,14 @@ import {
   CURRENCY_DROP_CHANCES, GOLD_PER_BAND, XP_PER_BAND, BAG_DROP_CHANCE,
   POWER_DIVISOR, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO,
   HAZARD_PENALTY_FLOOR, HAZARD_OVERCAP_MULT,
-  CLEAR_DAMAGE_RATIO, CLEAR_REGEN_RATIO, BOSS_BASE_HP,
-  BOSS_DAMAGE_MULTIPLIER, BOSS_DPS_BASE, BOSS_DPS_ZONE_FACTOR, BOSS_HAZARD_DAMAGE_RATIO,
+  CLEAR_REGEN_RATIO, BOSS_BASE_HP,
+  BOSS_HAZARD_DAMAGE_RATIO,
   BOSS_ILVL_BONUS, BOSS_DROP_COUNT_MIN, BOSS_DROP_COUNT_MAX,
   LEVEL_DAMAGE_BASE, OVERLEVEL_DAMAGE_REDUCTION, OVERLEVEL_DAMAGE_FLOOR, UNDERLEVEL_MIN_NET_DAMAGE,
+  ZONE_ATTACK_INTERVAL, ZONE_DMG_BASE, ZONE_PHYS_RATIO, ZONE_ACCURACY_BASE,
+  BLOCK_CAP, BLOCK_REDUCTION,
+  BOSS_DMG_PER_HIT_BASE, BOSS_ATTACK_INTERVAL,
+  LEECH_PERCENT, MAX_REGEN_RATIO,
 } from '../data/balance';
 
 // --- Gear slots used for random item drops ---
@@ -524,43 +527,100 @@ export function calcLevelDamageMult(playerLevel: number, zoneILvlMin: number): n
   return 1.0;
 }
 
-/** Damage taken per normal clear. levelDamageMult amplifies when underleveled. */
-export function calcDamagePerClear(maxHp: number, defEff: number, levelDamageMult: number = 1.0): number {
-  const scale = Math.max(0, (1.0 - defEff) / 0.8); // wider range with new min 0.2
-  return maxHp * CLEAR_DAMAGE_RATIO * scale * levelDamageMult;
-}
+// ── Per-Hit Defense Pipeline ──
 
-/** HP regen per normal clear. lifeRegen stat from gear contributes based on clear duration. */
-export function calcRegenPerClear(maxHp: number, clearTime: number = 0, lifeRegen: number = 0): number {
-  return maxHp * CLEAR_REGEN_RATIO + lifeRegen * clearTime;
+/**
+ * Roll one incoming attack through the defense pipeline:
+ *   1. Dodge (evasion vs accuracy)
+ *   2. Block (chance, blocked hits deal 25% damage)
+ *   3. Armor mitigation (PoE-style, physical portion only)
+ *   4. Resist mitigation (elemental portion, average of capped resists)
+ */
+export function rollZoneAttack(
+  rawDamage: number,
+  physRatio: number,
+  zoneAccuracy: number,
+  stats: ResolvedStats,
+): { damage: number; isDodged: boolean; isBlocked: boolean } {
+  // 1. Dodge check
+  const dodgeChance = stats.evasion / (stats.evasion + zoneAccuracy);
+  if (Math.random() < dodgeChance) {
+    return { damage: 0, isDodged: true, isBlocked: false };
+  }
+
+  let physDmg = rawDamage * physRatio;
+  let eleDmg = rawDamage * (1 - physRatio);
+
+  // 2. Block check
+  const blockChance = Math.min(stats.blockChance, BLOCK_CAP) / 100;
+  const isBlocked = Math.random() < blockChance;
+  if (isBlocked) {
+    physDmg *= (1 - BLOCK_REDUCTION);
+    eleDmg *= (1 - BLOCK_REDUCTION);
+  }
+
+  // 3. Armor mitigation (PoE-style, physical only)
+  if (physDmg > 0) {
+    const armorReduction = stats.armor / (stats.armor + 5 * physDmg);
+    physDmg *= (1 - armorReduction);
+  }
+
+  // 4. Resist mitigation (elemental, average of capped resists)
+  if (eleDmg > 0) {
+    const avgResist = (
+      Math.min(stats.fireResist, 75) +
+      Math.min(stats.coldResist, 75) +
+      Math.min(stats.lightningResist, 75) +
+      Math.min(stats.chaosResist, 75)
+    ) / 4;
+    eleDmg *= (1 - avgResist / 100);
+  }
+
+  return { damage: Math.max(0, physDmg + eleDmg), isDodged: false, isBlocked };
 }
 
 /**
- * Apply one clear of HP change. Can die (HP reaches 0) if defense is too low.
- * Damage has variance (70%-130% of base) so HP isn't a flat drain.
- * When underleveled, a minimum net damage floor prevents immortality via regen.
+ * Simulate all incoming zone attacks during one clear.
+ * Returns new HP after damage and regen/leech.
  */
-export function applyNormalClearHp(
-  currentHp: number, maxHp: number, defEff: number,
-  playerLevel: number = 0, zoneILvlMin: number = 0,
-  clearTime: number = 0, lifeRegen: number = 0,
-): number {
-  const levelDamageMult = (playerLevel > 0 && zoneILvlMin > 0)
-    ? calcLevelDamageMult(playerLevel, zoneILvlMin) : 1.0;
-  const baseDamage = calcDamagePerClear(maxHp, defEff, levelDamageMult);
-  const damage = baseDamage * (0.7 + Math.random() * 0.6); // 70% to 130% variance
-  const regen = calcRegenPerClear(maxHp, clearTime, lifeRegen);
-  let netChange = damage - regen; // positive = net damage, negative = net heal
+export function simulateClearDefense(
+  currentHp: number, maxHp: number, stats: ResolvedStats,
+  zone: ZoneDef, playerLevel: number, clearTime: number,
+  playerDamageDealt: number,
+): { newHp: number; totalDamage: number; dodges: number; blocks: number; hits: number } {
+  const levelMult = calcLevelDamageMult(playerLevel, zone.iLvlMin);
+  const hitsPerClear = Math.max(1, Math.floor(clearTime / ZONE_ATTACK_INTERVAL));
+  const baseDmgPerHit = ZONE_DMG_BASE * zone.band * levelMult;
+  const zoneAccuracy = ZONE_ACCURACY_BASE * (1 + (zone.band - 1) * 0.5);
+  const physRatio = ZONE_PHYS_RATIO;
 
-  // Minimum unavoidable net damage when underleveled (prevents immortality)
-  const levelDelta = zoneILvlMin - playerLevel;
-  if (levelDelta > 0) {
-    const minNetDamage = maxHp * UNDERLEVEL_MIN_NET_DAMAGE * levelDelta;
-    netChange = Math.max(netChange, minNetDamage);
+  let totalDamage = 0;
+  let dodges = 0, blocks = 0, hits = 0;
+
+  for (let i = 0; i < hitsPerClear; i++) {
+    const variance = 0.8 + Math.random() * 0.4; // 80%-120%
+    const roll = rollZoneAttack(baseDmgPerHit * variance, physRatio, zoneAccuracy, stats);
+    if (roll.isDodged) { dodges++; continue; }
+    if (roll.isBlocked) blocks++;
+    hits++;
+    totalDamage += roll.damage;
   }
 
-  const newHp = currentHp - netChange;
-  return Math.max(0, Math.min(maxHp, newHp)); // clamp to [0, maxHp] — 0 = death
+  // Regen: passive + leech (capped at MAX_REGEN_RATIO of maxHP per clear)
+  const passiveRegen = maxHp * CLEAR_REGEN_RATIO + stats.lifeRegen * clearTime;
+  const leechHeal = playerDamageDealt * LEECH_PERCENT;
+  const totalRegen = Math.min(passiveRegen + leechHeal, maxHp * MAX_REGEN_RATIO);
+
+  // Underlevel minimum net damage (prevents immortality via regen stacking)
+  let netDamage = totalDamage - totalRegen;
+  const levelDelta = zone.iLvlMin - playerLevel;
+  if (levelDelta > 0) {
+    const minNet = maxHp * UNDERLEVEL_MIN_NET_DAMAGE * levelDelta;
+    netDamage = Math.max(netDamage, minNet);
+  }
+
+  const newHp = Math.max(0, Math.min(maxHp, currentHp - netDamage));
+  return { newHp, totalDamage, dodges, blocks, hits };
 }
 
 /** Boss HP pool. Scales with band^2. Overgeared players melt it — that's intended. */
@@ -568,41 +628,49 @@ export function calcBossMaxHp(zone: ZoneDef): number {
   return BOSS_BASE_HP * zone.band * zone.band;
 }
 
-/** Boss DPS against player. Zone-specific: baseClearTime drives variation within band,
- *  hazards add bonus damage based on player resists. Level scaling applied. */
-export function calcBossDps(char: Character, zone: ZoneDef, abilityEffect?: AbilityEffect): number {
+/**
+ * Calculate boss per-hit attack profile for the defense pipeline.
+ * Returns raw damage per hit, attack interval, accuracy, and phys ratio.
+ */
+export function calcBossAttackProfile(char: Character, zone: ZoneDef, abilityEffect?: AbilityEffect): {
+  damagePerHit: number; attackInterval: number; accuracy: number; physRatio: number;
+} {
   const effectiveStats = applyAbilityResists(char.stats, abilityEffect);
-  let defEff = calcDefensiveEfficiency(effectiveStats, zone.band, zone.iLvlMin);
-  defEff *= (abilityEffect?.defenseMult ?? 1);
-  // Map defEff [0.2, 1.0] → damage scale [1.0, 0.0]
-  const damageScale = Math.max(0, (1.0 - defEff) / 0.8);
+  const levelMult = calcLevelDamageMult(char.level, zone.iLvlMin);
+  const baseDmg = BOSS_DMG_PER_HIT_BASE * zone.band * zone.band * levelMult;
 
-  // Zone-specific base pressure: band^1.5 for progression + baseClearTime for per-zone variation
-  const basePressure = BOSS_DPS_BASE * Math.pow(zone.band, 1.5) + zone.baseClearTime * BOSS_DPS_ZONE_FACTOR;
-
-  // Hazard bonus: each unresisted hazard type adds bonus damage
+  // Hazard bonus: each unresisted hazard adds elemental damage
   let hazardBonus = 0;
   for (const hazard of zone.hazards) {
     const resist = effectiveStats[HAZARD_STAT_MAP[hazard.type]] ?? 0;
-    const reduction = Math.min(1, resist / (hazard.threshold * 1.5));
-    hazardBonus += basePressure * BOSS_HAZARD_DAMAGE_RATIO * (1 - reduction);
+    if (resist < hazard.threshold) hazardBonus += baseDmg * BOSS_HAZARD_DAMAGE_RATIO;
   }
 
-  // Level scaling: underleveled bosses hit harder, overleveled are easy
-  const levelMult = calcLevelDamageMult(char.level, zone.iLvlMin);
-
-  return (basePressure + hazardBonus) * damageScale * BOSS_DAMAGE_MULTIPLIER * levelMult;
+  return {
+    damagePerHit: baseDmg + hazardBonus,
+    attackInterval: BOSS_ATTACK_INTERVAL,
+    accuracy: ZONE_ACCURACY_BASE * (1 + zone.band * 0.5) * 1.5, // bosses are more accurate
+    physRatio: ZONE_PHYS_RATIO,
+  };
 }
 
-/** Create BossState at fight start. */
+/** Create BossState at fight start with per-hit attack profile. */
 export function createBossEncounter(char: Character, zone: ZoneDef, abilityEffect?: AbilityEffect, equippedSkills?: (string | null)[]): BossState {
   const bossHp = calcBossMaxHp(zone);
+  const profile = calcBossAttackProfile(char, zone, abilityEffect);
+  // Compute effective DPS for UI display: dmg/interval (pre-mitigation)
+  const effectiveBossDps = profile.damagePerHit / profile.attackInterval;
   return {
     bossName: zone.bossName,
     bossMaxHp: bossHp,
     bossCurrentHp: bossHp,
     playerDps: calcPlayerDps(char, abilityEffect, equippedSkills),
-    bossDps: calcBossDps(char, zone, abilityEffect),
+    bossDps: effectiveBossDps,
+    bossDamagePerHit: profile.damagePerHit,
+    bossAttackInterval: profile.attackInterval,
+    bossNextAttackAt: Date.now(),
+    bossAccuracy: profile.accuracy,
+    bossPhysRatio: profile.physRatio,
     startedAt: Date.now(),
   };
 }
