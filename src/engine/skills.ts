@@ -56,6 +56,12 @@ export function calcSkillDamagePerCast(
   if (tags.includes('Fire')) totalInc += stats.incFireDamage + stats.incElementalDamage;
   if (tags.includes('Cold')) totalInc += stats.incColdDamage + stats.incElementalDamage;
   if (tags.includes('Lightning')) totalInc += stats.incLightningDamage + stats.incElementalDamage;
+  // Delivery tag scaling
+  if (tags.includes('Melee'))      totalInc += stats.incMeleeDamage;
+  if (tags.includes('Projectile')) totalInc += stats.incProjectileDamage;
+  if (tags.includes('AoE'))        totalInc += stats.incAoEDamage;
+  if (tags.includes('DoT'))        totalInc += stats.incDoTDamage;
+  if (tags.includes('Channel'))    totalInc += stats.incChannelDamage;
 
   const incMult = 1 + totalInc / 100;
 

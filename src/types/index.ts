@@ -23,6 +23,11 @@ export type AffixCategory =
   | 'inc_fire_damage'
   | 'inc_cold_damage'
   | 'inc_lightning_damage'
+  | 'inc_melee_damage'
+  | 'inc_projectile_damage'
+  | 'inc_aoe_damage'
+  | 'inc_dot_damage'
+  | 'inc_channel_damage'
   | 'attack_speed'
   | 'cast_speed'
   | 'accuracy'
@@ -140,6 +145,12 @@ export type StatKey =
   | 'incFireDamage'
   | 'incColdDamage'
   | 'incLightningDamage'
+  // Delivery
+  | 'incMeleeDamage'
+  | 'incProjectileDamage'
+  | 'incAoEDamage'
+  | 'incDoTDamage'
+  | 'incChannelDamage'
   | 'critChance'
   | 'critMultiplier'
   | 'abilityHaste'
@@ -561,6 +572,52 @@ export interface ActiveSkillDef {
   hitCount?: number;            // hits per use (default 1)
   dotDuration?: number;         // DoT seconds
   dotDamagePercent?: number;    // % of hit applied as DoT per second (0.3 = 30%)
+}
+
+// --- Unified Skills (10F) ---
+
+export type SkillKind = 'active' | 'passive' | 'buff' | 'instant' | 'proc' | 'toggle' | 'ultimate';
+
+export interface SkillDef {
+  id: string;
+  name: string;
+  description: string;
+  weaponType: WeaponType;
+  kind: SkillKind;
+  tags: DamageTag[];
+  icon: string;
+  levelRequired: number;
+  // Damage fields (kind === 'active')
+  baseDamage: number;
+  weaponDamagePercent: number;
+  spellPowerRatio: number;
+  castTime: number;
+  cooldown: number;
+  hitCount?: number;
+  dotDuration?: number;
+  dotDamagePercent?: number;
+  // Buff/utility fields (non-active kinds)
+  duration?: number;
+  effect?: AbilityEffect;
+  skillTree?: AbilitySkillTree;
+}
+
+export interface EquippedSkill {
+  skillId: string;
+  autoCast: boolean;
+}
+
+export interface SkillProgress {
+  skillId: string;
+  xp: number;
+  level: number;
+  allocatedNodes: string[];
+}
+
+export interface SkillTimerState {
+  skillId: string;
+  activatedAt: number | null;
+  cooldownUntil: number | null;
 }
 
 // --- Game State ---

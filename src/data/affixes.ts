@@ -186,6 +186,45 @@ export const AFFIX_DEFS: AffixDef[] = [
   },
 
   // ================================================================
+  // PREFIXES — Delivery Tag Damage
+  // ================================================================
+  {
+    id: 'inc_melee_damage', name: 'of the Gladiator', category: 'inc_melee_damage',
+    slot: 'prefix', stat: 'incMeleeDamage',
+    allowedSlots: ['attack_weapons', 'gloves', 'amulets'],
+    tiers: buildTiers(3, 5, 5, 8, 8, 14, 14, 22, 20, 30, 28, 40),
+    weight: 60, displayTemplate: '+{value}% Melee Damage',
+  },
+  {
+    id: 'inc_projectile_damage', name: 'of Marksmanship', category: 'inc_projectile_damage',
+    slot: 'prefix', stat: 'incProjectileDamage',
+    allowedSlots: ['all_weapons', 'gloves', 'amulets'],
+    tiers: buildTiers(3, 5, 5, 8, 8, 14, 14, 22, 20, 30, 28, 40),
+    weight: 60, displayTemplate: '+{value}% Projectile Damage',
+  },
+  {
+    id: 'inc_aoe_damage', name: 'of Cataclysm', category: 'inc_aoe_damage',
+    slot: 'prefix', stat: 'incAoEDamage',
+    allowedSlots: ['all_weapons', 'amulets'],
+    tiers: buildTiers(3, 5, 5, 8, 8, 14, 14, 22, 20, 30, 28, 40),
+    weight: 50, displayTemplate: '+{value}% AoE Damage',
+  },
+  {
+    id: 'inc_dot_damage', name: 'of Affliction', category: 'inc_dot_damage',
+    slot: 'prefix', stat: 'incDoTDamage',
+    allowedSlots: ['all_weapons', 'rings', 'amulets'],
+    tiers: buildTiers(3, 5, 5, 8, 8, 14, 14, 22, 20, 30, 28, 40),
+    weight: 50, displayTemplate: '+{value}% DoT Damage',
+  },
+  {
+    id: 'inc_channel_damage', name: 'of Focus', category: 'inc_channel_damage',
+    slot: 'prefix', stat: 'incChannelDamage',
+    allowedSlots: ['spell_weapons', 'amulets'],
+    tiers: buildTiers(3, 5, 5, 8, 8, 14, 14, 22, 20, 30, 28, 40),
+    weight: 40, displayTemplate: '+{value}% Channel Damage',
+  },
+
+  // ================================================================
   // PREFIXES — Speed & Accuracy
   // ================================================================
   {
