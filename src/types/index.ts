@@ -522,6 +522,36 @@ export interface CraftingMilestone {
   description: string;
 }
 
+// --- Active Skills ---
+
+/** Damage tags — determine which stats apply to a skill. */
+export type DamageTag =
+  // Source
+  | 'Attack' | 'Spell'
+  // Delivery
+  | 'Melee' | 'Projectile' | 'AoE' | 'DoT' | 'Channel'
+  // Element
+  | 'Physical' | 'Fire' | 'Cold' | 'Lightning' | 'Chaos';
+
+export interface ActiveSkillDef {
+  id: string;
+  name: string;
+  description: string;
+  weaponType: WeaponType;
+  tags: DamageTag[];
+  baseDamage: number;           // flat base damage from skill itself
+  weaponDamagePercent: number;  // Attack skills: % of weapon phys damage added (1.0 = 100%)
+  spellPowerRatio: number;      // Spell skills: % of spell power added (1.0 = 100%)
+  castTime: number;             // seconds per use
+  cooldown: number;             // seconds between uses (0 = spammable)
+  levelRequired: number;        // character level to unlock
+  icon: string;                 // emoji for now
+  // Optional mechanics
+  hitCount?: number;            // hits per use (default 1)
+  dotDuration?: number;         // DoT seconds
+  dotDamagePercent?: number;    // % of hit applied as DoT per second (0.3 = 30%)
+}
+
 // --- Game State ---
 
 export interface GameState {
@@ -579,6 +609,9 @@ export interface GameState {
   // Stats tracking
   totalKills: number;
   fastestClears: Record<string, number>;  // zoneId → fastest clear time in seconds
+
+  // Active skills (v24)
+  equippedSkills: (string | null)[];  // ActiveSkillDef IDs, 4 slots
 
   // Tutorial
   tutorialStep: number;

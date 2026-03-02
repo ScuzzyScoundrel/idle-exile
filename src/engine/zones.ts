@@ -7,6 +7,8 @@ import type { Character, ZoneDef, IdleRunResult, Item, CurrencyType, GearSlot, R
 import { generateItem, generateGatheringItem } from './items';
 import { calcDefensiveEfficiency } from './setBonus';
 import { calcTotalDps, getWeaponDamageInfo } from './character';
+import { calcSkillDps, getDefaultSkillForWeapon } from './skills';
+import { getSkillDef } from '../data/skills';
 import { calcGatheringYield } from './gathering';
 import { rollRareMaterialDrop } from './rareMaterials';
 import { BAG_UPGRADE_DEFS } from '../data/items';
@@ -92,10 +94,11 @@ export function checkZoneMastery(stats: ResolvedStats, zone: ZoneDef): boolean {
 }
 
 /**
- * Calculate player's total DPS using the new multi-component DPS formula.
- * Uses weapon info from character equipment.
+ * Calculate player's total DPS using skill-based or legacy formula.
+ * If equippedSkills[0] is set, uses tag-based skill DPS.
+ * Otherwise falls back to the legacy calcTotalDps formula.
  */
-export function calcPlayerDps(char: Character, abilityEffect?: AbilityEffect): number {
+export function calcPlayerDps(char: Character, abilityEffect?: AbilityEffect, equippedSkills?: (string | null)[]): number {
   const stats = char.stats;
   const { avgDamage, spellPower } = getWeaponDamageInfo(char.equipment);
 
@@ -104,7 +107,27 @@ export function calcPlayerDps(char: Character, abilityEffect?: AbilityEffect): n
   if (abilityEffect?.critChanceBonus) effectiveStats.critChance += abilityEffect.critChanceBonus;
   if (abilityEffect?.critMultiplierBonus) effectiveStats.critMultiplier += abilityEffect.critMultiplierBonus;
 
-  let dps = calcTotalDps(effectiveStats, avgDamage, spellPower);
+  let dps: number;
+
+  // Try skill-based DPS first
+  const activeSkillId = equippedSkills?.[0];
+  const skillDef = activeSkillId ? getSkillDef(activeSkillId) : null;
+
+  if (skillDef) {
+    // Skill-based DPS (tag-based additive %inc)
+    dps = calcSkillDps(skillDef, effectiveStats, avgDamage, spellPower);
+  } else {
+    // Auto-assign default skill based on weapon type
+    const weaponType = char.equipment.mainhand?.weaponType;
+    const defaultSkill = weaponType ? getDefaultSkillForWeapon(weaponType, char.level) : null;
+
+    if (defaultSkill) {
+      dps = calcSkillDps(defaultSkill, effectiveStats, avgDamage, spellPower);
+    } else {
+      // No weapon or no skill — fall back to legacy formula
+      dps = calcTotalDps(effectiveStats, avgDamage, spellPower);
+    }
+  }
 
   // Apply ability damage multiplier
   dps *= (abilityEffect?.damageMult ?? 1);
@@ -116,7 +139,7 @@ export function calcPlayerDps(char: Character, abilityEffect?: AbilityEffect): n
 
 /**
  * Calculate how long (in seconds) a character takes to clear a zone.
- * Uses the new DPS formula with weapon info.
+ * Uses skill-based DPS when equippedSkills provided, otherwise legacy formula.
  * classDamageMult: Warrior rage / Mage charge damage bonus (default 1.0).
  * classSpeedMult: Rogue momentum speed bonus (default 1.0).
  */
@@ -126,8 +149,9 @@ export function calcClearTime(
   abilityEffect?: AbilityEffect,
   classDamageMult: number = 1.0,
   classSpeedMult: number = 1.0,
+  equippedSkills?: (string | null)[],
 ): number {
-  const playerDps = calcPlayerDps(char, abilityEffect) * classDamageMult;
+  const playerDps = calcPlayerDps(char, abilityEffect, equippedSkills) * classDamageMult;
 
   // Apply ability resist bonus to stats for hazard calculations
   const effectiveStats = applyAbilityResists(char.stats, abilityEffect);
@@ -457,13 +481,13 @@ export function calcBossDps(char: Character, zone: ZoneDef, abilityEffect?: Abil
 }
 
 /** Create BossState at fight start. */
-export function createBossEncounter(char: Character, zone: ZoneDef, abilityEffect?: AbilityEffect): BossState {
+export function createBossEncounter(char: Character, zone: ZoneDef, abilityEffect?: AbilityEffect, equippedSkills?: (string | null)[]): BossState {
   const bossHp = calcBossMaxHp(zone);
   return {
     bossName: zone.bossName,
     bossMaxHp: bossHp,
     bossCurrentHp: bossHp,
-    playerDps: calcPlayerDps(char, abilityEffect),
+    playerDps: calcPlayerDps(char, abilityEffect, equippedSkills),
     bossDps: calcBossDps(char, zone, abilityEffect),
     startedAt: Date.now(),
   };

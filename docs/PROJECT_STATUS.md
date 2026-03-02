@@ -1,10 +1,19 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-01 (Post-Sprint 9D: Crafting Screen Polish)
+> Last updated: 2026-03-01 (Post-Sprint 10A: Active Skills & Damage Tags Foundation)
 
 ## Current Phase
-**Sprint 9D: Crafting Screen Polish** — COMPLETE.
+**Sprint 10A: Active Skills & Damage Tags (Foundation)** — COMPLETE.
+- **DamageTag type + ActiveSkillDef interface**: New `DamageTag` union (Attack/Spell/Melee/Projectile/AoE/DoT/Channel/Physical/Fire/Cold/Lightning/Chaos). `ActiveSkillDef` with baseDamage, weaponDamagePercent, spellPowerRatio, castTime, cooldown, hitCount, dotDuration, dotDamagePercent.
+- **48 active skill definitions**: `src/data/skills.ts` — 6 skills per weapon type × 8 weapons (sword, axe, mace, dagger, staff, wand, bow, crossbow). Each weapon: 1 basic spammable, 1 fast/multi-hit, 1 AoE, 1 elemental variant, 1 utility, 1 cooldown nuke. Exports `ACTIVE_SKILL_DEFS`, `getSkillsForWeapon()`, `getSkillDef()`.
+- **Tag-based DPS engine**: `src/engine/skills.ts` — `calcSkillDps()` uses PoE-style ADDITIVE `%increased`. Tag matching: Attack→incAttackDamage, Spell→incSpellDamage, Physical→incPhysDamage, Fire→incFireDamage+incElementalDamage, etc. Chaos intentionally has no incElementalDamage. DoT bonus: `(hitDmg * dotDmgPct * dotDuration) / castTime`. Also exports `getDefaultSkillForWeapon()`, `calcMobHp()`.
+- **Wired into combat engine**: `calcPlayerDps()` in `engine/zones.ts` now uses `calcSkillDps()` when equippedSkills[0] set, auto-assigns default skill for weapon type if no skill set, falls back to legacy formula only if no weapon. All `calcClearTime` and `createBossEncounter` callers pass `equippedSkills`.
+- **State + v24 migration**: `equippedSkills: (string | null)[]` added to GameState. `equipItem` auto-assigns default skill on weapon equip. `unequipSlot` clears skills on mainhand removal. Save v23→v24 migration auto-assigns default skill. Rehydrate auto-assigns if weapon equipped but skill missing.
+- **Balance**: %increased is now ADDITIVE (PoE-style), not multiplicative. ~10-15% lower DPS at mid-game vs old formula. Mob HP model: `mobHp = baseClearTime * POWER_DIVISOR` (mathematically equivalent to old formula).
+- **Next: Sprint 10B** — Full combat sim per clear (crits, dodges, misses, DoT ticks). See SPRINT_PLAN.md for detailed spec.
+
+**Sprint 9D: Crafting Screen Polish** — COMPLETE (previous).
 - **Material tooltips on recipe cards**: Material pills in recipe cards now wrapped in `<Tooltip>` with `getMatTooltip()`. Shows formatted material name + gathering source + zone locations on hover/tap. Gold pill also has tooltip.
 - **Zone source info in tooltips**: Static reverse lookup `materialToZones` built from `ZONE_DEFS`. Raw material tooltips show "Found in: Zone1, Zone2". Refined material tooltips show "Source: Zone1, Zone2" (zones where the raw ingredient drops).
 - **Formatted material names on zone cards**: Zone cards in combat mode now show "emberwood logs, ragged pelts" instead of raw IDs "emberwood_logs, ragged_pelts".
@@ -91,7 +100,8 @@ Bottom: mainhand, offhand, trinket1, trinket2
 - **Per-clear tracking**: `clearStartedAt` + `currentClearTime` replace modulo-based progress. Mid-clear ability activation preserves progress % but adjusts remaining time.
 - **Bag system**: 5 equippable bag slots (T1:6→T5:14). Start 30 total, max 70.
 - **Crafting (currencies)**: `applyCurrency(item, type)` — augment, chaos, divine, annul, exalt, greater_exalt (top-2 tiers), perfect_exalt (T1 guaranteed)
-- **Save**: Zustand persist v23. v22→v23 adds `autoDisposalAction: 'salvage'`. v21→v22 renames `materials.salvage_dust` → `materials.enchanting_essence`. v20→v21 adds `greater_exalt` + `perfect_exalt` currencies. Migrations: v11→v12 adds `craftingSkills`, v12→v13 adds leatherworker + jeweler skills, v13→v14 adds `craftAutoSalvageMinRarity`, v14→v15 adds `zoneClearCounts` + combat HP fields, v17→v18 adds `classResource` + `classSelected`, v18→v19 adds `abilityProgress` + `clearStartedAt` + `currentClearTime` (clears old mutator selections).
+- **Active skills**: 48 skills (6 per weapon × 8 weapons). Tag-based DPS: `calcSkillDps()` computes base damage → additive %increased → speed → hit chance → crit → hits → per-second → DoT bonus. Attack skills use weapon damage + flat phys/ele. Spell skills use spell power + flat spell ele. Default skill auto-assigned on weapon equip.
+- **Save**: Zustand persist v24. v23→v24 adds `equippedSkills` with auto-assigned default skill. v22→v23 adds `autoDisposalAction: 'salvage'`. v21→v22 renames `materials.salvage_dust` → `materials.enchanting_essence`. v20→v21 adds `greater_exalt` + `perfect_exalt` currencies. Migrations: v11→v12 adds `craftingSkills`, v12→v13 adds leatherworker + jeweler skills, v13→v14 adds `craftAutoSalvageMinRarity`, v14→v15 adds `zoneClearCounts` + combat HP fields, v17→v18 adds `classResource` + `classSelected`, v18→v19 adds `abilityProgress` + `clearStartedAt` + `currentClearTime` (clears old mutator selections).
 
 ## Architecture
 ```
@@ -110,6 +120,7 @@ src/
     zones.ts                — 30 zones with material names, recommendedLevel, gatheringTypes
     items.ts                — 345 item bases (56 mainhand w/ 8 weapon types) + 6 currency defs + 5 bag upgrade defs
     abilities.ts            — 24 ability defs (8 weapon types x 3) with skill trees
+    skills.ts               — 48 active skill definitions (6 per weapon × 8 types) with damage tags
     classes.ts              — 4 class definitions with resource config (warrior, mage, ranger, rogue)
     setBonuses.ts           — 4 armor-type set bonus definitions
   engine/                   — Pure TypeScript (no React)
@@ -120,6 +131,7 @@ src/
     refinement.ts           — canRefine(), refine(), canDeconstruct(), deconstruct(), getRefinementChain()
     craftingProfessions.ts  — addCraftingXp(), canCraftRecipe(), executeCraft(), getCraftingXpForTier()
     abilities.ts            — Ability effect resolution, skill tree, XP, timer management, aggregation
+    skills.ts               — Tag-based DPS engine: calcSkillDps(), getDefaultSkillForWeapon(), calcMobHp()
     classResource.ts        — Class resource pure functions (create, tick, decay, reset, modifiers)
     character.ts            — Stats resolution (13 stats), XP/leveling
     crafting.ts             — 6 currency crafting operations
@@ -147,6 +159,9 @@ src/
 ```
 
 ## Known Issues & Technical Debt
+- [ ] CharacterScreen DPS display shows old multiplicative formula; combat uses new additive skill-based formula (Sprint 10C will fix)
+- [ ] No skill equip UI yet — default skill auto-assigned, no player choice until Sprint 10C
+- [ ] `simulateIdleRun()` doesn't pass equippedSkills (offline uses auto-assign fallback — correct behavior)
 - [ ] Socket currency defined but no crafting logic
 - [ ] No trinket item bases (trinket1/trinket2 slots empty)
 - [ ] Set bonus UI not shown on character screen
@@ -159,17 +174,18 @@ src/
 **See `SPRINT_PLAN.md` for the full roadmap with detailed implementation notes.**
 
 Immediate priority:
-1. Phase 3 (UX/UI Overhaul) or additional economy tuning — see SPRINT_PLAN.md
+1. Sprint 10B: Full combat sim per clear (crits, dodges, misses, DoT ticks)
+2. Sprint 10C: Skill equip UI + skill detail panel
+3. Sprint 10D: Multi-skill rotation engine (auto-fire in sequence)
 
-Then Phase 4 (New Features) — all detailed in SPRINT_PLAN.md.
+Then later sprints:
+- Sprint 10E: Per-skill specialization trees (8-15 nodes each)
+- Sprint 10F: Class talent trees (20-40 nodes per class)
 
 Unfinished from original GDD scope (integrated into roadmap):
-- Talent tree (30-50 nodes per class) — not yet scheduled
-- Specialization system (one per character) — not yet scheduled
 - Socket crafting logic — not yet scheduled
 - More affix variety (slot-specific affixes) — not yet scheduled
 - Gathering gear equip/swap UI + dual loadout — Sprint 10I
-- Full ability population (50+ abilities, 10 per weapon type) — not yet scheduled
 
 ## How to Run
 ```bash
@@ -413,6 +429,16 @@ Replaced focus modes with Combat/Gathering toggle. 5 gathering professions with 
 - **Batch crafting (`craftRecipeBatch`)**: New store action following `refineMaterialBatch` pattern. Signature: `(recipeId, count, catalystId?, affixCatalystId?) => { crafted, lastItem, salvaged } | null`. Loops up to `count` times: checks `canCraftRecipe`, consumes materials/gold/catalysts, adds XP per iteration. Material recipes: increments output count. Item recipes: accumulates items array, single `addItemsWithOverflow()` at end. Returns summary for flash message.
 - **"All" button on recipe cards**: Added next to Craft/Brew button (same style pattern as Refine panel's "All" button). Calculates max craftable from materials/gold/catalysts. Flash message: "Crafted 5x Iron Sword (2 salvaged)" for items, "Crafted 10x Whetstone" for materials.
 - **Files changed**: `store/gameStore.ts` (new `craftRecipeBatch` action + interface type), `ui/screens/CraftingScreen.tsx` (tooltips, zone lookup, batch UI), `ui/screens/ZoneScreen.tsx` (material name formatting)
+
+### Sprint 10A Changes (Active Skills & Damage Tags Foundation)
+- **DamageTag type**: Union type with 12 tags: Attack, Spell, Melee, Projectile, AoE, DoT, Channel, Physical, Fire, Cold, Lightning, Chaos.
+- **ActiveSkillDef interface**: Full skill definition with baseDamage, weaponDamagePercent, spellPowerRatio, castTime, cooldown, levelRequired, icon, hitCount, dotDuration, dotDamagePercent.
+- **48 active skill definitions** (`src/data/skills.ts`): 6 per weapon × 8 weapons. Sword (Slash/Double Strike/Whirlwind/Flame Slash/Blade Ward/Mortal Strike), Axe (Chop/Frenzy/Cleave/Searing Axe/Rend/Decapitate), Mace (Crush/Rapid Strikes/Shockwave/Glacial Hammer/Concussive Blow/Pulverise), Dagger (Stab/Blade Flurry/Fan of Knives/Viper Strike/Smoke Screen/Assassinate), Staff (Arcane Bolt/Spark/Fireball/Ice Shard/Arcane Shield/Meteor), Wand (Magic Missile/Chain Lightning/Frostbolt/Searing Ray/Essence Drain/Void Blast), Bow (Arrow Shot/Rapid Fire/Multi-Shot/Burning Arrow/Smoke Arrow/Snipe), Crossbow (Bolt Shot/Burst Fire/Explosive Bolt/Frost Bolt/Net Shot/Siege Shot). Lookup maps: `getSkillsForWeapon()`, `getSkillDef()`.
+- **Tag-based DPS engine** (`src/engine/skills.ts`): `calcSkillDps(skill, stats, weaponAvgDmg, weaponSpellPower)`. Base damage: Attack=weapon*weaponDmgPct+flatPhys/ele, Spell=baseDmg+(SP)*ratio+flatSpellEle. %increased ADDITIVE (PoE-style): Attack→incAttackDmg, Spell→incSpellDmg, Physical→incPhysDmg, Fire→incFireDmg+incEleDmg, Cold→incColdDmg+incEleDmg, Lightning→incLtnDmg+incEleDmg, Chaos→nothing extra. Speed: Attack→attackSpeed, Spell→castSpeed. Hit chance: Attack→accuracy formula, Spell→1.0. Crit multiplier applied. Hit count multiplied. Per-second DPS. DoT bonus: `(hitDmg * dotDmgPct * dotDuration) / castTime * speedMult`.
+- **Combat engine wired** (`engine/zones.ts`): `calcPlayerDps()` now accepts optional `equippedSkills`. If skill set → `calcSkillDps()`. Else auto-assigns default for weapon type. Else falls back to legacy `calcTotalDps()`. `calcClearTime()` and `createBossEncounter()` pass equippedSkills through. All 4 store call sites updated.
+- **State + v24 migration** (`store/gameStore.ts`): `equippedSkills: [null, null, null, null]` added to initial state + GameState type. `equipItem`: auto-assigns default skill on weapon equip, clears on weapon unequip. `unequipSlot`: clears skills when mainhand removed. Migration v23→v24: auto-assigns default skill for equipped weapon. Rehydrate: auto-assigns if weapon equipped but skill[0] is null.
+- **Files added**: `src/data/skills.ts`, `src/engine/skills.ts`
+- **Files changed**: `src/types/index.ts`, `src/engine/zones.ts`, `src/store/gameStore.ts`, `docs/PROJECT_STATUS.md`
 
 ## Micro-Sprint Workflow
 Each conversation = one micro-sprint (3-5 related changes):

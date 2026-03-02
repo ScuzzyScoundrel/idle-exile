@@ -44,6 +44,7 @@ import {
   resetResourceOnEvent, getClassClearSpeedModifier, getClassDamageModifier,
   getClassLootModifier, dischargeMageCharges,
 } from '../engine/classResource';
+import { getDefaultSkillForWeapon } from '../engine/skills';
 
 
 const INITIAL_CURRENCIES: Record<CurrencyType, number> = {
@@ -288,6 +289,7 @@ function createInitialState(): GameState {
     classSelected: false,
     totalKills: 0,
     fastestClears: {},
+    equippedSkills: [null, null, null, null],
     tutorialStep: 1,
     lastSaveTime: Date.now(),
   };
@@ -366,7 +368,7 @@ export const useGameStore = create<GameState & GameActions>()(
           };
           newChar.stats = resolveStats(newChar);
 
-          // If mainhand changed, strip incompatible abilities
+          // If mainhand changed, strip incompatible abilities + auto-assign active skill
           const updates: Partial<GameState> = { character: newChar, inventory: newInventory };
           if (targetSlot === 'mainhand') {
             const newWeaponType = item.weaponType ?? null;
@@ -379,6 +381,14 @@ export const useGameStore = create<GameState & GameActions>()(
               const newTimers = state.abilityTimers.filter(t => !incompatible.includes(t.abilityId));
               updates.equippedAbilities = newAbilities;
               updates.abilityTimers = newTimers;
+            }
+
+            // Auto-assign default active skill for new weapon type
+            if (newWeaponType) {
+              const defaultSkill = getDefaultSkillForWeapon(newWeaponType, newChar.level);
+              updates.equippedSkills = [defaultSkill?.id ?? null, null, null, null];
+            } else {
+              updates.equippedSkills = [null, null, null, null];
             }
           }
 
@@ -403,10 +413,15 @@ export const useGameStore = create<GameState & GameActions>()(
             equipment: newEquipment,
           };
           newChar.stats = resolveStats(newChar);
-          return {
+          const updates: Partial<GameState> = {
             character: newChar,
             inventory: [...state.inventory, item],
           };
+          // Clear active skills when weapon is unequipped
+          if (slot === 'mainhand') {
+            updates.equippedSkills = [null, null, null, null];
+          }
+          return updates;
         });
       },
 
@@ -510,7 +525,7 @@ export const useGameStore = create<GameState & GameActions>()(
             );
             const classDmgMult = getClassDamageModifier(newResource, classDef);
             const classSpdMult = getClassClearSpeedModifier(newResource, classDef);
-            initialClearTime = calcClearTime(state.character, zone, abilityEffect, classDmgMult, classSpdMult);
+            initialClearTime = calcClearTime(state.character, zone, abilityEffect, classDmgMult, classSpdMult, state.equippedSkills);
           }
         }
 
@@ -726,7 +741,7 @@ export const useGameStore = create<GameState & GameActions>()(
         const updatedAbilityEffect = aggregateAbilityEffects(
           state.equippedAbilities, state.abilityTimers, newAbilityProgress, Date.now(), false,
         );
-        const newClearTime = calcClearTime(state.character, zone, updatedAbilityEffect, cDmgMult, cSpdMult);
+        const newClearTime = calcClearTime(state.character, zone, updatedAbilityEffect, cDmgMult, cSpdMult, state.equippedSkills);
 
         // Track fastest clear time for this zone
         const newFastestClears = { ...state.fastestClears };
@@ -812,7 +827,7 @@ export const useGameStore = create<GameState & GameActions>()(
         const cDef = getClassDef(state.character.class);
         const classDmgMult = getClassDamageModifier(state.classResource, cDef);
         const classSpdMult = getClassClearSpeedModifier(state.classResource, cDef);
-        return calcClearTime(state.character, zone, abilityEffect, classDmgMult, classSpdMult);
+        return calcClearTime(state.character, zone, abilityEffect, classDmgMult, classSpdMult, state.equippedSkills);
       },
 
       setIdleMode: (mode: IdleMode) => {
@@ -1376,7 +1391,7 @@ export const useGameStore = create<GameState & GameActions>()(
               );
               const classDmgMult = getClassDamageModifier(updates.classResource ?? state.classResource, cDef);
               const classSpdMult = getClassClearSpeedModifier(updates.classResource ?? state.classResource, cDef);
-              const newClearTime = calcClearTime(state.character, zone, newAbilityEffect, classDmgMult, classSpdMult);
+              const newClearTime = calcClearTime(state.character, zone, newAbilityEffect, classDmgMult, classSpdMult, state.equippedSkills);
 
               // Adjust clearStartedAt so progress % stays the same
               updates.clearStartedAt = now - clampedProgress * newClearTime * 1000;
@@ -1407,7 +1422,7 @@ export const useGameStore = create<GameState & GameActions>()(
         const zone = ZONE_DEFS.find(z => z.id === state.currentZoneId);
         if (!zone) return;
         const abilityEffect = aggregateAbilityEffects(state.equippedAbilities, state.abilityTimers, state.abilityProgress, Date.now(), false);
-        const boss = createBossEncounter(state.character, zone, abilityEffect);
+        const boss = createBossEncounter(state.character, zone, abilityEffect, state.equippedSkills);
         set({
           combatPhase: 'boss_fight' as CombatPhase,
           bossState: boss,
@@ -1541,7 +1556,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 23,
+      version: 24,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -1555,6 +1570,13 @@ export const useGameStore = create<GameState & GameActions>()(
           state.combatPhase = 'clearing';
           state.bossState = null;
           state.combatPhaseStartedAt = null;
+
+          // Auto-assign default active skill if weapon equipped but no skill set
+          if (state.character?.equipment?.mainhand?.weaponType && (!state.equippedSkills || !state.equippedSkills[0])) {
+            const wt = state.character.equipment.mainhand.weaponType;
+            const defaultSkill = getDefaultSkillForWeapon(wt, state.character.level);
+            state.equippedSkills = [defaultSkill?.id ?? null, null, null, null];
+          }
 
           const { currentZoneId, idleStartTime, character, idleMode } = state;
           if (!currentZoneId || !idleStartTime) return;
@@ -1960,6 +1982,17 @@ export const useGameStore = create<GameState & GameActions>()(
         if (version < 23) {
           // v23: Auto-disposal action (salvage vs sell toggle)
           raw.autoDisposalAction = 'salvage';
+        }
+
+        if (version < 24) {
+          // v24: Active skills system — auto-assign default skill for equipped weapon
+          const weaponType = state.character?.equipment?.mainhand?.weaponType;
+          if (weaponType) {
+            const defaultSkill = getDefaultSkillForWeapon(weaponType, state.character.level);
+            raw.equippedSkills = [defaultSkill?.id ?? null, null, null, null];
+          } else {
+            raw.equippedSkills = [null, null, null, null];
+          }
         }
 
         return state;
