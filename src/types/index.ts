@@ -247,6 +247,8 @@ export interface OfflineProgressSummary {
   items: Item[];
   autoSalvagedCount: number;
   autoSalvagedDust: number;
+  autoSoldCount: number;
+  autoSoldGold: number;
   goldGained: number;
   xpGained: number;
   materials: Record<string, number>;
@@ -546,8 +548,9 @@ export interface GameState {
   // Crafting professions
   craftingSkills: CraftingSkills;
 
-  // Auto-salvage
+  // Auto-salvage / auto-sell
   autoSalvageMinRarity: Rarity;
+  autoDisposalAction: 'salvage' | 'sell';
   craftAutoSalvageMinRarity: Rarity;
 
   // Offline progression

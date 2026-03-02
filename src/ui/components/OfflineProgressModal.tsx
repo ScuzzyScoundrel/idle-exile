@@ -62,7 +62,7 @@ export default function OfflineProgressModal() {
     .filter(([, val]) => val > 0);
 
   const hasResources = currencyEntries.length > 0 || materialEntries.length > 0
-    || bagEntries.length > 0 || progress.autoSalvagedDust > 0;
+    || bagEntries.length > 0 || progress.autoSalvagedDust > 0 || progress.autoSoldGold > 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
@@ -126,6 +126,11 @@ export default function OfflineProgressModal() {
               {progress.autoSalvagedCount > 0 && (
                 <p className="text-xs text-amber-400/80 mt-2">
                   ~{progress.autoSalvagedCount} will be auto-salvaged on claim (+{progress.autoSalvagedDust} essence)
+                </p>
+              )}
+              {progress.autoSoldCount > 0 && (
+                <p className="text-xs text-yellow-400/80 mt-1">
+                  ~{progress.autoSoldCount} will be auto-sold on claim (+{progress.autoSoldGold}g)
                 </p>
               )}
             </div>

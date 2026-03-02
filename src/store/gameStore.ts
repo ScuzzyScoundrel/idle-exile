@@ -98,24 +98,32 @@ function addItemsWithOverflow(
   inventory: Item[],
   inventoryCapacity: number,
   autoSalvageMinRarity: Rarity,
+  autoDisposalAction: 'salvage' | 'sell',
   materials: Record<string, number>,
   items: Item[],
-): { newInventory: Item[]; newMaterials: Record<string, number>; salvageStats: SalvageStats; keptItems: Item[] } {
+): { newInventory: Item[]; newMaterials: Record<string, number>; salvageStats: SalvageStats; autoSoldGold: number; autoSoldCount: number; keptItems: Item[] } {
   const newInventory = [...inventory];
   const newMaterials = { ...materials };
   const minOrder = RARITY_ORDER[autoSalvageMinRarity];
   let itemsSalvaged = 0;
   let dustGained = 0;
+  let autoSoldGold = 0;
+  let autoSoldCount = 0;
   const keptItems: Item[] = [];
 
   for (const item of items) {
-    // Auto-salvage by rarity threshold
+    // Auto-dispose by rarity threshold
     if (minOrder > 0 && RARITY_ORDER[item.rarity] < minOrder) {
-      dustGained += ESSENCE_REWARD[item.rarity];
-      itemsSalvaged++;
+      if (autoDisposalAction === 'sell') {
+        autoSoldGold += SELL_GOLD[item.rarity] + Math.floor(item.iLvl / 5);
+        autoSoldCount++;
+      } else {
+        dustGained += ESSENCE_REWARD[item.rarity];
+        itemsSalvaged++;
+      }
       continue;
     }
-    // Overflow: salvage if at capacity
+    // Overflow: always salvage for essence (emergency)
     if (newInventory.length >= inventoryCapacity) {
       dustGained += ESSENCE_REWARD[item.rarity];
       itemsSalvaged++;
@@ -129,7 +137,7 @@ function addItemsWithOverflow(
     newMaterials['enchanting_essence'] = (newMaterials['enchanting_essence'] || 0) + dustGained;
   }
 
-  return { newInventory, newMaterials, salvageStats: { itemsSalvaged, dustGained }, keptItems };
+  return { newInventory, newMaterials, salvageStats: { itemsSalvaged, dustGained }, autoSoldGold, autoSoldCount, keptItems };
 }
 
 /** Get inventory capacity from bag slots. */
@@ -146,6 +154,8 @@ export interface ProcessClearsResult {
   currencyDrops: Record<CurrencyType, number>;
   materialDrops: Record<string, number>;
   goldGained: number;
+  autoSoldCount: number;
+  autoSoldGold: number;
   rareMaterialDrops?: Record<string, number>;
   // Gathering-specific fields
   gatheringXpGained?: number;
@@ -221,6 +231,7 @@ interface GameActions {
 
   // Settings
   setAutoSalvageRarity: (rarity: Rarity) => void;
+  setAutoDisposalAction: (action: 'salvage' | 'sell') => void;
   setCraftAutoSalvageRarity: (rarity: Rarity) => void;
 
   // Utility
@@ -259,6 +270,7 @@ function createInitialState(): GameState {
     selectedGatheringProfession: null,
     craftingSkills: createDefaultCraftingSkills(),
     autoSalvageMinRarity: 'common',
+    autoDisposalAction: 'salvage' as const,
     craftAutoSalvageMinRarity: 'common',
     offlineProgress: null,
     equippedAbilities: [null, null, null, null],
@@ -564,10 +576,11 @@ export const useGameStore = create<GameState & GameActions>()(
           const newGatheringSkills = addGatheringXp(state.gatheringSkills, profession, totalGatheringXp);
 
           // Handle gathering gear drops (into bags)
-          const { newInventory, newMaterials: matsAfterItems, salvageStats, keptItems } = addItemsWithOverflow(
+          const { newInventory, newMaterials: matsAfterItems, salvageStats, autoSoldGold, autoSoldCount, keptItems } = addItemsWithOverflow(
             state.inventory,
             getInventoryCapacity(state),
             state.autoSalvageMinRarity,
+            state.autoDisposalAction,
             newMaterials,
             allItems,
           );
@@ -582,6 +595,7 @@ export const useGameStore = create<GameState & GameActions>()(
             materials: matsAfterItems,
             gatheringSkills: newGatheringSkills,
             inventory: newInventory,
+            gold: state.gold + autoSoldGold,
             clearStartedAt: newClearStartedAt,
             currentClearTime: newGatherClearTime,
           });
@@ -594,7 +608,9 @@ export const useGameStore = create<GameState & GameActions>()(
             currencyDrops: { augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, greater_exalt: 0, perfect_exalt: 0, socket: 0 },
             materialDrops: accMaterials,
             rareMaterialDrops: accRareMaterials,
-            goldGained: 0,
+            goldGained: autoSoldGold,
+            autoSoldCount,
+            autoSoldGold,
             gatheringXpGained: totalGatheringXp,
           };
         }
@@ -646,11 +662,12 @@ export const useGameStore = create<GameState & GameActions>()(
           }
         }
 
-        // Items go directly into bags (with overflow salvage)
-        const { newInventory, newMaterials, salvageStats, keptItems } = addItemsWithOverflow(
+        // Items go directly into bags (with overflow salvage / auto-sell)
+        const { newInventory, newMaterials, salvageStats, autoSoldGold, autoSoldCount, keptItems } = addItemsWithOverflow(
           state.inventory,
           getInventoryCapacity(state),
           state.autoSalvageMinRarity,
+          state.autoDisposalAction,
           state.materials,
           allItems,
         );
@@ -720,7 +737,7 @@ export const useGameStore = create<GameState & GameActions>()(
           inventory: newInventory,
           materials: newMaterials,
           currencies: newCurrencies,
-          gold: state.gold + accGold,
+          gold: state.gold + accGold + autoSoldGold,
           bagStash: newBagStash,
           currentHp: hp,
           zoneClearCounts: newZoneClearCounts,
@@ -744,7 +761,9 @@ export const useGameStore = create<GameState & GameActions>()(
           bagDrops: accBagDrops,
           currencyDrops: accCurrencies,
           materialDrops: accMaterials,
-          goldGained: accGold,
+          goldGained: accGold + autoSoldGold,
+          autoSoldCount,
+          autoSoldGold,
         };
       },
 
@@ -1032,11 +1051,12 @@ export const useGameStore = create<GameState & GameActions>()(
         // Generate item
         const item = executeCraft(recipe, catalystId, affixCatalystId);
 
-        // Add item to inventory (overflow → auto-salvage using craft threshold)
+        // Add item to inventory (overflow → auto-salvage using craft threshold, always salvage for crafting)
         const { newInventory, newMaterials: matsAfterItems, salvageStats } = addItemsWithOverflow(
           state.inventory,
           getInventoryCapacity(state),
           state.craftAutoSalvageMinRarity,
+          'salvage',
           newMaterials,
           [item],
         );
@@ -1057,16 +1077,17 @@ export const useGameStore = create<GameState & GameActions>()(
         if (!progress) return;
 
         // Process items into inventory (overflow auto-salvaged at claim time)
-        const { newInventory, newMaterials } = addItemsWithOverflow(
+        const { newInventory, newMaterials, autoSoldGold: claimAutoSoldGold } = addItemsWithOverflow(
           state.inventory,
           getInventoryCapacity(state),
           state.autoSalvageMinRarity,
+          state.autoDisposalAction,
           state.materials,
           progress.items,
         );
 
-        // Apply gold
-        const newGold = state.gold + progress.goldGained;
+        // Apply gold (zone gold + auto-sold gold at claim time)
+        const newGold = state.gold + progress.goldGained + claimAutoSoldGold;
 
         // Apply currencies
         const newCurrencies = { ...state.currencies };
@@ -1327,10 +1348,11 @@ export const useGameStore = create<GameState & GameActions>()(
         if (!zone) return null;
 
         const bossItems = generateBossLoot(zone);
-        const { newInventory, newMaterials, salvageStats, keptItems } = addItemsWithOverflow(
+        const { newInventory, newMaterials, salvageStats, autoSoldGold: bossAutoSoldGold, autoSoldCount: bossAutoSoldCount, keptItems } = addItemsWithOverflow(
           state.inventory,
           getInventoryCapacity(state),
           state.autoSalvageMinRarity,
+          state.autoDisposalAction,
           state.materials,
           bossItems,
         );
@@ -1341,6 +1363,7 @@ export const useGameStore = create<GameState & GameActions>()(
         set({
           inventory: newInventory,
           materials: newMaterials,
+          gold: state.gold + bossAutoSoldGold,
           combatPhase: 'boss_victory' as CombatPhase,
           combatPhaseStartedAt: Date.now(),
           zoneClearCounts: newZoneClearCounts,
@@ -1353,7 +1376,9 @@ export const useGameStore = create<GameState & GameActions>()(
           bagDrops: {},
           currencyDrops: { augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, greater_exalt: 0, perfect_exalt: 0, socket: 0 },
           materialDrops: {},
-          goldGained: 0,
+          goldGained: bossAutoSoldGold,
+          autoSoldCount: bossAutoSoldCount,
+          autoSoldGold: bossAutoSoldGold,
         };
       },
 
@@ -1417,6 +1442,10 @@ export const useGameStore = create<GameState & GameActions>()(
         set({ autoSalvageMinRarity: rarity });
       },
 
+      setAutoDisposalAction: (action: 'salvage' | 'sell') => {
+        set({ autoDisposalAction: action });
+      },
+
       setCraftAutoSalvageRarity: (rarity: Rarity) => {
         set({ craftAutoSalvageMinRarity: rarity });
       },
@@ -1427,7 +1456,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 22,
+      version: 23,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -1508,6 +1537,8 @@ export const useGameStore = create<GameState & GameActions>()(
                 items: [],
                 autoSalvagedCount: 0,
                 autoSalvagedDust: 0,
+                autoSoldCount: 0,
+                autoSoldGold: 0,
                 goldGained: 0,
                 xpGained: 0,
                 materials: accMaterials,
@@ -1532,12 +1563,13 @@ export const useGameStore = create<GameState & GameActions>()(
           );
           const result = simulateIdleRun(character, zone, elapsedSeconds, passiveEffect);
 
-          // Dry run to estimate auto-salvage stats for display
+          // Dry run to estimate auto-salvage/auto-sell stats for display
           const capacity = calcBagCapacity(state.bagSlots);
-          const { salvageStats } = addItemsWithOverflow(
+          const { salvageStats, autoSoldGold: offlineAutoSoldGold, autoSoldCount: offlineAutoSoldCount } = addItemsWithOverflow(
             state.inventory,
             capacity,
             state.autoSalvageMinRarity,
+            state.autoDisposalAction,
             { ...state.materials },
             result.items,
           );
@@ -1552,6 +1584,8 @@ export const useGameStore = create<GameState & GameActions>()(
             items: result.items,
             autoSalvagedCount: salvageStats.itemsSalvaged,
             autoSalvagedDust: salvageStats.dustGained,
+            autoSoldCount: offlineAutoSoldCount,
+            autoSoldGold: offlineAutoSoldGold,
             goldGained: result.goldGained,
             xpGained: result.xpGained,
             materials: result.materials,
@@ -1836,6 +1870,11 @@ export const useGameStore = create<GameState & GameActions>()(
             materials.enchanting_essence = (materials.enchanting_essence ?? 0) + materials.salvage_dust;
             delete materials.salvage_dust;
           }
+        }
+
+        if (version < 23) {
+          // v23: Auto-disposal action (salvage vs sell toggle)
+          raw.autoDisposalAction = 'salvage';
         }
 
         return state;

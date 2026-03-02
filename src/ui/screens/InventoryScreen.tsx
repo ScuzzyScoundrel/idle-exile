@@ -8,6 +8,13 @@ import { useIsMobile } from '../hooks/useIsMobile';
 
 const SLOT_ORDER: GearSlot[] = DROPPABLE_SLOTS;
 
+/** All 16 gear slots for the mobile compact strip (DROPPABLE_SLOTS is only 14). */
+const ALL_GEAR_SLOTS: GearSlot[] = [
+  'helmet', 'neck', 'shoulders', 'cloak', 'chest', 'bracers',
+  'gloves', 'belt', 'pants', 'boots', 'ring1', 'ring2',
+  'mainhand', 'offhand', 'trinket1', 'trinket2',
+];
+
 const RARITY_BG: Record<Rarity, string> = {
   common: 'bg-green-950 border-green-600',
   uncommon: 'bg-blue-950 border-blue-600',
@@ -73,6 +80,7 @@ export default function InventoryScreen() {
     equipItem, unequipSlot, disenchantItem, sellItem, craft,
     equipBag, sellBag, salvageBag, buyBag,
     autoSalvageMinRarity, setAutoSalvageRarity,
+    autoDisposalAction, setAutoDisposalAction,
     tutorialStep,
   } = useGameStore();
   const isMobile = useIsMobile();
@@ -411,6 +419,25 @@ export default function InventoryScreen() {
             )}
           </div>
 
+          {/* Mobile currency selector (inside bottom sheet) */}
+          {isMobile && !isSelectedEquipped && hasCurrencies && (
+            <div className="flex gap-1.5 flex-wrap pt-1">
+              {CURRENCY_DEFS.filter((c) => currencies[c.id] > 0).map((cur) => (
+                <button
+                  key={cur.id}
+                  onClick={() => setSelectedCurrency(selectedCurrency === cur.id ? null : cur.id)}
+                  className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-all
+                    ${selectedCurrency === cur.id
+                      ? 'bg-purple-600 text-white ring-1 ring-purple-400'
+                      : 'bg-gray-800 text-gray-400'}`}
+                >
+                  <span>{cur.icon}</span>
+                  <span className="font-semibold">{currencies[cur.id]}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
           {selectedCurrency && selectedCurrencyDef && currencies[selectedCurrency] > 0 && (
             <button
               onClick={() => handleCraft(selectedItem)}
@@ -442,29 +469,53 @@ export default function InventoryScreen() {
 
         {equippedOpen && (
           <div className="px-2 pb-2">
-            <div className="flex gap-1.5">
-              <div className="flex-1 min-w-0 flex flex-col gap-1">
-                {(['helmet', 'neck', 'shoulders', 'cloak', 'chest', 'bracers'] as GearSlot[]).map((s) => (
-                  <EquipSlotCard key={s} slot={s} item={character.equipment[s] ?? null}
-                    selectedItemId={selectedItem?.id} selectedCurrency={selectedCurrency}
-                    onSelect={handlePaperDollSelect} onHover={showTooltip} onLeave={hideTooltip} isMobile={isMobile} />
-                ))}
+            {isMobile ? (
+              /* Mobile: horizontal scroll strip of 16 compact slot tiles */
+              <div className="flex gap-1 overflow-x-auto pb-1">
+                {ALL_GEAR_SLOTS.map((s) => {
+                  const item = character.equipment[s] ?? null;
+                  return (
+                    <div
+                      key={s}
+                      className={`shrink-0 w-11 h-11 rounded-lg flex items-center justify-center cursor-pointer transition-all
+                        ${item ? `border-2 ${RARITY_BG[item.rarity]} ${RARITY_BORDER_RING[item.rarity]}` : 'border-2 border-dashed border-gray-700 bg-gray-900/40'}
+                        ${selectedItem?.id === item?.id ? 'ring-2 ring-white' : ''}
+                        ${selectedCurrency ? 'hover:ring-2 hover:ring-purple-400' : ''}`}
+                      onClick={() => item && handlePaperDollSelect(item, s)}
+                    >
+                      <span className="text-lg">{slotIcon(s)}</span>
+                    </div>
+                  );
+                })}
               </div>
-              <div className="flex-1 min-w-0 flex flex-col gap-1">
-                {(['gloves', 'belt', 'pants', 'boots', 'ring1', 'ring2'] as GearSlot[]).map((s) => (
-                  <EquipSlotCard key={s} slot={s} item={character.equipment[s] ?? null}
-                    selectedItemId={selectedItem?.id} selectedCurrency={selectedCurrency}
-                    onSelect={handlePaperDollSelect} onHover={showTooltip} onLeave={hideTooltip} isMobile={isMobile} />
-                ))}
-              </div>
-            </div>
-            <div className="grid grid-cols-4 gap-1 mt-1.5">
-              {(['mainhand', 'offhand', 'trinket1', 'trinket2'] as GearSlot[]).map((s) => (
-                <EquipSlotCard key={s} slot={s} item={character.equipment[s] ?? null}
-                  selectedItemId={selectedItem?.id} selectedCurrency={selectedCurrency}
-                  onSelect={handlePaperDollSelect} onHover={showTooltip} onLeave={hideTooltip} isMobile={isMobile} />
-              ))}
-            </div>
+            ) : (
+              /* Desktop: paper doll layout */
+              <>
+                <div className="flex gap-1.5">
+                  <div className="flex-1 min-w-0 flex flex-col gap-1">
+                    {(['helmet', 'neck', 'shoulders', 'cloak', 'chest', 'bracers'] as GearSlot[]).map((s) => (
+                      <EquipSlotCard key={s} slot={s} item={character.equipment[s] ?? null}
+                        selectedItemId={selectedItem?.id} selectedCurrency={selectedCurrency}
+                        onSelect={handlePaperDollSelect} onHover={showTooltip} onLeave={hideTooltip} isMobile={isMobile} />
+                    ))}
+                  </div>
+                  <div className="flex-1 min-w-0 flex flex-col gap-1">
+                    {(['gloves', 'belt', 'pants', 'boots', 'ring1', 'ring2'] as GearSlot[]).map((s) => (
+                      <EquipSlotCard key={s} slot={s} item={character.equipment[s] ?? null}
+                        selectedItemId={selectedItem?.id} selectedCurrency={selectedCurrency}
+                        onSelect={handlePaperDollSelect} onHover={showTooltip} onLeave={hideTooltip} isMobile={isMobile} />
+                    ))}
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 gap-1 mt-1.5">
+                  {(['mainhand', 'offhand', 'trinket1', 'trinket2'] as GearSlot[]).map((s) => (
+                    <EquipSlotCard key={s} slot={s} item={character.equipment[s] ?? null}
+                      selectedItemId={selectedItem?.id} selectedCurrency={selectedCurrency}
+                      onSelect={handlePaperDollSelect} onHover={showTooltip} onLeave={hideTooltip} isMobile={isMobile} />
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -568,8 +619,26 @@ export default function InventoryScreen() {
             {'\u{1F392}'} Bags ({inventory.length}/{inventoryCapacity})
           </h2>
           <div className="flex items-center gap-2">
-            {/* Auto-salvage dropdown */}
-            <label className="text-xs text-gray-500">Auto-salvage:</label>
+            {/* Auto-disposal toggle + rarity dropdown */}
+            <label className="text-xs text-gray-500">Auto:</label>
+            <div className="flex rounded overflow-hidden border border-gray-600">
+              <button
+                onClick={() => setAutoDisposalAction('salvage')}
+                className={`px-1.5 py-0.5 text-xs font-semibold transition-colors ${
+                  autoDisposalAction === 'salvage'
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                }`}
+              >Salvage</button>
+              <button
+                onClick={() => setAutoDisposalAction('sell')}
+                className={`px-1.5 py-0.5 text-xs font-semibold transition-colors ${
+                  autoDisposalAction === 'sell'
+                    ? 'bg-yellow-600 text-white'
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                }`}
+              >Sell</button>
+            </div>
             <select
               value={autoSalvageMinRarity}
               onChange={(e) => setAutoSalvageRarity(e.target.value as Rarity)}
@@ -653,6 +722,11 @@ export default function InventoryScreen() {
                 className="absolute -top-1 -left-1 w-4 h-4 bg-amber-600 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg z-10 ring-1 ring-amber-400/60"
                 title="Crafted item"
               >{'\uD83D\uDD28'}</div>
+            )}
+            {item.armorType && (
+              <div className={`absolute -bottom-0.5 -right-0.5 px-1 py-px rounded text-[8px] font-bold shadow-sm z-10 ${ARMOR_TYPE_BADGE[item.armorType].cls}`}>
+                {item.armorType === 'plate' ? 'P' : item.armorType === 'leather' ? 'L' : 'C'}
+              </div>
             )}
             <div className={`text-lg ${item.isCrafted ? 'ring-1 ring-amber-400/60 rounded' : ''}`}>{slotIcon(item.slot)}</div>
             <div className="text-xs font-semibold truncate text-gray-200">{item.name}</div>

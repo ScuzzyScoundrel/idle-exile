@@ -1,13 +1,16 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-01 (Post-Sprint 9A)
+> Last updated: 2026-03-01 (Post-Sprint 9B)
 
 ## Current Phase
-**Sprint 9A: Desktop Layout + Persistent Combat Bar** — COMPLETE.
-- **Layout widening**: All main containers (App, TopBar, NavBar) now use `max-w-4xl xl:max-w-7xl` — wider on 1280px+ viewports, zero impact below. Zone cards, bag grid, recipe grid, and stats grid all gain an extra column at xl breakpoint.
-- **Persistent combat status bar**: New `CombatStatusBar` component renders between TopBar and main content whenever a run is active. Shows zone name, player HP bar (green/yellow/red), mob clear progress, boss countdown, and combat phase badges (BOSS/VICTORY/DEFEAT/DEAD). During boss fights, mob bar swaps for boss HP bar. In gathering mode, shows profession name + level + XP bar + gather progress. Auto-hides when run stops.
-- Previous 8G changes still active: crafting XP tuning, gold/cost rebalance, enchanting essence rename.
+**Sprint 9B: Loot Screen Overhaul** — COMPLETE.
+- **Mobile compact gear strip**: On mobile, the collapsible equipped gear section renders as a single-row horizontal scroll strip of 16 compact slot tiles (44x44px) instead of the 2-column paper doll. Tap = select item. Desktop paper doll unchanged.
+- **Auto-sell toggle**: New Salvage/Sell segmented toggle next to the rarity threshold dropdown. Salvage = auto-salvage for essence (existing behavior). Sell = auto-sell for gold (base gold + iLvl/5). Overflow items always salvage regardless. New `autoDisposalAction` state field with save v23 migration.
+- **Armor type badges on bag tiles**: Small P/L/C badge in bottom-right corner of armor item tiles in the bag grid. Plate=silver, Leather=brown, Cloth=purple.
+- **Mobile currency in bottom sheet**: Compact currency pill selector row inside the item detail panel (bottom sheet) on mobile. Tap currency → "Apply" button appears. Desktop currency bar unchanged.
+- **Offline auto-sell display**: Offline progress modal shows "~X will be auto-sold on claim (+Yg)" when auto-sell is active.
+- Previous 9A changes still active: desktop layout widening, combat status bar.
 - Next: Additional UX/UI improvements or new features
 
 ## What Is Working Right Now
@@ -77,7 +80,7 @@ Bottom: mainhand, offhand, trinket1, trinket2
 - **Per-clear tracking**: `clearStartedAt` + `currentClearTime` replace modulo-based progress. Mid-clear ability activation preserves progress % but adjusts remaining time.
 - **Bag system**: 5 equippable bag slots (T1:6→T5:14). Start 30 total, max 70.
 - **Crafting (currencies)**: `applyCurrency(item, type)` — augment, chaos, divine, annul, exalt, greater_exalt (top-2 tiers), perfect_exalt (T1 guaranteed)
-- **Save**: Zustand persist v22. v21→v22 renames `materials.salvage_dust` → `materials.enchanting_essence`. v20→v21 adds `greater_exalt` + `perfect_exalt` currencies. Migrations: v11→v12 adds `craftingSkills`, v12→v13 adds leatherworker + jeweler skills, v13→v14 adds `craftAutoSalvageMinRarity`, v14→v15 adds `zoneClearCounts` + combat HP fields, v17→v18 adds `classResource` + `classSelected`, v18→v19 adds `abilityProgress` + `clearStartedAt` + `currentClearTime` (clears old mutator selections).
+- **Save**: Zustand persist v23. v22→v23 adds `autoDisposalAction: 'salvage'`. v21→v22 renames `materials.salvage_dust` → `materials.enchanting_essence`. v20→v21 adds `greater_exalt` + `perfect_exalt` currencies. Migrations: v11→v12 adds `craftingSkills`, v12→v13 adds leatherworker + jeweler skills, v13→v14 adds `craftAutoSalvageMinRarity`, v14→v15 adds `zoneClearCounts` + combat HP fields, v17→v18 adds `classResource` + `classSelected`, v18→v19 adds `abilityProgress` + `clearStartedAt` + `currentClearTime` (clears old mutator selections).
 
 ## Architecture
 ```
@@ -371,6 +374,16 @@ Replaced focus modes with Combat/Gathering toggle. 5 gathering professions with 
 - **App.tsx conditional padding**: Main content `pt-16` (no run) or `pt-[88px]` (run active) to accommodate the combat bar height.
 - **Files added**: `ui/components/CombatStatusBar.tsx`
 - **Files changed**: `App.tsx`, `ui/components/TopBar.tsx`, `ui/components/NavBar.tsx`, `ui/screens/ZoneScreen.tsx`, `ui/screens/InventoryScreen.tsx`, `ui/screens/CraftingScreen.tsx`, `ui/screens/CharacterScreen.tsx`
+
+### Sprint 9B Changes (Loot Screen Overhaul)
+- **Mobile compact gear strip**: On mobile (`isMobile === true`), equipped gear section renders as a single-row horizontal scroll strip (`overflow-x-auto`) of 16 compact slot tiles (w-11 h-11) instead of the 2-column paper doll. Each tile shows slot icon + rarity-colored bg if equipped, dashed border if empty. Tap = select item (same `handlePaperDollSelect` handler). Selected state: `ring-2 ring-white`. Desktop paper doll unchanged. Uses new `ALL_GEAR_SLOTS` constant (all 16 slots including ring2/trinket2).
+- **Auto-sell toggle**: New Salvage/Sell segmented toggle (`autoDisposalAction: 'salvage' | 'sell'`) next to the rarity threshold dropdown. Salvage = auto-salvage for enchanting essence (existing behavior). Sell = auto-sell for gold (`SELL_GOLD[rarity] + floor(iLvl/5)`). Overflow items (bag full) always salvage for essence regardless of toggle. New `setAutoDisposalAction` store action. `addItemsWithOverflow()` updated with `autoDisposalAction` param — returns `autoSoldGold` and `autoSoldCount`. All 6 callers updated. Gold from auto-sell flows into `goldGained` in ProcessClearsResult.
+- **Armor type badges on bag tiles**: Small P/L/C badge (absolute positioned, bottom-right) on armor item tiles in the bag grid. Uses existing `ARMOR_TYPE_BADGE` constant for colors: Plate=silver, Leather=brown, Cloth=purple.
+- **Mobile currency in bottom sheet**: Compact currency pill selector row inside `renderDetailPanel()`, shown on mobile when item is not equipped and player has currencies. Same compact pill style as collapsed currency bar. Tap currency → "Apply" button appears below. Desktop currency bar in main column unchanged.
+- **Offline auto-sell display**: OfflineProgressModal shows "~X will be auto-sold on claim (+Yg)" when `autoSoldCount > 0`. `OfflineProgressSummary` type extended with `autoSoldCount` and `autoSoldGold` fields.
+- **Save v23 migration**: Adds `autoDisposalAction: 'salvage'` to existing saves. Bumps version 22→23.
+- **New types**: `autoDisposalAction` on GameState, `autoSoldCount`/`autoSoldGold` on ProcessClearsResult + OfflineProgressSummary.
+- **Files changed**: `types/index.ts`, `store/gameStore.ts`, `ui/screens/InventoryScreen.tsx`, `ui/components/OfflineProgressModal.tsx`
 
 ## Micro-Sprint Workflow
 Each conversation = one micro-sprint (3-5 related changes):
