@@ -307,6 +307,7 @@ interface GameActions {
   unequipSkillBarSlot: (slotIndex: number) => void;
   toggleSkillAutoCast: (slotIndex: number) => void;
   reorderSkillBar: (fromSlot: number, toSlot: number) => void;
+  activateSkillBarSlot: (slotIndex: number) => void;
 
   // Tutorial
   advanceTutorial: (step: number) => void;
@@ -1795,6 +1796,23 @@ export const useGameStore = create<GameState & GameActions>()(
           newSkillBar[toSlot] = temp;
           return { skillBar: newSkillBar };
         });
+      },
+
+      activateSkillBarSlot: (slotIndex: number) => {
+        const state = get();
+        const equipped = state.skillBar[slotIndex];
+        if (!equipped) return;
+        const def = getUnifiedSkillDef(equipped.skillId);
+        if (!def) return;
+        // Only manually-activatable kinds
+        if (def.kind === 'active' || def.kind === 'passive' || def.kind === 'proc') return;
+        // Build reverse map: newId → oldId
+        const reverseMap: Record<string, string> = {};
+        for (const [oldId, newId] of Object.entries(ABILITY_ID_MIGRATION)) {
+          reverseMap[newId] = oldId;
+        }
+        const oldAbilityId = reverseMap[equipped.skillId] ?? equipped.skillId;
+        get().activateAbility(oldAbilityId);
       },
 
       // Class resource time decay (called from 250ms timer)

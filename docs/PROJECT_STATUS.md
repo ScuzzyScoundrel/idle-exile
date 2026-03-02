@@ -1,10 +1,22 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-02 (Post-Sprint 10G: Skill Bar Store + Migration v25)
+> Last updated: 2026-03-02 (Post-Sprint 10H: Skill Bar UI)
 
 ## Current Phase
-**Sprint 10G: Skill Bar Store + Migration v25** — COMPLETE.
+**Sprint 10H: Skill Bar UI** — COMPLETE.
+
+- **New `SkillBar.tsx` component**: 8-slot horizontal bar replacing old `AbilityBar`. Reads from unified `skillBar`/`skillProgress`/`skillTimers`. Smaller slots (w-14 h-14) for mobile fit. Kind-based border colors (active=yellow, passive=gray, buff=blue, toggle=green, instant=orange, ultimate=yellow, proc=purple). Timer display with 250ms refresh. XP bars at bottom. Slots 5-7 show locked "Soon". Slots 1-4 use `ABILITY_SLOT_UNLOCKS` progression.
+- **New `activateSkillBarSlot` store action**: Reads `skillBar[slotIndex]`, skips non-activatable kinds (active/passive/proc), builds reverse ID map from `ABILITY_ID_MIGRATION`, delegates to `activateAbility(oldAbilityId)`. Reuses all existing activation logic.
+- **Rewritten `SkillPanel.tsx`**: Unified skill browser showing all skill kinds. Equipped bar overview (compact 5-slot strip with select-to-target). Kind filter tabs (All/Active/Buff/Passive/Toggle/Instant). Available skills grid with DPS comparison for active skills. Inline skill tree management via `SkillTreeView` local component. Equip/unequip via unified `equipToSkillBar`/`unequipSkillBarSlot`.
+- **ZoneScreen updated**: `AbilityBar` → `SkillBar`, `AbilityPicker` → `SkillPicker`. Old `AbilityPicker` (~135 lines) and `ZoneSkillTreeView` (~75 lines) removed. New `SkillPicker` is simpler (~80 lines) — shows available skills with slot equip buttons, no tree management. SkillBar now visible during boss fights too.
+- **CharacterScreen updated**: Removed `AbilityPanel` (~170 lines), `SkillTreeView` (~120 lines), `KIND_BADGE_COLORS`, `WEAPON_TYPE_LABELS`, `WEAPON_TYPE_ICONS`. Updated `SkillPanel` handles everything.
+- **Bundle size reduced**: 496 kB (was 502 kB) — net reduction despite new components.
+- **Old `AbilityBar.tsx` still exists**: Not imported anywhere. Will be removed in Sprint 10J cleanup.
+
+**Next: Sprint 10I** (Auto-Cast Engine + Priority). See SPRINT_PLAN.md.
+
+**Sprint 10G: Skill Bar Store + Migration v25** — COMPLETE (previous).
 
 - **3 new GameState fields**: `skillBar: (EquippedSkill | null)[]` (8 unified slots), `skillProgress: Record<string, SkillProgress>`, `skillTimers: SkillTimerState[]`
 - **4 new store actions**: `equipToSkillBar`, `unequipSkillBarSlot`, `toggleSkillAutoCast`, `reorderSkillBar` — with full validation, weapon/level checks, mid-clear recalc
@@ -14,8 +26,6 @@
 - **v25 migration**: Populates `skillBar[0]` from `equippedSkills[0]`, `skillBar[1-4]` from `equippedAbilities[0-3]` with `ABILITY_ID_MIGRATION` ID remapping. Migrates progress, creates timers.
 - **Rehydrate safety**: Null guards for all 3 new fields + stale skill timer cleanup
 - Slot mapping: 0=active skill, 1-4=former abilities, 5-7=empty (future)
-
-**Next: Sprint 10H** (Skill Bar UI — 8-slot bar replacing AbilityBar + SkillPanel). See SPRINT_PLAN.md.
 
 **Sprint 10A: Active Skills & Damage Tags (Foundation)** — COMPLETE (previous).
 - **DamageTag type + ActiveSkillDef interface**: New `DamageTag` union (Attack/Spell/Melee/Projectile/AoE/DoT/Channel/Physical/Fire/Cold/Lightning/Chaos). `ActiveSkillDef` with baseDamage, weaponDamagePercent, spellPowerRatio, castTime, cooldown, hitCount, dotDuration, dotDamagePercent.
@@ -81,10 +91,10 @@ The game is live on Vercel and playable locally at `http://localhost:5173/`. Cor
 - **Craft tab**: Materials sub-panel (organized by refinement track with tooltips). Refine sub-panel (track selector → T1-T6 chain with refine/deconstruct buttons). Craft sub-panel (profession selector with level/XP → recipe list with catalyst info summaries, catalyst dropdowns, craft button).
 
 ## UI State (4 Tabs)
-- **Zones tab**: 30 zones shown via horizontal band tab pills. Combat/Gathering toggle. Profession selector + XP bar in gathering mode. Zone cards with level badges, gathering type icons, hazard icons, mastery badges. Session summary with rare material find notifications. Ability bar in combat mode.
+- **Zones tab**: 30 zones shown via horizontal band tab pills. Combat/Gathering toggle. Profession selector + XP bar in gathering mode. Zone cards with level badges, gathering type icons, hazard icons, mastery badges. Session summary with rare material find notifications. 8-slot SkillBar in combat mode (visible during clearing + boss fights). SkillPicker for equip/unequip.
 - **Inventory tab ("Loot")**: Two-panel layout with equipped gear + bag grid. Square icon-only tiles (5-10 cols) with rarity borders + gradient overlays. Name/stats on hover/tap only. Graphic icon support with emoji fallback. Bag slots section. Right-click to equip. Hover tooltips with stat comparison. Currency crafting UI. Auto-salvage filter. 5-tier rarity colors.
 - **Craft tab**: Materials/Refine/Craft toggle. Materials: organized by refinement track with rarity borders and icon pills, tooltips on hover. Refine: 6 track pills → T1-T6 recipe chain. Craft: 6 profession pills with level/XP bar → collapsible category sections with 2-column compact recipe cards, material icon pills, tier badges, catalyst dropdowns.
-- **Character tab ("Hero")**: Paper doll (16 gear slots), 13 stats including poison/chaos resist, materials list, ability management panel.
+- **Character tab ("Hero")**: Paper doll (16 gear slots), 13 stats including poison/chaos resist, unified SkillPanel (all skill kinds + skill tree management), defense panel.
 
 All 4 screens stay mounted (CSS hidden) for state persistence across tab switches.
 
@@ -152,7 +162,7 @@ src/
     crafting.ts             — 6 currency crafting operations
     setBonus.ts             — Set bonus resolution
   store/
-    gameStore.ts            — Zustand store (state + actions + persistence + v25 migration). Actions: selectClass, tickClassResource, startBossFight, tickBoss, handleBossVictory, handleBossDefeat, checkRecoveryComplete, allocateAbilityNode, respecAbility, toggleAbility, equipToSkillBar, unequipSkillBarSlot, toggleSkillAutoCast, reorderSkillBar + all previous.
+    gameStore.ts            — Zustand store (state + actions + persistence + v25 migration). Actions: selectClass, tickClassResource, startBossFight, tickBoss, handleBossVictory, handleBossDefeat, checkRecoveryComplete, allocateAbilityNode, respecAbility, toggleAbility, equipToSkillBar, unequipSkillBarSlot, toggleSkillAutoCast, reorderSkillBar, activateSkillBarSlot + all previous.
   ui/
     slotConfig.ts           — Shared gear slot icons/labels
     components/
@@ -160,8 +170,9 @@ src/
       TopBar.tsx            — Character info, XP bar, currency counts
       CombatStatusBar.tsx   — Persistent combat/gathering status bar (visible during runs)
       OfflineProgressModal.tsx — "Welcome Back" modal
-      AbilityBar.tsx        — 4-slot ability action bar
-      SkillPanel.tsx        — Active skill browse/equip with DPS comparison
+      AbilityBar.tsx        — [DEPRECATED] Old 4-slot ability bar (not imported, remove in 10J)
+      SkillBar.tsx          — 8-slot unified skill bar (reads skillBar/skillTimers/skillProgress)
+      SkillPanel.tsx        — Unified skill browser (all kinds + DPS comparison + skill trees)
       Tooltip.tsx           — Reusable hover tooltip component
       ClassPicker.tsx       — 4-class selection screen (new game / reset)
     screens/
@@ -478,6 +489,17 @@ Replaced focus modes with Combat/Gathering toggle. 5 gathering professions with 
 - **No save migration**: New types exist alongside old.
 - **Files added**: `src/data/unifiedSkills.ts`, `src/engine/unifiedSkills.ts`
 - **Files changed**: `src/types/index.ts`
+
+### Sprint 10H Changes (Skill Bar UI)
+- **New `SkillBar.tsx` component** (`ui/components/SkillBar.tsx`): 8-slot horizontal bar replacing old `AbilityBar`. Reads from unified `skillBar`/`skillProgress`/`skillTimers` store fields. 56px slots (w-14 h-14, smaller than old 64px for mobile). Kind-based border colors and interactivity: active/passive/proc are display-only, toggle/buff/instant/ultimate are clickable. Timer refresh via 250ms `setInterval`. XP bars at bottom of each slot. Slots 5-7 locked "Soon", slots 1-4 use `ABILITY_SLOT_UNLOCKS`.
+- **New `activateSkillBarSlot` store action** (`store/gameStore.ts`): Reads `skillBar[slotIndex]`, returns if null/non-activatable kind (active/passive/proc). Builds reverse map from `ABILITY_ID_MIGRATION` (newId→oldId), delegates to `activateAbility(oldAbilityId)`. Reuses all existing activation logic (toggle/buff/instant handling, mage arcane charges, mid-clear recalc, timer bridge writes).
+- **Rewritten `SkillPanel.tsx`** (`ui/components/SkillPanel.tsx`): Unified skill browser for all kinds. Section 1: compact 5-slot equipped bar overview with click-to-select targeting + unequip button. Section 2: kind filter tabs (All/Active/Buff/Passive/Toggle/Instant). Section 3: available skills grid with DPS comparison for active skills, kind badges, equip button. Section 4: inline `SkillTreeView` for equipped non-active skills (skill tree management via old ability IDs using `REVERSE_MIGRATION` map).
+- **ZoneScreen updated** (`ui/screens/ZoneScreen.tsx`): Replaced `AbilityBar` import with `SkillBar`, `AbilityPicker` with `SkillPicker`. Removed old `AbilityPicker` (~135 lines), `ZoneSkillTreeView` (~75 lines). New `SkillPicker` (~80 lines): collapsible panel showing available skills with slot equip buttons (1-5), no tree management. SkillBar now visible during boss fights (`combatPhase === 'boss_fight'`). Cleaned old imports (`getAbilitiesForWeapon`, `getAbilityDef`, `getAbilityXpForLevel`, `canAllocateNode`, `getRespecCost`, `AbilityDef`, `AbilityProgress`).
+- **CharacterScreen updated** (`ui/screens/CharacterScreen.tsx`): Removed `AbilityPanel` (~170 lines), `SkillTreeView` (~120 lines), `KIND_BADGE_COLORS`, `WEAPON_TYPE_LABELS`, `WEAPON_TYPE_ICONS`. Removed `<AbilityPanel />` mount. Updated `SkillPanel` now handles both active skills and ability management. Cleaned old imports.
+- **Bundle size**: 496 kB (reduced from 502 kB despite new components).
+- **No save migration**: No state changes. UI-only sprint.
+- **Files added**: `src/ui/components/SkillBar.tsx`
+- **Files changed**: `src/store/gameStore.ts`, `src/ui/components/SkillPanel.tsx`, `src/ui/screens/ZoneScreen.tsx`, `src/ui/screens/CharacterScreen.tsx`
 
 ### Sprint 10G Changes (Skill Bar Store + Migration v25)
 - **3 new GameState fields** (`types/index.ts`): `skillBar: (EquippedSkill | null)[]` (8 unified slots), `skillProgress: Record<string, SkillProgress>`, `skillTimers: SkillTimerState[]`.
