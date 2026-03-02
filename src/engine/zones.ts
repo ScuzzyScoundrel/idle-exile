@@ -5,7 +5,7 @@
 
 import type { Character, ZoneDef, IdleRunResult, Item, CurrencyType, GearSlot, ResolvedStats, AbilityEffect, GatheringProfession, BossState, CombatClearResult, ActiveSkillDef } from '../types';
 import { generateItem, generateGatheringItem } from './items';
-import { calcTotalDps, getWeaponDamageInfo } from './character';
+import { getWeaponDamageInfo } from './character';
 import { calcSkillDps, calcSkillDamagePerCast, getDefaultSkillForWeapon } from './unifiedSkills';
 import { getSkillDef } from '../data/unifiedSkills';
 import { calcGatheringYield } from './gathering';
@@ -99,7 +99,7 @@ export function checkZoneMastery(stats: ResolvedStats, zone: ZoneDef): boolean {
 /**
  * Calculate player's total DPS using skill-based or legacy formula.
  * If equippedSkills[0] is set, uses tag-based skill DPS.
- * Otherwise falls back to the legacy calcTotalDps formula.
+ * Returns 0 if no skill is equipped and no weapon default exists.
  */
 export function calcPlayerDps(char: Character, abilityEffect?: AbilityEffect, equippedSkills?: (string | null)[]): number {
   const stats = char.stats;
@@ -127,8 +127,8 @@ export function calcPlayerDps(char: Character, abilityEffect?: AbilityEffect, eq
     if (defaultSkill) {
       dps = calcSkillDps(defaultSkill, effectiveStats, avgDamage, spellPower);
     } else {
-      // No weapon or no skill — fall back to legacy formula
-      dps = calcTotalDps(effectiveStats, avgDamage, spellPower);
+      // No skill equipped and no weapon default — can't deal damage
+      dps = 0;
     }
   }
 
@@ -305,17 +305,18 @@ export function calcXpScale(playerLevel: number, zoneIlvl: number): number {
 }
 
 /**
- * Simulate an idle run: given elapsed time (in seconds), calculate how many
- * zone clears happened and accumulate all drops, XP, and gold.
+ * Simulate an idle run: given elapsed time and a pre-computed clearTime,
+ * calculate how many zone clears happened and accumulate all drops, XP, and gold.
+ * Caller is responsible for computing clearTime (via computeNextClear or similar).
  */
 export function simulateIdleRun(
   char: Character,
   zone: ZoneDef,
   elapsed: number,
+  clearTime: number,
   abilityEffect?: AbilityEffect,
 ): IdleRunResult {
-  const baseClearTime = calcClearTime(char, zone, abilityEffect);
-  const clearsCompleted = Math.floor(elapsed / baseClearTime);
+  const clearsCompleted = clearTime > 0 && isFinite(clearTime) ? Math.floor(elapsed / clearTime) : 0;
 
   const hasMastery = checkZoneMastery(char.stats, zone);
 

@@ -2208,7 +2208,7 @@ export const useGameStore = create<GameState & GameActions>()(
             return;
           }
 
-          // Combat mode offline simulation — passive-only ability effects
+          // Combat mode offline simulation — use same DPS path as real-time
           const passiveEffect = aggregateSkillBarEffects(
             state.skillBar ?? [null, null, null, null, null, null, null, null],
             state.skillProgress ?? {},
@@ -2216,7 +2216,11 @@ export const useGameStore = create<GameState & GameActions>()(
             Date.now(),
             true, // offlineMode: passives only
           );
-          const result = simulateIdleRun(character, zone, elapsedSeconds, passiveEffect);
+          const offlineClassDef = getClassDef(state.character.class);
+          const offlineClassDmgMult = getClassDamageModifier(state.classResource, offlineClassDef);
+          const offlineClassSpdMult = getClassClearSpeedModifier(state.classResource, offlineClassDef);
+          const offlineSim = computeNextClear(state, zone, passiveEffect, offlineClassDmgMult, offlineClassSpdMult);
+          const result = simulateIdleRun(character, zone, elapsedSeconds, offlineSim.clearTime, passiveEffect);
 
           // Dry run to estimate auto-salvage/auto-sell stats for display
           const capacity = calcBagCapacity(state.bagSlots);
