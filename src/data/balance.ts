@@ -31,8 +31,8 @@ export const CURRENCY_DROP_CHANCES: Record<CurrencyType, number> = {
   divine:         0.025,
   annul:          0.025,
   exalt:          0.015,
-  greater_exalt:  0.005,
-  perfect_exalt:  0.001,
+  greater_exalt:  0.002,
+  perfect_exalt:  0.0002,
   socket:         0.035,
 };
 

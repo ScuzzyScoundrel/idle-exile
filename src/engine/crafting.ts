@@ -100,10 +100,12 @@ function rollForcedHighTierAffix(
 }
 
 /**
- * Roll a single affix guaranteed T1.
+ * Roll a single affix at the best tier for the item's iLvl.
+ * Low-iLvl items get their best realistic tier, not guaranteed T1.
  */
 function rollPerfectAffix(
   slot: 'prefix' | 'suffix',
+  iLvl: number,
   gearSlot: GearSlot,
   weaponType?: WeaponType,
   offhandType?: OffhandType,
@@ -112,9 +114,10 @@ function rollPerfectAffix(
   const chosen = pickRandomAffixDef(slot, gearSlot, weaponType, offhandType, exclude);
   if (!chosen) return null;
 
-  const tierData = chosen.tiers[1]; // T1 always
+  const tier = getBestTierForILvl(iLvl);
+  const tierData = chosen.tiers[tier];
   const value = rollAffixValue(tierData.min, tierData.max);
-  return { defId: chosen.id, tier: 1, value };
+  return { defId: chosen.id, tier, value };
 }
 
 // --- Main Crafting Function ---
@@ -346,7 +349,7 @@ export function applyCurrency(item: Item, currency: CurrencyType): CraftResult {
       }
 
       const exclude = existingDefIds(newItem);
-      const newAffix = rollPerfectAffix(addSlot, item.slot, item.weaponType, item.offhandType, exclude);
+      const newAffix = rollPerfectAffix(addSlot, item.iLvl, item.slot, item.weaponType, item.offhandType, exclude);
       if (!newAffix) {
         return { success: false, item, message: 'No available affixes to add.' };
       }
@@ -358,7 +361,7 @@ export function applyCurrency(item: Item, currency: CurrencyType): CraftResult {
       }
 
       reclassify(newItem);
-      return { success: true, item: newItem, message: `Perfect Exalted a T1 ${addSlot}!` };
+      return { success: true, item: newItem, message: `Perfect Exalted a T${newAffix.tier} ${addSlot}!` };
     }
 
     // -----------------------------------------------------------------

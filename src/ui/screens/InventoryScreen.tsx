@@ -279,8 +279,7 @@ export default function InventoryScreen() {
         setCraftDiff({ itemId: result.item.id, added, removed, addedKeys });
         if (craftDiffTimer.current) clearTimeout(craftDiffTimer.current);
         craftDiffTimer.current = setTimeout(() => setCraftDiff(null), 4000);
-        // One-shot: auto-deselect currency after successful application
-        setSelectedCurrency(null);
+        // Keep currency selected so player can spam-apply
       } else {
         showFeedback('craft', result.message);
       }
