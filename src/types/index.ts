@@ -276,6 +276,8 @@ export type CurrencyType =
   | 'divine'
   | 'annul'
   | 'exalt'
+  | 'greater_exalt'
+  | 'perfect_exalt'
   | 'socket';
 
 export interface CurrencyDef {
@@ -283,7 +285,7 @@ export interface CurrencyDef {
   name: string;
   description: string;
   icon: string; // emoji for prototype
-  rarity: 'common' | 'uncommon' | 'rare';
+  rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
 }
 
 // --- Crafting Result ---

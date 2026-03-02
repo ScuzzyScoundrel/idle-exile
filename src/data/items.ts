@@ -393,6 +393,8 @@ export const CURRENCY_DEFS: CurrencyDef[] = [
   { id: 'chaos', name: 'Chaos Shard', description: 'Remove one random affix and add one random affix', icon: '\uD83D\uDD34', rarity: 'uncommon' },
   { id: 'divine', name: 'Divine Shard', description: 'Reroll values within existing affixes', icon: '\uD83D\uDFE0', rarity: 'uncommon' },
   { id: 'annul', name: 'Annul Shard', description: 'Remove one random affix (minimum 2 affixes)', icon: '\u26AB', rarity: 'uncommon' },
-  { id: 'exalt', name: 'Exalt Shard', description: 'Add one guaranteed T1-T3 affix', icon: '\uD83D\uDFE3', rarity: 'rare' },
+  { id: 'exalt', name: 'Exalt Shard', description: 'Add one high-tier affix (top 3 tiers for item level)', icon: '\uD83D\uDFE3', rarity: 'rare' },
+  { id: 'greater_exalt', name: 'Greater Exalt', description: 'Add one affix from the top 2 tiers for item level', icon: '\uD83D\uDFE1', rarity: 'epic' },
+  { id: 'perfect_exalt', name: 'Perfect Exalt', description: 'Add one guaranteed T1 affix', icon: '\u2B50', rarity: 'legendary' },
   { id: 'socket', name: 'Socket Shard', description: 'Socket crafting (coming soon)', icon: '\uD83D\uDD35', rarity: 'rare' },
 ];

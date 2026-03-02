@@ -34,9 +34,33 @@ function reclassify(item: Item): void {
 }
 
 /**
- * Roll a single affix guaranteed from the top 3 available tiers for the item's iLvl.
- * Weighted toward the 3rd-best (50%), 2nd-best (35%), best (15%).
- * Respects iLvl gating — an iLvl 1 item can only get T7 (the best available).
+ * Pick a random affix def from the given slot, respecting excludes.
+ */
+function pickRandomAffixDef(
+  slot: 'prefix' | 'suffix',
+  gearSlot: GearSlot,
+  weaponType?: WeaponType,
+  offhandType?: OffhandType,
+  exclude: string[] = [],
+) {
+  const available = getAffixesForSlot(gearSlot, weaponType, offhandType, slot)
+    .filter((d) => !exclude.includes(d.id));
+  if (available.length === 0) return null;
+
+  const totalWeight = available.reduce((sum, d) => sum + d.weight, 0);
+  let roll = Math.random() * totalWeight;
+  let chosen = available[0];
+  for (const def of available) {
+    roll -= def.weight;
+    if (roll <= 0) { chosen = def; break; }
+  }
+  return chosen;
+}
+
+/**
+ * Roll a single affix from the top N realistic tiers for the item's iLvl.
+ * topN=3: Exalt (15% best, 35% 2nd, 50% 3rd)
+ * topN=2: Greater Exalt (40% best, 60% 2nd)
  */
 function rollForcedHighTierAffix(
   slot: 'prefix' | 'suffix',
@@ -45,48 +69,52 @@ function rollForcedHighTierAffix(
   weaponType?: WeaponType,
   offhandType?: OffhandType,
   exclude: string[] = [],
+  topN: 2 | 3 = 3,
 ): Affix | null {
-  const available = getAffixesForSlot(gearSlot, weaponType, offhandType, slot)
-    .filter((d) => !exclude.includes(d.id));
-  if (available.length === 0) return null;
+  const chosen = pickRandomAffixDef(slot, gearSlot, weaponType, offhandType, exclude);
+  if (!chosen) return null;
 
-  // Weighted random pick for affix type
-  const totalWeight = available.reduce((sum, d) => sum + d.weight, 0);
-  let roll = Math.random() * totalWeight;
-  let chosen = available[0];
-  for (const def of available) {
-    roll -= def.weight;
-    if (roll <= 0) {
-      chosen = def;
-      break;
-    }
-  }
-
-  // Get the top 3 realistic tiers for this iLvl (best realistic + next 2)
   const bestTier = getBestTierForILvl(iLvl);
-  const top3: AffixTier[] = [];
-  for (let t = bestTier; t <= 10 && top3.length < 3; t++) {
-    top3.push(t as AffixTier);
+  const tiers: AffixTier[] = [];
+  for (let t = bestTier; t <= 10 && tiers.length < topN; t++) {
+    tiers.push(t as AffixTier);
   }
 
   let tier: AffixTier;
-  if (top3.length === 1) {
-    tier = top3[0];
-  } else if (top3.length === 2) {
-    // 30% best, 70% second-best
-    tier = Math.random() < 0.30 ? top3[0] : top3[1];
+  if (tiers.length === 1) {
+    tier = tiers[0];
+  } else if (topN === 2 || tiers.length === 2) {
+    // Greater Exalt: 40% best, 60% second-best
+    tier = Math.random() < 0.40 ? tiers[0] : tiers[1];
   } else {
-    // 15% best, 35% second-best, 50% third-best
+    // Exalt: 15% best, 35% second-best, 50% third-best
     const tierRoll = Math.random();
-    if (tierRoll < 0.15) tier = top3[0];
-    else if (tierRoll < 0.50) tier = top3[1];
-    else tier = top3[2];
+    if (tierRoll < 0.15) tier = tiers[0];
+    else if (tierRoll < 0.50) tier = tiers[1];
+    else tier = tiers[2];
   }
 
   const tierData = chosen.tiers[tier];
   const value = rollAffixValue(tierData.min, tierData.max);
-
   return { defId: chosen.id, tier, value };
+}
+
+/**
+ * Roll a single affix guaranteed T1.
+ */
+function rollPerfectAffix(
+  slot: 'prefix' | 'suffix',
+  gearSlot: GearSlot,
+  weaponType?: WeaponType,
+  offhandType?: OffhandType,
+  exclude: string[] = [],
+): Affix | null {
+  const chosen = pickRandomAffixDef(slot, gearSlot, weaponType, offhandType, exclude);
+  if (!chosen) return null;
+
+  const tierData = chosen.tiers[1]; // T1 always
+  const value = rollAffixValue(tierData.min, tierData.max);
+  return { defId: chosen.id, tier: 1, value };
 }
 
 // --- Main Crafting Function ---
@@ -263,6 +291,74 @@ export function applyCurrency(item: Item, currency: CurrencyType): CraftResult {
 
       reclassify(newItem);
       return { success: true, item: newItem, message: `Exalted a T${newAffix.tier} ${addSlot}.` };
+    }
+
+    // -----------------------------------------------------------------
+    // GREATER EXALT: Add one affix from top 2 tiers (40/60 weight)
+    // -----------------------------------------------------------------
+    case 'greater_exalt': {
+      const canPrefix = item.prefixes.length < 3;
+      const canSuffix = item.suffixes.length < 3;
+      if (!canPrefix && !canSuffix) {
+        return { success: false, item, message: 'Item has no open affix slots.' };
+      }
+
+      const newItem = cloneItem(item);
+      let addSlot: 'prefix' | 'suffix';
+      if (canPrefix && canSuffix) {
+        addSlot = Math.random() < 0.5 ? 'prefix' : 'suffix';
+      } else {
+        addSlot = canPrefix ? 'prefix' : 'suffix';
+      }
+
+      const exclude = existingDefIds(newItem);
+      const newAffix = rollForcedHighTierAffix(addSlot, item.iLvl, item.slot, item.weaponType, item.offhandType, exclude, 2);
+      if (!newAffix) {
+        return { success: false, item, message: 'No available affixes to add.' };
+      }
+
+      if (addSlot === 'prefix') {
+        newItem.prefixes.push(newAffix);
+      } else {
+        newItem.suffixes.push(newAffix);
+      }
+
+      reclassify(newItem);
+      return { success: true, item: newItem, message: `Greater Exalted a T${newAffix.tier} ${addSlot}.` };
+    }
+
+    // -----------------------------------------------------------------
+    // PERFECT EXALT: Add one guaranteed T1 affix
+    // -----------------------------------------------------------------
+    case 'perfect_exalt': {
+      const canPrefix = item.prefixes.length < 3;
+      const canSuffix = item.suffixes.length < 3;
+      if (!canPrefix && !canSuffix) {
+        return { success: false, item, message: 'Item has no open affix slots.' };
+      }
+
+      const newItem = cloneItem(item);
+      let addSlot: 'prefix' | 'suffix';
+      if (canPrefix && canSuffix) {
+        addSlot = Math.random() < 0.5 ? 'prefix' : 'suffix';
+      } else {
+        addSlot = canPrefix ? 'prefix' : 'suffix';
+      }
+
+      const exclude = existingDefIds(newItem);
+      const newAffix = rollPerfectAffix(addSlot, item.slot, item.weaponType, item.offhandType, exclude);
+      if (!newAffix) {
+        return { success: false, item, message: 'No available affixes to add.' };
+      }
+
+      if (addSlot === 'prefix') {
+        newItem.prefixes.push(newAffix);
+      } else {
+        newItem.suffixes.push(newAffix);
+      }
+
+      reclassify(newItem);
+      return { success: true, item: newItem, message: `Perfect Exalted a T1 ${addSlot}!` };
     }
 
     // -----------------------------------------------------------------

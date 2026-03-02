@@ -180,7 +180,7 @@ export function simulateIdleRun(
   const items: IdleRunResult['items'] = [];
   const materials: Record<string, number> = {};
   const currencyDrops: Record<CurrencyType, number> = {
-    augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, socket: 0,
+    augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, greater_exalt: 0, perfect_exalt: 0, socket: 0,
   };
   const bagDrops: Record<string, number> = {};
 
@@ -283,7 +283,7 @@ export function simulateSingleClear(
   }
 
   const currencyDrops: Record<CurrencyType, number> = {
-    augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, socket: 0,
+    augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, greater_exalt: 0, perfect_exalt: 0, socket: 0,
   };
   for (const [type, chance] of Object.entries(CURRENCY_DROP_CHANCES)) {
     if (Math.random() < chance) {

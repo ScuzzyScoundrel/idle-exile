@@ -26,12 +26,14 @@ export const COMBAT_MATERIAL_DROP_MAX = 2;
 
 /** Per-clear probability for each currency type. */
 export const CURRENCY_DROP_CHANCES: Record<CurrencyType, number> = {
-  augment: 0.10,
-  chaos:   0.05,
-  divine:  0.025,
-  annul:   0.025,
-  exalt:   0.015,
-  socket:  0.035,
+  augment:        0.10,
+  chaos:          0.05,
+  divine:         0.025,
+  annul:          0.025,
+  exalt:          0.015,
+  greater_exalt:  0.005,
+  perfect_exalt:  0.001,
+  socket:         0.035,
 };
 
 /** Gold gained per clear = GOLD_PER_BAND * zone.band. */
@@ -220,6 +222,15 @@ export const CATALYST_BEST_TIER: Record<RareMaterialRarity, AffixTier> = {
   rare: 3,
   epic: 2,
   legendary: 1,
+};
+
+/** Rare catalyst → iLvl bonus on crafted items (higher rarity = better affix tier weights). */
+export const CATALYST_ILVL_BONUS: Record<RareMaterialRarity, number> = {
+  common: 3,
+  uncommon: 6,
+  rare: 10,
+  epic: 15,
+  legendary: 20,
 };
 
 // =============================================

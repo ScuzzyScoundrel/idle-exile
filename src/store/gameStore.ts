@@ -52,6 +52,8 @@ const INITIAL_CURRENCIES: Record<CurrencyType, number> = {
   divine: 50,
   annul: 50,
   exalt: 50,
+  greater_exalt: 0,
+  perfect_exalt: 0,
   socket: 50,
 };
 
@@ -589,7 +591,7 @@ export const useGameStore = create<GameState & GameActions>()(
             overflowCount: salvageStats.itemsSalvaged,
             dustGained: salvageStats.dustGained,
             bagDrops: {},
-            currencyDrops: { augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, socket: 0 },
+            currencyDrops: { augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, greater_exalt: 0, perfect_exalt: 0, socket: 0 },
             materialDrops: accMaterials,
             rareMaterialDrops: accRareMaterials,
             goldGained: 0,
@@ -602,7 +604,7 @@ export const useGameStore = create<GameState & GameActions>()(
         let classRes = state.classResource;
 
         const allItems: Item[] = [];
-        const accCurrencies: Record<CurrencyType, number> = { augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, socket: 0 };
+        const accCurrencies: Record<CurrencyType, number> = { augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, greater_exalt: 0, perfect_exalt: 0, socket: 0 };
         const accMaterials: Record<string, number> = {};
         let accGold = 0;
         const accBagDrops: Record<string, number> = {};
@@ -1349,7 +1351,7 @@ export const useGameStore = create<GameState & GameActions>()(
           overflowCount: salvageStats.itemsSalvaged,
           dustGained: salvageStats.dustGained,
           bagDrops: {},
-          currencyDrops: { augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, socket: 0 },
+          currencyDrops: { augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, greater_exalt: 0, perfect_exalt: 0, socket: 0 },
           materialDrops: {},
           goldGained: 0,
         };
@@ -1425,7 +1427,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 20,
+      version: 21,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -1509,7 +1511,7 @@ export const useGameStore = create<GameState & GameActions>()(
                 goldGained: 0,
                 xpGained: 0,
                 materials: accMaterials,
-                currencyDrops: { augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, socket: 0 },
+                currencyDrops: { augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, greater_exalt: 0, perfect_exalt: 0, socket: 0 },
                 bagDrops: {},
                 bestItem: null,
               };
@@ -1818,6 +1820,13 @@ export const useGameStore = create<GameState & GameActions>()(
           // v20: Kill counter + fastest clear tracking
           raw.totalKills = 0;
           raw.fastestClears = {};
+        }
+
+        if (version < 21) {
+          // v21: Greater Exalt + Perfect Exalt currencies
+          const currencies = (state.currencies ?? {}) as Record<string, number>;
+          if (currencies.greater_exalt === undefined) currencies.greater_exalt = 0;
+          if (currencies.perfect_exalt === undefined) currencies.perfect_exalt = 0;
         }
 
         return state;

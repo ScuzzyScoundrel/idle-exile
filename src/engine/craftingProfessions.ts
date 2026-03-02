@@ -5,7 +5,7 @@
 
 import type { CraftingSkills, CraftingProfession, CraftingRecipeDef, CraftingMilestone, Item, Rarity, RareMaterialRarity, AffixTier } from '../types';
 import { CRAFTING_MILESTONES } from '../data/craftingProfessions';
-import { CRAFTING_XP_PER_TIER, CATALYST_RARITY_MAP, CATALYST_BEST_TIER } from '../data/balance';
+import { CRAFTING_XP_PER_TIER, CATALYST_RARITY_MAP, CATALYST_BEST_TIER, CATALYST_ILVL_BONUS } from '../data/balance';
 import { generateItem, generateGatheringItem, rollAffixValue, classifyRarity, buildItemName } from './items';
 import { AFFIX_DEFS } from '../data/affixes';
 import { getRareMaterialDef } from '../data/rareMaterials';
@@ -94,18 +94,29 @@ export function executeCraft(
   const affixCatDef = affixCatalystId ? getAffixCatalystDef(affixCatalystId) : undefined;
   const guaranteedAffix = affixCatDef?.guaranteedAffix;
 
+  // Resolve catalyst iLvl bonus — higher rarity catalyst = better affix tier weights
+  let catalystILvlBonus = 0;
+  if (recipe.requiredCatalyst) {
+    const cd = getRareMaterialDef(recipe.requiredCatalyst.rareMaterialId);
+    if (cd) catalystILvlBonus = CATALYST_ILVL_BONUS[cd.rarity];
+  } else if (catalystId) {
+    const cd = getRareMaterialDef(catalystId);
+    if (cd) catalystILvlBonus = CATALYST_ILVL_BONUS[cd.rarity];
+  }
+  const effectiveILvl = recipe.outputILvl + catalystILvlBonus;
+
   // Generate the base item — pass outputBaseId to ensure correct item type
   let item: Item;
   if (recipe.isGatheringGear) {
     item = generateGatheringItem(
       getSlotFromBaseId(recipe.outputBaseId),
-      recipe.outputILvl,
+      effectiveILvl,
       recipe.outputBaseId,
     );
   } else {
     item = generateItem(
       getSlotFromBaseId(recipe.outputBaseId),
-      recipe.outputILvl,
+      effectiveILvl,
       recipe.outputBaseId,
       guaranteedAffix,
     );
@@ -134,13 +145,13 @@ export function executeCraft(
       if (recipe.isGatheringGear) {
         item = generateGatheringItem(
           getSlotFromBaseId(recipe.outputBaseId),
-          recipe.outputILvl,
+          effectiveILvl,
           recipe.outputBaseId,
         );
       } else {
         item = generateItem(
           getSlotFromBaseId(recipe.outputBaseId),
-          recipe.outputILvl,
+          effectiveILvl,
           recipe.outputBaseId,
         );
       }

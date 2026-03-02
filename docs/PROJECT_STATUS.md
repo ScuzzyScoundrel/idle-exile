@@ -1,16 +1,16 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-01 (Post-Sprint 8F-1)
+> Last updated: 2026-03-01 (Post-Sprint 8F-2)
 
 ## Current Phase
-**Sprint 8F-1: Item Level & Affix Rework (Part 1)** — COMPLETE.
-- **iLvl-scaled affix tier weights**: Replaced hard tier gating (`getAvailableTiers` with iLvl breakpoints) with smooth weight interpolation (`getWeightedTiers`). ALL tiers (T1-T10) can now drop at ANY iLvl, but weights shift dramatically. At iLvl 1: T10 weight=50, T1 weight=0.01 (~0.006% chance). At iLvl 70: all tiers converge to weight=5 (10% each). Linear interpolation between low/high iLvl weights. Config in `balance.ts`: `TIER_ILVL_CAP=70`, `TIER_HIGH_WEIGHT=5`, `TIER_LOW_WEIGHTS` per tier.
-- **Realistic best tier**: `getBestTierForILvl` now returns the best tier with ≥1% probability (replaces old hard cutoff). Star indicator (★) and "T{n}+" display adapt automatically.
-- **Exalt currency adapted**: Exalt now picks top 3 tiers starting from the realistic best tier (preserves "good tier for item's iLvl" behavior).
-- **Armor type badges**: All armor items now show a colored Plate/Leather/Cloth badge in the inventory detail panel and hover tooltip. Plate=silver, Leather=brown, Cloth=purple.
-- Previous 8E-2 changes still active.
-- Next: Sprint 8F-2 (Currency rework: Greater/Perfect Exalt + crafting material tier → iLvl bonus)
+**Sprint 8F-2: Currency Rework + Catalyst iLvl Bonus** — COMPLETE.
+- **Greater Exalt**: New epic-rarity currency. Adds one affix from the top 2 realistic tiers (40/60 weight). Drop rate: 0.5% per clear.
+- **Perfect Exalt**: New legendary-rarity currency. Adds one guaranteed T1 affix. Drop rate: 0.1% per clear. Ultra-rare chase currency.
+- **Catalyst iLvl bonus**: Rare material catalysts now boost crafted item iLvl (common: +3, uncommon: +6, rare: +10, epic: +15, legendary: +20). Higher iLvl = better affix tier weights (compounds with 8F-1 weighted tier system).
+- **Save v21**: Existing saves get greater_exalt: 0, perfect_exalt: 0 on load.
+- Previous 8F-1 changes still active: iLvl-scaled tier weights, armor type badges.
+- Next: Sprint 8G (Crafting & Economy Tuning) or Phase 3 (UX/UI Overhaul)
 
 ## What Is Working Right Now
 The game is live on Vercel and playable locally at `http://localhost:5173/`. Core loop:
@@ -78,8 +78,8 @@ Bottom: mainhand, offhand, trinket1, trinket2
 - **Ability system**: 6 ability kinds (passive/buff/instant/proc/toggle/ultimate). Per-ability skill trees with 3 paths x 2 nodes. Ability XP: `10 + floor(band*2)` per clear. XP per level: `100*(level+1)`. Max level 10. Respec cost: `50*level^2` gold. Slot unlock at character Lv.1/5/12/20.
 - **Per-clear tracking**: `clearStartedAt` + `currentClearTime` replace modulo-based progress. Mid-clear ability activation preserves progress % but adjusts remaining time.
 - **Bag system**: 5 equippable bag slots (T1:6→T5:14). Start 30 total, max 70.
-- **Crafting (currencies)**: `applyCurrency(item, type)` — augment, chaos, divine, annul, exalt
-- **Save**: Zustand persist v20. v19→v20 adds `totalKills` + `fastestClears`. Migrations: v11→v12 adds `craftingSkills`, v12→v13 adds leatherworker + jeweler skills, v13→v14 adds `craftAutoSalvageMinRarity`, v14→v15 adds `zoneClearCounts` + combat HP fields, v17→v18 adds `classResource` + `classSelected`, v18→v19 adds `abilityProgress` + `clearStartedAt` + `currentClearTime` (clears old mutator selections).
+- **Crafting (currencies)**: `applyCurrency(item, type)` — augment, chaos, divine, annul, exalt, greater_exalt (top-2 tiers), perfect_exalt (T1 guaranteed)
+- **Save**: Zustand persist v21. v20→v21 adds `greater_exalt` + `perfect_exalt` currencies. Migrations: v11→v12 adds `craftingSkills`, v12→v13 adds leatherworker + jeweler skills, v13→v14 adds `craftAutoSalvageMinRarity`, v14→v15 adds `zoneClearCounts` + combat HP fields, v17→v18 adds `classResource` + `classSelected`, v18→v19 adds `abilityProgress` + `clearStartedAt` + `currentClearTime` (clears old mutator selections).
 
 ## Architecture
 ```
@@ -146,7 +146,7 @@ src/
 **See `SPRINT_PLAN.md` for the full roadmap with detailed implementation notes.**
 
 Immediate priority (Phase 2 — Balance & Systems Rework):
-1. **Sprint 8F-2** — Currency rework (Greater/Perfect Exalt) + crafting material tier → iLvl bonus
+1. **Sprint 8G** — Crafting & Economy Tuning (crafting XP curve, gold economy, salvage dust usage)
 
 Then Phase 3 (UX/UI Overhaul), Phase 4 (New Features) — all detailed in SPRINT_PLAN.md.
 
@@ -349,6 +349,14 @@ Replaced focus modes with Combat/Gathering toggle. 5 gathering professions with 
 - **Exalt adapted**: `rollForcedHighTierAffix()` now uses `getBestTierForILvl()` + next 2 tiers (was `getAvailableTiers().slice(0,3)`). Preserves "good tier for item's iLvl" intent.
 - **Armor type badges**: Plate (silver), Leather (brown), Cloth (purple) badge shown on item detail panel + hover tooltip in InventoryScreen. Uses existing `item.armorType` field (already on all armor items).
 - **Files changed**: `data/balance.ts`, `engine/items.ts`, `engine/crafting.ts`, `ui/screens/InventoryScreen.tsx`
+
+### Sprint 8F-2 Changes (Currency Rework + Catalyst iLvl Bonus)
+- **Greater Exalt**: New `greater_exalt` currency (epic rarity, 0.5% drop rate). Adds one affix from top 2 realistic tiers for item's iLvl (40% best, 60% second-best). Refactored `rollForcedHighTierAffix()` to accept `topN` parameter.
+- **Perfect Exalt**: New `perfect_exalt` currency (legendary rarity, 0.1% drop rate). Adds one guaranteed T1 affix via new `rollPerfectAffix()` helper. Chase currency — ultra-rare.
+- **Catalyst iLvl bonus**: `CATALYST_ILVL_BONUS` in balance.ts (common:+3, uncommon:+6, rare:+10, epic:+15, legendary:+20). Applied in `executeCraft()` BEFORE item generation — item rolls with `effectiveILvl = recipe.outputILvl + bonus`, giving better affix tier weights.
+- **Save v21 migration**: Adds `greater_exalt: 0` and `perfect_exalt: 0` to existing save currencies.
+- **CurrencyDef rarity extended**: From `'common'|'uncommon'|'rare'` to include `'epic'|'legendary'`.
+- **Files changed**: `types/index.ts`, `data/items.ts`, `data/balance.ts`, `engine/crafting.ts`, `engine/craftingProfessions.ts`, `engine/zones.ts`, `store/gameStore.ts`
 
 ## Micro-Sprint Workflow
 Each conversation = one micro-sprint (3-5 related changes):
