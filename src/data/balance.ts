@@ -223,8 +223,17 @@ export const CLEAR_REGEN_RATIO = 0.08;
 export const BOSS_INTERVAL = 10;
 /** Base boss HP (band 1). Scales with band^2. Overgeared players melt it fast — that's intended. */
 export const BOSS_BASE_HP = 150;
-/** Boss hits harder than zone pressure. Reduced in 8E (was 2.5). */
-export const BOSS_DAMAGE_MULTIPLIER = 1.5;
+/** Boss damage multiplier (tuning knob). Set to 1.0 in 8E-2 — base pressure formula handles scaling. */
+export const BOSS_DAMAGE_MULTIPLIER = 1.0;
+
+/** Boss DPS base: combined with band^1.5 for per-band scaling. */
+export const BOSS_DPS_BASE = 4;
+
+/** Zone-specific boss variation: baseClearTime * this factor added to base pressure. */
+export const BOSS_DPS_ZONE_FACTOR = 0.2;
+
+/** Each unresisted hazard adds this fraction of base pressure as bonus boss damage. */
+export const BOSS_HAZARD_DAMAGE_RATIO = 0.15;
 /** Boss drops at iLvlMax + this. */
 export const BOSS_ILVL_BONUS = 5;
 export const BOSS_DROP_COUNT_MIN = 1;

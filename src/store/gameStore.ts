@@ -673,11 +673,18 @@ export const useGameStore = create<GameState & GameActions>()(
         let hp = state.currentHp > 0 ? state.currentHp : stats.maxLife;
         for (let i = 0; i < clearCount; i++) {
           hp = applyNormalClearHp(hp, stats.maxLife, defEff);
+          if (hp <= 0) { hp = 0; break; }
         }
+        const zoneDeath = hp <= 0 && state.idleMode === 'combat';
 
         // Track clear counts toward boss (only real clears, not mage bonus)
         const newZoneClearCounts = { ...state.zoneClearCounts };
-        newZoneClearCounts[zoneId] = (newZoneClearCounts[zoneId] || 0) + clearCount;
+        if (zoneDeath) {
+          // Death: reset boss counter
+          delete newZoneClearCounts[zoneId];
+        } else {
+          newZoneClearCounts[zoneId] = (newZoneClearCounts[zoneId] || 0) + clearCount;
+        }
 
         // Add ability XP to all equipped abilities
         const xpPerClear = getAbilityXpPerClear(zone.band);
@@ -721,6 +728,11 @@ export const useGameStore = create<GameState & GameActions>()(
           currentClearTime: newClearTime,
           totalKills: state.totalKills + totalClears,
           fastestClears: newFastestClears,
+          // Zone death: enter recovery phase
+          ...(zoneDeath ? {
+            combatPhase: 'zone_defeat' as CombatPhase,
+            combatPhaseStartedAt: Date.now(),
+          } : {}),
         });
 
         return {
@@ -1359,14 +1371,14 @@ export const useGameStore = create<GameState & GameActions>()(
 
       checkRecoveryComplete: () => {
         const state = get();
-        if (state.combatPhase !== 'boss_victory' && state.combatPhase !== 'boss_defeat') return false;
+        if (state.combatPhase !== 'boss_victory' && state.combatPhase !== 'boss_defeat' && state.combatPhase !== 'zone_defeat') return false;
         if (!state.combatPhaseStartedAt) return false;
 
         const elapsed = (Date.now() - state.combatPhaseStartedAt) / 1000;
         const duration = state.combatPhase === 'boss_victory' ? BOSS_VICTORY_DURATION : BOSS_DEFEAT_RECOVERY;
         const stats = resolveStats(state.character);
 
-        if (state.combatPhase === 'boss_defeat') {
+        if (state.combatPhase === 'boss_defeat' || state.combatPhase === 'zone_defeat') {
           // Linearly regen HP during recovery
           const progress = Math.min(1, elapsed / duration);
           set({ currentHp: stats.maxLife * progress });

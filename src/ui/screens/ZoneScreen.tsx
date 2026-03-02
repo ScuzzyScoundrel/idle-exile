@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useGameStore, ProcessClearsResult, useHasHydrated } from '../../store/gameStore';
 import { ZONE_DEFS, BAND_NAMES } from '../../data/zones';
-import { checkZoneMastery, applyNormalClearHp, calcPlayerDps, calcBossMaxHp, calcBossDps, calcXpScale } from '../../engine/zones';
+import { checkZoneMastery, applyNormalClearHp, calcXpScale } from '../../engine/zones';
 import { calcDefensiveEfficiency } from '../../engine/setBonus';
 import { canGatherInZone, getGatheringSkillRequirement, calcGatheringXpRequired } from '../../engine/gathering';
 import { GATHERING_PROFESSION_DEFS } from '../../data/gatheringProfessions';
@@ -325,6 +325,26 @@ function BossDefeatOverlay({ bossName, currentHp, maxHp }: { bossName: string; c
       <div className="text-2xl">{'\u{1F480}'}</div>
       <div className="text-red-400 font-bold text-sm">Defeated!</div>
       <div className="text-gray-400 text-xs">{bossName} was too strong. Gear up and try again!</div>
+      <div className="mt-2">
+        <div className="text-xs text-gray-500 mb-1">Recovering...</div>
+        <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+          <div className="h-full bg-green-500 rounded-full transition-all duration-200"
+               style={{ width: `${pct}%` }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- Zone Defeat Overlay (death during normal clears) ---
+function ZoneDefeatOverlay({ mobName, zoneName, currentHp, maxHp }: { mobName: string; zoneName: string; currentHp: number; maxHp: number }) {
+  const pct = maxHp > 0 ? Math.max(0, (currentHp / maxHp) * 100) : 0;
+  return (
+    <div className="bg-gradient-to-br from-red-950 via-gray-900 to-red-950 rounded-lg border-2 border-red-800 p-4 text-center space-y-2">
+      <div className="text-2xl">{'\u{1F480}'}</div>
+      <div className="text-red-400 font-bold text-sm">Defeated!</div>
+      <div className="text-gray-400 text-xs">The {mobName} of {zoneName} overwhelmed you!</div>
+      <div className="text-xs text-yellow-500 font-semibold">Boss progress reset</div>
       <div className="mt-2">
         <div className="text-xs text-gray-500 mb-1">Recovering...</div>
         <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
@@ -851,21 +871,6 @@ export default function ZoneScreen() {
   // Compute maxHp for display
   const maxHp = resolveStats(character).maxLife;
 
-  // Boss danger assessment for selected zone (combat mode)
-  let dangerLevel: 'safe' | 'risky' | 'deadly' = 'safe';
-  let bossTimeToKill = 0;
-  let bossTimeToDie = Infinity;
-  if (idleMode === 'combat') {
-    const pDps = calcPlayerDps(character);
-    const bDps = calcBossDps(character, zone);
-    const bHp = calcBossMaxHp(zone);
-    bossTimeToKill = pDps > 0 ? bHp / pDps : Infinity;
-    bossTimeToDie = bDps > 0 ? maxHp / bDps : Infinity;
-    if (bossTimeToKill >= bossTimeToDie) dangerLevel = 'deadly';
-    else if (bossTimeToKill >= bossTimeToDie * 0.7) dangerLevel = 'risky';
-    else dangerLevel = 'safe';
-  }
-
   // XP scaling for selected zone
   const xpScale = calcXpScale(character.level, zone.iLvlMin);
 
@@ -909,7 +914,7 @@ export default function ZoneScreen() {
             handleBossDefeat();
           }
         }
-      } else if (phase === 'boss_victory' || phase === 'boss_defeat') {
+      } else if (phase === 'boss_victory' || phase === 'boss_defeat' || phase === 'zone_defeat') {
         const done = checkRecoveryComplete();
         if (done) {
           // Resume clearing — reset elapsed and lastClearCount
@@ -963,9 +968,10 @@ export default function ZoneScreen() {
       }
     }
 
-    // Check if boss should spawn (combat mode only)
-    if (idleMode === 'combat' && currentZoneId) {
-      const counts = useGameStore.getState().zoneClearCounts;
+    // Check if boss should spawn (combat mode only, not if we just died)
+    const stateAfterClears = useGameStore.getState();
+    if (idleMode === 'combat' && currentZoneId && stateAfterClears.combatPhase === 'clearing') {
+      const counts = stateAfterClears.zoneClearCounts;
       const zoneCount = counts[currentZoneId] || 0;
       if (zoneCount > 0 && zoneCount % BOSS_INTERVAL === 0) {
         startBossFight();
@@ -1212,21 +1218,6 @@ export default function ZoneScreen() {
             {fastestClears[selectedZone] != null && (
               <span>{'\u26A1'} Best: <span className="text-yellow-400 font-mono">{formatClearTime(fastestClears[selectedZone])}</span></span>
             )}
-            {/* Boss danger indicator */}
-            <span>
-              Boss:{' '}
-              <span className={`font-semibold ${
-                dangerLevel === 'safe' ? 'text-green-400' :
-                dangerLevel === 'risky' ? 'text-yellow-400' : 'text-red-400'
-              }`}>
-                {dangerLevel === 'safe' ? 'Safe' : dangerLevel === 'risky' ? 'Risky' : 'Deadly'}
-              </span>
-              {bossTimeToKill < Infinity && (
-                <span className="text-gray-600 ml-1">
-                  ({formatClearTime(bossTimeToKill)} kill / {bossTimeToDie < Infinity ? formatClearTime(bossTimeToDie) : '\u221E'} die)
-                </span>
-              )}
-            </span>
             {/* XP penalty for overleveled zones */}
             {xpScale < 1.0 && (
               <span className="text-yellow-500">
@@ -1302,6 +1293,10 @@ export default function ZoneScreen() {
 
           {idleMode === 'combat' && combatPhase === 'boss_defeat' && bossState && (
             <BossDefeatOverlay bossName={bossState.bossName} currentHp={currentHp} maxHp={maxHp} />
+          )}
+
+          {idleMode === 'combat' && combatPhase === 'zone_defeat' && runningZone && (
+            <ZoneDefeatOverlay mobName={runningZone.mobName} zoneName={runningZone.name} currentHp={currentHp} maxHp={maxHp} />
           )}
 
           {/* Normal progress (clearing phase or gathering) */}

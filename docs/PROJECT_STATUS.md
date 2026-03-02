@@ -1,14 +1,15 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-01 (Post-Sprint 8E)
+> Last updated: 2026-03-01 (Post-Sprint 8E-2)
 
 ## Current Phase
-**Sprint 8E: Combat Rebalance** — COMPLETE.
-- **Boss rebalance**: Replaced old `baseClearTime * band * multiplier` formula with `BOSS_BASE_HP(75) * band^2` + DPS floor (`playerDps * 8s`). Band 1 bosses ~75 HP (fresh player: 15s fight). Overgeared players always face at least 8s fight. `BOSS_DAMAGE_MULTIPLIER` 2.5→1.5.
-- **Defense/clear speed philosophy split**: Defense no longer affects clear speed. `charPower = playerDps * hazardMult` (removed `defEff`). Offense = faster clears, defense = survive harder content/bosses. `POWER_DIVISOR` 25→50 to compensate.
-- **XP scaling with zone level**: New `calcXpScale()` in `engine/zones.ts`. Each player level above zone iLvlMin = -10% XP (floor 10%). Prevents farming low-level zones for fast XP. Applied in real-time grants, `simulateSingleClear`, and `simulateIdleRun`.
-- **Defense transparency**: Zone info panel now shows boss danger indicator (Safe/Risky/Deadly) with kill-time vs die-time. Shows XP penalty % when farming overleveled zones.
+**Sprint 8E-2: Combat Rebalance Iteration** — COMPLETE.
+- **Boss DPS rework**: Replaced exponential `50 * 2^(band-1)` base pressure with zone-specific formula: `BOSS_DPS_BASE(4) * band^1.5 + baseClearTime * 0.2`. Different zones within the same band now deal different boss damage. `BOSS_DAMAGE_MULTIPLIER` 1.5→1.0.
+- **Boss hazard damage**: Each zone hazard adds up to 15% bonus boss damage, reduced by player resists. Fire/cold/lightning/chaos zones have mechanically distinct bosses.
+- **Zone death system**: Players can now die during normal clears (HP floor removed: 1→0). Death triggers `zone_defeat` recovery phase (same duration as boss defeat), resets boss clear counter, fully heals after recovery.
+- **Removed boss danger indicator**: "Boss: Safe/Risky/Deadly (kill time / die time)" removed — was spoiling fight outcomes before they happened.
+- Previous 8E changes still active: Defense/clear speed split, XP scaling, boss HP = `150 * band^2`, boss victory screen with fight stats.
 - Next: Sprint 8F (Item Level & Affix Rework) — Phase 2
 
 ## What Is Working Right Now
@@ -71,8 +72,8 @@ Bottom: mainhand, offhand, trinket1, trinket2
 - **Rare material drops**: 25 defs (5 professions × 5 rarities). Per-clear roll, highest rarity first. Rates scale with band (common ~8-18%, legendary 0-0.3%). `rareFindBonus` from milestones + gear.
 - **Refinement**: 36 recipes (6 tracks × 6 tiers). T1: 5 raw + gold → 1 refined. T2+: 5 raw + 2 previous refined + gold → 1 refined. Deconstruct: 1 refined → 2 previous tier (T2+ only).
 - **Crafting professions**: 6 professions, level 1-100. XP curve matches gathering. 205 recipes (table-driven armor generation). Catalyst system: optional affix catalyst → guaranteed affix; optional rare mat → guaranteed minimum rarity + 1 boosted affix. `executeCraft()` generates item with reroll loop + boosted affix upgrade.
-- **Combat HP**: `applyNormalClearHp()` per clear. Damage = maxHp * 0.15 * scale(defEff) * variance(0.7-1.3). Regen = maxHp * 0.08. No minimum drain floor — good defense can fully heal. Floor at 1 HP (can't die to mobs). Ability `resistBonus` now applied to defEff and hazard calcs via `applyAbilityResists()`.
-- **Boss mechanics**: Every 10 clears (count resets on new run). `calcBossMaxHp(zone, playerDps)` = `max(75 * band^2, playerDps * 8)`. `calcPlayerDps()` and `calcBossDps()` drive real-time simulation. `tickBossFight()` resolves frame-by-frame. `generateBossLoot()` at iLvlMax + 5. Victory/defeat phases with timed recovery.
+- **Combat HP**: `applyNormalClearHp()` per clear. Damage = maxHp * 0.15 * scale(defEff) * variance(0.7-1.3). Regen = maxHp * 0.08. No minimum drain floor — good defense can fully heal. **Death possible**: HP can reach 0, triggering `zone_defeat` recovery phase (5s, resets boss counter). Ability `resistBonus` now applied to defEff and hazard calcs via `applyAbilityResists()`.
+- **Boss mechanics**: Every 10 clears (count resets on new run or zone death). `calcBossMaxHp(zone)` = `150 * band^2`. `calcBossDps()` = zone-specific pressure (`BOSS_DPS_BASE * band^1.5 + baseClearTime * 0.2`) + hazard bonus (15% per unresisted hazard) * damageScale * multiplier(1.0). `calcPlayerDps()` drives real-time simulation. `tickBossFight()` resolves frame-by-frame. `generateBossLoot()` at iLvlMax + 5. Victory/defeat/zone_defeat phases with timed recovery.
 - **Auto-apply resources**: `processNewClears()` immediately applies all drops to state. Session summary tracked in UI local state.
 - **Ability system**: 6 ability kinds (passive/buff/instant/proc/toggle/ultimate). Per-ability skill trees with 3 paths x 2 nodes. Ability XP: `10 + floor(band*2)` per clear. XP per level: `100*(level+1)`. Max level 10. Respec cost: `50*level^2` gold. Slot unlock at character Lv.1/5/12/20.
 - **Per-clear tracking**: `clearStartedAt` + `currentClearTime` replace modulo-based progress. Mid-clear ability activation preserves progress % but adjusts remaining time.
@@ -332,6 +333,15 @@ Replaced focus modes with Combat/Gathering toggle. 5 gathering professions with 
 - **Boss danger indicator**: Zone info panel shows "Boss: Safe/Risky/Deadly" with estimated time-to-kill and time-to-die. Risky = fight is close, Deadly = boss kills you first. Color-coded green/yellow/red.
 - **XP penalty display**: When player is overleveled for a zone, shows "XP: X%" in the zone info panel.
 - **Files changed**: `data/balance.ts`, `engine/zones.ts`, `store/gameStore.ts`, `ui/screens/ZoneScreen.tsx`
+
+### Sprint 8E-2 Changes (Combat Rebalance Iteration)
+- **Boss DPS rework**: Replaced exponential `50 * 2^(band-1)` (Band 3 = 200) with zone-specific formula: `BOSS_DPS_BASE(4) * band^1.5 + baseClearTime * BOSS_DPS_ZONE_FACTOR(0.2)`. Band 3 Shimmerfen(55) = 31.8, Emberpeak(43) = 29.4 — different bosses, different damage. `BOSS_DAMAGE_MULTIPLIER` 1.5→1.0. Result: Band 3 boss fights now ~20-30s instead of 2.7s.
+- **Boss hazard bonus**: Each zone hazard adds `basePressure * BOSS_HAZARD_DAMAGE_RATIO(0.15) * (1 - resistReduction)` bonus damage. Resists reduce hazard bonus (resist / threshold*1.5). Fire/cold/lightning/chaos zones feel mechanically distinct.
+- **Zone death**: `applyNormalClearHp` floor changed from 1 to 0. HP can reach 0 during normal clears. `processNewClears` detects death → sets `combatPhase = 'zone_defeat'`, resets `zoneClearCounts` (boss counter back to 0). `checkRecoveryComplete` handles recovery (same as boss_defeat: HP regens over 5s, then resumes clearing).
+- **Zone defeat overlay**: New `ZoneDefeatOverlay` component shows mob name, zone name, "Boss progress reset" message, HP recovery bar. Similar to `BossDefeatOverlay` but for mob deaths.
+- **Removed boss danger indicator**: "Boss: Safe/Risky/Deadly (kill / die times)" removed from zone info panel. Was spoiling outcomes. Removed `calcPlayerDps`, `calcBossMaxHp`, `calcBossDps` imports from ZoneScreen.
+- **New CombatPhase**: `'zone_defeat'` added to `CombatPhase` union type.
+- **Files changed**: `types/index.ts`, `data/balance.ts`, `engine/zones.ts`, `store/gameStore.ts`, `ui/screens/ZoneScreen.tsx`
 
 ## Micro-Sprint Workflow
 Each conversation = one micro-sprint (3-5 related changes):

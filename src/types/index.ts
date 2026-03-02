@@ -257,7 +257,7 @@ export interface OfflineProgressSummary {
 
 // --- Combat ---
 
-export type CombatPhase = 'clearing' | 'boss_fight' | 'boss_victory' | 'boss_defeat';
+export type CombatPhase = 'clearing' | 'boss_fight' | 'boss_victory' | 'boss_defeat' | 'zone_defeat';
 
 export interface BossState {
   bossName: string;

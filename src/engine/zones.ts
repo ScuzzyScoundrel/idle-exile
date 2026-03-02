@@ -18,8 +18,8 @@ import {
   POWER_DIVISOR, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO,
   HAZARD_PENALTY_FLOOR, HAZARD_OVERCAP_MULT,
   CLEAR_DAMAGE_RATIO, CLEAR_REGEN_RATIO, BOSS_BASE_HP,
-  BOSS_DAMAGE_MULTIPLIER, BOSS_ILVL_BONUS, BOSS_DROP_COUNT_MIN,
-  BOSS_DROP_COUNT_MAX,
+  BOSS_DAMAGE_MULTIPLIER, BOSS_DPS_BASE, BOSS_DPS_ZONE_FACTOR, BOSS_HAZARD_DAMAGE_RATIO,
+  BOSS_ILVL_BONUS, BOSS_DROP_COUNT_MIN, BOSS_DROP_COUNT_MAX,
 } from '../data/balance';
 
 // --- Gear slots used for random item drops ---
@@ -380,9 +380,9 @@ export function calcRegenPerClear(maxHp: number): number {
 }
 
 /**
- * Apply one clear of HP change. Floor at 1 (can't die to normal mobs).
+ * Apply one clear of HP change. Can die (HP reaches 0) if defense is too low.
  * Damage has variance (70%-130% of base) so HP isn't a flat drain.
- * Good defense can fully out-regen damage — no artificial minimum floor.
+ * Good defense can fully out-regen damage.
  */
 export function applyNormalClearHp(currentHp: number, maxHp: number, defEff: number): number {
   const baseDamage = calcDamagePerClear(maxHp, defEff);
@@ -390,7 +390,7 @@ export function applyNormalClearHp(currentHp: number, maxHp: number, defEff: num
   const regen = calcRegenPerClear(maxHp);
   const netChange = damage - regen; // positive = net damage, negative = net heal
   const newHp = currentHp - netChange;
-  return Math.max(1, Math.min(maxHp, newHp)); // clamp to [1, maxHp]
+  return Math.max(0, Math.min(maxHp, newHp)); // clamp to [0, maxHp] — 0 = death
 }
 
 /** Boss HP pool. Scales with band^2. Overgeared players melt it — that's intended. */
@@ -398,15 +398,27 @@ export function calcBossMaxHp(zone: ZoneDef): number {
   return BOSS_BASE_HP * zone.band * zone.band;
 }
 
-/** Boss DPS against player. Uses zone pressure + defenses, amplified by multiplier. */
+/** Boss DPS against player. Zone-specific: baseClearTime drives variation within band,
+ *  hazards add bonus damage based on player resists. */
 export function calcBossDps(char: Character, zone: ZoneDef, abilityEffect?: AbilityEffect): number {
   const effectiveStats = applyAbilityResists(char.stats, abilityEffect);
   let defEff = calcDefensiveEfficiency(effectiveStats, zone.band);
   defEff *= (abilityEffect?.defenseMult ?? 1);
   // Map defEff [0.2, 1.0] → damage scale [1.0, 0.0]
   const damageScale = Math.max(0, (1.0 - defEff) / 0.8);
-  const zonePressure = 50 * Math.pow(2, zone.band - 1);
-  return zonePressure * damageScale * BOSS_DAMAGE_MULTIPLIER;
+
+  // Zone-specific base pressure: band^1.5 for progression + baseClearTime for per-zone variation
+  const basePressure = BOSS_DPS_BASE * Math.pow(zone.band, 1.5) + zone.baseClearTime * BOSS_DPS_ZONE_FACTOR;
+
+  // Hazard bonus: each unresisted hazard type adds bonus damage
+  let hazardBonus = 0;
+  for (const hazard of zone.hazards) {
+    const resist = effectiveStats[HAZARD_STAT_MAP[hazard.type]] ?? 0;
+    const reduction = Math.min(1, resist / (hazard.threshold * 1.5));
+    hazardBonus += basePressure * BOSS_HAZARD_DAMAGE_RATIO * (1 - reduction);
+  }
+
+  return (basePressure + hazardBonus) * damageScale * BOSS_DAMAGE_MULTIPLIER;
 }
 
 /** Create BossState at fight start. */
