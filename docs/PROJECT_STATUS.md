@@ -1,10 +1,25 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-02 (Post-Sprint 10L: Cooldown UI + Visual Polish)
+> Last updated: 2026-03-02 (Post-Sprint 10M: Multi-Skill Rotation)
 
 ## Current Phase
-**Sprint 10L: Cooldown UI + Visual Polish** — COMPLETE.
+**Sprint 10M: Multi-Skill Rotation (Foundation)** — COMPLETE.
+
+- **Rotation engine**: `tickCombat()` rewritten from single-skill to cooldown-based rotation. `getNextRotationSkill()` iterates equipped active skills in slot-priority order, fires first skill off cooldown.
+- **GCD system**: `ACTIVE_SKILL_GCD` (1.0s) gates casts. `nextActiveSkillAt` is a pre-computed timestamp — cleaner than tracking "last cast + interval". Independent from buff auto-cast GCD (`lastSkillActivation`).
+- **Per-skill cooldowns**: All 43 previously-spammable active skills now have cooldowns: Basic (3s), Enhanced (4s), Utility (5s), Specialist (6s). 8 finishers keep their original 8-12s cooldowns.
+- **Active skill timers**: `equipToSkillBar()` now creates `SkillTimerState` entries for active skills (was only buff/toggle/instant/ultimate). `tickCombat()` updates per-skill `cooldownUntil` after each cast.
+- **Cooldown sweep UI**: Active skill slots in SkillBar show conic-gradient sweep overlay during cooldown (same pattern as buff/instant from 10L). Shows remaining CD text (e.g., "3s").
+- **Any-slot equip**: Active skills can go in any slot (0-4). Slot position = priority. No kind restrictions.
+- **SkillPanel**: Active skill cards now show "cast time / cooldown" info.
+- **v27 migration**: Renames `lastSkillCastAt` → `nextActiveSkillAt` (ephemeral), ensures active skills have timer entries.
+- **Save version**: v27.
+- **Bundle size**: 502 kB.
+
+**Next: Sprint 10N** (Skill Discovery + Unlocks). See `COMBAT_OVERHAUL.md` for full roadmap.
+
+**Sprint 10L: Cooldown UI + Visual Polish** — COMPLETE (previous).
 
 - **Floater bug fixes (10K-B2 followup)**: Damage floaters centered above mob display (`left: 50%` + `translateX(-50%)`), no longer scattered randomly across HP bar. Staggered vertically by index to prevent overlap.
 - **Damage rounding**: Floaters and combat log show whole numbers (`Math.round`), not raw decimals.
@@ -14,8 +29,6 @@
 - **No new CSS/animations needed**: Sweeps use inline `conic-gradient` styles.
 - **No store/engine/type changes**: Pure UI changes, no save migration.
 - **Bundle size**: ~500 kB.
-
-**Next: Sprint 10M** (Multi-Skill Rotation). See `COMBAT_OVERHAUL.md` for full roadmap.
 
 **Sprint 10K-B2: Combat Visual Feedback** — COMPLETE (previous).
 

@@ -63,6 +63,7 @@ Each conversation = one micro-sprint (3-5 focused changes):
 | **10K-B1** | **Boss Unification: boss fights use tickCombat (per-hit rolls), removed tickBoss/tickBossFight dead code** |
 | **10K-B2** | **Combat Visual Feedback: skill slot flash, damage floaters, combat log, BossFightDisplay cleanup** |
 | **10L** | **Cooldown UI + Visual Polish: floater centering/rounding fixes, cooldown sweep overlays, active buff sweep** |
+| **10M** | **Multi-Skill Rotation: cooldown-based rotation engine, per-skill CDs (3-12s tiers), GCD system, cooldown sweep UI, any-slot equip** |
 
 See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
 
@@ -384,8 +385,8 @@ See `COMBAT_OVERHAUL.md` for detailed checklist.
 **Status:** NOT STARTED
 See `COMBAT_OVERHAUL.md` for detailed checklist.
 
-### Sprint 10M: Multi-Skill Rotation
-**Status:** NOT STARTED
+### Sprint 10M: Multi-Skill Rotation (Foundation)
+**Status:** COMPLETE
 See `COMBAT_OVERHAUL.md` for detailed checklist.
 
 ### Sprint 10N: Skill Discovery + Unlocks

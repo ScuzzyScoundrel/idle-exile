@@ -141,23 +141,38 @@
 
 ---
 
-## Sprint 10M: Multi-Skill Rotation
-**Goal:** Players equip multiple active skills and they rotate automatically.
-**Status:** NOT STARTED
+## Sprint 10M: Multi-Skill Rotation (Foundation)
+**Goal:** Replace single-skill combat with cooldown-based rotation. All active skills have individual cooldowns, fire in slot-priority order, separated by 1s GCD.
+**Status:** COMPLETE
 
 ### Checklist:
-- [ ] Allow multiple active skills in skill bar (currently only slot 0)
-- [ ] Rotation logic: fire skills in priority order, respect individual CDs
-- [ ] Primary skill (slot 0) is spammable filler between CD skills
-- [ ] DPS tooltip shows rotation DPS (not single-skill DPS)
-- [ ] Skill priority reordering via drag or arrows
-- [ ] `npm run build` passes
+- [x] `ACTIVE_SKILL_GCD` constant (1.0s) — independent from buff auto-cast GCD
+- [x] `nextActiveSkillAt` replaces `lastSkillCastAt` — pre-computed GCD timestamp
+- [x] `getNextRotationSkill()` — iterates slots 0-4, returns first active skill off CD
+- [x] `tickCombat()` rewritten — GCD check → rotation pick → fire → per-skill CD + GCD update
+- [x] Active skills get `SkillTimerState` entries on equip (was only buff/toggle/instant/ultimate)
+- [x] v27 migration — renames ephemeral field, ensures active skill timers exist
+- [x] Cooldowns assigned to all 43 spammable active skills (3s basic → 6s specialist, finishers 8-12s unchanged)
+- [x] Active skill cooldown sweep overlay in SkillBar (conic-gradient, same pattern as buffs)
+- [x] Active skills show remaining CD text when on cooldown
+- [x] Any skill kind can be equipped to any slot (no slot-kind restrictions)
+- [x] SkillPanel shows cast time + cooldown for active skills
+- [x] `npm run build` passes (502 kB)
 
-### Files to modify:
-- `store/gameStore.ts` — rotation logic in tick
-- `engine/unifiedSkills.ts` — rotation DPS calc
-- `ui/components/SkillBar.tsx` — multi-active visual treatment
-- `ui/components/SkillPanel.tsx` — allow equipping multiple active skills
+### Deferred (future sprints):
+- Combo system (debuffs/empowerment based on cast order)
+- Rotation DPS display (shows combined rotation DPS estimate)
+- Skill priority reordering via drag/arrows
+- Rotation-aware offline DPS estimation (offline still uses single-skill model)
+
+### Files modified:
+- `data/balance.ts` — `ACTIVE_SKILL_GCD` constant
+- `types/index.ts` — `nextActiveSkillAt` replaces `lastSkillCastAt`
+- `engine/unifiedSkills.ts` — `getNextRotationSkill()`, updated `getDefaultSkillForWeapon()`
+- `store/gameStore.ts` — `tickCombat()` rewrite, equip timer init, v27 migration
+- `data/unifiedSkills.ts` — cooldowns for all 43 active skills
+- `ui/components/SkillBar.tsx` — active skill cooldown sweep + CD text
+- `ui/components/SkillPanel.tsx` — cast time/cooldown display for active skills
 
 ---
 

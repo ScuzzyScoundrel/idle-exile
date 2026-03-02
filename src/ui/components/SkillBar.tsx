@@ -105,22 +105,39 @@ export default function SkillBar({ lastFiredSkillId }: { lastFiredSkillId?: stri
         const border = KIND_BORDER[def.kind] ?? 'border-gray-600';
         const bg = KIND_BG[def.kind] ?? 'bg-gray-900';
 
-        // Active (damage) skill — non-interactive
+        // Active (damage) skill — non-interactive, shows cooldown sweep
         if (def.kind === 'active') {
           const shortName = def.name.length > 6 ? def.name.slice(0, 6) + '..' : def.name;
           const isFlashing = equipped.skillId === lastFiredSkillId;
+          const activeCdPct = isOnCooldown && def.cooldown > 0
+            ? Math.max(0, Math.min(1, remainingCd / def.cooldown))
+            : 0;
           return (
             <div
               key={isFlashing ? `${idx}-${flashKeyRef.current}` : idx}
-              className={`w-14 h-14 rounded-lg border-2 ${border} ${bg} flex flex-col items-center justify-center relative`}
+              className={`w-14 h-14 rounded-lg border-2 ${border} ${bg} flex flex-col items-center justify-center relative overflow-hidden ${
+                isOnCooldown ? 'opacity-60' : ''
+              }`}
               style={isFlashing ? { animation: 'skill-flash 0.4s ease-out' } : undefined}
-              title={`${def.name}: ${def.description}`}
+              title={`${def.name}: ${def.description}${isOnCooldown ? ` (CD: ${remainingCd.toFixed(0)}s)` : ''}`}
             >
-              <span className="text-lg">{def.icon}</span>
-              <span className="text-xs text-yellow-300 font-bold truncate w-full text-center px-0.5">{shortName}</span>
-              {/* XP bar (active skills don't have XP, but included for consistency) */}
+              {/* Cooldown sweep overlay */}
+              {isOnCooldown && activeCdPct > 0 && (
+                <div
+                  className="absolute inset-0 rounded-lg pointer-events-none z-[1]"
+                  style={{
+                    background: `conic-gradient(rgba(0,0,0,0.6) ${activeCdPct * 360}deg, transparent ${activeCdPct * 360}deg)`,
+                  }}
+                />
+              )}
+              <span className="text-lg relative z-[2]">{def.icon}</span>
+              {isOnCooldown ? (
+                <span className="text-xs text-gray-400 font-mono relative z-[2]">{remainingCd.toFixed(0)}s</span>
+              ) : (
+                <span className="text-xs text-yellow-300 font-bold truncate w-full text-center px-0.5 relative z-[2]">{shortName}</span>
+              )}
               {progress && (
-                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-800 rounded-b-lg overflow-hidden">
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-800 rounded-b-lg overflow-hidden z-[3]">
                   <div className="h-full bg-purple-500 transition-all duration-300" style={{ width: `${xpPct}%` }} />
                 </div>
               )}

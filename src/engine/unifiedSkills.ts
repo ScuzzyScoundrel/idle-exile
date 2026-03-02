@@ -682,9 +682,13 @@ export function getDefaultSkillForWeapon(weaponType: WeaponType, playerLevel: nu
   const skills = getSkillsForWeapon(weaponType);
   if (skills.length === 0) return null;
 
-  // Find the highest-level skill the player can use (prefer basic spammable)
-  const unlocked = skills.filter(s => s.levelRequired <= playerLevel && s.cooldown === 0);
-  if (unlocked.length > 0) return unlocked[0]; // First = basic spammable
+  // Find the lowest-cooldown skill the player can use (prefer basic starter)
+  const unlocked = skills.filter(s => s.levelRequired <= playerLevel);
+  if (unlocked.length > 0) {
+    // Sort by cooldown ascending — basic skills (lowest CD) first
+    const sorted = [...unlocked].sort((a, b) => a.cooldown - b.cooldown);
+    return sorted[0];
+  }
 
   // Fallback: first skill for this weapon
   return skills[0];
@@ -791,6 +795,7 @@ export function calcUnifiedDamagePerCast(
 
 /**
  * Get the primary damage skill from a skill bar (first 'active' kind).
+ * Used by offline DPS estimation (single-skill model).
  */
 export function getPrimaryDamageSkill(
   skillBar: (EquippedSkill | null)[],
@@ -799,6 +804,33 @@ export function getPrimaryDamageSkill(
     if (!equipped) continue;
     const skill = getUnifiedSkillDef(equipped.skillId);
     if (skill && skill.kind === 'active') return skill;
+  }
+  return null;
+}
+
+/**
+ * Get the next active skill ready to fire in the rotation.
+ * Iterates slots 0→4 in priority order; returns first active skill off cooldown.
+ * Returns { skill, slotIndex } or null if all active skills are on CD.
+ */
+export function getNextRotationSkill(
+  skillBar: (EquippedSkill | null)[],
+  skillTimers: SkillTimerState[],
+  now: number,
+): { skill: SkillDef; slotIndex: number } | null {
+  for (let i = 0; i < skillBar.length; i++) {
+    const equipped = skillBar[i];
+    if (!equipped) continue;
+    const skill = getUnifiedSkillDef(equipped.skillId);
+    if (!skill || skill.kind !== 'active') continue;
+
+    // Check per-skill cooldown
+    const timer = skillTimers.find(t => t.skillId === equipped.skillId);
+    if (timer && timer.cooldownUntil != null && now < timer.cooldownUntil) {
+      continue; // This skill is on cooldown
+    }
+
+    return { skill, slotIndex: i };
   }
   return null;
 }

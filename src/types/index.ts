@@ -701,7 +701,7 @@ export interface GameState {
   // Real-time combat (10K-A — ephemeral, reset on rehydrate)
   currentMobHp: number;
   maxMobHp: number;
-  lastSkillCastAt: number;
+  nextActiveSkillAt: number;
 
   // Tutorial
   tutorialStep: number;

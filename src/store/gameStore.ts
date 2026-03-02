@@ -19,12 +19,14 @@ import {
   EquippedSkill,
   SkillProgress,
   SkillTimerState,
+  ActiveSkillDef,
+  SkillDef,
 } from '../types';
 import { createCharacter, resolveStats, addXp, getWeaponDamageInfo } from '../engine/character';
 import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, simulateCombatClear, applyNormalClearHp, createBossEncounter, generateBossLoot, applyAbilityResists, calcHazardPenalty } from '../engine/zones';
 import { calcMobHp, calcSkillCastInterval, rollSkillCast } from '../engine/unifiedSkills';
 import { calcDefensiveEfficiency } from '../engine/setBonus';
-import { BOSS_VICTORY_DURATION, BOSS_DEFEAT_RECOVERY, BOSS_VICTORY_HEAL_RATIO, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO, SKILL_GCD } from '../data/balance';
+import { BOSS_VICTORY_DURATION, BOSS_DEFEAT_RECOVERY, BOSS_VICTORY_HEAL_RATIO, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO, SKILL_GCD, ACTIVE_SKILL_GCD } from '../data/balance';
 import { pickBestItem, generateId, isTwoHandedWeapon } from '../engine/items';
 import { applyCurrency } from '../engine/crafting';
 import {
@@ -49,7 +51,7 @@ import {
 } from '../engine/classResource';
 import { getDefaultSkillForWeapon } from '../engine/unifiedSkills';
 import { getSkillDef } from '../data/unifiedSkills';
-import { aggregateSkillBarEffects, getPrimaryDamageSkill, getSkillEffectiveDuration, getSkillEffectiveCooldown } from '../engine/unifiedSkills';
+import { aggregateSkillBarEffects, getPrimaryDamageSkill, getNextRotationSkill, getSkillEffectiveDuration, getSkillEffectiveCooldown } from '../engine/unifiedSkills';
 import { getUnifiedSkillDef, ABILITY_ID_MIGRATION } from '../data/unifiedSkills';
 
 
@@ -369,7 +371,7 @@ function createInitialState(): GameState {
     lastSkillActivation: 0,
     currentMobHp: 0,
     maxMobHp: 0,
-    lastSkillCastAt: 0,
+    nextActiveSkillAt: 0,
     tutorialStep: 1,
     lastSaveTime: Date.now(),
   };
@@ -657,7 +659,7 @@ export const useGameStore = create<GameState & GameActions>()(
           zoneClearCounts: newZoneClearCounts,
           currentMobHp: mobHp,
           maxMobHp: mobHp,
-          lastSkillCastAt: now,
+          nextActiveSkillAt: now,
         });
       },
 
@@ -1473,8 +1475,8 @@ export const useGameStore = create<GameState & GameActions>()(
           updates.skillProgress = newProgress;
         }
 
-        // Init skillTimers entry for buff/toggle/instant/ultimate
-        if (skillDef.kind === 'buff' || skillDef.kind === 'toggle' || skillDef.kind === 'instant' || skillDef.kind === 'ultimate') {
+        // Init skillTimers entry for all skill kinds that need timers
+        if (skillDef.kind === 'active' || skillDef.kind === 'buff' || skillDef.kind === 'toggle' || skillDef.kind === 'instant' || skillDef.kind === 'ultimate') {
           const newTimers = state.skillTimers.filter(t => t.skillId !== skillId);
           newTimers.push({ skillId, activatedAt: null, cooldownUntil: null });
           updates.skillTimers = newTimers;
@@ -1705,15 +1707,56 @@ export const useGameStore = create<GameState & GameActions>()(
         const zone = ZONE_DEFS.find(z => z.id === state.currentZoneId);
         if (!zone) return noResult;
 
-        // Get active skill from skill bar (fallback: default for weapon)
-        const primarySkill = getPrimaryDamageSkill(state.skillBar ?? []);
-        const skill = primarySkill ?? getDefaultSkillForWeapon(
-          state.character.equipment.mainhand?.weaponType ?? 'sword',
-          state.character.level,
-        );
-        if (!skill) return noResult;
-
         const now = Date.now();
+
+        // Helper: apply boss damage to player (used in both GCD-blocked and skill-fire paths)
+        const applyBossDamage = (): CombatTickResult => {
+          if (phase === 'boss_fight' && state.bossState) {
+            const bossDmg = state.bossState.bossDps * dtSec;
+            const newPlayerHp = Math.max(0, state.currentHp - bossDmg);
+            if (newPlayerHp <= 0) {
+              set({ currentHp: 0 });
+              return { ...noResult, bossOutcome: 'defeat' };
+            }
+            set({ currentHp: newPlayerHp });
+            return { ...noResult, bossOutcome: 'ongoing' };
+          }
+          return noResult;
+        };
+
+        // GCD check: can we fire any active skill yet?
+        if (now < state.nextActiveSkillAt) {
+          return applyBossDamage();
+        }
+
+        // Find next ready skill from rotation (slot-priority order)
+        const rotationResult = getNextRotationSkill(state.skillBar ?? [], state.skillTimers, now);
+
+        // Fallback: if no rotation skill ready, check why
+        let skill: SkillDef | ActiveSkillDef | null = rotationResult?.skill ?? null;
+        if (!skill) {
+          // Check if any active skills are equipped
+          const hasActiveSkill = (state.skillBar ?? []).some(eq => {
+            if (!eq) return false;
+            const def = getUnifiedSkillDef(eq.skillId);
+            return def?.kind === 'active';
+          });
+          if (hasActiveSkill) {
+            // Active skills exist but all on CD — idle until one comes back
+            return applyBossDamage();
+          }
+          // No active skills equipped at all — fall back to default weapon skill
+          skill = getDefaultSkillForWeapon(
+            state.character.equipment.mainhand?.weaponType ?? 'sword',
+            state.character.level,
+          );
+        }
+
+        // If still no skill, idle (boss still damages)
+        if (!skill) {
+          return applyBossDamage();
+        }
+
         const stats = resolveStats(state.character);
         const abilityEffect = aggregateSkillBarEffects(
           state.skillBar, state.skillProgress, state.skillTimers, now, false,
@@ -1729,27 +1772,34 @@ export const useGameStore = create<GameState & GameActions>()(
         const atkSpeedMult = abilityEffect.attackSpeedMult ?? 1;
 
         const castInterval = calcSkillCastInterval(skill, effectiveStats, atkSpeedMult);
-        const castIntervalMs = castInterval * 1000;
-
-        // Check if enough time has passed since last cast
-        if (now - state.lastSkillCastAt < castIntervalMs) {
-          // Even if no skill fires, boss still damages player each tick
-          if (phase === 'boss_fight' && state.bossState) {
-            const bossDmg = state.bossState.bossDps * dtSec;
-            const newPlayerHp = Math.max(0, state.currentHp - bossDmg);
-            if (newPlayerHp <= 0) {
-              set({ currentHp: 0 });
-              return { ...noResult, bossOutcome: 'defeat' };
-            }
-            set({ currentHp: newPlayerHp });
-            return { ...noResult, bossOutcome: 'ongoing' };
-          }
-          return noResult;
-        }
 
         // Fire skill
         const { avgDamage, spellPower } = getWeaponDamageInfo(state.character.equipment);
         const roll = rollSkillCast(skill, effectiveStats, avgDamage, spellPower, damageMult);
+
+        // Update GCD: next active skill can fire after max(GCD, castInterval)
+        const gcdMs = Math.max(ACTIVE_SKILL_GCD, castInterval) * 1000;
+        const nextActiveSkillAt = now + gcdMs;
+
+        // Update per-skill cooldown timer (if skill has a cooldown)
+        let newTimers = state.skillTimers;
+        if (skill.cooldown > 0) {
+          const timerIdx = state.skillTimers.findIndex(t => t.skillId === skill!.id);
+          if (timerIdx >= 0) {
+            newTimers = state.skillTimers.map((t, i) =>
+              i === timerIdx
+                ? { ...t, cooldownUntil: now + skill!.cooldown * 1000 }
+                : t,
+            );
+          } else {
+            // Defensive: create timer entry if missing
+            newTimers = [...state.skillTimers, {
+              skillId: skill!.id,
+              activatedAt: null,
+              cooldownUntil: now + skill!.cooldown * 1000,
+            }];
+          }
+        }
 
         // ── Boss fight path ──
         if (phase === 'boss_fight' && state.bossState) {
@@ -1770,7 +1820,8 @@ export const useGameStore = create<GameState & GameActions>()(
             set({
               bossState: { ...state.bossState, bossCurrentHp: 0 },
               currentHp: Math.max(1, newPlayerHp),
-              lastSkillCastAt: now,
+              nextActiveSkillAt,
+              skillTimers: newTimers,
             });
             return {
               mobKills: 0, skillFired: true, damageDealt: totalDamage,
@@ -1782,7 +1833,8 @@ export const useGameStore = create<GameState & GameActions>()(
             set({
               bossState: { ...state.bossState, bossCurrentHp: newBossHp },
               currentHp: 0,
-              lastSkillCastAt: now,
+              nextActiveSkillAt,
+              skillTimers: newTimers,
             });
             return {
               mobKills: 0, skillFired: true, damageDealt: totalDamage,
@@ -1794,7 +1846,8 @@ export const useGameStore = create<GameState & GameActions>()(
           set({
             bossState: { ...state.bossState, bossCurrentHp: newBossHp },
             currentHp: newPlayerHp,
-            lastSkillCastAt: now,
+            nextActiveSkillAt,
+            skillTimers: newTimers,
           });
           return {
             mobKills: 0, skillFired: true, damageDealt: totalDamage,
@@ -1824,7 +1877,8 @@ export const useGameStore = create<GameState & GameActions>()(
         set({
           currentMobHp,
           maxMobHp,
-          lastSkillCastAt: now,
+          nextActiveSkillAt,
+          skillTimers: newTimers,
         });
 
         return {
@@ -1848,7 +1902,7 @@ export const useGameStore = create<GameState & GameActions>()(
           combatPhase: 'boss_fight' as CombatPhase,
           bossState: boss,
           combatPhaseStartedAt: Date.now(),
-          lastSkillCastAt: Date.now(),
+          nextActiveSkillAt: Date.now(),
         });
       },
 
@@ -1940,7 +1994,7 @@ export const useGameStore = create<GameState & GameActions>()(
             currentHp: Math.min(stats.maxLife, healedHp),
             currentMobHp: mobHp,
             maxMobHp: mobHp,
-            lastSkillCastAt: Date.now(),
+            nextActiveSkillAt: Date.now(),
           });
           return true;
         }
@@ -1975,7 +2029,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 26,
+      version: 27,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -2036,7 +2090,7 @@ export const useGameStore = create<GameState & GameActions>()(
           // Reset ephemeral real-time combat state (10K-A)
           state.currentMobHp = 0;
           state.maxMobHp = 0;
-          state.lastSkillCastAt = 0;
+          state.nextActiveSkillAt = 0;
 
           // Ensure all equipped skills default to autoCast: true (fix for pre-10I saves)
           if (state.skillBar) {
@@ -2506,6 +2560,25 @@ export const useGameStore = create<GameState & GameActions>()(
           if (bar.length > 5) {
             raw.skillBar = bar.slice(0, 5);
           }
+        }
+
+        if (version < 27) {
+          // v27: Rotation engine — rename lastSkillCastAt → nextActiveSkillAt (ephemeral, just init to 0)
+          delete old.lastSkillCastAt;
+          raw.nextActiveSkillAt = 0;
+
+          // Ensure all equipped active skills have SkillTimerState entries
+          const skillBar27 = (old.skillBar ?? []) as (EquippedSkill | null)[];
+          const timers27 = [...((old.skillTimers ?? []) as SkillTimerState[])];
+          const timerSkillIds = new Set(timers27.map(t => t.skillId));
+          for (const equipped of skillBar27) {
+            if (!equipped) continue;
+            const sDef = getUnifiedSkillDef(equipped.skillId);
+            if (sDef && sDef.kind === 'active' && !timerSkillIds.has(equipped.skillId)) {
+              timers27.push({ skillId: equipped.skillId, activatedAt: null, cooldownUntil: null });
+            }
+          }
+          raw.skillTimers = timers27;
         }
 
         return state;

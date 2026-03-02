@@ -291,5 +291,8 @@ export const BOSS_VICTORY_HEAL_RATIO = 0.6;
 /** Global cooldown between skill activations (seconds). */
 export const SKILL_GCD = 1.0;
 
+/** Global cooldown between active skill rotation casts (seconds). */
+export const ACTIVE_SKILL_GCD = 1.0;
+
 /** Real-time combat tick interval (ms). Documents engine tick rate. */
 export const COMBAT_TICK_INTERVAL = 250;
