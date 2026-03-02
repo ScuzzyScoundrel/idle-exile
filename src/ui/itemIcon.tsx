@@ -14,7 +14,7 @@ function normalizeSlot(slot: GearSlot): string {
 }
 
 /**
- * Derive the icon lookup key for an item.
+ * Derive the icon lookup key for an item (type only, no tier).
  * Resolution: weaponType → offhandType → armorType_slot → slot
  */
 export function getItemIconKey(item: Item): string {
@@ -22,6 +22,20 @@ export function getItemIconKey(item: Item): string {
   if (item.offhandType) return item.offhandType;
   if (item.armorType) return `${item.armorType}_${normalizeSlot(item.slot)}`;
   return normalizeSlot(item.slot);
+}
+
+/**
+ * Map item iLvl to a visual tier (t1-t7).
+ * Bands: 1-10 → t1, 11-20 → t2, 21-30 → t3, 31-40 → t4, 41-50 → t5, 51-60 → t6, 61+ → t7
+ */
+function getVisualTier(iLvl: number): number {
+  if (iLvl <= 10) return 1;
+  if (iLvl <= 20) return 2;
+  if (iLvl <= 30) return 3;
+  if (iLvl <= 40) return 4;
+  if (iLvl <= 50) return 5;
+  if (iLvl <= 60) return 6;
+  return 7;
 }
 
 /** Get the emoji for a gear slot (for filters / text contexts). */
@@ -59,6 +73,7 @@ const EMOJI_SIZE: Record<IconSize, string> = {
 
 // ---------------------------------------------------------------------------
 // <ItemIcon />  — renders graphic icon with emoji fallback
+// Tries: tier-specific (sword_t3.webp) → type (sword.webp) → emoji
 // ---------------------------------------------------------------------------
 
 export function ItemIcon({
@@ -70,12 +85,31 @@ export function ItemIcon({
   size?: IconSize;
   className?: string;
 }) {
-  const key = getItemIconKey(item);
-  const cached = iconStatus.get(key);
-  const [broken, setBroken] = useState(cached === false);
+  const baseKey = getItemIconKey(item);
+  const tier = getVisualTier(item.iLvl);
+  const tierKey = `${baseKey}_t${tier}`;
 
-  // Already known broken → emoji immediately
-  if (broken || cached === false) {
+  // Determine which key to try first
+  const tierStatus = iconStatus.get(tierKey);
+  const baseStatus = iconStatus.get(baseKey);
+
+  // Pick best available: tier-specific → type-level → emoji
+  let srcKey: string | null = null;
+  if (tierStatus !== false) {
+    srcKey = tierKey; // try tier first (unknown or known good)
+  } else if (baseStatus !== false) {
+    srcKey = baseKey; // tier broken, try base
+  }
+  // else both broken → emoji
+
+  const [fallback, setFallback] = useState<'tier' | 'base' | 'emoji'>(() => {
+    if (tierStatus === false && baseStatus === false) return 'emoji';
+    if (tierStatus === false) return 'base';
+    return 'tier';
+  });
+
+  // Emoji fallback
+  if (fallback === 'emoji' || (srcKey === null)) {
     return (
       <span className={`${EMOJI_SIZE[size]} leading-none ${className}`}>
         {getSlotEmoji(item.slot)}
@@ -83,16 +117,25 @@ export function ItemIcon({
     );
   }
 
+  const currentKey = fallback === 'tier' ? tierKey : baseKey;
+
   return (
     <img
-      src={iconUrl(key)}
-      alt={key}
+      src={iconUrl(currentKey)}
+      alt={baseKey}
       loading="lazy"
       className={`${SIZE_CLASS[size]} object-contain ${className}`}
-      onLoad={() => { iconStatus.set(key, true); }}
+      onLoad={() => { iconStatus.set(currentKey, true); }}
       onError={() => {
-        iconStatus.set(key, false);
-        setBroken(true);
+        iconStatus.set(currentKey, false);
+        if (fallback === 'tier' && baseStatus !== false) {
+          // Tier missing, try base
+          setFallback('base');
+        } else {
+          // Base also missing (or we were already on base), go to emoji
+          iconStatus.set(baseKey, false);
+          setFallback('emoji');
+        }
       }}
     />
   );
@@ -102,7 +145,6 @@ export function ItemIcon({
 // <SlotIcon />  — for empty equip slots (faint placeholder)
 // ---------------------------------------------------------------------------
 
-/** Icon key for an empty slot (uses slot name, not weapon/armor type). */
 function slotIconKey(slot: GearSlot): string {
   return normalizeSlot(slot);
 }
