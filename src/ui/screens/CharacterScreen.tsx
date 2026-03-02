@@ -313,7 +313,7 @@ export default function CharacterScreen() {
           return (
             <div key={section.label}>
               <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">{section.label}</div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 xl:grid-cols-3 gap-2">
                 {visibleStats.map(({ key, label, icon, format }) => (
                   <div key={key} className="flex items-center gap-2" title={STAT_TOOLTIPS[key]}>
                     <span className="text-sm">{icon}</span>

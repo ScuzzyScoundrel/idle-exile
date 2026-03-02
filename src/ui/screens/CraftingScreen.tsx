@@ -619,7 +619,7 @@ function CraftPanel() {
 
               {/* Recipe grid */}
               {!isCollapsed && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 mt-1.5">
                   {catRecipes.map(recipe => {
                     const isMaterialRecipe = !!recipe.outputMaterialId;
                     const baseInfo = !isMaterialRecipe ? ITEM_BASE_DEFS.find(b => b.id === recipe.outputBaseId) : null;

@@ -23,7 +23,7 @@ export default function NavBar({ activeTab, onTabChange, tutorialStep = 0 }: Nav
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 z-50">
-      <div className="flex justify-around max-w-4xl mx-auto">
+      <div className="flex justify-around max-w-4xl xl:max-w-7xl mx-auto">
         {TABS.map((tab) => {
           const shouldPulse = tab.id === pulseTabId && activeTab !== tab.id;
           return (

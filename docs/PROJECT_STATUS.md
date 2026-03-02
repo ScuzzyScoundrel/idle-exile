@@ -1,15 +1,14 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-01 (Post-Sprint 8G)
+> Last updated: 2026-03-01 (Post-Sprint 9A)
 
 ## Current Phase
-**Sprint 8G: Crafting & Economy Tuning** — COMPLETE.
-- **8G-1 Balance Tuning**: Crafting XP growth softened (1.35→1.10), gold per clear bumped (3→4), T3/T4 crafting gold costs reduced (50→35, 100→70).
-- **8G-2 Salvage Dust → Enchanting Essence**: All `salvage_dust` material keys renamed to `enchanting_essence`. UI text updated from "dust" to "essence" across all screens. Stockpiles for future Enchanting profession.
-- **Save v22**: Migration renames existing `materials.salvage_dust` → `materials.enchanting_essence`.
-- Previous 8F changes still active: iLvl-scaled tier weights, armor type badges, Greater/Perfect Exalt, catalyst iLvl bonus.
-- Next: Phase 3 (UX/UI Overhaul) or additional economy tuning
+**Sprint 9A: Desktop Layout + Persistent Combat Bar** — COMPLETE.
+- **Layout widening**: All main containers (App, TopBar, NavBar) now use `max-w-4xl xl:max-w-7xl` — wider on 1280px+ viewports, zero impact below. Zone cards, bag grid, recipe grid, and stats grid all gain an extra column at xl breakpoint.
+- **Persistent combat status bar**: New `CombatStatusBar` component renders between TopBar and main content whenever a run is active. Shows zone name, player HP bar (green/yellow/red), mob clear progress, boss countdown, and combat phase badges (BOSS/VICTORY/DEFEAT/DEAD). During boss fights, mob bar swaps for boss HP bar. In gathering mode, shows profession name + level + XP bar + gather progress. Auto-hides when run stops.
+- Previous 8G changes still active: crafting XP tuning, gold/cost rebalance, enchanting essence rename.
+- Next: Additional UX/UI improvements or new features
 
 ## What Is Working Right Now
 The game is live on Vercel and playable locally at `http://localhost:5173/`. Core loop:
@@ -118,6 +117,7 @@ src/
     components/
       NavBar.tsx            — Bottom navigation (Zones/Loot/Craft/Hero — 4 tabs)
       TopBar.tsx            — Character info, XP bar, currency counts
+      CombatStatusBar.tsx   — Persistent combat/gathering status bar (visible during runs)
       OfflineProgressModal.tsx — "Welcome Back" modal
       AbilityBar.tsx        — 4-slot ability action bar
       Tooltip.tsx           — Reusable hover tooltip component
@@ -364,6 +364,13 @@ Replaced focus modes with Combat/Gathering toggle. 5 gathering professions with 
 - **8G-2: Salvage dust → enchanting essence**: Material key `salvage_dust` renamed to `enchanting_essence` throughout engine and store. `SALVAGE_DUST` constant renamed to `ESSENCE_REWARD`. All user-facing text updated: "dust" → "essence". Stockpiles for future Enchanting profession.
 - **Save v22 migration**: Renames `materials.salvage_dust` → `materials.enchanting_essence` in existing saves.
 - **Files changed**: `data/balance.ts`, `data/craftingRecipes.ts`, `engine/craftingProfessions.ts`, `store/gameStore.ts`, `ui/screens/ZoneScreen.tsx`, `ui/screens/CraftingScreen.tsx`, `ui/screens/InventoryScreen.tsx`, `ui/components/OfflineProgressModal.tsx`
+
+### Sprint 9A Changes (Desktop Layout + Persistent Combat Bar)
+- **Layout widening (xl breakpoint)**: Added `xl:max-w-7xl` to App.tsx main container, TopBar inner div, NavBar inner div. Added `xl:grid-cols-3` to zone card grid (ZoneScreen), recipe card grid (CraftingScreen), stats grid (CharacterScreen). Added `xl:grid-cols-5` to bag item grid (InventoryScreen). All use `xl:` prefix — zero impact below 1280px.
+- **CombatStatusBar component (new)**: Fixed bar between TopBar and main content, visible only when a run is active (`idleStartTime !== null`). Combat mode: shows zone name, player HP bar (green>60%/yellow>30%/red), mob clear progress (inverted orange bar), boss countdown, phase badges (BOSS/VICTORY/DEFEAT/DEAD). Boss fight: swaps mob bar for boss name + HP bar. Gathering mode: shows zone name, profession icon + name + level, XP progress bar, gather clear progress. Uses 100ms interval for smooth progress animation. Auto-hides when run stops.
+- **App.tsx conditional padding**: Main content `pt-16` (no run) or `pt-[88px]` (run active) to accommodate the combat bar height.
+- **Files added**: `ui/components/CombatStatusBar.tsx`
+- **Files changed**: `App.tsx`, `ui/components/TopBar.tsx`, `ui/components/NavBar.tsx`, `ui/screens/ZoneScreen.tsx`, `ui/screens/InventoryScreen.tsx`, `ui/screens/CraftingScreen.tsx`, `ui/screens/CharacterScreen.tsx`
 
 ## Micro-Sprint Workflow
 Each conversation = one micro-sprint (3-5 related changes):

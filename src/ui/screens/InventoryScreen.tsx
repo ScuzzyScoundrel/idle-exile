@@ -622,7 +622,7 @@ export default function InventoryScreen() {
       </div>
 
       {/* Item Grid */}
-      <div className="grid grid-cols-3 lg:grid-cols-4 gap-1.5">
+      <div className="grid grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5">
         {filteredInventory.map((item) => (
           <div
             key={item.id}

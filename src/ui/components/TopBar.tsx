@@ -5,7 +5,7 @@ export default function TopBar() {
 
   return (
     <div className="fixed top-0 left-0 right-0 bg-gray-900 border-b border-gray-700 z-50 px-3 py-2">
-      <div className="flex items-center justify-between max-w-4xl mx-auto">
+      <div className="flex items-center justify-between max-w-4xl xl:max-w-7xl mx-auto">
         {/* Character info */}
         <div className="flex items-center gap-2">
           <span className="text-yellow-400 font-bold text-sm">{character.name}</span>

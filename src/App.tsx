@@ -8,6 +8,7 @@ import ZoneScreen from './ui/screens/ZoneScreen';
 import InventoryScreen from './ui/screens/InventoryScreen';
 import CharacterScreen from './ui/screens/CharacterScreen';
 import CraftingScreen from './ui/screens/CraftingScreen';
+import CombatStatusBar from './ui/components/CombatStatusBar';
 import { useGameStore } from './store/gameStore';
 import { useTabGuard } from './ui/hooks/useTabGuard';
 
@@ -16,6 +17,7 @@ function App() {
   const tutorialStep = useGameStore((s) => s.tutorialStep);
   const offlineProgress = useGameStore((s) => s.offlineProgress);
   const classSelected = useGameStore((s) => s.classSelected);
+  const isRunning = useGameStore((s) => s.idleStartTime !== null);
   const [activeTab, setActiveTab] = useState(() =>
     tutorialStep === 1 ? 'inventory' : 'zones'
   );
@@ -53,14 +55,15 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
       <TopBar />
+      <CombatStatusBar />
 
       {offlineProgress && <OfflineProgressModal />}
 
       <TutorialOverlay activeTab={activeTab} onTabChange={setActiveTab} />
 
-      {/* Main content area — padded for top and bottom bars.
+      {/* Main content area — padded for top and bottom bars + optional combat status bar.
           All screens stay mounted (hidden via CSS) so local state persists across tab switches. */}
-      <main className="max-w-4xl mx-auto px-3 pt-16 pb-20">
+      <main className={`max-w-4xl xl:max-w-7xl mx-auto px-3 ${isRunning ? 'pt-[88px]' : 'pt-16'} pb-20`}>
         <div className={activeTab === 'zones' ? '' : 'hidden'}><ZoneScreen /></div>
         <div className={activeTab === 'inventory' ? '' : 'hidden'}><InventoryScreen /></div>
         <div className={activeTab === 'crafting' ? '' : 'hidden'}><CraftingScreen /></div>
