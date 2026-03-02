@@ -702,6 +702,61 @@ export function calcMobHp(zone: ZoneDef): number {
   return zone.baseClearTime * POWER_DIVISOR;
 }
 
+// ─── Real-Time Combat (10K-A) ───
+
+/**
+ * Calculate effective cast interval (seconds) for an active skill,
+ * accounting for attack/cast speed and ability speed multiplier.
+ */
+export function calcSkillCastInterval(
+  skill: ActiveSkillDef,
+  stats: ResolvedStats,
+  atkSpeedMult: number,
+): number {
+  const tags = skill.tags;
+  const isAttack = tags.includes('Attack');
+  const isSpell = tags.includes('Spell');
+
+  let speedMult = 1.0;
+  if (isAttack) speedMult = (1 + stats.attackSpeed / 100) * atkSpeedMult;
+  if (isSpell) speedMult = (1 + stats.castSpeed / 100) * atkSpeedMult;
+
+  return skill.castTime / speedMult;
+}
+
+/**
+ * Roll a single skill cast with hit/miss, crit, damage variance.
+ * Reuses logic from simulateCombatClear per-hit rolls.
+ */
+export function rollSkillCast(
+  skill: ActiveSkillDef,
+  stats: ResolvedStats,
+  weaponAvgDmg: number,
+  weaponSpellPower: number,
+  damageMult: number,
+): { damage: number; isCrit: boolean; isHit: boolean } {
+  const baseDmgPerCast = calcSkillDamagePerCast(skill, stats, weaponAvgDmg, weaponSpellPower) * damageMult;
+  if (baseDmgPerCast <= 0) return { damage: 0, isCrit: false, isHit: false };
+
+  const tags = skill.tags;
+  const isAttack = tags.includes('Attack');
+
+  // Hit chance: attacks use accuracy formula, spells always hit
+  const hitChance = isAttack ? stats.accuracy / (stats.accuracy + 500) : 1.0;
+  if (Math.random() > hitChance) return { damage: 0, isCrit: false, isHit: false };
+
+  // Crit roll
+  const critChance = Math.min(stats.critChance, 100) / 100;
+  const isCrit = Math.random() < critChance;
+  const critDmgMult = stats.critMultiplier / 100;
+
+  // Damage with +/-10% variance
+  const variance = 0.9 + Math.random() * 0.2;
+  const damage = baseDmgPerCast * variance * (isCrit ? critDmgMult : 1);
+
+  return { damage, isCrit, isHit: true };
+}
+
 // ─── Unified Wrappers ───
 
 /**

@@ -4,7 +4,7 @@
 > At the start of any session, read this file to pick up where the last session left off.
 > Last updated: 2026-03-02
 
-## Current Sprint: **10J — Cleanup Old Systems** ✅ COMPLETE
+## Current Sprint: **10K-A — Real-Time Combat Engine** ✅ COMPLETE
 
 ---
 
@@ -46,28 +46,44 @@
 
 ---
 
-## Sprint 10K: Real-Time Combat Triggers
-**Goal:** Replace passive timer model with real-time skill activation during combat.
+## Sprint 10K-A: Real-Time Combat Engine
+**Goal:** Replace passive timer-based clears with real-time skill-based damage in combat mode. Mob HP tracked live, skills fire on cast interval, mob death triggers clear.
+**Status:** COMPLETE
+
+### What was done:
+- [x] New `CombatTickResult` interface in `types/index.ts`
+- [x] 3 ephemeral GameState fields: `currentMobHp`, `maxMobHp`, `lastSkillCastAt`
+- [x] `calcSkillCastInterval()` engine function (speed-adjusted cast time)
+- [x] `rollSkillCast()` engine function (per-hit roll with hit/miss/crit/variance)
+- [x] `COMBAT_TICK_INTERVAL = 250` constant in `data/balance.ts`
+- [x] `tickCombat(dt)` store action: fires skill, tracks mob HP, returns kills
+- [x] `startIdleRun` initializes mob HP from `calcMobHp(zone)`
+- [x] `checkRecoveryComplete` resets mob HP when resuming after boss
+- [x] Ephemeral fields reset on rehydrate
+- [x] ZoneScreen tick loop calls `tickCombat` during clearing (combat mode only)
+- [x] MobDisplay uses real mob HP bar (`currentMobHp / maxMobHp`)
+- [x] Gathering mode unchanged (keeps time-based model)
+- [x] `npm run build` passes
+
+### What does NOT change (deferred to 10K-B):
+- Offline progression (still uses `simulateIdleRun()` deterministic model)
+- Boss fights (still use `tickBoss(dt)`)
+- Visual feedback (skill slot flash, damage numbers)
+- Multi-skill rotation
+
+---
+
+## Sprint 10K-B: Combat UI Polish + Boss Unification
+**Goal:** Visual feedback for combat ticks, unify boss fights with same model.
 **Status:** NOT STARTED
 
 ### Checklist:
-- [ ] Replace `calcClearTime()` passive model with real-time combat loop
-- [ ] Skills fire on their cast time intervals during clears
-- [ ] Mob HP drains in real-time based on actual skill casts (not pre-calculated DPS)
-- [ ] Active skill rotation: auto-cast fires highest-priority ready skill each tick
-- [ ] Cooldown-based skills wait for CD, then fire
-- [ ] Spammable skills (0 CD) fire on cast time cadence
 - [ ] Visual feedback: skill slots flash on activation
-- [ ] Boss fights use same real-time model
+- [ ] Damage numbers floating up from mob display
+- [ ] Boss fights use same real-time tickCombat model
+- [ ] Combat log (compact, scrolling) showing recent casts + damage
 - [ ] `npm run build` passes
 - [ ] Manual test: skills visually fire during combat
-
-### Files to modify:
-- `engine/unifiedSkills.ts` — new real-time combat tick function
-- `store/gameStore.ts` — integrate real-time combat into tick loop
-- `ui/components/SkillBar.tsx` — activation flash effects
-- `ui/screens/ZoneScreen.tsx` — wire real-time tick
-- `data/balance.ts` — combat tick interval constant
 
 ---
 

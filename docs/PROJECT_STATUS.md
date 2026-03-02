@@ -1,22 +1,24 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-02 (Post-Sprint 10J: Cleanup Old Systems)
+> Last updated: 2026-03-02 (Post-Sprint 10K-A: Real-Time Combat Engine)
 
 ## Current Phase
-**Sprint 10J: Cleanup Old Systems** — COMPLETE.
+**Sprint 10K-A: Real-Time Combat Engine** — COMPLETE.
 
-- **All imports rerouted**: 7 files migrated from `engine/abilities`, `engine/skills`, `data/abilities`, `data/skills` → `engine/unifiedSkills`, `data/unifiedSkills`.
-- **5 legacy files deleted**: `engine/abilities.ts`, `engine/skills.ts`, `data/abilities.ts`, `data/skills.ts`, `ui/components/AbilityBar.tsx`. Zero remaining references.
-- **5 old store actions removed**: `equipAbility`, `unequipAbility`, `selectMutator`, `activateAbility`, `toggleAbility` (+ `REVERSE_ABILITY_MAP`). ~240 lines of bridge code removed.
-- **All legacy bridge code removed**: Dual-writes to `abilityTimers`, `equippedAbilities`, `equippedSkills` eliminated from `activateSkillBarSlot`, `equipItem`, `unequipSlot`, `equipSkill`, `equipToSkillBar`, `processNewClears`.
-- **3 legacy state fields removed**: `equippedAbilities`, `abilityTimers`, `equippedSkills` removed from `GameState` type and initial state. All code migrated to use `skillBar`/`skillTimers`/`skillProgress` exclusively.
-- **Skill bar reduced to 5 slots**: Was 8 (with 3 "Soon" placeholders). Now 5 clean slots (slot 0 = active skill, slots 1-4 = abilities). "Soon" placeholder UI removed from SkillBar.tsx.
-- **v26 migration**: Strips legacy fields from saved state, truncates `skillBar` from 8 to 5.
-- **Kept**: `abilityProgress` (still needed by `allocateAbilityNode`/`respecAbility` for skill tree management). Legacy types in `types/index.ts` (used internally by unified engine/data modules).
-- **Bundle size**: 495 kB (was 500 kB).
+- **Real-time combat tick**: New `tickCombat()` store action fires active skill on cast interval, tracks mob HP, returns kills per tick. Called every 250ms from ZoneScreen timer loop.
+- **Engine functions**: `calcSkillCastInterval()` computes speed-adjusted cast time, `rollSkillCast()` rolls hit/miss/crit with +/-10% variance. Both in `engine/unifiedSkills.ts`.
+- **3 ephemeral state fields**: `currentMobHp`, `maxMobHp`, `lastSkillCastAt` — reset on rehydrate, no save migration needed.
+- **Mob HP bar is real**: MobDisplay now shows actual HP draining per skill cast (was time-based progress approximation).
+- **Combat mode only**: Gathering mode untouched (keeps time-based model). Offline progression untouched. Boss fights untouched.
+- **Safety cap**: 10 kills/tick maximum to prevent infinite loops on very fast clears.
+- **Mob HP initialized**: `startIdleRun` sets mob HP from `calcMobHp(zone)`. `checkRecoveryComplete` resets mob HP when resuming after boss fight.
+- **New type**: `CombatTickResult` interface. New constant: `COMBAT_TICK_INTERVAL = 250`.
+- **Bundle size**: 497 kB.
 
-**Next: Sprint 10K** (Real-Time Combat Triggers). See `COMBAT_OVERHAUL.md` for full roadmap.
+**Next: Sprint 10K-B** (Combat UI Polish + Boss Unification). See `COMBAT_OVERHAUL.md` for full roadmap.
+
+**Sprint 10J: Cleanup Old Systems** — COMPLETE (previous).
 
 **Sprint 10I: Auto-Cast Engine + Priority** — COMPLETE (previous).
 
@@ -171,7 +173,7 @@ src/
     crafting.ts             — 6 currency crafting operations
     setBonus.ts             — Set bonus resolution
   store/
-    gameStore.ts            — Zustand store (state + actions + persistence + v26 migration). Actions: selectClass, tickClassResource, tickAutoCast, startBossFight, tickBoss, handleBossVictory, handleBossDefeat, checkRecoveryComplete, allocateAbilityNode, respecAbility, equipToSkillBar, unequipSkillBarSlot, toggleSkillAutoCast, reorderSkillBar, activateSkillBarSlot + all previous.
+    gameStore.ts            — Zustand store (state + actions + persistence + v26 migration). Actions: selectClass, tickClassResource, tickAutoCast, tickCombat, startBossFight, tickBoss, handleBossVictory, handleBossDefeat, checkRecoveryComplete, allocateAbilityNode, respecAbility, equipToSkillBar, unequipSkillBarSlot, toggleSkillAutoCast, reorderSkillBar, activateSkillBarSlot + all previous.
   ui/
     slotConfig.ts           — Shared gear slot icons/labels
     components/
@@ -516,6 +518,31 @@ Replaced focus modes with Combat/Gathering toggle. 5 gathering professions with 
 - **New engine function**: `getSkillEffectiveCooldown()` in `engine/unifiedSkills.ts` — wraps `getEffectiveCooldown()` with SkillProgress→AbilityProgress conversion.
 - **Module-level `REVERSE_ABILITY_MAP`**: Built once from `ABILITY_ID_MIGRATION` at module scope (was rebuilt per click).
 - **Files changed**: `src/engine/unifiedSkills.ts`, `src/types/index.ts`, `src/data/balance.ts`, `src/store/gameStore.ts`, `src/ui/screens/ZoneScreen.tsx`, `src/ui/components/SkillBar.tsx`
+
+### Sprint 10J Changes (Cleanup Old Systems)
+- **All imports rerouted**: 7 files migrated from `engine/abilities`, `engine/skills`, `data/abilities`, `data/skills` → `engine/unifiedSkills`, `data/unifiedSkills`.
+- **5 legacy files deleted**: `engine/abilities.ts`, `engine/skills.ts`, `data/abilities.ts`, `data/skills.ts`, `ui/components/AbilityBar.tsx`. Zero remaining references.
+- **5 old store actions removed**: `equipAbility`, `unequipAbility`, `selectMutator`, `activateAbility`, `toggleAbility` (+ `REVERSE_ABILITY_MAP`). ~240 lines of bridge code removed.
+- **All legacy bridge code removed**: Dual-writes to `abilityTimers`, `equippedAbilities`, `equippedSkills` eliminated from `activateSkillBarSlot`, `equipItem`, `unequipSlot`, `equipSkill`, `equipToSkillBar`, `processNewClears`.
+- **3 legacy state fields removed**: `equippedAbilities`, `abilityTimers`, `equippedSkills` removed from `GameState` type and initial state.
+- **Skill bar reduced to 5 slots**: Was 8 (with 3 "Soon" placeholders). Now 5 clean slots.
+- **v26 migration**: Strips legacy fields, truncates `skillBar` to 5.
+- **Files changed**: `src/types/index.ts`, `src/store/gameStore.ts`, `src/ui/screens/ZoneScreen.tsx`, `src/ui/components/SkillBar.tsx`, `src/ui/components/SkillPanel.tsx`, `src/ui/screens/CharacterScreen.tsx`, `src/engine/zones.ts`
+- **Files deleted**: `src/engine/abilities.ts`, `src/engine/skills.ts`, `src/data/abilities.ts`, `src/data/skills.ts`, `src/ui/components/AbilityBar.tsx`
+
+### Sprint 10K-A Changes (Real-Time Combat Engine)
+- **`tickCombat(_dt)` store action** (`store/gameStore.ts`): Fires active skill on cast interval using `calcSkillCastInterval()`, rolls hit/crit/damage via `rollSkillCast()`, subtracts from `currentMobHp`. On mob death: resets HP to `maxMobHp`, increments kill count. Safety cap: 10 kills/tick. Returns `CombatTickResult` for UI to process (XP grant, drop processing, boss check).
+- **2 new engine functions** (`engine/unifiedSkills.ts`): `calcSkillCastInterval(skill, stats, atkSpeedMult)` returns effective cast time in seconds (accounts for attack/cast speed + ability speed mult). `rollSkillCast(skill, stats, weaponAvgDmg, weaponSpellPower, damageMult)` returns `{damage, isCrit, isHit}` with per-hit accuracy/crit/variance rolls (reuses logic from `simulateCombatClear`).
+- **3 ephemeral GameState fields** (`types/index.ts`): `currentMobHp: number`, `maxMobHp: number`, `lastSkillCastAt: number`. Reset to 0 on rehydrate. No save migration needed.
+- **New type** (`types/index.ts`): `CombatTickResult` interface: `{mobKills, skillFired, damageDealt, skillId, isCrit}`.
+- **New constant** (`data/balance.ts`): `COMBAT_TICK_INTERVAL = 250` (documents tick rate).
+- **`startIdleRun` modified**: Initializes `currentMobHp` and `maxMobHp` from `calcMobHp(zone)`, sets `lastSkillCastAt = now`.
+- **`checkRecoveryComplete` modified**: Resets mob HP when resuming clearing after boss victory/defeat.
+- **ZoneScreen tick loop**: Calls `tickCombat(dtSec)` during clearing phase (combat mode only). On kills: grants XP, calls `processNewClears()`, checks boss spawn.
+- **Old time-based loot processing**: Now only active for gathering mode. Combat mode fully driven by `tickCombat`.
+- **MobDisplay**: Changed from `clearProgress` (time-based) to `mobCurrentHp/mobMaxHp` (real HP bar).
+- **What does NOT change**: Offline progression, boss fights (`tickBoss`), HP balance, gathering mode, save format, `calcClearTime()`.
+- **Files changed**: `src/types/index.ts`, `src/engine/unifiedSkills.ts`, `src/data/balance.ts`, `src/store/gameStore.ts`, `src/ui/screens/ZoneScreen.tsx`
 
 ### Sprint 10G Changes (Skill Bar Store + Migration v25)
 - **3 new GameState fields** (`types/index.ts`): `skillBar: (EquippedSkill | null)[]` (8 unified slots), `skillProgress: Record<string, SkillProgress>`, `skillTimers: SkillTimerState[]`.

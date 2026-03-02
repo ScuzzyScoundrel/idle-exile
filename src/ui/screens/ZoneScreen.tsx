@@ -203,9 +203,9 @@ function PlayerHpBar({ currentHp, maxHp, trailHp }: { currentHp: number; maxHp: 
 }
 
 // --- Mob Display (during clearing) ---
-function MobDisplay({ mobName, clearProgress, bossIn }: { mobName: string; clearProgress: number; bossIn: number }) {
-  // Mob HP = inverted clear progress (starts full, drains to 0)
-  const mobHpPct = Math.max(0, Math.min(100, (1 - clearProgress) * 100));
+function MobDisplay({ mobName, mobCurrentHp, mobMaxHp, bossIn }: { mobName: string; mobCurrentHp: number; mobMaxHp: number; bossIn: number }) {
+  // Real-time mob HP bar (10K-A)
+  const mobHpPct = mobMaxHp > 0 ? Math.max(0, Math.min(100, (mobCurrentHp / mobMaxHp) * 100)) : 0;
   return (
     <div className="bg-gray-800/60 rounded-lg border border-gray-700 p-2">
       <div className="flex justify-between text-xs mb-1">
@@ -675,6 +675,7 @@ export default function ZoneScreen() {
     clearStartedAt, currentClearTime,
     totalKills, fastestClears,
     lastClearResult,
+    tickCombat, currentMobHp, maxMobHp,
   } = useGameStore();
 
   const hydrated = useHasHydrated();
@@ -727,6 +728,40 @@ export default function ZoneScreen() {
 
       if (phase === 'clearing') {
         setElapsed((now - idleStartTime) / 1000);
+
+        // Real-time combat tick (10K-A): fire skills + track mob kills
+        const storeState = useGameStore.getState();
+        if (storeState.idleMode === 'combat') {
+          const combatResult = tickCombat(dtSec);
+          if (combatResult.mobKills > 0) {
+            // Grant XP
+            const rz = ZONE_DEFS.find(z => z.id === storeState.currentZoneId);
+            if (rz) {
+              const runXpScale = calcXpScale(storeState.character.level, rz.iLvlMin);
+              grantIdleXp(Math.round(10 * rz.band * combatResult.mobKills * runXpScale));
+            }
+            // Process drops
+            const clearResult = processNewClears(combatResult.mobKills);
+            if (clearResult) {
+              setSession(prev => accumulateSession(prev, clearResult, combatResult.mobKills));
+              if (clearResult.overflowCount > 0) {
+                setSalvageTally(prev => ({
+                  count: prev.count + clearResult.overflowCount,
+                  essence: prev.essence + clearResult.dustGained,
+                }));
+              }
+            }
+            // Boss check
+            const afterState = useGameStore.getState();
+            if (afterState.combatPhase === 'clearing' && afterState.currentZoneId) {
+              const counts = afterState.zoneClearCounts;
+              const zoneCount = counts[afterState.currentZoneId] || 0;
+              if (zoneCount > 0 && zoneCount % BOSS_INTERVAL === 0) {
+                startBossFight();
+              }
+            }
+          }
+        }
       } else if (phase === 'boss_fight') {
         // Use real delta for boss fights (handles tab throttling)
         const dt = Math.min((now - lastTickTimeRef.current) / 1000, 2); // cap at 2s to prevent huge jumps
@@ -770,13 +805,13 @@ export default function ZoneScreen() {
       lastTickTimeRef.current = now;
     }, 250);
     return () => clearInterval(interval);
-  }, [isRunning, idleStartTime, tickBoss, handleBossVictory, handleBossDefeat, checkRecoveryComplete, tickClassResource, tickAutoCast]);
+  }, [isRunning, idleStartTime, tickBoss, handleBossVictory, handleBossDefeat, checkRecoveryComplete, tickClassResource, tickAutoCast, tickCombat, grantIdleXp, processNewClears, startBossFight]);
 
-  // Real-time loot processing — only during clearing phase
-  // Uses per-clear tracking (clearStartedAt + currentClearTime) instead of modulo
+  // Gathering mode loot processing — time-based (combat uses tickCombat in tick loop)
   useEffect(() => {
     if (!isRunning || !runningZone || modeSwitchingRef.current) return;
     if (combatPhase !== 'clearing') return;
+    if (idleMode !== 'gathering') return; // Combat handled by tickCombat (10K-A)
 
     const state = useGameStore.getState();
     const now = Date.now();
@@ -789,12 +824,6 @@ export default function ZoneScreen() {
     const completedClears = Math.floor(timeSinceClearStart / clearDurationMs);
     if (completedClears <= 0) return;
 
-    // Grant character XP only in combat mode
-    if (idleMode === 'combat') {
-      const runXpScale = calcXpScale(character.level, runningZone.iLvlMin);
-      grantIdleXp(Math.round(10 * runningZone.band * completedClears * runXpScale));
-    }
-
     // Process drops (also updates clearStartedAt and currentClearTime in store)
     const result = processNewClears(completedClears);
     if (result) {
@@ -806,17 +835,7 @@ export default function ZoneScreen() {
         }));
       }
     }
-
-    // Check if boss should spawn (combat mode only, not if we just died)
-    const stateAfterClears = useGameStore.getState();
-    if (idleMode === 'combat' && currentZoneId && stateAfterClears.combatPhase === 'clearing') {
-      const counts = stateAfterClears.zoneClearCounts;
-      const zoneCount = counts[currentZoneId] || 0;
-      if (zoneCount > 0 && zoneCount % BOSS_INTERVAL === 0) {
-        startBossFight();
-      }
-    }
-  }, [elapsed, isRunning, runningZone, idleMode, combatPhase, grantIdleXp, processNewClears, currentZoneId, startBossFight]);
+  }, [elapsed, isRunning, runningZone, idleMode, combatPhase, processNewClears]);
 
   // Check if a zone is unlocked
   const isZoneUnlocked = (_z: ZoneDef): boolean => {
@@ -1155,7 +1174,8 @@ export default function ZoneScreen() {
               {idleMode === 'combat' && runningZone ? (
                 <MobDisplay
                   mobName={runningZone.mobName}
-                  clearProgress={clearProgress}
+                  mobCurrentHp={currentMobHp}
+                  mobMaxHp={maxMobHp}
                   bossIn={BOSS_INTERVAL - ((zoneClearCounts[currentZoneId!] || 0) % BOSS_INTERVAL)}
                 />
               ) : (

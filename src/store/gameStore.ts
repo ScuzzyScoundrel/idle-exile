@@ -15,13 +15,14 @@ import {
   CombatPhase,
   CharacterClass,
   CombatClearResult,
+  CombatTickResult,
   EquippedSkill,
   SkillProgress,
   SkillTimerState,
 } from '../types';
 import { createCharacter, resolveStats, addXp, getWeaponDamageInfo } from '../engine/character';
 import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, simulateCombatClear, applyNormalClearHp, createBossEncounter, tickBossFight, generateBossLoot, applyAbilityResists, calcHazardPenalty, BossTickResult } from '../engine/zones';
-import { calcMobHp } from '../engine/unifiedSkills';
+import { calcMobHp, calcSkillCastInterval, rollSkillCast } from '../engine/unifiedSkills';
 import { calcDefensiveEfficiency } from '../engine/setBonus';
 import { BOSS_VICTORY_DURATION, BOSS_DEFEAT_RECOVERY, BOSS_VICTORY_HEAL_RATIO, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO, SKILL_GCD } from '../data/balance';
 import { pickBestItem, generateId, isTwoHandedWeapon } from '../engine/items';
@@ -282,6 +283,9 @@ interface GameActions {
   // Class resource
   tickClassResource: (dtSeconds: number) => void;
 
+  // Real-time combat (10K-A)
+  tickCombat: (dt: number) => CombatTickResult;
+
   // Combat / Boss
   startBossFight: () => void;
   tickBoss: (dt: number) => BossTickResult | null;
@@ -364,6 +368,9 @@ function createInitialState(): GameState {
     skillTimers: [],
     lastClearResult: null,
     lastSkillActivation: 0,
+    currentMobHp: 0,
+    maxMobHp: 0,
+    lastSkillCastAt: 0,
     tutorialStep: 1,
     lastSaveTime: Date.now(),
   };
@@ -630,6 +637,13 @@ export const useGameStore = create<GameState & GameActions>()(
         // Reset zone clear count so boss is always BOSS_INTERVAL clears away
         const newZoneClearCounts = { ...state.zoneClearCounts };
         delete newZoneClearCounts[zoneId];
+
+        // Real-time combat: initialize mob HP (10K-A)
+        let mobHp = 0;
+        if (zone && state.idleMode === 'combat') {
+          mobHp = calcMobHp(zone);
+        }
+
         set({
           currentZoneId: zoneId,
           idleStartTime: now,
@@ -642,6 +656,9 @@ export const useGameStore = create<GameState & GameActions>()(
           lastClearResult: clearResult,
           classResource: newResource,
           zoneClearCounts: newZoneClearCounts,
+          currentMobHp: mobHp,
+          maxMobHp: mobHp,
+          lastSkillCastAt: now,
         });
       },
 
@@ -1676,6 +1693,83 @@ export const useGameStore = create<GameState & GameActions>()(
         }
       },
 
+      // ── Real-Time Combat Tick (10K-A) ──
+
+      tickCombat: (_dt: number): CombatTickResult => {
+        const noResult: CombatTickResult = { mobKills: 0, skillFired: false, damageDealt: 0, skillId: null, isCrit: false };
+        const state = get();
+        if (state.combatPhase !== 'clearing') return noResult;
+        if (!state.currentZoneId || !state.idleStartTime) return noResult;
+        if (state.idleMode !== 'combat') return noResult;
+
+        const zone = ZONE_DEFS.find(z => z.id === state.currentZoneId);
+        if (!zone) return noResult;
+
+        // Get active skill from skill bar (fallback: default for weapon)
+        const primarySkill = getPrimaryDamageSkill(state.skillBar ?? []);
+        const skill = primarySkill ?? getDefaultSkillForWeapon(
+          state.character.equipment.mainhand?.weaponType ?? 'sword',
+          state.character.level,
+        );
+        if (!skill) return noResult;
+
+        const now = Date.now();
+        const stats = resolveStats(state.character);
+        const abilityEffect = aggregateSkillBarEffects(
+          state.skillBar, state.skillProgress, state.skillTimers, now, false,
+        );
+
+        // Apply ability stat bonuses to effective stats
+        const effectiveStats = { ...stats };
+        if (abilityEffect.critChanceBonus) effectiveStats.critChance += abilityEffect.critChanceBonus;
+        if (abilityEffect.critMultiplierBonus) effectiveStats.critMultiplier += abilityEffect.critMultiplierBonus;
+
+        const classDef = getClassDef(state.character.class);
+        const damageMult = (abilityEffect.damageMult ?? 1) * getClassDamageModifier(state.classResource, classDef);
+        const atkSpeedMult = abilityEffect.attackSpeedMult ?? 1;
+
+        const castInterval = calcSkillCastInterval(skill, effectiveStats, atkSpeedMult);
+        const castIntervalMs = castInterval * 1000;
+
+        // Check if enough time has passed since last cast
+        if (now - state.lastSkillCastAt < castIntervalMs) return noResult;
+
+        // Fire skill
+        const { avgDamage, spellPower } = getWeaponDamageInfo(state.character.equipment);
+        const roll = rollSkillCast(skill, effectiveStats, avgDamage, spellPower, damageMult);
+
+        let currentMobHp = state.currentMobHp;
+        let mobKills = 0;
+        let totalDamage = 0;
+
+        if (roll.isHit) {
+          currentMobHp -= roll.damage;
+          totalDamage = roll.damage;
+        }
+
+        // Check for mob death(s) — cap at 10 kills per tick for safety
+        const maxMobHp = state.maxMobHp > 0 ? state.maxMobHp : calcMobHp(zone);
+        while (currentMobHp <= 0 && mobKills < 10) {
+          mobKills++;
+          currentMobHp = maxMobHp + currentMobHp; // carry over overkill damage
+          if (currentMobHp <= 0) currentMobHp = maxMobHp; // safety: reset if still negative
+        }
+
+        set({
+          currentMobHp,
+          maxMobHp,
+          lastSkillCastAt: now,
+        });
+
+        return {
+          mobKills,
+          skillFired: true,
+          damageDealt: totalDamage,
+          skillId: skill.id,
+          isCrit: roll.isCrit,
+        };
+      },
+
       startBossFight: () => {
         const state = get();
         if (!state.currentZoneId) return;
@@ -1777,11 +1871,19 @@ export const useGameStore = create<GameState & GameActions>()(
           const healedHp = state.combatPhase === 'boss_victory'
             ? state.currentHp + (stats.maxLife - state.currentHp) * BOSS_VICTORY_HEAL_RATIO
             : stats.maxLife;
+
+          // Reset mob HP for real-time combat (10K-A)
+          const zone = state.currentZoneId ? ZONE_DEFS.find(z => z.id === state.currentZoneId) : null;
+          const mobHp = zone ? calcMobHp(zone) : 0;
+
           set({
             combatPhase: 'clearing' as CombatPhase,
             bossState: null,
             combatPhaseStartedAt: null,
             currentHp: Math.min(stats.maxLife, healedHp),
+            currentMobHp: mobHp,
+            maxMobHp: mobHp,
+            lastSkillCastAt: Date.now(),
           });
           return true;
         }
@@ -1874,6 +1976,10 @@ export const useGameStore = create<GameState & GameActions>()(
 
           // Reset ephemeral GCD state
           state.lastSkillActivation = 0;
+          // Reset ephemeral real-time combat state (10K-A)
+          state.currentMobHp = 0;
+          state.maxMobHp = 0;
+          state.lastSkillCastAt = 0;
 
           // Ensure all equipped skills default to autoCast: true (fix for pre-10I saves)
           if (state.skillBar) {

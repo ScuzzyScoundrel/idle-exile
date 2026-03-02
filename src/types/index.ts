@@ -281,6 +281,15 @@ export interface CombatClearResult {
   dotDamage: number;      // Damage from DoT ticks (subset of totalDamage)
 }
 
+/** Result of one real-time combat tick (10K-A). */
+export interface CombatTickResult {
+  mobKills: number;
+  skillFired: boolean;
+  damageDealt: number;
+  skillId: string | null;
+  isCrit: boolean;
+}
+
 export type CombatPhase = 'clearing' | 'boss_fight' | 'boss_victory' | 'boss_defeat' | 'zone_defeat';
 
 export interface BossState {
@@ -686,6 +695,11 @@ export interface GameState {
 
   // Auto-cast GCD tracking (ephemeral)
   lastSkillActivation: number;
+
+  // Real-time combat (10K-A — ephemeral, reset on rehydrate)
+  currentMobHp: number;
+  maxMobHp: number;
+  lastSkillCastAt: number;
 
   // Tutorial
   tutorialStep: number;

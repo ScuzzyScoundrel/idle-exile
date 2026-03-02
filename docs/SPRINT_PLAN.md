@@ -58,6 +58,8 @@ Each conversation = one micro-sprint (3-5 focused changes):
 | **10G** | **Skill Bar Store + v25 Migration: 8-slot skillBar in store, engine reads switched, old actions bridged, v24→v25 migration** |
 | **10H** | **Skill Bar UI: 8-slot SkillBar component, rewritten SkillPanel, SkillPicker on ZoneScreen, AbilityPanel removed** |
 | **10I** | **Auto-Cast Engine + Priority: activateSkillBarSlot rewritten (click bug fix), tickAutoCast with GCD + priority, auto-cast UI toggle** |
+| **10J** | **Cleanup Old Systems: 5 legacy files deleted, bridge code removed, skillBar 8→5 slots, v26 migration** |
+| **10K-A** | **Real-Time Combat Engine: tickCombat fires skills on cast interval, mob HP drains live, MobDisplay uses real HP bar** |
 
 See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
 
