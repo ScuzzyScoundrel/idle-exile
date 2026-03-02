@@ -5,6 +5,7 @@ import { CURRENCY_DEFS, BAG_UPGRADE_DEFS, getBagDef, calcBagCapacity } from '../
 import { formatAffix, getBestTierForILvl, isUpgradeOver, getComparisonTarget, calcItemStatContribution } from '../../engine/items';
 import { slotLabel, DROPPABLE_SLOTS } from '../slotConfig';
 import { ItemIcon, SlotIcon, getSlotEmoji } from '../itemIcon';
+import { CraftIcon, resolveMaterialIcon } from '../craftIcon';
 import { useIsMobile } from '../hooks/useIsMobile';
 
 const SLOT_ORDER: GearSlot[] = DROPPABLE_SLOTS;
@@ -444,7 +445,7 @@ export default function InventoryScreen() {
                       ? 'bg-purple-600 text-white ring-1 ring-purple-400'
                       : 'bg-gray-800 text-gray-400'}`}
                 >
-                  <span>{cur.icon}</span>
+                  <CraftIcon category="currency" id={cur.id} fallback={cur.icon} size="sm" />
                   <span className="font-semibold">{currencies[cur.id]}</span>
                 </button>
               ))}
@@ -712,12 +713,18 @@ export default function InventoryScreen() {
           </button>
           {materialsOpen && (
             <div className="grid grid-cols-2 gap-1 px-3 pb-3">
-              {Object.entries(materials).filter(([, v]) => v > 0).map(([key, val]) => (
-                <div key={key} className="flex justify-between text-xs bg-gray-900 rounded px-2 py-1">
-                  <span className="text-gray-400">{'\u{1FAA8}'} {key.replace(/_/g, ' ')}</span>
-                  <span className="text-white font-semibold">{val}</span>
-                </div>
-              ))}
+              {Object.entries(materials).filter(([, v]) => v > 0).map(([key, val]) => {
+                const resolved = resolveMaterialIcon(key);
+                return (
+                  <div key={key} className="flex items-center gap-1.5 text-xs bg-gray-900 rounded px-2 py-1">
+                    {resolved
+                      ? <CraftIcon category={resolved.category} id={key} fallback={resolved.emoji} size="sm" />
+                      : <span>{'\u{1FAA8}'}</span>}
+                    <span className="text-gray-400 flex-1 truncate">{key.replace(/_/g, ' ')}</span>
+                    <span className="text-white font-semibold">{val}</span>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

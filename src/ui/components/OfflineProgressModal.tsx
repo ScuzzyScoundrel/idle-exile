@@ -2,6 +2,7 @@ import { useGameStore } from '../../store/gameStore';
 import type { Rarity, CurrencyType } from '../../types';
 import { CURRENCY_DEFS } from '../../data/items';
 import { getBagDef } from '../../data/items';
+import { CraftIcon, resolveMaterialIcon } from '../craftIcon';
 
 const RARITY_COLORS: Record<Rarity, string> = {
   common: 'text-gray-400',
@@ -144,11 +145,15 @@ export default function OfflineProgressModal() {
               {/* Materials */}
               {materialEntries.length > 0 && (
                 <div className="flex flex-wrap gap-2">
-                  {materialEntries.map(([mat, count]) => (
-                    <span key={mat} className="text-xs text-gray-300 bg-gray-700 px-2 py-0.5 rounded">
-                      {mat.replace(/_/g, ' ')}: {count}
-                    </span>
-                  ))}
+                  {materialEntries.map(([mat, count]) => {
+                    const resolved = resolveMaterialIcon(mat);
+                    return (
+                      <span key={mat} className="inline-flex items-center gap-1 text-xs text-gray-300 bg-gray-700 px-2 py-0.5 rounded">
+                        {resolved && <CraftIcon category={resolved.category} id={mat} fallback={resolved.emoji} size="sm" />}
+                        {mat.replace(/_/g, ' ')}: {count}
+                      </span>
+                    );
+                  })}
                 </div>
               )}
 
@@ -158,8 +163,9 @@ export default function OfflineProgressModal() {
                   {currencyEntries.map(([type, count]) => {
                     const def = CURRENCY_DEFS.find(c => c.id === type);
                     return (
-                      <span key={type} className="text-xs text-gray-300 bg-gray-700 px-2 py-0.5 rounded">
-                        {def?.icon ?? ''} {def?.name ?? type}: {count}
+                      <span key={type} className="inline-flex items-center gap-1 text-xs text-gray-300 bg-gray-700 px-2 py-0.5 rounded">
+                        <CraftIcon category="currency" id={type} fallback={def?.icon ?? ''} size="sm" />
+                        {def?.name ?? type}: {count}
                       </span>
                     );
                   })}

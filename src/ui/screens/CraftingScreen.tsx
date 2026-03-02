@@ -13,6 +13,7 @@ import { CATALYST_RARITY_MAP, CATALYST_BEST_TIER } from '../../data/balance';
 import { ITEM_BASE_DEFS } from '../../data/items';
 import { REFINEMENT_RECIPES } from '../../data/refinement';
 import { ZONE_DEFS } from '../../data/zones';
+import { CraftIcon, resolveMaterialIcon } from '../../ui/craftIcon';
 import Tooltip from '../components/Tooltip';
 import type { CraftingProfession, CraftingRecipeDef, Rarity, RefinementTrack } from '../../types';
 
@@ -198,9 +199,14 @@ function MaterialsPanel() {
                 ? RARITY_BORDER[item.rarity]
                 : item.isAffix ? 'border-gray-700 border-l-2 border-l-cyan-500'
                 : 'border-gray-700';
+              const resolved = resolveMaterialIcon(item.id);
               const card = (
                 <div className={`bg-gray-800 rounded-lg p-2 text-center border ${borderClass}`}>
-                  <div className="text-lg leading-tight">{item.icon ?? '\uD83E\uDEA8'}</div>
+                  <div className="flex justify-center leading-tight">
+                    {resolved
+                      ? <CraftIcon category={resolved.category} id={item.id} fallback={resolved.emoji} size="md" />
+                      : <span className="text-lg">{item.icon ?? '\uD83E\uDEA8'}</span>}
+                  </div>
                   <div className={`text-xs font-semibold truncate ${item.color ?? 'text-gray-300'}`}>
                     {formatMatName(item.id)}
                   </div>
@@ -710,8 +716,10 @@ function CraftPanel() {
                           {/* Header: icon + name + tier badge */}
                           <div className="flex items-center gap-1.5">
                             <span className="text-sm">
-                              {isMaterialRecipe
-                                ? (affixCatDef?.icon ?? '\u2697\uFE0F')
+                              {isMaterialRecipe && affixCatDef
+                                ? <CraftIcon category="catalyst" id={affixCatDef.id} fallback={affixCatDef.icon} size="sm" />
+                                : isMaterialRecipe
+                                ? '\u2697\uFE0F'
                                 : baseInfo ? SLOT_ICONS[baseInfo.slot] ?? '\u2694\uFE0F' : '\u2694\uFE0F'}
                             </span>
                             <span className="text-xs font-bold text-white flex-1 truncate">{recipe.name}</span>
@@ -778,8 +786,11 @@ function CraftPanel() {
                                 const have = materials[recipe.requiredCatalyst!.rareMaterialId] ?? 0;
                                 const met = have >= recipe.requiredCatalyst!.amount;
                                 return (
-                                  <div className={`text-xs ${met ? 'text-purple-400' : 'text-red-400'}`}>
-                                    {catDef?.icon} {catDef?.name ?? recipe.requiredCatalyst!.rareMaterialId}: {have}/{recipe.requiredCatalyst!.amount}
+                                  <div className={`flex items-center gap-1 text-xs ${met ? 'text-purple-400' : 'text-red-400'}`}>
+                                    {catDef
+                                      ? <CraftIcon category="material" id={catDef.id} fallback={catDef.icon} size="sm" />
+                                      : null}
+                                    {catDef?.name ?? recipe.requiredCatalyst!.rareMaterialId}: {have}/{recipe.requiredCatalyst!.amount}
                                     {!met && <span className="text-red-500 ml-1">(missing)</span>}
                                   </div>
                                 );
