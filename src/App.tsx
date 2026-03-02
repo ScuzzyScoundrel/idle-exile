@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, Component, type ReactNode, type ErrorInfo } from 'react';
 import TopBar from './ui/components/TopBar';
 import NavBar from './ui/components/NavBar';
 import TutorialOverlay from './ui/components/TutorialOverlay';
@@ -11,6 +11,33 @@ import CraftingScreen from './ui/screens/CraftingScreen';
 import CombatStatusBar from './ui/components/CombatStatusBar';
 import { useGameStore } from './store/gameStore';
 import { useTabGuard } from './ui/hooks/useTabGuard';
+
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state: { error: Error | null } = { error: null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  componentDidCatch(error: Error, info: ErrorInfo) { console.error('React crash:', error, info.componentStack); }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="min-h-screen bg-gray-950 text-gray-100 flex items-center justify-center p-6">
+          <div className="bg-gray-900 border border-red-700 rounded-xl p-8 max-w-lg space-y-4">
+            <h2 className="text-xl font-bold text-red-400">Something Crashed</h2>
+            <pre className="text-xs text-red-300 bg-gray-800 rounded p-3 overflow-auto max-h-60 whitespace-pre-wrap">
+              {this.state.error.message}{'\n'}{this.state.error.stack}
+            </pre>
+            <div className="flex gap-3">
+              <button onClick={() => this.setState({ error: null })}
+                className="px-4 py-2 bg-yellow-700 hover:bg-yellow-600 text-white rounded-lg font-semibold">Retry</button>
+              <button onClick={() => { localStorage.clear(); window.location.reload(); }}
+                className="px-4 py-2 bg-red-800 hover:bg-red-700 text-white rounded-lg font-semibold">Reset Save</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function App() {
   const tabBlocked = useTabGuard();
@@ -75,4 +102,6 @@ function App() {
   );
 }
 
-export default App;
+export default function AppWithBoundary() {
+  return <ErrorBoundary><App /></ErrorBoundary>;
+}
