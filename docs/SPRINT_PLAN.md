@@ -51,6 +51,10 @@ Each conversation = one micro-sprint (3-5 focused changes):
 | **9D** | **Tutorial system rework: step-by-step flow, tutorial index** |
 | **10A** | **Active Skills Foundation: 48 skill defs across 8 weapon types, tag-based DPS engine (calcSkillDps), v24 migration** |
 | **10B** | **Per-Clear Combat Sim: simulateCombatClear with per-hit rolls (crits/misses/DoT), variable clear times, CombatClearResult** |
+| **10C** | **Skill Equip UI + Combat Stats Display: SkillPanel component, equipSkill action, DPS comparison, combat stats on ZoneScreen** |
+| **10D** | **Delivery Tag Stats + Affixes: 5 new StatKeys (Melee/Projectile/AoE/DoT/Channel), 5 new affix defs, wired into DPS engine** |
+| **10E** | **Elemental Skill Diversity: 10 skills changed element, 3 new skills, 51 total. Every weapon has meaningful elemental choices** |
+| **10F** | **Unified SkillDef Type + Data: SkillDef merges 51 active + 24 abilities = 75 unified defs, new engine with delegation** |
 
 See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
 
@@ -294,36 +298,69 @@ See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
 4. **Variable clear times** — lucky crits = faster, miss streaks = slower
 5. **Offline/boss stays deterministic** — expected-value DPS for performance
 
-### Sprint 10C: Skill Equip UI + Skill Detail Panel
+### Sprint 10C: Skill Equip UI + Combat Stats Display
+**Status:** COMPLETE
+**Files:** `store/gameStore.ts`, `ui/components/SkillPanel.tsx` (new), `ui/screens/CharacterScreen.tsx`, `ui/screens/ZoneScreen.tsx`
+
+1. **equipSkill store action** — validates skill, weapon match, level req, mid-clear recalc
+2. **SkillPanel component** — browse skills, DPS comparison, tag pills, equip on click
+3. **Combat stats on ZoneScreen** — lastClearResult display (casts, hits, crits, misses)
+
+### Sprint 10D: Delivery Tag Stats + Affixes
+**Status:** COMPLETE
+**Files:** `types/index.ts`, `engine/skills.ts`, `data/balance.ts`, `data/affixes.ts`, `ui/screens/InventoryScreen.tsx`
+
+1. **5 new delivery tag StatKeys** — incMeleeDamage, incProjectileDamage, incAoEDamage, incDoTDamage, incChannelDamage
+2. **5 new affix definitions** — prefix affixes that scale delivery tags through gear
+3. **Wired into DPS engine** — calcSkillDamagePerCast %increased section
+
+### Sprint 10E: Elemental Skill Diversity
+**Status:** COMPLETE
+**Files:** `data/skills.ts`
+
+1. **10 skills changed element** — meaningful Fire/Cold/Lightning/Chaos choices per weapon
+2. **3 new skills** — sword_ice_thrust, axe_frost_rend, dagger_lightning_lunge (51 total)
+
+### Sprint 10F: Unified SkillDef Type + Data
+**Status:** COMPLETE
+**Files:** `types/index.ts`, `data/unifiedSkills.ts` (new), `engine/unifiedSkills.ts` (new)
+
+1. **Unified SkillDef type** — merges ActiveSkillDef + AbilityDef into one interface
+2. **75 unified skill definitions** — converts both systems, handles 5 ID conflicts
+3. **Unified engine** — calcUnifiedDps, resolveSkillEffect, aggregateSkillBarEffects
+
+### Sprint 10G: Skill Bar Store + Migration v25
 **Status:** NOT STARTED
-**Files:** `ui/screens/CharacterScreen.tsx`, `ui/components/SkillPanel.tsx` (new)
+**Files:** `store/gameStore.ts`, `types/index.ts`
 
-1. **Skill equip interface** — browse available skills for equipped weapon, equip/swap
-2. **Skill detail panel** — show tags, DPS breakdown, combat stats from lastClearResult
-3. **Combat log summary** — display hits/crits/misses from last clear on zone screen
+1. **New state fields**: `skillBar` (8 slots), `skillProgress`, `skillTimers`
+2. **v24→v25 migration**: `equippedSkills[0]` → `skillBar[0]`, `equippedAbilities[0..3]` → `skillBar[1..4]`
+3. **New actions**: `equipToSkillBar`, `unequipSkillBarSlot`, `toggleSkillAutoCast`, `reorderSkillBar`
+4. **Update processNewClears**: read primary damage skill from skillBar, buff effects from aggregateSkillBarEffects
 
-### Sprint 10D: Multi-Skill Rotation Engine
+### Sprint 10H: Skill Bar UI
 **Status:** NOT STARTED
-**Files:** `engine/zones.ts`, `engine/skills.ts`, `store/gameStore.ts`
+**Files:** `ui/components/SkillBar.tsx` (new), `ui/components/SkillPanel.tsx`, `ui/screens/ZoneScreen.tsx`, `ui/screens/CharacterScreen.tsx`
 
-1. **Multi-skill sim** — all 4 equipped skills used in rotation during clear
-2. **Cooldown-based rotation** — spammable + cooldown skills interleave
-3. **Priority system** — highest DPS skill used when available
+1. **8-slot horizontal skill bar** — replaces AbilityBar, kind-colored borders, auto-cast overlays
+2. **Unified SkillPanel** — browse all skills (damage + buff + passive), category filters
+3. **Auto-cast visuals** — button "presses" when skill fires, cooldown sweep, buff duration ring
 
-### Sprint 10E: Per-Skill Specialization Trees
+### Sprint 10I: Auto-Cast Engine + Priority
 **Status:** NOT STARTED
-**Files:** `types/index.ts`, `data/skillTrees.ts` (new), `engine/skills.ts`
+**Files:** `engine/unifiedSkills.ts`, `store/gameStore.ts`, `ui/components/SkillBar.tsx`
 
-1. **Skill-specific talent trees** — 3 paths per skill, enhance playstyle
-2. **Skill XP** — using a skill earns XP toward unlocking its tree nodes
+1. **Auto-cast queue** — skills fire in bar order (slot 0 = highest priority)
+2. **activateSkill action** — works for all kinds (buffs set timer, instants fire, toggles flip)
+3. **Drag-to-reorder** — players set priority by reordering bar slots
 
-### Sprint 10F: Class Talent Trees
+### Sprint 10J: Cleanup Old Systems
 **Status:** NOT STARTED
-**Files:** `types/index.ts`, `data/classTalents.ts` (new), `engine/classResource.ts`
+**Files:** `types/index.ts`, `data/skills.ts` (DELETE), `data/abilities.ts` (DELETE), `engine/abilities.ts` (DELETE), `ui/components/AbilityBar.tsx` (DELETE)
 
-1. **30-50 passive nodes per class** from GDD Section 3
-2. **Talent points** earned on level-up
-3. **Class-defining build choices**
+1. **Remove deprecated types** — ActiveSkillDef, AbilityDef, AbilityKind, EquippedAbility, AbilityTimerState
+2. **Delete old data/engine files** — replaced by unifiedSkills.ts
+3. **Update all remaining imports** across codebase
 
 ---
 

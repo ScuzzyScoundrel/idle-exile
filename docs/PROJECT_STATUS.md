@@ -1,16 +1,32 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-01 (Post-Sprint 10C: Skill Equip UI + Combat Stats Display)
+> Last updated: 2026-03-02 (Post-Sprint 10F: Unified SkillDef Type + Data)
 
 ## Current Phase
-**Sprint 10C: Skill Equip UI + Combat Stats Display** — COMPLETE.
-- **`equipSkill` store action**: New action validates skill exists, weapon type matches, level requirement met. Includes mid-clear recalculation (preserves progress %, adjusts remaining time — same pattern as `activateAbility`).
-- **SkillPanel component** (`src/ui/components/SkillPanel.tsx`): Browse all 6 skills for current weapon. Shows DPS for each skill with green/red delta vs equipped skill. Tag-colored pills (Attack=red, Spell=blue, Fire=orange, etc.). Current skill highlighted with yellow border + "Equipped" badge. Level-locked skills show lock icon + required level. Click to equip.
-- **CharacterScreen integration**: SkillPanel mounted between Stats Grid and Abilities Panel. Stats section now shows skill-based DPS (using `calcSkillDps()`) with skill name and icon — replaces old missing DPS display.
-- **ZoneScreen combat stats**: Shows `lastClearResult` during active combat runs (casts, hits in green, crits in yellow, misses in red, clear time). Compact one-line display between mob progress and Ability Bar.
-- **No save migration needed**: `equippedSkills` already persisted (v24), `equipSkill` just stores a different skill ID.
-- Next: Sprint 10D (Multi-Skill Rotation).
+**Sprints 10D-10F: Combat Overhaul Foundation** — COMPLETE.
+
+**Sprint 10D: Delivery Tag Stats + Affixes** — COMPLETE.
+- 5 new `StatKey` values: `incMeleeDamage`, `incProjectileDamage`, `incAoEDamage`, `incDoTDamage`, `incChannelDamage`
+- 5 new `AffixCategory` entries + affix definitions (prefixes): "of the Gladiator" (Melee), "of Marksmanship" (Projectile), "of Cataclysm" (AoE), "of Affliction" (DoT), "of Focus" (Channel)
+- Wired into `calcSkillDamagePerCast()` %increased section — gear with delivery tag affixes now scales skills with matching tags
+- Updated `BASE_STATS`, `STAT_LABELS` for new stats
+- No save migration needed (new stats default to 0, new affixes on new items only)
+
+**Sprint 10E: Elemental Skill Diversity** — COMPLETE.
+- 10 existing skills changed element (sword_whirlwind→Cold "Frost Whirl", sword_blade_ward→Lightning "Thunder Guard", axe_cleave→Lightning "Thunder Cleave", mace_shockwave→Lightning "Thunderstrike", mace_concussive_blow→Fire "Molten Blow", dagger_fan_of_knives→Cold "Frost Fan", dagger_smoke_screen→Chaos "Shadow Step", bow_multi_shot→Cold "Ice Barrage", bow_smoke_arrow→Lightning "Shock Arrow", crossbow_net_shot→Lightning "Shock Net")
+- 3 new skills added: `sword_ice_thrust` (Cold), `axe_frost_rend` (Cold DoT), `dagger_lightning_lunge` (Lightning)
+- 51 total active skills. Every weapon now has meaningful elemental choices.
+- No save migration needed (IDs unchanged, DPS recalculates automatically)
+
+**Sprint 10F: Unified SkillDef Type + Data** — COMPLETE.
+- New unified types: `SkillKind`, `SkillDef`, `EquippedSkill`, `SkillProgress`, `SkillTimerState`
+- `src/data/unifiedSkills.ts`: Converts 51 active skills + 24 abilities = 75 unified `SkillDef` entries. Handles 5 ID conflicts (ability versions get `_buff` suffix). Exports `ABILITY_ID_MIGRATION` map for v25 migration.
+- `src/engine/unifiedSkills.ts`: `calcUnifiedDps()`, `resolveSkillEffect()`, `aggregateSkillBarEffects()`, `getPrimaryDamageSkill()` — delegates to existing engines based on `SkillDef.kind`.
+- Old files (`data/skills.ts`, `data/abilities.ts`, `engine/abilities.ts`) kept alive — no breaking changes.
+- No save migration needed (new types exist alongside old).
+
+**Next: Sprint 10G** (Skill Bar Store + Migration v24→v25). See SPRINT_PLAN.md.
 
 **Sprint 10A: Active Skills & Damage Tags (Foundation)** — COMPLETE (previous).
 - **DamageTag type + ActiveSkillDef interface**: New `DamageTag` union (Attack/Spell/Melee/Projectile/AoE/DoT/Channel/Physical/Fire/Cold/Lightning/Chaos). `ActiveSkillDef` with baseDamage, weaponDamagePercent, spellPowerRatio, castTime, cooldown, hitCount, dotDuration, dotDamagePercent.
@@ -108,7 +124,7 @@ Bottom: mainhand, offhand, trinket1, trinket2
 - **Per-clear tracking**: `clearStartedAt` + `currentClearTime` replace modulo-based progress. Mid-clear ability activation preserves progress % but adjusts remaining time.
 - **Bag system**: 5 equippable bag slots (T1:6→T5:14). Start 30 total, max 70.
 - **Crafting (currencies)**: `applyCurrency(item, type)` — augment, chaos, divine, annul, exalt, greater_exalt (top-2 tiers), perfect_exalt (T1 guaranteed)
-- **Active skills**: 48 skills (6 per weapon × 8 weapons). Tag-based DPS: `calcSkillDps()` computes base damage → additive %increased → speed → hit chance → crit → hits → per-second → DoT bonus. Attack skills use weapon damage + flat phys/ele. Spell skills use spell power + flat spell ele. Default skill auto-assigned on weapon equip.
+- **Active skills**: 51 skills (6-8 per weapon × 8 weapons). Tag-based DPS: `calcSkillDps()` computes base damage → additive %increased (including delivery tag stats: Melee/Projectile/AoE/DoT/Channel) → speed → hit chance → crit → hits → per-second → DoT bonus. Attack skills use weapon damage + flat phys/ele. Spell skills use spell power + flat spell ele. Default skill auto-assigned on weapon equip. Every weapon has elemental variety (Physical/Fire/Cold/Lightning/Chaos choices).
 - **Save**: Zustand persist v24. v23→v24 adds `equippedSkills` with auto-assigned default skill. v22→v23 adds `autoDisposalAction: 'salvage'`. v21→v22 renames `materials.salvage_dust` → `materials.enchanting_essence`. v20→v21 adds `greater_exalt` + `perfect_exalt` currencies. Migrations: v11→v12 adds `craftingSkills`, v12→v13 adds leatherworker + jeweler skills, v13→v14 adds `craftAutoSalvageMinRarity`, v14→v15 adds `zoneClearCounts` + combat HP fields, v17→v18 adds `classResource` + `classSelected`, v18→v19 adds `abilityProgress` + `clearStartedAt` + `currentClearTime` (clears old mutator selections).
 
 ## Architecture
@@ -128,7 +144,8 @@ src/
     zones.ts                — 30 zones with material names, recommendedLevel, gatheringTypes
     items.ts                — 345 item bases (56 mainhand w/ 8 weapon types) + 6 currency defs + 5 bag upgrade defs
     abilities.ts            — 24 ability defs (8 weapon types x 3) with skill trees
-    skills.ts               — 48 active skill definitions (6 per weapon × 8 types) with damage tags
+    skills.ts               — 51 active skill definitions (6-8 per weapon × 8 types) with damage tags
+    unifiedSkills.ts        — 75 unified SkillDefs (merges skills + abilities), lookup helpers, ID migration map
     classes.ts              — 4 class definitions with resource config (warrior, mage, ranger, rogue)
     setBonuses.ts           — 4 armor-type set bonus definitions
   engine/                   — Pure TypeScript (no React)
@@ -140,6 +157,7 @@ src/
     craftingProfessions.ts  — addCraftingXp(), canCraftRecipe(), executeCraft(), getCraftingXpForTier()
     abilities.ts            — Ability effect resolution, skill tree, XP, timer management, aggregation
     skills.ts               — Tag-based DPS engine: calcSkillDps(), getDefaultSkillForWeapon(), calcMobHp()
+    unifiedSkills.ts        — Unified skill engine: calcUnifiedDps(), resolveSkillEffect(), aggregateSkillBarEffects()
     classResource.ts        — Class resource pure functions (create, tick, decay, reset, modifiers)
     character.ts            — Stats resolution (13 stats), XP/leveling
     crafting.ts             — 6 currency crafting operations
@@ -181,18 +199,10 @@ src/
 **See `SPRINT_PLAN.md` for the full roadmap with detailed implementation notes.**
 
 Immediate priority:
-1. Sprint 10D: Multi-skill rotation engine (auto-fire skills in sequence)
-2. Sprint 10E: Per-skill specialization trees (8-15 nodes each)
-3. Sprint 10F: Class talent trees (20-40 nodes per class)
-
-Then later sprints:
-- Sprint 10E: Per-skill specialization trees (8-15 nodes each)
-- Sprint 10F: Class talent trees (20-40 nodes per class)
-
-Unfinished from original GDD scope (integrated into roadmap):
-- Socket crafting logic — not yet scheduled
-- More affix variety (slot-specific affixes) — not yet scheduled
-- Gathering gear equip/swap UI + dual loadout — Sprint 10I
+1. **Sprint 10G**: Skill Bar Store + Migration v24→v25 (8-slot unified skill bar, replace equippedSkills + equippedAbilities)
+2. **Sprint 10H**: Skill Bar UI (8-slot bar with auto-cast visuals, replace AbilityBar + SkillPanel)
+3. **Sprint 10I**: Auto-Cast Engine + Priority (all equipped skills fire in bar order)
+4. **Sprint 10J**: Cleanup Old Systems (remove deprecated types, old data/engine files)
 
 ## How to Run
 ```bash
@@ -455,6 +465,31 @@ Replaced focus modes with Combat/Gathering toggle. 5 gathering professions with 
 - **No save migration**: `equippedSkills` already in v24 state. `equipSkill` stores different skill ID in existing array.
 - **Files added**: `src/ui/components/SkillPanel.tsx`
 - **Files changed**: `src/store/gameStore.ts`, `src/ui/screens/CharacterScreen.tsx`, `src/ui/screens/ZoneScreen.tsx`, `docs/PROJECT_STATUS.md`
+
+### Sprint 10D Changes (Delivery Tag Stats + Affixes)
+- **5 new StatKey values**: `incMeleeDamage`, `incProjectileDamage`, `incAoEDamage`, `incDoTDamage`, `incChannelDamage` added to `StatKey` union and `AffixCategory` union.
+- **5 new affix definitions** (`data/affixes.ts`): `inc_melee_damage` "of the Gladiator" (attack_weapons+gloves+amulets, w60), `inc_projectile_damage` "of Marksmanship" (all_weapons+gloves+amulets, w60), `inc_aoe_damage` "of Cataclysm" (all_weapons+amulets, w50), `inc_dot_damage` "of Affliction" (all_weapons+rings+amulets, w50), `inc_channel_damage` "of Focus" (spell_weapons+amulets, w40). All prefix, T10:3-5% to T1:28-40% (mirrors inc_fire_damage).
+- **DPS engine wired** (`engine/skills.ts`): 5 delivery tag checks added to `calcSkillDamagePerCast()` %increased section. Skills with Melee/Projectile/AoE/DoT/Channel tags now scale from gear.
+- **BASE_STATS updated** (`data/balance.ts`): 5 new keys initialized to 0.
+- **STAT_LABELS updated** (`ui/screens/InventoryScreen.tsx`): Display labels for item comparison.
+- **No save migration**: New stats default to 0, new affixes on newly generated items only.
+- **Files changed**: `src/types/index.ts`, `src/engine/skills.ts`, `src/data/balance.ts`, `src/data/affixes.ts`, `src/ui/screens/InventoryScreen.tsx`
+
+### Sprint 10E Changes (Elemental Skill Diversity)
+- **10 skills changed element**: sword_whirlwind→Cold "Frost Whirl", sword_blade_ward→Lightning "Thunder Guard", axe_cleave→Lightning "Thunder Cleave", mace_shockwave→Lightning "Thunderstrike", mace_concussive_blow→Fire "Molten Blow", dagger_fan_of_knives→Cold "Frost Fan", dagger_smoke_screen→Chaos "Shadow Step", bow_multi_shot→Cold "Ice Barrage", bow_smoke_arrow→Lightning "Shock Arrow", crossbow_net_shot→Lightning "Shock Net". Updated names, descriptions, icons, baseDamage, tags.
+- **3 new skills added**: `sword_ice_thrust` (Cold+Melee, Lv12), `axe_frost_rend` (Cold+Melee+DoT, Lv12), `dagger_lightning_lunge` (Lightning+Melee, Lv12).
+- **51 total active skills** (was 48). Element distribution per weapon: Sword 2P/1F/2C/1L, Axe 2P/1F/1C/1L, Mace 2P/1F/1C/1L, Dagger 2P/1C/1L/2Ch, Bow 2P/1F/1C/1L, Crossbow 2P/1F/1C/1L, Staff 2P/2F/1C/1L, Wand 1P/1F/1C/1L/2Ch.
+- **No save migration**: Skill IDs unchanged, DPS recalculates automatically.
+- **Files changed**: `src/data/skills.ts`
+
+### Sprint 10F Changes (Unified SkillDef Type + Data)
+- **New unified types** (`types/index.ts`): `SkillKind` ('active'|'passive'|'buff'|'instant'|'proc'|'toggle'|'ultimate'), `SkillDef` (unified interface for damage skills + buff/passive/utility), `EquippedSkill` ({skillId, autoCast}), `SkillProgress`, `SkillTimerState`.
+- **Unified skill data** (`data/unifiedSkills.ts`, NEW): Programmatically converts 51 `ActiveSkillDef` + 24 `AbilityDef` = 75 `SkillDef`. Active skills: `kind:'active'`, keep tags/damage fields. Abilities: keep original kind, `tags:[]`, damage fields zeroed. 5 ID conflicts resolved (ability versions get `_buff` suffix): `axe_cleave_buff`, `mace_shockwave_buff`, `crossbow_explosive_bolt_buff`, `bow_rapid_fire_buff`, `wand_chain_lightning_buff`. Exports `ABILITY_ID_MIGRATION` map, `SKILL_DEFS`, `getUnifiedSkillsForWeapon()`, `getUnifiedSkillDef()`, `getSkillsByKind()`, `getSkillsByKindForWeapon()`.
+- **Unified skill engine** (`engine/unifiedSkills.ts`, NEW): `calcUnifiedDps()` delegates to `calcSkillDps()` for active skills. `resolveSkillEffect()` delegates to `resolveAbilityEffect()` for non-active skills. `aggregateSkillBarEffects()` replaces `aggregateAbilityEffects()` for 8-slot skill bar. `getPrimaryDamageSkill()` finds first active skill in bar.
+- **Old files kept alive**: `data/skills.ts`, `data/abilities.ts`, `engine/abilities.ts` unchanged — removed in Sprint 10J.
+- **No save migration**: New types exist alongside old.
+- **Files added**: `src/data/unifiedSkills.ts`, `src/engine/unifiedSkills.ts`
+- **Files changed**: `src/types/index.ts`
 
 ## Micro-Sprint Workflow
 Each conversation = one micro-sprint (3-5 related changes):
