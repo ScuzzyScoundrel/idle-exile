@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Item, GearSlot } from '../types';
 import { SLOT_CONFIG } from './slotConfig';
 
@@ -70,10 +71,11 @@ export function ItemIcon({
   className?: string;
 }) {
   const key = getItemIconKey(item);
-  const status = iconStatus.get(key);
+  const cached = iconStatus.get(key);
+  const [broken, setBroken] = useState(cached === false);
 
   // Already known broken → emoji immediately
-  if (status === false) {
+  if (broken || cached === false) {
     return (
       <span className={`${EMOJI_SIZE[size]} leading-none ${className}`}>
         {getSlotEmoji(item.slot)}
@@ -88,13 +90,9 @@ export function ItemIcon({
       loading="lazy"
       className={`${SIZE_CLASS[size]} object-contain ${className}`}
       onLoad={() => { iconStatus.set(key, true); }}
-      onError={(e) => {
+      onError={() => {
         iconStatus.set(key, false);
-        // Replace the broken <img> with emoji by swapping to a text node
-        const span = document.createElement('span');
-        span.className = `${EMOJI_SIZE[size]} leading-none ${className}`;
-        span.textContent = getSlotEmoji(item.slot);
-        (e.target as HTMLElement).replaceWith(span);
+        setBroken(true);
       }}
     />
   );
@@ -119,9 +117,10 @@ export function SlotIcon({
   className?: string;
 }) {
   const key = slotIconKey(slot);
-  const status = iconStatus.get(key);
+  const cached = iconStatus.get(key);
+  const [broken, setBroken] = useState(cached === false);
 
-  if (status === false) {
+  if (broken || cached === false) {
     return (
       <span className={`${EMOJI_SIZE[size]} leading-none ${className}`}>
         {getSlotEmoji(slot)}
@@ -136,12 +135,9 @@ export function SlotIcon({
       loading="lazy"
       className={`${SIZE_CLASS[size]} object-contain ${className}`}
       onLoad={() => { iconStatus.set(key, true); }}
-      onError={(e) => {
+      onError={() => {
         iconStatus.set(key, false);
-        const span = document.createElement('span');
-        span.className = `${EMOJI_SIZE[size]} leading-none ${className}`;
-        span.textContent = getSlotEmoji(slot);
-        (e.target as HTMLElement).replaceWith(span);
+        setBroken(true);
       }}
     />
   );

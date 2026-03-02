@@ -62,17 +62,17 @@ const RARITY_BORDER_RING: Record<Rarity, string> = {
 };
 
 const RARITY_TILE_BORDER: Record<Rarity, string> = {
-  common: 'border-gray-600',
-  uncommon: 'border-green-500',
-  rare: 'border-blue-500',
+  common: 'border-green-600',
+  uncommon: 'border-blue-500',
+  rare: 'border-yellow-500',
   epic: 'border-purple-500',
   legendary: 'border-orange-500',
 };
 
 const RARITY_GRADIENT: Record<Rarity, string> = {
-  common: 'from-gray-800/60',
-  uncommon: 'from-green-900/50',
-  rare: 'from-blue-900/50',
+  common: 'from-green-900/50',
+  uncommon: 'from-blue-900/50',
+  rare: 'from-yellow-900/50',
   epic: 'from-purple-900/50',
   legendary: 'from-orange-900/50',
 };
