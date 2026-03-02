@@ -60,15 +60,15 @@ function iconUrl(key: string): string {
 type IconSize = 'sm' | 'md' | 'lg';
 
 const SIZE_CLASS: Record<IconSize, string> = {
-  sm: 'w-4 h-4',
-  md: 'w-6 h-6',
-  lg: 'w-8 h-8',
+  sm: 'w-5 h-5',
+  md: 'w-9 h-9',
+  lg: 'w-3/4 h-3/4',
 };
 
 const EMOJI_SIZE: Record<IconSize, string> = {
-  sm: 'text-sm',
-  md: 'text-lg',
-  lg: 'text-xl',
+  sm: 'text-base',
+  md: 'text-2xl',
+  lg: 'text-3xl',
 };
 
 // ---------------------------------------------------------------------------
