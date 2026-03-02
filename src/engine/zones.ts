@@ -7,8 +7,8 @@ import type { Character, ZoneDef, IdleRunResult, Item, CurrencyType, GearSlot, R
 import { generateItem, generateGatheringItem } from './items';
 import { calcDefensiveEfficiency } from './setBonus';
 import { calcTotalDps, getWeaponDamageInfo } from './character';
-import { calcSkillDps, calcSkillDamagePerCast, getDefaultSkillForWeapon } from './skills';
-import { getSkillDef } from '../data/skills';
+import { calcSkillDps, calcSkillDamagePerCast, getDefaultSkillForWeapon } from './unifiedSkills';
+import { getSkillDef } from '../data/unifiedSkills';
 import { calcGatheringYield } from './gathering';
 import { rollRareMaterialDrop } from './rareMaterials';
 import { BAG_UPGRADE_DEFS } from '../data/items';

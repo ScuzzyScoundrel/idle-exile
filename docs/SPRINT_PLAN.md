@@ -1,7 +1,7 @@
 # Idle Exile — Sprint Plan & Roadmap
 
 > **Full development roadmap.** Read `PROJECT_STATUS.md` first for current state.
-> Last updated: 2026-03-02 (Post-Sprint 10G)
+> Last updated: 2026-03-02 (Post-Sprint 10J)
 
 ## Micro-Sprint Workflow
 
@@ -361,12 +361,31 @@ See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
 5. **Default autoCast: true** — all skills auto-fire by default (idle game), rehydrate fix for old saves
 
 ### Sprint 10J: Cleanup Old Systems
-**Status:** NOT STARTED
-**Files:** `types/index.ts`, `data/skills.ts` (DELETE), `data/abilities.ts` (DELETE), `engine/abilities.ts` (DELETE), `ui/components/AbilityBar.tsx` (DELETE)
+**Status:** COMPLETE
+**Files:** 5 deleted, 7 edited. See `COMBAT_OVERHAUL.md` for full details.
 
-1. **Remove deprecated types** — ActiveSkillDef, AbilityDef, AbilityKind, EquippedAbility, AbilityTimerState
-2. **Delete old data/engine files** — replaced by unifiedSkills.ts
-3. **Update all remaining imports** across codebase
+1. **All imports rerouted** to unified modules
+2. **5 legacy files deleted** (engine/abilities, engine/skills, data/abilities, data/skills, AbilityBar.tsx)
+3. **5 old store actions removed** + all bridge code
+4. **3 legacy state fields removed** from GameState (equippedAbilities, abilityTimers, equippedSkills)
+5. **Skill bar reduced** from 8 to 5 slots
+6. **v26 migration** strips legacy fields, truncates skillBar
+
+### Sprint 10K: Real-Time Combat Triggers
+**Status:** NOT STARTED
+See `COMBAT_OVERHAUL.md` for detailed checklist.
+
+### Sprint 10L: Skill Cooldown UI + Visual Polish
+**Status:** NOT STARTED
+See `COMBAT_OVERHAUL.md` for detailed checklist.
+
+### Sprint 10M: Multi-Skill Rotation
+**Status:** NOT STARTED
+See `COMBAT_OVERHAUL.md` for detailed checklist.
+
+### Sprint 10N: Skill Discovery + Unlocks
+**Status:** NOT STARTED
+See `COMBAT_OVERHAUL.md` for detailed checklist.
 
 ---
 

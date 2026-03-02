@@ -10,7 +10,7 @@ import { calcBagCapacity } from '../../data/items';
 import SkillBar from '../components/SkillBar';
 import { getUnifiedSkillsForWeapon } from '../../data/unifiedSkills';
 import { getEquippedWeaponType } from '../../engine/items';
-import { getUnlockedSlotCount } from '../../engine/abilities';
+import { getUnlockedSlotCount } from '../../engine/unifiedSkills';
 import { WeaponType } from '../../types';
 import { getRareMaterialDef } from '../../data/rareMaterials';
 import { BOSS_INTERVAL } from '../../data/balance';

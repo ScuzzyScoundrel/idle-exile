@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { getUnifiedSkillsForWeapon, getUnifiedSkillDef } from '../../data/unifiedSkills';
-import { calcSkillDps } from '../../engine/skills';
+import { calcSkillDps, getAbilityXpForLevel, getRespecCost, getUnlockedSlotCount, canAllocateNode } from '../../engine/unifiedSkills';
 import { resolveStats, getWeaponDamageInfo } from '../../engine/character';
 import { getEquippedWeaponType } from '../../engine/items';
-import { getAbilityXpForLevel, getRespecCost, getUnlockedSlotCount, canAllocateNode } from '../../engine/abilities';
-import { getAbilityDef } from '../../data/abilities';
+import { getAbilityDef } from '../../data/unifiedSkills';
 import { ABILITY_ID_MIGRATION } from '../../data/unifiedSkills';
 import { ABILITY_SLOT_UNLOCKS } from '../../types';
 import type { SkillDef, SkillKind, SkillProgress, AbilityProgress } from '../../types';

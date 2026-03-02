@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { getUnifiedSkillDef } from '../../data/unifiedSkills';
 import { getSkillEffectiveDuration } from '../../engine/unifiedSkills';
-import { getAbilityXpForLevel, getUnlockedSlotCount } from '../../engine/abilities';
+import { getAbilityXpForLevel, getUnlockedSlotCount } from '../../engine/unifiedSkills';
 import { ABILITY_SLOT_UNLOCKS } from '../../types';
 
 // Kind-specific border colors
@@ -46,20 +46,6 @@ export default function SkillBar() {
   return (
     <div className="flex gap-1.5 justify-center">
       {skillBar.map((equipped, idx) => {
-        // Slots 5-7 always locked with "Soon"
-        if (idx >= 5) {
-          return (
-            <div
-              key={idx}
-              className="w-14 h-14 rounded-lg border-2 border-dashed border-gray-700 bg-gray-900/50 flex flex-col items-center justify-center opacity-40"
-              title="Coming soon"
-            >
-              <span className="text-gray-600 text-xs">{'\uD83D\uDD12'}</span>
-              <span className="text-gray-600 text-xs">Soon</span>
-            </div>
-          );
-        }
-
         // Slots 0-4: slot 0 always unlocked (active skill), slots 1-4 use ABILITY_SLOT_UNLOCKS
         // unlockedSlots is the count of ability slots (0-4 map to slots 1-4)
         // Slot 0 is always unlocked; slots 1-4 need idx <= unlockedSlots

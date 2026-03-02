@@ -654,9 +654,7 @@ export interface GameState {
   // Offline progression
   offlineProgress: OfflineProgressSummary | null;
 
-  // Abilities
-  equippedAbilities: (EquippedAbility | null)[];
-  abilityTimers: AbilityTimerState[];
+  // Abilities (skill tree state — keyed by old ability IDs)
   abilityProgress: Record<string, AbilityProgress>;
 
   // Per-clear tracking (bug fix: replaces modulo-based progress)
@@ -677,9 +675,6 @@ export interface GameState {
   // Stats tracking
   totalKills: number;
   fastestClears: Record<string, number>;  // zoneId → fastest clear time in seconds
-
-  // Active skills (v24)
-  equippedSkills: (string | null)[];  // ActiveSkillDef IDs, 4 slots
 
   // Unified skill bar (v25)
   skillBar: (EquippedSkill | null)[];         // 8 unified slots

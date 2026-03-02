@@ -1,23 +1,24 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-02 (Post-Sprint 10I: Auto-Cast Engine + Priority)
+> Last updated: 2026-03-02 (Post-Sprint 10J: Cleanup Old Systems)
 
 ## Current Phase
-**Sprint 10I: Auto-Cast Engine + Priority** — COMPLETE.
+**Sprint 10J: Cleanup Old Systems** — COMPLETE.
 
-- **Click bug fixed**: `activateSkillBarSlot` rewritten to work directly from unified `skillBar`/`skillTimers` state instead of delegating to broken `activateAbility` path. Handles toggle (no GCD), buff/instant/ultimate (with GCD), legacy abilityTimer bridge, mage arcane charges, mid-clear recalculation.
-- **Auto-cast engine**: New `tickAutoCast` action iterates skill bar slots 0→7 in priority order. Toggles auto-ON immediately (no GCD). Buffs/instants/ultimates check individual cooldown AND global cooldown, fire when ready. `break` on GCD hit (no point checking more slots). Called from 250ms tick loop in ZoneScreen. Only fires during `clearing` or `boss_fight` phases.
-- **Global Cooldown (GCD)**: New `SKILL_GCD = 1.0` constant in `balance.ts`. New `lastSkillActivation: number` state field. Buffs/instants/ultimates respect 1s gap between activations. Toggles skip GCD (set-and-forget). Creates natural rotation feel.
-- **Priority order**: Slot 0 fires before slot 1 when both are ready. Players control priority by reordering skill bar slots.
-- **Auto-cast defaults changed**: All newly equipped skills now default to `autoCast: true` (was false for buff/toggle/instant/ultimate). Idle game — everything should fire by default.
-- **Rehydrate fix**: Existing saves upgraded to `autoCast: true` for all equipped skills. `lastSkillActivation` reset to 0 on rehydrate.
-- **Auto-cast UI indicator**: Green "A" in top-left corner of toggle/buff/instant/ultimate skill bar slots. Click "A" to toggle autoCast on/off. `e.stopPropagation()` prevents triggering manual activation.
-- **New engine helper**: `getSkillEffectiveCooldown()` in `engine/unifiedSkills.ts` wraps `getEffectiveCooldown()` for unified skill system.
-- **Module-level optimization**: `REVERSE_ABILITY_MAP` built once at module scope (was rebuilt on every click).
-- **Bundle size**: 500 kB.
+- **All imports rerouted**: 7 files migrated from `engine/abilities`, `engine/skills`, `data/abilities`, `data/skills` → `engine/unifiedSkills`, `data/unifiedSkills`.
+- **5 legacy files deleted**: `engine/abilities.ts`, `engine/skills.ts`, `data/abilities.ts`, `data/skills.ts`, `ui/components/AbilityBar.tsx`. Zero remaining references.
+- **5 old store actions removed**: `equipAbility`, `unequipAbility`, `selectMutator`, `activateAbility`, `toggleAbility` (+ `REVERSE_ABILITY_MAP`). ~240 lines of bridge code removed.
+- **All legacy bridge code removed**: Dual-writes to `abilityTimers`, `equippedAbilities`, `equippedSkills` eliminated from `activateSkillBarSlot`, `equipItem`, `unequipSlot`, `equipSkill`, `equipToSkillBar`, `processNewClears`.
+- **3 legacy state fields removed**: `equippedAbilities`, `abilityTimers`, `equippedSkills` removed from `GameState` type and initial state. All code migrated to use `skillBar`/`skillTimers`/`skillProgress` exclusively.
+- **Skill bar reduced to 5 slots**: Was 8 (with 3 "Soon" placeholders). Now 5 clean slots (slot 0 = active skill, slots 1-4 = abilities). "Soon" placeholder UI removed from SkillBar.tsx.
+- **v26 migration**: Strips legacy fields from saved state, truncates `skillBar` from 8 to 5.
+- **Kept**: `abilityProgress` (still needed by `allocateAbilityNode`/`respecAbility` for skill tree management). Legacy types in `types/index.ts` (used internally by unified engine/data modules).
+- **Bundle size**: 495 kB (was 500 kB).
 
-**Next: Sprint 10J** (Cleanup Old Systems). See SPRINT_PLAN.md.
+**Next: Sprint 10K** (Real-Time Combat Triggers). See `COMBAT_OVERHAUL.md` for full roadmap.
+
+**Sprint 10I: Auto-Cast Engine + Priority** — COMPLETE (previous).
 
 **Sprint 10H: Skill Bar UI** — COMPLETE (previous).
 
@@ -103,7 +104,7 @@ The game is live on Vercel and playable locally at `http://localhost:5173/`. Cor
 - **Craft tab**: Materials sub-panel (organized by refinement track with tooltips). Refine sub-panel (track selector → T1-T6 chain with refine/deconstruct buttons). Craft sub-panel (profession selector with level/XP → recipe list with catalyst info summaries, catalyst dropdowns, craft button).
 
 ## UI State (4 Tabs)
-- **Zones tab**: 30 zones shown via horizontal band tab pills. Combat/Gathering toggle. Profession selector + XP bar in gathering mode. Zone cards with level badges, gathering type icons, hazard icons, mastery badges. Session summary with rare material find notifications. 8-slot SkillBar in combat mode (visible during clearing + boss fights). SkillPicker for equip/unequip.
+- **Zones tab**: 30 zones shown via horizontal band tab pills. Combat/Gathering toggle. Profession selector + XP bar in gathering mode. Zone cards with level badges, gathering type icons, hazard icons, mastery badges. Session summary with rare material find notifications. 5-slot SkillBar in combat mode (visible during clearing + boss fights). SkillPicker for equip/unequip.
 - **Inventory tab ("Loot")**: Two-panel layout with equipped gear + bag grid. Square icon-only tiles (5-10 cols) with rarity borders + gradient overlays. Name/stats on hover/tap only. Graphic icon support with emoji fallback. Bag slots section. Right-click to equip. Hover tooltips with stat comparison. Currency crafting UI. Auto-salvage filter. 5-tier rarity colors.
 - **Craft tab**: Materials/Refine/Craft toggle. Materials: organized by refinement track with rarity borders and icon pills, tooltips on hover. Refine: 6 track pills → T1-T6 recipe chain. Craft: 6 profession pills with level/XP bar → collapsible category sections with 2-column compact recipe cards, material icon pills, tier badges, catalyst dropdowns.
 - **Character tab ("Hero")**: Paper doll (16 gear slots), 13 stats including poison/chaos resist, unified SkillPanel (all skill kinds + skill tree management), defense panel.
@@ -136,7 +137,7 @@ Bottom: mainhand, offhand, trinket1, trinket2
 - **Bag system**: 5 equippable bag slots (T1:6→T5:14). Start 30 total, max 70.
 - **Crafting (currencies)**: `applyCurrency(item, type)` — augment, chaos, divine, annul, exalt, greater_exalt (top-2 tiers), perfect_exalt (T1 guaranteed)
 - **Active skills**: 51 skills (6-8 per weapon × 8 weapons). Tag-based DPS: `calcSkillDps()` computes base damage → additive %increased (including delivery tag stats: Melee/Projectile/AoE/DoT/Channel) → speed → hit chance → crit → hits → per-second → DoT bonus. Attack skills use weapon damage + flat phys/ele. Spell skills use spell power + flat spell ele. Default skill auto-assigned on weapon equip. Every weapon has elemental variety (Physical/Fire/Cold/Lightning/Chaos choices).
-- **Save**: Zustand persist v25. v24→v25 adds unified `skillBar`/`skillProgress`/`skillTimers` from legacy `equippedSkills`+`equippedAbilities`. v23→v24 adds `equippedSkills` with auto-assigned default skill. v22→v23 adds `autoDisposalAction: 'salvage'`. v21→v22 renames `materials.salvage_dust` → `materials.enchanting_essence`. v20→v21 adds `greater_exalt` + `perfect_exalt` currencies. Migrations: v11→v12 adds `craftingSkills`, v12→v13 adds leatherworker + jeweler skills, v13→v14 adds `craftAutoSalvageMinRarity`, v14→v15 adds `zoneClearCounts` + combat HP fields, v17→v18 adds `classResource` + `classSelected`, v18→v19 adds `abilityProgress` + `clearStartedAt` + `currentClearTime` (clears old mutator selections).
+- **Save**: Zustand persist v26. v25→v26 strips legacy `equippedAbilities`/`abilityTimers`/`equippedSkills`, truncates `skillBar` to 5. v24→v25 adds unified `skillBar`/`skillProgress`/`skillTimers`. v23→v24 adds `equippedSkills`. v22→v23 adds `autoDisposalAction: 'salvage'`. v21→v22 renames `materials.salvage_dust` → `materials.enchanting_essence`. v20→v21 adds `greater_exalt` + `perfect_exalt` currencies. Migrations: v11→v12 adds `craftingSkills`, v12→v13 adds leatherworker + jeweler skills, v13→v14 adds `craftAutoSalvageMinRarity`, v14→v15 adds `zoneClearCounts` + combat HP fields, v17→v18 adds `classResource` + `classSelected`, v18→v19 adds `abilityProgress` + `clearStartedAt` + `currentClearTime` (clears old mutator selections).
 
 ## Architecture
 ```
@@ -154,9 +155,7 @@ src/
     rareMaterials.ts        — 25 rare material defs, drop rates by band, getRareMaterialDef()
     zones.ts                — 30 zones with material names, recommendedLevel, gatheringTypes
     items.ts                — 345 item bases (56 mainhand w/ 8 weapon types) + 6 currency defs + 5 bag upgrade defs
-    abilities.ts            — 24 ability defs (8 weapon types x 3) with skill trees
-    skills.ts               — 51 active skill definitions (6-8 per weapon × 8 types) with damage tags
-    unifiedSkills.ts        — 75 unified SkillDefs (merges skills + abilities), lookup helpers, ID migration map
+    unifiedSkills.ts        — 75 unified SkillDefs (51 active + 24 ability), all lookup helpers, ID migration map
     classes.ts              — 4 class definitions with resource config (warrior, mage, ranger, rogue)
     setBonuses.ts           — 4 armor-type set bonus definitions
   engine/                   — Pure TypeScript (no React)
@@ -166,15 +165,13 @@ src/
     rareMaterials.ts        — rollRareMaterialDrop(), calcRareFindBonus()
     refinement.ts           — canRefine(), refine(), canDeconstruct(), deconstruct(), getRefinementChain()
     craftingProfessions.ts  — addCraftingXp(), canCraftRecipe(), executeCraft(), getCraftingXpForTier()
-    abilities.ts            — Ability effect resolution, skill tree, XP, timer management, aggregation
-    skills.ts               — Tag-based DPS engine: calcSkillDps(), getDefaultSkillForWeapon(), calcMobHp()
-    unifiedSkills.ts        — Unified skill engine: calcUnifiedDps(), resolveSkillEffect(), aggregateSkillBarEffects()
+    unifiedSkills.ts        — ALL skill/ability engine functions: DPS calc, ability resolution, aggregation, XP, skill trees
     classResource.ts        — Class resource pure functions (create, tick, decay, reset, modifiers)
     character.ts            — Stats resolution (13 stats), XP/leveling
     crafting.ts             — 6 currency crafting operations
     setBonus.ts             — Set bonus resolution
   store/
-    gameStore.ts            — Zustand store (state + actions + persistence + v25 migration). Actions: selectClass, tickClassResource, tickAutoCast, startBossFight, tickBoss, handleBossVictory, handleBossDefeat, checkRecoveryComplete, allocateAbilityNode, respecAbility, toggleAbility, equipToSkillBar, unequipSkillBarSlot, toggleSkillAutoCast, reorderSkillBar, activateSkillBarSlot + all previous.
+    gameStore.ts            — Zustand store (state + actions + persistence + v26 migration). Actions: selectClass, tickClassResource, tickAutoCast, startBossFight, tickBoss, handleBossVictory, handleBossDefeat, checkRecoveryComplete, allocateAbilityNode, respecAbility, equipToSkillBar, unequipSkillBarSlot, toggleSkillAutoCast, reorderSkillBar, activateSkillBarSlot + all previous.
   ui/
     slotConfig.ts           — Shared gear slot icons/labels
     components/
@@ -182,7 +179,6 @@ src/
       TopBar.tsx            — Character info, XP bar, currency counts
       CombatStatusBar.tsx   — Persistent combat/gathering status bar (visible during runs)
       OfflineProgressModal.tsx — "Welcome Back" modal
-      AbilityBar.tsx        — [DEPRECATED] Old 4-slot ability bar (not imported, remove in 10J)
       SkillBar.tsx          — 8-slot unified skill bar (reads skillBar/skillTimers/skillProgress)
       SkillPanel.tsx        — Unified skill browser (all kinds + DPS comparison + skill trees)
       Tooltip.tsx           — Reusable hover tooltip component
@@ -211,7 +207,7 @@ src/
 **See `SPRINT_PLAN.md` for the full roadmap with detailed implementation notes.**
 
 Immediate priority:
-1. **Sprint 10J**: Cleanup Old Systems (remove deprecated types, old data/engine files, AbilityBar.tsx)
+1. **Sprint 10K**: Real-Time Combat Triggers (see `COMBAT_OVERHAUL.md` for full roadmap)
 
 ## How to Run
 ```bash

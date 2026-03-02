@@ -8,10 +8,9 @@ import { formatAffix, getEquippedWeaponType } from '../../engine/items';
 import { CLASS_DEFS } from '../../data/classes';
 import { calcSetBonuses, calcDefensiveEfficiency } from '../../engine/setBonus';
 import SkillPanel from '../components/SkillPanel';
-import { calcSkillDps } from '../../engine/skills';
+import { calcSkillDps, getDefaultSkillForWeapon } from '../../engine/unifiedSkills';
 import { resolveStats, getWeaponDamageInfo } from '../../engine/character';
-import { getSkillDef } from '../../data/skills';
-import { getDefaultSkillForWeapon } from '../../engine/skills';
+import { getSkillDef } from '../../data/unifiedSkills';
 import { SET_BONUS_DEFS } from '../../data/setBonuses';
 import { ZONE_DEFS } from '../../data/zones';
 
@@ -175,14 +174,14 @@ const ASCII_SILHOUETTE = `    O
 
 export default function CharacterScreen() {
   const { character, resetGame, unequipSlot } = useGameStore();
-  const equippedSkills = useGameStore(s => s.equippedSkills);
+  const skillBar = useGameStore(s => s.skillBar);
   const isMobile = useIsMobile();
   const [hoveredSlot, setHoveredSlot] = useState<GearSlot | null>(null);
   const hoveredItem = hoveredSlot ? character.equipment[hoveredSlot] ?? null : null;
 
   // Compute skill-based DPS for stats display
   const weaponType = getEquippedWeaponType(character.equipment);
-  const equippedSkillId = equippedSkills[0];
+  const equippedSkillId = skillBar[0]?.skillId ?? null;
   const equippedSkillDef = equippedSkillId ? getSkillDef(equippedSkillId) : null;
   const activeSkill = equippedSkillDef ?? (weaponType ? getDefaultSkillForWeapon(weaponType, character.level) : null);
   const skillDps = (() => {
