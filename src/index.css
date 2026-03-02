@@ -17,3 +17,17 @@ body {
 #root {
   min-height: 100vh;
 }
+
+/* Skill slot flash on cast (10K-B2) */
+@keyframes skill-flash {
+  0%   { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.8); }
+  50%  { box-shadow: 0 0 12px 4px rgba(250, 204, 21, 0.6); }
+  100% { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0); }
+}
+
+/* Damage number float-up (10K-B2) */
+@keyframes float-damage {
+  0%   { opacity: 1; transform: translateY(0) scale(1); }
+  70%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-48px) scale(0.8); }
+}

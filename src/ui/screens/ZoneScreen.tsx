@@ -8,7 +8,8 @@ import { GATHERING_PROFESSION_DEFS } from '../../data/gatheringProfessions';
 import { ZoneDef, Rarity, IdleMode, GatheringProfession, ClassResourceState } from '../../types';
 import { calcBagCapacity } from '../../data/items';
 import SkillBar from '../components/SkillBar';
-import { getUnifiedSkillsForWeapon } from '../../data/unifiedSkills';
+import { DamageFloaters, FloaterEntry } from '../components/DamageFloater';
+import { getUnifiedSkillsForWeapon, getUnifiedSkillDef } from '../../data/unifiedSkills';
 import { getEquippedWeaponType } from '../../engine/items';
 import { getUnlockedSlotCount } from '../../engine/unifiedSkills';
 import { WeaponType } from '../../types';
@@ -221,9 +222,9 @@ function MobDisplay({ mobName, mobCurrentHp, mobMaxHp, bossIn }: { mobName: stri
 }
 
 // --- Boss Fight Display ---
-function BossFightDisplay({ bossName, bossHp, bossMaxHp, playerHp, maxHp, playerDps, bossDps }: {
+function BossFightDisplay({ bossName, bossHp, bossMaxHp, playerHp, maxHp, bossDps }: {
   bossName: string; bossHp: number; bossMaxHp: number;
-  playerHp: number; maxHp: number; playerDps: number; bossDps: number;
+  playerHp: number; maxHp: number; bossDps: number;
 }) {
   const bossPct = bossMaxHp > 0 ? Math.max(0, (bossHp / bossMaxHp) * 100) : 0;
   const playerPct = maxHp > 0 ? Math.max(0, (playerHp / maxHp) * 100) : 0;
@@ -254,8 +255,7 @@ function BossFightDisplay({ bossName, bossHp, bossMaxHp, playerHp, maxHp, player
                style={{ width: `${playerPct}%` }} />
         </div>
       </div>
-      <div className="flex justify-between text-xs text-gray-400">
-        <span>Your DPS: <span className="text-green-400 font-mono">{playerDps.toFixed(1)}</span></span>
+      <div className="text-xs text-gray-400 text-center">
         <span>Boss DPS: <span className="text-red-400 font-mono">{bossDps.toFixed(1)}</span></span>
       </div>
     </div>
@@ -698,6 +698,16 @@ export default function ZoneScreen() {
   const [bossLootItems, setBossLootItems] = useState<{ name: string; rarity: Rarity }[]>([]);
   const [bossFightStats, setBossFightStats] = useState<{ duration: number; playerDps: number; bossDps: number; bossMaxHp: number } | null>(null);
 
+  // Visual feedback state (10K-B2)
+  const [floaters, setFloaters] = useState<FloaterEntry[]>([]);
+  const [lastFiredSkillId, setLastFiredSkillId] = useState<string | null>(null);
+  const floaterIdRef = useRef(0);
+  const lastFiredTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const [combatLog, setCombatLog] = useState<Array<{
+    id: number; skill: string; damage: number; isCrit: boolean; isHit: boolean;
+  }>>([]);
+  const logIdRef = useRef(0);
+
   const isRunning = idleStartTime !== null;
   const zone = ZONE_DEFS.find((z) => z.id === selectedZone)!;
   const clearTime = getEstimatedClearTime(selectedZone);
@@ -733,6 +743,29 @@ export default function ZoneScreen() {
         const storeState = useGameStore.getState();
         if (storeState.idleMode === 'combat') {
           const combatResult = tickCombat(dtSec);
+          // Visual feedback (10K-B2)
+          if (combatResult.skillFired) {
+            setFloaters(prev => [...prev, {
+              id: floaterIdRef.current++,
+              damage: combatResult.damageDealt,
+              isCrit: combatResult.isCrit,
+              isHit: combatResult.isHit,
+              left: 20 + Math.random() * 60,
+            }].slice(-5));
+            setLastFiredSkillId(combatResult.skillId);
+            clearTimeout(lastFiredTimerRef.current);
+            lastFiredTimerRef.current = setTimeout(() => setLastFiredSkillId(null), 400);
+            const skillName = combatResult.skillId
+              ? (getUnifiedSkillDef(combatResult.skillId)?.name ?? '???')
+              : '???';
+            setCombatLog(prev => [...prev, {
+              id: logIdRef.current++,
+              skill: skillName,
+              damage: combatResult.damageDealt,
+              isCrit: combatResult.isCrit,
+              isHit: combatResult.isHit,
+            }].slice(-20));
+          }
           if (combatResult.mobKills > 0) {
             // Grant XP
             const rz = ZONE_DEFS.find(z => z.id === storeState.currentZoneId);
@@ -765,6 +798,29 @@ export default function ZoneScreen() {
       } else if (phase === 'boss_fight') {
         // Boss uses same tickCombat — skill-based hits instead of flat DPS
         const bossResult = tickCombat(dtSec);
+        // Visual feedback (10K-B2)
+        if (bossResult.skillFired) {
+          setFloaters(prev => [...prev, {
+            id: floaterIdRef.current++,
+            damage: bossResult.damageDealt,
+            isCrit: bossResult.isCrit,
+            isHit: bossResult.isHit,
+            left: 20 + Math.random() * 60,
+          }].slice(-5));
+          setLastFiredSkillId(bossResult.skillId);
+          clearTimeout(lastFiredTimerRef.current);
+          lastFiredTimerRef.current = setTimeout(() => setLastFiredSkillId(null), 400);
+          const skillName = bossResult.skillId
+            ? (getUnifiedSkillDef(bossResult.skillId)?.name ?? '???')
+            : '???';
+          setCombatLog(prev => [...prev, {
+            id: logIdRef.current++,
+            skill: skillName,
+            damage: bossResult.damageDealt,
+            isCrit: bossResult.isCrit,
+            isHit: bossResult.isHit,
+          }].slice(-20));
+        }
         if (bossResult.bossOutcome === 'victory') {
           // Capture fight stats before handleBossVictory modifies state
           const bState = useGameStore.getState().bossState;
@@ -794,6 +850,8 @@ export default function ZoneScreen() {
             setElapsed(0);
             lastClearCount.current = 0;
             setBossLootItems([]);
+            setFloaters([]);
+            setCombatLog([]);
             // Reset idleStartTime to now so elapsed restarts from 0
             useGameStore.setState({ idleStartTime: Date.now() });
           }
@@ -803,6 +861,15 @@ export default function ZoneScreen() {
     }, 250);
     return () => clearInterval(interval);
   }, [isRunning, idleStartTime, handleBossVictory, handleBossDefeat, checkRecoveryComplete, tickClassResource, tickAutoCast, tickCombat, grantIdleXp, processNewClears, startBossFight]);
+
+  // Auto-remove floaters after animation completes (10K-B2)
+  useEffect(() => {
+    if (floaters.length === 0) return;
+    const timer = setTimeout(() => {
+      setFloaters(prev => prev.slice(1));
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [floaters]);
 
   // Gathering mode loot processing — time-based (combat uses tickCombat in tick loop)
   useEffect(() => {
@@ -845,6 +912,8 @@ export default function ZoneScreen() {
     setSalvageTally({ count: 0, essence: 0 });
     setBossLootItems([]);
     setBossFightStats(null);
+    setFloaters([]);
+    setCombatLog([]);
     startIdleRun(selectedZone);
   };
 
@@ -852,6 +921,8 @@ export default function ZoneScreen() {
     stopIdleRun();
     setElapsed(0);
     lastClearCount.current = 0;
+    setFloaters([]);
+    setCombatLog([]);
   };
 
   const handleModeSwitch = (mode: IdleMode) => {
@@ -1124,15 +1195,17 @@ export default function ZoneScreen() {
           })()}
           {/* Combat Phase Display */}
           {idleMode === 'combat' && combatPhase === 'boss_fight' && bossState && (
-            <BossFightDisplay
-              bossName={bossState.bossName}
-              bossHp={bossState.bossCurrentHp}
-              bossMaxHp={bossState.bossMaxHp}
-              playerHp={currentHp}
-              maxHp={maxHp}
-              playerDps={bossState.playerDps}
-              bossDps={bossState.bossDps}
-            />
+            <div className="relative">
+              <BossFightDisplay
+                bossName={bossState.bossName}
+                bossHp={bossState.bossCurrentHp}
+                bossMaxHp={bossState.bossMaxHp}
+                playerHp={currentHp}
+                maxHp={maxHp}
+                bossDps={bossState.bossDps}
+              />
+              <DamageFloaters floaters={floaters} />
+            </div>
           )}
 
           {idleMode === 'combat' && combatPhase === 'boss_victory' && bossState && (
@@ -1169,12 +1242,15 @@ export default function ZoneScreen() {
 
               {/* Mob display (combat) or progress bar (gathering) */}
               {idleMode === 'combat' && runningZone ? (
-                <MobDisplay
-                  mobName={runningZone.mobName}
-                  mobCurrentHp={currentMobHp}
-                  mobMaxHp={maxMobHp}
-                  bossIn={BOSS_INTERVAL - ((zoneClearCounts[currentZoneId!] || 0) % BOSS_INTERVAL)}
-                />
+                <div className="relative">
+                  <MobDisplay
+                    mobName={runningZone.mobName}
+                    mobCurrentHp={currentMobHp}
+                    mobMaxHp={maxMobHp}
+                    bossIn={BOSS_INTERVAL - ((zoneClearCounts[currentZoneId!] || 0) % BOSS_INTERVAL)}
+                  />
+                  <DamageFloaters floaters={floaters} />
+                </div>
               ) : (
                 <div className="bg-gray-800 rounded-lg p-3">
                   <div className="flex justify-between text-sm mb-1">
@@ -1221,10 +1297,26 @@ export default function ZoneScreen() {
             </div>
           )}
 
+          {/* Combat log (10K-B2) */}
+          {idleMode === 'combat' && combatLog.length > 0 && (
+            <div className="max-h-16 overflow-y-auto text-xs space-y-0.5 bg-gray-900/50 rounded px-2 py-1 font-mono">
+              {combatLog.slice(-5).map(entry => (
+                <div key={entry.id} className="text-gray-400">
+                  <span className="text-gray-500">{entry.skill}</span>
+                  {entry.isHit
+                    ? <> <span className={entry.isCrit ? 'text-yellow-300 font-bold' : 'text-white'}>{entry.damage}</span>
+                        {entry.isCrit && <span className="text-yellow-400 ml-1">CRIT</span>}</>
+                    : <span className="text-red-400 ml-1">MISS</span>
+                  }
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Skill Bar + Picker (combat mode only) */}
           {idleMode === 'combat' && (combatPhase === 'clearing' || combatPhase === 'boss_fight') && (
             <>
-              <SkillBar />
+              <SkillBar lastFiredSkillId={lastFiredSkillId} />
               <SkillPicker />
             </>
           )}

@@ -1,10 +1,22 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-02 (Post-Sprint 10K-B1: Boss Unification)
+> Last updated: 2026-03-02 (Post-Sprint 10K-B2: Combat Visual Feedback)
 
 ## Current Phase
-**Sprint 10K-B1: Boss Unification into tickCombat** — COMPLETE.
+**Sprint 10K-B2: Combat Visual Feedback** — COMPLETE.
+
+- **Skill slot flash**: Active skill slot glows gold on each cast via CSS `skill-flash` animation (0.4s). Uses React key trick to re-trigger on repeat fires.
+- **Damage floaters**: Numbers float up from mob/boss display area. White=hit, yellow+large=crit, gray="MISS". Random horizontal offset, capped at 5 active, auto-removed after 1s.
+- **Combat log**: Shows last 5 entries (stores 20). Format: `SkillName damage [CRIT]` or `SkillName MISS`. Compact monospace display between combat stats and skill bar.
+- **BossFightDisplay cleanup**: Removed "Your DPS" line (obsolete with skill-based combat). Shows only "Boss DPS" centered.
+- **New file**: `src/ui/components/DamageFloater.tsx` — `FloaterEntry` interface + `DamageFloaters` component.
+- **All visual state is ephemeral React state** — no store changes, no save migration.
+- **Bundle size**: ~500 kB.
+
+**Next: Sprint 10L** (Cooldown UI + Visual Polish: cooldown sweep overlays, cast bars). See `COMBAT_OVERHAUL.md` for full roadmap.
+
+**Sprint 10K-B1: Boss Unification into tickCombat** — COMPLETE (previous).
 
 - **Boss fights now use per-hit skill model**: `tickCombat()` handles both `clearing` and `boss_fight` phases. Player attacks boss via `rollSkillCast()` (same accuracy/crit/variance as normal mobs). Boss deals continuous `bossDps * dtSec` damage to player.
 - **Dead code removed**: `tickBossFight()`, `BossTickResult` interface (engine/zones.ts), `tickBoss` store action — all deleted.
@@ -13,8 +25,6 @@
 - **`startBossFight` sets `lastSkillCastAt`**: Ensures first skill cast fires immediately when boss fight begins.
 - **ZoneScreen updated**: `boss_fight` block calls `tickCombat(dtSec)` and checks `bossOutcome` instead of old `tickBoss(dt)` + `result.outcome`.
 - **Bundle size**: 497 kB.
-
-**Next: Sprint 10K-B2** (Combat Visual Feedback: skill flash, damage floaters, combat log). See `COMBAT_OVERHAUL.md` for full roadmap.
 
 **Sprint 10K-A: Real-Time Combat Engine** — COMPLETE (previous).
 

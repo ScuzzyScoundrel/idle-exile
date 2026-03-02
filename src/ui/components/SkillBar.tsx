@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { getUnifiedSkillDef } from '../../data/unifiedSkills';
 import { getSkillEffectiveDuration } from '../../engine/unifiedSkills';
@@ -26,7 +26,7 @@ const KIND_BG: Record<string, string> = {
   ultimate: 'bg-yellow-950',
 };
 
-export default function SkillBar() {
+export default function SkillBar({ lastFiredSkillId }: { lastFiredSkillId?: string | null }) {
   const skillBar = useGameStore(s => s.skillBar);
   const skillProgress = useGameStore(s => s.skillProgress);
   const skillTimers = useGameStore(s => s.skillTimers);
@@ -34,12 +34,20 @@ export default function SkillBar() {
   const activateSkillBarSlot = useGameStore(s => s.activateSkillBarSlot);
   const toggleSkillAutoCast = useGameStore(s => s.toggleSkillAutoCast);
   const [now, setNow] = useState(Date.now());
+  const flashKeyRef = useRef(0);
+  const prevFiredRef = useRef<string | null | undefined>(undefined);
 
   // Refresh every 250ms for smooth countdown display
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(interval);
   }, []);
+
+  // Increment flash key each time a new skill fires (re-triggers CSS animation)
+  if (lastFiredSkillId !== prevFiredRef.current) {
+    prevFiredRef.current = lastFiredSkillId;
+    if (lastFiredSkillId) flashKeyRef.current++;
+  }
 
   const unlockedSlots = getUnlockedSlotCount(character.level);
 
@@ -100,10 +108,12 @@ export default function SkillBar() {
         // Active (damage) skill — non-interactive
         if (def.kind === 'active') {
           const shortName = def.name.length > 6 ? def.name.slice(0, 6) + '..' : def.name;
+          const isFlashing = equipped.skillId === lastFiredSkillId;
           return (
             <div
-              key={idx}
+              key={isFlashing ? `${idx}-${flashKeyRef.current}` : idx}
               className={`w-14 h-14 rounded-lg border-2 ${border} ${bg} flex flex-col items-center justify-center relative`}
+              style={isFlashing ? { animation: 'skill-flash 0.4s ease-out' } : undefined}
               title={`${def.name}: ${def.description}`}
             >
               <span className="text-lg">{def.icon}</span>
@@ -189,10 +199,12 @@ export default function SkillBar() {
 
         // Buff / Instant / Ultimate — interactive
         const ready = !isActive && !isOnCooldown;
+        const isFlashingBtn = equipped.skillId === lastFiredSkillId;
         return (
           <button
-            key={idx}
+            key={isFlashingBtn ? `${idx}-${flashKeyRef.current}` : idx}
             onClick={() => ready && activateSkillBarSlot(idx)}
+            style={isFlashingBtn ? { animation: 'skill-flash 0.4s ease-out' } : undefined}
             disabled={!ready}
             className={`
               w-14 h-14 rounded-lg border-2 flex flex-col items-center justify-center relative transition-all

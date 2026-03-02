@@ -1,7 +1,7 @@
 # Idle Exile — Sprint Plan & Roadmap
 
 > **Full development roadmap.** Read `PROJECT_STATUS.md` first for current state.
-> Last updated: 2026-03-02 (Post-Sprint 10J)
+> Last updated: 2026-03-02 (Post-Sprint 10K-B2)
 
 ## Micro-Sprint Workflow
 
@@ -61,6 +61,7 @@ Each conversation = one micro-sprint (3-5 focused changes):
 | **10J** | **Cleanup Old Systems: 5 legacy files deleted, bridge code removed, skillBar 8→5 slots, v26 migration** |
 | **10K-A** | **Real-Time Combat Engine: tickCombat fires skills on cast interval, mob HP drains live, MobDisplay uses real HP bar** |
 | **10K-B1** | **Boss Unification: boss fights use tickCombat (per-hit rolls), removed tickBoss/tickBossFight dead code** |
+| **10K-B2** | **Combat Visual Feedback: skill slot flash, damage floaters, combat log, BossFightDisplay cleanup** |
 
 See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
 

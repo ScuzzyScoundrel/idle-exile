@@ -4,7 +4,7 @@
 > At the start of any session, read this file to pick up where the last session left off.
 > Last updated: 2026-03-02
 
-## Current Sprint: **10K-B1 — Boss Unification** ✅ COMPLETE
+## Current Sprint: **10K-B2 — Combat Visual Feedback** ✅ COMPLETE
 
 ---
 
@@ -98,33 +98,40 @@
 
 ## Sprint 10K-B2: Combat Visual Feedback
 **Goal:** Visual feedback for combat ticks.
-**Status:** NOT STARTED
+**Status:** COMPLETE
 
-### Checklist:
-- [ ] Visual feedback: skill slots flash on activation
-- [ ] Damage numbers floating up from mob display
-- [ ] Combat log (compact, scrolling) showing recent casts + damage
-- [ ] BossFightDisplay cleanup (remove "Your DPS" line — now skill-based)
-- [ ] `npm run build` passes
-- [ ] Manual test: skills visually fire during combat
+### What was done:
+- [x] CSS keyframe animations: `skill-flash` (gold glow) and `float-damage` (float-up + fade) in `index.css`
+- [x] Skill slot flash: `SkillBar` accepts `lastFiredSkillId` prop, active skill div gets `skill-flash` animation. Uses React key trick (flashKeyRef counter) to re-trigger on repeat fires.
+- [x] Damage floaters: New `DamageFloater.tsx` component renders absolutely-positioned numbers. White=hit, yellow+large=crit, gray="MISS". Random horizontal offset (20-80%). Capped at 5 active floaters, auto-removed after 1s.
+- [x] Combat log: Inline in ZoneScreen, shows last 5 entries (stores 20). Format: `SkillName damage [CRIT]` or `SkillName MISS`. Compact `max-h-16` with monospace font.
+- [x] BossFightDisplay cleanup: Removed "Your DPS" line (now meaningless with skill-based combat), show only "Boss DPS" centered. Removed unused `playerDps` prop.
+- [x] Floaters + log display during both clearing and boss_fight phases
+- [x] Floaters + log cleared on: stop run, start run, boss victory/defeat recovery
+- [x] `npm run build` passes
+
+### Files changed:
+- `src/index.css` — 2 keyframe animations
+- `src/ui/components/SkillBar.tsx` — `lastFiredSkillId` prop, flash logic
+- `src/ui/components/DamageFloater.tsx` — NEW, FloaterEntry interface + DamageFloaters component
+- `src/ui/screens/ZoneScreen.tsx` — floater/log state, tick loop integration, MobDisplay/BossFightDisplay wrappers, combat log render, BossFightDisplay cleanup
 
 ---
 
 ## Sprint 10L: Skill Cooldown UI + Visual Polish
-**Goal:** Show cooldown sweeps, cast bars, and skill activation feedback.
+**Goal:** Show cooldown sweeps, cast bars, and enhanced skill activation feedback.
 **Status:** NOT STARTED
 
 ### Checklist:
 - [ ] Cooldown sweep overlay on skill bar slots (radial or linear)
 - [ ] Cast bar during channeled skills
-- [ ] Damage numbers floating up from mob display on skill hits
-- [ ] Skill activation particle/glow effect
-- [ ] Combat log (compact, scrolling) showing recent skill casts + damage
+- [ ] Skill activation particle/glow effect (enhanced beyond 10K-B2 flash)
 - [ ] `npm run build` passes
+
+**Note:** Damage floaters and combat log were implemented in 10K-B2. This sprint adds cooldown visuals + cast bars on top.
 
 ### Files to modify:
 - `ui/components/SkillBar.tsx` — cooldown sweep CSS, cast bar
-- `ui/screens/ZoneScreen.tsx` — damage numbers, combat log
 - `index.css` — new animations
 
 ---
