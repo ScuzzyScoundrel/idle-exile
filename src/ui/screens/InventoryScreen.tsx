@@ -327,7 +327,7 @@ export default function InventoryScreen() {
               </div>
             </div>
             <button
-              onClick={() => setSelectedItem(null)}
+              onClick={() => { setSelectedItem(null); setSelectedCurrency(null); }}
               className="text-gray-500 hover:text-white text-lg leading-none px-1"
               title="Deselect"
             >✕</button>
@@ -723,7 +723,7 @@ export default function InventoryScreen() {
         <div className="lg:hidden fixed inset-x-0 bottom-0 z-[9998] flex flex-col max-h-[60vh]">
           <div
             className="fixed inset-0 bg-black/40"
-            onClick={() => setSelectedItem(null)}
+            onClick={() => { setSelectedItem(null); setSelectedCurrency(null); }}
           />
           <div
             ref={detailRef}
