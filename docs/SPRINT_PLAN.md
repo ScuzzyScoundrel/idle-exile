@@ -62,6 +62,7 @@ Each conversation = one micro-sprint (3-5 focused changes):
 | **10K-A** | **Real-Time Combat Engine: tickCombat fires skills on cast interval, mob HP drains live, MobDisplay uses real HP bar** |
 | **10K-B1** | **Boss Unification: boss fights use tickCombat (per-hit rolls), removed tickBoss/tickBossFight dead code** |
 | **10K-B2** | **Combat Visual Feedback: skill slot flash, damage floaters, combat log, BossFightDisplay cleanup** |
+| **10L** | **Cooldown UI + Visual Polish: floater centering/rounding fixes, cooldown sweep overlays, active buff sweep** |
 
 See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
 

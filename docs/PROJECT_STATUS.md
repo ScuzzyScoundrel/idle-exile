@@ -1,20 +1,31 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-02 (Post-Sprint 10K-B2: Combat Visual Feedback)
+> Last updated: 2026-03-02 (Post-Sprint 10L: Cooldown UI + Visual Polish)
 
 ## Current Phase
-**Sprint 10K-B2: Combat Visual Feedback** — COMPLETE.
+**Sprint 10L: Cooldown UI + Visual Polish** — COMPLETE.
+
+- **Floater bug fixes (10K-B2 followup)**: Damage floaters centered above mob display (`left: 50%` + `translateX(-50%)`), no longer scattered randomly across HP bar. Staggered vertically by index to prevent overlap.
+- **Damage rounding**: Floaters and combat log show whole numbers (`Math.round`), not raw decimals.
+- **Cooldown sweep overlay**: Buff/instant/ultimate skill slots show a dark `conic-gradient` wedge during cooldown. Wedge shrinks clockwise as CD expires.
+- **Active buff sweep**: Active buffs show golden tint sweep that shrinks as duration expires.
+- **Cast bar deferred**: No channeled skill `kind` exists yet. Revisit when channel mechanics added.
+- **No new CSS/animations needed**: Sweeps use inline `conic-gradient` styles.
+- **No store/engine/type changes**: Pure UI changes, no save migration.
+- **Bundle size**: ~500 kB.
+
+**Next: Sprint 10M** (Multi-Skill Rotation). See `COMBAT_OVERHAUL.md` for full roadmap.
+
+**Sprint 10K-B2: Combat Visual Feedback** — COMPLETE (previous).
 
 - **Skill slot flash**: Active skill slot glows gold on each cast via CSS `skill-flash` animation (0.4s). Uses React key trick to re-trigger on repeat fires.
-- **Damage floaters**: Numbers float up from mob/boss display area. White=hit, yellow+large=crit, gray="MISS". Random horizontal offset, capped at 5 active, auto-removed after 1s.
+- **Damage floaters**: Numbers float up from mob/boss display area. White=hit, yellow+large=crit, gray="MISS". Capped at 5 active, auto-removed after 1s.
 - **Combat log**: Shows last 5 entries (stores 20). Format: `SkillName damage [CRIT]` or `SkillName MISS`. Compact monospace display between combat stats and skill bar.
 - **BossFightDisplay cleanup**: Removed "Your DPS" line (obsolete with skill-based combat). Shows only "Boss DPS" centered.
 - **New file**: `src/ui/components/DamageFloater.tsx` — `FloaterEntry` interface + `DamageFloaters` component.
 - **All visual state is ephemeral React state** — no store changes, no save migration.
 - **Bundle size**: ~500 kB.
-
-**Next: Sprint 10L** (Cooldown UI + Visual Polish: cooldown sweep overlays, cast bars). See `COMBAT_OVERHAUL.md` for full roadmap.
 
 **Sprint 10K-B1: Boss Unification into tickCombat** — COMPLETE (previous).
 

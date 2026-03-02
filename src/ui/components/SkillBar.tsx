@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { getUnifiedSkillDef } from '../../data/unifiedSkills';
-import { getSkillEffectiveDuration } from '../../engine/unifiedSkills';
+import { getSkillEffectiveDuration, getSkillEffectiveCooldown } from '../../engine/unifiedSkills';
 import { getAbilityXpForLevel, getUnlockedSlotCount } from '../../engine/unifiedSkills';
 import { ABILITY_SLOT_UNLOCKS } from '../../types';
 
@@ -200,6 +200,19 @@ export default function SkillBar({ lastFiredSkillId }: { lastFiredSkillId?: stri
         // Buff / Instant / Ultimate — interactive
         const ready = !isActive && !isOnCooldown;
         const isFlashingBtn = equipped.skillId === lastFiredSkillId;
+
+        // Cooldown sweep: compute percentage for conic-gradient overlay
+        const cooldown = getSkillEffectiveCooldown(def, progress);
+        const totalCdMs = def.kind === 'buff'
+          ? (duration + cooldown) * 1000
+          : cooldown * 1000;
+        const cdPct = isOnCooldown && totalCdMs > 0
+          ? Math.max(0, Math.min(1, remainingCd / (totalCdMs / 1000)))
+          : 0;
+        const buffPct = isActive && duration > 0
+          ? Math.max(0, Math.min(1, remainingBuff / duration))
+          : 0;
+
         return (
           <button
             key={isFlashingBtn ? `${idx}-${flashKeyRef.current}` : idx}
@@ -207,7 +220,7 @@ export default function SkillBar({ lastFiredSkillId }: { lastFiredSkillId?: stri
             style={isFlashingBtn ? { animation: 'skill-flash 0.4s ease-out' } : undefined}
             disabled={!ready}
             className={`
-              w-14 h-14 rounded-lg border-2 flex flex-col items-center justify-center relative transition-all
+              w-14 h-14 rounded-lg border-2 flex flex-col items-center justify-center relative transition-all overflow-hidden
               ${isActive
                 ? 'border-yellow-400 bg-yellow-950 ring-2 ring-yellow-400/50 animate-pulse'
                 : isOnCooldown
@@ -217,6 +230,24 @@ export default function SkillBar({ lastFiredSkillId }: { lastFiredSkillId?: stri
             `}
             title={`${def.name}: ${def.description}${isActive ? ` (${remainingBuff.toFixed(1)}s)` : isOnCooldown ? ` (CD: ${remainingCd.toFixed(0)}s)` : ' (Ready!)'}`}
           >
+            {/* Cooldown sweep overlay */}
+            {isOnCooldown && cdPct > 0 && (
+              <div
+                className="absolute inset-0 rounded-lg pointer-events-none z-[1]"
+                style={{
+                  background: `conic-gradient(rgba(0,0,0,0.6) ${cdPct * 360}deg, transparent ${cdPct * 360}deg)`,
+                }}
+              />
+            )}
+            {/* Active buff duration sweep overlay */}
+            {isActive && buffPct > 0 && (
+              <div
+                className="absolute inset-0 rounded-lg pointer-events-none z-[1]"
+                style={{
+                  background: `conic-gradient(transparent ${(1 - buffPct) * 360}deg, rgba(250,204,21,0.2) ${(1 - buffPct) * 360}deg)`,
+                }}
+              />
+            )}
             {/* Auto-cast indicator */}
             <span
               className={`absolute top-0 left-0.5 text-[9px] font-bold cursor-pointer z-10 select-none
@@ -226,21 +257,21 @@ export default function SkillBar({ lastFiredSkillId }: { lastFiredSkillId?: stri
             >
               A
             </span>
-            <span className="text-lg">{def.icon}</span>
+            <span className="text-lg relative z-[2]">{def.icon}</span>
             {isActive && (
-              <span className="text-xs text-yellow-300 font-bold">{remainingBuff.toFixed(1)}s</span>
+              <span className="text-xs text-yellow-300 font-bold relative z-[2]">{remainingBuff.toFixed(1)}s</span>
             )}
             {!isActive && isOnCooldown && (
-              <span className="text-xs text-gray-400 font-mono">{remainingCd.toFixed(0)}s</span>
+              <span className="text-xs text-gray-400 font-mono relative z-[2]">{remainingCd.toFixed(0)}s</span>
             )}
             {ready && (
-              <span className={`text-xs font-bold ${
+              <span className={`text-xs font-bold relative z-[2] ${
                 def.kind === 'instant' ? 'text-orange-400'
                 : def.kind === 'ultimate' ? 'text-yellow-400'
                 : 'text-green-400'
               }`}>READY</span>
             )}
-            <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-800 rounded-b-lg overflow-hidden">
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-800 rounded-b-lg overflow-hidden z-[3]">
               <div className="h-full bg-purple-500 transition-all duration-300" style={{ width: `${xpPct}%` }} />
             </div>
           </button>

@@ -3,16 +3,15 @@ export interface FloaterEntry {
   damage: number;
   isCrit: boolean;
   isHit: boolean;
-  left: number; // 20-80% horizontal offset
 }
 
 export function DamageFloaters({ floaters }: { floaters: FloaterEntry[] }) {
   return (
     <div className="absolute inset-0 pointer-events-none overflow-visible">
-      {floaters.map(f => (
+      {floaters.map((f, i) => (
         <div
           key={f.id}
-          className={`absolute top-1/4 font-bold ${
+          className={`absolute font-bold ${
             !f.isHit
               ? 'text-gray-400 text-sm'
               : f.isCrit
@@ -20,11 +19,13 @@ export function DamageFloaters({ floaters }: { floaters: FloaterEntry[] }) {
                 : 'text-white text-sm'
           }`}
           style={{
-            left: `${f.left}%`,
+            left: '50%',
+            top: `${25 - i * 8}%`,
+            transform: 'translateX(-50%)',
             animation: 'float-damage 1s ease-out forwards',
           }}
         >
-          {f.isHit ? f.damage : 'MISS'}
+          {f.isHit ? Math.round(f.damage) : 'MISS'}
         </div>
       ))}
     </div>

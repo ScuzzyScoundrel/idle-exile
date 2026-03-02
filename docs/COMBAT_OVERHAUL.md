@@ -4,7 +4,7 @@
 > At the start of any session, read this file to pick up where the last session left off.
 > Last updated: 2026-03-02
 
-## Current Sprint: **10K-B2 — Combat Visual Feedback** ✅ COMPLETE
+## Current Sprint: **10L — Cooldown UI + Visual Polish** ✅ COMPLETE
 
 ---
 
@@ -119,20 +119,25 @@
 ---
 
 ## Sprint 10L: Skill Cooldown UI + Visual Polish
-**Goal:** Show cooldown sweeps, cast bars, and enhanced skill activation feedback.
-**Status:** NOT STARTED
+**Goal:** Show cooldown sweeps and fix 10K-B2 floater bugs.
+**Status:** COMPLETE
 
-### Checklist:
-- [ ] Cooldown sweep overlay on skill bar slots (radial or linear)
-- [ ] Cast bar during channeled skills
-- [ ] Skill activation particle/glow effect (enhanced beyond 10K-B2 flash)
-- [ ] `npm run build` passes
+### What was done:
+- [x] **Floater bug fix (10K-B2 followup)**: Damage floaters centered at `left: 50%` with `translateX(-50%)` — no longer scattered across HP bar. Staggered vertically by index to prevent overlap.
+- [x] **Damage rounding**: Floaters and combat log now show `Math.round(damage)` — no more raw decimals like `23.012839`.
+- [x] **FloaterEntry cleanup**: Removed `left` field from interface and random `left` generation in ZoneScreen.
+- [x] **Cooldown sweep overlay**: Buff/instant/ultimate skill slots show a `conic-gradient` dark wedge during cooldown. The wedge shrinks clockwise as cooldown expires, revealing the slot.
+- [x] **Active buff duration sweep**: Active buffs show a golden tint sweep (`rgba(250,204,21,0.2)`) that shrinks as buff duration expires, giving "time remaining" feedback.
+- [x] **Z-index layering**: Sweep overlays at z-1, icon/text at z-2, XP bar at z-3, auto-cast indicator at z-10.
+- [x] **No new CSS**: Sweeps use inline `conic-gradient` styles — no keyframes needed.
+- [x] **Cast bar deferred**: No channeled skill `kind` exists yet. Will revisit when channel mechanics are added (10M+).
+- [x] **Enhanced glow deferred**: Current `skill-flash` animation is sufficient. Can polish further in a future pass.
+- [x] `npm run build` passes
 
-**Note:** Damage floaters and combat log were implemented in 10K-B2. This sprint adds cooldown visuals + cast bars on top.
-
-### Files to modify:
-- `ui/components/SkillBar.tsx` — cooldown sweep CSS, cast bar
-- `index.css` — new animations
+### Files changed:
+- `src/ui/components/DamageFloater.tsx` — centered positioning, removed `left` field, rounded damage
+- `src/ui/components/SkillBar.tsx` — imported `getSkillEffectiveCooldown`, added cooldown/buff sweep overlays
+- `src/ui/screens/ZoneScreen.tsx` — removed random `left` from floater creation, rounded combat log damage
 
 ---
 

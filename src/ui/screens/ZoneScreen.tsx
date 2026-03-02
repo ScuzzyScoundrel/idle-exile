@@ -750,7 +750,6 @@ export default function ZoneScreen() {
               damage: combatResult.damageDealt,
               isCrit: combatResult.isCrit,
               isHit: combatResult.isHit,
-              left: 20 + Math.random() * 60,
             }].slice(-5));
             setLastFiredSkillId(combatResult.skillId);
             clearTimeout(lastFiredTimerRef.current);
@@ -805,7 +804,6 @@ export default function ZoneScreen() {
             damage: bossResult.damageDealt,
             isCrit: bossResult.isCrit,
             isHit: bossResult.isHit,
-            left: 20 + Math.random() * 60,
           }].slice(-5));
           setLastFiredSkillId(bossResult.skillId);
           clearTimeout(lastFiredTimerRef.current);
@@ -1304,7 +1302,7 @@ export default function ZoneScreen() {
                 <div key={entry.id} className="text-gray-400">
                   <span className="text-gray-500">{entry.skill}</span>
                   {entry.isHit
-                    ? <> <span className={entry.isCrit ? 'text-yellow-300 font-bold' : 'text-white'}>{entry.damage}</span>
+                    ? <> <span className={entry.isCrit ? 'text-yellow-300 font-bold' : 'text-white'}>{Math.round(entry.damage)}</span>
                         {entry.isCrit && <span className="text-yellow-400 ml-1">CRIT</span>}</>
                     : <span className="text-red-400 ml-1">MISS</span>
                   }
