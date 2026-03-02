@@ -203,6 +203,7 @@ interface GameActions {
   refineMaterialBatch: (recipeId: string, count: number) => number;
   deconstructMaterial: (refinedId: string) => boolean;
   craftRecipe: (recipeId: string, catalystId?: string, affixCatalystId?: string) => { item: Item; wasSalvaged: boolean } | null;
+  craftRecipeBatch: (recipeId: string, count: number, catalystId?: string, affixCatalystId?: string) => { crafted: number; lastItem: Item | null; salvaged: number } | null;
 
   // Offline progression
   claimOfflineProgress: () => void;
@@ -1070,6 +1071,89 @@ export const useGameStore = create<GameState & GameActions>()(
         });
 
         return { item, wasSalvaged: salvageStats.itemsSalvaged > 0 };
+      },
+
+      craftRecipeBatch: (recipeId: string, count: number, catalystId?: string, affixCatalystId?: string) => {
+        if (count <= 0) return null;
+        const state = get();
+        const recipe = getCraftingRecipe(recipeId);
+        if (!recipe) return null;
+
+        let curMaterials = { ...state.materials };
+        let curGold = state.gold;
+        let curCraftingSkills = { ...state.craftingSkills };
+        let crafted = 0;
+        let lastItem: Item | null = null;
+        const allItems: Item[] = [];
+        let materialOutputCount = 0;
+
+        for (let i = 0; i < count; i++) {
+          if (!canCraftRecipe(recipe, curCraftingSkills, curMaterials, curGold)) break;
+
+          // Consume materials
+          for (const { materialId, amount } of recipe.materials) {
+            curMaterials[materialId] = (curMaterials[materialId] ?? 0) - amount;
+          }
+          if (recipe.requiredCatalyst) {
+            curMaterials[recipe.requiredCatalyst.rareMaterialId] =
+              (curMaterials[recipe.requiredCatalyst.rareMaterialId] ?? 0) - recipe.requiredCatalyst.amount;
+          }
+          if (catalystId && !recipe.requiredCatalyst) {
+            curMaterials[catalystId] = (curMaterials[catalystId] ?? 0) - 1;
+          }
+          if (affixCatalystId) {
+            curMaterials[affixCatalystId] = (curMaterials[affixCatalystId] ?? 0) - 1;
+          }
+          curGold -= recipe.goldCost;
+
+          // Add crafting XP per craft
+          const xp = getCraftingXpForTier(recipe.tier);
+          curCraftingSkills = addCraftingXp(curCraftingSkills, recipe.profession, xp);
+
+          if (recipe.outputMaterialId) {
+            curMaterials[recipe.outputMaterialId] = (curMaterials[recipe.outputMaterialId] ?? 0) + 1;
+            materialOutputCount++;
+          } else {
+            const item = executeCraft(recipe, catalystId, affixCatalystId);
+            allItems.push(item);
+            lastItem = item;
+          }
+          crafted++;
+        }
+
+        if (crafted === 0) return null;
+
+        // Handle item recipes: add all items to inventory at once
+        let salvaged = 0;
+        if (allItems.length > 0) {
+          const { newInventory, newMaterials: matsAfterItems, salvageStats } = addItemsWithOverflow(
+            state.inventory,
+            getInventoryCapacity(state),
+            state.craftAutoSalvageMinRarity,
+            'salvage',
+            curMaterials,
+            allItems,
+          );
+          curMaterials = matsAfterItems;
+          salvaged = salvageStats.itemsSalvaged;
+          set({
+            materials: curMaterials,
+            gold: curGold,
+            craftingSkills: curCraftingSkills,
+            inventory: newInventory,
+          });
+        } else {
+          // Material recipe — no inventory changes
+          set({
+            materials: curMaterials,
+            gold: curGold,
+            craftingSkills: curCraftingSkills,
+          });
+          // For material recipes, create a dummy lastItem for flash message
+          lastItem = { id: '', baseId: '', name: recipe.name, slot: 'trinket1' as const, rarity: 'common' as const, iLvl: 0, prefixes: [], suffixes: [], baseStats: {} };
+        }
+
+        return { crafted, lastItem, salvaged };
       },
 
       claimOfflineProgress: () => {

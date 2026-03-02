@@ -543,7 +543,7 @@ function ZoneCard({
               ))}
             </span>
           ) : (
-            <span className="truncate">{zone.materialDrops.join(', ')}</span>
+            <span className="truncate text-xs">{zone.materialDrops.map(m => m.replace(/_/g, ' ')).join(', ')}</span>
           )}
         </div>
       </div>

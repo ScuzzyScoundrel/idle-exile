@@ -1,19 +1,19 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-01 (Post-Graphic Item Icons Sprint)
+> Last updated: 2026-03-01 (Post-Sprint 9D: Crafting Screen Polish)
 
 ## Current Phase
-**Graphic Item Icons: Integration Sprint** — COMPLETE.
-- **New `src/ui/itemIcon.tsx`**: `getItemIconKey(item)` resolves icon key from weaponType → offhandType → armorType+slot → slot. `<ItemIcon>` renders graphic icon with emoji fallback (404 cache prevents repeat hits). `<SlotIcon>` for empty equip slots. `getSlotEmoji()` for text contexts.
-- **Icon-only bag tiles**: Bag grid changed from 3-col text tiles to compact square icon tiles (5/6/8/10 cols at mobile/sm/lg/xl). Rarity shown via colored border (`RARITY_TILE_BORDER`) + subtle gradient overlay (`RARITY_GRADIENT`). Item name/stats shown only on hover/tap (tooltip/bottom sheet).
-- **Inventory screen**: All 7 `slotIcon()` call sites replaced — detail panel header, mobile gear strip, filter bar (emoji via `getSlotEmoji`), bag grid, EquipSlotCard empty/equipped states.
-- **Character screen**: All 3 `slotIcon()` call sites replaced — GearSlotCard empty/equipped, ItemTooltip.
-- **Asset directory**: `public/icons/gear/` created. Place `{key}.webp` files to progressively replace emoji. 41 unique keys covering all weapon types, armor type+slot combos, and accessories.
-- **Zero visual regression**: Without icon files, all `<img>` 404 once → emoji fallback renders identically to before. Icons appear progressively as files are added.
-- **Future**: Extend to per-tier icons (`sword_t3.webp` → `sword.webp` → emoji`). No component changes needed.
+**Sprint 9D: Crafting Screen Polish** — COMPLETE.
+- **Material tooltips on recipe cards**: Material pills in recipe cards now wrapped in `<Tooltip>` with `getMatTooltip()`. Shows formatted material name + gathering source + zone locations on hover/tap. Gold pill also has tooltip.
+- **Zone source info in tooltips**: Static reverse lookup `materialToZones` built from `ZONE_DEFS`. Raw material tooltips show "Found in: Zone1, Zone2". Refined material tooltips show "Source: Zone1, Zone2" (zones where the raw ingredient drops).
+- **Formatted material names on zone cards**: Zone cards in combat mode now show "emberwood logs, ragged pelts" instead of raw IDs "emberwood_logs, ragged_pelts".
+- **Batch crafting**: New `craftRecipeBatch` store action (follows `refineMaterialBatch` pattern). Loops up to N crafts, consumes materials/gold/catalysts per iteration, adds XP per craft, collects all items, single `addItemsWithOverflow()` call at end. "All" button on every recipe card (same style as Refine panel's "All" button). Flash message: "Crafted 5x Iron Sword (2 salvaged)" or "Brewed 10x Whetstone".
+- Previous icon sprint + 9A/9B/9C changes still active.
+- Next: Additional UX/UI polish or new features per SPRINT_PLAN.md
+
+**Graphic Item Icons: Integration Sprint** — COMPLETE (previous).
 - Previous 9A/9B/9C changes still active.
-- Next: Generate icon assets via ComfyUI pipeline, or new features
 
 **Sprint 9C: Combat Difficulty Overhaul** — COMPLETE.
 - **Level-based damage multiplier**: New `calcLevelDamageMult()` in `engine/zones.ts`. Underleveled: exponential damage increase (`1.12^delta`). Overleveled: linear reduction (`1 - delta*0.06`, floor 0.30). Applied to both normal clear damage and boss DPS.
@@ -405,6 +405,14 @@ Replaced focus modes with Combat/Gathering toggle. 5 gathering professions with 
 - **5 new balance constants**: `LEVEL_DAMAGE_BASE(1.12)`, `OVERLEVEL_DAMAGE_REDUCTION(0.06)`, `OVERLEVEL_DAMAGE_FLOOR(0.30)`, `UNDERLEVEL_MIN_NET_DAMAGE(0.02)`, `ZONE_ILVL_PRESSURE_SCALE(0.04)`.
 - **Updated callers**: `processNewClears()` in gameStore passes `character.level`, `zone.iLvlMin`, `currentClearTime`, `stats.lifeRegen` to combat functions. ZoneScreen display HP interpolation updated. CharacterScreen DefensePanel passes `zoneILvlMin` for accurate display.
 - **Files changed**: `data/balance.ts`, `engine/zones.ts`, `engine/setBonus.ts`, `store/gameStore.ts`, `ui/screens/ZoneScreen.tsx`, `ui/screens/CharacterScreen.tsx`
+
+### Sprint 9D Changes (Crafting Screen Polish)
+- **Material tooltips on recipe cards**: Recipe card material pills now wrapped in `<Tooltip>` showing `getMatTooltip()` content (gathering source, refinement target, zone locations). Formatted material name added to pill text. Gold pill wrapped with "Gold cost" tooltip. `cursor-help` class added.
+- **Zone source info in material tooltips**: Static `materialToZones` reverse lookup (Map<string, string[]>) built from `ZONE_DEFS` at module scope. Raw material tooltips enhanced: "Gathered via Mining. Refine into Cindite Ingot.\nFound in: Stonefang Quarry, Glintstone Pass". Refined material tooltips show source zones: "Refined from cindite ore. Used in crafting recipes.\nSource: Stonefang Quarry, Glintstone Pass".
+- **Formatted material names on zone cards**: `zone.materialDrops.join(', ')` → `.map(m => m.replace(/_/g, ' ')).join(', ')`. Added `text-xs` class for consistency.
+- **Batch crafting (`craftRecipeBatch`)**: New store action following `refineMaterialBatch` pattern. Signature: `(recipeId, count, catalystId?, affixCatalystId?) => { crafted, lastItem, salvaged } | null`. Loops up to `count` times: checks `canCraftRecipe`, consumes materials/gold/catalysts, adds XP per iteration. Material recipes: increments output count. Item recipes: accumulates items array, single `addItemsWithOverflow()` at end. Returns summary for flash message.
+- **"All" button on recipe cards**: Added next to Craft/Brew button (same style pattern as Refine panel's "All" button). Calculates max craftable from materials/gold/catalysts. Flash message: "Crafted 5x Iron Sword (2 salvaged)" for items, "Crafted 10x Whetstone" for materials.
+- **Files changed**: `store/gameStore.ts` (new `craftRecipeBatch` action + interface type), `ui/screens/CraftingScreen.tsx` (tooltips, zone lookup, batch UI), `ui/screens/ZoneScreen.tsx` (material name formatting)
 
 ## Micro-Sprint Workflow
 Each conversation = one micro-sprint (3-5 related changes):
