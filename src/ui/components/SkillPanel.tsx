@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { getUnifiedSkillsForWeapon, getUnifiedSkillDef } from '../../data/unifiedSkills';
 import { calcSkillDps, getAbilityXpForLevel, getRespecCost, getUnlockedSlotCount, canAllocateNode } from '../../engine/unifiedSkills';
+import { SKILL_MAX_LEVEL } from '../../data/balance';
 import { resolveStats, getWeaponDamageInfo } from '../../engine/character';
 import { getEquippedWeaponType } from '../../engine/items';
 import { getAbilityDef } from '../../data/unifiedSkills';
@@ -301,27 +302,29 @@ export default function SkillPanel() {
                 </div>
               </div>
 
-              {/* XP bar for equipped non-active skills */}
-              {isEquipped && skill.kind !== 'active' && (() => {
+              {/* XP bar for equipped skills */}
+              {isEquipped && (() => {
                 const progress = skillProgress[skill.id];
                 if (!progress) return null;
                 return (
                   <div className="mt-1.5 ml-8">
                     <div className="flex justify-between text-xs mb-0.5">
-                      <span className="text-purple-400 font-semibold">Lv.{progress.level}{progress.level >= 10 ? ' MAX' : ''}</span>
+                      <span className="text-purple-400 font-semibold">Lv.{progress.level}{progress.level >= SKILL_MAX_LEVEL ? ' MAX' : ''}</span>
                       <span className="text-gray-500">
-                        {progress.level < 10 ? `${progress.xp}/${getAbilityXpForLevel(progress.level)} XP` : 'Max Level'}
+                        {progress.level < SKILL_MAX_LEVEL ? `${progress.xp}/${getAbilityXpForLevel(progress.level)} XP` : 'Max Level'}
                       </span>
                     </div>
                     <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
                       <div
                         className="h-full bg-purple-500 rounded-full transition-all duration-300"
-                        style={{ width: `${progress.level >= 10 ? 100 : (progress.xp / getAbilityXpForLevel(progress.level)) * 100}%` }}
+                        style={{ width: `${progress.level >= SKILL_MAX_LEVEL ? 100 : (progress.xp / getAbilityXpForLevel(progress.level)) * 100}%` }}
                       />
                     </div>
-                    <div className="text-xs text-gray-500 mt-0.5">
-                      Points: {progress.level - progress.allocatedNodes.length} available / {progress.level} total
-                    </div>
+                    {skill.kind !== 'active' && (
+                      <div className="text-xs text-gray-500 mt-0.5">
+                        Points: {progress.level - progress.allocatedNodes.length} available / {progress.level} total
+                      </div>
+                    )}
                   </div>
                 );
               })()}

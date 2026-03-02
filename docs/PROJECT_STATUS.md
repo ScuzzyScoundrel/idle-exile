@@ -1,23 +1,23 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-02 (Post-Sprint 10M: Multi-Skill Rotation)
+> Last updated: 2026-03-02 (Post-Sprint 10N: Skill XP + Passive Points)
 
 ## Current Phase
-**Sprint 10M: Multi-Skill Rotation (Foundation)** — COMPLETE.
+**Sprint 10N: Skill XP + Passive Points** — COMPLETE.
 
-- **Rotation engine**: `tickCombat()` rewritten from single-skill to cooldown-based rotation. `getNextRotationSkill()` iterates equipped active skills in slot-priority order, fires first skill off cooldown.
-- **GCD system**: `ACTIVE_SKILL_GCD` (1.0s) gates casts. `nextActiveSkillAt` is a pre-computed timestamp — cleaner than tracking "last cast + interval". Independent from buff auto-cast GCD (`lastSkillActivation`).
-- **Per-skill cooldowns**: All 43 previously-spammable active skills now have cooldowns: Basic (3s), Enhanced (4s), Utility (5s), Specialist (6s). 8 finishers keep their original 8-12s cooldowns.
-- **Active skill timers**: `equipToSkillBar()` now creates `SkillTimerState` entries for active skills (was only buff/toggle/instant/ultimate). `tickCombat()` updates per-skill `cooldownUntil` after each cast.
-- **Cooldown sweep UI**: Active skill slots in SkillBar show conic-gradient sweep overlay during cooldown (same pattern as buff/instant from 10L). Shows remaining CD text (e.g., "3s").
-- **Any-slot equip**: Active skills can go in any slot (0-4). Slot position = priority. No kind restrictions.
-- **SkillPanel**: Active skill cards now show "cast time / cooldown" info.
-- **v27 migration**: Renames `lastSkillCastAt` → `nextActiveSkillAt` (ephemeral), ensures active skills have timer entries.
-- **Save version**: v27.
-- **Bundle size**: 502 kB.
+- **All skills earn XP**: Removed `kind === 'active'` filter in `processNewClears()`. All equipped skills (active, buff, passive, toggle, etc.) now earn equal XP per clear. Must be equipped in skill bar.
+- **Max level raised**: 10 → 20. New constant `SKILL_MAX_LEVEL = 20` in `data/balance.ts`.
+- **Quadratic XP curve**: `100 * (level + 1) * (1 + level * 0.1)`. Level 1→2: 200 XP. Level 10→11: 2,200 XP. Level 19→20: 6,000 XP. Total 0→20: ~38,000 XP.
+- **Level badges**: All skill bar slots show `Lv.X` in top-right corner (purple text, 9px). Shows "MAX" at level 20. Hidden at level 0.
+- **SkillPanel XP display**: Active skills now show XP bar + level in the browse panel (was hidden for actives). Points line hidden for active skills (no trees yet).
+- **No save migration needed**: `skillProgress` entries created on-the-fly. Active skills start at level 0.
+- **Save version**: v27 (unchanged).
+- **Bundle size**: 503 kB.
 
-**Next: Sprint 10N** (Skill Discovery + Unlocks). See `COMBAT_OVERHAUL.md` for full roadmap.
+**Next sprint TBD.** See `COMBAT_OVERHAUL.md` for skill passive tree design vision.
+
+**Sprint 10M: Multi-Skill Rotation (Foundation)** — COMPLETE (previous).
 
 **Sprint 10L: Cooldown UI + Visual Polish** — COMPLETE (previous).
 

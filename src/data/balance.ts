@@ -294,5 +294,8 @@ export const SKILL_GCD = 1.0;
 /** Global cooldown between active skill rotation casts (seconds). */
 export const ACTIVE_SKILL_GCD = 1.0;
 
+/** Maximum skill level (applies to all skill kinds). */
+export const SKILL_MAX_LEVEL = 20;
+
 /** Real-time combat tick interval (ms). Documents engine tick rate. */
 export const COMBAT_TICK_INTERVAL = 250;

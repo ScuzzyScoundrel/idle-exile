@@ -64,6 +64,7 @@ Each conversation = one micro-sprint (3-5 focused changes):
 | **10K-B2** | **Combat Visual Feedback: skill slot flash, damage floaters, combat log, BossFightDisplay cleanup** |
 | **10L** | **Cooldown UI + Visual Polish: floater centering/rounding fixes, cooldown sweep overlays, active buff sweep** |
 | **10M** | **Multi-Skill Rotation: cooldown-based rotation engine, per-skill CDs (3-12s tiers), GCD system, cooldown sweep UI, any-slot equip** |
+| **10N** | **Skill XP + Passive Points: all equipped skills earn XP, max level 20, quadratic XP curve, level badges on skill bar** |
 
 See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
 
@@ -389,8 +390,8 @@ See `COMBAT_OVERHAUL.md` for detailed checklist.
 **Status:** COMPLETE
 See `COMBAT_OVERHAUL.md` for detailed checklist.
 
-### Sprint 10N: Skill Discovery + Unlocks
-**Status:** NOT STARTED
+### Sprint 10N: Skill XP + Passive Points
+**Status:** COMPLETE
 See `COMBAT_OVERHAUL.md` for detailed checklist.
 
 ---

@@ -851,7 +851,7 @@ export const useGameStore = create<GameState & GameActions>()(
         for (const equipped of state.skillBar) {
           if (!equipped) continue;
           const skillDef = getUnifiedSkillDef(equipped.skillId);
-          if (!skillDef || skillDef.kind === 'active') continue;
+          if (!skillDef) continue;
           const existing = newSkillProgress[equipped.skillId] ?? {
             skillId: equipped.skillId, xp: 0, level: 0, allocatedNodes: [],
           };

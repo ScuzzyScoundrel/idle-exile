@@ -4,7 +4,7 @@
 > At the start of any session, read this file to pick up where the last session left off.
 > Last updated: 2026-03-02
 
-## Current Sprint: **10L — Cooldown UI + Visual Polish** ✅ COMPLETE
+## Current Sprint: **10N — Skill XP + Passive Points** ✅ COMPLETE
 
 ---
 
@@ -176,24 +176,28 @@
 
 ---
 
-## Sprint 10N: Skill Discovery + Unlocks
-**Goal:** Skills unlock through gameplay, not all available from start.
-**Status:** NOT STARTED
+## Sprint 10N: Skill XP + Passive Points
+**Goal:** All equipped skills earn XP from clears. Raise skill level cap to 20 with quadratic XP curve. Display level on all skill bar slots. Foundation for future skill passive trees.
+**Status:** COMPLETE
 
 ### Checklist:
-- [ ] Skills locked by default, unlock through level + weapon mastery
-- [ ] Skill discovery on first equip (notification + collection)
-- [ ] Skill collection UI in SkillPanel (discovered vs undiscovered)
-- [ ] Weapon mastery XP: using a weapon type levels up mastery, unlocking skills
-- [ ] Mastery milestones grant skill unlocks
-- [ ] `npm run build` passes
+- [x] Active skills earn XP from clears (removed `kind === 'active'` filter in processNewClears)
+- [x] `SKILL_MAX_LEVEL = 20` constant in `data/balance.ts`
+- [x] Quadratic XP curve: `100 * (level + 1) * (1 + level * 0.1)` — Lv1→2: 200 XP, Lv19→20: 6,000 XP
+- [x] Level badge (`Lv.X`) on all skill bar slots (top-right corner, purple text)
+- [x] XP bar displays for active skills in SkillPanel browse view
+- [x] Skill tree points line hidden for active skills (no trees yet)
+- [x] `npm run build` passes
 
-### Files to modify:
-- `types/index.ts` — weapon mastery state, discovered skills set
-- `data/unifiedSkills.ts` — unlock requirements per skill
-- `store/gameStore.ts` — mastery XP tracking, skill unlock logic
-- `ui/components/SkillPanel.tsx` — collection UI
-- Save migration for new state fields
+### Files modified:
+- `data/balance.ts` — `SKILL_MAX_LEVEL` constant
+- `engine/unifiedSkills.ts` — quadratic XP formula, SKILL_MAX_LEVEL import
+- `store/gameStore.ts` — removed active skill XP filter
+- `ui/components/SkillBar.tsx` — level badges on all skill kinds
+- `ui/components/SkillPanel.tsx` — XP bar for all equipped skills
+
+### No save migration needed:
+`skillProgress` entries are created on-the-fly when missing. Active skills start at level 0, XP 0. Existing saves work seamlessly.
 
 ---
 
@@ -217,3 +221,36 @@ types/index.ts           — SkillDef, SkillKind, EquippedSkill, SkillProgress, 
 - `skillProgress: Record<string, SkillProgress>` — unified XP/level/nodes by skill ID
 - `skillTimers: SkillTimerState[]` — activation/cooldown state
 - `abilityProgress: Record<string, AbilityProgress>` — still used by allocateAbilityNode/respecAbility (keyed by OLD ability IDs)
+
+---
+
+## Skill Passive Tree System (Design — Future Sprint)
+
+### Core Concept
+Every skill (active, buff, passive, etc.) has its own passive tree. Leveling a skill
+grants 1 passive point per level. Points are spent in the skill's tree to customize it.
+
+### Key Numbers (rough, subject to tuning)
+- Max skill level: 20
+- Tree size: ~30 nodes per skill
+- Points available: 20 (at max level)
+- Points needed to fill tree: ~30
+- Result: Players specialize — can't take everything, must choose a build path
+
+### What Trees Include
+- **Damage scaling**: +% damage, +flat damage, +% crit chance/multi
+- **Cooldown reduction**: -% cooldown, -% cast time
+- **Element conversion**: Change skill damage type (lightning -> fire, etc.)
+- **Utility**: AoE radius, projectile count, duration bonuses
+- **Keystones**: Major build-defining nodes (e.g., "Skill now channels instead of casting",
+  "Converts all damage to chaos", "Skill chains to nearby enemies")
+
+### Progression
+- All equipped skills earn XP equally from mob clears
+- Must be equipped in skill bar to earn XP
+- XP curve is quadratic — early levels fast, late levels slow
+- Skill XP is permanent (persists even when unequipped)
+
+### Respec
+- TBD: Full respec vs partial (per-node refund)
+- Cost: Gold or currency

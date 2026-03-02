@@ -12,7 +12,7 @@ import type {
 import { ABILITY_SLOT_UNLOCKS } from '../types';
 import { calcHitChance } from './character';
 import { getUnifiedSkillDef, getAbilityDef, getSkillsForWeapon } from '../data/unifiedSkills';
-import { POWER_DIVISOR } from '../data/balance';
+import { POWER_DIVISOR, SKILL_MAX_LEVEL } from '../data/balance';
 
 // ─── Constants ───
 
@@ -467,18 +467,18 @@ export function getUnlockedSlotCount(characterLevel: number): number {
 
 // ─── Ability XP ───
 
-/** XP needed for next level: 100 * (level + 1). */
+/** XP needed for next level: quadratic curve — 100 * (level + 1) * (1 + level * 0.1). */
 export function getAbilityXpForLevel(level: number): number {
-  return 100 * (level + 1);
+  return Math.round(100 * (level + 1) * (1 + level * 0.1));
 }
 
 /** Add XP and return updated progress (handles level-ups). */
 export function addAbilityXp(progress: AbilityProgress, xpGained: number): AbilityProgress {
-  if (progress.level >= 10) return progress; // max level
+  if (progress.level >= SKILL_MAX_LEVEL) return progress; // max level
   let { xp, level } = progress;
   xp += xpGained;
 
-  while (level < 10) {
+  while (level < SKILL_MAX_LEVEL) {
     const needed = getAbilityXpForLevel(level);
     if (xp >= needed) {
       xp -= needed;
@@ -488,7 +488,7 @@ export function addAbilityXp(progress: AbilityProgress, xpGained: number): Abili
     }
   }
 
-  if (level >= 10) xp = 0; // cap at max
+  if (level >= SKILL_MAX_LEVEL) xp = 0; // cap at max
 
   return { ...progress, xp, level };
 }

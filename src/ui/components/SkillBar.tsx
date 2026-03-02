@@ -3,6 +3,7 @@ import { useGameStore } from '../../store/gameStore';
 import { getUnifiedSkillDef } from '../../data/unifiedSkills';
 import { getSkillEffectiveDuration, getSkillEffectiveCooldown } from '../../engine/unifiedSkills';
 import { getAbilityXpForLevel, getUnlockedSlotCount } from '../../engine/unifiedSkills';
+import { SKILL_MAX_LEVEL } from '../../data/balance';
 import { ABILITY_SLOT_UNLOCKS } from '../../types';
 
 // Kind-specific border colors
@@ -88,7 +89,7 @@ export default function SkillBar({ lastFiredSkillId }: { lastFiredSkillId?: stri
 
         const progress = skillProgress[equipped.skillId];
         const xpNeeded = progress ? getAbilityXpForLevel(progress.level) : 100;
-        const xpPct = progress ? (progress.level >= 10 ? 100 : (progress.xp / xpNeeded) * 100) : 0;
+        const xpPct = progress ? (progress.level >= SKILL_MAX_LEVEL ? 100 : (progress.xp / xpNeeded) * 100) : 0;
 
         // Timer state for this skill
         const timer = skillTimers.find(t => t.skillId === equipped.skillId);
@@ -130,6 +131,12 @@ export default function SkillBar({ lastFiredSkillId }: { lastFiredSkillId?: stri
                   }}
                 />
               )}
+              {/* Level badge */}
+              {progress && progress.level > 0 && (
+                <span className="absolute top-0 right-0.5 text-[9px] font-bold text-purple-300 z-10 select-none">
+                  {progress.level >= SKILL_MAX_LEVEL ? 'MAX' : `Lv.${progress.level}`}
+                </span>
+              )}
               <span className="text-lg relative z-[2]">{def.icon}</span>
               {isOnCooldown ? (
                 <span className="text-xs text-gray-400 font-mono relative z-[2]">{remainingCd.toFixed(0)}s</span>
@@ -153,6 +160,11 @@ export default function SkillBar({ lastFiredSkillId }: { lastFiredSkillId?: stri
               className={`w-14 h-14 rounded-lg border-2 ${border} ${bg} flex flex-col items-center justify-center relative`}
               title={`${def.name}: ${def.description}`}
             >
+              {progress && progress.level > 0 && (
+                <span className="absolute top-0 right-0.5 text-[9px] font-bold text-purple-300 z-10 select-none">
+                  {progress.level >= SKILL_MAX_LEVEL ? 'MAX' : `Lv.${progress.level}`}
+                </span>
+              )}
               <span className="text-lg">{def.icon}</span>
               <span className="text-xs text-gray-400 font-bold">PASSIVE</span>
               <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-800 rounded-b-lg overflow-hidden">
@@ -170,6 +182,11 @@ export default function SkillBar({ lastFiredSkillId }: { lastFiredSkillId?: stri
               className={`w-14 h-14 rounded-lg border-2 ${border} ${bg} flex flex-col items-center justify-center relative`}
               title={`${def.name}: ${def.description}`}
             >
+              {progress && progress.level > 0 && (
+                <span className="absolute top-0 right-0.5 text-[9px] font-bold text-purple-300 z-10 select-none">
+                  {progress.level >= SKILL_MAX_LEVEL ? 'MAX' : `Lv.${progress.level}`}
+                </span>
+              )}
               <span className="text-lg">{def.icon}</span>
               <span className="text-xs text-purple-400 font-bold">PROC</span>
               <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-800 rounded-b-lg overflow-hidden">
@@ -203,6 +220,11 @@ export default function SkillBar({ lastFiredSkillId }: { lastFiredSkillId?: stri
               >
                 A
               </span>
+              {progress && progress.level > 0 && (
+                <span className="absolute top-0 right-0.5 text-[9px] font-bold text-purple-300 z-10 select-none">
+                  {progress.level >= SKILL_MAX_LEVEL ? 'MAX' : `Lv.${progress.level}`}
+                </span>
+              )}
               <span className="text-lg">{def.icon}</span>
               <span className={`text-xs font-bold ${isOn ? 'text-green-300' : 'text-gray-500'}`}>
                 {isOn ? 'ON' : 'OFF'}
@@ -274,6 +296,11 @@ export default function SkillBar({ lastFiredSkillId }: { lastFiredSkillId?: stri
             >
               A
             </span>
+            {progress && progress.level > 0 && (
+              <span className="absolute top-0 right-0.5 text-[9px] font-bold text-purple-300 z-10 select-none">
+                {progress.level >= SKILL_MAX_LEVEL ? 'MAX' : `Lv.${progress.level}`}
+              </span>
+            )}
             <span className="text-lg relative z-[2]">{def.icon}</span>
             {isActive && (
               <span className="text-xs text-yellow-300 font-bold relative z-[2]">{remainingBuff.toFixed(1)}s</span>
