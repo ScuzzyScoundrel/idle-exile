@@ -293,6 +293,9 @@ interface GameActions {
   handleBossDefeat: () => void;
   checkRecoveryComplete: () => boolean;
 
+  // Active Skills
+  equipSkill: (skillId: string, slot?: number) => void;
+
   // Tutorial
   advanceTutorial: (step: number) => void;
 
@@ -1479,6 +1482,57 @@ export const useGameStore = create<GameState & GameActions>()(
 
           return updates;
         });
+      },
+
+      // Active skill equip
+      equipSkill: (skillId: string, slot?: number) => {
+        const state = get();
+        const slotIdx = slot ?? 0;
+
+        // Validate skill exists
+        const skillDef = getSkillDef(skillId);
+        if (!skillDef) return;
+
+        // Validate weapon type matches equipped weapon
+        const mainhand = state.character.equipment.mainhand;
+        if (!mainhand?.weaponType || skillDef.weaponType !== mainhand.weaponType) return;
+
+        // Validate level requirement
+        if (state.character.level < skillDef.levelRequired) return;
+
+        // Set skill in slot
+        const newSkills = [...state.equippedSkills];
+        newSkills[slotIdx] = skillId;
+
+        const updates: Partial<GameState> = { equippedSkills: newSkills };
+
+        // Mid-clear recalculation (same pattern as activateAbility)
+        if (state.idleStartTime && state.currentZoneId && state.currentClearTime > 0) {
+          const now = Date.now();
+          const oldClearTime = state.currentClearTime;
+          const progress = (now - state.clearStartedAt) / (oldClearTime * 1000);
+          const clampedProgress = Math.min(Math.max(progress, 0), 0.99);
+
+          const zone = ZONE_DEFS.find(z => z.id === state.currentZoneId);
+          if (zone) {
+            const cDef = getClassDef(state.character.class);
+            const abilityEffect = aggregateAbilityEffects(
+              state.equippedAbilities, state.abilityTimers, state.abilityProgress, now, false,
+            );
+            const classDmgMult = getClassDamageModifier(state.classResource, cDef);
+            const classSpdMult = getClassClearSpeedModifier(state.classResource, cDef);
+            // Use a temporary state with new skills for computeNextClear
+            const tempState = { ...state, equippedSkills: newSkills };
+            const { clearTime: newClearTime, clearResult: newClearResult } = computeNextClear(
+              tempState, zone, abilityEffect, classDmgMult, classSpdMult,
+            );
+            updates.clearStartedAt = now - clampedProgress * newClearTime * 1000;
+            updates.currentClearTime = newClearTime;
+            updates.lastClearResult = newClearResult;
+          }
+        }
+
+        set(updates);
       },
 
       // Class resource time decay (called from 250ms timer)

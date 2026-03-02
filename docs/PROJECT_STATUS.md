@@ -1,10 +1,18 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-01 (Post-Sprint 10A: Active Skills & Damage Tags Foundation)
+> Last updated: 2026-03-01 (Post-Sprint 10C: Skill Equip UI + Combat Stats Display)
 
 ## Current Phase
-**Sprint 10A: Active Skills & Damage Tags (Foundation)** — COMPLETE.
+**Sprint 10C: Skill Equip UI + Combat Stats Display** — COMPLETE.
+- **`equipSkill` store action**: New action validates skill exists, weapon type matches, level requirement met. Includes mid-clear recalculation (preserves progress %, adjusts remaining time — same pattern as `activateAbility`).
+- **SkillPanel component** (`src/ui/components/SkillPanel.tsx`): Browse all 6 skills for current weapon. Shows DPS for each skill with green/red delta vs equipped skill. Tag-colored pills (Attack=red, Spell=blue, Fire=orange, etc.). Current skill highlighted with yellow border + "Equipped" badge. Level-locked skills show lock icon + required level. Click to equip.
+- **CharacterScreen integration**: SkillPanel mounted between Stats Grid and Abilities Panel. Stats section now shows skill-based DPS (using `calcSkillDps()`) with skill name and icon — replaces old missing DPS display.
+- **ZoneScreen combat stats**: Shows `lastClearResult` during active combat runs (casts, hits in green, crits in yellow, misses in red, clear time). Compact one-line display between mob progress and Ability Bar.
+- **No save migration needed**: `equippedSkills` already persisted (v24), `equipSkill` just stores a different skill ID.
+- Next: Sprint 10D (Multi-Skill Rotation).
+
+**Sprint 10A: Active Skills & Damage Tags (Foundation)** — COMPLETE (previous).
 - **DamageTag type + ActiveSkillDef interface**: New `DamageTag` union (Attack/Spell/Melee/Projectile/AoE/DoT/Channel/Physical/Fire/Cold/Lightning/Chaos). `ActiveSkillDef` with baseDamage, weaponDamagePercent, spellPowerRatio, castTime, cooldown, hitCount, dotDuration, dotDamagePercent.
 - **48 active skill definitions**: `src/data/skills.ts` — 6 skills per weapon type × 8 weapons (sword, axe, mace, dagger, staff, wand, bow, crossbow). Each weapon: 1 basic spammable, 1 fast/multi-hit, 1 AoE, 1 elemental variant, 1 utility, 1 cooldown nuke. Exports `ACTIVE_SKILL_DEFS`, `getSkillsForWeapon()`, `getSkillDef()`.
 - **Tag-based DPS engine**: `src/engine/skills.ts` — `calcSkillDps()` uses PoE-style ADDITIVE `%increased`. Tag matching: Attack→incAttackDamage, Spell→incSpellDamage, Physical→incPhysDamage, Fire→incFireDamage+incElementalDamage, etc. Chaos intentionally has no incElementalDamage. DoT bonus: `(hitDmg * dotDmgPct * dotDuration) / castTime`. Also exports `getDefaultSkillForWeapon()`, `calcMobHp()`.
@@ -146,21 +154,20 @@ src/
       CombatStatusBar.tsx   — Persistent combat/gathering status bar (visible during runs)
       OfflineProgressModal.tsx — "Welcome Back" modal
       AbilityBar.tsx        — 4-slot ability action bar
+      SkillPanel.tsx        — Active skill browse/equip with DPS comparison
       Tooltip.tsx           — Reusable hover tooltip component
       ClassPicker.tsx       — 4-class selection screen (new game / reset)
     screens/
       ZoneScreen.tsx        — Band tabs, Combat/Gathering toggle, profession selector, session summary with rare finds
       InventoryScreen.tsx   — Bag grid + currency crafting UI + auto-salvage + detail panel
       CraftingScreen.tsx    — Materials/Refine/Craft toggle. Materials: track-grouped panel with rarity borders + tooltips. Refine: track pills → T1-T6 chain. Craft: profession pills → collapsible categories with 2-col compact recipe grid, material icon pills, catalyst dropdowns.
-      CharacterScreen.tsx   — Paper doll (16 slots), 13 stats, materials, ability management
+      CharacterScreen.tsx   — Paper doll (16 slots), stats with skill DPS, skill panel, ability management
   App.tsx                   — Main app shell with CSS-hidden tab routing (4 tabs)
   main.tsx                  — Entry point
   index.css                 — Tailwind directives + base styles
 ```
 
 ## Known Issues & Technical Debt
-- [ ] CharacterScreen DPS display shows old multiplicative formula; combat uses new additive skill-based formula (Sprint 10C will fix)
-- [ ] No skill equip UI yet — default skill auto-assigned, no player choice until Sprint 10C
 - [ ] `simulateIdleRun()` doesn't pass equippedSkills (offline uses auto-assign fallback — correct behavior)
 - [ ] Socket currency defined but no crafting logic
 - [ ] No trinket item bases (trinket1/trinket2 slots empty)
@@ -174,9 +181,9 @@ src/
 **See `SPRINT_PLAN.md` for the full roadmap with detailed implementation notes.**
 
 Immediate priority:
-1. Sprint 10B: Full combat sim per clear (crits, dodges, misses, DoT ticks)
-2. Sprint 10C: Skill equip UI + skill detail panel
-3. Sprint 10D: Multi-skill rotation engine (auto-fire in sequence)
+1. Sprint 10D: Multi-skill rotation engine (auto-fire skills in sequence)
+2. Sprint 10E: Per-skill specialization trees (8-15 nodes each)
+3. Sprint 10F: Class talent trees (20-40 nodes per class)
 
 Then later sprints:
 - Sprint 10E: Per-skill specialization trees (8-15 nodes each)
@@ -439,6 +446,15 @@ Replaced focus modes with Combat/Gathering toggle. 5 gathering professions with 
 - **State + v24 migration** (`store/gameStore.ts`): `equippedSkills: [null, null, null, null]` added to initial state + GameState type. `equipItem`: auto-assigns default skill on weapon equip, clears on weapon unequip. `unequipSlot`: clears skills when mainhand removed. Migration v23→v24: auto-assigns default skill for equipped weapon. Rehydrate: auto-assigns if weapon equipped but skill[0] is null.
 - **Files added**: `src/data/skills.ts`, `src/engine/skills.ts`
 - **Files changed**: `src/types/index.ts`, `src/engine/zones.ts`, `src/store/gameStore.ts`, `docs/PROJECT_STATUS.md`
+
+### Sprint 10C Changes (Skill Equip UI + Combat Stats Display)
+- **`equipSkill` store action** (`store/gameStore.ts`): New `equipSkill(skillId, slot?)` action on GameActions interface. Validates: skill exists via `getSkillDef()`, weapon type matches mainhand, player level meets `levelRequired`. Sets skill in `equippedSkills[slot]`. Mid-clear recalculation: if currently running combat, preserves progress %, creates temp state with new skills, calls `computeNextClear()` to get updated clear time and combat result.
+- **SkillPanel component** (`ui/components/SkillPanel.tsx`): Reads `character`, `equippedSkills`, `equipSkill` from Zustand store. Computes DPS for all skills via `calcSkillDps()`. Shows current equipped skill with yellow border, DPS value, tags, and stats (cast time, cooldown, hit count, DoT). Grid of available skills with DPS comparison (green +X% / red -X%). Level-locked skills show lock icon + "Lv.X", disabled. Tag color map: Attack=red, Spell=blue, Physical=gray, Fire=orange, Cold=cyan, Lightning=yellow, Chaos=purple, DoT=green, Channel=teal.
+- **CharacterScreen changes** (`ui/screens/CharacterScreen.tsx`): Imports SkillPanel, calcSkillDps, resolveStats, getWeaponDamageInfo, getSkillDef, getDefaultSkillForWeapon. Computes skill DPS in component body. Stats Grid section now shows "Skill DPS (skill name)" with icon at top. SkillPanel mounted between Stats Grid and Abilities Panel.
+- **ZoneScreen combat stats** (`ui/screens/ZoneScreen.tsx`): Destructures `lastClearResult` from store. New compact one-line display between mob progress and AbilityBar: "{totalCasts} casts, {hits} hits (green), {crits} crits (yellow), {misses} miss (red, hidden if 0), {clearTime}s". Only shown during combat clearing phase when `lastClearResult` is not null.
+- **No save migration**: `equippedSkills` already in v24 state. `equipSkill` stores different skill ID in existing array.
+- **Files added**: `src/ui/components/SkillPanel.tsx`
+- **Files changed**: `src/store/gameStore.ts`, `src/ui/screens/CharacterScreen.tsx`, `src/ui/screens/ZoneScreen.tsx`, `docs/PROJECT_STATUS.md`
 
 ## Micro-Sprint Workflow
 Each conversation = one micro-sprint (3-5 related changes):

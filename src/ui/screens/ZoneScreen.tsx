@@ -837,6 +837,7 @@ export default function ZoneScreen() {
     classResource, tickClassResource,
     clearStartedAt, currentClearTime,
     totalKills, fastestClears,
+    lastClearResult,
   } = useGameStore();
 
   const hydrated = useHasHydrated();
@@ -1350,6 +1351,19 @@ export default function ZoneScreen() {
                 <span className="font-mono">{Math.floor(elapsed)}s</span>
               </div>
             </>
+          )}
+
+          {/* Combat stats from last clear */}
+          {idleMode === 'combat' && combatPhase === 'clearing' && lastClearResult && (
+            <div className="text-xs text-gray-400 text-center space-x-3">
+              <span>{lastClearResult.totalCasts} casts</span>
+              <span className="text-green-400">{lastClearResult.hits} hits</span>
+              <span className="text-yellow-400">{lastClearResult.crits} crits</span>
+              {lastClearResult.misses > 0 && (
+                <span className="text-red-400">{lastClearResult.misses} miss</span>
+              )}
+              <span>{lastClearResult.clearTime.toFixed(1)}s</span>
+            </div>
           )}
 
           {/* Ability Bar + Picker (combat mode only, not during boss phases) */}

@@ -7,6 +7,11 @@ import { ItemIcon, SlotIcon } from '../itemIcon';
 import { formatAffix, getEquippedWeaponType } from '../../engine/items';
 import { CLASS_DEFS } from '../../data/classes';
 import { calcSetBonuses, calcDefensiveEfficiency } from '../../engine/setBonus';
+import SkillPanel from '../components/SkillPanel';
+import { calcSkillDps } from '../../engine/skills';
+import { resolveStats, getWeaponDamageInfo } from '../../engine/character';
+import { getSkillDef } from '../../data/skills';
+import { getDefaultSkillForWeapon } from '../../engine/skills';
 import { SET_BONUS_DEFS } from '../../data/setBonuses';
 import { ZONE_DEFS } from '../../data/zones';
 import { getAbilitiesForWeapon, getAbilityDef } from '../../data/abilities';
@@ -181,9 +186,22 @@ const ASCII_SILHOUETTE = `    O
 
 export default function CharacterScreen() {
   const { character, resetGame, unequipSlot } = useGameStore();
+  const equippedSkills = useGameStore(s => s.equippedSkills);
   const isMobile = useIsMobile();
   const [hoveredSlot, setHoveredSlot] = useState<GearSlot | null>(null);
   const hoveredItem = hoveredSlot ? character.equipment[hoveredSlot] ?? null : null;
+
+  // Compute skill-based DPS for stats display
+  const weaponType = getEquippedWeaponType(character.equipment);
+  const equippedSkillId = equippedSkills[0];
+  const equippedSkillDef = equippedSkillId ? getSkillDef(equippedSkillId) : null;
+  const activeSkill = equippedSkillDef ?? (weaponType ? getDefaultSkillForWeapon(weaponType, character.level) : null);
+  const skillDps = (() => {
+    if (!activeSkill) return 0;
+    const stats = resolveStats(character);
+    const { avgDamage, spellPower } = getWeaponDamageInfo(character.equipment);
+    return calcSkillDps(activeSkill, stats, avgDamage, spellPower);
+  })();
 
   return (
     <div className="space-y-4">
@@ -308,6 +326,18 @@ export default function CharacterScreen() {
       {/* Stats Grid */}
       <div className="bg-gray-800 rounded-lg p-3 space-y-3">
         <h3 className="text-sm font-bold text-gray-300">Stats</h3>
+        {/* Skill DPS summary */}
+        {skillDps > 0 && (
+          <div className="flex items-center gap-2 bg-gray-900/50 rounded-lg p-2">
+            <span className="text-sm">{activeSkill?.icon ?? '\u2694\uFE0F'}</span>
+            <div className="flex-1">
+              <div className="text-xs text-gray-400">Skill DPS ({activeSkill?.name ?? 'None'})</div>
+              <div className="text-sm font-bold text-yellow-300">
+                {skillDps >= 1000 ? `${(skillDps / 1000).toFixed(1)}k` : skillDps.toFixed(1)}
+              </div>
+            </div>
+          </div>
+        )}
         {STAT_SECTIONS.map((section) => {
           const visibleStats = section.stats.filter(({ key }) => character.stats[key] > 0);
           if (visibleStats.length === 0) return null;
@@ -331,6 +361,9 @@ export default function CharacterScreen() {
           );
         })}
       </div>
+
+      {/* Skill Panel */}
+      <SkillPanel />
 
       {/* Abilities Panel */}
       <AbilityPanel />
