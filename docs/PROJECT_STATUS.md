@@ -1,32 +1,21 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-02 (Post-Sprint 10F: Unified SkillDef Type + Data)
+> Last updated: 2026-03-02 (Post-Sprint 10G: Skill Bar Store + Migration v25)
 
 ## Current Phase
-**Sprints 10D-10F: Combat Overhaul Foundation** — COMPLETE.
+**Sprint 10G: Skill Bar Store + Migration v25** — COMPLETE.
 
-**Sprint 10D: Delivery Tag Stats + Affixes** — COMPLETE.
-- 5 new `StatKey` values: `incMeleeDamage`, `incProjectileDamage`, `incAoEDamage`, `incDoTDamage`, `incChannelDamage`
-- 5 new `AffixCategory` entries + affix definitions (prefixes): "of the Gladiator" (Melee), "of Marksmanship" (Projectile), "of Cataclysm" (AoE), "of Affliction" (DoT), "of Focus" (Channel)
-- Wired into `calcSkillDamagePerCast()` %increased section — gear with delivery tag affixes now scales skills with matching tags
-- Updated `BASE_STATS`, `STAT_LABELS` for new stats
-- No save migration needed (new stats default to 0, new affixes on new items only)
+- **3 new GameState fields**: `skillBar: (EquippedSkill | null)[]` (8 unified slots), `skillProgress: Record<string, SkillProgress>`, `skillTimers: SkillTimerState[]`
+- **4 new store actions**: `equipToSkillBar`, `unequipSkillBarSlot`, `toggleSkillAutoCast`, `reorderSkillBar` — with full validation, weapon/level checks, mid-clear recalc
+- **Engine reads switched**: All 8 `aggregateAbilityEffects` calls replaced with `aggregateSkillBarEffects`. `computeNextClear` now uses `getPrimaryDamageSkill` with fallback to legacy `equippedSkills`
+- **Ability XP bridged**: `processNewClears` writes XP to both `skillProgress` (unified) and `abilityProgress` (legacy) via reverse ID mapping
+- **Old actions bridged**: `equipAbility`, `unequipAbility`, `toggleAbility`, `activateAbility`, `equipSkill`, `equipItem` (weapon change), `unequipSlot` (mainhand) all mirror writes to unified `skillBar`/`skillTimers`/`skillProgress`
+- **v25 migration**: Populates `skillBar[0]` from `equippedSkills[0]`, `skillBar[1-4]` from `equippedAbilities[0-3]` with `ABILITY_ID_MIGRATION` ID remapping. Migrates progress, creates timers.
+- **Rehydrate safety**: Null guards for all 3 new fields + stale skill timer cleanup
+- Slot mapping: 0=active skill, 1-4=former abilities, 5-7=empty (future)
 
-**Sprint 10E: Elemental Skill Diversity** — COMPLETE.
-- 10 existing skills changed element (sword_whirlwind→Cold "Frost Whirl", sword_blade_ward→Lightning "Thunder Guard", axe_cleave→Lightning "Thunder Cleave", mace_shockwave→Lightning "Thunderstrike", mace_concussive_blow→Fire "Molten Blow", dagger_fan_of_knives→Cold "Frost Fan", dagger_smoke_screen→Chaos "Shadow Step", bow_multi_shot→Cold "Ice Barrage", bow_smoke_arrow→Lightning "Shock Arrow", crossbow_net_shot→Lightning "Shock Net")
-- 3 new skills added: `sword_ice_thrust` (Cold), `axe_frost_rend` (Cold DoT), `dagger_lightning_lunge` (Lightning)
-- 51 total active skills. Every weapon now has meaningful elemental choices.
-- No save migration needed (IDs unchanged, DPS recalculates automatically)
-
-**Sprint 10F: Unified SkillDef Type + Data** — COMPLETE.
-- New unified types: `SkillKind`, `SkillDef`, `EquippedSkill`, `SkillProgress`, `SkillTimerState`
-- `src/data/unifiedSkills.ts`: Converts 51 active skills + 24 abilities = 75 unified `SkillDef` entries. Handles 5 ID conflicts (ability versions get `_buff` suffix). Exports `ABILITY_ID_MIGRATION` map for v25 migration.
-- `src/engine/unifiedSkills.ts`: `calcUnifiedDps()`, `resolveSkillEffect()`, `aggregateSkillBarEffects()`, `getPrimaryDamageSkill()` — delegates to existing engines based on `SkillDef.kind`.
-- Old files (`data/skills.ts`, `data/abilities.ts`, `engine/abilities.ts`) kept alive — no breaking changes.
-- No save migration needed (new types exist alongside old).
-
-**Next: Sprint 10G** (Skill Bar Store + Migration v24→v25). See SPRINT_PLAN.md.
+**Next: Sprint 10H** (Skill Bar UI — 8-slot bar replacing AbilityBar + SkillPanel). See SPRINT_PLAN.md.
 
 **Sprint 10A: Active Skills & Damage Tags (Foundation)** — COMPLETE (previous).
 - **DamageTag type + ActiveSkillDef interface**: New `DamageTag` union (Attack/Spell/Melee/Projectile/AoE/DoT/Channel/Physical/Fire/Cold/Lightning/Chaos). `ActiveSkillDef` with baseDamage, weaponDamagePercent, spellPowerRatio, castTime, cooldown, hitCount, dotDuration, dotDamagePercent.
@@ -125,7 +114,7 @@ Bottom: mainhand, offhand, trinket1, trinket2
 - **Bag system**: 5 equippable bag slots (T1:6→T5:14). Start 30 total, max 70.
 - **Crafting (currencies)**: `applyCurrency(item, type)` — augment, chaos, divine, annul, exalt, greater_exalt (top-2 tiers), perfect_exalt (T1 guaranteed)
 - **Active skills**: 51 skills (6-8 per weapon × 8 weapons). Tag-based DPS: `calcSkillDps()` computes base damage → additive %increased (including delivery tag stats: Melee/Projectile/AoE/DoT/Channel) → speed → hit chance → crit → hits → per-second → DoT bonus. Attack skills use weapon damage + flat phys/ele. Spell skills use spell power + flat spell ele. Default skill auto-assigned on weapon equip. Every weapon has elemental variety (Physical/Fire/Cold/Lightning/Chaos choices).
-- **Save**: Zustand persist v24. v23→v24 adds `equippedSkills` with auto-assigned default skill. v22→v23 adds `autoDisposalAction: 'salvage'`. v21→v22 renames `materials.salvage_dust` → `materials.enchanting_essence`. v20→v21 adds `greater_exalt` + `perfect_exalt` currencies. Migrations: v11→v12 adds `craftingSkills`, v12→v13 adds leatherworker + jeweler skills, v13→v14 adds `craftAutoSalvageMinRarity`, v14→v15 adds `zoneClearCounts` + combat HP fields, v17→v18 adds `classResource` + `classSelected`, v18→v19 adds `abilityProgress` + `clearStartedAt` + `currentClearTime` (clears old mutator selections).
+- **Save**: Zustand persist v25. v24→v25 adds unified `skillBar`/`skillProgress`/`skillTimers` from legacy `equippedSkills`+`equippedAbilities`. v23→v24 adds `equippedSkills` with auto-assigned default skill. v22→v23 adds `autoDisposalAction: 'salvage'`. v21→v22 renames `materials.salvage_dust` → `materials.enchanting_essence`. v20→v21 adds `greater_exalt` + `perfect_exalt` currencies. Migrations: v11→v12 adds `craftingSkills`, v12→v13 adds leatherworker + jeweler skills, v13→v14 adds `craftAutoSalvageMinRarity`, v14→v15 adds `zoneClearCounts` + combat HP fields, v17→v18 adds `classResource` + `classSelected`, v18→v19 adds `abilityProgress` + `clearStartedAt` + `currentClearTime` (clears old mutator selections).
 
 ## Architecture
 ```
@@ -163,7 +152,7 @@ src/
     crafting.ts             — 6 currency crafting operations
     setBonus.ts             — Set bonus resolution
   store/
-    gameStore.ts            — Zustand store (state + actions + persistence + v19 migration). Actions: selectClass, tickClassResource, startBossFight, tickBoss, handleBossVictory, handleBossDefeat, checkRecoveryComplete, allocateAbilityNode, respecAbility, toggleAbility + all previous.
+    gameStore.ts            — Zustand store (state + actions + persistence + v25 migration). Actions: selectClass, tickClassResource, startBossFight, tickBoss, handleBossVictory, handleBossDefeat, checkRecoveryComplete, allocateAbilityNode, respecAbility, toggleAbility, equipToSkillBar, unequipSkillBarSlot, toggleSkillAutoCast, reorderSkillBar + all previous.
   ui/
     slotConfig.ts           — Shared gear slot icons/labels
     components/
@@ -199,10 +188,9 @@ src/
 **See `SPRINT_PLAN.md` for the full roadmap with detailed implementation notes.**
 
 Immediate priority:
-1. **Sprint 10G**: Skill Bar Store + Migration v24→v25 (8-slot unified skill bar, replace equippedSkills + equippedAbilities)
-2. **Sprint 10H**: Skill Bar UI (8-slot bar with auto-cast visuals, replace AbilityBar + SkillPanel)
-3. **Sprint 10I**: Auto-Cast Engine + Priority (all equipped skills fire in bar order)
-4. **Sprint 10J**: Cleanup Old Systems (remove deprecated types, old data/engine files)
+1. **Sprint 10H**: Skill Bar UI (8-slot bar with auto-cast visuals, replace AbilityBar + SkillPanel)
+2. **Sprint 10I**: Auto-Cast Engine + Priority (all equipped skills fire in bar order)
+3. **Sprint 10J**: Cleanup Old Systems (remove deprecated types, old data/engine files)
 
 ## How to Run
 ```bash
@@ -490,6 +478,18 @@ Replaced focus modes with Combat/Gathering toggle. 5 gathering professions with 
 - **No save migration**: New types exist alongside old.
 - **Files added**: `src/data/unifiedSkills.ts`, `src/engine/unifiedSkills.ts`
 - **Files changed**: `src/types/index.ts`
+
+### Sprint 10G Changes (Skill Bar Store + Migration v25)
+- **3 new GameState fields** (`types/index.ts`): `skillBar: (EquippedSkill | null)[]` (8 unified slots), `skillProgress: Record<string, SkillProgress>`, `skillTimers: SkillTimerState[]`.
+- **New imports** (`store/gameStore.ts`): `aggregateSkillBarEffects`, `getPrimaryDamageSkill` from `engine/unifiedSkills.ts`; `getUnifiedSkillDef`, `ABILITY_ID_MIGRATION` from `data/unifiedSkills.ts`. Removed unused `aggregateAbilityEffects` import.
+- **4 new store actions**: `equipToSkillBar(skillId, slotIndex)` — validates via `getUnifiedSkillDef()`, weapon match, level req, deduplicates across slots, defaults autoCast by kind, inits progress/timers, mid-clear recalc. `unequipSkillBarSlot(slotIndex)` — clears slot, removes timer, preserves progress. `toggleSkillAutoCast(slotIndex)` — flips autoCast boolean. `reorderSkillBar(from, to)` — swaps two slots.
+- **Engine reads switched to unified system**: All 8 `aggregateAbilityEffects()` calls replaced with `aggregateSkillBarEffects(state.skillBar, state.skillProgress, state.skillTimers, ...)`. Affected: `startIdleRun`, `processNewClears` (x2), `getEstimatedClearTime`, `activateAbility`, `equipSkill`, `startBossFight`, rehydrate offline sim. `computeNextClear` now uses `getPrimaryDamageSkill(state.skillBar)` with fallback to legacy `equippedSkills`.
+- **Ability XP dual-write**: `processNewClears` writes XP to both `skillProgress` (unified, keyed by migrated ID) and `abilityProgress` (legacy, keyed by old ID) using reverse `ABILITY_ID_MIGRATION` lookup. Both included in `set()` call.
+- **Bridge old actions**: `equipAbility` → also writes `skillBar[slotIndex+1]` + init skillTimers/skillProgress. `unequipAbility` → also clears `skillBar[slotIndex+1]` + removes skill timer. `toggleAbility` → also mirrors toggle state to `skillTimers`. `activateAbility` → also mirrors timer changes (toggle, buff, instant branches) to `skillTimers`. `equipSkill` → also sets `skillBar[0] = {skillId, autoCast: true}`. `equipItem` (mainhand) → mirrors default skill to `skillBar[0]`, clears weapon-incompatible skills from slots 1-4. `unequipSlot` (mainhand) → clears `skillBar[0]` + weapon-bound slots 1-4.
+- **v25 migration**: `skillBar[0]` from `equippedSkills[0]` (wrapped as `{skillId, autoCast: true}`). `skillBar[1-4]` from `equippedAbilities[0-3]` with `ABILITY_ID_MIGRATION` ID remapping (autoCast: passive/proc = true, others = false). `skillProgress` migrated from `abilityProgress` entries with new IDs. `skillTimers` fresh entries for buff/toggle/instant/ultimate kinds.
+- **Rehydrate safety**: Null guards for `skillBar`, `skillProgress`, `skillTimers`. Stale skill timer cleanup (mirror existing abilityTimers cleanup): clear cooldowns/activations, remove timers for skills no longer in bar.
+- **Save version**: v24 → v25.
+- **Files changed**: `src/types/index.ts`, `src/store/gameStore.ts`
 
 ## Micro-Sprint Workflow
 Each conversation = one micro-sprint (3-5 related changes):

@@ -1,7 +1,7 @@
 # Idle Exile — Sprint Plan & Roadmap
 
 > **Full development roadmap.** Read `PROJECT_STATUS.md` first for current state.
-> Last updated: 2026-03-01 (Post-Sprint 10B)
+> Last updated: 2026-03-02 (Post-Sprint 10G)
 
 ## Micro-Sprint Workflow
 
@@ -55,6 +55,7 @@ Each conversation = one micro-sprint (3-5 focused changes):
 | **10D** | **Delivery Tag Stats + Affixes: 5 new StatKeys (Melee/Projectile/AoE/DoT/Channel), 5 new affix defs, wired into DPS engine** |
 | **10E** | **Elemental Skill Diversity: 10 skills changed element, 3 new skills, 51 total. Every weapon has meaningful elemental choices** |
 | **10F** | **Unified SkillDef Type + Data: SkillDef merges 51 active + 24 abilities = 75 unified defs, new engine with delegation** |
+| **10G** | **Skill Bar Store + v25 Migration: 8-slot skillBar in store, engine reads switched, old actions bridged, v24→v25 migration** |
 
 See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
 
@@ -330,13 +331,14 @@ See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
 3. **Unified engine** — calcUnifiedDps, resolveSkillEffect, aggregateSkillBarEffects
 
 ### Sprint 10G: Skill Bar Store + Migration v25
-**Status:** NOT STARTED
+**Status:** COMPLETE
 **Files:** `store/gameStore.ts`, `types/index.ts`
 
 1. **New state fields**: `skillBar` (8 slots), `skillProgress`, `skillTimers`
 2. **v24→v25 migration**: `equippedSkills[0]` → `skillBar[0]`, `equippedAbilities[0..3]` → `skillBar[1..4]`
 3. **New actions**: `equipToSkillBar`, `unequipSkillBarSlot`, `toggleSkillAutoCast`, `reorderSkillBar`
-4. **Update processNewClears**: read primary damage skill from skillBar, buff effects from aggregateSkillBarEffects
+4. **Engine reads switched**: All `aggregateAbilityEffects` → `aggregateSkillBarEffects`, `computeNextClear` uses `getPrimaryDamageSkill`
+5. **Old actions bridged**: `equipAbility`, `unequipAbility`, `toggleAbility`, `activateAbility`, `equipSkill`, `equipItem`, `unequipSlot` all mirror to unified skillBar
 
 ### Sprint 10H: Skill Bar UI
 **Status:** NOT STARTED
