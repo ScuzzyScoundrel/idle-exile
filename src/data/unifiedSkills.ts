@@ -1,14 +1,14 @@
 // ============================================================
 // Idle Exile — Unified Skill Definitions (10J consolidated)
 // ALL skill/ability data embedded directly — no external deps.
-// Merges ActiveSkillDefs (51) + AbilityDefs (24) = 75 SkillDefs.
+// Merges ActiveSkillDefs (93) + AbilityDefs (42) = 135 SkillDefs.
 // ============================================================
 
 import type { SkillDef, SkillKind, WeaponType, ActiveSkillDef, AbilityDef } from '../types';
 
 // ============================================================
-// ACTIVE SKILL DEFINITIONS (51 skills, 10E elemental diversity)
-// 6-8 skills per weapon type x 8 weapon types
+// ACTIVE SKILL DEFINITIONS (93 skills, 10E elemental diversity + 10P weapon coverage)
+// 6-8 skills per weapon type x 14 weapon types
 // ============================================================
 
 export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
@@ -772,11 +772,643 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     levelRequired: 14,
     icon: '\uD83E\uDE83',
   },
+
+  // ────────────────────────────────────────────
+  // GREATSWORD (2H Melee Attack — wide cleaves)
+  // ────────────────────────────────────────────
+  {
+    id: 'greatsword_cleave',
+    name: 'Cleave',
+    description: 'A wide sweeping strike with a greatsword.',
+    weaponType: 'greatsword',
+    tags: ['Attack', 'Physical', 'Melee'],
+    baseDamage: 0,
+    weaponDamagePercent: 1.2,
+    spellPowerRatio: 0,
+    castTime: 1.1,
+    cooldown: 3,
+    levelRequired: 1,
+    icon: '\u2694\uFE0F',
+  },
+  {
+    id: 'greatsword_wide_sweep',
+    name: 'Wide Sweep',
+    description: 'A massive horizontal swing that hits twice.',
+    weaponType: 'greatsword',
+    tags: ['Attack', 'Physical', 'Melee', 'AoE'],
+    baseDamage: 0,
+    weaponDamagePercent: 0.6,
+    spellPowerRatio: 0,
+    castTime: 1.0,
+    cooldown: 4,
+    levelRequired: 4,
+    icon: '\u2694\uFE0F',
+    hitCount: 2,
+  },
+  {
+    id: 'greatsword_flame_arc',
+    name: 'Flame Arc',
+    description: 'Sweep the blade in a fiery arc, scorching everything in range.',
+    weaponType: 'greatsword',
+    tags: ['Attack', 'Fire', 'Melee', 'AoE'],
+    baseDamage: 6,
+    weaponDamagePercent: 0.8,
+    spellPowerRatio: 0,
+    castTime: 1.2,
+    cooldown: 5,
+    levelRequired: 6,
+    icon: '\uD83D\uDD25',
+  },
+  {
+    id: 'greatsword_frost_wave',
+    name: 'Frost Wave',
+    description: 'Unleash a wave of frost with each swing.',
+    weaponType: 'greatsword',
+    tags: ['Attack', 'Cold', 'Melee', 'AoE'],
+    baseDamage: 7,
+    weaponDamagePercent: 0.75,
+    spellPowerRatio: 0,
+    castTime: 1.3,
+    cooldown: 5,
+    levelRequired: 8,
+    icon: '\u2744\uFE0F',
+  },
+  {
+    id: 'greatsword_thunder_crash',
+    name: 'Thunder Crash',
+    description: 'Bring the blade down with thunderous force.',
+    weaponType: 'greatsword',
+    tags: ['Attack', 'Lightning', 'Melee'],
+    baseDamage: 5,
+    weaponDamagePercent: 0.85,
+    spellPowerRatio: 0,
+    castTime: 1.2,
+    cooldown: 6,
+    levelRequired: 10,
+    icon: '\u26A1',
+  },
+  {
+    id: 'greatsword_bleeding_edge',
+    name: 'Bleeding Edge',
+    description: 'A razor-sharp slash that leaves a deep wound.',
+    weaponType: 'greatsword',
+    tags: ['Attack', 'Physical', 'Melee', 'DoT'],
+    baseDamage: 3,
+    weaponDamagePercent: 0.75,
+    spellPowerRatio: 0,
+    castTime: 1.0,
+    cooldown: 5,
+    levelRequired: 12,
+    icon: '\uD83E\uDE78',
+    dotDuration: 5,
+    dotDamagePercent: 0.3,
+  },
+  {
+    id: 'greatsword_annihilate',
+    name: 'Annihilate',
+    description: 'A devastating overhead strike that obliterates the target.',
+    weaponType: 'greatsword',
+    tags: ['Attack', 'Physical', 'Melee'],
+    baseDamage: 22,
+    weaponDamagePercent: 2.2,
+    spellPowerRatio: 0,
+    castTime: 1.8,
+    cooldown: 10,
+    levelRequired: 14,
+    icon: '\uD83D\uDCA5',
+  },
+
+  // ────────────────────────────────────────────
+  // GREATAXE (2H Melee Attack — brutal, bleeds)
+  // ────────────────────────────────────────────
+  {
+    id: 'greataxe_hew',
+    name: 'Hew',
+    description: 'A brutal chop with a greataxe.',
+    weaponType: 'greataxe',
+    tags: ['Attack', 'Physical', 'Melee'],
+    baseDamage: 0,
+    weaponDamagePercent: 1.2,
+    spellPowerRatio: 0,
+    castTime: 1.1,
+    cooldown: 3,
+    levelRequired: 1,
+    icon: '\uD83E\uDE93',
+  },
+  {
+    id: 'greataxe_double_chop',
+    name: 'Double Chop',
+    description: 'Two rapid axe swings in quick succession.',
+    weaponType: 'greataxe',
+    tags: ['Attack', 'Physical', 'Melee'],
+    baseDamage: 0,
+    weaponDamagePercent: 0.55,
+    spellPowerRatio: 0,
+    castTime: 1.0,
+    cooldown: 4,
+    levelRequired: 4,
+    icon: '\uD83E\uDE93',
+    hitCount: 2,
+  },
+  {
+    id: 'greataxe_searing_cleave',
+    name: 'Searing Cleave',
+    description: 'A wide fiery cleave that scorches all in its path.',
+    weaponType: 'greataxe',
+    tags: ['Attack', 'Fire', 'Melee', 'AoE'],
+    baseDamage: 7,
+    weaponDamagePercent: 0.8,
+    spellPowerRatio: 0,
+    castTime: 1.3,
+    cooldown: 5,
+    levelRequired: 6,
+    icon: '\uD83D\uDD25',
+  },
+  {
+    id: 'greataxe_glacial_rend',
+    name: 'Glacial Rend',
+    description: 'Tear into the enemy with a frost-covered blade, causing frostbite.',
+    weaponType: 'greataxe',
+    tags: ['Attack', 'Cold', 'Melee', 'DoT'],
+    baseDamage: 5,
+    weaponDamagePercent: 0.7,
+    spellPowerRatio: 0,
+    castTime: 1.1,
+    cooldown: 5,
+    levelRequired: 8,
+    icon: '\u2744\uFE0F',
+    dotDuration: 4,
+    dotDamagePercent: 0.3,
+  },
+  {
+    id: 'greataxe_shock_split',
+    name: 'Shock Split',
+    description: 'Split the air with a lightning-charged swing.',
+    weaponType: 'greataxe',
+    tags: ['Attack', 'Lightning', 'Melee'],
+    baseDamage: 6,
+    weaponDamagePercent: 0.85,
+    spellPowerRatio: 0,
+    castTime: 1.2,
+    cooldown: 6,
+    levelRequired: 10,
+    icon: '\u26A1',
+  },
+  {
+    id: 'greataxe_hemorrhage',
+    name: 'Hemorrhage',
+    description: 'A vicious strike that causes severe bleeding.',
+    weaponType: 'greataxe',
+    tags: ['Attack', 'Physical', 'Melee', 'DoT'],
+    baseDamage: 4,
+    weaponDamagePercent: 0.8,
+    spellPowerRatio: 0,
+    castTime: 1.0,
+    cooldown: 6,
+    levelRequired: 12,
+    icon: '\uD83E\uDE78',
+    dotDuration: 5,
+    dotDamagePercent: 0.35,
+  },
+  {
+    id: 'greataxe_skull_splitter',
+    name: 'Skull Splitter',
+    description: 'An earth-shattering overhead blow that splits skulls.',
+    weaponType: 'greataxe',
+    tags: ['Attack', 'Physical', 'Melee'],
+    baseDamage: 25,
+    weaponDamagePercent: 2.4,
+    spellPowerRatio: 0,
+    castTime: 1.9,
+    cooldown: 10,
+    levelRequired: 14,
+    icon: '\uD83D\uDC80',
+  },
+
+  // ────────────────────────────────────────────
+  // MAUL (2H Melee Attack — ground slams, AoE)
+  // ────────────────────────────────────────────
+  {
+    id: 'maul_slam',
+    name: 'Slam',
+    description: 'A heavy slam with a maul.',
+    weaponType: 'maul',
+    tags: ['Attack', 'Physical', 'Melee'],
+    baseDamage: 0,
+    weaponDamagePercent: 1.2,
+    spellPowerRatio: 0,
+    castTime: 1.2,
+    cooldown: 3,
+    levelRequired: 1,
+    icon: '\uD83D\uDD28',
+  },
+  {
+    id: 'maul_ground_pound',
+    name: 'Ground Pound',
+    description: 'Smash the ground twice, sending shockwaves outward.',
+    weaponType: 'maul',
+    tags: ['Attack', 'Physical', 'Melee', 'AoE'],
+    baseDamage: 0,
+    weaponDamagePercent: 0.5,
+    spellPowerRatio: 0,
+    castTime: 1.1,
+    cooldown: 4,
+    levelRequired: 4,
+    icon: '\uD83D\uDD28',
+    hitCount: 2,
+  },
+  {
+    id: 'maul_molten_strike',
+    name: 'Molten Strike',
+    description: 'Slam the ground with molten force, creating a pool of fire.',
+    weaponType: 'maul',
+    tags: ['Attack', 'Fire', 'Melee', 'AoE'],
+    baseDamage: 8,
+    weaponDamagePercent: 0.75,
+    spellPowerRatio: 0,
+    castTime: 1.3,
+    cooldown: 5,
+    levelRequired: 6,
+    icon: '\uD83D\uDD25',
+  },
+  {
+    id: 'maul_permafrost',
+    name: 'Permafrost',
+    description: 'Shatter the frozen ground, sending ice shards in all directions.',
+    weaponType: 'maul',
+    tags: ['Attack', 'Cold', 'Melee', 'AoE'],
+    baseDamage: 6,
+    weaponDamagePercent: 0.7,
+    spellPowerRatio: 0,
+    castTime: 1.2,
+    cooldown: 5,
+    levelRequired: 8,
+    icon: '\u2744\uFE0F',
+  },
+  {
+    id: 'maul_thunder_slam',
+    name: 'Thunder Slam',
+    description: 'Bring the maul down with thunderous impact.',
+    weaponType: 'maul',
+    tags: ['Attack', 'Lightning', 'Melee', 'AoE'],
+    baseDamage: 7,
+    weaponDamagePercent: 0.8,
+    spellPowerRatio: 0,
+    castTime: 1.3,
+    cooldown: 6,
+    levelRequired: 10,
+    icon: '\u26A1',
+  },
+  {
+    id: 'maul_seismic_wave',
+    name: 'Seismic Wave',
+    description: 'Send a seismic wave through the ground, dealing damage over time.',
+    weaponType: 'maul',
+    tags: ['Attack', 'Physical', 'Melee', 'AoE', 'DoT'],
+    baseDamage: 5,
+    weaponDamagePercent: 0.75,
+    spellPowerRatio: 0,
+    castTime: 1.1,
+    cooldown: 5,
+    levelRequired: 12,
+    icon: '\uD83C\uDF0B',
+    dotDuration: 4,
+    dotDamagePercent: 0.25,
+  },
+  {
+    id: 'maul_cataclysm',
+    name: 'Cataclysm',
+    description: 'An apocalyptic slam that devastates everything nearby.',
+    weaponType: 'maul',
+    tags: ['Attack', 'Physical', 'Melee', 'AoE'],
+    baseDamage: 28,
+    weaponDamagePercent: 2.5,
+    spellPowerRatio: 0,
+    castTime: 2.0,
+    cooldown: 12,
+    levelRequired: 14,
+    icon: '\uD83D\uDCA5',
+  },
+
+  // ────────────────────────────────────────────
+  // SCEPTER (1H Hybrid — divine smiting)
+  // ────────────────────────────────────────────
+  {
+    id: 'scepter_smite',
+    name: 'Smite',
+    description: 'A divine strike combining physical and spiritual force.',
+    weaponType: 'scepter',
+    tags: ['Attack', 'Physical', 'Melee'],
+    baseDamage: 3,
+    weaponDamagePercent: 0.6,
+    spellPowerRatio: 0.4,
+    castTime: 1.0,
+    cooldown: 3,
+    levelRequired: 1,
+    icon: '\uD83D\uDD31',
+  },
+  {
+    id: 'scepter_holy_strike',
+    name: 'Holy Strike',
+    description: 'Two rapid strikes of divine lightning.',
+    weaponType: 'scepter',
+    tags: ['Attack', 'Lightning', 'Melee'],
+    baseDamage: 4,
+    weaponDamagePercent: 0.5,
+    spellPowerRatio: 0.4,
+    castTime: 0.9,
+    cooldown: 4,
+    levelRequired: 4,
+    icon: '\u26A1',
+    hitCount: 2,
+  },
+  {
+    id: 'scepter_flame_brand',
+    name: 'Flame Brand',
+    description: 'Channel fire through the scepter to brand enemies.',
+    weaponType: 'scepter',
+    tags: ['Spell', 'Fire', 'Melee'],
+    baseDamage: 6,
+    weaponDamagePercent: 0.4,
+    spellPowerRatio: 0.5,
+    castTime: 1.1,
+    cooldown: 5,
+    levelRequired: 6,
+    icon: '\uD83D\uDD25',
+  },
+  {
+    id: 'scepter_frost_judgment',
+    name: 'Frost Judgment',
+    description: 'Pass frozen judgment on nearby enemies.',
+    weaponType: 'scepter',
+    tags: ['Spell', 'Cold', 'Melee', 'AoE'],
+    baseDamage: 7,
+    weaponDamagePercent: 0.3,
+    spellPowerRatio: 0.6,
+    castTime: 1.1,
+    cooldown: 5,
+    levelRequired: 8,
+    icon: '\u2744\uFE0F',
+  },
+  {
+    id: 'scepter_divine_bolt',
+    name: 'Divine Bolt',
+    description: 'Launch a bolt of pure divine energy.',
+    weaponType: 'scepter',
+    tags: ['Spell', 'Lightning', 'Projectile'],
+    baseDamage: 8,
+    weaponDamagePercent: 0,
+    spellPowerRatio: 0.9,
+    castTime: 1.0,
+    cooldown: 5,
+    levelRequired: 10,
+    icon: '\u2728',
+  },
+  {
+    id: 'scepter_chaos_curse',
+    name: 'Chaos Curse',
+    description: 'Curse the target with chaotic energy that decays over time.',
+    weaponType: 'scepter',
+    tags: ['Spell', 'Chaos', 'DoT'],
+    baseDamage: 5,
+    weaponDamagePercent: 0,
+    spellPowerRatio: 0.7,
+    castTime: 1.0,
+    cooldown: 6,
+    levelRequired: 12,
+    icon: '\uD83D\uDC9C',
+    dotDuration: 5,
+    dotDamagePercent: 0.3,
+  },
+  {
+    id: 'scepter_wrath',
+    name: 'Wrath',
+    description: 'Unleash the full wrath of the divine upon your foe.',
+    weaponType: 'scepter',
+    tags: ['Attack', 'Lightning', 'Melee'],
+    baseDamage: 18,
+    weaponDamagePercent: 0.8,
+    spellPowerRatio: 0.8,
+    castTime: 1.5,
+    cooldown: 8,
+    levelRequired: 14,
+    icon: '\uD83D\uDD31',
+  },
+
+  // ────────────────────────────────────────────
+  // GAUNTLET (1H Spell — elemental fists)
+  // ────────────────────────────────────────────
+  {
+    id: 'gauntlet_arcane_fist',
+    name: 'Arcane Fist',
+    description: 'Channel arcane energy through your fist.',
+    weaponType: 'gauntlet',
+    tags: ['Spell', 'Physical', 'Melee'],
+    baseDamage: 7,
+    weaponDamagePercent: 0,
+    spellPowerRatio: 1.0,
+    castTime: 1.0,
+    cooldown: 3,
+    levelRequired: 1,
+    icon: '\uD83E\uDD4A',
+  },
+  {
+    id: 'gauntlet_rapid_bolts',
+    name: 'Rapid Bolts',
+    description: 'Fire three quick arcane bolts from your fists.',
+    weaponType: 'gauntlet',
+    tags: ['Spell', 'Physical', 'Projectile'],
+    baseDamage: 3,
+    weaponDamagePercent: 0,
+    spellPowerRatio: 0.5,
+    castTime: 0.8,
+    cooldown: 4,
+    levelRequired: 4,
+    icon: '\u2728',
+    hitCount: 3,
+  },
+  {
+    id: 'gauntlet_flame_palm',
+    name: 'Flame Palm',
+    description: 'Slam your burning palm into the enemy.',
+    weaponType: 'gauntlet',
+    tags: ['Spell', 'Fire', 'Melee'],
+    baseDamage: 6,
+    weaponDamagePercent: 0,
+    spellPowerRatio: 0.85,
+    castTime: 1.0,
+    cooldown: 5,
+    levelRequired: 6,
+    icon: '\uD83D\uDD25',
+  },
+  {
+    id: 'gauntlet_frost_grip',
+    name: 'Frost Grip',
+    description: 'Grip enemies with freezing force that chills the area.',
+    weaponType: 'gauntlet',
+    tags: ['Spell', 'Cold', 'Melee', 'AoE'],
+    baseDamage: 7,
+    weaponDamagePercent: 0,
+    spellPowerRatio: 0.9,
+    castTime: 1.1,
+    cooldown: 5,
+    levelRequired: 8,
+    icon: '\u2744\uFE0F',
+  },
+  {
+    id: 'gauntlet_shock_pulse',
+    name: 'Shock Pulse',
+    description: 'Release a pulse of lightning from your fists.',
+    weaponType: 'gauntlet',
+    tags: ['Spell', 'Lightning', 'Melee'],
+    baseDamage: 8,
+    weaponDamagePercent: 0,
+    spellPowerRatio: 0.95,
+    castTime: 1.0,
+    cooldown: 5,
+    levelRequired: 10,
+    icon: '\u26A1',
+  },
+  {
+    id: 'gauntlet_void_grasp',
+    name: 'Void Grasp',
+    description: 'Grasp enemies with void energy that corrodes over time.',
+    weaponType: 'gauntlet',
+    tags: ['Spell', 'Chaos', 'Melee', 'DoT'],
+    baseDamage: 5,
+    weaponDamagePercent: 0,
+    spellPowerRatio: 0.8,
+    castTime: 1.0,
+    cooldown: 6,
+    levelRequired: 12,
+    icon: '\uD83D\uDC7E',
+    dotDuration: 4,
+    dotDamagePercent: 0.3,
+  },
+  {
+    id: 'gauntlet_elemental_burst',
+    name: 'Elemental Burst',
+    description: 'Explode with elemental fury, devastating everything nearby.',
+    weaponType: 'gauntlet',
+    tags: ['Spell', 'Fire', 'Melee', 'AoE'],
+    baseDamage: 25,
+    weaponDamagePercent: 0,
+    spellPowerRatio: 1.7,
+    castTime: 1.6,
+    cooldown: 10,
+    levelRequired: 14,
+    icon: '\uD83D\uDCA5',
+  },
+
+  // ────────────────────────────────────────────
+  // TOME (2H Spell — arcane knowledge, curses)
+  // ────────────────────────────────────────────
+  {
+    id: 'tome_incantation',
+    name: 'Incantation',
+    description: 'Read an incantation that hurls arcane energy.',
+    weaponType: 'tome',
+    tags: ['Spell', 'Physical', 'Projectile'],
+    baseDamage: 8,
+    weaponDamagePercent: 0,
+    spellPowerRatio: 1.0,
+    castTime: 1.0,
+    cooldown: 3,
+    levelRequired: 1,
+    icon: '\uD83D\uDCD6',
+  },
+  {
+    id: 'tome_eldritch_barrage',
+    name: 'Eldritch Barrage',
+    description: 'Unleash a rapid barrage of eldritch bolts.',
+    weaponType: 'tome',
+    tags: ['Spell', 'Physical', 'Projectile'],
+    baseDamage: 3,
+    weaponDamagePercent: 0,
+    spellPowerRatio: 0.45,
+    castTime: 0.9,
+    cooldown: 4,
+    levelRequired: 4,
+    icon: '\uD83D\uDCD6',
+    hitCount: 3,
+  },
+  {
+    id: 'tome_inferno_page',
+    name: 'Inferno Page',
+    description: 'Tear a page of fire from the tome, launching a searing projectile.',
+    weaponType: 'tome',
+    tags: ['Spell', 'Fire', 'Projectile'],
+    baseDamage: 7,
+    weaponDamagePercent: 0,
+    spellPowerRatio: 0.9,
+    castTime: 1.1,
+    cooldown: 5,
+    levelRequired: 6,
+    icon: '\uD83D\uDD25',
+  },
+  {
+    id: 'tome_glacial_tome',
+    name: 'Glacial Tome',
+    description: 'Invoke a passage of frost, chilling a wide area.',
+    weaponType: 'tome',
+    tags: ['Spell', 'Cold', 'Projectile', 'AoE'],
+    baseDamage: 8,
+    weaponDamagePercent: 0,
+    spellPowerRatio: 0.95,
+    castTime: 1.2,
+    cooldown: 5,
+    levelRequired: 8,
+    icon: '\u2744\uFE0F',
+  },
+  {
+    id: 'tome_thunderscript',
+    name: 'Thunderscript',
+    description: 'Read the words of thunder, striking with lightning.',
+    weaponType: 'tome',
+    tags: ['Spell', 'Lightning', 'Projectile'],
+    baseDamage: 9,
+    weaponDamagePercent: 0,
+    spellPowerRatio: 1.0,
+    castTime: 1.1,
+    cooldown: 5,
+    levelRequired: 10,
+    icon: '\u26A1',
+  },
+  {
+    id: 'tome_curse_of_decay',
+    name: 'Curse of Decay',
+    description: 'Speak a curse that rots the target from within.',
+    weaponType: 'tome',
+    tags: ['Spell', 'Chaos', 'DoT'],
+    baseDamage: 4,
+    weaponDamagePercent: 0,
+    spellPowerRatio: 0.7,
+    castTime: 1.0,
+    cooldown: 6,
+    levelRequired: 12,
+    icon: '\uD83D\uDC9C',
+    dotDuration: 5,
+    dotDamagePercent: 0.35,
+  },
+  {
+    id: 'tome_apocalypse',
+    name: 'Apocalypse',
+    description: 'Open the final chapter, raining fire and destruction.',
+    weaponType: 'tome',
+    tags: ['Spell', 'Fire', 'Projectile', 'AoE'],
+    baseDamage: 32,
+    weaponDamagePercent: 0,
+    spellPowerRatio: 1.9,
+    castTime: 2.0,
+    cooldown: 12,
+    levelRequired: 14,
+    icon: '\u2604\uFE0F',
+  },
 ];
 
 // ============================================================
-// ABILITY DEFINITIONS (24 abilities)
-// 8 weapon types x (2 buff + 1 passive each)
+// ABILITY DEFINITIONS (42 abilities)
+// 14 weapon types x (2 buff + 1 passive each)
 // Now with skill trees (converted from old mutator system)
 // ============================================================
 
@@ -1340,6 +1972,426 @@ export const ABILITY_DEFS: AbilityDef[] = [
       maxPoints: 4,
     },
   },
+
+  // ==================== Greatsword — Wide cleaves, momentum ====================
+  {
+    id: 'greatsword_momentum', name: 'Momentum', description: '1.8x damage + 1.3x clear speed for 15s.',
+    weaponType: 'greatsword', kind: 'buff', icon: '\u2694\uFE0F',
+    duration: 15, cooldown: 60,
+    effect: { damageMult: 1.8, clearSpeedMult: 1.3 },
+    skillTree: {
+      paths: [
+        { id: 'A', name: 'Sustained Momentum', description: 'Extend Momentum duration.', nodes: [
+          { id: 'gs_mom_a1', name: 'Building Speed', description: '+3s duration', tier: 1, effect: {}, durationBonus: 3 },
+          { id: 'gs_mom_a2', name: 'Sustained Momentum', description: '+7s duration', tier: 2, effect: {}, durationBonus: 7, isPathPayoff: true, requiresNodeId: 'gs_mom_a1' },
+        ]},
+        { id: 'B', name: 'Sweeping Momentum', description: 'Add double clears.', nodes: [
+          { id: 'gs_mom_b1', name: 'Wide Arc', description: '+10% clear speed', tier: 1, effect: { clearSpeedMult: 1.1 } },
+          { id: 'gs_mom_b2', name: 'Sweeping Momentum', description: 'Add double clears', tier: 2, effect: { doubleClears: true }, isPathPayoff: true, requiresNodeId: 'gs_mom_b1' },
+        ]},
+        { id: 'C', name: 'Unstoppable Force', description: 'Push damage higher.', nodes: [
+          { id: 'gs_mom_c1', name: 'Heavy Swings', description: '+20% damage', tier: 1, effect: { damageMult: 1.2 } },
+          { id: 'gs_mom_c2', name: 'Unstoppable Force', description: '+50% damage', tier: 2, effect: { damageMult: 1.5 }, isPathPayoff: true, requiresNodeId: 'gs_mom_c1' },
+        ]},
+      ],
+      maxPoints: 4,
+    },
+  },
+  {
+    id: 'greatsword_iron_will', name: 'Iron Will', description: '2.5x defense + 15 all resists for 20s.',
+    weaponType: 'greatsword', kind: 'buff', icon: '\uD83D\uDEE1\uFE0F',
+    duration: 20, cooldown: 75,
+    effect: { defenseMult: 2.5, resistBonus: 15 },
+    skillTree: {
+      paths: [
+        { id: 'A', name: 'Enduring Will', description: 'Extend Iron Will duration.', nodes: [
+          { id: 'gs_iw_a1', name: 'Steadfast', description: '+5s duration', tier: 1, effect: {}, durationBonus: 5 },
+          { id: 'gs_iw_a2', name: 'Enduring Will', description: '+10s duration', tier: 2, effect: {}, durationBonus: 10, isPathPayoff: true, requiresNodeId: 'gs_iw_a1' },
+        ]},
+        { id: 'B', name: 'Retaliating Will', description: 'Add damage while defending.', nodes: [
+          { id: 'gs_iw_b1', name: 'Counter Force', description: '+15% damage', tier: 1, effect: { damageMult: 1.15 } },
+          { id: 'gs_iw_b2', name: 'Retaliating Will', description: '+30% damage', tier: 2, effect: { damageMult: 1.3 }, isPathPayoff: true, requiresNodeId: 'gs_iw_b1' },
+        ]},
+        { id: 'C', name: 'Unyielding Will', description: 'Boost defense and resists further.', nodes: [
+          { id: 'gs_iw_c1', name: 'Reinforced', description: '+10 all resists', tier: 1, effect: { resistBonus: 10 } },
+          { id: 'gs_iw_c2', name: 'Unyielding Will', description: '+25 all resists', tier: 2, effect: { resistBonus: 25 }, isPathPayoff: true, requiresNodeId: 'gs_iw_c1' },
+        ]},
+      ],
+      maxPoints: 4,
+    },
+  },
+  {
+    id: 'greatsword_heavy_impact', name: 'Heavy Impact', description: '+20% damage + 20% crit damage (passive).',
+    weaponType: 'greatsword', kind: 'passive', icon: '\u2694\uFE0F',
+    effect: { damageMult: 1.2, critMultiplierBonus: 20 },
+    skillTree: {
+      paths: [
+        { id: 'A', name: 'Lethal Impact', description: 'Focus on crit damage.', nodes: [
+          { id: 'gs_hi_a1', name: 'Deep Wounds', description: '+10% crit damage', tier: 1, effect: { critMultiplierBonus: 10 } },
+          { id: 'gs_hi_a2', name: 'Lethal Impact', description: '+30% crit damage, less raw damage', tier: 2, effect: { damageMult: 1.0, critMultiplierBonus: 30 }, isPathPayoff: true, requiresNodeId: 'gs_hi_a1' },
+        ]},
+        { id: 'B', name: 'Cleaving Impact', description: 'Add clear speed.', nodes: [
+          { id: 'gs_hi_b1', name: 'Wide Swings', description: '+8% clear speed', tier: 1, effect: { clearSpeedMult: 1.08 } },
+          { id: 'gs_hi_b2', name: 'Cleaving Impact', description: '+15% damage + 15% clear speed', tier: 2, effect: { damageMult: 1.15, clearSpeedMult: 1.15 }, isPathPayoff: true, requiresNodeId: 'gs_hi_b1' },
+        ]},
+        { id: 'C', name: 'Crushing Impact', description: 'Pure damage increase.', nodes: [
+          { id: 'gs_hi_c1', name: 'Heavy Blade', description: '+10% damage', tier: 1, effect: { damageMult: 1.1 } },
+          { id: 'gs_hi_c2', name: 'Crushing Impact', description: '+30% damage total', tier: 2, effect: { damageMult: 1.3 }, isPathPayoff: true, requiresNodeId: 'gs_hi_c1' },
+        ]},
+      ],
+      maxPoints: 4,
+    },
+  },
+
+  // ==================== Greataxe — Brutal, bleeds ====================
+  {
+    id: 'greataxe_bloodrage', name: 'Bloodrage', description: '2x damage + 1.2x attack speed for 15s.',
+    weaponType: 'greataxe', kind: 'buff', icon: '\uD83E\uDE78',
+    duration: 15, cooldown: 60,
+    effect: { damageMult: 2.0, attackSpeedMult: 1.2 },
+    skillTree: {
+      paths: [
+        { id: 'A', name: 'Prolonged Rage', description: 'Extend Bloodrage duration.', nodes: [
+          { id: 'ga_br_a1', name: 'Festering Rage', description: '+3s duration', tier: 1, effect: {}, durationBonus: 3 },
+          { id: 'ga_br_a2', name: 'Prolonged Rage', description: '+7s duration', tier: 2, effect: {}, durationBonus: 7, isPathPayoff: true, requiresNodeId: 'ga_br_a1' },
+        ]},
+        { id: 'B', name: 'Frenzied Rage', description: 'Push attack speed higher.', nodes: [
+          { id: 'ga_br_b1', name: 'Wild Strikes', description: '+15% attack speed', tier: 1, effect: { attackSpeedMult: 1.15 } },
+          { id: 'ga_br_b2', name: 'Frenzied Rage', description: '+30% attack speed', tier: 2, effect: { attackSpeedMult: 1.3 }, isPathPayoff: true, requiresNodeId: 'ga_br_b1' },
+        ]},
+        { id: 'C', name: 'Bloodthirsty', description: 'Boost damage further.', nodes: [
+          { id: 'ga_br_c1', name: 'Savage Strikes', description: '+25% damage', tier: 1, effect: { damageMult: 1.25 } },
+          { id: 'ga_br_c2', name: 'Bloodthirsty', description: '+50% damage', tier: 2, effect: { damageMult: 1.5 }, isPathPayoff: true, requiresNodeId: 'ga_br_c1' },
+        ]},
+      ],
+      maxPoints: 4,
+    },
+  },
+  {
+    id: 'greataxe_savage_roar', name: 'Savage Roar', description: '1.5x damage + double clears for 12s.',
+    weaponType: 'greataxe', kind: 'buff', icon: '\uD83D\uDCA2',
+    duration: 12, cooldown: 75,
+    effect: { damageMult: 1.5, doubleClears: true },
+    skillTree: {
+      paths: [
+        { id: 'A', name: 'Lingering Roar', description: 'Extend Savage Roar duration.', nodes: [
+          { id: 'ga_sr_a1', name: 'Echoing Roar', description: '+3s duration', tier: 1, effect: {}, durationBonus: 3 },
+          { id: 'ga_sr_a2', name: 'Lingering Roar', description: '+6s duration', tier: 2, effect: {}, durationBonus: 6, isPathPayoff: true, requiresNodeId: 'ga_sr_a1' },
+        ]},
+        { id: 'B', name: 'Intimidating Roar', description: 'Add defense bonus.', nodes: [
+          { id: 'ga_sr_b1', name: 'Fearsome', description: '+50% defense', tier: 1, effect: { defenseMult: 1.5 } },
+          { id: 'ga_sr_b2', name: 'Intimidating Roar', description: '+2x defense', tier: 2, effect: { defenseMult: 2.0 }, isPathPayoff: true, requiresNodeId: 'ga_sr_b1' },
+        ]},
+        { id: 'C', name: 'Brutal Roar', description: 'Push damage higher.', nodes: [
+          { id: 'ga_sr_c1', name: 'Vicious', description: '+25% damage', tier: 1, effect: { damageMult: 1.25 } },
+          { id: 'ga_sr_c2', name: 'Brutal Roar', description: '+50% damage, no double clears', tier: 2, effect: { damageMult: 2.0, doubleClears: false }, isPathPayoff: true, requiresNodeId: 'ga_sr_c1' },
+        ]},
+      ],
+      maxPoints: 4,
+    },
+  },
+  {
+    id: 'greataxe_butchery', name: 'Butchery', description: '+25% damage + 10% crit chance (passive).',
+    weaponType: 'greataxe', kind: 'passive', icon: '\uD83E\uDE93',
+    effect: { damageMult: 1.25, critChanceBonus: 10 },
+    skillTree: {
+      paths: [
+        { id: 'A', name: 'Execution', description: 'Focus on crit.', nodes: [
+          { id: 'ga_bu_a1', name: 'Precise Chop', description: '+5% crit chance', tier: 1, effect: { critChanceBonus: 5 } },
+          { id: 'ga_bu_a2', name: 'Execution', description: '+15% crit chance, less raw damage', tier: 2, effect: { damageMult: 1.1, critChanceBonus: 15 }, isPathPayoff: true, requiresNodeId: 'ga_bu_a1' },
+        ]},
+        { id: 'B', name: 'Scavenging Strikes', description: 'Add material drops.', nodes: [
+          { id: 'ga_bu_b1', name: 'Resourceful', description: '+8% material drops', tier: 1, effect: { materialDropMult: 1.08 } },
+          { id: 'ga_bu_b2', name: 'Scavenging Strikes', description: '+15% material drops', tier: 2, effect: { materialDropMult: 1.15 }, isPathPayoff: true, requiresNodeId: 'ga_bu_b1' },
+        ]},
+        { id: 'C', name: 'Merciless', description: 'Pure damage stacking.', nodes: [
+          { id: 'ga_bu_c1', name: 'Savage Force', description: '+10% damage', tier: 1, effect: { damageMult: 1.1 } },
+          { id: 'ga_bu_c2', name: 'Merciless', description: '+35% damage total', tier: 2, effect: { damageMult: 1.35 }, isPathPayoff: true, requiresNodeId: 'ga_bu_c1' },
+        ]},
+      ],
+      maxPoints: 4,
+    },
+  },
+
+  // ==================== Maul — Ground slams, tanky ====================
+  {
+    id: 'maul_earthquake', name: 'Earthquake', description: '2.2x damage + 1.2x clear speed for 12s.',
+    weaponType: 'maul', kind: 'buff', icon: '\uD83C\uDF0B',
+    duration: 12, cooldown: 60,
+    effect: { damageMult: 2.2, clearSpeedMult: 1.2 },
+    skillTree: {
+      paths: [
+        { id: 'A', name: 'Aftershock', description: 'Extend Earthquake duration.', nodes: [
+          { id: 'maul_eq_a1', name: 'Tremors', description: '+3s duration', tier: 1, effect: {}, durationBonus: 3 },
+          { id: 'maul_eq_a2', name: 'Aftershock', description: '+6s duration', tier: 2, effect: {}, durationBonus: 6, isPathPayoff: true, requiresNodeId: 'maul_eq_a1' },
+        ]},
+        { id: 'B', name: 'Fissure', description: 'Add material drops.', nodes: [
+          { id: 'maul_eq_b1', name: 'Cracked Ground', description: '+10% material drops', tier: 1, effect: { materialDropMult: 1.1 } },
+          { id: 'maul_eq_b2', name: 'Fissure', description: '+25% material drops', tier: 2, effect: { materialDropMult: 1.25 }, isPathPayoff: true, requiresNodeId: 'maul_eq_b1' },
+        ]},
+        { id: 'C', name: 'Tectonic Slam', description: 'Push damage higher.', nodes: [
+          { id: 'maul_eq_c1', name: 'Heavy Impact', description: '+20% damage', tier: 1, effect: { damageMult: 1.2 } },
+          { id: 'maul_eq_c2', name: 'Tectonic Slam', description: '+50% damage', tier: 2, effect: { damageMult: 1.5 }, isPathPayoff: true, requiresNodeId: 'maul_eq_c1' },
+        ]},
+      ],
+      maxPoints: 4,
+    },
+  },
+  {
+    id: 'maul_stone_skin', name: 'Stone Skin', description: '3x defense + 20 all resists for 20s.',
+    weaponType: 'maul', kind: 'buff', icon: '\uD83C\uDFF0',
+    duration: 20, cooldown: 75,
+    effect: { defenseMult: 3.0, resistBonus: 20 },
+    skillTree: {
+      paths: [
+        { id: 'A', name: 'Enduring Stone', description: 'Extend Stone Skin duration.', nodes: [
+          { id: 'maul_ss_a1', name: 'Hardened', description: '+5s duration', tier: 1, effect: {}, durationBonus: 5 },
+          { id: 'maul_ss_a2', name: 'Enduring Stone', description: '+10s duration', tier: 2, effect: {}, durationBonus: 10, isPathPayoff: true, requiresNodeId: 'maul_ss_a1' },
+        ]},
+        { id: 'B', name: 'Retaliating Stone', description: 'Add damage while defended.', nodes: [
+          { id: 'maul_ss_b1', name: 'Thorns', description: '+15% damage', tier: 1, effect: { damageMult: 1.15 } },
+          { id: 'maul_ss_b2', name: 'Retaliating Stone', description: '+30% damage', tier: 2, effect: { damageMult: 1.3 }, isPathPayoff: true, requiresNodeId: 'maul_ss_b1' },
+        ]},
+        { id: 'C', name: 'Mountain\'s Resolve', description: 'Boost resists and defense further.', nodes: [
+          { id: 'maul_ss_c1', name: 'Iron Core', description: '+15 all resists', tier: 1, effect: { resistBonus: 15 } },
+          { id: 'maul_ss_c2', name: 'Mountain\'s Resolve', description: '+30 all resists', tier: 2, effect: { resistBonus: 30 }, isPathPayoff: true, requiresNodeId: 'maul_ss_c1' },
+        ]},
+      ],
+      maxPoints: 4,
+    },
+  },
+  {
+    id: 'maul_crushing_weight', name: 'Crushing Weight', description: '+15% damage + 15% defense (passive).',
+    weaponType: 'maul', kind: 'passive', icon: '\uD83D\uDD28',
+    effect: { damageMult: 1.15, defenseMult: 1.15 },
+    skillTree: {
+      paths: [
+        { id: 'A', name: 'Immovable', description: 'Focus on defense.', nodes: [
+          { id: 'maul_cw_a1', name: 'Sturdy', description: '+10% defense', tier: 1, effect: { defenseMult: 1.1 } },
+          { id: 'maul_cw_a2', name: 'Immovable', description: '+30% defense, less damage', tier: 2, effect: { damageMult: 1.0, defenseMult: 1.3 }, isPathPayoff: true, requiresNodeId: 'maul_cw_a1' },
+        ]},
+        { id: 'B', name: 'Weighted Blows', description: 'Focus on damage.', nodes: [
+          { id: 'maul_cw_b1', name: 'Heavy Hitter', description: '+10% damage', tier: 1, effect: { damageMult: 1.1 } },
+          { id: 'maul_cw_b2', name: 'Weighted Blows', description: '+30% damage, less defense', tier: 2, effect: { damageMult: 1.3, defenseMult: 1.0 }, isPathPayoff: true, requiresNodeId: 'maul_cw_b1' },
+        ]},
+        { id: 'C', name: 'Balanced Might', description: 'Enhance both equally.', nodes: [
+          { id: 'maul_cw_c1', name: 'Steady', description: '+5% damage + 5% defense', tier: 1, effect: { damageMult: 1.05, defenseMult: 1.05 } },
+          { id: 'maul_cw_c2', name: 'Balanced Might', description: '+20% damage + 20% defense', tier: 2, effect: { damageMult: 1.2, defenseMult: 1.2 }, isPathPayoff: true, requiresNodeId: 'maul_cw_c1' },
+        ]},
+      ],
+      maxPoints: 4,
+    },
+  },
+
+  // ==================== Scepter — Divine hybrid, phys+ele ====================
+  {
+    id: 'scepter_divine_favor', name: 'Divine Favor', description: '1.8x damage + 25 all resists for 15s.',
+    weaponType: 'scepter', kind: 'buff', icon: '\uD83D\uDD31',
+    duration: 15, cooldown: 60,
+    effect: { damageMult: 1.8, resistBonus: 25 },
+    skillTree: {
+      paths: [
+        { id: 'A', name: 'Lasting Favor', description: 'Extend Divine Favor duration.', nodes: [
+          { id: 'scep_df_a1', name: 'Blessed', description: '+4s duration', tier: 1, effect: {}, durationBonus: 4 },
+          { id: 'scep_df_a2', name: 'Lasting Favor', description: '+8s duration', tier: 2, effect: {}, durationBonus: 8, isPathPayoff: true, requiresNodeId: 'scep_df_a1' },
+        ]},
+        { id: 'B', name: 'Righteous Fury', description: 'Add crit chance.', nodes: [
+          { id: 'scep_df_b1', name: 'Holy Precision', description: '+8% crit chance', tier: 1, effect: { critChanceBonus: 8 } },
+          { id: 'scep_df_b2', name: 'Righteous Fury', description: '+15% crit chance', tier: 2, effect: { critChanceBonus: 15 }, isPathPayoff: true, requiresNodeId: 'scep_df_b1' },
+        ]},
+        { id: 'C', name: 'Empowered Favor', description: 'Boost damage further.', nodes: [
+          { id: 'scep_df_c1', name: 'Inspired', description: '+20% damage', tier: 1, effect: { damageMult: 1.2 } },
+          { id: 'scep_df_c2', name: 'Empowered Favor', description: '+40% damage', tier: 2, effect: { damageMult: 1.4 }, isPathPayoff: true, requiresNodeId: 'scep_df_c1' },
+        ]},
+      ],
+      maxPoints: 4,
+    },
+  },
+  {
+    id: 'scepter_zealotry', name: 'Zealotry', description: '1.5x damage + 1.3x XP for 12s.',
+    weaponType: 'scepter', kind: 'buff', icon: '\u2728',
+    duration: 12, cooldown: 75,
+    effect: { damageMult: 1.5, xpMult: 1.3 },
+    skillTree: {
+      paths: [
+        { id: 'A', name: 'Sustained Zeal', description: 'Extend Zealotry duration.', nodes: [
+          { id: 'scep_ze_a1', name: 'Devout', description: '+3s duration', tier: 1, effect: {}, durationBonus: 3 },
+          { id: 'scep_ze_a2', name: 'Sustained Zeal', description: '+6s duration', tier: 2, effect: {}, durationBonus: 6, isPathPayoff: true, requiresNodeId: 'scep_ze_a1' },
+        ]},
+        { id: 'B', name: 'Enlightened Zeal', description: 'Push XP bonus higher.', nodes: [
+          { id: 'scep_ze_b1', name: 'Studious', description: '+10% XP', tier: 1, effect: { xpMult: 1.1 } },
+          { id: 'scep_ze_b2', name: 'Enlightened Zeal', description: '+25% XP', tier: 2, effect: { xpMult: 1.25 }, isPathPayoff: true, requiresNodeId: 'scep_ze_b1' },
+        ]},
+        { id: 'C', name: 'Fanatical Zeal', description: 'Boost damage higher.', nodes: [
+          { id: 'scep_ze_c1', name: 'Fervent', description: '+25% damage', tier: 1, effect: { damageMult: 1.25 } },
+          { id: 'scep_ze_c2', name: 'Fanatical Zeal', description: '+50% damage, less XP', tier: 2, effect: { damageMult: 1.5, xpMult: 1.0 }, isPathPayoff: true, requiresNodeId: 'scep_ze_c1' },
+        ]},
+      ],
+      maxPoints: 4,
+    },
+  },
+  {
+    id: 'scepter_consecration', name: 'Consecration', description: '+12% crit chance + 10 all resists (passive).',
+    weaponType: 'scepter', kind: 'passive', icon: '\uD83D\uDD31',
+    effect: { critChanceBonus: 12, resistBonus: 10 },
+    skillTree: {
+      paths: [
+        { id: 'A', name: 'Holy Ground', description: 'Focus on resists.', nodes: [
+          { id: 'scep_co_a1', name: 'Sacred Ward', description: '+8 all resists', tier: 1, effect: { resistBonus: 8 } },
+          { id: 'scep_co_a2', name: 'Holy Ground', description: '+20 resists, less crit', tier: 2, effect: { critChanceBonus: 5, resistBonus: 20 }, isPathPayoff: true, requiresNodeId: 'scep_co_a1' },
+        ]},
+        { id: 'B', name: 'Divine Judgment', description: 'Focus on crit.', nodes: [
+          { id: 'scep_co_b1', name: 'Keen Judgment', description: '+5% crit chance', tier: 1, effect: { critChanceBonus: 5 } },
+          { id: 'scep_co_b2', name: 'Divine Judgment', description: '+15% crit + 15% crit damage', tier: 2, effect: { critChanceBonus: 15, critMultiplierBonus: 15 }, isPathPayoff: true, requiresNodeId: 'scep_co_b1' },
+        ]},
+        { id: 'C', name: 'Balanced Sanctity', description: 'Enhance both equally.', nodes: [
+          { id: 'scep_co_c1', name: 'Anointed', description: '+3% crit + 5 resists', tier: 1, effect: { critChanceBonus: 3, resistBonus: 5 } },
+          { id: 'scep_co_c2', name: 'Balanced Sanctity', description: '+8% crit + 12 resists', tier: 2, effect: { critChanceBonus: 8, resistBonus: 12 }, isPathPayoff: true, requiresNodeId: 'scep_co_c1' },
+        ]},
+      ],
+      maxPoints: 4,
+    },
+  },
+
+  // ==================== Gauntlet — Spell fists, elemental ====================
+  {
+    id: 'gauntlet_power_surge', name: 'Power Surge', description: '2x damage + 1.15x attack speed for 15s.',
+    weaponType: 'gauntlet', kind: 'buff', icon: '\uD83E\uDD4A',
+    duration: 15, cooldown: 60,
+    effect: { damageMult: 2.0, attackSpeedMult: 1.15 },
+    skillTree: {
+      paths: [
+        { id: 'A', name: 'Sustained Surge', description: 'Extend Power Surge duration.', nodes: [
+          { id: 'gau_ps_a1', name: 'Flowing Power', description: '+3s duration', tier: 1, effect: {}, durationBonus: 3 },
+          { id: 'gau_ps_a2', name: 'Sustained Surge', description: '+7s duration', tier: 2, effect: {}, durationBonus: 7, isPathPayoff: true, requiresNodeId: 'gau_ps_a1' },
+        ]},
+        { id: 'B', name: 'Critical Surge', description: 'Add crit bonus.', nodes: [
+          { id: 'gau_ps_b1', name: 'Focused Strikes', description: '+8% crit chance', tier: 1, effect: { critChanceBonus: 8 } },
+          { id: 'gau_ps_b2', name: 'Critical Surge', description: '+15% crit chance', tier: 2, effect: { critChanceBonus: 15 }, isPathPayoff: true, requiresNodeId: 'gau_ps_b1' },
+        ]},
+        { id: 'C', name: 'Overwhelming Surge', description: 'Push damage higher.', nodes: [
+          { id: 'gau_ps_c1', name: 'Empowered Fists', description: '+25% damage', tier: 1, effect: { damageMult: 1.25 } },
+          { id: 'gau_ps_c2', name: 'Overwhelming Surge', description: '+50% damage', tier: 2, effect: { damageMult: 1.5 }, isPathPayoff: true, requiresNodeId: 'gau_ps_c1' },
+        ]},
+      ],
+      maxPoints: 4,
+    },
+  },
+  {
+    id: 'gauntlet_arcane_shield', name: 'Arcane Shield', description: '2.5x defense + 15 all resists for 18s.',
+    weaponType: 'gauntlet', kind: 'buff', icon: '\uD83D\uDEE1\uFE0F',
+    duration: 18, cooldown: 75,
+    effect: { defenseMult: 2.5, resistBonus: 15 },
+    skillTree: {
+      paths: [
+        { id: 'A', name: 'Lasting Shield', description: 'Extend Arcane Shield duration.', nodes: [
+          { id: 'gau_as_a1', name: 'Reinforced Barrier', description: '+4s duration', tier: 1, effect: {}, durationBonus: 4 },
+          { id: 'gau_as_a2', name: 'Lasting Shield', description: '+8s duration', tier: 2, effect: {}, durationBonus: 8, isPathPayoff: true, requiresNodeId: 'gau_as_a1' },
+        ]},
+        { id: 'B', name: 'Reflective Shield', description: 'Add damage during defense.', nodes: [
+          { id: 'gau_as_b1', name: 'Energy Reflection', description: '+15% damage', tier: 1, effect: { damageMult: 1.15 } },
+          { id: 'gau_as_b2', name: 'Reflective Shield', description: '+30% damage', tier: 2, effect: { damageMult: 1.3 }, isPathPayoff: true, requiresNodeId: 'gau_as_b1' },
+        ]},
+        { id: 'C', name: 'Impenetrable Shield', description: 'Boost defense and resists.', nodes: [
+          { id: 'gau_as_c1', name: 'Warded Fists', description: '+12 all resists', tier: 1, effect: { resistBonus: 12 } },
+          { id: 'gau_as_c2', name: 'Impenetrable Shield', description: '+25 all resists', tier: 2, effect: { resistBonus: 25 }, isPathPayoff: true, requiresNodeId: 'gau_as_c1' },
+        ]},
+      ],
+      maxPoints: 4,
+    },
+  },
+  {
+    id: 'gauntlet_spell_fist', name: 'Spell Fist', description: '+20% damage + 8% crit chance (passive).',
+    weaponType: 'gauntlet', kind: 'passive', icon: '\uD83E\uDD4A',
+    effect: { damageMult: 1.2, critChanceBonus: 8 },
+    skillTree: {
+      paths: [
+        { id: 'A', name: 'Elemental Fist', description: 'Convert to crit damage.', nodes: [
+          { id: 'gau_sf_a1', name: 'Charged Strikes', description: '+10% crit damage', tier: 1, effect: { critMultiplierBonus: 10 } },
+          { id: 'gau_sf_a2', name: 'Elemental Fist', description: '+25% crit damage', tier: 2, effect: { critMultiplierBonus: 25 }, isPathPayoff: true, requiresNodeId: 'gau_sf_a1' },
+        ]},
+        { id: 'B', name: 'Swift Fist', description: 'Add attack speed.', nodes: [
+          { id: 'gau_sf_b1', name: 'Quick Jab', description: '+5% attack speed', tier: 1, effect: { attackSpeedMult: 1.05 } },
+          { id: 'gau_sf_b2', name: 'Swift Fist', description: '+10% damage + 10% attack speed', tier: 2, effect: { damageMult: 1.1, attackSpeedMult: 1.1 }, isPathPayoff: true, requiresNodeId: 'gau_sf_b1' },
+        ]},
+        { id: 'C', name: 'Iron Fist', description: 'Pure damage stacking.', nodes: [
+          { id: 'gau_sf_c1', name: 'Heavy Hands', description: '+10% damage', tier: 1, effect: { damageMult: 1.1 } },
+          { id: 'gau_sf_c2', name: 'Iron Fist', description: '+30% damage total', tier: 2, effect: { damageMult: 1.3 }, isPathPayoff: true, requiresNodeId: 'gau_sf_c1' },
+        ]},
+      ],
+      maxPoints: 4,
+    },
+  },
+
+  // ==================== Tome — Arcane knowledge, curses ====================
+  {
+    id: 'tome_forbidden_knowledge', name: 'Forbidden Knowledge', description: '2x damage + 1.2x XP for 15s.',
+    weaponType: 'tome', kind: 'buff', icon: '\uD83D\uDCD6',
+    duration: 15, cooldown: 60,
+    effect: { damageMult: 2.0, xpMult: 1.2 },
+    skillTree: {
+      paths: [
+        { id: 'A', name: 'Deep Study', description: 'Extend Forbidden Knowledge duration.', nodes: [
+          { id: 'tome_fk_a1', name: 'Engrossed', description: '+3s duration', tier: 1, effect: {}, durationBonus: 3 },
+          { id: 'tome_fk_a2', name: 'Deep Study', description: '+7s duration', tier: 2, effect: {}, durationBonus: 7, isPathPayoff: true, requiresNodeId: 'tome_fk_a1' },
+        ]},
+        { id: 'B', name: 'Arcane Mastery', description: 'Push XP bonus higher.', nodes: [
+          { id: 'tome_fk_b1', name: 'Quick Learner', description: '+10% XP', tier: 1, effect: { xpMult: 1.1 } },
+          { id: 'tome_fk_b2', name: 'Arcane Mastery', description: '+25% XP', tier: 2, effect: { xpMult: 1.25 }, isPathPayoff: true, requiresNodeId: 'tome_fk_b1' },
+        ]},
+        { id: 'C', name: 'Dark Knowledge', description: 'Push damage higher.', nodes: [
+          { id: 'tome_fk_c1', name: 'Empowered Pages', description: '+25% damage', tier: 1, effect: { damageMult: 1.25 } },
+          { id: 'tome_fk_c2', name: 'Dark Knowledge', description: '+50% damage', tier: 2, effect: { damageMult: 1.5 }, isPathPayoff: true, requiresNodeId: 'tome_fk_c1' },
+        ]},
+      ],
+      maxPoints: 4,
+    },
+  },
+  {
+    id: 'tome_eldritch_ward', name: 'Eldritch Ward', description: '2x defense + ignore hazards for 18s.',
+    weaponType: 'tome', kind: 'buff', icon: '\uD83D\uDD2E',
+    duration: 18, cooldown: 90,
+    effect: { defenseMult: 2.0, ignoreHazards: true },
+    skillTree: {
+      paths: [
+        { id: 'A', name: 'Lasting Ward', description: 'Extend Eldritch Ward duration.', nodes: [
+          { id: 'tome_ew_a1', name: 'Persistent Glyph', description: '+4s duration', tier: 1, effect: {}, durationBonus: 4 },
+          { id: 'tome_ew_a2', name: 'Lasting Ward', description: '+8s duration', tier: 2, effect: {}, durationBonus: 8, isPathPayoff: true, requiresNodeId: 'tome_ew_a1' },
+        ]},
+        { id: 'B', name: 'Fortified Ward', description: 'Add resist bonus.', nodes: [
+          { id: 'tome_ew_b1', name: 'Warded Pages', description: '+15 all resists', tier: 1, effect: { resistBonus: 15 } },
+          { id: 'tome_ew_b2', name: 'Fortified Ward', description: '+30 all resists', tier: 2, effect: { resistBonus: 30 }, isPathPayoff: true, requiresNodeId: 'tome_ew_b1' },
+        ]},
+        { id: 'C', name: 'Empowered Ward', description: 'Add damage during defense.', nodes: [
+          { id: 'tome_ew_c1', name: 'Retaliating Glyphs', description: '+15% damage', tier: 1, effect: { damageMult: 1.15 } },
+          { id: 'tome_ew_c2', name: 'Empowered Ward', description: '+30% damage', tier: 2, effect: { damageMult: 1.3 }, isPathPayoff: true, requiresNodeId: 'tome_ew_c1' },
+        ]},
+      ],
+      maxPoints: 4,
+    },
+  },
+  {
+    id: 'tome_ancient_wisdom', name: 'Ancient Wisdom', description: '+15% XP + 10% item drops (passive).',
+    weaponType: 'tome', kind: 'passive', icon: '\uD83D\uDCD6',
+    effect: { xpMult: 1.15, itemDropMult: 1.1 },
+    skillTree: {
+      paths: [
+        { id: 'A', name: 'Lore Master', description: 'Focus on XP.', nodes: [
+          { id: 'tome_aw_a1', name: 'Studious', description: '+8% XP', tier: 1, effect: { xpMult: 1.08 } },
+          { id: 'tome_aw_a2', name: 'Lore Master', description: '+25% XP, less item drops', tier: 2, effect: { xpMult: 1.25, itemDropMult: 1.0 }, isPathPayoff: true, requiresNodeId: 'tome_aw_a1' },
+        ]},
+        { id: 'B', name: 'Treasure Seeker', description: 'Focus on item drops.', nodes: [
+          { id: 'tome_aw_b1', name: 'Keen Eye', description: '+5% item drops', tier: 1, effect: { itemDropMult: 1.05 } },
+          { id: 'tome_aw_b2', name: 'Treasure Seeker', description: '+20% item drops, less XP', tier: 2, effect: { xpMult: 1.0, itemDropMult: 1.2 }, isPathPayoff: true, requiresNodeId: 'tome_aw_b1' },
+        ]},
+        { id: 'C', name: 'Balanced Wisdom', description: 'Enhance both equally.', nodes: [
+          { id: 'tome_aw_c1', name: 'Insightful', description: '+5% XP + 3% items', tier: 1, effect: { xpMult: 1.05, itemDropMult: 1.03 } },
+          { id: 'tome_aw_c2', name: 'Balanced Wisdom', description: '+12% XP + 8% items', tier: 2, effect: { xpMult: 1.12, itemDropMult: 1.08 }, isPathPayoff: true, requiresNodeId: 'tome_aw_c1' },
+        ]},
+      ],
+      maxPoints: 4,
+    },
+  },
 ];
 
 // ============================================================
@@ -1408,7 +2460,7 @@ const convertedAbilities: SkillDef[] = ABILITY_DEFS.map(a => {
   };
 });
 
-/** All unified skill definitions (75). */
+/** All unified skill definitions (135). */
 export const SKILL_DEFS: SkillDef[] = [
   ...convertedActiveSkills,
   ...convertedAbilities,
