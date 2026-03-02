@@ -681,6 +681,11 @@ export interface GameState {
   // Active skills (v24)
   equippedSkills: (string | null)[];  // ActiveSkillDef IDs, 4 slots
 
+  // Unified skill bar (v25)
+  skillBar: (EquippedSkill | null)[];         // 8 unified slots
+  skillProgress: Record<string, SkillProgress>;
+  skillTimers: SkillTimerState[];
+
   // Per-clear combat sim result (v25 — ephemeral, not persisted)
   lastClearResult: CombatClearResult | null;
 

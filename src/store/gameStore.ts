@@ -15,6 +15,9 @@ import {
   CombatPhase,
   CharacterClass,
   CombatClearResult,
+  EquippedSkill,
+  SkillProgress,
+  SkillTimerState,
 } from '../types';
 import { createCharacter, resolveStats, addXp, getWeaponDamageInfo } from '../engine/character';
 import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, simulateCombatClear, applyNormalClearHp, createBossEncounter, tickBossFight, generateBossLoot, applyAbilityResists, calcHazardPenalty, BossTickResult } from '../engine/zones';
@@ -24,7 +27,7 @@ import { BOSS_VICTORY_DURATION, BOSS_DEFEAT_RECOVERY, BOSS_VICTORY_HEAL_RATIO, L
 import { pickBestItem, getEquippedWeaponType, generateId, isTwoHandedWeapon } from '../engine/items';
 import { applyCurrency } from '../engine/crafting';
 import {
-  aggregateAbilityEffects, getIncompatibleAbilities,
+  getIncompatibleAbilities,
   getEffectiveDuration, getEffectiveCooldown,
   createAbilityProgress, addAbilityXp, getAbilityXpPerClear,
   canAllocateNode, allocateNode, respecAbility as respecAbilityEngine, getRespecCost,
@@ -48,6 +51,8 @@ import {
 } from '../engine/classResource';
 import { getDefaultSkillForWeapon } from '../engine/skills';
 import { getSkillDef } from '../data/skills';
+import { aggregateSkillBarEffects, getPrimaryDamageSkill } from '../engine/unifiedSkills';
+import { getUnifiedSkillDef, ABILITY_ID_MIGRATION } from '../data/unifiedSkills';
 
 
 const INITIAL_CURRENCIES: Record<CurrencyType, number> = {
@@ -176,10 +181,11 @@ function computeNextClear(
   classDamageMult: number,
   classSpeedMult: number,
 ): { clearTime: number; clearResult: CombatClearResult | null } {
-  // Get active skill
-  const activeSkillId = state.equippedSkills?.[0];
-  const skillDef = activeSkillId ? getSkillDef(activeSkillId) : null;
-  const skill = skillDef ?? getDefaultSkillForWeapon(
+  // Get active skill — prefer unified skillBar, fall back to legacy equippedSkills
+  const primarySkill = getPrimaryDamageSkill(state.skillBar ?? []);
+  const legacySkillId = state.equippedSkills?.[0];
+  const legacySkillDef = legacySkillId ? getSkillDef(legacySkillId) : null;
+  const skill = primarySkill ?? legacySkillDef ?? getDefaultSkillForWeapon(
     state.character.equipment.mainhand?.weaponType ?? 'sword',
     state.character.level,
   );
@@ -296,6 +302,12 @@ interface GameActions {
   // Active Skills
   equipSkill: (skillId: string, slot?: number) => void;
 
+  // Unified Skill Bar
+  equipToSkillBar: (skillId: string, slotIndex: number) => void;
+  unequipSkillBarSlot: (slotIndex: number) => void;
+  toggleSkillAutoCast: (slotIndex: number) => void;
+  reorderSkillBar: (fromSlot: number, toSlot: number) => void;
+
   // Tutorial
   advanceTutorial: (step: number) => void;
 
@@ -358,6 +370,9 @@ function createInitialState(): GameState {
     totalKills: 0,
     fastestClears: {},
     equippedSkills: [null, null, null, null],
+    skillBar: [null, null, null, null, null, null, null, null],
+    skillProgress: {},
+    skillTimers: [],
     lastClearResult: null,
     tutorialStep: 1,
     lastSaveTime: Date.now(),
@@ -461,6 +476,36 @@ export const useGameStore = create<GameState & GameActions>()(
             }
           }
 
+          // Bridge: mirror weapon changes to unified skillBar
+          if (targetSlot === 'mainhand') {
+            const newSkillBar = [...state.skillBar] as (EquippedSkill | null)[];
+            const newWeaponType = item.weaponType ?? null;
+
+            // Mirror default skill to skillBar[0]
+            if (newWeaponType) {
+              const defaultSkill = getDefaultSkillForWeapon(newWeaponType, newChar.level);
+              newSkillBar[0] = defaultSkill ? { skillId: defaultSkill.id, autoCast: true } : null;
+            } else {
+              newSkillBar[0] = null;
+            }
+
+            // Clear weapon-incompatible skills from ability slots 1-4
+            if (newWeaponType) {
+              for (let i = 1; i <= 4; i++) {
+                const eq = newSkillBar[i];
+                if (!eq) continue;
+                const sDef = getUnifiedSkillDef(eq.skillId);
+                if (sDef && sDef.weaponType !== newWeaponType) {
+                  newSkillBar[i] = null;
+                }
+              }
+            }
+            // Remove skill timers for cleared slots
+            const activeSkillIds = new Set(newSkillBar.filter(Boolean).map(s => s!.skillId));
+            updates.skillTimers = (state.skillTimers ?? []).filter(t => activeSkillIds.has(t.skillId));
+            updates.skillBar = newSkillBar;
+          }
+
           // Reset class resource on gear swap (Rogue momentum)
           const cDef = getClassDef(state.character.class);
           updates.classResource = resetResourceOnEvent(state.classResource, cDef, 'gear_swap');
@@ -489,6 +534,21 @@ export const useGameStore = create<GameState & GameActions>()(
           // Clear active skills when weapon is unequipped
           if (slot === 'mainhand') {
             updates.equippedSkills = [null, null, null, null];
+            // Bridge: clear skillBar[0] + weapon-bound ability slots 1-4
+            const newSkillBar = [...state.skillBar] as (EquippedSkill | null)[];
+            newSkillBar[0] = null;
+            for (let i = 1; i <= 4; i++) {
+              const eq = newSkillBar[i];
+              if (!eq) continue;
+              const sDef = getUnifiedSkillDef(eq.skillId);
+              // Clear any skill that requires a weapon type (since weapon is removed)
+              if (sDef && sDef.weaponType) {
+                newSkillBar[i] = null;
+              }
+            }
+            const activeSkillIds = new Set(newSkillBar.filter(Boolean).map(s => s!.skillId));
+            updates.skillBar = newSkillBar;
+            updates.skillTimers = (state.skillTimers ?? []).filter(t => activeSkillIds.has(t.skillId));
           }
           return updates;
         });
@@ -590,8 +650,8 @@ export const useGameStore = create<GameState & GameActions>()(
               initialClearTime = calcGatherClearTime(state.gatheringSkills[profession].level, zone);
             }
           } else {
-            const abilityEffect = aggregateAbilityEffects(
-              state.equippedAbilities, state.abilityTimers, state.abilityProgress, Date.now(), false,
+            const abilityEffect = aggregateSkillBarEffects(
+              state.skillBar, state.skillProgress, state.skillTimers, Date.now(), false,
             );
             const classDmgMult = getClassDamageModifier(newResource, classDef);
             const classSpdMult = getClassClearSpeedModifier(newResource, classDef);
@@ -715,7 +775,7 @@ export const useGameStore = create<GameState & GameActions>()(
         const accBagDrops: Record<string, number> = {};
         let bonusMageClears = 0;
 
-        const abilityEffect = aggregateAbilityEffects(state.equippedAbilities, state.abilityTimers, state.abilityProgress, Date.now(), false);
+        const abilityEffect = aggregateSkillBarEffects(state.skillBar, state.skillProgress, state.skillTimers, Date.now(), false);
 
         // Build class resource stacks per clear
         const zoneId = state.currentZoneId!;
@@ -795,7 +855,7 @@ export const useGameStore = create<GameState & GameActions>()(
           newZoneClearCounts[zoneId] = (newZoneClearCounts[zoneId] || 0) + clearCount;
         }
 
-        // Add ability XP to all equipped abilities
+        // Add ability XP to all equipped abilities (legacy)
         const xpPerClear = getAbilityXpPerClear(zone.band);
         const totalAbilityXp = xpPerClear * clearCount;
         const newAbilityProgress = { ...state.abilityProgress };
@@ -805,16 +865,45 @@ export const useGameStore = create<GameState & GameActions>()(
           newAbilityProgress[ea.abilityId] = addAbilityXp(existing, totalAbilityXp);
         }
 
+        // Write XP to unified skillProgress for non-active skills in skillBar
+        // Build reverse map: unified ID → old ability ID
+        const reverseAbilityMap: Record<string, string> = {};
+        for (const [oldId, newId] of Object.entries(ABILITY_ID_MIGRATION)) {
+          reverseAbilityMap[newId] = oldId;
+        }
+        const newSkillProgress = { ...state.skillProgress };
+        for (const equipped of state.skillBar) {
+          if (!equipped) continue;
+          const skillDef = getUnifiedSkillDef(equipped.skillId);
+          if (!skillDef || skillDef.kind === 'active') continue;
+          const existing = newSkillProgress[equipped.skillId] ?? {
+            skillId: equipped.skillId, xp: 0, level: 0, allocatedNodes: [],
+          };
+          // Reuse addAbilityXp math via a temporary AbilityProgress conversion
+          const tempProgress = { abilityId: existing.skillId, xp: existing.xp, level: existing.level, allocatedNodes: existing.allocatedNodes };
+          const updated = addAbilityXp(tempProgress, totalAbilityXp);
+          newSkillProgress[equipped.skillId] = {
+            skillId: equipped.skillId, xp: updated.xp, level: updated.level, allocatedNodes: updated.allocatedNodes,
+          };
+          // Bridge back to abilityProgress using reverse ID mapping
+          const oldId = reverseAbilityMap[equipped.skillId];
+          if (oldId) {
+            const oldExisting = newAbilityProgress[oldId] ?? createAbilityProgress(oldId);
+            newAbilityProgress[oldId] = addAbilityXp(oldExisting, 0); // sync level from skill progress
+            newAbilityProgress[oldId] = { ...newAbilityProgress[oldId], xp: updated.xp, level: updated.level };
+          }
+        }
+
         // Advance clearStartedAt for completed clears
         const newClearStartedAt = state.clearStartedAt + clearCount * state.currentClearTime * 1000;
 
         // Recalculate currentClearTime for next clear (picks up current ability/class state)
         const cDmgMult = getClassDamageModifier(classRes, classDef);
         const cSpdMult = getClassClearSpeedModifier(classRes, classDef);
-        const updatedAbilityEffect = aggregateAbilityEffects(
-          state.equippedAbilities, state.abilityTimers, newAbilityProgress, Date.now(), false,
+        const updatedAbilityEffect = aggregateSkillBarEffects(
+          state.skillBar, newSkillProgress, state.skillTimers, Date.now(), false,
         );
-        const simState = { ...state, abilityProgress: newAbilityProgress } as GameState;
+        const simState = { ...state, abilityProgress: newAbilityProgress, skillProgress: newSkillProgress } as GameState;
         const { clearTime: newClearTime, clearResult: newClearResult } = computeNextClear(
           simState, zone, updatedAbilityEffect, cDmgMult, cSpdMult,
         );
@@ -836,6 +925,7 @@ export const useGameStore = create<GameState & GameActions>()(
           zoneClearCounts: newZoneClearCounts,
           classResource: classRes,
           abilityProgress: newAbilityProgress,
+          skillProgress: newSkillProgress,
           clearStartedAt: newClearStartedAt,
           currentClearTime: newClearTime,
           lastClearResult: newClearResult,
@@ -901,7 +991,7 @@ export const useGameStore = create<GameState & GameActions>()(
           return calcGatherClearTime(state.gatheringSkills[profession].level, zone);
         }
 
-        const abilityEffect = aggregateAbilityEffects(state.equippedAbilities, state.abilityTimers, state.abilityProgress, Date.now(), false);
+        const abilityEffect = aggregateSkillBarEffects(state.skillBar, state.skillProgress, state.skillTimers, Date.now(), false);
         const cDef = getClassDef(state.character.class);
         const classDmgMult = getClassDamageModifier(state.classResource, cDef);
         const classSpdMult = getClassClearSpeedModifier(state.classResource, cDef);
@@ -1327,7 +1417,26 @@ export const useGameStore = create<GameState & GameActions>()(
             newProgress[abilityId] = createAbilityProgress(abilityId);
           }
 
-          return { equippedAbilities: newAbilities, abilityTimers: newTimers, abilityProgress: newProgress };
+          // Bridge: also write to unified skillBar (slot 1-4 = ability slots 0-3)
+          const unifiedId = ABILITY_ID_MIGRATION[abilityId] ?? abilityId;
+          const newSkillBar = [...state.skillBar] as (EquippedSkill | null)[];
+          const autoCast = def.kind === 'passive' || def.kind === 'proc';
+          newSkillBar[slotIndex + 1] = { skillId: unifiedId, autoCast };
+
+          const newSkillTimers = (state.skillTimers ?? []).filter(t => t.skillId !== unifiedId);
+          if (def.kind === 'buff' || def.kind === 'toggle' || def.kind === 'instant' || def.kind === 'ultimate') {
+            newSkillTimers.push({ skillId: unifiedId, activatedAt: null, cooldownUntil: null });
+          }
+
+          const newSkillProgress = { ...state.skillProgress };
+          if (!newSkillProgress[unifiedId]) {
+            newSkillProgress[unifiedId] = { skillId: unifiedId, xp: 0, level: 0, allocatedNodes: [] };
+          }
+
+          return {
+            equippedAbilities: newAbilities, abilityTimers: newTimers, abilityProgress: newProgress,
+            skillBar: newSkillBar, skillTimers: newSkillTimers, skillProgress: newSkillProgress,
+          };
         });
       },
 
@@ -1338,7 +1447,14 @@ export const useGameStore = create<GameState & GameActions>()(
           const newAbilities = [...state.equippedAbilities];
           newAbilities[slotIndex] = null;
           const newTimers = state.abilityTimers.filter(t => t.abilityId !== equipped.abilityId);
-          return { equippedAbilities: newAbilities, abilityTimers: newTimers };
+
+          // Bridge: also clear unified skillBar slot
+          const unifiedId = ABILITY_ID_MIGRATION[equipped.abilityId] ?? equipped.abilityId;
+          const newSkillBar = [...state.skillBar] as (EquippedSkill | null)[];
+          newSkillBar[slotIndex + 1] = null;
+          const newSkillTimers = (state.skillTimers ?? []).filter(t => t.skillId !== unifiedId);
+
+          return { equippedAbilities: newAbilities, abilityTimers: newTimers, skillBar: newSkillBar, skillTimers: newSkillTimers };
         });
       },
 
@@ -1383,12 +1499,22 @@ export const useGameStore = create<GameState & GameActions>()(
           if (timerIdx === -1) return state;
           const timer = state.abilityTimers[timerIdx];
           const newTimers = [...state.abilityTimers];
+          const newActivatedAt = timer.activatedAt !== null ? null : Date.now();
           newTimers[timerIdx] = {
             abilityId,
-            activatedAt: timer.activatedAt !== null ? null : Date.now(),
+            activatedAt: newActivatedAt,
             cooldownUntil: null,
           };
-          return { abilityTimers: newTimers };
+
+          // Bridge: also mirror toggle state to skillTimers
+          const unifiedId = ABILITY_ID_MIGRATION[abilityId] ?? abilityId;
+          const newSkillTimers = [...(state.skillTimers ?? [])];
+          const skillTimerIdx = newSkillTimers.findIndex(t => t.skillId === unifiedId);
+          if (skillTimerIdx !== -1) {
+            newSkillTimers[skillTimerIdx] = { skillId: unifiedId, activatedAt: newActivatedAt, cooldownUntil: null };
+          }
+
+          return { abilityTimers: newTimers, skillTimers: newSkillTimers };
         });
       },
 
@@ -1402,19 +1528,28 @@ export const useGameStore = create<GameState & GameActions>()(
           // Passive and proc abilities can't be activated
           if (def.kind === 'passive' || def.kind === 'proc') return state;
 
+          const unifiedId = ABILITY_ID_MIGRATION[abilityId] ?? abilityId;
+
           // Toggle: delegate
           if (def.kind === 'toggle') {
             const timerIdx = state.abilityTimers.findIndex(t => t.abilityId === abilityId);
             if (timerIdx === -1) return state;
             const timer = state.abilityTimers[timerIdx];
             const newTimers = [...state.abilityTimers];
+            const newActivatedAt = timer.activatedAt !== null ? null : Date.now();
             // Toggle: activatedAt !== null means ON, null means OFF
             newTimers[timerIdx] = {
               abilityId,
-              activatedAt: timer.activatedAt !== null ? null : Date.now(),
+              activatedAt: newActivatedAt,
               cooldownUntil: null,
             };
-            return { abilityTimers: newTimers };
+            // Bridge: mirror toggle to skillTimers
+            const newSkillTimers = [...(state.skillTimers ?? [])];
+            const stIdx = newSkillTimers.findIndex(t => t.skillId === unifiedId);
+            if (stIdx !== -1) {
+              newSkillTimers[stIdx] = { skillId: unifiedId, activatedAt: newActivatedAt, cooldownUntil: null };
+            }
+            return { abilityTimers: newTimers, skillTimers: newSkillTimers };
           }
 
           const now = Date.now();
@@ -1446,8 +1581,19 @@ export const useGameStore = create<GameState & GameActions>()(
             };
           }
 
+          // Bridge: mirror timer changes to skillTimers
+          const newSkillTimers = [...(state.skillTimers ?? [])];
+          const stIdx = newSkillTimers.findIndex(t => t.skillId === unifiedId);
+          if (stIdx !== -1) {
+            newSkillTimers[stIdx] = {
+              skillId: unifiedId,
+              activatedAt: newTimers[timerIdx].activatedAt,
+              cooldownUntil: newTimers[timerIdx].cooldownUntil,
+            };
+          }
+
           // Mage: increment arcane charges on ability activation
-          const updates: Partial<GameState> = { abilityTimers: newTimers };
+          const updates: Partial<GameState> = { abilityTimers: newTimers, skillTimers: newSkillTimers };
           const cDef = getClassDef(state.character.class);
           if (cDef.resourceType === 'arcane_charges') {
             let newStacks = state.classResource.stacks + 1;
@@ -1464,8 +1610,8 @@ export const useGameStore = create<GameState & GameActions>()(
             // Recalculate clear time with new ability state
             const zone = ZONE_DEFS.find(z => z.id === state.currentZoneId);
             if (zone) {
-              const newAbilityEffect = aggregateAbilityEffects(
-                state.equippedAbilities, newTimers, state.abilityProgress, now, false,
+              const newAbilityEffect = aggregateSkillBarEffects(
+                state.skillBar, state.skillProgress, state.skillTimers, now, false,
               );
               const classDmgMult = getClassDamageModifier(updates.classResource ?? state.classResource, cDef);
               const classSpdMult = getClassClearSpeedModifier(updates.classResource ?? state.classResource, cDef);
@@ -1504,7 +1650,11 @@ export const useGameStore = create<GameState & GameActions>()(
         const newSkills = [...state.equippedSkills];
         newSkills[slotIdx] = skillId;
 
-        const updates: Partial<GameState> = { equippedSkills: newSkills };
+        // Bridge: also set skillBar[0] for active skill
+        const newSkillBar = [...state.skillBar] as (EquippedSkill | null)[];
+        newSkillBar[0] = { skillId, autoCast: true };
+
+        const updates: Partial<GameState> = { equippedSkills: newSkills, skillBar: newSkillBar };
 
         // Mid-clear recalculation (same pattern as activateAbility)
         if (state.idleStartTime && state.currentZoneId && state.currentClearTime > 0) {
@@ -1516,8 +1666,8 @@ export const useGameStore = create<GameState & GameActions>()(
           const zone = ZONE_DEFS.find(z => z.id === state.currentZoneId);
           if (zone) {
             const cDef = getClassDef(state.character.class);
-            const abilityEffect = aggregateAbilityEffects(
-              state.equippedAbilities, state.abilityTimers, state.abilityProgress, now, false,
+            const abilityEffect = aggregateSkillBarEffects(
+              state.skillBar, state.skillProgress, state.skillTimers, now, false,
             );
             const classDmgMult = getClassDamageModifier(state.classResource, cDef);
             const classSpdMult = getClassClearSpeedModifier(state.classResource, cDef);
@@ -1533,6 +1683,118 @@ export const useGameStore = create<GameState & GameActions>()(
         }
 
         set(updates);
+      },
+
+      // ── Unified Skill Bar Actions ──
+
+      equipToSkillBar: (skillId: string, slotIndex: number) => {
+        const state = get();
+        if (slotIndex < 0 || slotIndex >= 8) return;
+
+        const skillDef = getUnifiedSkillDef(skillId);
+        if (!skillDef) return;
+
+        // Validate weapon compatibility
+        const mainhand = state.character.equipment.mainhand;
+        if (mainhand?.weaponType && skillDef.weaponType !== mainhand.weaponType) return;
+
+        // Validate level requirement
+        if (state.character.level < skillDef.levelRequired) return;
+
+        const newSkillBar = [...state.skillBar] as (EquippedSkill | null)[];
+
+        // If skill already in another slot, clear that slot
+        const existingIdx = newSkillBar.findIndex(s => s?.skillId === skillId);
+        if (existingIdx !== -1 && existingIdx !== slotIndex) {
+          newSkillBar[existingIdx] = null;
+        }
+
+        // autoCast defaults: active/passive/proc = true, buff/toggle/instant/ultimate = false
+        const autoCast = skillDef.kind === 'active' || skillDef.kind === 'passive' || skillDef.kind === 'proc';
+        newSkillBar[slotIndex] = { skillId, autoCast };
+
+        const updates: Partial<GameState> = { skillBar: newSkillBar };
+
+        // Init skillProgress if missing
+        const newProgress = { ...state.skillProgress };
+        if (!newProgress[skillId]) {
+          newProgress[skillId] = { skillId, xp: 0, level: 0, allocatedNodes: [] };
+          updates.skillProgress = newProgress;
+        }
+
+        // Init skillTimers entry for buff/toggle/instant/ultimate
+        if (skillDef.kind === 'buff' || skillDef.kind === 'toggle' || skillDef.kind === 'instant' || skillDef.kind === 'ultimate') {
+          const newTimers = state.skillTimers.filter(t => t.skillId !== skillId);
+          newTimers.push({ skillId, activatedAt: null, cooldownUntil: null });
+          updates.skillTimers = newTimers;
+        }
+
+        // Mid-clear recalc if running
+        if (state.idleStartTime && state.currentZoneId && state.currentClearTime > 0) {
+          const now = Date.now();
+          const progress = (now - state.clearStartedAt) / (state.currentClearTime * 1000);
+          const clampedProgress = Math.min(Math.max(progress, 0), 0.99);
+          const zone = ZONE_DEFS.find(z => z.id === state.currentZoneId);
+          if (zone) {
+            const abilityEffect = aggregateSkillBarEffects(
+              newSkillBar, updates.skillProgress ?? state.skillProgress,
+              updates.skillTimers ?? state.skillTimers, now, false,
+            );
+            const cDef = getClassDef(state.character.class);
+            const classDmgMult = getClassDamageModifier(state.classResource, cDef);
+            const classSpdMult = getClassClearSpeedModifier(state.classResource, cDef);
+            const tempState = { ...state, skillBar: newSkillBar, equippedSkills: newSkillBar[0]?.skillId ? [newSkillBar[0].skillId, null, null, null] : state.equippedSkills };
+            const { clearTime: newClearTime, clearResult: newClearResult } = computeNextClear(
+              tempState, zone, abilityEffect, classDmgMult, classSpdMult,
+            );
+            updates.clearStartedAt = now - clampedProgress * newClearTime * 1000;
+            updates.currentClearTime = newClearTime;
+            updates.lastClearResult = newClearResult;
+          }
+        }
+
+        set(updates);
+      },
+
+      unequipSkillBarSlot: (slotIndex: number) => {
+        set((state) => {
+          if (slotIndex < 0 || slotIndex >= 8) return state;
+          const equipped = state.skillBar[slotIndex];
+          if (!equipped) return state;
+
+          const newSkillBar = [...state.skillBar] as (EquippedSkill | null)[];
+          newSkillBar[slotIndex] = null;
+
+          // Remove from skillTimers but preserve skillProgress
+          const newTimers = state.skillTimers.filter(t => t.skillId !== equipped.skillId);
+
+          return { skillBar: newSkillBar, skillTimers: newTimers };
+        });
+      },
+
+      toggleSkillAutoCast: (slotIndex: number) => {
+        set((state) => {
+          if (slotIndex < 0 || slotIndex >= 8) return state;
+          const equipped = state.skillBar[slotIndex];
+          if (!equipped) return state;
+
+          const newSkillBar = [...state.skillBar] as (EquippedSkill | null)[];
+          newSkillBar[slotIndex] = { ...equipped, autoCast: !equipped.autoCast };
+          return { skillBar: newSkillBar };
+        });
+      },
+
+      reorderSkillBar: (fromSlot: number, toSlot: number) => {
+        set((state) => {
+          if (fromSlot < 0 || fromSlot >= 8 || toSlot < 0 || toSlot >= 8) return state;
+          if (fromSlot === toSlot) return state;
+
+          const newSkillBar = [...state.skillBar] as (EquippedSkill | null)[];
+          const temp = newSkillBar[fromSlot];
+          newSkillBar[fromSlot] = newSkillBar[toSlot];
+          newSkillBar[toSlot] = temp;
+          return { skillBar: newSkillBar };
+        });
       },
 
       // Class resource time decay (called from 250ms timer)
@@ -1553,7 +1815,7 @@ export const useGameStore = create<GameState & GameActions>()(
         if (!state.currentZoneId) return;
         const zone = ZONE_DEFS.find(z => z.id === state.currentZoneId);
         if (!zone) return;
-        const abilityEffect = aggregateAbilityEffects(state.equippedAbilities, state.abilityTimers, state.abilityProgress, Date.now(), false);
+        const abilityEffect = aggregateSkillBarEffects(state.skillBar, state.skillProgress, state.skillTimers, Date.now(), false);
         const boss = createBossEncounter(state.character, zone, abilityEffect, state.equippedSkills);
         set({
           combatPhase: 'boss_fight' as CombatPhase,
@@ -1688,7 +1950,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 24,
+      version: 25,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -1729,6 +1991,11 @@ export const useGameStore = create<GameState & GameActions>()(
             return;
           }
 
+          // Null guards for unified skill bar fields
+          if (!state.skillBar) state.skillBar = [null, null, null, null, null, null, null, null];
+          if (!state.skillProgress) state.skillProgress = {};
+          if (!state.skillTimers) state.skillTimers = [];
+
           // Clean up stale ability timers
           if (state.abilityTimers) {
             state.abilityTimers = state.abilityTimers.map(t => ({
@@ -1736,6 +2003,18 @@ export const useGameStore = create<GameState & GameActions>()(
               cooldownUntil: t.cooldownUntil && t.cooldownUntil < Date.now() ? null : t.cooldownUntil,
               activatedAt: null, // Clear active buffs after offline
             }));
+          }
+
+          // Clean up stale skill timers (mirror ability timer cleanup)
+          if (state.skillTimers && state.skillTimers.length > 0) {
+            state.skillTimers = state.skillTimers.map(t => ({
+              ...t,
+              cooldownUntil: t.cooldownUntil && t.cooldownUntil < Date.now() ? null : t.cooldownUntil,
+              activatedAt: null, // Clear active buffs after offline
+            }));
+            // Remove timers for skills no longer in the skill bar
+            const equippedSkillIds = new Set(state.skillBar.filter(Boolean).map(s => s!.skillId));
+            state.skillTimers = state.skillTimers.filter(t => equippedSkillIds.has(t.skillId));
           }
 
           if (idleMode === 'gathering') {
@@ -1794,10 +2073,10 @@ export const useGameStore = create<GameState & GameActions>()(
           }
 
           // Combat mode offline simulation — passive-only ability effects
-          const passiveEffect = aggregateAbilityEffects(
-            state.equippedAbilities ?? [null, null, null, null],
-            state.abilityTimers ?? [],
-            state.abilityProgress ?? {},
+          const passiveEffect = aggregateSkillBarEffects(
+            state.skillBar ?? [null, null, null, null, null, null, null, null],
+            state.skillProgress ?? {},
+            state.skillTimers ?? [],
             Date.now(),
             true, // offlineMode: passives only
           );
@@ -2126,6 +2405,54 @@ export const useGameStore = create<GameState & GameActions>()(
           } else {
             raw.equippedSkills = [null, null, null, null];
           }
+        }
+
+        if (version < 25) {
+          // v25: Unified skill bar — migrate equippedSkills + equippedAbilities → skillBar
+          const skillBar: (EquippedSkill | null)[] = [null, null, null, null, null, null, null, null];
+          const skillProgress: Record<string, SkillProgress> = {};
+          const skillTimers: SkillTimerState[] = [];
+
+          // Slot 0: active skill from equippedSkills[0]
+          const activeId = (state.equippedSkills as (string | null)[] | undefined)?.[0];
+          if (activeId) {
+            skillBar[0] = { skillId: activeId, autoCast: true };
+          }
+
+          // Slots 1-4: abilities from equippedAbilities[0-3] with ID migration
+          const abilities = (state.equippedAbilities ?? []) as ({ abilityId: string; selectedMutatorId: string | null } | null)[];
+          const abilityProg = (state.abilityProgress ?? {}) as Record<string, { abilityId: string; xp: number; level: number; allocatedNodes: string[] }>;
+
+          for (let i = 0; i < 4; i++) {
+            const ea = abilities[i];
+            if (!ea) continue;
+            const unifiedId = ABILITY_ID_MIGRATION[ea.abilityId] ?? ea.abilityId;
+            const sDef = getUnifiedSkillDef(unifiedId);
+            const autoCast = sDef ? (sDef.kind === 'passive' || sDef.kind === 'proc') : false;
+            skillBar[i + 1] = { skillId: unifiedId, autoCast };
+
+            // Migrate ability progress to skill progress
+            const oldProg = abilityProg[ea.abilityId];
+            if (oldProg) {
+              skillProgress[unifiedId] = {
+                skillId: unifiedId,
+                xp: oldProg.xp,
+                level: oldProg.level,
+                allocatedNodes: [...oldProg.allocatedNodes],
+              };
+            } else {
+              skillProgress[unifiedId] = { skillId: unifiedId, xp: 0, level: 0, allocatedNodes: [] };
+            }
+
+            // Init timers for buff/toggle/instant/ultimate kinds
+            if (sDef && (sDef.kind === 'buff' || sDef.kind === 'toggle' || sDef.kind === 'instant' || sDef.kind === 'ultimate')) {
+              skillTimers.push({ skillId: unifiedId, activatedAt: null, cooldownUntil: null });
+            }
+          }
+
+          raw.skillBar = skillBar;
+          raw.skillProgress = skillProgress;
+          raw.skillTimers = skillTimers;
         }
 
         return state;
