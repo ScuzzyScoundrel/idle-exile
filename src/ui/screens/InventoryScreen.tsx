@@ -87,7 +87,6 @@ export default function InventoryScreen() {
   const inventoryCapacity = calcBagCapacity(bagSlots);
   const detailRef = useRef<HTMLDivElement>(null);
   const [materialsOpen, setMaterialsOpen] = useState(true);
-  const [currencyOpen, setCurrencyOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [selectedCurrency, setSelectedCurrency] = useState<CurrencyType | null>(null);
   const [filter, setFilter] = useState<GearSlot | 'all'>('all');
@@ -246,11 +245,6 @@ export default function InventoryScreen() {
 
   const handleCraft = (item: Item) => {
     if (!selectedCurrency) return;
-    // Mobile confirmation before applying currency
-    if (isMobile) {
-      const currDef = CURRENCY_DEFS.find(c => c.id === selectedCurrency);
-      if (currDef && !confirm(`Apply ${currDef.name} to ${item.name}?`)) return;
-    }
     const affixKey = (a: Affix) => `${a.defId}:${a.tier}:${a.value}`;
     const beforeAll = [...item.prefixes, ...item.suffixes];
     const beforeKeys = new Set(beforeAll.map(affixKey));
@@ -419,8 +413,8 @@ export default function InventoryScreen() {
             )}
           </div>
 
-          {/* Mobile currency selector (inside bottom sheet) */}
-          {isMobile && !isSelectedEquipped && hasCurrencies && (
+          {/* Inline currency selector (inside detail panel) */}
+          {hasCurrencies && (
             <div className="flex gap-1.5 flex-wrap pt-1">
               {CURRENCY_DEFS.filter((c) => currencies[c.id] > 0).map((cur) => (
                 <button
@@ -521,73 +515,6 @@ export default function InventoryScreen() {
       </div>
 
       {/* Currency Bar */}
-      {hasCurrencies && (
-        <div className="bg-gray-800 rounded-lg overflow-hidden">
-          <button
-            onClick={() => setCurrencyOpen(!currencyOpen)}
-            className="w-full flex items-center justify-between px-3 py-2 text-sm font-bold text-gray-300 hover:bg-gray-700 transition-colors"
-          >
-            <span>💎 Currency</span>
-            <span className="text-xs text-gray-500">{currencyOpen ? '▲' : '▼'}</span>
-          </button>
-
-          {!currencyOpen && (
-            <div className="flex gap-2 px-3 pb-2 flex-wrap">
-              {CURRENCY_DEFS.filter((c) => currencies[c.id] > 0).map((cur) => (
-                <button
-                  key={cur.id}
-                  onClick={() => setSelectedCurrency(selectedCurrency === cur.id ? null : cur.id)}
-                  className={`
-                    flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-all
-                    ${selectedCurrency === cur.id
-                      ? 'bg-purple-600 text-white ring-1 ring-purple-400'
-                      : 'bg-gray-900 text-gray-400 hover:bg-gray-700'}
-                  `}
-                >
-                  <span>{cur.icon}</span>
-                  <span className="font-semibold">{currencies[cur.id]}</span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {currencyOpen && (
-            <div className="grid grid-cols-3 gap-1 px-3 pb-3">
-              {CURRENCY_DEFS.map((cur) => {
-                const count = currencies[cur.id];
-                return (
-                  <button
-                    key={cur.id}
-                    onClick={() => setSelectedCurrency(selectedCurrency === cur.id ? null : cur.id)}
-                    disabled={count === 0}
-                    title={cur.description}
-                    className={`
-                      p-2 rounded-lg text-center transition-all
-                      ${selectedCurrency === cur.id
-                        ? 'bg-purple-600 text-white ring-2 ring-purple-400'
-                        : count > 0
-                          ? 'bg-gray-900 text-gray-300 hover:bg-gray-700'
-                          : 'bg-gray-900 text-gray-600 cursor-not-allowed'}
-                    `}
-                  >
-                    <div className="text-lg">{cur.icon}</div>
-                    <div className="text-xs font-semibold truncate">{cur.name.replace(' Shard', '')}</div>
-                    <div className="text-xs text-gray-400">x{count}</div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {selectedCurrencyDef && (
-            <div className="text-xs text-purple-300 px-3 pb-2 space-y-1">
-              <div className="bg-purple-950/50 rounded p-2">{selectedCurrencyDef.description}</div>
-              <div className="text-gray-500 text-xs">Click an item to apply. Auto-deselects after use.</div>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Feedback Toast */}
       {disenchantMsg && (
         <div className="bg-purple-950 border border-purple-700 rounded-lg p-2 text-xs text-purple-300">
