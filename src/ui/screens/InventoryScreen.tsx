@@ -545,45 +545,44 @@ export default function InventoryScreen() {
           <h2 className={`text-sm font-bold ${inventory.length >= inventoryCapacity ? 'text-red-400' : inventory.length >= inventoryCapacity * 0.8 ? 'text-yellow-400' : 'text-yellow-400'}`}>
             {'\u{1F392}'} Bags ({inventory.length}/{inventoryCapacity})
           </h2>
-          <div className="flex items-center gap-2">
-            {/* Auto-disposal toggle + rarity dropdown */}
-            <label className="text-xs text-gray-500">Auto:</label>
-            <div className="flex rounded overflow-hidden border border-gray-600">
-              <button
-                onClick={() => setAutoDisposalAction('salvage')}
-                className={`px-1.5 py-0.5 text-xs font-semibold transition-colors ${
-                  autoDisposalAction === 'salvage'
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-                }`}
-              >Salvage</button>
-              <button
-                onClick={() => setAutoDisposalAction('sell')}
-                className={`px-1.5 py-0.5 text-xs font-semibold transition-colors ${
-                  autoDisposalAction === 'sell'
-                    ? 'bg-yellow-600 text-white'
-                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-                }`}
-              >Sell</button>
-            </div>
-            <select
-              value={autoSalvageMinRarity}
-              onChange={(e) => setAutoSalvageRarity(e.target.value as Rarity)}
-              className="text-xs bg-gray-800 text-gray-300 border border-gray-600 rounded px-1 py-0.5"
+          {filteredInventory.length > 0 && (
+            <button
+              onClick={handleDisenchantAll}
+              className="px-2 py-0.5 rounded text-xs bg-red-900 hover:bg-red-800 text-red-300 font-semibold"
             >
-              {AUTO_SALVAGE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-            {filteredInventory.length > 0 && (
-              <button
-                onClick={handleDisenchantAll}
-                className="px-2 py-0.5 rounded text-xs bg-red-900 hover:bg-red-800 text-red-300 font-semibold"
-              >
-                Disenchant All ({filteredInventory.length})
-              </button>
-            )}
+              Disenchant All ({filteredInventory.length})
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-2 mb-1">
+          <label className="text-xs text-gray-500 shrink-0">Auto:</label>
+          <div className="flex rounded overflow-hidden border border-gray-600 shrink-0">
+            <button
+              onClick={() => setAutoDisposalAction('salvage')}
+              className={`px-2.5 py-1 text-xs font-semibold transition-colors ${
+                autoDisposalAction === 'salvage'
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+              }`}
+            >Salvage</button>
+            <button
+              onClick={() => setAutoDisposalAction('sell')}
+              className={`px-2.5 py-1 text-xs font-semibold transition-colors ${
+                autoDisposalAction === 'sell'
+                  ? 'bg-yellow-600 text-white'
+                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+              }`}
+            >Sell</button>
           </div>
+          <select
+            value={autoSalvageMinRarity}
+            onChange={(e) => setAutoSalvageRarity(e.target.value as Rarity)}
+            className="text-xs bg-gray-800 text-gray-300 border border-gray-600 rounded px-2 py-1"
+          >
+            {AUTO_SALVAGE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
         </div>
         {inventory.length >= inventoryCapacity && (
           <div className="text-xs text-amber-400 bg-amber-950/50 rounded px-2 py-1 mb-1">
