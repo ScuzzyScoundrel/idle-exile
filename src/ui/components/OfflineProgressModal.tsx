@@ -125,7 +125,7 @@ export default function OfflineProgressModal() {
               </div>
               {progress.autoSalvagedCount > 0 && (
                 <p className="text-xs text-amber-400/80 mt-2">
-                  ~{progress.autoSalvagedCount} will be auto-salvaged on claim (+{progress.autoSalvagedDust} dust)
+                  ~{progress.autoSalvagedCount} will be auto-salvaged on claim (+{progress.autoSalvagedDust} essence)
                 </p>
               )}
             </div>
@@ -178,7 +178,7 @@ export default function OfflineProgressModal() {
               {/* Salvage dust from auto-salvage */}
               {progress.autoSalvagedDust > 0 && (
                 <p className="text-xs text-gray-400">
-                  +{progress.autoSalvagedDust} salvage dust from overflow
+                  +{progress.autoSalvagedDust} enchanting essence from overflow
                 </p>
               )}
             </div>

@@ -3,7 +3,7 @@ import type { CraftingProfession } from '../types';
 import { ITEM_BASE_DEFS } from './items';
 
 // ─── Tier Constants ───────────────────────────────────────────────
-// Gold:  T1=10, T2=25, T3=50, T4=100, T5=200, T6=500
+// Gold:  T1=10, T2=25, T3=35, T4=70, T5=200, T6=500
 // iLvl:  T1=5,  T2=15, T3=25, T4=35,  T5=45,  T6=55
 // Level: T1=1,  T2=15, T3=30, T4=50,  T5=75,  T6=90
 // Mats:  T1=3,  T2=4,  T3=5,  T4=6,   T5=8,   T6=10
@@ -11,8 +11,8 @@ import { ITEM_BASE_DEFS } from './items';
 const ARMOR_TIER_CONFIG = [
   { tier: 1, reqLevel: 1, iLvl: 5, gold: 10, matAmt: 3 },
   { tier: 2, reqLevel: 15, iLvl: 15, gold: 25, matAmt: 4 },
-  { tier: 3, reqLevel: 30, iLvl: 25, gold: 50, matAmt: 5 },
-  { tier: 4, reqLevel: 50, iLvl: 35, gold: 100, matAmt: 6 },
+  { tier: 3, reqLevel: 30, iLvl: 25, gold: 35, matAmt: 5 },
+  { tier: 4, reqLevel: 50, iLvl: 35, gold: 70, matAmt: 6 },
   { tier: 5, reqLevel: 75, iLvl: 45, gold: 200, matAmt: 8 },
   { tier: 6, reqLevel: 90, iLvl: 55, gold: 500, matAmt: 10 },
 ] as const;
@@ -127,7 +127,7 @@ const weaponsmithRecipes: CraftingRecipeDef[] = [
       { materialId: 'forged_alloy', amount: 5 },
       { materialId: 'steelwood_plank', amount: 5 },
     ],
-    goldCost: 50,
+    goldCost: 35,
     outputBaseId: 'obsidian_edge',
     outputILvl: 25,
     catalystSlot: true,
@@ -142,7 +142,7 @@ const weaponsmithRecipes: CraftingRecipeDef[] = [
       { materialId: 'forged_alloy', amount: 5 },
       { materialId: 'steelwood_plank', amount: 5 },
     ],
-    goldCost: 50,
+    goldCost: 35,
     outputBaseId: 'obsidian_hammer',
     outputILvl: 25,
     catalystSlot: true,
@@ -158,7 +158,7 @@ const weaponsmithRecipes: CraftingRecipeDef[] = [
       { materialId: 'voidsteel_ingot', amount: 6 },
       { materialId: 'shadowwood_plank', amount: 6 },
     ],
-    goldCost: 100,
+    goldCost: 70,
     outputBaseId: 'mithril_blade',
     outputILvl: 35,
     catalystSlot: true,
@@ -173,7 +173,7 @@ const weaponsmithRecipes: CraftingRecipeDef[] = [
       { materialId: 'voidsteel_ingot', amount: 6 },
       { materialId: 'shadowwood_plank', amount: 6 },
     ],
-    goldCost: 100,
+    goldCost: 70,
     outputBaseId: 'mithril_waraxe',
     outputILvl: 35,
     catalystSlot: true,
@@ -255,12 +255,12 @@ const weaponsmithRecipes: CraftingRecipeDef[] = [
   {
     id: 'ws_t3_dagger', profession: 'weaponsmith', name: 'Alloy Kris', tier: 3, requiredLevel: 30,
     materials: [{ materialId: 'forged_alloy', amount: 5 }, { materialId: 'steelwood_plank', amount: 5 }],
-    goldCost: 50, outputBaseId: 'obsidian_kris', outputILvl: 25, catalystSlot: true,
+    goldCost: 35, outputBaseId: 'obsidian_kris', outputILvl: 25, catalystSlot: true,
   },
   {
     id: 'ws_t4_dagger', profession: 'weaponsmith', name: 'Voidsteel Dirk', tier: 4, requiredLevel: 50,
     materials: [{ materialId: 'voidsteel_ingot', amount: 6 }, { materialId: 'shadowwood_plank', amount: 6 }],
-    goldCost: 100, outputBaseId: 'mithril_dirk', outputILvl: 35, catalystSlot: true,
+    goldCost: 70, outputBaseId: 'mithril_dirk', outputILvl: 35, catalystSlot: true,
   },
   {
     id: 'ws_t5_dagger', profession: 'weaponsmith', name: 'Celesteel Shiv', tier: 5, requiredLevel: 75,
@@ -287,12 +287,12 @@ const weaponsmithRecipes: CraftingRecipeDef[] = [
   {
     id: 'ws_t3_wand', profession: 'weaponsmith', name: 'Alloy Wand', tier: 3, requiredLevel: 30,
     materials: [{ materialId: 'forged_alloy', amount: 5 }, { materialId: 'steelwood_plank', amount: 5 }],
-    goldCost: 50, outputBaseId: 'obsidian_wand', outputILvl: 25, catalystSlot: true,
+    goldCost: 35, outputBaseId: 'obsidian_wand', outputILvl: 25, catalystSlot: true,
   },
   {
     id: 'ws_t4_wand', profession: 'weaponsmith', name: 'Voidsteel Wand', tier: 4, requiredLevel: 50,
     materials: [{ materialId: 'voidsteel_ingot', amount: 6 }, { materialId: 'shadowwood_plank', amount: 6 }],
-    goldCost: 100, outputBaseId: 'mithril_wand', outputILvl: 35, catalystSlot: true,
+    goldCost: 70, outputBaseId: 'mithril_wand', outputILvl: 35, catalystSlot: true,
   },
   {
     id: 'ws_t5_wand', profession: 'weaponsmith', name: 'Celesteel Wand', tier: 5, requiredLevel: 75,
@@ -319,12 +319,12 @@ const weaponsmithRecipes: CraftingRecipeDef[] = [
   {
     id: 'ws_t3_bow', profession: 'weaponsmith', name: 'Alloy Longbow', tier: 3, requiredLevel: 30,
     materials: [{ materialId: 'forged_alloy', amount: 5 }, { materialId: 'steelwood_plank', amount: 5 }],
-    goldCost: 50, outputBaseId: 'obsidian_longbow', outputILvl: 25, catalystSlot: true,
+    goldCost: 35, outputBaseId: 'obsidian_longbow', outputILvl: 25, catalystSlot: true,
   },
   {
     id: 'ws_t4_bow', profession: 'weaponsmith', name: 'Voidsteel Bow', tier: 4, requiredLevel: 50,
     materials: [{ materialId: 'voidsteel_ingot', amount: 6 }, { materialId: 'shadowwood_plank', amount: 6 }],
-    goldCost: 100, outputBaseId: 'mithril_bow', outputILvl: 35, catalystSlot: true,
+    goldCost: 70, outputBaseId: 'mithril_bow', outputILvl: 35, catalystSlot: true,
   },
   {
     id: 'ws_t5_bow', profession: 'weaponsmith', name: 'Celesteel Bow', tier: 5, requiredLevel: 75,
@@ -351,12 +351,12 @@ const weaponsmithRecipes: CraftingRecipeDef[] = [
   {
     id: 'ws_t3_crossbow', profession: 'weaponsmith', name: 'Alloy Arbalest', tier: 3, requiredLevel: 30,
     materials: [{ materialId: 'forged_alloy', amount: 5 }, { materialId: 'steelwood_plank', amount: 5 }],
-    goldCost: 50, outputBaseId: 'obsidian_arbalest', outputILvl: 25, catalystSlot: true,
+    goldCost: 35, outputBaseId: 'obsidian_arbalest', outputILvl: 25, catalystSlot: true,
   },
   {
     id: 'ws_t4_crossbow', profession: 'weaponsmith', name: 'Voidsteel Crossbow', tier: 4, requiredLevel: 50,
     materials: [{ materialId: 'voidsteel_ingot', amount: 6 }, { materialId: 'shadowwood_plank', amount: 6 }],
-    goldCost: 100, outputBaseId: 'mithril_crossbow', outputILvl: 35, catalystSlot: true,
+    goldCost: 70, outputBaseId: 'mithril_crossbow', outputILvl: 35, catalystSlot: true,
   },
   {
     id: 'ws_t5_crossbow', profession: 'weaponsmith', name: 'Celesteel Arbalest', tier: 5, requiredLevel: 75,
@@ -383,12 +383,12 @@ const weaponsmithRecipes: CraftingRecipeDef[] = [
   {
     id: 'ws_t3_staff', profession: 'weaponsmith', name: 'Alloy Staff', tier: 3, requiredLevel: 30,
     materials: [{ materialId: 'forged_alloy', amount: 5 }, { materialId: 'steelwood_plank', amount: 5 }],
-    goldCost: 50, outputBaseId: 'obsidian_staff', outputILvl: 25, catalystSlot: true,
+    goldCost: 35, outputBaseId: 'obsidian_staff', outputILvl: 25, catalystSlot: true,
   },
   {
     id: 'ws_t4_staff', profession: 'weaponsmith', name: 'Voidsteel Staff', tier: 4, requiredLevel: 50,
     materials: [{ materialId: 'voidsteel_ingot', amount: 6 }, { materialId: 'shadowwood_plank', amount: 6 }],
-    goldCost: 100, outputBaseId: 'mithril_staff', outputILvl: 35, catalystSlot: true,
+    goldCost: 70, outputBaseId: 'mithril_staff', outputILvl: 35, catalystSlot: true,
   },
   {
     id: 'ws_t6_staff', profession: 'weaponsmith', name: 'Primordial Staff', tier: 6, requiredLevel: 90,
@@ -420,22 +420,22 @@ const weaponsmithRecipes: CraftingRecipeDef[] = [
   {
     id: 'ws_t3_shield', profession: 'weaponsmith', name: 'Alloy Shield', tier: 3, requiredLevel: 30,
     materials: [{ materialId: 'forged_alloy', amount: 5 }, { materialId: 'steelwood_plank', amount: 5 }],
-    goldCost: 50, outputBaseId: 'mithril_shield', outputILvl: 25, catalystSlot: true,
+    goldCost: 35, outputBaseId: 'mithril_shield', outputILvl: 25, catalystSlot: true,
   },
   {
     id: 'ws_t3_tome', profession: 'weaponsmith', name: 'Alloy Grimoire', tier: 3, requiredLevel: 30,
     materials: [{ materialId: 'forged_alloy', amount: 5 }, { materialId: 'steelwood_plank', amount: 5 }],
-    goldCost: 50, outputBaseId: 'eldritch_grimoire', outputILvl: 25, catalystSlot: true,
+    goldCost: 35, outputBaseId: 'eldritch_grimoire', outputILvl: 25, catalystSlot: true,
   },
   {
     id: 'ws_t4_buckler', profession: 'weaponsmith', name: 'Voidsteel Buckler', tier: 4, requiredLevel: 50,
     materials: [{ materialId: 'voidsteel_ingot', amount: 6 }, { materialId: 'shadowwood_plank', amount: 6 }],
-    goldCost: 100, outputBaseId: 'mithril_buckler', outputILvl: 35, catalystSlot: true,
+    goldCost: 70, outputBaseId: 'mithril_buckler', outputILvl: 35, catalystSlot: true,
   },
   {
     id: 'ws_t4_tome', profession: 'weaponsmith', name: 'Voidsteel Tome', tier: 4, requiredLevel: 50,
     materials: [{ materialId: 'voidsteel_ingot', amount: 6 }, { materialId: 'shadowwood_plank', amount: 6 }],
-    goldCost: 100, outputBaseId: 'runic_tome', outputILvl: 35, catalystSlot: true,
+    goldCost: 70, outputBaseId: 'runic_tome', outputILvl: 35, catalystSlot: true,
   },
   {
     id: 'ws_t5_shield', profession: 'weaponsmith', name: 'Celesteel Shield', tier: 5, requiredLevel: 75,
@@ -514,7 +514,7 @@ const leatherworkerRecipes: CraftingRecipeDef[] = [
   {
     id: 'lw_t4_cloak', profession: 'leatherworker', name: 'Shadow Cloak', tier: 4, requiredLevel: 50,
     materials: [{ materialId: 'shadowleather', amount: 6 }, { materialId: 'shadowwood_plank', amount: 6 }],
-    goldCost: 100, outputBaseId: 'mithril_cloak', outputILvl: 35, catalystSlot: true,
+    goldCost: 70, outputBaseId: 'mithril_cloak', outputILvl: 35, catalystSlot: true,
   },
 ];
 
@@ -621,23 +621,23 @@ const jewelerRecipes: CraftingRecipeDef[] = [
   {
     id: 'je_t3_ring', profession: 'jeweler', name: 'Gold Signet', tier: 3, requiredLevel: 30,
     materials: [{ materialId: 'forged_alloy', amount: 5 }, { materialId: 'lustral_essence', amount: 5 }],
-    goldCost: 50, outputBaseId: 'gold_signet', outputILvl: 25, catalystSlot: true,
+    goldCost: 35, outputBaseId: 'gold_signet', outputILvl: 25, catalystSlot: true,
   },
   {
     id: 'je_t3_belt', profession: 'jeweler', name: 'Alloy Girdle', tier: 3, requiredLevel: 30,
     materials: [{ materialId: 'forged_alloy', amount: 5 }, { materialId: 'lustral_essence', amount: 5 }],
-    goldCost: 50, outputBaseId: 'runed_girdle', outputILvl: 25, catalystSlot: true,
+    goldCost: 35, outputBaseId: 'runed_girdle', outputILvl: 25, catalystSlot: true,
   },
   // Tier 4
   {
     id: 'je_t4_ring', profession: 'jeweler', name: 'Ruby Setting', tier: 4, requiredLevel: 50,
     materials: [{ materialId: 'voidsteel_ingot', amount: 6 }, { materialId: 'shadow_elixir', amount: 6 }],
-    goldCost: 100, outputBaseId: 'ruby_ring', outputILvl: 35, catalystSlot: true,
+    goldCost: 70, outputBaseId: 'ruby_ring', outputILvl: 35, catalystSlot: true,
   },
   {
     id: 'je_t4_belt', profession: 'jeweler', name: 'Void Girdle', tier: 4, requiredLevel: 50,
     materials: [{ materialId: 'voidsteel_ingot', amount: 6 }, { materialId: 'shadow_elixir', amount: 6 }],
-    goldCost: 100, outputBaseId: 'mithril_belt', outputILvl: 35, catalystSlot: true,
+    goldCost: 70, outputBaseId: 'mithril_belt', outputILvl: 35, catalystSlot: true,
   },
   // Tier 5
   {
@@ -689,23 +689,23 @@ const jewelerRecipes: CraftingRecipeDef[] = [
   {
     id: 'je_t3_pendant', profession: 'jeweler', name: 'Lustral Pendant', tier: 3, requiredLevel: 30,
     materials: [{ materialId: 'lustral_essence', amount: 5 }, { materialId: 'frost_reagent', amount: 5 }],
-    goldCost: 50, outputBaseId: 'onyx_pendant', outputILvl: 25, catalystSlot: true,
+    goldCost: 35, outputBaseId: 'onyx_pendant', outputILvl: 25, catalystSlot: true,
   },
   {
     id: 'je_t3_shard', profession: 'jeweler', name: 'Frost Shard', tier: 3, requiredLevel: 30,
     materials: [{ materialId: 'lustral_essence', amount: 5 }, { materialId: 'frost_reagent', amount: 5 }],
-    goldCost: 50, outputBaseId: 'prismatic_shard', outputILvl: 25, catalystSlot: true,
+    goldCost: 35, outputBaseId: 'prismatic_shard', outputILvl: 25, catalystSlot: true,
   },
   // Tier 4
   {
     id: 'je_t4_amulet', profession: 'jeweler', name: 'Shadow Amulet', tier: 4, requiredLevel: 50,
     materials: [{ materialId: 'shadow_elixir', amount: 6 }, { materialId: 'abyssal_reagent', amount: 6 }],
-    goldCost: 100, outputBaseId: 'ruby_amulet', outputILvl: 35, catalystSlot: true,
+    goldCost: 70, outputBaseId: 'ruby_amulet', outputILvl: 35, catalystSlot: true,
   },
   {
     id: 'je_t4_crystal', profession: 'jeweler', name: 'Abyssal Crystal', tier: 4, requiredLevel: 50,
     materials: [{ materialId: 'shadow_elixir', amount: 6 }, { materialId: 'abyssal_reagent', amount: 6 }],
-    goldCost: 100, outputBaseId: 'infused_crystal', outputILvl: 35, catalystSlot: true,
+    goldCost: 70, outputBaseId: 'infused_crystal', outputILvl: 35, catalystSlot: true,
   },
   // Tier 5
   {

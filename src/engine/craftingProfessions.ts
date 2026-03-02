@@ -13,7 +13,7 @@ import { getAffixCatalystDef } from '../data/affixCatalysts';
 
 /** XP curve for crafting professions — matches gathering curve. */
 const CRAFTING_XP_BASE = 50;
-const CRAFTING_XP_GROWTH = 1.35;
+const CRAFTING_XP_GROWTH = 1.10;
 
 /** Rarity rank for comparison. */
 const RARITY_RANK: Record<Rarity, number> = {

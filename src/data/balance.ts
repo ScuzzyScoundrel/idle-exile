@@ -37,7 +37,7 @@ export const CURRENCY_DROP_CHANCES: Record<CurrencyType, number> = {
 };
 
 /** Gold gained per clear = GOLD_PER_BAND * zone.band. */
-export const GOLD_PER_BAND = 3;
+export const GOLD_PER_BAND = 4;
 
 /** XP gained per clear = XP_PER_BAND * zone.band. */
 export const XP_PER_BAND = 10;

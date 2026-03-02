@@ -66,8 +66,8 @@ const RARITY_ORDER: Record<Rarity, number> = {
   legendary: 4,
 };
 
-/** Salvage dust reward by rarity. */
-const SALVAGE_DUST: Record<Rarity, number> = {
+/** Enchanting essence reward by rarity (from salvage/disenchant). */
+const ESSENCE_REWARD: Record<Rarity, number> = {
   common: 1,
   uncommon: 2,
   rare: 3,
@@ -111,13 +111,13 @@ function addItemsWithOverflow(
   for (const item of items) {
     // Auto-salvage by rarity threshold
     if (minOrder > 0 && RARITY_ORDER[item.rarity] < minOrder) {
-      dustGained += SALVAGE_DUST[item.rarity];
+      dustGained += ESSENCE_REWARD[item.rarity];
       itemsSalvaged++;
       continue;
     }
     // Overflow: salvage if at capacity
     if (newInventory.length >= inventoryCapacity) {
-      dustGained += SALVAGE_DUST[item.rarity];
+      dustGained += ESSENCE_REWARD[item.rarity];
       itemsSalvaged++;
       continue;
     }
@@ -126,7 +126,7 @@ function addItemsWithOverflow(
   }
 
   if (dustGained > 0) {
-    newMaterials['salvage_dust'] = (newMaterials['salvage_dust'] || 0) + dustGained;
+    newMaterials['enchanting_essence'] = (newMaterials['enchanting_essence'] || 0) + dustGained;
   }
 
   return { newInventory, newMaterials, salvageStats: { itemsSalvaged, dustGained }, keptItems };
@@ -414,11 +414,11 @@ export const useGameStore = create<GameState & GameActions>()(
         const item = state.inventory.find((i) => i.id === itemId);
         if (!item) return null;
 
-        // Salvage dust based on rarity
+        // Enchanting essence based on rarity
         const matReward: Record<string, number> = {};
-        matReward['salvage_dust'] = SALVAGE_DUST[item.rarity];
+        matReward['enchanting_essence'] = ESSENCE_REWARD[item.rarity];
         const iLvlBonus = Math.floor(item.iLvl / 10);
-        matReward['salvage_dust'] += iLvlBonus;
+        matReward['enchanting_essence'] += iLvlBonus;
 
         // Magic essence for uncommon+
         if (RARITY_ORDER[item.rarity] >= RARITY_ORDER['uncommon']) {
@@ -883,7 +883,7 @@ export const useGameStore = create<GameState & GameActions>()(
         newStash[bagDefId] = count - 1;
         if (newStash[bagDefId] <= 0) delete newStash[bagDefId];
         const newMaterials = { ...state.materials };
-        newMaterials['salvage_dust'] = (newMaterials['salvage_dust'] || 0) + def.salvageValue;
+        newMaterials['enchanting_essence'] = (newMaterials['enchanting_essence'] || 0) + def.salvageValue;
         set({ bagStash: newStash, materials: newMaterials });
         return true;
       },
@@ -1427,7 +1427,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 21,
+      version: 22,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -1827,6 +1827,15 @@ export const useGameStore = create<GameState & GameActions>()(
           const currencies = (state.currencies ?? {}) as Record<string, number>;
           if (currencies.greater_exalt === undefined) currencies.greater_exalt = 0;
           if (currencies.perfect_exalt === undefined) currencies.perfect_exalt = 0;
+        }
+
+        if (version < 22) {
+          // v22: Rename salvage_dust → enchanting_essence
+          const materials = (state.materials ?? {}) as Record<string, number>;
+          if (materials.salvage_dust !== undefined) {
+            materials.enchanting_essence = (materials.enchanting_essence ?? 0) + materials.salvage_dust;
+            delete materials.salvage_dust;
+          }
         }
 
         return state;

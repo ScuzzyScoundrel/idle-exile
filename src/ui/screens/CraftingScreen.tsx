@@ -112,7 +112,7 @@ function MaterialsPanel() {
 
   const affixCatIds = new Set(AFFIX_CATALYST_DEFS.map(d => d.id));
   const rareIds = new Set(RARE_MATERIAL_DEFS.map(d => d.id));
-  const miscIds = new Set(['salvage_dust', 'magic_essence']);
+  const miscIds = new Set(['enchanting_essence', 'magic_essence']);
 
   // Group by track
   const trackGroups = new Map<RefinementTrack, MatItem[]>();
@@ -462,7 +462,7 @@ function getMatIcon(matId: string): string {
     const td = REFINEMENT_TRACK_DEFS.find(t => t.id === track);
     if (td) return td.icon;
   }
-  if (matId === 'salvage_dust') return '\u2728';
+  if (matId === 'enchanting_essence') return '\u2728';
   if (matId === 'magic_essence') return '\uD83D\uDCAB';
   return '\uD83E\uDEA8';
 }

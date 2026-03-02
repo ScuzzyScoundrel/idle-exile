@@ -853,7 +853,7 @@ export default function ZoneScreen() {
   });
   const [session, setSession] = useState<SessionSummary>(emptySession);
   const lastClearCount = useRef(0);
-  const [salvageTally, setSalvageTally] = useState({ count: 0, dust: 0 });
+  const [salvageTally, setSalvageTally] = useState({ count: 0, essence: 0 });
   const modeSwitchingRef = useRef(false);
   const lastTickTimeRef = useRef(Date.now());
   const [bossLootItems, setBossLootItems] = useState<{ name: string; rarity: Rarity }[]>([]);
@@ -963,7 +963,7 @@ export default function ZoneScreen() {
       if (result.overflowCount > 0) {
         setSalvageTally(prev => ({
           count: prev.count + result.overflowCount,
-          dust: prev.dust + result.dustGained,
+          essence: prev.essence + result.dustGained,
         }));
       }
     }
@@ -987,7 +987,7 @@ export default function ZoneScreen() {
   const handleStart = () => {
     setSession(emptySession());
     lastClearCount.current = 0;
-    setSalvageTally({ count: 0, dust: 0 });
+    setSalvageTally({ count: 0, essence: 0 });
     setBossLootItems([]);
     setBossFightStats(null);
     startIdleRun(selectedZone);
@@ -1005,7 +1005,7 @@ export default function ZoneScreen() {
     stopIdleRun();
     setSession(emptySession());
     lastClearCount.current = 0;
-    setSalvageTally({ count: 0, dust: 0 });
+    setSalvageTally({ count: 0, essence: 0 });
     setElapsed(0);
     setIdleMode(mode);
     requestAnimationFrame(() => { modeSwitchingRef.current = false; });
@@ -1374,7 +1374,7 @@ export default function ZoneScreen() {
                 </span>
                 {salvageTally.count > 0 && (
                   <span className="text-amber-400">
-                    {salvageTally.count} salvaged &rarr; +{salvageTally.dust} dust
+                    {salvageTally.count} salvaged &rarr; +{salvageTally.essence} essence
                   </span>
                 )}
               </div>
@@ -1491,7 +1491,7 @@ export default function ZoneScreen() {
                     {session.itemsSalvaged} auto-salvaged
                   </span>
                   <span className="text-xs text-amber-300 font-semibold">
-                    +{session.dustEarned.toLocaleString()} dust
+                    +{session.dustEarned.toLocaleString()} essence
                   </span>
                 </div>
               )}

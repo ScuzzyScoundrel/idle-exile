@@ -1,16 +1,15 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-01 (Post-Sprint 8F-2)
+> Last updated: 2026-03-01 (Post-Sprint 8G)
 
 ## Current Phase
-**Sprint 8F-2: Currency Rework + Catalyst iLvl Bonus** — COMPLETE.
-- **Greater Exalt**: New epic-rarity currency. Adds one affix from the top 2 realistic tiers (40/60 weight). Drop rate: 0.5% per clear.
-- **Perfect Exalt**: New legendary-rarity currency. Adds one guaranteed T1 affix. Drop rate: 0.1% per clear. Ultra-rare chase currency.
-- **Catalyst iLvl bonus**: Rare material catalysts now boost crafted item iLvl (common: +3, uncommon: +6, rare: +10, epic: +15, legendary: +20). Higher iLvl = better affix tier weights (compounds with 8F-1 weighted tier system).
-- **Save v21**: Existing saves get greater_exalt: 0, perfect_exalt: 0 on load.
-- Previous 8F-1 changes still active: iLvl-scaled tier weights, armor type badges.
-- Next: Sprint 8G (Crafting & Economy Tuning) or Phase 3 (UX/UI Overhaul)
+**Sprint 8G: Crafting & Economy Tuning** — COMPLETE.
+- **8G-1 Balance Tuning**: Crafting XP growth softened (1.35→1.10), gold per clear bumped (3→4), T3/T4 crafting gold costs reduced (50→35, 100→70).
+- **8G-2 Salvage Dust → Enchanting Essence**: All `salvage_dust` material keys renamed to `enchanting_essence`. UI text updated from "dust" to "essence" across all screens. Stockpiles for future Enchanting profession.
+- **Save v22**: Migration renames existing `materials.salvage_dust` → `materials.enchanting_essence`.
+- Previous 8F changes still active: iLvl-scaled tier weights, armor type badges, Greater/Perfect Exalt, catalyst iLvl bonus.
+- Next: Phase 3 (UX/UI Overhaul) or additional economy tuning
 
 ## What Is Working Right Now
 The game is live on Vercel and playable locally at `http://localhost:5173/`. Core loop:
@@ -71,7 +70,7 @@ Bottom: mainhand, offhand, trinket1, trinket2
 - **Gathering professions**: 5 professions. XP curve: `50 * 1.35^(level-1)`. Milestones at 10/25/50/75/100. Band skill requirements: 1/15/30/50/75/90.
 - **Rare material drops**: 25 defs (5 professions × 5 rarities). Per-clear roll, highest rarity first. Rates scale with band (common ~8-18%, legendary 0-0.3%). `rareFindBonus` from milestones + gear.
 - **Refinement**: 36 recipes (6 tracks × 6 tiers). T1: 5 raw + gold → 1 refined. T2+: 5 raw + 2 previous refined + gold → 1 refined. Deconstruct: 1 refined → 2 previous tier (T2+ only).
-- **Crafting professions**: 6 professions, level 1-100. XP curve matches gathering. 205 recipes (table-driven armor generation). Catalyst system: optional affix catalyst → guaranteed affix; optional rare mat → guaranteed minimum rarity + 1 boosted affix. `executeCraft()` generates item with reroll loop + boosted affix upgrade.
+- **Crafting professions**: 6 professions, level 1-100. XP curve: `50 * 1.10^(level-1)` (softened from 1.35 in 8G). Gold costs: T1=10, T2=25, T3=35, T4=70, T5=200, T6=500. 205 recipes (table-driven armor generation). Catalyst system: optional affix catalyst → guaranteed affix; optional rare mat → guaranteed minimum rarity + 1 boosted affix. `executeCraft()` generates item with reroll loop + boosted affix upgrade.
 - **Combat HP**: `applyNormalClearHp()` per clear. Damage = maxHp * 0.15 * scale(defEff) * variance(0.7-1.3). Regen = maxHp * 0.08. No minimum drain floor — good defense can fully heal. **Death possible**: HP can reach 0, triggering `zone_defeat` recovery phase (5s, resets boss counter). Ability `resistBonus` now applied to defEff and hazard calcs via `applyAbilityResists()`.
 - **Boss mechanics**: Every 10 clears (count resets on new run or zone death). `calcBossMaxHp(zone)` = `150 * band^2`. `calcBossDps()` = zone-specific pressure (`BOSS_DPS_BASE * band^1.5 + baseClearTime * 0.2`) + hazard bonus (15% per unresisted hazard) * damageScale * multiplier(1.0). `calcPlayerDps()` drives real-time simulation. `tickBossFight()` resolves frame-by-frame. `generateBossLoot()` at iLvlMax + 5. Victory/defeat/zone_defeat phases with timed recovery.
 - **Auto-apply resources**: `processNewClears()` immediately applies all drops to state. Session summary tracked in UI local state.
@@ -79,7 +78,7 @@ Bottom: mainhand, offhand, trinket1, trinket2
 - **Per-clear tracking**: `clearStartedAt` + `currentClearTime` replace modulo-based progress. Mid-clear ability activation preserves progress % but adjusts remaining time.
 - **Bag system**: 5 equippable bag slots (T1:6→T5:14). Start 30 total, max 70.
 - **Crafting (currencies)**: `applyCurrency(item, type)` — augment, chaos, divine, annul, exalt, greater_exalt (top-2 tiers), perfect_exalt (T1 guaranteed)
-- **Save**: Zustand persist v21. v20→v21 adds `greater_exalt` + `perfect_exalt` currencies. Migrations: v11→v12 adds `craftingSkills`, v12→v13 adds leatherworker + jeweler skills, v13→v14 adds `craftAutoSalvageMinRarity`, v14→v15 adds `zoneClearCounts` + combat HP fields, v17→v18 adds `classResource` + `classSelected`, v18→v19 adds `abilityProgress` + `clearStartedAt` + `currentClearTime` (clears old mutator selections).
+- **Save**: Zustand persist v22. v21→v22 renames `materials.salvage_dust` → `materials.enchanting_essence`. v20→v21 adds `greater_exalt` + `perfect_exalt` currencies. Migrations: v11→v12 adds `craftingSkills`, v12→v13 adds leatherworker + jeweler skills, v13→v14 adds `craftAutoSalvageMinRarity`, v14→v15 adds `zoneClearCounts` + combat HP fields, v17→v18 adds `classResource` + `classSelected`, v18→v19 adds `abilityProgress` + `clearStartedAt` + `currentClearTime` (clears old mutator selections).
 
 ## Architecture
 ```
@@ -145,10 +144,10 @@ src/
 ## What's Next
 **See `SPRINT_PLAN.md` for the full roadmap with detailed implementation notes.**
 
-Immediate priority (Phase 2 — Balance & Systems Rework):
-1. **Sprint 8G** — Crafting & Economy Tuning (crafting XP curve, gold economy, salvage dust usage)
+Immediate priority:
+1. Phase 3 (UX/UI Overhaul) or additional economy tuning — see SPRINT_PLAN.md
 
-Then Phase 3 (UX/UI Overhaul), Phase 4 (New Features) — all detailed in SPRINT_PLAN.md.
+Then Phase 4 (New Features) — all detailed in SPRINT_PLAN.md.
 
 Unfinished from original GDD scope (integrated into roadmap):
 - Talent tree (30-50 nodes per class) — not yet scheduled
@@ -194,7 +193,7 @@ npx vite --host
 | 2026-02-24 | 5-bag-slot system (v8) | Per-slot capacity creates gear-like progression |
 | 2026-02-24 | Vendor capped at T2 bags | T3+ from drops/crafting only |
 | 2026-02-24 | Sell gear for gold | Gold economy sink |
-| 2026-02-24 | GOLD_PER_BAND 8→3 | Selling gear meaningful |
+| 2026-02-24 | GOLD_PER_BAND 8→3→4 | Selling gear meaningful; bumped in 8G to ease mid-game gold wall |
 | 2026-02-24 | Offline >60s threshold | Short reloads handled by real-time tick |
 | 2026-02-24 | Items stored in summary, not applied | Player can free bag space before claiming |
 | 2026-02-24 | Vercel deploy (no backend) | Each browser = own character |
@@ -357,6 +356,14 @@ Replaced focus modes with Combat/Gathering toggle. 5 gathering professions with 
 - **Save v21 migration**: Adds `greater_exalt: 0` and `perfect_exalt: 0` to existing save currencies.
 - **CurrencyDef rarity extended**: From `'common'|'uncommon'|'rare'` to include `'epic'|'legendary'`.
 - **Files changed**: `types/index.ts`, `data/items.ts`, `data/balance.ts`, `engine/crafting.ts`, `engine/craftingProfessions.ts`, `engine/zones.ts`, `store/gameStore.ts`
+
+### Sprint 8G Changes (Crafting & Economy Tuning)
+- **8G-1: Crafting XP growth softened**: `CRAFTING_XP_GROWTH` 1.35→1.10 in `engine/craftingProfessions.ts`. Level 50 now 5,850 XP (was 860,000). Level 100 reachable with ~3,800 T6 crafts — serious grind but not exponentially impossible.
+- **8G-1: Gold per clear bumped**: `GOLD_PER_BAND` 3→4 in `data/balance.ts`. Band 1: 4g, Band 3: 12g, Band 6: 24g. 33% income boost eases early/mid gold wall.
+- **8G-1: T3/T4 crafting gold costs reduced**: `ARMOR_TIER_CONFIG` T3: 50→35, T4: 100→70 in `data/craftingRecipes.ts`. All ~20 manual weapon/offhand/jewelry recipes with T3/T4 gold costs also updated. Combined effect at T3 (Band 3): 5.5 clears/craft → 2.9 clears/craft.
+- **8G-2: Salvage dust → enchanting essence**: Material key `salvage_dust` renamed to `enchanting_essence` throughout engine and store. `SALVAGE_DUST` constant renamed to `ESSENCE_REWARD`. All user-facing text updated: "dust" → "essence". Stockpiles for future Enchanting profession.
+- **Save v22 migration**: Renames `materials.salvage_dust` → `materials.enchanting_essence` in existing saves.
+- **Files changed**: `data/balance.ts`, `data/craftingRecipes.ts`, `engine/craftingProfessions.ts`, `store/gameStore.ts`, `ui/screens/ZoneScreen.tsx`, `ui/screens/CraftingScreen.tsx`, `ui/screens/InventoryScreen.tsx`, `ui/components/OfflineProgressModal.tsx`
 
 ## Micro-Sprint Workflow
 Each conversation = one micro-sprint (3-5 related changes):

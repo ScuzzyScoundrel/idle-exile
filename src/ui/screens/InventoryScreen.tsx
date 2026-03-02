@@ -957,7 +957,7 @@ function BagUpgradeSection({
                   <button
                     onClick={() => salvageBag(id)}
                     className="px-2 py-1 text-xs rounded font-semibold bg-purple-900 hover:bg-purple-800 text-purple-300"
-                    title={`Salvage for ${def.salvageValue} dust`}
+                    title={`Salvage for ${def.salvageValue} essence`}
                   >
                     Salvage
                   </button>
