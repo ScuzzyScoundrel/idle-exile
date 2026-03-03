@@ -1,10 +1,21 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-03 (Post-Sprint 13B-Phase2B-1: State-Tracking Combat Systems)
+> Last updated: 2026-03-03 (Post-Sprint 14: Crafting UI Refinement)
 
 ## Current Phase
-**Sprint 13B-Phase2B-1: State-Tracking Combat Systems** — COMPLETE.
+**Sprint 14: Crafting UI Refinement** — COMPLETE.
+
+- **Purpose**: Decompose the 1203-line CraftingScreen.tsx monolith, add search/filters/collapsed recipes, craft log, craft output buffer, and material traceability.
+- **Phase 1 — File Decomposition + UI Polish**: Split into `src/ui/crafting/` directory with 12 files: `craftingConstants.ts`, `craftingHelpers.ts`, `MaterialPill.tsx`, `ProfessionSelector.tsx`, `XpBar.tsx`, `MaterialsPanel.tsx`, `RefinePanel.tsx`, `ComponentCraftPanel.tsx`, `CraftPanel.tsx`, `CraftingSearchBar.tsx`, `CraftLog.tsx`, `CraftOutputPanel.tsx`, `MaterialDetailModal.tsx`. CraftingScreen.tsx reduced to ~65 lines. Typography bumped (`text-[8px]` → `text-[10px] sm:text-xs`), mobile grid improved (`grid-cols-4 sm:grid-cols-5 md:grid-cols-6`), profession selector gains `flex-wrap`, catalyst dropdowns stack on mobile.
+- **Phase 2 — Search, Filters, Collapsed Recipes**: `CraftingSearchBar` with text search + "Have Mats" toggle + count display. Recipes collapsed by default (click to expand). Expand All/Collapse All buttons. Green/red craftable dot on collapsed headers. Level-locked recipes show "Lv.X" badge instead of opacity-50.
+- **Phase 3 — Craft Log + Craft Output Panel**: `CraftLogEntry` type (ephemeral, reset on rehydrate). All 6 craft store actions (`refineMaterial`, `refineMaterialBatch`, `craftComponent`, `craftComponentBatch`, `craftRecipe`, `craftRecipeBatch`) populate the log. `craftOutputBuffer: Item[]` (persisted, max 8 slots) — crafted gear lands here first; overflow goes to inventory with auto-salvage. Claim/Salvage actions for individual or all items. `CraftOutputPanel` renders at top of Craft tab with ItemCard compact view.
+- **Phase 4 — Material Traceability**: `materialTraceability.ts` builds static reverse indexes from all data files (zones, mob types, refinement, component, gear recipes). `MaterialDetailModal` opens on any material click — shows drop sources (zones + mobs), produced by, and used in recipes. Wired through all panels via `onMaterialClick` prop.
+- **Save version**: v33 → v34 (migration adds `craftOutputBuffer: []`)
+- **New files**: `src/ui/crafting/` (12 files), `src/data/materialTraceability.ts`
+- **Modified files**: `src/ui/screens/CraftingScreen.tsx`, `src/store/gameStore.ts`, `src/types/index.ts`, `src/data/balance.ts`
+
+**Previous: Sprint 13B-Phase2B-1: State-Tracking Combat Systems** — COMPLETE.
 
 - **Purpose**: Wire the complex state-tracking combat mechanics into `tickCombat`. These are self-contained systems that track ephemeral state across ticks (ramping stacks, fortify stacks, temp buffs, charges). Foundation for Phase 2B-2 (evaluation systems: conditionals, procs, debuff interactions).
 - **4 systems wired**:

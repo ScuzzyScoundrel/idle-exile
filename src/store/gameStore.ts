@@ -23,6 +23,7 @@ import {
   SkillDef,
   ResolvedStats,
   ActiveDebuff,
+  CraftLogEntry,
 } from '../types';
 import { createCharacter, resolveStats, addXp, getWeaponDamageInfo } from '../engine/character';
 import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, simulateCombatClear, createBossEncounter, generateBossLoot, applyAbilityResists, calcHazardPenalty, rollZoneAttack, calcLevelDamageMult } from '../engine/zones';
@@ -44,7 +45,7 @@ import { canRefine, refine, canDeconstruct, deconstruct } from '../engine/refine
 import { canCraftRecipe, executeCraft, addCraftingXp, getCraftingXpForTier } from '../engine/craftingProfessions';
 import { canCraftComponent, autoPickMobDrop } from '../engine/componentCrafting';
 import { getComponentRecipe } from '../data/componentRecipes';
-import { COMPONENT_XP_PER_BAND } from '../data/balance';
+import { COMPONENT_XP_PER_BAND, CRAFT_OUTPUT_BUFFER_SIZE, CRAFT_LOG_MAX_ENTRIES } from '../data/balance';
 import { REFINEMENT_RECIPES } from '../data/refinement';
 import { getCraftingRecipe } from '../data/craftingRecipes';
 import { getClassDef } from '../data/classes';
@@ -360,6 +361,14 @@ interface GameActions {
   craftComponent: (recipeId: string, selectedMobDropId?: string) => boolean;
   craftComponentBatch: (recipeId: string, count: number, selectedMobDropId?: string) => number;
 
+  // Craft log & output buffer
+  addCraftLogEntry: (entry: Omit<CraftLogEntry, 'id' | 'timestamp'>) => void;
+  clearCraftLog: () => void;
+  claimCraftOutput: (itemId: string) => void;
+  claimAllCraftOutput: () => void;
+  salvageCraftOutput: (itemId: string) => void;
+  salvageAllCraftOutput: () => void;
+
   // Offline progression
   claimOfflineProgress: () => void;
 
@@ -485,6 +494,8 @@ function createInitialState(): GameState {
     bossKillCounts: {},
     totalZoneClears: {},
     dailyQuests: { questDate: '', quests: [], progress: {} },
+    craftLog: [],
+    craftOutputBuffer: [],
     tutorialStep: 1,
     lastSaveTime: Date.now(),
   };
@@ -1265,6 +1276,7 @@ export const useGameStore = create<GameState & GameActions>()(
         if (!canRefine(recipe, state.materials, state.gold)) return false;
         const { newMaterials, newGold } = refine(recipe, state.materials, state.gold);
         set({ materials: newMaterials, gold: newGold });
+        get().addCraftLogEntry({ type: 'refine', recipeName: recipe.outputName, count: 1, xpGained: 0, trackId: recipe.track });
         return true;
       },
 
@@ -1288,6 +1300,7 @@ export const useGameStore = create<GameState & GameActions>()(
 
         if (crafted > 0) {
           set({ materials: curMaterials, gold: curGold });
+          get().addCraftLogEntry({ type: 'refine', recipeName: recipe.outputName, count: crafted, xpGained: 0, trackId: recipe.track });
         }
         return crafted;
       },
@@ -1344,7 +1357,7 @@ export const useGameStore = create<GameState & GameActions>()(
             gold: newGold,
             craftingSkills: newCraftingSkills,
           });
-          // Return a dummy item for the flash message
+          get().addCraftLogEntry({ type: 'gear', recipeName: recipe.name, count: 1, xpGained: xp, profession: recipe.profession });
           return {
             item: { id: '', baseId: '', name: recipe.name, slot: 'trinket1' as const, rarity: 'common' as const, iLvl: 0, prefixes: [], suffixes: [], baseStats: {} },
             wasSalvaged: false,
@@ -1354,24 +1367,42 @@ export const useGameStore = create<GameState & GameActions>()(
         // Generate item
         const item = executeCraft(recipe, catalystId, affixCatalystId);
 
-        // Add item to inventory (overflow → auto-salvage using craft threshold, always salvage for crafting)
-        const { newInventory, newMaterials: matsAfterItems, salvageStats } = addItemsWithOverflow(
-          state.inventory,
-          getInventoryCapacity(state),
-          state.craftAutoSalvageMinRarity,
-          'salvage',
-          newMaterials,
-          [item],
-        );
+        // Place in output buffer first; overflow into inventory
+        const currentBuffer = [...state.craftOutputBuffer];
+        let wasSalvaged = false;
+        if (currentBuffer.length < CRAFT_OUTPUT_BUFFER_SIZE) {
+          currentBuffer.push(item);
+          set({
+            materials: newMaterials,
+            gold: newGold,
+            craftingSkills: newCraftingSkills,
+            craftOutputBuffer: currentBuffer,
+          });
+        } else {
+          // Buffer full — overflow to inventory with auto-salvage
+          const { newInventory, newMaterials: matsAfterItems, salvageStats } = addItemsWithOverflow(
+            state.inventory,
+            getInventoryCapacity(state),
+            state.craftAutoSalvageMinRarity,
+            'salvage',
+            newMaterials,
+            [item],
+          );
+          wasSalvaged = salvageStats.itemsSalvaged > 0;
+          set({
+            materials: matsAfterItems,
+            gold: newGold,
+            craftingSkills: newCraftingSkills,
+            inventory: newInventory,
+          });
+        }
 
-        set({
-          materials: matsAfterItems,
-          gold: newGold,
-          craftingSkills: newCraftingSkills,
-          inventory: newInventory,
+        get().addCraftLogEntry({
+          type: 'gear', recipeName: recipe.name, count: 1, xpGained: xp,
+          profession: recipe.profession, itemName: item.name, itemRarity: item.rarity, wasSalvaged,
         });
 
-        return { item, wasSalvaged: salvageStats.itemsSalvaged > 0 };
+        return { item, wasSalvaged };
       },
 
       craftRecipeBatch: (recipeId: string, count: number, catalystId?: string, affixCatalystId?: string) => {
@@ -1429,25 +1460,43 @@ export const useGameStore = create<GameState & GameActions>()(
 
         if (crafted === 0) return null;
 
-        // Handle item recipes: add all items to inventory at once
+        const totalXp = getCraftingXpForTier(recipe.tier) * crafted;
+
+        // Handle item recipes: fill output buffer first, overflow to inventory
         let salvaged = 0;
         if (allItems.length > 0) {
-          const { newInventory, newMaterials: matsAfterItems, salvageStats } = addItemsWithOverflow(
-            state.inventory,
-            getInventoryCapacity(state),
-            state.craftAutoSalvageMinRarity,
-            'salvage',
-            curMaterials,
-            allItems,
-          );
-          curMaterials = matsAfterItems;
-          salvaged = salvageStats.itemsSalvaged;
-          set({
-            materials: curMaterials,
-            gold: curGold,
-            craftingSkills: curCraftingSkills,
-            inventory: newInventory,
-          });
+          const currentBuffer = [...state.craftOutputBuffer];
+          const bufferSpace = CRAFT_OUTPUT_BUFFER_SIZE - currentBuffer.length;
+          const toBuffer = allItems.slice(0, bufferSpace);
+          const toOverflow = allItems.slice(bufferSpace);
+          currentBuffer.push(...toBuffer);
+
+          if (toOverflow.length > 0) {
+            const { newInventory, newMaterials: matsAfterItems, salvageStats } = addItemsWithOverflow(
+              state.inventory,
+              getInventoryCapacity(state),
+              state.craftAutoSalvageMinRarity,
+              'salvage',
+              curMaterials,
+              toOverflow,
+            );
+            curMaterials = matsAfterItems;
+            salvaged = salvageStats.itemsSalvaged;
+            set({
+              materials: curMaterials,
+              gold: curGold,
+              craftingSkills: curCraftingSkills,
+              inventory: newInventory,
+              craftOutputBuffer: currentBuffer,
+            });
+          } else {
+            set({
+              materials: curMaterials,
+              gold: curGold,
+              craftingSkills: curCraftingSkills,
+              craftOutputBuffer: currentBuffer,
+            });
+          }
         } else {
           // Material recipe — no inventory changes
           set({
@@ -1455,9 +1504,13 @@ export const useGameStore = create<GameState & GameActions>()(
             gold: curGold,
             craftingSkills: curCraftingSkills,
           });
-          // For material recipes, create a dummy lastItem for flash message
           lastItem = { id: '', baseId: '', name: recipe.name, slot: 'trinket1' as const, rarity: 'common' as const, iLvl: 0, prefixes: [], suffixes: [], baseStats: {} };
         }
+
+        get().addCraftLogEntry({
+          type: 'gear', recipeName: recipe.name, count: crafted, xpGained: totalXp,
+          profession: recipe.profession, itemName: lastItem?.name, itemRarity: lastItem?.rarity, batchSalvaged: salvaged > 0 ? salvaged : undefined,
+        });
 
         return { crafted, lastItem, salvaged };
       },
@@ -1492,6 +1545,7 @@ export const useGameStore = create<GameState & GameActions>()(
         const newCraftingSkills = addCraftingXp(state.craftingSkills, recipe.profession, xp);
 
         set({ materials: newMaterials, gold: newGold, craftingSkills: newCraftingSkills });
+        get().addCraftLogEntry({ type: 'component', recipeName: recipe.name, count: 1, xpGained: xp, profession: recipe.profession });
         return true;
       },
 
@@ -1509,12 +1563,10 @@ export const useGameStore = create<GameState & GameActions>()(
         for (let i = 0; i < count; i++) {
           if (!canCraftComponent(recipe, curCraftingSkills, curMaterials, curGold, selectedMobDropId)) break;
 
-          // Consume fixed materials
           for (const { materialId, amount } of recipe.materials) {
             curMaterials[materialId] = (curMaterials[materialId] ?? 0) - amount;
           }
 
-          // Consume mob drop choice
           if (recipe.mobDropChoice) {
             const dropId = selectedMobDropId ?? autoPickMobDrop(recipe, curMaterials);
             if (!dropId) break;
@@ -1522,11 +1574,8 @@ export const useGameStore = create<GameState & GameActions>()(
           }
 
           curGold -= recipe.goldCost;
-
-          // Produce component
           curMaterials[recipe.outputMaterialId] = (curMaterials[recipe.outputMaterialId] ?? 0) + 1;
 
-          // XP
           const xp = COMPONENT_XP_PER_BAND[recipe.band] ?? 15;
           curCraftingSkills = addCraftingXp(curCraftingSkills, recipe.profession, xp);
 
@@ -1535,7 +1584,66 @@ export const useGameStore = create<GameState & GameActions>()(
 
         if (crafted === 0) return 0;
         set({ materials: curMaterials, gold: curGold, craftingSkills: curCraftingSkills });
+        const totalXp = (COMPONENT_XP_PER_BAND[recipe.band] ?? 15) * crafted;
+        get().addCraftLogEntry({ type: 'component', recipeName: recipe.name, count: crafted, xpGained: totalXp, profession: recipe.profession });
         return crafted;
+      },
+
+      // ─── Craft Log & Output Buffer ──────────────────────
+
+      addCraftLogEntry: (entry) => {
+        const log = [...get().craftLog];
+        log.unshift({ ...entry, id: crypto.randomUUID(), timestamp: Date.now() });
+        if (log.length > CRAFT_LOG_MAX_ENTRIES) log.length = CRAFT_LOG_MAX_ENTRIES;
+        set({ craftLog: log });
+      },
+
+      clearCraftLog: () => set({ craftLog: [] }),
+
+      claimCraftOutput: (itemId: string) => {
+        const state = get();
+        const idx = state.craftOutputBuffer.findIndex(i => i.id === itemId);
+        if (idx === -1) return;
+        const item = state.craftOutputBuffer[idx];
+        const newBuffer = state.craftOutputBuffer.filter(i => i.id !== itemId);
+        const { newInventory, newMaterials } = addItemsWithOverflow(
+          state.inventory, getInventoryCapacity(state),
+          'legendary', 'salvage', // never auto-salvage claimed items
+          { ...state.materials }, [item],
+        );
+        set({ craftOutputBuffer: newBuffer, inventory: newInventory, materials: newMaterials });
+      },
+
+      claimAllCraftOutput: () => {
+        const state = get();
+        if (state.craftOutputBuffer.length === 0) return;
+        const { newInventory, newMaterials } = addItemsWithOverflow(
+          state.inventory, getInventoryCapacity(state),
+          'legendary', 'salvage',
+          { ...state.materials }, [...state.craftOutputBuffer],
+        );
+        set({ craftOutputBuffer: [], inventory: newInventory, materials: newMaterials });
+      },
+
+      salvageCraftOutput: (itemId: string) => {
+        const state = get();
+        const idx = state.craftOutputBuffer.findIndex(i => i.id === itemId);
+        if (idx === -1) return;
+        const item = state.craftOutputBuffer[idx];
+        const newBuffer = state.craftOutputBuffer.filter(i => i.id !== itemId);
+        const newMaterials = { ...state.materials };
+        newMaterials['enchanting_essence'] = (newMaterials['enchanting_essence'] ?? 0) + ESSENCE_REWARD[item.rarity];
+        set({ craftOutputBuffer: newBuffer, materials: newMaterials });
+      },
+
+      salvageAllCraftOutput: () => {
+        const state = get();
+        if (state.craftOutputBuffer.length === 0) return;
+        const newMaterials = { ...state.materials };
+        let dust = 0;
+        for (const item of state.craftOutputBuffer) dust += ESSENCE_REWARD[item.rarity];
+        newMaterials['enchanting_essence'] = (newMaterials['enchanting_essence'] ?? 0) + dust;
+        set({ craftOutputBuffer: [], materials: newMaterials });
       },
 
       claimOfflineProgress: () => {
@@ -2919,7 +3027,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 33,
+      version: 34,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -2992,6 +3100,7 @@ export const useGameStore = create<GameState & GameActions>()(
           state.zoneNextAttackAt = 0;
           // Reset ephemeral debuffs (11B)
           state.activeDebuffs = [];
+          state.craftLog = [];
           // Reset ephemeral combat state (Phase 1 — skill tree expansion)
           state.consecutiveHits = 0;
           state.lastSkillsCast = [];
@@ -3544,6 +3653,12 @@ export const useGameStore = create<GameState & GameActions>()(
           // v33: Component crafting system — no state shape change.
           // Components are stored as materials (comp_*) in existing materials dict.
           // Existing gear recipes gain componentCost fields (code-only, not persisted).
+        }
+
+        if (version < 34) {
+          // v34: Craft output buffer (persisted staging area for crafted gear).
+          // craftLog is ephemeral (reset on rehydrate), no migration needed.
+          (state as any).craftOutputBuffer = [];
         }
 
         return state;

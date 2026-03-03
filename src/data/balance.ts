@@ -376,3 +376,6 @@ export const COMPONENT_GOLD_COST: Record<number, { general: number; specialist: 
 export const COMPONENT_XP_PER_BAND: Record<number, number> = {
   1: 15, 2: 30, 3: 50, 4: 80, 5: 120, 6: 180,
 };
+
+export const CRAFT_OUTPUT_BUFFER_SIZE = 8;
+export const CRAFT_LOG_MAX_ENTRIES = 50;

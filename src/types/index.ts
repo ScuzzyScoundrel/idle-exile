@@ -993,9 +993,30 @@ export interface GameState {
   // Daily quests
   dailyQuests: DailyQuestState;
 
+  // Craft log (ephemeral — not persisted, reset on rehydrate)
+  craftLog: CraftLogEntry[];
+
+  // Craft output buffer (persisted — staging area for crafted gear)
+  craftOutputBuffer: Item[];
+
   // Tutorial
   tutorialStep: number;
 
   // Meta
   lastSaveTime: number;
+}
+
+export interface CraftLogEntry {
+  id: string;
+  timestamp: number;
+  type: 'refine' | 'component' | 'gear';
+  recipeName: string;
+  count: number;
+  xpGained: number;
+  profession?: CraftingProfession;
+  trackId?: string;             // refinement track for refine entries
+  itemName?: string;
+  itemRarity?: Rarity;
+  wasSalvaged?: boolean;
+  batchSalvaged?: number;
 }
