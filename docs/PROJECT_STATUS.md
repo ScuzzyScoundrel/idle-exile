@@ -1,10 +1,29 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-03 (Post-Sprint 13B-Phase2B-2: Evaluation Systems)
+> Last updated: 2026-03-03 (Post-Phase 3: Chain Lightning Showcase Tree)
 
 ## Current Phase
-**Sprint 13B-Phase2B-2: Evaluation Systems** — COMPLETE.
+**Phase 3: Chain Lightning 5-Branch Skill Tree Showcase** — COMPLETE.
+
+- **Purpose**: Replace the boring 3-branch, 34-node Chain Lightning graph with a 51-node, 5-branch showcase tree that exercises all Phase 2 modifier systems. Establishes the pattern for all future weapon skill trees.
+- **5 branches**:
+  - **B1 Overcharge**: Raw power + shock exploitation. Guaranteed Shock, ramping damage, consume debuff stacks.
+  - **B2 Storm Cascade**: Chain/multi-hit + AoE. Extra chains, extra hits, ramping momentum.
+  - **B3 Voltaic Precision**: Crit + crit-triggered procs. Bonus casts on crit, debuff on crit.
+  - **B4 Tempest Weaver**: Multi-element + debuff mastery. Apply 5+ debuff types, +80% at 4 unique debuffs.
+  - **B5 Stormshield**: Defensive lightning. Life leech, fortify stacking, armor-to-damage, resist bonuses.
+- **Cross-connect ring**: 5 bridge minors (tier 2) form B1↔B2↔B3↔B4↔B5↔B1, letting players dip into adjacent branches.
+- **5 keystones**: SUPERCONDUCTOR, STORM TEMPEST, LIGHTNING SAVANT, PRISMATIC STORM, EYE OF THE STORM — each with meaningful tradeoffs and globalEffect.
+- **Engine tweak**: `whileDebuffActive` in `combatHelpers.ts` now supports threshold (count unique debuff types). Needed for Elemental Overload's "+80% when 4+ unique debuffs active".
+- **Tooltip enhancement**: `formatModifier()` in `SkillGraphView.tsx` upgraded — conditionalMods show per-condition descriptions, procs show trigger/chance/effect, debuffInteraction shows sub-fields.
+- **Modifier systems exercised**: conditionalMods (pre-roll & post-roll), procs (bonusCast, applyDebuff), debuffInteraction (bonusDamageVsDebuffed, consumeDebuff, debuffDurationBonus, debuffEffectBonus, debuffOnCrit), rampingDamage, fortifyOnHit, damageFromArmor, leechPercent, lifeOnHit, lifeOnKill, splitDamage, chainCount, extraHits, convertToAoE, globalEffect.
+- **No new types. No save migration. No new files.**
+- **Save version**: v34 (unchanged)
+- **Files modified**: `src/engine/combatHelpers.ts`, `src/data/skillGraphs/wand.ts`, `src/ui/components/SkillGraphView.tsx`, `docs/PROJECT_STATUS.md`, `docs/SKILL_TREE_DESIGN.md`
+- **Next**: TBD — Apply showcase pattern to more skill trees, or UI/balance work.
+
+**Previous: Sprint 13B-Phase2B-2: Evaluation Systems** — COMPLETE.
 
 - **Purpose**: Wire the three evaluation systems that depend on Phase 2B-1's state-tracking: conditional modifiers, proc effects, and debuff interactions. Most complex combat wiring phase yet.
 - **3 systems wired**:

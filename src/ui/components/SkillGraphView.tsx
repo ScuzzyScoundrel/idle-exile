@@ -64,9 +64,48 @@ function formatModifier(mod: SkillModifier | undefined): string[] {
   if (mod.fortifyOnHit) parts.push(`Fortify on hit (${mod.fortifyOnHit.damageReduction}% DR)`);
   if (mod.berserk) parts.push(`Berserk: +${mod.berserk.damageBonus}% dmg, +${mod.berserk.damageTakenIncrease}% taken`);
   if (mod.rampingDamage) parts.push(`Ramping: +${mod.rampingDamage.perHit}%/hit (max ${mod.rampingDamage.maxStacks})`);
-  if (mod.conditionalMods?.length) parts.push(`${mod.conditionalMods.length} conditional effect(s)`);
-  if (mod.procs?.length) parts.push(`${mod.procs.length} proc effect(s)`);
-  if (mod.debuffInteraction) parts.push('Debuff interaction');
+  if (mod.conditionalMods?.length) {
+    for (const cm of mod.conditionalMods) {
+      const cond = cm.condition === 'whileDebuffActive'
+        ? (cm.threshold && cm.threshold > 1 ? `while ${cm.threshold}+ debuffs` : 'while debuffed')
+        : cm.condition === 'whileLowHp' ? 'while low HP'
+        : cm.condition === 'whileFullHp' ? 'while full HP'
+        : cm.condition === 'onCrit' ? 'on crit'
+        : cm.condition === 'onHit' ? 'on hit'
+        : cm.condition === 'afterConsecutiveHits' ? `after ${cm.threshold ?? 5} hits`
+        : cm.condition === 'onBossPhase' ? 'vs boss'
+        : cm.condition;
+      const effects: string[] = [];
+      if (cm.modifier.incDamage) effects.push(`${cm.modifier.incDamage > 0 ? '+' : ''}${cm.modifier.incDamage}% dmg`);
+      if (cm.modifier.flatDamage) effects.push(`+${cm.modifier.flatDamage} flat`);
+      if (cm.modifier.incCritChance) effects.push(`+${cm.modifier.incCritChance}% crit`);
+      if (cm.modifier.incCritMultiplier) effects.push(`+${cm.modifier.incCritMultiplier}% crit dmg`);
+      if (cm.modifier.incCastSpeed) effects.push(`+${cm.modifier.incCastSpeed}% speed`);
+      parts.push(`${effects.join(', ')} ${cond}`);
+    }
+  }
+  if (mod.procs?.length) {
+    for (const proc of mod.procs) {
+      const pct = Math.round(proc.chance * 100);
+      const trig = proc.trigger === 'onHit' ? 'on hit' : proc.trigger === 'onCrit' ? 'on crit'
+        : proc.trigger === 'onKill' ? 'on kill' : proc.trigger === 'onDodge' ? 'on dodge' : proc.trigger;
+      if (proc.bonusCast) parts.push(`${pct}% ${trig}: re-cast`);
+      else if (proc.applyDebuff) parts.push(`${pct}% ${trig}: ${proc.applyDebuff.debuffId}`);
+      else if (proc.castSkill) parts.push(`${pct}% ${trig}: cast ${proc.castSkill}`);
+      else if (proc.instantDamage) parts.push(`${pct}% ${trig}: ${proc.instantDamage.flatDamage} ${proc.instantDamage.element} dmg`);
+      else if (proc.healPercent) parts.push(`${pct}% ${trig}: heal ${proc.healPercent}%`);
+      else parts.push(`${pct}% ${trig}: proc`);
+    }
+  }
+  if (mod.debuffInteraction) {
+    const di = mod.debuffInteraction;
+    if (di.bonusDamageVsDebuffed) parts.push(`+${di.bonusDamageVsDebuffed.incDamage}% vs ${di.bonusDamageVsDebuffed.debuffId}`);
+    if (di.consumeDebuff) parts.push(`Consume ${di.consumeDebuff.debuffId}: ${di.consumeDebuff.damagePerStack} dmg/stack`);
+    if (di.debuffOnCrit) parts.push(`Crit \u2192 ${di.debuffOnCrit.debuffId} (${di.debuffOnCrit.stacks} stacks)`);
+    if (di.debuffEffectBonus) parts.push(`Debuffs ${di.debuffEffectBonus}% stronger`);
+    if (di.debuffDurationBonus) parts.push(`Debuffs last ${di.debuffDurationBonus}% longer`);
+    if (di.spreadDebuffOnKill) parts.push(`Kill spreads: ${di.spreadDebuffOnKill.debuffIds.join(', ')}`);
+  }
   if (mod.chargeConfig) parts.push(`Charges: ${mod.chargeConfig.chargeId} (max ${mod.chargeConfig.maxCharges})`);
   if (mod.splitDamage?.length) {
     for (const s of mod.splitDamage) parts.push(`${s.percent}% as ${s.element}`);

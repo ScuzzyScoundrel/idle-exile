@@ -650,7 +650,59 @@ Scope: Straightforward, highest-impact fields. Wired into `tickCombat` with guar
 
 ---
 
-## 8. Weapon Identity Cheat Sheet
+## 8. Phase 3 Implementation — Chain Lightning Showcase
+
+**Status:** COMPLETE (2026-03-03)
+
+Replaced the 34-node, 3-branch Chain Lightning graph with a 51-node, 5-branch showcase tree. This is the first skill tree to use the Phase 2 modifier systems and establishes the pattern for all future trees.
+
+### Engine Tweak
+- `whileDebuffActive` in `combatHelpers.ts` now supports `threshold` parameter. When `threshold > 1`, counts unique debuff types (via `new Set(activeDebuffs.map(d => d.debuffId)).size`). Default behavior (threshold absent or 1) unchanged.
+
+### Tree Structure
+- **51 nodes**: 1 start, 10 tier-1, 15 tier-2 (incl. 5 cross-connects), 15 tier-3, 5 tier-4 (keystones)
+- **5 branches**: Overcharge, Storm Cascade, Voltaic Precision, Tempest Weaver, Stormshield
+- **Cross-connect ring**: 5 bridge minors at tier 2 forming B1↔B2↔B3↔B4↔B5↔B1
+- **maxPoints: 20** — enough for 1 keystone deep (9-10 nodes) + dip into adjacent branch
+
+### Modifier Systems Used
+| System | Nodes |
+|---|---|
+| conditionalMods (pre-roll: whileDebuffActive) | B1 n2, B1 k, B3 k, B4 n2 (threshold=4) |
+| conditionalMods (post-roll: onCrit) | B3 m2 |
+| procs/bonusCast | B3 n1, B3 n2, B5 n1 |
+| procs/applyDebuff | B2 n1, B2 n2, B4 k (4 procs) |
+| debuffInteraction.bonusDamageVsDebuffed | B1 n1 |
+| debuffInteraction.consumeDebuff | B1 n2 |
+| debuffInteraction.debuffDurationBonus | B1 m3, B4 n1, B4 n2 |
+| debuffInteraction.debuffEffectBonus | B1 k, B4 n2, B4 k |
+| debuffInteraction.debuffOnCrit | B3 m4, B3 k |
+| rampingDamage | B1 m4, B2 k |
+| fortifyOnHit | B5 m4, B5 n2, B5 k |
+| damageFromArmor | B5 n2, B5 k |
+| leechPercent | B5 m2, B5 k |
+| lifeOnHit / lifeOnKill | B5 root, B5 n2, B5 m3 |
+| splitDamage | B4 n1, B4 k |
+| chainCount | B2 root, B2 m2, x12, x23 |
+| extraHits | B2 n1, B2 n2, B2 k |
+| convertToAoE | B2 m3, B2 n2 |
+| globalEffect | All 5 keystones |
+
+### Tooltip Enhancement
+`formatModifier()` in `SkillGraphView.tsx` now renders:
+- **conditionalMods**: per-condition display (e.g., "+80% dmg while 4+ debuffs")
+- **procs**: per-proc display (e.g., "25% on crit: re-cast", "20% on hit: shocked")
+- **debuffInteraction**: per-sub-field display (e.g., "+15% vs shocked", "Consume shocked: 25 dmg/stack")
+
+### Simplification Decisions
+- "Shock 5 stacks" (Superconductor) → `debuffEffectBonus: 50` (makes each stack 50% stronger)
+- "-30% vs unshocked" → Permanent `incDamage: -30` + conditional `+80%` = net +50% vs shocked
+- "crits chain at full damage" → `bonusCast: true` proc on crit
+- "stored damage" → `fortifyOnHit` + `damageFromArmor` via existing mechanics
+
+---
+
+## 9. Weapon Identity Cheat Sheet
 
 Each weapon's trees should lean into its identity. This is a quick reference for what makes each weapon FEEL different:
 

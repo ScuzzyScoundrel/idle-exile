@@ -43,7 +43,13 @@ export function evaluateCondition(
     case 'onDebuffApplied': return false;  // evaluated separately after debuff application
     case 'whileLowHp': return ctx.currentHp / ctx.effectiveMaxLife < (threshold ?? 0.35);
     case 'whileFullHp': return ctx.currentHp >= ctx.effectiveMaxLife;
-    case 'whileDebuffActive': return ctx.activeDebuffs.length > 0;
+    case 'whileDebuffActive': {
+      if (threshold != null && threshold > 1) {
+        const uniqueDebuffs = new Set(ctx.activeDebuffs.map(d => d.debuffId)).size;
+        return uniqueDebuffs >= threshold;
+      }
+      return ctx.activeDebuffs.length > 0;
+    }
     case 'afterConsecutiveHits': return ctx.consecutiveHits >= (threshold ?? 5);
     case 'onBossPhase': return ctx.phase === 'boss_fight';
     case 'onFirstHit': return ctx.consecutiveHits === 0 && ctx.isHit;
