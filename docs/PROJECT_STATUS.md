@@ -1,10 +1,28 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-03 (Post-Sprint 13B-Phase2A: Wire Phase 1 Types Into Combat)
+> Last updated: 2026-03-03 (Post-Sprint 13B-Phase2B-1: State-Tracking Combat Systems)
 
 ## Current Phase
-**Sprint 13B-Phase2A: Wire Phase 1 Types Into Combat** — COMPLETE.
+**Sprint 13B-Phase2B-1: State-Tracking Combat Systems** — COMPLETE.
+
+- **Purpose**: Wire the complex state-tracking combat mechanics into `tickCombat`. These are self-contained systems that track ephemeral state across ticks (ramping stacks, fortify stacks, temp buffs, charges). Foundation for Phase 2B-2 (evaluation systems: conditionals, procs, debuff interactions).
+- **4 systems wired**:
+  - **Ramping Damage**: Global combat momentum — stacks accumulate on hits, reset on miss. Damage bonus scales with `perHit * stacks`. Decays after `decayAfter` seconds idle.
+  - **Fortify on Hit**: Defensive stacks accumulate on hit, all expire together. `calcFortifyDR()` module-level helper computes DR capped at 75%. Applied at all 4 incoming damage sites (helper + main path, boss + clearing).
+  - **Temp Buffs**: `aggregateTempBuffEffects()` helper in `unifiedSkills.ts`. Filters expired buffs, stack-scales multiplicative fields (`1 + (mult-1)*stacks`), merges with ability effect. Nothing creates TempBuffs yet (2B-2 procs will).
+  - **Charge System**: Per-skill charges via `skillCharges`. Pre-roll: `perChargeCritChance`, `perChargeDamage`. Post-roll: gain on hit/crit/kill, spend-all mechanic (burst damage per charge), decay per tick. `chargeSpendDamage` applied to both boss and clearing paths.
+- **5 new GameState fields**: `rampingStacks`, `rampingLastHitAt`, `fortifyStacks`, `fortifyExpiresAt`, `fortifyDRPerStack`
+- **2 new helpers**: `aggregateTempBuffEffects()` (unifiedSkills.ts), `calcFortifyDR()` (gameStore.ts module-level)
+- **2 new balance constants**: `FORTIFY_MAX_STACKS=20`, `FORTIFY_MAX_DR=0.75`
+- **Safety**: All changes guarded by `if (graphMod?.field)`. No existing graphs use these fields, so behavior is identical.
+- **No save migration**: All new fields are ephemeral (reset on rehydrate).
+- **Save version**: v33 (unchanged)
+- **Files modified**: `src/types/index.ts`, `src/data/balance.ts`, `src/engine/unifiedSkills.ts`, `src/store/gameStore.ts`, `docs/PROJECT_STATUS.md`, `docs/SKILL_TREE_DESIGN.md`
+- **Also fixed**: Pre-existing unused import errors in `MaterialPill.tsx` and `MaterialsPanel.tsx`.
+- **Next**: Phase 2B-2 — Evaluation systems (conditionals, procs, debuff interactions).
+
+**Previous: Sprint 13B-Phase2A: Wire Phase 1 Types Into Combat** — COMPLETE.
 
 - **Purpose**: Make the ~25 new `SkillModifier` fields and 6 new debuffs from Sprint 13A-Phase1 actually DO things in real-time combat. All fields were type-only; now they modify the combat tick.
 - **Damage pipeline** (`unifiedSkills.ts`): `damageFromArmor/Evasion/MaxLife` add flat damage from stats; `chainCount/pierceCount/forkCount` add bonus hits (idle simplification: full damage per bounce).

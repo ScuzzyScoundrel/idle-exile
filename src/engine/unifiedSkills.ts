@@ -8,7 +8,7 @@ import type {
   SkillDef, SkillProgress, SkillTimerState, EquippedSkill,
   AbilityEffect, AbilityProgress, AbilityDef, AbilityTimerState, EquippedAbility,
   ResolvedStats, ScalingFormula, SkillTreeNode, WeaponType, ZoneDef, ActiveSkillDef,
-  DamageTag,
+  DamageTag, TempBuff,
 } from '../types';
 import { ABILITY_SLOT_UNLOCKS } from '../types';
 import { calcHitChance } from './character';
@@ -357,6 +357,27 @@ export function mergeEffect(target: AbilityEffect, source: AbilityEffect): Abili
     ignoreHazards: (target.ignoreHazards ?? false) || (source.ignoreHazards ?? false),
     doubleClears: (target.doubleClears ?? false) || (source.doubleClears ?? false),
   };
+}
+
+/**
+ * Aggregate active TempBuff effects into a single AbilityEffect.
+ * Stack-scales multiplicative fields: 1 + (mult - 1) * stacks (e.g. 1.1x at 3 stacks = 1.3x).
+ * Additive fields simply multiply by stacks.
+ */
+export function aggregateTempBuffEffects(tempBuffs: TempBuff[], now: number): AbilityEffect {
+  let result: AbilityEffect = {};
+  for (const buff of tempBuffs) {
+    if (buff.expiresAt <= now) continue;
+    const scaled: AbilityEffect = {
+      damageMult: buff.effect.damageMult != null ? 1 + (buff.effect.damageMult - 1) * buff.stacks : undefined,
+      attackSpeedMult: buff.effect.attackSpeedMult != null ? 1 + (buff.effect.attackSpeedMult - 1) * buff.stacks : undefined,
+      defenseMult: buff.effect.defenseMult != null ? 1 + (buff.effect.defenseMult - 1) * buff.stacks : undefined,
+      critChanceBonus: buff.effect.critChanceBonus != null ? buff.effect.critChanceBonus * buff.stacks : undefined,
+      critMultiplierBonus: buff.effect.critMultiplierBonus != null ? buff.effect.critMultiplierBonus * buff.stacks : undefined,
+    };
+    result = mergeEffect(result, scaled);
+  }
+  return result;
 }
 
 // ─── Aggregation ───

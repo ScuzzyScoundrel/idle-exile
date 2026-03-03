@@ -240,6 +240,15 @@ export const CATALYST_ILVL_BONUS: Record<RareMaterialRarity, number> = {
 };
 
 // =============================================
+// FORTIFY
+// =============================================
+
+/** Maximum fortify stacks (hard cap). */
+export const FORTIFY_MAX_STACKS = 20;
+/** Maximum damage reduction from fortify (75%). */
+export const FORTIFY_MAX_DR = 0.75;
+
+// =============================================
 // COMBAT & BOSS MECHANICS
 // =============================================
 

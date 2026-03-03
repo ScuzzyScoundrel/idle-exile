@@ -27,7 +27,7 @@ import {
 import { createCharacter, resolveStats, addXp, getWeaponDamageInfo } from '../engine/character';
 import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, simulateCombatClear, createBossEncounter, generateBossLoot, applyAbilityResists, calcHazardPenalty, rollZoneAttack, calcLevelDamageMult } from '../engine/zones';
 import { calcMobHp, calcSkillCastInterval, rollSkillCast } from '../engine/unifiedSkills';
-import { BOSS_VICTORY_DURATION, BOSS_DEFEAT_RECOVERY, BOSS_VICTORY_HEAL_RATIO, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO, SKILL_GCD, LEECH_PERCENT, ZONE_ATTACK_INTERVAL, ZONE_DMG_BASE, ZONE_PHYS_RATIO, ZONE_ACCURACY_BASE, MAX_REGEN_RATIO, BOSS_CRIT_CHANCE, BOSS_CRIT_MULTIPLIER, BOSS_MAX_DMG_RATIO } from '../data/balance';
+import { BOSS_VICTORY_DURATION, BOSS_DEFEAT_RECOVERY, BOSS_VICTORY_HEAL_RATIO, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO, SKILL_GCD, LEECH_PERCENT, ZONE_ATTACK_INTERVAL, ZONE_DMG_BASE, ZONE_PHYS_RATIO, ZONE_ACCURACY_BASE, MAX_REGEN_RATIO, BOSS_CRIT_CHANCE, BOSS_CRIT_MULTIPLIER, BOSS_MAX_DMG_RATIO, FORTIFY_MAX_STACKS, FORTIFY_MAX_DR } from '../data/balance';
 import { pickBestItem, generateId, isTwoHandedWeapon } from '../engine/items';
 import { applyCurrency } from '../engine/crafting';
 import {
@@ -55,7 +55,7 @@ import {
 } from '../engine/classResource';
 import { getDefaultSkillForWeapon } from '../engine/unifiedSkills';
 import { getSkillDef } from '../data/unifiedSkills';
-import { aggregateSkillBarEffects, aggregateGraphGlobalEffects, getPrimaryDamageSkill, getNextRotationSkill, getSkillEffectiveDuration, getSkillEffectiveCooldown, mergeEffect, getSkillGraphModifier } from '../engine/unifiedSkills';
+import { aggregateSkillBarEffects, aggregateGraphGlobalEffects, getPrimaryDamageSkill, getNextRotationSkill, getSkillEffectiveDuration, getSkillEffectiveCooldown, mergeEffect, getSkillGraphModifier, aggregateTempBuffEffects } from '../engine/unifiedSkills';
 import { aggregateClassTalentEffect, canAllocateTalentNode, allocateTalentNode as allocateTalentNodeEngine, respecTalents as respecTalentsEngine, getTalentRespecCost } from '../engine/classTalents';
 import { getUnifiedSkillDef, ABILITY_ID_MIGRATION } from '../data/unifiedSkills';
 import { canAllocateGraphNode, allocateGraphNode, respecGraphNodes, getGraphRespecCost } from '../engine/skillGraph';
@@ -111,6 +111,12 @@ function calcEnemyDebuffMods(activeDebuffs: ActiveDebuff[]): {
     }
   }
   return { damageMult: Math.max(0.1, damageMult), missChance: Math.min(missChance, 75), atkSpeedSlowMult };
+}
+
+/** Compute fortify damage reduction from stacks. Returns 0 if expired or no stacks. */
+function calcFortifyDR(fortifyStacks: number, fortifyExpiresAt: number, fortifyDRPerStack: number, now: number): number {
+  if (fortifyStacks <= 0 || now > fortifyExpiresAt) return 0;
+  return Math.min(fortifyStacks * fortifyDRPerStack / 100, FORTIFY_MAX_DR);
 }
 
 /** Rarity sort order for auto-salvage comparison. */
@@ -465,6 +471,8 @@ function createInitialState(): GameState {
     lastDodgeAt: 0,
     tempBuffs: [],
     skillCharges: {},
+    rampingStacks: 0, rampingLastHitAt: 0,
+    fortifyStacks: 0, fortifyExpiresAt: 0, fortifyDRPerStack: 0,
     lastClearResult: null,
     lastSkillActivation: 0,
     currentMobHp: 0,
@@ -2009,7 +2017,10 @@ export const useGameStore = create<GameState & GameActions>()(
                 const roll = rollZoneAttack(rawDmg, bs.bossPhysRatio, bs.bossAccuracy, defStats);
 
                 // Damage cap: never exceed BOSS_MAX_DMG_RATIO of maxHP per hit
-                const cappedDmg = Math.min(roll.damage * helperEnemyMods.damageMult, bossStats.maxLife * BOSS_MAX_DMG_RATIO);
+                let cappedDmg = Math.min(roll.damage * helperEnemyMods.damageMult, bossStats.maxLife * BOSS_MAX_DMG_RATIO);
+                // Fortify DR (use previous tick's state)
+                const helperBossFortifyDR = calcFortifyDR(state.fortifyStacks, state.fortifyExpiresAt, state.fortifyDRPerStack, now);
+                if (helperBossFortifyDR > 0) cappedDmg *= (1 - helperBossFortifyDR);
                 playerHp -= cappedDmg;
                 bossAttackResult = { damage: cappedDmg, isDodged: roll.isDodged, isBlocked: roll.isBlocked, isCrit: isBossCrit };
                 nextAttack = now + bs.bossAttackInterval * helperEnemyMods.atkSpeedSlowMult * 1000;
@@ -2058,7 +2069,11 @@ export const useGameStore = create<GameState & GameActions>()(
               const rawDmg = ZONE_DMG_BASE * zone.band * levelMult * variance;
 
               const roll = rollZoneAttack(rawDmg, ZONE_PHYS_RATIO, zoneAccuracy, buffedStats);
-              playerHp -= roll.damage * helperEnemyMods.damageMult;
+              let helperZoneDmg = roll.damage * helperEnemyMods.damageMult;
+              // Fortify DR (use previous tick's state)
+              const helperZoneFortifyDR = calcFortifyDR(state.fortifyStacks, state.fortifyExpiresAt, state.fortifyDRPerStack, now);
+              if (helperZoneFortifyDR > 0) helperZoneDmg *= (1 - helperZoneFortifyDR);
+              playerHp -= helperZoneDmg;
               zoneAttackResult = roll;
               nextAttackAt = now + ZONE_ATTACK_INTERVAL * helperEnemyMods.atkSpeedSlowMult * 1000;
             }
@@ -2117,18 +2132,39 @@ export const useGameStore = create<GameState & GameActions>()(
         const stats = resolveStats(state.character);
         const abilityEffect = getFullEffect(state, now, false);
 
+        // Expire old temp buffs and fold active ones into ability effect
+        const activeTempBuffs = state.tempBuffs.filter(b => b.expiresAt > now);
+        const tempBuffEffect = aggregateTempBuffEffects(activeTempBuffs, now);
+        const combinedAbilityEffect = mergeEffect(abilityEffect, tempBuffEffect);
+
         // Apply ability stat bonuses to effective stats
         const effectiveStats = { ...stats };
-        if (abilityEffect.critChanceBonus) effectiveStats.critChance += abilityEffect.critChanceBonus;
-        if (abilityEffect.critMultiplierBonus) effectiveStats.critMultiplier += abilityEffect.critMultiplierBonus;
+        if (combinedAbilityEffect.critChanceBonus) effectiveStats.critChance += combinedAbilityEffect.critChanceBonus;
+        if (combinedAbilityEffect.critMultiplierBonus) effectiveStats.critMultiplier += combinedAbilityEffect.critMultiplierBonus;
 
         const classDef = getClassDef(state.character.class);
-        const atkSpeedMult = abilityEffect.attackSpeedMult ?? 1;
+        const atkSpeedMult = combinedAbilityEffect.attackSpeedMult ?? 1;
 
         // Resolve graph modifier for active skills (before damageMult so berserk can fold in)
         const skillProgress = state.skillProgress[skill.id];
         const skillDef = getUnifiedSkillDef(skill.id);
         const graphMod = skillDef ? getSkillGraphModifier(skillDef, skillProgress) : null;
+
+        // Charge system: per-charge bonuses BEFORE roll
+        let newSkillCharges = { ...state.skillCharges };
+        let chargeSpendDamage = 0;
+        const chargeConfig = graphMod?.chargeConfig ?? null;
+        if (chargeConfig) {
+          const key = skill.id;
+          if (!newSkillCharges[key]) {
+            newSkillCharges[key] = { current: 0, max: chargeConfig.maxCharges, chargeId: chargeConfig.chargeId };
+          }
+          const currentCharges = newSkillCharges[key].current;
+          // Per-charge crit bonus (before roll)
+          if (chargeConfig.perChargeCritChance && currentCharges > 0) {
+            effectiveStats.critChance += chargeConfig.perChargeCritChance * currentCharges;
+          }
+        }
 
         // Berserk: bonus damage scaling with missing HP
         let berserkMult = 1;
@@ -2139,7 +2175,10 @@ export const useGameStore = create<GameState & GameActions>()(
           }
         }
 
-        const damageMult = (abilityEffect.damageMult ?? 1) * getClassDamageModifier(state.classResource, classDef) * berserkMult;
+        // Per-charge damage bonus
+        const chargeDamageMult = (chargeConfig?.perChargeDamage && newSkillCharges[skill.id])
+          ? 1 + (chargeConfig.perChargeDamage / 100) * newSkillCharges[skill.id].current : 1;
+        const damageMult = (combinedAbilityEffect.damageMult ?? 1) * getClassDamageModifier(state.classResource, classDef) * berserkMult * chargeDamageMult;
 
         // Apply graph cast speed bonus
         const graphSpeedMult = graphMod?.incCastSpeed ? (1 + graphMod.incCastSpeed / 100) : 1;
@@ -2148,6 +2187,35 @@ export const useGameStore = create<GameState & GameActions>()(
         // Fire skill
         const { avgDamage, spellPower } = getWeaponDamageInfo(state.character.equipment);
         const roll = rollSkillCast(skill, effectiveStats, avgDamage, spellPower, damageMult, graphMod ?? undefined);
+
+        // Charge gain after roll
+        if (chargeConfig) {
+          const charges = newSkillCharges[skill.id];
+          const shouldGain = (chargeConfig.gainOn === 'onHit' && roll.isHit)
+            || (chargeConfig.gainOn === 'onCrit' && roll.isCrit);
+          if (shouldGain) charges.current = Math.min(charges.current + chargeConfig.gainAmount, charges.max);
+        }
+
+        // Charge spend-all mechanic
+        if (chargeConfig?.spendAll) {
+          const charges = newSkillCharges[skill.id];
+          if (charges.current > 0) {
+            const shouldSpend = chargeConfig.spendAll.trigger === 'onCast'
+              || (chargeConfig.spendAll.trigger === 'onCrit' && roll.isCrit);
+            if (shouldSpend) {
+              chargeSpendDamage = chargeConfig.spendAll.damagePerCharge * charges.current;
+              charges.current = 0;
+            }
+          }
+        }
+
+        // Charge decay per tick
+        if (chargeConfig?.decayRate && chargeConfig.decayRate > 0) {
+          const charges = newSkillCharges[skill.id];
+          if (charges.current > 0) {
+            charges.current = Math.max(0, Math.floor(charges.current - chargeConfig.decayRate * dtSec));
+          }
+        }
 
         // Apply debuff damage amplification (incDamageTaken + reducedResists + incCritDamageTaken)
         let debuffDamageMult = 1;
@@ -2177,6 +2245,32 @@ export const useGameStore = create<GameState & GameActions>()(
           if (targetHp * 100 < graphMod.executeThreshold) {
             (roll as { damage: number }).damage *= 2;
           }
+        }
+
+        // Ramping damage: global combat momentum stacks
+        let newRampingStacks = state.rampingStacks;
+        let newRampingLastHitAt = state.rampingLastHitAt;
+        if (graphMod?.rampingDamage && roll.isHit) {
+          const rd = graphMod.rampingDamage;
+          if (now - state.rampingLastHitAt > rd.decayAfter * 1000) newRampingStacks = 0;
+          if (newRampingStacks > 0) {
+            (roll as { damage: number }).damage *= (1 + rd.perHit / 100 * newRampingStacks);
+          }
+          newRampingStacks = Math.min(newRampingStacks + 1, rd.maxStacks);
+          newRampingLastHitAt = now;
+        } else if (!roll.isHit && graphMod?.rampingDamage) {
+          newRampingStacks = 0;  // miss resets momentum
+        }
+
+        // Fortify on hit: accumulate stacks, refresh duration
+        let newFortifyStacks = state.fortifyStacks;
+        let newFortifyExpiresAt = state.fortifyExpiresAt;
+        let newFortifyDRPerStack = state.fortifyDRPerStack;
+        if (now > state.fortifyExpiresAt) newFortifyStacks = 0;
+        if (graphMod?.fortifyOnHit && roll.isHit) {
+          newFortifyStacks = Math.min(newFortifyStacks + graphMod.fortifyOnHit.stacks, FORTIFY_MAX_STACKS);
+          newFortifyExpiresAt = now + graphMod.fortifyOnHit.duration * 1000;
+          newFortifyDRPerStack = graphMod.fortifyOnHit.damageReduction;
         }
 
         // Apply new debuffs from graph modifier
@@ -2283,6 +2377,12 @@ export const useGameStore = create<GameState & GameActions>()(
             totalDamage += debuffDotDamage;
           }
 
+          // Charge spend-all bonus damage to boss
+          if (chargeSpendDamage > 0) {
+            newBossHp -= chargeSpendDamage;
+            totalDamage += chargeSpendDamage;
+          }
+
           // Boss per-hit attack (if attack timer is due)
           let playerHp = state.currentHp;
           let nextAttack = bs.bossNextAttackAt;
@@ -2307,7 +2407,10 @@ export const useGameStore = create<GameState & GameActions>()(
               if (graphMod?.berserk) incomingMult *= (1 + graphMod.berserk.damageTakenIncrease / 100);
 
               // Damage cap: never exceed BOSS_MAX_DMG_RATIO of maxHP per hit
-              const cappedBossDmg = Math.min(bossRoll.damage * incomingMult, stats.maxLife * BOSS_MAX_DMG_RATIO);
+              let cappedBossDmg = Math.min(bossRoll.damage * incomingMult, stats.maxLife * BOSS_MAX_DMG_RATIO);
+              // Fortify DR (current tick values)
+              const mainBossFortifyDR = calcFortifyDR(newFortifyStacks, newFortifyExpiresAt, newFortifyDRPerStack, now);
+              if (mainBossFortifyDR > 0) cappedBossDmg *= (1 - mainBossFortifyDR);
               playerHp -= cappedBossDmg;
               bossAttackResult = { damage: cappedBossDmg, isDodged: bossRoll.isDodged, isBlocked: bossRoll.isBlocked, isCrit: isBossCrit };
               nextAttack = now + bs.bossAttackInterval * mainEnemyMods.atkSpeedSlowMult * 1000;
@@ -2345,6 +2448,8 @@ export const useGameStore = create<GameState & GameActions>()(
             lastCritAt: newLastCritAt,
             lastBlockAt: newLastBlockAt,
             lastDodgeAt: newLastDodgeAt,
+            rampingStacks: newRampingStacks, rampingLastHitAt: newRampingLastHitAt,
+            fortifyStacks: newFortifyStacks, fortifyExpiresAt: newFortifyExpiresAt, fortifyDRPerStack: newFortifyDRPerStack,
           };
 
           const updatedBoss = { ...bs, bossCurrentHp: newBossHp, bossNextAttackAt: nextAttack };
@@ -2358,6 +2463,8 @@ export const useGameStore = create<GameState & GameActions>()(
               nextActiveSkillAt,
               skillTimers: newTimers,
               activeDebuffs: [], // Clear debuffs on boss death
+              tempBuffs: [], // Clear temp buffs on boss death
+              skillCharges: newSkillCharges,
             });
             return {
               mobKills: 0, skillFired: true, damageDealt: totalDamage,
@@ -2373,6 +2480,8 @@ export const useGameStore = create<GameState & GameActions>()(
               nextActiveSkillAt,
               skillTimers: newTimers,
               activeDebuffs: [], // Clear debuffs on death
+              tempBuffs: [], // Clear temp buffs on death
+              skillCharges: newSkillCharges,
             });
             return {
               mobKills: 0, skillFired: true, damageDealt: totalDamage,
@@ -2388,6 +2497,8 @@ export const useGameStore = create<GameState & GameActions>()(
             nextActiveSkillAt,
             skillTimers: newTimers,
             activeDebuffs: newDebuffs,
+            tempBuffs: activeTempBuffs,
+            skillCharges: newSkillCharges,
           });
           return {
             mobKills: 0, skillFired: true, damageDealt: totalDamage,
@@ -2412,6 +2523,12 @@ export const useGameStore = create<GameState & GameActions>()(
           totalDamage += debuffDotDamage;
         }
 
+        // Charge spend-all bonus damage to mob
+        if (chargeSpendDamage > 0) {
+          currentMobHp -= chargeSpendDamage;
+          totalDamage += chargeSpendDamage;
+        }
+
         // Move playerHp before death loop for lifeOnKill
         let playerHp = state.currentHp;
 
@@ -2426,6 +2543,12 @@ export const useGameStore = create<GameState & GameActions>()(
           // Life on kill
           if (graphMod?.lifeOnKill) {
             playerHp = Math.min(effectiveMaxLife, playerHp + graphMod.lifeOnKill);
+          }
+
+          // Charge gain on kill
+          if (chargeConfig?.gainOn === 'onKill') {
+            const charges = newSkillCharges[skill.id];
+            if (charges) charges.current = Math.min(charges.current + chargeConfig.gainAmount, charges.max);
           }
 
           // Pick a new mob for respawn (random or targeted)
@@ -2470,7 +2593,11 @@ export const useGameStore = create<GameState & GameActions>()(
             if (graphMod?.increasedDamageTaken) clearIncomingMult *= (1 + graphMod.increasedDamageTaken / 100);
             if (graphMod?.berserk) clearIncomingMult *= (1 + graphMod.berserk.damageTakenIncrease / 100);
 
-            playerHp -= zoneRoll.damage * clearIncomingMult;
+            let clearZoneDmg = zoneRoll.damage * clearIncomingMult;
+            // Fortify DR (current tick values)
+            const mainClearFortifyDR = calcFortifyDR(newFortifyStacks, newFortifyExpiresAt, newFortifyDRPerStack, now);
+            if (mainClearFortifyDR > 0) clearZoneDmg *= (1 - mainClearFortifyDR);
+            playerHp -= clearZoneDmg;
             zoneAttackResult = zoneRoll;
             nextZoneAttack = now + ZONE_ATTACK_INTERVAL * clearEnemyMods.atkSpeedSlowMult * 1000;
           }
@@ -2507,6 +2634,8 @@ export const useGameStore = create<GameState & GameActions>()(
           lastCritAt: newLastCritAt,
           lastBlockAt: newLastBlockAt,
           lastDodgeAt: newLastDodgeAt,
+          rampingStacks: newRampingStacks, rampingLastHitAt: newRampingLastHitAt,
+          fortifyStacks: newFortifyStacks, fortifyExpiresAt: newFortifyExpiresAt, fortifyDRPerStack: newFortifyDRPerStack,
         };
 
         // Zone death check
@@ -2523,6 +2652,8 @@ export const useGameStore = create<GameState & GameActions>()(
             combatPhase: 'zone_defeat' as CombatPhase,
             combatPhaseStartedAt: Date.now(),
             activeDebuffs: [],
+            tempBuffs: [], // Clear temp buffs on zone death
+            skillCharges: newSkillCharges,
           });
           return {
             mobKills,
@@ -2546,6 +2677,8 @@ export const useGameStore = create<GameState & GameActions>()(
           currentHp: playerHp,
           zoneNextAttackAt: nextZoneAttack,
           activeDebuffs: newDebuffs,
+          tempBuffs: activeTempBuffs,
+          skillCharges: newSkillCharges,
         });
 
         return {
@@ -2869,6 +3002,8 @@ export const useGameStore = create<GameState & GameActions>()(
           state.lastDodgeAt = 0;
           state.tempBuffs = [];
           state.skillCharges = {};
+          state.rampingStacks = 0; state.rampingLastHitAt = 0;
+          state.fortifyStacks = 0; state.fortifyExpiresAt = 0; state.fortifyDRPerStack = 0;
 
           // Ensure all equipped skills default to autoCast: true (fix for pre-10I saves)
           if (state.skillBar) {

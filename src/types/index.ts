@@ -965,6 +965,11 @@ export interface GameState {
   lastDodgeAt: number;
   tempBuffs: TempBuff[];
   skillCharges: Record<string, { current: number; max: number; chargeId: string }>;
+  rampingStacks: number;
+  rampingLastHitAt: number;
+  fortifyStacks: number;
+  fortifyExpiresAt: number;
+  fortifyDRPerStack: number;  // copied from graphMod on hit, avoids graphMod lookup at damage sites
 
   // Per-clear combat sim result (v25 — ephemeral, not persisted)
   lastClearResult: CombatClearResult | null;

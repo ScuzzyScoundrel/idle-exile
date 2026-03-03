@@ -606,14 +606,24 @@ Scope: Straightforward, highest-impact fields. Wired into `tickCombat` with guar
 - Block/dodge tracked from zone/boss attack results.
 - Tracking object spread into all 5 `set()` calls in main path.
 
-**Deferred to Phase 2B:**
+### Phase 2B-1 Implementation Notes (Sprint 13B-Phase2B-1)
+
+**State-tracking systems wired into `tickCombat`:**
+
+| System | How It Works | Guard |
+|--------|-------------|-------|
+| **Ramping Damage** | Global stacks on hits, reset on miss. `damage *= (1 + perHit/100 * stacks)`. Decay after idle. | `graphMod?.rampingDamage` |
+| **Fortify on Hit** | Stacks accumulate on hit, all expire together. `calcFortifyDR()` at 4 damage sites, capped 75%. | `graphMod?.fortifyOnHit` |
+| **Temp Buffs** | `aggregateTempBuffEffects()` filters expired, stack-scales mults, merges into `combinedAbilityEffect`. | `activeTempBuffs.length > 0` |
+| **Charge System** | Per-skill charges: pre-roll bonuses (crit, damage), post-roll gain (hit/crit/kill), spend-all burst, decay. | `graphMod?.chargeConfig` |
+
+**New GameState fields (5):** `rampingStacks`, `rampingLastHitAt`, `fortifyStacks`, `fortifyExpiresAt`, `fortifyDRPerStack`
+**New balance constants:** `FORTIFY_MAX_STACKS=20`, `FORTIFY_MAX_DR=0.75`
+
+**Deferred to Phase 2B-2:**
 - Conditional modifiers (`conditionalMods` — evaluate TriggerConditions against ephemeral state)
-- Proc system (`skillProcs` — castSkill, resetCooldown, bonusCast, applyBuff, instantDamage)
-- Charge system (`chargeConfig` — gain/spend/decay + UI)
-- Debuff interactions (`debuffInteraction` — spread, consume, bonus)
-- Temp buffs (`tempBuffs` — apply/expire/stack)
-- Fortify (`fortifyOnHit` — DR stacking)
-- Ramping damage (`rampingDamage` — per-cast stack tracking)
+- Proc system (`skillProcs` — castSkill, resetCooldown, bonusCast, applyBuff→TempBuff, instantDamage)
+- Debuff interactions (`debuffInteraction` — spread, consume, bonus, bonusDamageVsDebuffed)
 
 ---
 
