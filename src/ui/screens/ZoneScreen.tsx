@@ -510,6 +510,11 @@ function ZoneCard({
     >
       {/* Gradient background */}
       <div className={`absolute inset-0 ${BAND_GRADIENTS[band]}`} />
+      {/* Zone background image (falls back gracefully if missing) */}
+      <div
+        className="absolute inset-0 bg-cover bg-center opacity-25 pointer-events-none"
+        style={{ backgroundImage: `url(/images/zones/${zone.id}.webp)` }}
+      />
       {/* Dark overlay for readability */}
       <div className={`absolute inset-0 ${skillTooLow ? 'bg-red-950/50' : 'bg-black/30'}`} />
 
