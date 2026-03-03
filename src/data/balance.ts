@@ -278,9 +278,9 @@ export const BOSS_VICTORY_HEAL_RATIO = 0.6;
 // =============================================
 
 /** Seconds between zone attacks during normal clears. */
-export const ZONE_ATTACK_INTERVAL = 1.0;
+export const ZONE_ATTACK_INTERVAL = 2.0;
 /** Base zone damage per hit at band 1. Scales linearly with band. */
-export const ZONE_DMG_BASE = 8;
+export const ZONE_DMG_BASE = 6;
 /** Fraction of zone damage that's physical (rest is elemental). */
 export const ZONE_PHYS_RATIO = 0.7;
 /** Boss damage per hit base. Scales with band^2. */
@@ -288,9 +288,9 @@ export const BOSS_DMG_PER_HIT_BASE = 8;
 /** Seconds between boss attacks. */
 export const BOSS_ATTACK_INTERVAL = 1.5;
 /** Innate life leech: fraction of damage dealt that heals player. */
-export const LEECH_PERCENT = 0.03;
+export const LEECH_PERCENT = 0.04;
 /** Max regen per clear as fraction of maxHP (prevents immortality). */
-export const MAX_REGEN_RATIO = 0.40;
+export const MAX_REGEN_RATIO = 0.50;
 
 // =============================================
 // SKILL AUTO-CAST

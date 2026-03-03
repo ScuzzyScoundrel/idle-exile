@@ -290,6 +290,8 @@ export interface CombatTickResult {
   isCrit: boolean;
   isHit: boolean;
   bossOutcome?: 'ongoing' | 'victory' | 'defeat';
+  zoneAttack?: { damage: number; isDodged: boolean; isBlocked: boolean } | null;
+  zoneDeath?: boolean;
 }
 
 export type CombatPhase = 'clearing' | 'boss_fight' | 'boss_victory' | 'boss_defeat' | 'zone_defeat';
@@ -707,6 +709,7 @@ export interface GameState {
   currentMobHp: number;
   maxMobHp: number;
   nextActiveSkillAt: number;
+  zoneNextAttackAt: number;  // next zone attack timestamp (ms), 0 when not clearing
 
   // Tutorial
   tutorialStep: number;

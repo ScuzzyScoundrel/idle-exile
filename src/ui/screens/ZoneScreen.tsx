@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useGameStore, ProcessClearsResult, useHasHydrated } from '../../store/gameStore';
 import { ZONE_DEFS, BAND_NAMES } from '../../data/zones';
 import { checkZoneMastery, calcXpScale } from '../../engine/zones';
-import { calcDefensiveEfficiency } from '../../engine/setBonus';
+// calcDefensiveEfficiency removed — defense is now real-time
 import { canGatherInZone, getGatheringSkillRequirement, calcGatheringXpRequired } from '../../engine/gathering';
 import { GATHERING_PROFESSION_DEFS } from '../../data/gatheringProfessions';
 import { ZoneDef, Rarity, IdleMode, GatheringProfession, ClassResourceState } from '../../types';
@@ -14,7 +14,7 @@ import { getEquippedWeaponType } from '../../engine/items';
 import { getUnlockedSlotCount } from '../../engine/unifiedSkills';
 import { WeaponType } from '../../types';
 import { getRareMaterialDef } from '../../data/rareMaterials';
-import { BOSS_INTERVAL } from '../../data/balance';
+import { BOSS_INTERVAL, ZONE_ATTACK_INTERVAL } from '../../data/balance';
 import { resolveStats } from '../../engine/character';
 import { getClassDef } from '../../data/classes';
 
@@ -204,7 +204,9 @@ function PlayerHpBar({ currentHp, maxHp, trailHp }: { currentHp: number; maxHp: 
 }
 
 // --- Mob Display (during clearing) ---
-function MobDisplay({ mobName, mobCurrentHp, mobMaxHp, bossIn }: { mobName: string; mobCurrentHp: number; mobMaxHp: number; bossIn: number }) {
+function MobDisplay({ mobName, mobCurrentHp, mobMaxHp, bossIn, swingProgress }: {
+  mobName: string; mobCurrentHp: number; mobMaxHp: number; bossIn: number; swingProgress: number;
+}) {
   // Real-time mob HP bar (10K-A)
   const mobHpPct = mobMaxHp > 0 ? Math.max(0, Math.min(100, (mobCurrentHp / mobMaxHp) * 100)) : 0;
   return (
@@ -217,14 +219,19 @@ function MobDisplay({ mobName, mobCurrentHp, mobMaxHp, bossIn }: { mobName: stri
         <div className="h-full bg-red-500 rounded-full transition-all duration-200"
              style={{ width: `${mobHpPct}%` }} />
       </div>
+      {/* Enemy swing timer */}
+      <div className="mt-1 h-1.5 bg-gray-700/50 rounded-full overflow-hidden">
+        <div className="h-full bg-orange-500/80 rounded-full transition-all duration-200"
+             style={{ width: `${Math.max(0, Math.min(1, swingProgress)) * 100}%` }} />
+      </div>
     </div>
   );
 }
 
 // --- Boss Fight Display ---
-function BossFightDisplay({ bossName, bossHp, bossMaxHp, playerHp, maxHp, bossDps }: {
+function BossFightDisplay({ bossName, bossHp, bossMaxHp, playerHp, maxHp, bossDps, swingProgress }: {
   bossName: string; bossHp: number; bossMaxHp: number;
-  playerHp: number; maxHp: number; bossDps: number;
+  playerHp: number; maxHp: number; bossDps: number; swingProgress: number;
 }) {
   const bossPct = bossMaxHp > 0 ? Math.max(0, (bossHp / bossMaxHp) * 100) : 0;
   const playerPct = maxHp > 0 ? Math.max(0, (playerHp / maxHp) * 100) : 0;
@@ -243,6 +250,11 @@ function BossFightDisplay({ bossName, bossHp, bossMaxHp, playerHp, maxHp, bossDp
           <div className="h-full bg-red-600 rounded-full transition-all duration-100"
                style={{ width: `${bossPct}%` }} />
         </div>
+      </div>
+      {/* Boss swing timer */}
+      <div className="h-1.5 bg-gray-700/50 rounded-full overflow-hidden">
+        <div className="h-full bg-orange-500/80 rounded-full transition-all duration-200"
+             style={{ width: `${Math.max(0, Math.min(1, swingProgress)) * 100}%` }} />
       </div>
       {/* Player HP */}
       <div>
@@ -675,7 +687,7 @@ export default function ZoneScreen() {
     clearStartedAt, currentClearTime,
     totalKills, fastestClears,
     lastClearResult,
-    tickCombat, currentMobHp, maxMobHp,
+    tickCombat, currentMobHp, maxMobHp, zoneNextAttackAt,
   } = useGameStore();
 
   const hydrated = useHasHydrated();
@@ -792,6 +804,24 @@ export default function ZoneScreen() {
                 startBossFight();
               }
             }
+          }
+          // Enemy attack floaters (zone defense)
+          if (combatResult.zoneAttack) {
+            const za = combatResult.zoneAttack;
+            setFloaters(prev => [...prev, {
+              id: floaterIdRef.current++,
+              damage: za.damage,
+              isCrit: false,
+              isHit: !za.isDodged,
+              isEnemyAttack: true,
+              isDodged: za.isDodged,
+              isBlocked: za.isBlocked,
+            }].slice(-8));
+          }
+          // Zone death from real-time defense
+          if (combatResult.zoneDeath) {
+            setFloaters([]);
+            setCombatLog([]);
           }
         }
       } else if (phase === 'boss_fight') {
@@ -943,17 +973,18 @@ export default function ZoneScreen() {
   const clearProgress = isRunning && clearDurationMs > 0
     ? Math.min(1, Math.max(0, (nowMs - clearStartedAt) / clearDurationMs))
     : 0;
-  let displayHp = currentHp;
-  if (isRunning && idleMode === 'combat' && combatPhase === 'clearing' && runningZone) {
-    // Deterministic HP preview for smooth interpolation (actual combat uses per-hit rolls)
-    const stats = resolveStats(character);
-    const defEff = calcDefensiveEfficiency(stats, runningZone.band, runningZone.iLvlMin);
-    const estDamage = stats.maxLife * 0.15 * Math.max(0, (1 - defEff) / 0.8);
-    const estRegen = stats.maxLife * 0.08 + stats.lifeRegen * currentClearTime;
-    const estNetChange = estDamage - estRegen;
-    const nextHp = Math.max(0, Math.min(stats.maxLife, currentHp - estNetChange));
-    displayHp = currentHp + (nextHp - currentHp) * clearProgress;
-  }
+  // HP is now updated in real-time by tickCombat — no interpolation needed
+  const displayHp = currentHp;
+
+  // Zone enemy swing timer progress (0→1 as attack approaches)
+  const zoneSwingProgress = zoneNextAttackAt > 0
+    ? 1 - Math.max(0, Math.min(1, (zoneNextAttackAt - nowMs) / (ZONE_ATTACK_INTERVAL * 1000)))
+    : 0;
+
+  // Boss swing timer progress
+  const bossSwingProgress = bossState?.bossNextAttackAt
+    ? 1 - Math.max(0, Math.min(1, (bossState.bossNextAttackAt - nowMs) / (bossState.bossAttackInterval * 1000)))
+    : 0;
 
   // Band zones
   const bands = [1, 2, 3, 4, 5, 6];
@@ -1205,6 +1236,7 @@ export default function ZoneScreen() {
                 playerHp={currentHp}
                 maxHp={maxHp}
                 bossDps={bossState.bossDps}
+                swingProgress={bossSwingProgress}
               />
               <DamageFloaters floaters={floaters} />
             </div>
@@ -1234,7 +1266,7 @@ export default function ZoneScreen() {
             <>
               {/* Player HP Bar (combat only, clearing) */}
               {idleMode === 'combat' && hydrated && (
-                <PlayerHpBar currentHp={displayHp} maxHp={maxHp} trailHp={currentHp} />
+                <PlayerHpBar currentHp={displayHp} maxHp={maxHp} />
               )}
 
               {/* Class Resource Bar (combat only) */}
@@ -1250,6 +1282,7 @@ export default function ZoneScreen() {
                     mobCurrentHp={currentMobHp}
                     mobMaxHp={maxMobHp}
                     bossIn={BOSS_INTERVAL - ((zoneClearCounts[currentZoneId!] || 0) % BOSS_INTERVAL)}
+                    swingProgress={zoneSwingProgress}
                   />
                   <DamageFloaters floaters={floaters} />
                 </div>

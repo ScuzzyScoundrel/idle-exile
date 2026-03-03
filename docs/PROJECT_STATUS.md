@@ -1,26 +1,31 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-02 (Post-Sprint 10O: Per-Hit Defense System)
+> Last updated: 2026-03-02 (Post-Sprint 10Q: Real-Time Zone Defense + Swing Timer)
 
 ## Current Phase
-**Sprint 10O: Per-Hit Defense System** — COMPLETE.
+**Sprint 10Q: Real-Time Zone Defense + Swing Timer** — COMPLETE.
 
-- **Per-hit defense pipeline**: Every incoming zone/boss attack rolls through: dodge (evasion vs accuracy) → block (chance, blocked hits deal 25%) → armor mitigation (PoE-style) → resist mitigation (average capped resists). Replaces abstract `calcDefensiveEfficiency()` in combat math.
-- **New engine functions**: `rollZoneAttack()` (single hit through defense pipeline), `simulateClearDefense()` (all zone hits per clear with regen/leech), `calcBossAttackProfile()` (per-hit boss stats).
-- **Normal clears**: Zone attacks N times per clear (`clearTime / ZONE_ATTACK_INTERVAL`). Base damage: `ZONE_DMG_BASE * band * levelMult`. 70% physical / 30% elemental split. Each hit rolled through full pipeline.
-- **Boss fights**: Boss attacks at intervals (`bossAttackInterval = 1.5s`) instead of flat DPS. Uses `bossNextAttackAt` timestamp for discrete attacks through defense pipeline. Player gets passive regen per tick + life leech (2% of damage dealt).
-- **Life leech**: Innate 2% of damage dealt heals player. Applied per-clear (estimated from last clear damage) and per boss skill cast.
-- **Regen cap**: Total healing per clear capped at 25% of maxHP (`MAX_REGEN_RATIO`). Prevents regen stacking trivializing content.
-- **BossState expanded**: New fields `bossDamagePerHit`, `bossAttackInterval`, `bossNextAttackAt`, `bossAccuracy`, `bossPhysRatio`. `bossDps` kept as computed display value for UI.
-- **calcDefensiveEfficiency kept for UI**: Still used as summary "defense rating" on zone cards. No longer drives combat math.
-- **7 new balance constants**: `ZONE_ATTACK_INTERVAL`, `ZONE_DMG_BASE`, `ZONE_PHYS_RATIO`, `BOSS_DMG_PER_HIT_BASE`, `BOSS_ATTACK_INTERVAL`, `LEECH_PERCENT`, `MAX_REGEN_RATIO`.
-- **Removed constants**: `CLEAR_DAMAGE_RATIO`, `BOSS_DPS_BASE`, `BOSS_DPS_ZONE_FACTOR`, `BOSS_DAMAGE_MULTIPLIER`.
-- **No save migration needed**: BossState is ephemeral (created fresh each fight). Per-clear defense applied immediately.
+- **Real-time zone defense**: Zone attacks now happen in real-time via `tickCombat()` (mirrors boss per-hit model), replacing the batched `simulateClearDefense()` that ran at clear completion. Player sees damage as it happens.
+- **New `applyZoneDamage` helper**: Inside `tickCombat()`, checks `zoneNextAttackAt` timestamp, computes `ZONE_DMG_BASE * band * levelMult * variance`, runs through `rollZoneAttack()` pipeline (dodge/block/armor/resist), applies regen + leech, handles death → `zone_defeat`.
+- **Wired into all 4 clearing code paths**: GCD gap, all skills on CD, no skill found, and normal clearing (after player skill fires). Zone attacks happen every `ZONE_ATTACK_INTERVAL` seconds regardless of skill state.
+- **New ephemeral state field**: `zoneNextAttackAt: number` on GameState. Init in `startIdleRun`, reset in `stopIdleRun`/`onRehydrateStorage`/`startBossFight`, re-init in `checkRecoveryComplete`.
+- **Removed batched defense from `processNewClears`**: No longer calls `simulateClearDefense()` in a loop. HP managed entirely by `tickCombat`. `simulateClearDefense` still exists in `engine/zones.ts` for offline progression.
+- **Balance retuning**: `ZONE_ATTACK_INTERVAL` 1.0→2.0 (halves hits/clear), `ZONE_DMG_BASE` 8→6 (softer hits), `MAX_REGEN_RATIO` 0.40→0.50 (more healing), `LEECH_PERCENT` 0.03→0.04 (better sustain). ~62% less total damage per clear.
+- **Enemy swing timer**: Orange progress bar on MobDisplay (zone clearing) and BossFightDisplay (boss fights). Fills left→right over attack interval, resets on each attack.
+- **Enemy damage floaters**: Near player HP bar — "DODGE" (blue), blocked damage (orange), hit damage (red). Uses extended `FloaterEntry` with `isEnemyAttack`, `isDodged`, `isBlocked` fields.
+- **Removed displayHp interpolation**: Old `calcDefensiveEfficiency`-based HP prediction removed. Real-time HP updates directly from store every 250ms tick.
+- **CombatTickResult extended**: New fields `zoneAttack?: { damage, isDodged, isBlocked }` and `zoneDeath?: boolean`.
+- **`calcDefensiveEfficiency` no longer imported in ZoneScreen**: Defense is fully real-time now.
+- **No save migration needed**: `zoneNextAttackAt` is ephemeral (reset on rehydrate).
 - **Save version**: v27 (unchanged).
-- **Bundle size**: ~504 kB.
 
-**Next sprint TBD.** Potential: boss attack timer UI, mob type differentiation, skill discovery/unlocks.
+**Next sprint TBD.** Potential: mob type differentiation, skill discovery/unlocks, zone mastery system.
+
+**Sprint 10O: Per-Hit Defense System** — COMPLETE (previous).
+
+- Per-hit defense pipeline: `rollZoneAttack()` (dodge→block→armor→resist), `simulateClearDefense()`, `calcBossAttackProfile()`.
+- Boss per-hit attacks via `bossNextAttackAt` timestamp. Life leech, regen cap. 7 new balance constants.
 
 **Sprint 10N: Skill XP + Passive Points** — COMPLETE (previous).
 

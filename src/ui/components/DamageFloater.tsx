@@ -3,6 +3,9 @@ export interface FloaterEntry {
   damage: number;
   isCrit: boolean;
   isHit: boolean;
+  isEnemyAttack?: boolean;
+  isDodged?: boolean;
+  isBlocked?: boolean;
 }
 
 export function DamageFloaters({ floaters }: { floaters: FloaterEntry[] }) {
@@ -12,20 +15,32 @@ export function DamageFloaters({ floaters }: { floaters: FloaterEntry[] }) {
         <div
           key={f.id}
           className={`absolute font-bold ${
-            !f.isHit
-              ? 'text-gray-400 text-sm'
-              : f.isCrit
-                ? 'text-yellow-300 text-lg'
-                : 'text-white text-sm'
+            f.isEnemyAttack
+              ? f.isDodged
+                ? 'text-blue-400 text-sm'
+                : f.isBlocked
+                  ? 'text-orange-400 text-sm'
+                  : 'text-red-400 text-sm'
+              : !f.isHit
+                ? 'text-gray-400 text-sm'
+                : f.isCrit
+                  ? 'text-yellow-300 text-lg'
+                  : 'text-white text-sm'
           }`}
           style={{
-            left: '50%',
+            left: f.isEnemyAttack ? '20%' : '50%',
             top: `${25 - i * 8}%`,
             transform: 'translateX(-50%)',
             animation: 'float-damage 1s ease-out forwards',
           }}
         >
-          {f.isHit ? Math.round(f.damage) : 'MISS'}
+          {f.isEnemyAttack
+            ? f.isDodged
+              ? 'DODGE'
+              : `-${Math.round(f.damage)}`
+            : f.isHit
+              ? Math.round(f.damage)
+              : 'MISS'}
         </div>
       ))}
     </div>

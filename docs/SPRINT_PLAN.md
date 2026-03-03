@@ -1,7 +1,7 @@
 # Idle Exile — Sprint Plan & Roadmap
 
 > **Full development roadmap.** Read `PROJECT_STATUS.md` first for current state.
-> Last updated: 2026-03-02 (Post-Sprint 10K-B2)
+> Last updated: 2026-03-02 (Post-Sprint 10Q)
 
 ## Micro-Sprint Workflow
 
@@ -66,6 +66,7 @@ Each conversation = one micro-sprint (3-5 focused changes):
 | **10M** | **Multi-Skill Rotation: cooldown-based rotation engine, per-skill CDs (3-12s tiers), GCD system, cooldown sweep UI, any-slot equip** |
 | **10N** | **Skill XP + Passive Points: all equipped skills earn XP, max level 20, quadratic XP curve, level badges on skill bar** |
 | **10O** | **Per-Hit Defense System: rollZoneAttack pipeline (dodge→block→armor→resist), simulateClearDefense, boss per-hit attacks, life leech, regen cap** |
+| **10Q** | **Real-Time Zone Defense + Swing Timer: zone attacks in tickCombat (mirrors boss model), enemy swing timer UI, enemy damage floaters, balance retuning, removed batched defense from processNewClears** |
 
 See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
 
@@ -532,13 +533,8 @@ See `COMBAT_OVERHAUL.md` for detailed checklist.
    - Character select screen on launch if multiple characters exist
 
 ### Sprint 11K: Attack Swing Timer
-**Status:** NOT STARTED
-**Files:** `engine/zones.ts`, `store/gameStore.ts`, `ui/screens/ZoneScreen.tsx`
-
-1. **Visual swing timer**
-   - During boss fights: player attack timer bar + boss attack timer bar
-   - Player attacks at `1/attackSpeed` intervals, boss at its own rate
-   - Damage applied in chunks on each swing completion
+**Status:** ABSORBED INTO 10Q
+- Enemy swing timers (zone + boss) implemented in Sprint 10Q alongside real-time zone defense.
 
 ---
 

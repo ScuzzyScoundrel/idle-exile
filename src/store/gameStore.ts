@@ -24,9 +24,9 @@ import {
   ResolvedStats,
 } from '../types';
 import { createCharacter, resolveStats, addXp, getWeaponDamageInfo } from '../engine/character';
-import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, simulateCombatClear, createBossEncounter, generateBossLoot, applyAbilityResists, calcHazardPenalty, simulateClearDefense, rollZoneAttack } from '../engine/zones';
+import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, simulateCombatClear, createBossEncounter, generateBossLoot, applyAbilityResists, calcHazardPenalty, rollZoneAttack, calcLevelDamageMult } from '../engine/zones';
 import { calcMobHp, calcSkillCastInterval, rollSkillCast } from '../engine/unifiedSkills';
-import { BOSS_VICTORY_DURATION, BOSS_DEFEAT_RECOVERY, BOSS_VICTORY_HEAL_RATIO, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO, SKILL_GCD, ACTIVE_SKILL_GCD, LEECH_PERCENT } from '../data/balance';
+import { BOSS_VICTORY_DURATION, BOSS_DEFEAT_RECOVERY, BOSS_VICTORY_HEAL_RATIO, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO, SKILL_GCD, ACTIVE_SKILL_GCD, LEECH_PERCENT, ZONE_ATTACK_INTERVAL, ZONE_DMG_BASE, ZONE_PHYS_RATIO, ZONE_ACCURACY_BASE, MAX_REGEN_RATIO } from '../data/balance';
 import { pickBestItem, generateId, isTwoHandedWeapon } from '../engine/items';
 import { applyCurrency } from '../engine/crafting';
 import {
@@ -372,6 +372,7 @@ function createInitialState(): GameState {
     currentMobHp: 0,
     maxMobHp: 0,
     nextActiveSkillAt: 0,
+    zoneNextAttackAt: 0,
     tutorialStep: 1,
     lastSaveTime: Date.now(),
   };
@@ -660,6 +661,7 @@ export const useGameStore = create<GameState & GameActions>()(
           currentMobHp: mobHp,
           maxMobHp: mobHp,
           nextActiveSkillAt: now,
+          zoneNextAttackAt: now + ZONE_ATTACK_INTERVAL * 1000,
         });
       },
 
@@ -817,34 +819,11 @@ export const useGameStore = create<GameState & GameActions>()(
           newBagStash[key] = (newBagStash[key] || 0) + val;
         }
 
-        // HP updates: per-hit defense pipeline per clear
-        const stats = resolveStats(state.character);
-        const effectiveStats = applyAbilityResists(stats, abilityEffect);
-        // Apply defenseMult from abilities to armor/evasion/block
-        const defenseBuffedStats: ResolvedStats = abilityEffect?.defenseMult
-          ? { ...effectiveStats,
-              armor: effectiveStats.armor * (abilityEffect.defenseMult),
-              evasion: effectiveStats.evasion * (abilityEffect.defenseMult),
-            }
-          : effectiveStats;
-        let hp = state.currentHp > 0 ? state.currentHp : stats.maxLife;
-        const clearTimeSec = state.currentClearTime;
-        // Estimate damage dealt per clear for leech calculation
-        const estimatedDmgDealt = state.lastClearResult?.totalDamage ?? (stats.maxLife * 0.5);
-        for (let i = 0; i < clearCount; i++) {
-          const result = simulateClearDefense(hp, stats.maxLife, defenseBuffedStats, zone,
-            state.character.level, clearTimeSec, estimatedDmgDealt);
-          hp = result.newHp;
-          if (hp <= 0) { hp = 0; break; }
-        }
-        const zoneDeath = hp <= 0 && state.idleMode === 'combat';
+        // HP is now managed in real-time by tickCombat zone attacks (no batched defense)
 
         // Track clear counts toward boss (only real clears, not mage bonus)
         const newZoneClearCounts = { ...state.zoneClearCounts };
-        if (zoneDeath) {
-          // Death: reset boss counter
-          delete newZoneClearCounts[zoneId];
-        } else {
+        {
           newZoneClearCounts[zoneId] = (newZoneClearCounts[zoneId] || 0) + clearCount;
         }
 
@@ -907,7 +886,6 @@ export const useGameStore = create<GameState & GameActions>()(
           currencies: newCurrencies,
           gold: state.gold + accGold + autoSoldGold,
           bagStash: newBagStash,
-          currentHp: hp,
           zoneClearCounts: newZoneClearCounts,
           classResource: classRes,
           abilityProgress: newAbilityProgress,
@@ -917,11 +895,6 @@ export const useGameStore = create<GameState & GameActions>()(
           lastClearResult: newClearResult,
           totalKills: state.totalKills + totalClears,
           fastestClears: newFastestClears,
-          // Zone death: enter recovery phase
-          ...(zoneDeath ? {
-            combatPhase: 'zone_defeat' as CombatPhase,
-            combatPhaseStartedAt: Date.now(),
-          } : {}),
         });
 
         return {
@@ -948,6 +921,7 @@ export const useGameStore = create<GameState & GameActions>()(
           combatPhaseStartedAt: null,
           lastClearResult: null,
           classResource: resetResourceOnEvent(state.classResource, cDef, 'stop'),
+          zoneNextAttackAt: 0,
         });
       },
 
@@ -1749,8 +1723,50 @@ export const useGameStore = create<GameState & GameActions>()(
           return noResult;
         };
 
+        // Helper: apply zone per-hit attacks + passive regen during normal clearing
+        const applyZoneDamage = (dt: number): CombatTickResult => {
+          if (phase !== 'clearing') return noResult;
+          let playerHp = state.currentHp;
+          let zoneAttackResult: CombatTickResult['zoneAttack'] = null;
+          let nextAttackAt = state.zoneNextAttackAt;
+
+          if (nextAttackAt > 0 && now >= nextAttackAt) {
+            const playerStats = resolveStats(state.character);
+            const abilEff = aggregateSkillBarEffects(state.skillBar, state.skillProgress, state.skillTimers, now, false);
+            const defStats = applyAbilityResists(playerStats, abilEff);
+            // Apply defenseMult from abilities to armor/evasion
+            const buffedStats: ResolvedStats = abilEff.defenseMult
+              ? { ...defStats, armor: defStats.armor * abilEff.defenseMult, evasion: defStats.evasion * abilEff.defenseMult }
+              : defStats;
+
+            const levelMult = calcLevelDamageMult(state.character.level, zone.iLvlMin);
+            const zoneAccuracy = ZONE_ACCURACY_BASE * (1 + (zone.band - 1) * 0.5);
+            const variance = 0.8 + Math.random() * 0.4;
+            const rawDmg = ZONE_DMG_BASE * zone.band * levelMult * variance;
+
+            const roll = rollZoneAttack(rawDmg, ZONE_PHYS_RATIO, zoneAccuracy, buffedStats);
+            playerHp -= roll.damage;
+            zoneAttackResult = roll;
+            nextAttackAt = now + ZONE_ATTACK_INTERVAL * 1000;
+
+            // Passive regen per tick
+            const maxLife = playerStats.maxLife;
+            const regenCap = maxLife * MAX_REGEN_RATIO;
+            const regen = Math.min(playerStats.lifeRegen * dt, regenCap);
+            playerHp = Math.min(maxLife, playerHp + regen);
+
+            if (playerHp <= 0) {
+              set({ currentHp: 0, zoneNextAttackAt: nextAttackAt, combatPhase: 'zone_defeat' as CombatPhase, combatPhaseStartedAt: Date.now() });
+              return { ...noResult, zoneAttack: zoneAttackResult, zoneDeath: true };
+            }
+            set({ currentHp: playerHp, zoneNextAttackAt: nextAttackAt });
+          }
+          return { ...noResult, zoneAttack: zoneAttackResult };
+        };
+
         // GCD check: can we fire any active skill yet?
         if (now < state.nextActiveSkillAt) {
+          if (phase === 'clearing') return applyZoneDamage(dtSec);
           return applyBossDamage();
         }
 
@@ -1768,6 +1784,7 @@ export const useGameStore = create<GameState & GameActions>()(
           });
           if (hasActiveSkill) {
             // Active skills exist but all on CD — idle until one comes back
+            if (phase === 'clearing') return applyZoneDamage(dtSec);
             return applyBossDamage();
           }
           // No active skills equipped at all — fall back to default weapon skill
@@ -1777,8 +1794,9 @@ export const useGameStore = create<GameState & GameActions>()(
           );
         }
 
-        // If still no skill, idle (boss still damages)
+        // If still no skill, idle (enemies still damage)
         if (!skill) {
+          if (phase === 'clearing') return applyZoneDamage(dtSec);
           return applyBossDamage();
         }
 
@@ -1915,11 +1933,67 @@ export const useGameStore = create<GameState & GameActions>()(
           if (currentMobHp <= 0) currentMobHp = maxMobHp; // safety: reset if still negative
         }
 
+        // Zone attack check during clearing (real-time defense)
+        let playerHp = state.currentHp;
+        let zoneAttackResult: CombatTickResult['zoneAttack'] = null;
+        let nextZoneAttack = state.zoneNextAttackAt;
+
+        if (nextZoneAttack > 0 && now >= nextZoneAttack) {
+          const defStats = applyAbilityResists(stats, abilityEffect);
+          const buffedStats: ResolvedStats = abilityEffect.defenseMult
+            ? { ...defStats, armor: defStats.armor * abilityEffect.defenseMult, evasion: defStats.evasion * abilityEffect.defenseMult }
+            : defStats;
+
+          const levelMult = calcLevelDamageMult(state.character.level, zone.iLvlMin);
+          const zoneAccuracy = ZONE_ACCURACY_BASE * (1 + (zone.band - 1) * 0.5);
+          const variance = 0.8 + Math.random() * 0.4;
+          const rawDmg = ZONE_DMG_BASE * zone.band * levelMult * variance;
+
+          const zoneRoll = rollZoneAttack(rawDmg, ZONE_PHYS_RATIO, zoneAccuracy, buffedStats);
+          playerHp -= zoneRoll.damage;
+          zoneAttackResult = zoneRoll;
+          nextZoneAttack = now + ZONE_ATTACK_INTERVAL * 1000;
+        }
+
+        // Passive regen per tick
+        playerHp = Math.min(stats.maxLife, playerHp + stats.lifeRegen * dtSec);
+
+        // Life leech from player's attack
+        if (roll.isHit) {
+          playerHp = Math.min(stats.maxLife, playerHp + roll.damage * LEECH_PERCENT);
+        }
+
+        // Zone death check
+        if (playerHp <= 0) {
+          set({
+            currentHp: 0,
+            currentMobHp,
+            maxMobHp,
+            nextActiveSkillAt,
+            skillTimers: newTimers,
+            zoneNextAttackAt: nextZoneAttack,
+            combatPhase: 'zone_defeat' as CombatPhase,
+            combatPhaseStartedAt: Date.now(),
+          });
+          return {
+            mobKills,
+            skillFired: true,
+            damageDealt: totalDamage,
+            skillId: skill.id,
+            isCrit: roll.isCrit,
+            isHit: roll.isHit,
+            zoneAttack: zoneAttackResult,
+            zoneDeath: true,
+          };
+        }
+
         set({
           currentMobHp,
           maxMobHp,
           nextActiveSkillAt,
           skillTimers: newTimers,
+          currentHp: playerHp,
+          zoneNextAttackAt: nextZoneAttack,
         });
 
         return {
@@ -1929,6 +2003,7 @@ export const useGameStore = create<GameState & GameActions>()(
           skillId: skill.id,
           isCrit: roll.isCrit,
           isHit: roll.isHit,
+          zoneAttack: zoneAttackResult,
         };
       },
 
@@ -1944,6 +2019,7 @@ export const useGameStore = create<GameState & GameActions>()(
           bossState: boss,
           combatPhaseStartedAt: Date.now(),
           nextActiveSkillAt: Date.now(),
+          zoneNextAttackAt: 0,
         });
       },
 
@@ -2036,6 +2112,7 @@ export const useGameStore = create<GameState & GameActions>()(
             currentMobHp: mobHp,
             maxMobHp: mobHp,
             nextActiveSkillAt: Date.now(),
+            zoneNextAttackAt: Date.now() + ZONE_ATTACK_INTERVAL * 1000,
           });
           return true;
         }
@@ -2132,6 +2209,7 @@ export const useGameStore = create<GameState & GameActions>()(
           state.currentMobHp = 0;
           state.maxMobHp = 0;
           state.nextActiveSkillAt = 0;
+          state.zoneNextAttackAt = 0;
 
           // Ensure all equipped skills default to autoCast: true (fix for pre-10I saves)
           if (state.skillBar) {
