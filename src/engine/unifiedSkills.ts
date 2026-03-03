@@ -665,6 +665,11 @@ export function calcSkillDamagePerCast(
   // Graph flat damage bonus
   if (graphMod?.flatDamage) baseDmg += graphMod.flatDamage;
 
+  // Damage-from-stat scaling (flat, benefits from %increased downstream)
+  if (graphMod?.damageFromArmor) baseDmg += stats.armor * (graphMod.damageFromArmor / 100);
+  if (graphMod?.damageFromEvasion) baseDmg += stats.evasion * (graphMod.damageFromEvasion / 100);
+  if (graphMod?.damageFromMaxLife) baseDmg += stats.maxLife * (graphMod.damageFromMaxLife / 100);
+
   if (isAttack) {
     baseDmg += weaponAvgDmg * skill.weaponDamagePercent;
     if (tags.includes('Physical')) baseDmg += stats.flatPhysDamage;
@@ -704,8 +709,9 @@ export function calcSkillDamagePerCast(
 
   const incMult = 1 + totalInc / 100;
 
-  // --- Hit count (base + graph extra hits) ---
-  const hitCount = (skill.hitCount ?? 1) + (graphMod?.extraHits ?? 0);
+  // --- Hit count (base + graph extra hits + bounce mechanics) ---
+  const bounceHits = (graphMod?.chainCount ?? 0) + (graphMod?.pierceCount ?? 0) + (graphMod?.forkCount ?? 0);
+  const hitCount = (skill.hitCount ?? 1) + (graphMod?.extraHits ?? 0) + bounceHits;
 
   return baseDmg * incMult * hitCount;
 }

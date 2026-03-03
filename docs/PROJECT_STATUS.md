@@ -1,10 +1,26 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-03 (Post-Sprint 13B: Component Crafting System)
+> Last updated: 2026-03-03 (Post-Sprint 13B-Phase2A: Wire Phase 1 Types Into Combat)
 
 ## Current Phase
-**Sprint 13B: Component Crafting System** — COMPLETE.
+**Sprint 13B-Phase2A: Wire Phase 1 Types Into Combat** — COMPLETE.
+
+- **Purpose**: Make the ~25 new `SkillModifier` fields and 6 new debuffs from Sprint 13A-Phase1 actually DO things in real-time combat. All fields were type-only; now they modify the combat tick.
+- **Damage pipeline** (`unifiedSkills.ts`): `damageFromArmor/Evasion/MaxLife` add flat damage from stats; `chainCount/pierceCount/forkCount` add bonus hits (idle simplification: full damage per bounce).
+- **Enemy debuff helper**: `calcEnemyDebuffMods()` computes `damageMult`, `missChance`, `atkSpeedSlowMult` from active debuffs (Weakened/Blinded/Slowed). Applied at all 4 incoming damage sites (applyBossDamage helper, applyZoneDamage helper, boss main path, clearing main path).
+- **Post-roll outgoing modifiers**: Expanded debuff damage amp to include `reducedResists` (Cursed) and `incCritDamageTaken` (Vulnerable). Added execute threshold (2x damage below HP%). Added berserk damage bonus (scales with missing HP%).
+- **Leech rework**: Replaced flag-based `hasLifeLeech` with unified `totalLeech = base + flag + graphMod.leechPercent`. `cannotLeech` overrides all. Added `effectiveMaxLife` for `reducedMaxLife` keystone. Added `lifeOnHit`, `lifeOnKill`, `selfDamagePercent`.
+- **Incoming damage modifiers**: `increasedDamageTaken` keystone and berserk `damageTakenIncrease` multiply incoming damage at both boss and clearing sites.
+- **Overkill bonus**: `overkillDamage` graph field amplifies overkill carry to next mob.
+- **Ephemeral state tracking**: 7 fields now tracked per tick — `consecutiveHits`, `lastSkillsCast`, `killStreak`, `lastOverkillDamage`, `lastCritAt`, `lastBlockAt`, `lastDodgeAt`. Spread into all 5 `set()` calls in the main combat path. Foundation for Phase 2B conditionals.
+- **Safety**: All changes guarded by `if (graphMod?.field)` or `if (debuffDef?.effect.field)` — existing graphs with none of these fields produce identical behavior.
+- **No save migration**: No new persisted state. Ephemeral fields reset on rehydrate.
+- **Save version**: v33 (unchanged)
+- **Files modified**: `src/engine/unifiedSkills.ts`, `src/store/gameStore.ts`, `docs/PROJECT_STATUS.md`, `docs/SKILL_TREE_DESIGN.md`
+- **Deferred to Phase 2B**: Conditional modifiers, proc system, charge system, debuff interactions, temp buffs, fortify, ramping damage.
+
+**Previous: Sprint 13B: Component Crafting System** — COMPLETE.
 
 - **Purpose**: Bridge combat drops into the crafting pipeline. Previously, 90 mob-specific drops + 18 band-tiered generic drops + 5 cross-band rares had zero crafting uses. Components create an intermediary layer: Gather → Refine + Kill Mobs → Craft Components → Craft Gear.
 - **65 new component recipes**: 30 general (5 professions × 6 bands), 30 specialist (5 professions × 6 bands), 5 masterwork (alchemist)

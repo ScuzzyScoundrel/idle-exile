@@ -566,9 +566,54 @@ Key decisions made during implementation:
 - **Tooltip support**: `formatModifier()` in `SkillGraphView.tsx` displays all new fields. Conditional/proc/debuff-interaction fields show summary counts rather than full details.
 
 **Phase 2 pickup points:**
-- `src/engine/unifiedSkills.ts` — `rollSkillCast()` needs to evaluate `conditionalMods`, process `skillProcs`, apply `chargeConfig` gain/spend, handle `fortifyOnHit`, compute `damageFromArmor/Evasion/MaxLife`, `executeThreshold`, `rampingDamage`, `splitDamage`, `overkillDamage`
-- `src/store/gameStore.ts` — combat tick needs to: tick `tempBuffs` expiry, decay `skillCharges`, evaluate `debuffInteraction` (spread, consume, bonus damage), apply `selfDamagePercent`, `berserk` threshold check, increment `consecutiveHits`/`killStreak`
-- New debuff effects (`reducedDamageDealt`, `missChance`, `incCritDamageTaken`, `reducedResists`, `reducedAttackSpeed`) need to be consumed in damage/defense calculations
+- `src/engine/unifiedSkills.ts` — `rollSkillCast()` needs to evaluate `conditionalMods`, process `skillProcs`, apply `chargeConfig` gain/spend, handle `fortifyOnHit`, compute `rampingDamage`, `splitDamage`
+- `src/store/gameStore.ts` — combat tick needs to: tick `tempBuffs` expiry, decay `skillCharges`, evaluate `debuffInteraction` (spread, consume, bonus damage), evaluate `conditionalMods` (TriggerCondition checks against ephemeral state)
+- Proc system: `skillProcs` actions (castSkill, resetCooldown, bonusCast, applyBuff, instantDamage)
+
+### Phase 2A Implementation Notes (Sprint 13B-Phase2A)
+
+**Status: COMPLETE** (2026-03-03)
+
+Scope: Straightforward, highest-impact fields. Wired into `tickCombat` with guards so existing graphs produce identical behavior.
+
+**Damage pipeline** (`unifiedSkills.ts:calcSkillDamagePerCast`):
+- `damageFromArmor/Evasion/MaxLife`: Added as flat damage (after `flatDamage`, before `%increased` section) so they benefit from all downstream multipliers.
+- `chainCount/pierceCount/forkCount`: Idle simplification — bounce mechanics = extra hits at full damage. Added to `hitCount` alongside `extraHits`.
+
+**Enemy debuff effects** (`gameStore.ts:calcEnemyDebuffMods`):
+- New pure helper returning `{ damageMult, missChance, atkSpeedSlowMult }` from active debuffs.
+- Applied at all 4 incoming damage sites: `applyBossDamage()` helper, `applyZoneDamage()` helper, boss fight main path, clearing main path.
+- Weakened: reduces enemy damage dealt. Blinded: chance for enemy to miss entirely. Slowed: increases enemy attack interval.
+
+**Post-roll outgoing modifiers** (`gameStore.ts:tickCombat`):
+- Expanded debuff damage amp: `reducedResists` (Cursed) and `incCritDamageTaken` (Vulnerable, only on crits) now stack with `incDamageTaken`.
+- `executeThreshold`: 2x damage when target HP% below threshold.
+- `berserk`: Damage bonus scales linearly with missing HP%. GraphMod resolved before `damageMult` so berserk can fold in.
+
+**Leech rework:**
+- Replaced binary `hasLifeLeech` flag with `totalLeech = LEECH_PERCENT + flagLeech + graphMod.leechPercent`. `cannotLeech` overrides all.
+- `effectiveMaxLife = maxLife * (1 - reducedMaxLife/100)` used for regen/leech caps in main path.
+- Added `lifeOnHit` (per hit) and `lifeOnKill` (per kill, in death loop).
+- Added `selfDamagePercent` (per cast, after leech).
+
+**Incoming damage modifiers:**
+- `increasedDamageTaken` + `berserk.damageTakenIncrease` multiply incoming damage at both boss and clearing main path sites.
+- `overkillDamage`: Amplifies overkill carry to next mob in death loop.
+
+**Ephemeral state tracking:**
+- 7 fields tracked: `consecutiveHits`, `lastSkillsCast`, `killStreak`, `lastOverkillDamage`, `lastCritAt`, `lastBlockAt`, `lastDodgeAt`.
+- Kill streak incremented in mob death loop, reset when player takes damage.
+- Block/dodge tracked from zone/boss attack results.
+- Tracking object spread into all 5 `set()` calls in main path.
+
+**Deferred to Phase 2B:**
+- Conditional modifiers (`conditionalMods` — evaluate TriggerConditions against ephemeral state)
+- Proc system (`skillProcs` — castSkill, resetCooldown, bonusCast, applyBuff, instantDamage)
+- Charge system (`chargeConfig` — gain/spend/decay + UI)
+- Debuff interactions (`debuffInteraction` — spread, consume, bonus)
+- Temp buffs (`tempBuffs` — apply/expire/stack)
+- Fortify (`fortifyOnHit` — DR stacking)
+- Ramping damage (`rampingDamage` — per-cast stack tracking)
 
 ---
 

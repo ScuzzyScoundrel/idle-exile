@@ -22,6 +22,7 @@ import {
   ActiveSkillDef,
   SkillDef,
   ResolvedStats,
+  ActiveDebuff,
 } from '../types';
 import { createCharacter, resolveStats, addXp, getWeaponDamageInfo } from '../engine/character';
 import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, simulateCombatClear, createBossEncounter, generateBossLoot, applyAbilityResists, calcHazardPenalty, rollZoneAttack, calcLevelDamageMult } from '../engine/zones';
@@ -85,6 +86,31 @@ function pickCurrentMob(zoneId: string, targetedMobId: string | null): string | 
   const mobs = getZoneMobTypes(zoneId);
   if (mobs.length === 0) return null;
   return weightedRandomMob(mobs).id;
+}
+
+/** Compute enemy debuff modifiers from active debuffs (Weakened/Blinded/Slowed). */
+function calcEnemyDebuffMods(activeDebuffs: ActiveDebuff[]): {
+  damageMult: number;       // multiply incoming enemy damage (< 1 = less damage)
+  missChance: number;       // 0-100, roll before attack
+  atkSpeedSlowMult: number; // multiply attack interval (> 1 = slower attacks)
+} {
+  let damageMult = 1;
+  let missChance = 0;
+  let atkSpeedSlowMult = 1;
+  for (const debuff of activeDebuffs) {
+    const def = getDebuffDef(debuff.debuffId);
+    if (!def) continue;
+    if (def.effect.reducedDamageDealt) {
+      damageMult -= (def.effect.reducedDamageDealt * debuff.stacks) / 100;
+    }
+    if (def.effect.missChance) {
+      missChance += def.effect.missChance * debuff.stacks;
+    }
+    if (def.effect.reducedAttackSpeed) {
+      atkSpeedSlowMult += (def.effect.reducedAttackSpeed * debuff.stacks) / 100;
+    }
+  }
+  return { damageMult: Math.max(0.1, damageMult), missChance: Math.min(missChance, 75), atkSpeedSlowMult };
 }
 
 /** Rarity sort order for auto-salvage comparison. */
@@ -1967,20 +1993,27 @@ export const useGameStore = create<GameState & GameActions>()(
             let bossAttackResult: CombatTickResult['bossAttack'] = null;
 
             // Check if boss attack is due
+            const helperEnemyMods = calcEnemyDebuffMods(state.activeDebuffs);
             let nextAttack = bs.bossNextAttackAt;
             if (now >= nextAttack) {
-              // Boss damage smoothing: variance + crit
-              const isBossCrit = Math.random() < BOSS_CRIT_CHANCE;
-              const variance = 0.6 + Math.random() * 0.4; // 60%-100% normal
-              const rawDmg = bs.bossDamagePerHit * (isBossCrit ? BOSS_CRIT_MULTIPLIER : variance);
+              // Miss chance from debuffs (e.g. Blinded)
+              if (Math.random() * 100 < helperEnemyMods.missChance) {
+                bossAttackResult = { damage: 0, isDodged: true, isBlocked: false, isCrit: false };
+                nextAttack = now + bs.bossAttackInterval * helperEnemyMods.atkSpeedSlowMult * 1000;
+              } else {
+                // Boss damage smoothing: variance + crit
+                const isBossCrit = Math.random() < BOSS_CRIT_CHANCE;
+                const variance = 0.6 + Math.random() * 0.4; // 60%-100% normal
+                const rawDmg = bs.bossDamagePerHit * (isBossCrit ? BOSS_CRIT_MULTIPLIER : variance);
 
-              const roll = rollZoneAttack(rawDmg, bs.bossPhysRatio, bs.bossAccuracy, defStats);
+                const roll = rollZoneAttack(rawDmg, bs.bossPhysRatio, bs.bossAccuracy, defStats);
 
-              // Damage cap: never exceed BOSS_MAX_DMG_RATIO of maxHP per hit
-              const cappedDmg = Math.min(roll.damage, bossStats.maxLife * BOSS_MAX_DMG_RATIO);
-              playerHp -= cappedDmg;
-              bossAttackResult = { damage: cappedDmg, isDodged: roll.isDodged, isBlocked: roll.isBlocked, isCrit: isBossCrit };
-              nextAttack = now + bs.bossAttackInterval * 1000;
+                // Damage cap: never exceed BOSS_MAX_DMG_RATIO of maxHP per hit
+                const cappedDmg = Math.min(roll.damage * helperEnemyMods.damageMult, bossStats.maxLife * BOSS_MAX_DMG_RATIO);
+                playerHp -= cappedDmg;
+                bossAttackResult = { damage: cappedDmg, isDodged: roll.isDodged, isBlocked: roll.isBlocked, isCrit: isBossCrit };
+                nextAttack = now + bs.bossAttackInterval * helperEnemyMods.atkSpeedSlowMult * 1000;
+              }
             }
 
             // Passive regen per tick
@@ -2004,28 +2037,36 @@ export const useGameStore = create<GameState & GameActions>()(
           let nextAttackAt = state.zoneNextAttackAt;
 
           if (nextAttackAt > 0 && now >= nextAttackAt) {
-            const playerStats = resolveStats(state.character);
-            const abilEff = getFullEffect(state, now, false);
-            const defStats = applyAbilityResists(playerStats, abilEff);
-            // Apply defenseMult from abilities to armor/evasion
-            const buffedStats: ResolvedStats = abilEff.defenseMult
-              ? { ...defStats, armor: defStats.armor * abilEff.defenseMult, evasion: defStats.evasion * abilEff.defenseMult }
-              : defStats;
+            const helperEnemyMods = calcEnemyDebuffMods(state.activeDebuffs);
 
-            const levelMult = calcLevelDamageMult(state.character.level, zone.iLvlMin);
-            const zoneAccuracy = ZONE_ACCURACY_BASE * (1 + (zone.band - 1) * 0.5);
-            const variance = 0.8 + Math.random() * 0.4;
-            const rawDmg = ZONE_DMG_BASE * zone.band * levelMult * variance;
+            // Miss chance from debuffs (e.g. Blinded)
+            if (Math.random() * 100 < helperEnemyMods.missChance) {
+              zoneAttackResult = { damage: 0, isDodged: true, isBlocked: false };
+              nextAttackAt = now + ZONE_ATTACK_INTERVAL * helperEnemyMods.atkSpeedSlowMult * 1000;
+            } else {
+              const playerStats = resolveStats(state.character);
+              const abilEff = getFullEffect(state, now, false);
+              const defStats = applyAbilityResists(playerStats, abilEff);
+              // Apply defenseMult from abilities to armor/evasion
+              const buffedStats: ResolvedStats = abilEff.defenseMult
+                ? { ...defStats, armor: defStats.armor * abilEff.defenseMult, evasion: defStats.evasion * abilEff.defenseMult }
+                : defStats;
 
-            const roll = rollZoneAttack(rawDmg, ZONE_PHYS_RATIO, zoneAccuracy, buffedStats);
-            playerHp -= roll.damage;
-            zoneAttackResult = roll;
-            nextAttackAt = now + ZONE_ATTACK_INTERVAL * 1000;
+              const levelMult = calcLevelDamageMult(state.character.level, zone.iLvlMin);
+              const zoneAccuracy = ZONE_ACCURACY_BASE * (1 + (zone.band - 1) * 0.5);
+              const variance = 0.8 + Math.random() * 0.4;
+              const rawDmg = ZONE_DMG_BASE * zone.band * levelMult * variance;
+
+              const roll = rollZoneAttack(rawDmg, ZONE_PHYS_RATIO, zoneAccuracy, buffedStats);
+              playerHp -= roll.damage * helperEnemyMods.damageMult;
+              zoneAttackResult = roll;
+              nextAttackAt = now + ZONE_ATTACK_INTERVAL * helperEnemyMods.atkSpeedSlowMult * 1000;
+            }
 
             // Passive regen per tick
-            const maxLife = playerStats.maxLife;
+            const maxLife = resolveStats(state.character).maxLife;
             const regenCap = maxLife * MAX_REGEN_RATIO;
-            const regen = Math.min(playerStats.lifeRegen * dt, regenCap);
+            const regen = Math.min(resolveStats(state.character).lifeRegen * dt, regenCap);
             playerHp = Math.min(maxLife, playerHp + regen);
 
             if (playerHp <= 0) {
@@ -2082,13 +2123,23 @@ export const useGameStore = create<GameState & GameActions>()(
         if (abilityEffect.critMultiplierBonus) effectiveStats.critMultiplier += abilityEffect.critMultiplierBonus;
 
         const classDef = getClassDef(state.character.class);
-        const damageMult = (abilityEffect.damageMult ?? 1) * getClassDamageModifier(state.classResource, classDef);
         const atkSpeedMult = abilityEffect.attackSpeedMult ?? 1;
 
-        // Resolve graph modifier for active skills
+        // Resolve graph modifier for active skills (before damageMult so berserk can fold in)
         const skillProgress = state.skillProgress[skill.id];
         const skillDef = getUnifiedSkillDef(skill.id);
         const graphMod = skillDef ? getSkillGraphModifier(skillDef, skillProgress) : null;
+
+        // Berserk: bonus damage scaling with missing HP
+        let berserkMult = 1;
+        if (graphMod?.berserk) {
+          const missingHpPct = 1 - (state.currentHp / stats.maxLife);
+          if (missingHpPct > 0) {
+            berserkMult = 1 + (graphMod.berserk.damageBonus / 100) * missingHpPct;
+          }
+        }
+
+        const damageMult = (abilityEffect.damageMult ?? 1) * getClassDamageModifier(state.classResource, classDef) * berserkMult;
 
         // Apply graph cast speed bonus
         const graphSpeedMult = graphMod?.incCastSpeed ? (1 + graphMod.incCastSpeed / 100) : 1;
@@ -2098,16 +2149,34 @@ export const useGameStore = create<GameState & GameActions>()(
         const { avgDamage, spellPower } = getWeaponDamageInfo(state.character.equipment);
         const roll = rollSkillCast(skill, effectiveStats, avgDamage, spellPower, damageMult, graphMod ?? undefined);
 
-        // Apply debuff damage amplification
+        // Apply debuff damage amplification (incDamageTaken + reducedResists + incCritDamageTaken)
         let debuffDamageMult = 1;
+        let debuffCritBonusMult = 1;
         for (const debuff of state.activeDebuffs) {
           const debuffDef = getDebuffDef(debuff.debuffId);
-          if (debuffDef?.effect.incDamageTaken) {
+          if (!debuffDef) continue;
+          if (debuffDef.effect.incDamageTaken) {
             debuffDamageMult += (debuffDef.effect.incDamageTaken * debuff.stacks) / 100;
           }
+          if (debuffDef.effect.reducedResists) {
+            debuffDamageMult += (debuffDef.effect.reducedResists * debuff.stacks) / 100;
+          }
+          if (debuffDef.effect.incCritDamageTaken && roll.isCrit) {
+            debuffCritBonusMult += (debuffDef.effect.incCritDamageTaken * debuff.stacks) / 100;
+          }
         }
-        if (debuffDamageMult > 1 && roll.isHit) {
-          (roll as { damage: number }).damage *= debuffDamageMult;
+        if (roll.isHit) {
+          (roll as { damage: number }).damage *= debuffDamageMult * debuffCritBonusMult;
+        }
+
+        // Execute threshold: double damage when target below HP%
+        if (graphMod?.executeThreshold && roll.isHit) {
+          const targetHp = phase === 'boss_fight' && state.bossState
+            ? state.bossState.bossCurrentHp / state.bossState.bossMaxHp
+            : state.currentMobHp / state.maxMobHp;
+          if (targetHp * 100 < graphMod.executeThreshold) {
+            (roll as { damage: number }).damage *= 2;
+          }
         }
 
         // Apply new debuffs from graph modifier
@@ -2147,8 +2216,15 @@ export const useGameStore = create<GameState & GameActions>()(
           }
         }
 
-        // Life leech from graph flag
-        const hasLifeLeech = graphMod?.flags.includes('lifeLeech');
+        // Life leech: base + flag bonus + graph bonus (cannotLeech overrides all)
+        const flagLeech = graphMod?.flags.includes('lifeLeech') ? LEECH_PERCENT : 0;
+        const graphLeech = graphMod?.leechPercent ? graphMod.leechPercent / 100 : 0;
+        const totalLeech = graphMod?.cannotLeech ? 0 : (LEECH_PERCENT + flagLeech + graphLeech);
+
+        // Effective max life (reducedMaxLife keystone)
+        const effectiveMaxLife = graphMod?.reducedMaxLife
+          ? stats.maxLife * (1 - graphMod.reducedMaxLife / 100)
+          : stats.maxLife;
 
         // Update GCD: next active skill can fire after castInterval (already includes GCD floor)
         const nextActiveSkillAt = now + castInterval * 1000;
@@ -2181,6 +2257,15 @@ export const useGameStore = create<GameState & GameActions>()(
           }
         }
 
+        // ── Ephemeral state tracking ──
+        const newConsecutiveHits = roll.isHit ? state.consecutiveHits + 1 : 0;
+        const newLastCritAt = roll.isCrit ? now : state.lastCritAt;
+        const newLastSkillsCast = [...state.lastSkillsCast.slice(-3), skill.id];
+        let newKillStreak = state.killStreak;
+        let newLastOverkillDamage = state.lastOverkillDamage;
+        let newLastBlockAt = state.lastBlockAt;
+        let newLastDodgeAt = state.lastDodgeAt;
+
         // ── Boss fight path ──
         if (phase === 'boss_fight' && state.bossState) {
           const bs = state.bossState;
@@ -2202,35 +2287,72 @@ export const useGameStore = create<GameState & GameActions>()(
           let playerHp = state.currentHp;
           let nextAttack = bs.bossNextAttackAt;
           let bossAttackResult: CombatTickResult['bossAttack'] = null;
+          const mainEnemyMods = calcEnemyDebuffMods(state.activeDebuffs);
           if (now >= nextAttack) {
-            // Boss damage smoothing: variance + crit
-            const isBossCrit = Math.random() < BOSS_CRIT_CHANCE;
-            const bossVariance = 0.6 + Math.random() * 0.4; // 60%-100% normal
-            const rawBossDmg = bs.bossDamagePerHit * (isBossCrit ? BOSS_CRIT_MULTIPLIER : bossVariance);
+            // Miss chance from debuffs (e.g. Blinded)
+            if (Math.random() * 100 < mainEnemyMods.missChance) {
+              bossAttackResult = { damage: 0, isDodged: true, isBlocked: false, isCrit: false };
+              nextAttack = now + bs.bossAttackInterval * mainEnemyMods.atkSpeedSlowMult * 1000;
+            } else {
+              // Boss damage smoothing: variance + crit
+              const isBossCrit = Math.random() < BOSS_CRIT_CHANCE;
+              const bossVariance = 0.6 + Math.random() * 0.4; // 60%-100% normal
+              const rawBossDmg = bs.bossDamagePerHit * (isBossCrit ? BOSS_CRIT_MULTIPLIER : bossVariance);
 
-            const bossRoll = rollZoneAttack(rawBossDmg, bs.bossPhysRatio, bs.bossAccuracy, effectiveStats);
+              const bossRoll = rollZoneAttack(rawBossDmg, bs.bossPhysRatio, bs.bossAccuracy, effectiveStats);
 
-            // Damage cap: never exceed BOSS_MAX_DMG_RATIO of maxHP per hit
-            const cappedBossDmg = Math.min(bossRoll.damage, stats.maxLife * BOSS_MAX_DMG_RATIO);
-            playerHp -= cappedBossDmg;
-            bossAttackResult = { damage: cappedBossDmg, isDodged: bossRoll.isDodged, isBlocked: bossRoll.isBlocked, isCrit: isBossCrit };
-            nextAttack = now + bs.bossAttackInterval * 1000;
+              // Incoming damage multiplier (increasedDamageTaken keystone + berserk)
+              let incomingMult = mainEnemyMods.damageMult;
+              if (graphMod?.increasedDamageTaken) incomingMult *= (1 + graphMod.increasedDamageTaken / 100);
+              if (graphMod?.berserk) incomingMult *= (1 + graphMod.berserk.damageTakenIncrease / 100);
+
+              // Damage cap: never exceed BOSS_MAX_DMG_RATIO of maxHP per hit
+              const cappedBossDmg = Math.min(bossRoll.damage * incomingMult, stats.maxLife * BOSS_MAX_DMG_RATIO);
+              playerHp -= cappedBossDmg;
+              bossAttackResult = { damage: cappedBossDmg, isDodged: bossRoll.isDodged, isBlocked: bossRoll.isBlocked, isCrit: isBossCrit };
+              nextAttack = now + bs.bossAttackInterval * mainEnemyMods.atkSpeedSlowMult * 1000;
+            }
           }
+
+          // Track block/dodge from boss attack
+          if (bossAttackResult?.isBlocked) newLastBlockAt = now;
+          if (bossAttackResult?.isDodged) newLastDodgeAt = now;
+          if (bossAttackResult && bossAttackResult.damage > 0) newKillStreak = 0;
 
           // Passive regen per tick
-          playerHp = Math.min(stats.maxLife, playerHp + stats.lifeRegen * dtSec);
+          playerHp = Math.min(effectiveMaxLife, playerHp + stats.lifeRegen * dtSec);
 
-          // Life leech from player's attack (base + graph bonus)
-          if (roll.isHit) {
-            const leechRate = hasLifeLeech ? LEECH_PERCENT * 2 : LEECH_PERCENT;
-            playerHp = Math.min(stats.maxLife, playerHp + roll.damage * leechRate);
+          // Life leech from player's attack
+          if (roll.isHit && totalLeech > 0) {
+            playerHp = Math.min(effectiveMaxLife, playerHp + roll.damage * totalLeech);
           }
+
+          // Life on hit
+          if (roll.isHit && graphMod?.lifeOnHit) {
+            playerHp = Math.min(effectiveMaxLife, playerHp + graphMod.lifeOnHit);
+          }
+
+          // Self-damage on cast
+          if (graphMod?.selfDamagePercent) {
+            playerHp -= effectiveMaxLife * (graphMod.selfDamagePercent / 100);
+          }
+
+          const trackingBoss = {
+            consecutiveHits: newConsecutiveHits,
+            lastSkillsCast: newLastSkillsCast,
+            lastOverkillDamage: newLastOverkillDamage,
+            killStreak: newKillStreak,
+            lastCritAt: newLastCritAt,
+            lastBlockAt: newLastBlockAt,
+            lastDodgeAt: newLastDodgeAt,
+          };
 
           const updatedBoss = { ...bs, bossCurrentHp: newBossHp, bossNextAttackAt: nextAttack };
 
           // Check outcomes
           if (newBossHp <= 0) {
             set({
+              ...trackingBoss,
               bossState: { ...updatedBoss, bossCurrentHp: 0 },
               currentHp: Math.max(1, playerHp),
               nextActiveSkillAt,
@@ -2245,6 +2367,7 @@ export const useGameStore = create<GameState & GameActions>()(
           }
           if (playerHp <= 0) {
             set({
+              ...trackingBoss,
               bossState: updatedBoss,
               currentHp: 0,
               nextActiveSkillAt,
@@ -2259,6 +2382,7 @@ export const useGameStore = create<GameState & GameActions>()(
           }
 
           set({
+            ...trackingBoss,
             bossState: updatedBoss,
             currentHp: playerHp,
             nextActiveSkillAt,
@@ -2288,54 +2412,107 @@ export const useGameStore = create<GameState & GameActions>()(
           totalDamage += debuffDotDamage;
         }
 
+        // Move playerHp before death loop for lifeOnKill
+        let playerHp = state.currentHp;
+
         // Check for mob death(s) — cap at 10 kills per tick for safety
         let maxMobHp = state.maxMobHp > 0 ? state.maxMobHp : calcMobHp(zone, 1.0);
         let newMobTypeId = state.currentMobTypeId;
         while (currentMobHp <= 0 && mobKills < 10) {
           mobKills++;
+
+          newKillStreak++;
+
+          // Life on kill
+          if (graphMod?.lifeOnKill) {
+            playerHp = Math.min(effectiveMaxLife, playerHp + graphMod.lifeOnKill);
+          }
+
           // Pick a new mob for respawn (random or targeted)
           newMobTypeId = pickCurrentMob(zone.id, state.targetedMobId);
           const hpMult = newMobTypeId ? (getMobTypeDef(newMobTypeId)?.hpMultiplier ?? 1.0) : 1.0;
           maxMobHp = calcMobHp(zone, hpMult);
-          currentMobHp = maxMobHp + currentMobHp; // carry over overkill damage
+
+          // Overkill damage carry + bonus
+          const overkillAmount = Math.abs(currentMobHp);
+          newLastOverkillDamage = overkillAmount;
+          const overkillBonus = graphMod?.overkillDamage ? overkillAmount * (graphMod.overkillDamage / 100) : 0;
+          currentMobHp = maxMobHp - overkillAmount - overkillBonus;
           if (currentMobHp <= 0) currentMobHp = maxMobHp; // safety: reset if still negative
           newDebuffs = []; // Clear debuffs on mob death
         }
 
         // Zone attack check during clearing (real-time defense)
-        let playerHp = state.currentHp;
         let zoneAttackResult: CombatTickResult['zoneAttack'] = null;
         let nextZoneAttack = state.zoneNextAttackAt;
+        const clearEnemyMods = calcEnemyDebuffMods(state.activeDebuffs);
 
         if (nextZoneAttack > 0 && now >= nextZoneAttack) {
-          const defStats = applyAbilityResists(stats, abilityEffect);
-          const buffedStats: ResolvedStats = abilityEffect.defenseMult
-            ? { ...defStats, armor: defStats.armor * abilityEffect.defenseMult, evasion: defStats.evasion * abilityEffect.defenseMult }
-            : defStats;
+          // Miss chance from debuffs (e.g. Blinded)
+          if (Math.random() * 100 < clearEnemyMods.missChance) {
+            zoneAttackResult = { damage: 0, isDodged: true, isBlocked: false };
+            nextZoneAttack = now + ZONE_ATTACK_INTERVAL * clearEnemyMods.atkSpeedSlowMult * 1000;
+          } else {
+            const defStats = applyAbilityResists(stats, abilityEffect);
+            const buffedStats: ResolvedStats = abilityEffect.defenseMult
+              ? { ...defStats, armor: defStats.armor * abilityEffect.defenseMult, evasion: defStats.evasion * abilityEffect.defenseMult }
+              : defStats;
 
-          const levelMult = calcLevelDamageMult(state.character.level, zone.iLvlMin);
-          const zoneAccuracy = ZONE_ACCURACY_BASE * (1 + (zone.band - 1) * 0.5);
-          const variance = 0.8 + Math.random() * 0.4;
-          const rawDmg = ZONE_DMG_BASE * zone.band * levelMult * variance;
+            const levelMult = calcLevelDamageMult(state.character.level, zone.iLvlMin);
+            const zoneAccuracy = ZONE_ACCURACY_BASE * (1 + (zone.band - 1) * 0.5);
+            const variance = 0.8 + Math.random() * 0.4;
+            const rawDmg = ZONE_DMG_BASE * zone.band * levelMult * variance;
 
-          const zoneRoll = rollZoneAttack(rawDmg, ZONE_PHYS_RATIO, zoneAccuracy, buffedStats);
-          playerHp -= zoneRoll.damage;
-          zoneAttackResult = zoneRoll;
-          nextZoneAttack = now + ZONE_ATTACK_INTERVAL * 1000;
+            const zoneRoll = rollZoneAttack(rawDmg, ZONE_PHYS_RATIO, zoneAccuracy, buffedStats);
+
+            // Incoming damage multiplier (increasedDamageTaken keystone + berserk)
+            let clearIncomingMult = clearEnemyMods.damageMult;
+            if (graphMod?.increasedDamageTaken) clearIncomingMult *= (1 + graphMod.increasedDamageTaken / 100);
+            if (graphMod?.berserk) clearIncomingMult *= (1 + graphMod.berserk.damageTakenIncrease / 100);
+
+            playerHp -= zoneRoll.damage * clearIncomingMult;
+            zoneAttackResult = zoneRoll;
+            nextZoneAttack = now + ZONE_ATTACK_INTERVAL * clearEnemyMods.atkSpeedSlowMult * 1000;
+          }
         }
 
         // Passive regen per tick
-        playerHp = Math.min(stats.maxLife, playerHp + stats.lifeRegen * dtSec);
+        playerHp = Math.min(effectiveMaxLife, playerHp + stats.lifeRegen * dtSec);
 
-        // Life leech from player's attack (base + graph bonus)
-        if (roll.isHit) {
-          const leechRate = hasLifeLeech ? LEECH_PERCENT * 2 : LEECH_PERCENT;
-          playerHp = Math.min(stats.maxLife, playerHp + roll.damage * leechRate);
+        // Life leech from player's attack
+        if (roll.isHit && totalLeech > 0) {
+          playerHp = Math.min(effectiveMaxLife, playerHp + roll.damage * totalLeech);
         }
+
+        // Life on hit
+        if (roll.isHit && graphMod?.lifeOnHit) {
+          playerHp = Math.min(effectiveMaxLife, playerHp + graphMod.lifeOnHit);
+        }
+
+        // Self-damage on cast
+        if (graphMod?.selfDamagePercent) {
+          playerHp -= effectiveMaxLife * (graphMod.selfDamagePercent / 100);
+        }
+
+        // Track block/dodge from zone attack
+        if (zoneAttackResult?.isBlocked) newLastBlockAt = now;
+        if (zoneAttackResult?.isDodged) newLastDodgeAt = now;
+        if (zoneAttackResult && zoneAttackResult.damage > 0) newKillStreak = 0;
+
+        const trackingClear = {
+          consecutiveHits: newConsecutiveHits,
+          lastSkillsCast: newLastSkillsCast,
+          lastOverkillDamage: newLastOverkillDamage,
+          killStreak: newKillStreak,
+          lastCritAt: newLastCritAt,
+          lastBlockAt: newLastBlockAt,
+          lastDodgeAt: newLastDodgeAt,
+        };
 
         // Zone death check
         if (playerHp <= 0) {
           set({
+            ...trackingClear,
             currentHp: 0,
             currentMobHp,
             maxMobHp,
@@ -2360,6 +2537,7 @@ export const useGameStore = create<GameState & GameActions>()(
         }
 
         set({
+          ...trackingClear,
           currentMobHp,
           maxMobHp,
           currentMobTypeId: newMobTypeId,
