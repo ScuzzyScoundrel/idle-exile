@@ -379,3 +379,10 @@ export const COMPONENT_XP_PER_BAND: Record<number, number> = {
 
 export const CRAFT_OUTPUT_BUFFER_SIZE = 8;
 export const CRAFT_LOG_MAX_ENTRIES = 50;
+
+// =============================================
+// CONDITIONAL / PROC SYSTEM
+// =============================================
+
+/** Window (ms) for onBlock/onDodge trigger conditions to count as recent. */
+export const BLOCK_DODGE_RECENCY_WINDOW = 3000;

@@ -23,6 +23,7 @@ import {
   SkillDef,
   ResolvedStats,
   ActiveDebuff,
+  TriggerCondition,
   CraftLogEntry,
 } from '../types';
 import { createCharacter, resolveStats, addXp, getWeaponDamageInfo } from '../engine/character';
@@ -61,6 +62,7 @@ import { aggregateClassTalentEffect, canAllocateTalentNode, allocateTalentNode a
 import { getUnifiedSkillDef, ABILITY_ID_MIGRATION } from '../data/unifiedSkills';
 import { canAllocateGraphNode, allocateGraphNode, respecGraphNodes, getGraphRespecCost } from '../engine/skillGraph';
 import { getDebuffDef } from '../data/debuffs';
+import { evaluateConditionalMods, evaluateProcs, type ConditionContext, type ProcContext } from '../engine/combatHelpers';
 import { getMobTypeDef, getZoneMobTypes, weightedRandomMob } from '../data/mobTypes';
 import {
   generateDailyQuests, getUtcDateString, shouldResetDailyQuests,
@@ -2241,7 +2243,7 @@ export const useGameStore = create<GameState & GameActions>()(
         const abilityEffect = getFullEffect(state, now, false);
 
         // Expire old temp buffs and fold active ones into ability effect
-        const activeTempBuffs = state.tempBuffs.filter(b => b.expiresAt > now);
+        let activeTempBuffs = state.tempBuffs.filter(b => b.expiresAt > now);
         const tempBuffEffect = aggregateTempBuffEffects(activeTempBuffs, now);
         const combinedAbilityEffect = mergeEffect(abilityEffect, tempBuffEffect);
 
@@ -2257,6 +2259,11 @@ export const useGameStore = create<GameState & GameActions>()(
         const skillProgress = state.skillProgress[skill.id];
         const skillDef = getUnifiedSkillDef(skill.id);
         const graphMod = skillDef ? getSkillGraphModifier(skillDef, skillProgress) : null;
+
+        // Effective max life (reducedMaxLife keystone) — hoisted for condition evaluation
+        const effectiveMaxLife = graphMod?.reducedMaxLife
+          ? stats.maxLife * (1 - graphMod.reducedMaxLife / 100)
+          : stats.maxLife;
 
         // Charge system: per-charge bonuses BEFORE roll
         let newSkillCharges = { ...state.skillCharges };
@@ -2286,15 +2293,55 @@ export const useGameStore = create<GameState & GameActions>()(
         // Per-charge damage bonus
         const chargeDamageMult = (chargeConfig?.perChargeDamage && newSkillCharges[skill.id])
           ? 1 + (chargeConfig.perChargeDamage / 100) * newSkillCharges[skill.id].current : 1;
-        const damageMult = (combinedAbilityEffect.damageMult ?? 1) * getClassDamageModifier(state.classResource, classDef) * berserkMult * chargeDamageMult;
+        let damageMult = (combinedAbilityEffect.damageMult ?? 1) * getClassDamageModifier(state.classResource, classDef) * berserkMult * chargeDamageMult;
 
-        // Apply graph cast speed bonus
-        const graphSpeedMult = graphMod?.incCastSpeed ? (1 + graphMod.incCastSpeed / 100) : 1;
+        // Pre-roll conditional modifiers (while conditions)
+        let condSpeedBonus = 0;
+        if (graphMod?.conditionalMods?.length) {
+          const condCtx: ConditionContext = {
+            isHit: false, isCrit: false, phase,
+            currentHp: state.currentHp, effectiveMaxLife,
+            consecutiveHits: state.consecutiveHits,
+            activeDebuffs: state.activeDebuffs,
+            lastBlockAt: state.lastBlockAt, lastDodgeAt: state.lastDodgeAt,
+            lastOverkillDamage: state.lastOverkillDamage, now,
+          };
+          const preRoll = evaluateConditionalMods(graphMod.conditionalMods, condCtx, 'pre-roll');
+          if (preRoll.incCritChance) effectiveStats.critChance += preRoll.incCritChance;
+          if (preRoll.incCritMultiplier) effectiveStats.critMultiplier += preRoll.incCritMultiplier;
+          if (preRoll.incDamage) damageMult *= (1 + preRoll.incDamage / 100);
+          if (preRoll.damageMult !== 1) damageMult *= preRoll.damageMult;
+          condSpeedBonus = preRoll.incCastSpeed;
+        }
+
+        // Apply graph + conditional cast speed bonus
+        const graphSpeedMult = graphMod?.incCastSpeed
+          ? (1 + (graphMod.incCastSpeed + condSpeedBonus) / 100)
+          : condSpeedBonus ? (1 + condSpeedBonus / 100) : 1;
         const castInterval = calcSkillCastInterval(skill, effectiveStats, atkSpeedMult * graphSpeedMult);
 
         // Fire skill
         const { avgDamage, spellPower } = getWeaponDamageInfo(state.character.equipment);
         const roll = rollSkillCast(skill, effectiveStats, avgDamage, spellPower, damageMult, graphMod ?? undefined);
+
+        // Post-roll conditional modifiers (on conditions)
+        if (graphMod?.conditionalMods?.length && roll.isHit) {
+          const postCtx: ConditionContext = {
+            isHit: roll.isHit, isCrit: roll.isCrit, phase,
+            currentHp: state.currentHp, effectiveMaxLife,
+            consecutiveHits: state.consecutiveHits,
+            activeDebuffs: state.activeDebuffs,
+            lastBlockAt: state.lastBlockAt, lastDodgeAt: state.lastDodgeAt,
+            lastOverkillDamage: state.lastOverkillDamage, now,
+          };
+          const postRoll = evaluateConditionalMods(graphMod.conditionalMods, postCtx, 'post-roll');
+          if (postRoll.incDamage || postRoll.flatDamage || postRoll.damageMult !== 1) {
+            let bonusMult = 1;
+            if (postRoll.incDamage) bonusMult *= (1 + postRoll.incDamage / 100);
+            if (postRoll.damageMult !== 1) bonusMult *= postRoll.damageMult;
+            (roll as { damage: number }).damage = roll.damage * bonusMult + postRoll.flatDamage;
+          }
+        }
 
         // Charge gain after roll
         if (chargeConfig) {
@@ -2326,19 +2373,29 @@ export const useGameStore = create<GameState & GameActions>()(
         }
 
         // Apply debuff damage amplification (incDamageTaken + reducedResists + incCritDamageTaken)
+        // debuffEffectBonus scales debuff effects when reading them
+        const effectBonus = graphMod?.debuffInteraction?.debuffEffectBonus
+          ? (1 + graphMod.debuffInteraction.debuffEffectBonus / 100) : 1;
         let debuffDamageMult = 1;
         let debuffCritBonusMult = 1;
         for (const debuff of state.activeDebuffs) {
           const debuffDef = getDebuffDef(debuff.debuffId);
           if (!debuffDef) continue;
           if (debuffDef.effect.incDamageTaken) {
-            debuffDamageMult += (debuffDef.effect.incDamageTaken * debuff.stacks) / 100;
+            debuffDamageMult += (debuffDef.effect.incDamageTaken * debuff.stacks * effectBonus) / 100;
           }
           if (debuffDef.effect.reducedResists) {
-            debuffDamageMult += (debuffDef.effect.reducedResists * debuff.stacks) / 100;
+            debuffDamageMult += (debuffDef.effect.reducedResists * debuff.stacks * effectBonus) / 100;
           }
           if (debuffDef.effect.incCritDamageTaken && roll.isCrit) {
-            debuffCritBonusMult += (debuffDef.effect.incCritDamageTaken * debuff.stacks) / 100;
+            debuffCritBonusMult += (debuffDef.effect.incCritDamageTaken * debuff.stacks * effectBonus) / 100;
+          }
+        }
+        // bonusDamageVsDebuffed: extra damage when specific debuff is active
+        if (graphMod?.debuffInteraction?.bonusDamageVsDebuffed) {
+          const bdv = graphMod.debuffInteraction.bonusDamageVsDebuffed;
+          if (state.activeDebuffs.some(d => d.debuffId === bdv.debuffId)) {
+            debuffDamageMult += bdv.incDamage / 100;
           }
         }
         if (roll.isHit) {
@@ -2386,6 +2443,11 @@ export const useGameStore = create<GameState & GameActions>()(
         if (roll.isHit && graphMod) {
           for (const debuffInfo of graphMod.debuffs) {
             if (Math.random() < debuffInfo.chance) {
+              // debuffDurationBonus: scale duration
+              let duration = debuffInfo.duration;
+              if (graphMod.debuffInteraction?.debuffDurationBonus) {
+                duration *= (1 + graphMod.debuffInteraction.debuffDurationBonus / 100);
+              }
               const existing = newDebuffs.findIndex(d => d.debuffId === debuffInfo.debuffId);
               const debuffDef = getDebuffDef(debuffInfo.debuffId);
               if (existing >= 0 && debuffDef?.stackable) {
@@ -2393,20 +2455,55 @@ export const useGameStore = create<GameState & GameActions>()(
                 newDebuffs[existing] = {
                   ...d,
                   stacks: Math.min(d.stacks + 1, debuffDef.maxStacks),
-                  remainingDuration: debuffInfo.duration,
+                  remainingDuration: duration,
                   appliedBySkillId: skill.id,
                 };
               } else if (existing >= 0) {
                 // Refresh duration (non-stackable)
-                newDebuffs[existing] = { ...newDebuffs[existing], remainingDuration: debuffInfo.duration, appliedBySkillId: skill.id };
+                newDebuffs[existing] = { ...newDebuffs[existing], remainingDuration: duration, appliedBySkillId: skill.id };
               } else {
-                newDebuffs.push({ debuffId: debuffInfo.debuffId, stacks: 1, remainingDuration: debuffInfo.duration, appliedBySkillId: skill.id });
+                newDebuffs.push({ debuffId: debuffInfo.debuffId, stacks: 1, remainingDuration: duration, appliedBySkillId: skill.id });
               }
             }
           }
         }
 
-        // Tick debuff durations + apply DoT
+        // debuffOnCrit: apply guaranteed debuff on crit
+        if (graphMod?.debuffInteraction?.debuffOnCrit && roll.isCrit) {
+          const doc = graphMod.debuffInteraction.debuffOnCrit;
+          let duration = doc.duration;
+          if (graphMod.debuffInteraction.debuffDurationBonus) {
+            duration *= (1 + graphMod.debuffInteraction.debuffDurationBonus / 100);
+          }
+          const existing = newDebuffs.findIndex(d => d.debuffId === doc.debuffId);
+          const debuffDef = getDebuffDef(doc.debuffId);
+          if (existing >= 0 && debuffDef?.stackable) {
+            const d = newDebuffs[existing];
+            newDebuffs[existing] = {
+              ...d,
+              stacks: Math.min(d.stacks + doc.stacks, debuffDef.maxStacks),
+              remainingDuration: duration,
+              appliedBySkillId: skill.id,
+            };
+          } else if (existing >= 0) {
+            newDebuffs[existing] = { ...newDebuffs[existing], remainingDuration: duration, appliedBySkillId: skill.id };
+          } else {
+            newDebuffs.push({ debuffId: doc.debuffId, stacks: doc.stacks, remainingDuration: duration, appliedBySkillId: skill.id });
+          }
+        }
+
+        // consumeDebuff: consume all stacks, deal burst damage
+        let consumeBurstDamage = 0;
+        if (graphMod?.debuffInteraction?.consumeDebuff && roll.isHit) {
+          const cd = graphMod.debuffInteraction.consumeDebuff;
+          const idx = newDebuffs.findIndex(d => d.debuffId === cd.debuffId);
+          if (idx >= 0) {
+            consumeBurstDamage = cd.damagePerStack * newDebuffs[idx].stacks;
+            newDebuffs.splice(idx, 1);
+          }
+        }
+
+        // Tick debuff durations + apply DoT (with effectBonus scaling)
         let debuffDotDamage = 0;
         newDebuffs = newDebuffs
           .map(d => ({ ...d, remainingDuration: d.remainingDuration - dtSec }))
@@ -2414,7 +2511,79 @@ export const useGameStore = create<GameState & GameActions>()(
         for (const debuff of newDebuffs) {
           const debuffDef = getDebuffDef(debuff.debuffId);
           if (debuffDef?.effect.dotDps) {
-            debuffDotDamage += debuffDef.effect.dotDps * debuff.stacks * dtSec;
+            debuffDotDamage += debuffDef.effect.dotDps * debuff.stacks * effectBonus * dtSec;
+          }
+        }
+
+        // Proc evaluation (onHit + onCrit triggers)
+        let procDamage = 0;
+        let procHeal = 0;
+        let procCooldownResets: string[] = [];
+        if (graphMod?.skillProcs?.length) {
+          const procCtx: ProcContext = {
+            isHit: roll.isHit, isCrit: roll.isCrit,
+            skillId: skill.id, effectiveMaxLife,
+            stats: effectiveStats,
+            weaponAvgDmg: avgDamage, weaponSpellPower: spellPower,
+            damageMult, now,
+          };
+
+          const triggers: TriggerCondition[] = [];
+          if (roll.isHit) triggers.push('onHit');
+          if (roll.isCrit) triggers.push('onCrit');
+
+          for (const trigger of triggers) {
+            const pr = evaluateProcs(graphMod.skillProcs, trigger, procCtx);
+            procDamage += pr.bonusDamage;
+            procHeal += pr.healAmount;
+            procCooldownResets.push(...pr.cooldownResets);
+
+            // Merge proc temp buffs (stack or add)
+            for (const buff of pr.newTempBuffs) {
+              const existingIdx = activeTempBuffs.findIndex(b => b.id === buff.id);
+              if (existingIdx >= 0) {
+                const existing = activeTempBuffs[existingIdx];
+                activeTempBuffs = [
+                  ...activeTempBuffs.slice(0, existingIdx),
+                  { ...existing, expiresAt: buff.expiresAt, stacks: Math.min(existing.stacks + 1, existing.maxStacks) },
+                  ...activeTempBuffs.slice(existingIdx + 1),
+                ];
+              } else {
+                activeTempBuffs = [...activeTempBuffs, buff];
+              }
+            }
+
+            // Merge proc debuffs (standard stacking logic)
+            for (const pd of pr.newDebuffs) {
+              const existingIdx = newDebuffs.findIndex(d => d.debuffId === pd.debuffId);
+              const debuffDef = getDebuffDef(pd.debuffId);
+              if (existingIdx >= 0 && debuffDef?.stackable) {
+                const d = newDebuffs[existingIdx];
+                newDebuffs[existingIdx] = {
+                  ...d,
+                  stacks: Math.min(d.stacks + pd.stacks, debuffDef.maxStacks),
+                  remainingDuration: pd.duration,
+                  appliedBySkillId: pd.skillId,
+                };
+              } else if (existingIdx >= 0) {
+                newDebuffs[existingIdx] = { ...newDebuffs[existingIdx], remainingDuration: pd.duration, appliedBySkillId: pd.skillId };
+              } else {
+                newDebuffs.push({ debuffId: pd.debuffId, stacks: pd.stacks, remainingDuration: pd.duration, appliedBySkillId: pd.skillId });
+              }
+            }
+          }
+        }
+
+        // onDebuffApplied conditionals — after all debuff application
+        if (graphMod?.conditionalMods?.length) {
+          const debuffsAppliedThisTick = newDebuffs.length > state.activeDebuffs.length;
+          if (debuffsAppliedThisTick) {
+            for (const cm of graphMod.conditionalMods) {
+              if (cm.condition !== 'onDebuffApplied') continue;
+              if (cm.modifier.incDamage && roll.isHit) {
+                (roll as { damage: number }).damage *= (1 + cm.modifier.incDamage / 100);
+              }
+            }
           }
         }
 
@@ -2422,11 +2591,6 @@ export const useGameStore = create<GameState & GameActions>()(
         const flagLeech = graphMod?.flags.includes('lifeLeech') ? LEECH_PERCENT : 0;
         const graphLeech = graphMod?.leechPercent ? graphMod.leechPercent / 100 : 0;
         const totalLeech = graphMod?.cannotLeech ? 0 : (LEECH_PERCENT + flagLeech + graphLeech);
-
-        // Effective max life (reducedMaxLife keystone)
-        const effectiveMaxLife = graphMod?.reducedMaxLife
-          ? stats.maxLife * (1 - graphMod.reducedMaxLife / 100)
-          : stats.maxLife;
 
         // Update GCD: next active skill can fire after castInterval (already includes GCD floor)
         const nextActiveSkillAt = now + castInterval * 1000;
@@ -2459,6 +2623,13 @@ export const useGameStore = create<GameState & GameActions>()(
           }
         }
 
+        // Proc cooldown resets
+        if (procCooldownResets.length > 0) {
+          newTimers = newTimers.map(t =>
+            procCooldownResets.includes(t.skillId) ? { ...t, cooldownUntil: null } : t,
+          );
+        }
+
         // ── Ephemeral state tracking ──
         const newConsecutiveHits = roll.isHit ? state.consecutiveHits + 1 : 0;
         const newLastCritAt = roll.isCrit ? now : state.lastCritAt;
@@ -2489,6 +2660,18 @@ export const useGameStore = create<GameState & GameActions>()(
           if (chargeSpendDamage > 0) {
             newBossHp -= chargeSpendDamage;
             totalDamage += chargeSpendDamage;
+          }
+
+          // consumeDebuff burst damage to boss
+          if (consumeBurstDamage > 0) {
+            newBossHp -= consumeBurstDamage;
+            totalDamage += consumeBurstDamage;
+          }
+
+          // Proc bonus damage to boss
+          if (procDamage > 0) {
+            newBossHp -= procDamage;
+            totalDamage += procDamage;
           }
 
           // Boss per-hit attack (if attack timer is due)
@@ -2541,6 +2724,11 @@ export const useGameStore = create<GameState & GameActions>()(
           // Life on hit
           if (roll.isHit && graphMod?.lifeOnHit) {
             playerHp = Math.min(effectiveMaxLife, playerHp + graphMod.lifeOnHit);
+          }
+
+          // Proc heal
+          if (procHeal > 0) {
+            playerHp = Math.min(effectiveMaxLife, playerHp + procHeal);
           }
 
           // Self-damage on cast
@@ -2637,12 +2825,25 @@ export const useGameStore = create<GameState & GameActions>()(
           totalDamage += chargeSpendDamage;
         }
 
+        // consumeDebuff burst damage to mob
+        if (consumeBurstDamage > 0) {
+          currentMobHp -= consumeBurstDamage;
+          totalDamage += consumeBurstDamage;
+        }
+
+        // Proc bonus damage to mob
+        if (procDamage > 0) {
+          currentMobHp -= procDamage;
+          totalDamage += procDamage;
+        }
+
         // Move playerHp before death loop for lifeOnKill
         let playerHp = state.currentHp;
 
         // Check for mob death(s) — cap at 10 kills per tick for safety
         let maxMobHp = state.maxMobHp > 0 ? state.maxMobHp : calcMobHp(zone, 1.0);
         let newMobTypeId = state.currentMobTypeId;
+        const preDeathDebuffs = [...newDebuffs]; // Snapshot for spreadDebuffOnKill
         while (currentMobHp <= 0 && mobKills < 10) {
           mobKills++;
 
@@ -2659,6 +2860,23 @@ export const useGameStore = create<GameState & GameActions>()(
             if (charges) charges.current = Math.min(charges.current + chargeConfig.gainAmount, charges.max);
           }
 
+          // onKill procs
+          if (graphMod?.skillProcs?.length) {
+            const killProcCtx: ProcContext = {
+              isHit: roll.isHit, isCrit: roll.isCrit,
+              skillId: skill.id, effectiveMaxLife,
+              stats: effectiveStats,
+              weaponAvgDmg: avgDamage, weaponSpellPower: spellPower,
+              damageMult, now,
+            };
+            const killPr = evaluateProcs(graphMod.skillProcs, 'onKill', killProcCtx);
+            procDamage += killPr.bonusDamage;
+            procHeal += killPr.healAmount;
+            for (const buff of killPr.newTempBuffs) {
+              activeTempBuffs = [...activeTempBuffs, buff];
+            }
+          }
+
           // Pick a new mob for respawn (random or targeted)
           newMobTypeId = pickCurrentMob(zone.id, state.targetedMobId);
           const hpMult = newMobTypeId ? (getMobTypeDef(newMobTypeId)?.hpMultiplier ?? 1.0) : 1.0;
@@ -2671,6 +2889,16 @@ export const useGameStore = create<GameState & GameActions>()(
           currentMobHp = maxMobHp - overkillAmount - overkillBonus;
           if (currentMobHp <= 0) currentMobHp = maxMobHp; // safety: reset if still negative
           newDebuffs = []; // Clear debuffs on mob death
+
+          // spreadDebuffOnKill: re-apply matching debuffs to new mob
+          if (graphMod?.debuffInteraction?.spreadDebuffOnKill) {
+            const sdk = graphMod.debuffInteraction.spreadDebuffOnKill;
+            for (const debuffId of sdk.debuffIds) {
+              if (preDeathDebuffs.some(d => d.debuffId === debuffId)) {
+                newDebuffs.push({ debuffId, stacks: 1, remainingDuration: sdk.refreshDuration, appliedBySkillId: skill.id });
+              }
+            }
+          }
         }
 
         // Zone attack check during clearing (real-time defense)
@@ -2722,6 +2950,11 @@ export const useGameStore = create<GameState & GameActions>()(
         // Life on hit
         if (roll.isHit && graphMod?.lifeOnHit) {
           playerHp = Math.min(effectiveMaxLife, playerHp + graphMod.lifeOnHit);
+        }
+
+        // Proc heal
+        if (procHeal > 0) {
+          playerHp = Math.min(effectiveMaxLife, playerHp + procHeal);
         }
 
         // Self-damage on cast

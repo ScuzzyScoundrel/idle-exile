@@ -620,10 +620,33 @@ Scope: Straightforward, highest-impact fields. Wired into `tickCombat` with guar
 **New GameState fields (5):** `rampingStacks`, `rampingLastHitAt`, `fortifyStacks`, `fortifyExpiresAt`, `fortifyDRPerStack`
 **New balance constants:** `FORTIFY_MAX_STACKS=20`, `FORTIFY_MAX_DR=0.75`
 
-**Deferred to Phase 2B-2:**
-- Conditional modifiers (`conditionalMods` — evaluate TriggerConditions against ephemeral state)
-- Proc system (`skillProcs` — castSkill, resetCooldown, bonusCast, applyBuff→TempBuff, instantDamage)
-- Debuff interactions (`debuffInteraction` — spread, consume, bonus, bonusDamageVsDebuffed)
+### Phase 2B-2 Implementation Notes (Sprint 13B-Phase2B-2)
+
+**Evaluation systems wired into `tickCombat`:**
+
+| System | How It Works | Guard |
+|--------|-------------|-------|
+| **Conditional Modifiers (pre-roll)** | "while" conditions (`whileLowHp`, `whileFullHp`, `whileDebuffActive`, `afterConsecutiveHits`, `onBossPhase`) evaluated before `rollSkillCast`. Modify `effectiveStats.critChance/critMultiplier`, `damageMult`, and `castSpeed`. | `graphMod?.conditionalMods?.length` |
+| **Conditional Modifiers (post-roll)** | "on" conditions (`onHit`, `onCrit`, `onBlock`, `onDodge`, `onFirstHit`, `onOverkill`) evaluated after roll. Modify `roll.damage` via `incDamage`, `flatDamage`, `damageMult`. | `graphMod?.conditionalMods?.length && roll.isHit` |
+| **Proc Effects** | `evaluateProcs()` runs for `onHit`/`onCrit`/`onKill` triggers. Supports `castSkill`, `bonusCast`, `instantDamage`, `healPercent`, `applyBuff→TempBuff`, `applyDebuff`, `resetCooldown`. Max 1 level (no recursive procs). | `graphMod?.skillProcs?.length` |
+| **bonusDamageVsDebuffed** | Extra `%incDamage` when target has specific debuff active. | `graphMod?.debuffInteraction?.bonusDamageVsDebuffed` |
+| **debuffEffectBonus** | Multiplier on debuff effects when reading (incDamageTaken, reducedResists, incCritDamageTaken, dotDps). | `graphMod?.debuffInteraction?.debuffEffectBonus` |
+| **debuffDurationBonus** | Scales duration when applying graph debuffs and debuffOnCrit. | `graphMod?.debuffInteraction?.debuffDurationBonus` |
+| **debuffOnCrit** | Guaranteed debuff application on crit (no chance roll). | `graphMod?.debuffInteraction?.debuffOnCrit && roll.isCrit` |
+| **consumeDebuff** | Consumes all stacks of a debuff for burst damage (`damagePerStack * stacks`). Applied in both boss and clearing paths. | `graphMod?.debuffInteraction?.consumeDebuff && roll.isHit` |
+| **spreadDebuffOnKill** | Snapshot debuffs pre-death loop, re-apply matching debuffs to new mob after death. | `graphMod?.debuffInteraction?.spreadDebuffOnKill` |
+| **onDebuffApplied conditional** | After all debuff application, if more debuffs than before, apply `onDebuffApplied` conditional modifiers to `roll.damage`. | `graphMod?.conditionalMods?.length && debuffsAppliedThisTick` |
+
+**New file:** `src/engine/combatHelpers.ts` (~160 lines) — 3 pure functions (`evaluateCondition`, `evaluateConditionalMods`, `evaluateProcs`) + interfaces (`ConditionContext`, `ConditionalModResult`, `ProcContext`, `ProcResult`).
+
+**New balance constant:** `BLOCK_DODGE_RECENCY_WINDOW = 3000` (ms window for onBlock/onDodge triggers).
+
+**Variable lifetime changes in `tickCombat`:**
+- `activeTempBuffs`: `const` → `let` (procs push new TempBuffs)
+- `damageMult`: `const` → `let` (pre-roll conditionals modify it)
+- `effectiveMaxLife`: hoisted from after-leech to after-graphMod (needed by condition context)
+
+**No save migration. No new persisted state. No UI changes.**
 
 ---
 

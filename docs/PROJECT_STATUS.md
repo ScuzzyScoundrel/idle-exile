@@ -1,10 +1,26 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-03 (Post-Sprint 14: Crafting UI Refinement)
+> Last updated: 2026-03-03 (Post-Sprint 13B-Phase2B-2: Evaluation Systems)
 
 ## Current Phase
-**Sprint 14: Crafting UI Refinement** — COMPLETE.
+**Sprint 13B-Phase2B-2: Evaluation Systems** — COMPLETE.
+
+- **Purpose**: Wire the three evaluation systems that depend on Phase 2B-1's state-tracking: conditional modifiers, proc effects, and debuff interactions. Most complex combat wiring phase yet.
+- **3 systems wired**:
+  - **Conditional Modifiers**: Two-timing system. Pre-roll "while" conditions (`whileLowHp`, `whileFullHp`, `whileDebuffActive`, `afterConsecutiveHits`, `onBossPhase`) modify `effectiveStats`/`damageMult`/`castSpeed`. Post-roll "on" conditions (`onHit`, `onCrit`, `onBlock`, `onDodge`, etc.) modify `roll.damage`.
+  - **Proc Effects**: `evaluateProcs()` runs for `onHit`/`onCrit`/`onKill` triggers. Supports `castSkill` (fires another skill), `bonusCast` (re-casts current skill), `instantDamage` (with stat scaling), `healPercent`, `applyBuff` (creates TempBuffs), `applyDebuff`, `resetCooldown`. Max 1 level — no recursive procs.
+  - **Debuff Interactions**: 6 sub-systems — `bonusDamageVsDebuffed` (extra damage vs specific debuff), `debuffEffectBonus` (scales all debuff effects), `debuffDurationBonus` (scales debuff durations), `debuffOnCrit` (guaranteed debuff on crit), `consumeDebuff` (consume stacks for burst damage), `spreadDebuffOnKill` (re-apply debuffs to new mob).
+- **New file**: `src/engine/combatHelpers.ts` (~160 lines) — 3 pure functions + interfaces
+- **New balance constant**: `BLOCK_DODGE_RECENCY_WINDOW = 3000` (ms)
+- **Variable lifetime changes**: `activeTempBuffs` const→let, `damageMult` const→let, `effectiveMaxLife` hoisted
+- **Safety**: All guards use `if (graphMod?.field)`. No existing skill graphs use these fields, so behavior is 100% identical.
+- **No save migration. No new persisted state. No UI changes.**
+- **Save version**: v34 (unchanged)
+- **Files modified**: `src/data/balance.ts`, `src/engine/combatHelpers.ts` (new), `src/store/gameStore.ts`, `docs/PROJECT_STATUS.md`, `docs/SKILL_TREE_DESIGN.md`
+- **Next**: TBD — Content authoring (create skill graphs that use these systems), or UI work.
+
+**Previous: Sprint 14: Crafting UI Refinement** — COMPLETE.
 
 - **Purpose**: Decompose the 1203-line CraftingScreen.tsx monolith, add search/filters/collapsed recipes, craft log, craft output buffer, and material traceability.
 - **Phase 1 — File Decomposition + UI Polish**: Split into `src/ui/crafting/` directory with 12 files: `craftingConstants.ts`, `craftingHelpers.ts`, `MaterialPill.tsx`, `ProfessionSelector.tsx`, `XpBar.tsx`, `MaterialsPanel.tsx`, `RefinePanel.tsx`, `ComponentCraftPanel.tsx`, `CraftPanel.tsx`, `CraftingSearchBar.tsx`, `CraftLog.tsx`, `CraftOutputPanel.tsx`, `MaterialDetailModal.tsx`. CraftingScreen.tsx reduced to ~65 lines. Typography bumped (`text-[8px]` → `text-[10px] sm:text-xs`), mobile grid improved (`grid-cols-4 sm:grid-cols-5 md:grid-cols-6`), profession selector gains `flex-wrap`, catalyst dropdowns stack on mobile.
