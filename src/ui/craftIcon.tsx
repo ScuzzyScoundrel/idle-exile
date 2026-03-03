@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { AFFIX_CATALYST_DEFS } from '../data/affixCatalysts';
 import { RARE_MATERIAL_DEFS } from '../data/rareMaterials';
 import { REFINEMENT_RECIPES } from '../data/refinement';
+import type { RareMaterialRarity } from '../types';
 
 /**
  * Icon categories map to subdirectories under /icons/.
@@ -28,6 +29,54 @@ REFINEMENT_IDS.add('magic_essence');
 const CATALYST_EMOJI = new Map(AFFIX_CATALYST_DEFS.map(d => [d.id, d.icon]));
 const RARE_MAT_EMOJI = new Map(RARE_MATERIAL_DEFS.map(d => [d.id, d.icon]));
 
+// Name + rarity lookups
+const CATALYST_NAME = new Map(AFFIX_CATALYST_DEFS.map(d => [d.id, d.name]));
+const RARE_MAT_NAME = new Map(RARE_MATERIAL_DEFS.map(d => [d.id, d.name]));
+const RARE_MAT_RARITY = new Map(RARE_MATERIAL_DEFS.map(d => [d.id, d.rarity]));
+const REFINEMENT_NAME = new Map<string, string>();
+for (const r of REFINEMENT_RECIPES) {
+  REFINEMENT_NAME.set(r.rawMaterialId, r.rawMaterialId.replace(/_/g, ' '));
+  REFINEMENT_NAME.set(r.outputId, r.outputName);
+}
+REFINEMENT_NAME.set('enchanting_essence', 'Enchanting Essence');
+REFINEMENT_NAME.set('magic_essence', 'Magic Essence');
+
+export interface MaterialMeta {
+  name: string;
+  rarity: RareMaterialRarity | null;
+  category: IconCategory;
+  emoji: string;
+}
+
+/** Resolve display metadata for any material-bag key. */
+export function resolveMaterialMeta(id: string): MaterialMeta | null {
+  if (RARE_MAT_IDS.has(id)) {
+    return {
+      name: RARE_MAT_NAME.get(id) ?? id.replace(/_/g, ' '),
+      rarity: RARE_MAT_RARITY.get(id) ?? null,
+      category: 'material',
+      emoji: RARE_MAT_EMOJI.get(id) ?? '',
+    };
+  }
+  if (CATALYST_IDS.has(id)) {
+    return {
+      name: CATALYST_NAME.get(id) ?? id.replace(/_/g, ' '),
+      rarity: null,
+      category: 'catalyst',
+      emoji: CATALYST_EMOJI.get(id) ?? '',
+    };
+  }
+  if (REFINEMENT_IDS.has(id)) {
+    return {
+      name: REFINEMENT_NAME.get(id) ?? id.replace(/_/g, ' '),
+      rarity: null,
+      category: 'material',
+      emoji: '\uD83E\uDEA8',
+    };
+  }
+  return null;
+}
+
 /**
  * Resolve a flat material-bag key to its icon category and emoji fallback.
  * Falls back to emoji (via onError) if the icon file doesn't exist yet.
@@ -49,7 +98,7 @@ export function CraftIcon({
   category: IconCategory;
   id: string;
   fallback: string;        // emoji to show if image missing
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
 }) {
   const key = `${category}/${id}`;
@@ -75,10 +124,12 @@ const SIZE_CLASS = {
   sm: 'w-5 h-5',
   md: 'w-7 h-7',
   lg: 'w-10 h-10',
+  xl: 'w-12 h-12',
 } as const;
 
 const EMOJI_SIZE = {
   sm: 'text-sm',
   md: 'text-lg',
   lg: 'text-2xl',
+  xl: 'text-3xl',
 } as const;

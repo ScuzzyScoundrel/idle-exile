@@ -5,7 +5,7 @@ import { CURRENCY_DEFS, BAG_UPGRADE_DEFS, getBagDef, calcBagCapacity } from '../
 import { formatAffix, getBestTierForILvl, isUpgradeOver, getComparisonTarget, calcItemStatContribution } from '../../engine/items';
 import { slotLabel, DROPPABLE_SLOTS } from '../slotConfig';
 import { ItemIcon, SlotIcon, getSlotEmoji } from '../itemIcon';
-import { CraftIcon, resolveMaterialIcon } from '../craftIcon';
+import { CraftIcon, resolveMaterialMeta } from '../craftIcon';
 import { useIsMobile } from '../hooks/useIsMobile';
 
 const SLOT_ORDER: GearSlot[] = DROPPABLE_SLOTS;
@@ -712,16 +712,21 @@ export default function InventoryScreen() {
             <span className="text-xs text-gray-500">{materialsOpen ? '\u25B2' : '\u25BC'}</span>
           </button>
           {materialsOpen && (
-            <div className="grid grid-cols-2 gap-1 px-3 pb-3">
+            <div className="grid grid-cols-5 sm:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-1.5 px-3 pb-3">
               {Object.entries(materials).filter(([, v]) => v > 0).map(([key, val]) => {
-                const resolved = resolveMaterialIcon(key);
+                const meta = resolveMaterialMeta(key);
+                const border = meta?.rarity ? RARITY_TILE_BORDER[meta.rarity] : 'border-gray-600';
+                const grad = meta?.rarity ? RARITY_GRADIENT[meta.rarity] : '';
                 return (
-                  <div key={key} className="flex items-center gap-1.5 text-xs bg-gray-900 rounded px-2 py-1">
-                    {resolved
-                      ? <CraftIcon category={resolved.category} id={key} fallback={resolved.emoji} size="sm" />
-                      : <span>{'\u{1FAA8}'}</span>}
-                    <span className="text-gray-400 flex-1 truncate">{key.replace(/_/g, ' ')}</span>
-                    <span className="text-white font-semibold">{val}</span>
+                  <div key={key} className={`relative aspect-square rounded-lg border-2 flex flex-col items-center justify-center overflow-hidden ${meta?.rarity ? '' : 'bg-gray-900'} ${border}`}>
+                    {meta?.rarity && (
+                      <div className={`absolute inset-0 bg-gradient-to-t ${grad} to-transparent pointer-events-none`} />
+                    )}
+                    {meta
+                      ? <CraftIcon category={meta.category} id={key} fallback={meta.emoji} size="xl" className="relative z-10" />
+                      : <span className="text-3xl">{'\u{1FAA8}'}</span>}
+                    <span className="absolute top-0 right-0 bg-black/70 text-white text-[9px] font-bold px-1 rounded-bl z-10">{val}</span>
+                    <span className="relative z-10 text-[8px] text-gray-400 text-center leading-tight truncate w-full px-0.5 mt-auto">{meta?.name ?? key.replace(/_/g, ' ')}</span>
                   </div>
                 );
               })}
