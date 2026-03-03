@@ -9,6 +9,7 @@ import { getAbilityDef } from '../../data/unifiedSkills';
 import { ABILITY_ID_MIGRATION } from '../../data/unifiedSkills';
 import { ABILITY_SLOT_UNLOCKS } from '../../types';
 import type { SkillDef, SkillKind, SkillProgress, AbilityProgress } from '../../types';
+import SkillGraphView from './SkillGraphView';
 
 const TAG_COLORS: Record<string, string> = {
   Attack: 'bg-red-900/60 text-red-300',
@@ -280,7 +281,7 @@ export default function SkillPanel() {
                     <div className="flex gap-1">
                       {isEquipped ? (
                         <>
-                          {skill.kind !== 'active' && skill.skillTree && (
+                          {(skill.skillGraph || (skill.kind !== 'active' && skill.skillTree)) && (
                             <button
                               onClick={() => setExpandedSkill(isExpanded ? null : skill.id)}
                               className="text-xs px-2 py-0.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded"
@@ -320,7 +321,7 @@ export default function SkillPanel() {
                         style={{ width: `${progress.level >= SKILL_MAX_LEVEL ? 100 : (progress.xp / getAbilityXpForLevel(progress.level)) * 100}%` }}
                       />
                     </div>
-                    {skill.kind !== 'active' && (
+                    {(skill.skillGraph || (skill.kind !== 'active' && skill.skillTree)) && (
                       <div className="text-xs text-gray-500 mt-0.5">
                         Points: {progress.level - progress.allocatedNodes.length} available / {progress.level} total
                       </div>
@@ -329,14 +330,28 @@ export default function SkillPanel() {
                 );
               })()}
 
-              {/* Skill Tree — expanded view */}
-              {isEquipped && isExpanded && skill.skillTree && (
+              {/* Skill Graph Tree — expanded view (new graph system) */}
+              {isEquipped && isExpanded && skill.skillGraph && (
+                <SkillGraphView
+                  skill={skill}
+                  progress={skillProgress[skill.id]}
+                  gold={gold}
+                  onAllocate={(nodeId) => {
+                    allocateAbilityNode(skill.id, nodeId);
+                  }}
+                  onRespec={() => {
+                    respecAbility(skill.id);
+                  }}
+                />
+              )}
+
+              {/* Old Skill Tree — expanded view (non-graph skills) */}
+              {isEquipped && isExpanded && !skill.skillGraph && skill.skillTree && (
                 <SkillTreeView
                   skill={skill}
                   progress={skillProgress[skill.id]}
                   gold={gold}
                   onAllocate={(nodeId) => {
-                    // allocateAbilityNode uses old ability IDs
                     const oldId = REVERSE_MIGRATION[skill.id] ?? skill.id;
                     allocateAbilityNode(oldId, nodeId);
                   }}

@@ -51,9 +51,11 @@ import {
 } from '../engine/classResource';
 import { getDefaultSkillForWeapon } from '../engine/unifiedSkills';
 import { getSkillDef } from '../data/unifiedSkills';
-import { aggregateSkillBarEffects, getPrimaryDamageSkill, getNextRotationSkill, getSkillEffectiveDuration, getSkillEffectiveCooldown, mergeEffect } from '../engine/unifiedSkills';
+import { aggregateSkillBarEffects, getPrimaryDamageSkill, getNextRotationSkill, getSkillEffectiveDuration, getSkillEffectiveCooldown, mergeEffect, getSkillGraphModifier } from '../engine/unifiedSkills';
 import { aggregateClassTalentEffect, canAllocateTalentNode, allocateTalentNode as allocateTalentNodeEngine, respecTalents as respecTalentsEngine, getTalentRespecCost } from '../engine/classTalents';
 import { getUnifiedSkillDef, ABILITY_ID_MIGRATION } from '../data/unifiedSkills';
+import { canAllocateGraphNode, allocateGraphNode, respecGraphNodes, getGraphRespecCost } from '../engine/skillGraph';
+import { getDebuffDef } from '../data/debuffs';
 
 
 const INITIAL_CURRENCIES: Record<CurrencyType, number> = {
@@ -398,6 +400,7 @@ function createInitialState(): GameState {
     skillProgress: {},
     skillTimers: [],
     talentAllocations: [],
+    activeDebuffs: [],
     lastClearResult: null,
     lastSkillActivation: 0,
     currentMobHp: 0,
@@ -1378,6 +1381,18 @@ export const useGameStore = create<GameState & GameActions>()(
 
       allocateAbilityNode: (abilityId: string, nodeId: string) => {
         set((state) => {
+          // Check if this is a graph tree skill (uses skillProgress, not abilityProgress)
+          const unifiedDef = getUnifiedSkillDef(abilityId);
+          if (unifiedDef?.skillGraph) {
+            const progress = state.skillProgress[abilityId];
+            if (!progress) return state;
+            if (!canAllocateGraphNode(unifiedDef.skillGraph, progress.allocatedNodes, nodeId, progress.level)) return state;
+            const newProgress = { ...state.skillProgress };
+            newProgress[abilityId] = { ...progress, allocatedNodes: allocateGraphNode(progress.allocatedNodes, nodeId) };
+            return { skillProgress: newProgress };
+          }
+
+          // Old tree path
           const def = getAbilityDef(abilityId);
           if (!def) return state;
           const progress = state.abilityProgress[abilityId];
@@ -1391,6 +1406,19 @@ export const useGameStore = create<GameState & GameActions>()(
 
       respecAbility: (abilityId: string) => {
         set((state) => {
+          // Check if this is a graph tree skill
+          const unifiedDef = getUnifiedSkillDef(abilityId);
+          if (unifiedDef?.skillGraph) {
+            const progress = state.skillProgress[abilityId];
+            if (!progress || progress.allocatedNodes.length === 0) return state;
+            const cost = getGraphRespecCost(progress.level);
+            if (state.gold < cost) return state;
+            const newProgress = { ...state.skillProgress };
+            newProgress[abilityId] = { ...progress, allocatedNodes: respecGraphNodes() };
+            return { skillProgress: newProgress, gold: state.gold - cost };
+          }
+
+          // Old tree path
           const progress = state.abilityProgress[abilityId];
           if (!progress) return state;
           const cost = getRespecCost(progress);
@@ -1867,11 +1895,70 @@ export const useGameStore = create<GameState & GameActions>()(
         const damageMult = (abilityEffect.damageMult ?? 1) * getClassDamageModifier(state.classResource, classDef);
         const atkSpeedMult = abilityEffect.attackSpeedMult ?? 1;
 
-        const castInterval = calcSkillCastInterval(skill, effectiveStats, atkSpeedMult);
+        // Resolve graph modifier for active skills
+        const skillProgress = state.skillProgress[skill.id];
+        const skillDef = getUnifiedSkillDef(skill.id);
+        const graphMod = skillDef ? getSkillGraphModifier(skillDef, skillProgress) : null;
+
+        // Apply graph cast speed bonus
+        const graphSpeedMult = graphMod?.incCastSpeed ? (1 + graphMod.incCastSpeed / 100) : 1;
+        const castInterval = calcSkillCastInterval(skill, effectiveStats, atkSpeedMult * graphSpeedMult);
 
         // Fire skill
         const { avgDamage, spellPower } = getWeaponDamageInfo(state.character.equipment);
-        const roll = rollSkillCast(skill, effectiveStats, avgDamage, spellPower, damageMult);
+        const roll = rollSkillCast(skill, effectiveStats, avgDamage, spellPower, damageMult, graphMod ?? undefined);
+
+        // Apply debuff damage amplification
+        let debuffDamageMult = 1;
+        for (const debuff of state.activeDebuffs) {
+          const debuffDef = getDebuffDef(debuff.debuffId);
+          if (debuffDef?.effect.incDamageTaken) {
+            debuffDamageMult += (debuffDef.effect.incDamageTaken * debuff.stacks) / 100;
+          }
+        }
+        if (debuffDamageMult > 1 && roll.isHit) {
+          (roll as { damage: number }).damage *= debuffDamageMult;
+        }
+
+        // Apply new debuffs from graph modifier
+        let newDebuffs = [...state.activeDebuffs];
+        if (roll.isHit && graphMod) {
+          for (const debuffInfo of graphMod.debuffs) {
+            if (Math.random() < debuffInfo.chance) {
+              const existing = newDebuffs.findIndex(d => d.debuffId === debuffInfo.debuffId);
+              const debuffDef = getDebuffDef(debuffInfo.debuffId);
+              if (existing >= 0 && debuffDef?.stackable) {
+                const d = newDebuffs[existing];
+                newDebuffs[existing] = {
+                  ...d,
+                  stacks: Math.min(d.stacks + 1, debuffDef.maxStacks),
+                  remainingDuration: debuffInfo.duration,
+                  appliedBySkillId: skill.id,
+                };
+              } else if (existing >= 0) {
+                // Refresh duration (non-stackable)
+                newDebuffs[existing] = { ...newDebuffs[existing], remainingDuration: debuffInfo.duration, appliedBySkillId: skill.id };
+              } else {
+                newDebuffs.push({ debuffId: debuffInfo.debuffId, stacks: 1, remainingDuration: debuffInfo.duration, appliedBySkillId: skill.id });
+              }
+            }
+          }
+        }
+
+        // Tick debuff durations + apply DoT
+        let debuffDotDamage = 0;
+        newDebuffs = newDebuffs
+          .map(d => ({ ...d, remainingDuration: d.remainingDuration - dtSec }))
+          .filter(d => d.remainingDuration > 0);
+        for (const debuff of newDebuffs) {
+          const debuffDef = getDebuffDef(debuff.debuffId);
+          if (debuffDef?.effect.dotDps) {
+            debuffDotDamage += debuffDef.effect.dotDps * debuff.stacks * dtSec;
+          }
+        }
+
+        // Life leech from graph flag
+        const hasLifeLeech = graphMod?.flags.includes('lifeLeech');
 
         // Update GCD: next active skill can fire after max(GCD, castInterval)
         const gcdMs = Math.max(ACTIVE_SKILL_GCD, castInterval) * 1000;
@@ -1908,6 +1995,12 @@ export const useGameStore = create<GameState & GameActions>()(
             totalDamage = roll.damage;
           }
 
+          // Apply debuff DoT to boss
+          if (debuffDotDamage > 0) {
+            newBossHp -= debuffDotDamage;
+            totalDamage += debuffDotDamage;
+          }
+
           // Boss per-hit attack (if attack timer is due)
           let playerHp = state.currentHp;
           let nextAttack = bs.bossNextAttackAt;
@@ -1930,9 +2023,10 @@ export const useGameStore = create<GameState & GameActions>()(
           // Passive regen per tick
           playerHp = Math.min(stats.maxLife, playerHp + stats.lifeRegen * dtSec);
 
-          // Life leech from player's attack
+          // Life leech from player's attack (base + graph bonus)
           if (roll.isHit) {
-            playerHp = Math.min(stats.maxLife, playerHp + roll.damage * LEECH_PERCENT);
+            const leechRate = hasLifeLeech ? LEECH_PERCENT * 2 : LEECH_PERCENT;
+            playerHp = Math.min(stats.maxLife, playerHp + roll.damage * leechRate);
           }
 
           const updatedBoss = { ...bs, bossCurrentHp: newBossHp, bossNextAttackAt: nextAttack };
@@ -1944,6 +2038,7 @@ export const useGameStore = create<GameState & GameActions>()(
               currentHp: Math.max(1, playerHp),
               nextActiveSkillAt,
               skillTimers: newTimers,
+              activeDebuffs: [], // Clear debuffs on boss death
             });
             return {
               mobKills: 0, skillFired: true, damageDealt: totalDamage,
@@ -1957,6 +2052,7 @@ export const useGameStore = create<GameState & GameActions>()(
               currentHp: 0,
               nextActiveSkillAt,
               skillTimers: newTimers,
+              activeDebuffs: [], // Clear debuffs on death
             });
             return {
               mobKills: 0, skillFired: true, damageDealt: totalDamage,
@@ -1970,6 +2066,7 @@ export const useGameStore = create<GameState & GameActions>()(
             currentHp: playerHp,
             nextActiveSkillAt,
             skillTimers: newTimers,
+            activeDebuffs: newDebuffs,
           });
           return {
             mobKills: 0, skillFired: true, damageDealt: totalDamage,
@@ -1988,12 +2085,19 @@ export const useGameStore = create<GameState & GameActions>()(
           totalDamage = roll.damage;
         }
 
+        // Apply debuff DoT to mob
+        if (debuffDotDamage > 0) {
+          currentMobHp -= debuffDotDamage;
+          totalDamage += debuffDotDamage;
+        }
+
         // Check for mob death(s) — cap at 10 kills per tick for safety
         const maxMobHp = state.maxMobHp > 0 ? state.maxMobHp : calcMobHp(zone);
         while (currentMobHp <= 0 && mobKills < 10) {
           mobKills++;
           currentMobHp = maxMobHp + currentMobHp; // carry over overkill damage
           if (currentMobHp <= 0) currentMobHp = maxMobHp; // safety: reset if still negative
+          newDebuffs = []; // Clear debuffs on mob death
         }
 
         // Zone attack check during clearing (real-time defense)
@@ -2021,9 +2125,10 @@ export const useGameStore = create<GameState & GameActions>()(
         // Passive regen per tick
         playerHp = Math.min(stats.maxLife, playerHp + stats.lifeRegen * dtSec);
 
-        // Life leech from player's attack
+        // Life leech from player's attack (base + graph bonus)
         if (roll.isHit) {
-          playerHp = Math.min(stats.maxLife, playerHp + roll.damage * LEECH_PERCENT);
+          const leechRate = hasLifeLeech ? LEECH_PERCENT * 2 : LEECH_PERCENT;
+          playerHp = Math.min(stats.maxLife, playerHp + roll.damage * leechRate);
         }
 
         // Zone death check
@@ -2037,6 +2142,7 @@ export const useGameStore = create<GameState & GameActions>()(
             zoneNextAttackAt: nextZoneAttack,
             combatPhase: 'zone_defeat' as CombatPhase,
             combatPhaseStartedAt: Date.now(),
+            activeDebuffs: [],
           });
           return {
             mobKills,
@@ -2057,6 +2163,7 @@ export const useGameStore = create<GameState & GameActions>()(
           skillTimers: newTimers,
           currentHp: playerHp,
           zoneNextAttackAt: nextZoneAttack,
+          activeDebuffs: newDebuffs,
         });
 
         return {
@@ -2210,7 +2317,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 28,
+      version: 29,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -2273,6 +2380,8 @@ export const useGameStore = create<GameState & GameActions>()(
           state.maxMobHp = 0;
           state.nextActiveSkillAt = 0;
           state.zoneNextAttackAt = 0;
+          // Reset ephemeral debuffs (11B)
+          state.activeDebuffs = [];
 
           // Ensure all equipped skills default to autoCast: true (fix for pre-10I saves)
           if (state.skillBar) {
@@ -2764,6 +2873,30 @@ export const useGameStore = create<GameState & GameActions>()(
         if (version < 28) {
           // v28: Class talent tree
           raw.talentAllocations = [];
+        }
+
+        if (version < 29) {
+          // v29: Skill graph trees — clear wand skill allocations (preserve XP/level)
+          raw.activeDebuffs = [];
+          const sp = (state.skillProgress ?? {}) as Record<string, SkillProgress>;
+          const wandSkillIds = [
+            'wand_magic_missile', 'wand_chain_lightning', 'wand_frostbolt',
+            'wand_searing_ray', 'wand_essence_drain', 'wand_void_blast',
+            'wand_chain_lightning_buff', 'wand_time_warp', 'wand_mystic_insight',
+          ];
+          for (const id of wandSkillIds) {
+            if (sp[id]) {
+              sp[id] = { ...sp[id], allocatedNodes: [] };
+            }
+          }
+          // Also clear old abilityProgress for wand abilities
+          const ap = (state.abilityProgress ?? {}) as Record<string, { abilityId: string; xp: number; level: number; allocatedNodes: string[] }>;
+          const wandAbilityIds = ['wand_chain_lightning', 'wand_time_warp', 'wand_mystic_insight'];
+          for (const id of wandAbilityIds) {
+            if (ap[id]) {
+              ap[id] = { ...ap[id], allocatedNodes: [] };
+            }
+          }
         }
 
         return state;

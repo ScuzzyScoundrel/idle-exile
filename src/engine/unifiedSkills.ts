@@ -8,11 +8,13 @@ import type {
   SkillDef, SkillProgress, SkillTimerState, EquippedSkill,
   AbilityEffect, AbilityProgress, AbilityDef, AbilityTimerState, EquippedAbility,
   ResolvedStats, ScalingFormula, SkillTreeNode, WeaponType, ZoneDef, ActiveSkillDef,
+  DamageTag,
 } from '../types';
 import { ABILITY_SLOT_UNLOCKS } from '../types';
 import { calcHitChance } from './character';
 import { getUnifiedSkillDef, getAbilityDef, getSkillsForWeapon } from '../data/unifiedSkills';
 import { POWER_DIVISOR, SKILL_MAX_LEVEL } from '../data/balance';
+import { resolveSkillGraphModifiers, type ResolvedSkillModifier } from './skillGraph';
 
 // ─── Constants ───
 
@@ -89,6 +91,17 @@ export function resolveAbilityEffectLegacy(equipped: EquippedAbility): AbilityEf
 // ─── Effect Resolution ───
 
 /**
+ * Get the resolved graph modifier for a skill, or null if no graph tree.
+ */
+export function getSkillGraphModifier(
+  skill: SkillDef,
+  progress: SkillProgress | undefined,
+): ResolvedSkillModifier | null {
+  if (!skill.skillGraph || !progress) return null;
+  return resolveSkillGraphModifiers(skill.skillGraph, progress.allocatedNodes);
+}
+
+/**
  * Resolve the final AbilityEffect for a non-active skill (buff/passive/etc.).
  * Applies skill tree node bonuses from progress.
  * Returns empty effect for active skills.
@@ -100,7 +113,13 @@ export function resolveSkillEffect(
   if (skill.kind === 'active') return {};
   if (!skill.effect) return {};
 
-  // Convert SkillProgress -> AbilityProgress shape for delegation
+  // Graph tree path: merge graph abilityEffect with base effect
+  if (skill.skillGraph && progress) {
+    const graphMod = resolveSkillGraphModifiers(skill.skillGraph, progress.allocatedNodes);
+    return mergeEffect({ ...skill.effect }, graphMod.abilityEffect);
+  }
+
+  // Old tree path
   const abilityProgress: AbilityProgress | undefined = progress ? {
     abilityId: progress.skillId,
     xp: progress.xp,
@@ -108,7 +127,6 @@ export function resolveSkillEffect(
     allocatedNodes: progress.allocatedNodes,
   } : undefined;
 
-  // SkillDef has the same effect/skillTree fields as AbilityDef
   return resolveAbilityEffect(skill as any, abilityProgress);
 }
 
@@ -183,6 +201,13 @@ export function getSkillEffectiveDuration(
 ): number {
   if (!skill.duration) return 0;
 
+  // Graph tree path
+  if (skill.skillGraph && progress) {
+    const graphMod = resolveSkillGraphModifiers(skill.skillGraph, progress.allocatedNodes);
+    return skill.duration + graphMod.durationBonus;
+  }
+
+  // Old tree path
   const abilityProgress: AbilityProgress | undefined = progress ? {
     abilityId: progress.skillId,
     xp: progress.xp,
@@ -202,6 +227,13 @@ export function getSkillEffectiveCooldown(
 ): number {
   if (!skill.cooldown) return 0;
 
+  // Graph tree path
+  if (skill.skillGraph && progress) {
+    const graphMod = resolveSkillGraphModifiers(skill.skillGraph, progress.allocatedNodes);
+    return Math.max(1, skill.cooldown * (1 - graphMod.cooldownReduction / 100));
+  }
+
+  // Old tree path
   const abilityProgress: AbilityProgress | undefined = progress ? {
     abilityId: progress.skillId,
     xp: progress.xp,
@@ -567,19 +599,38 @@ export function createAbilityProgress(abilityId: string): AbilityProgress {
  * Compute base damage per skill cast BEFORE hit/crit/speed multipliers.
  * = baseDmg (with flat additions) * incMult * hitCount
  * Shared by calcSkillDps (expected-value) and simulateCombatClear (per-hit).
+ * Optional graphMod applies graph tree bonuses (flat damage, %inc, extra hits, conversion).
  */
 export function calcSkillDamagePerCast(
   skill: ActiveSkillDef,
   stats: ResolvedStats,
   weaponAvgDmg: number,
   weaponSpellPower: number,
+  graphMod?: ResolvedSkillModifier,
 ): number {
-  const tags = skill.tags;
-  const isAttack = tags.includes('Attack');
-  const isSpell = tags.includes('Spell');
+  const isAttack = skill.tags.includes('Attack');
+  const isSpell = skill.tags.includes('Spell');
+
+  // Effective tags: if graph converts element, swap tags for stat-matching
+  let tags: readonly DamageTag[] = skill.tags;
+  if (graphMod?.convertElement) {
+    const conv = graphMod.convertElement;
+    if (conv.percent >= 100) {
+      // Full conversion: replace source element tag with target
+      tags = skill.tags.map(t => t === conv.from ? conv.to : t) as DamageTag[];
+    }
+  }
+
+  // If graph adds AoE conversion, add AoE tag
+  if (graphMod?.convertToAoE && !tags.includes('AoE')) {
+    tags = [...tags, 'AoE' as DamageTag];
+  }
 
   // --- Step 1: Base damage ---
   let baseDmg = skill.baseDamage;
+
+  // Graph flat damage bonus
+  if (graphMod?.flatDamage) baseDmg += graphMod.flatDamage;
 
   if (isAttack) {
     baseDmg += weaponAvgDmg * skill.weaponDamagePercent;
@@ -615,10 +666,13 @@ export function calcSkillDamagePerCast(
   if (tags.includes('DoT'))        totalInc += stats.incDoTDamage;
   if (tags.includes('Channel'))    totalInc += stats.incChannelDamage;
 
+  // Graph %increased damage bonus
+  if (graphMod?.incDamage) totalInc += graphMod.incDamage;
+
   const incMult = 1 + totalInc / 100;
 
-  // --- Hit count ---
-  const hitCount = skill.hitCount ?? 1;
+  // --- Hit count (base + graph extra hits) ---
+  const hitCount = (skill.hitCount ?? 1) + (graphMod?.extraHits ?? 0);
 
   return baseDmg * incMult * hitCount;
 }
@@ -731,6 +785,7 @@ export function calcSkillCastInterval(
 /**
  * Roll a single skill cast with hit/miss, crit, damage variance.
  * Reuses logic from simulateCombatClear per-hit rolls.
+ * Optional graphMod applies graph tree bonuses (crit, flags).
  */
 export function rollSkillCast(
   skill: ActiveSkillDef,
@@ -738,8 +793,9 @@ export function rollSkillCast(
   weaponAvgDmg: number,
   weaponSpellPower: number,
   damageMult: number,
-): { damage: number; isCrit: boolean; isHit: boolean } {
-  const baseDmgPerCast = calcSkillDamagePerCast(skill, stats, weaponAvgDmg, weaponSpellPower) * damageMult;
+  graphMod?: ResolvedSkillModifier,
+): { damage: number; isCrit: boolean; isHit: boolean; graphMod?: ResolvedSkillModifier } {
+  const baseDmgPerCast = calcSkillDamagePerCast(skill, stats, weaponAvgDmg, weaponSpellPower, graphMod) * damageMult;
   if (baseDmgPerCast <= 0) return { damage: 0, isCrit: false, isHit: false };
 
   const tags = skill.tags;
@@ -749,16 +805,22 @@ export function rollSkillCast(
   const hitChance = isAttack ? stats.accuracy / (stats.accuracy + 500) : 1.0;
   if (Math.random() > hitChance) return { damage: 0, isCrit: false, isHit: false };
 
-  // Crit roll
-  const critChance = Math.min(stats.critChance, 100) / 100;
+  // Crit roll with graph modifier
+  let effectiveCritChance = stats.critChance + (graphMod?.incCritChance ?? 0);
+  const hasAlwaysCrit = graphMod?.flags.includes('alwaysCrit');
+  const hasCannotCrit = graphMod?.flags.includes('cannotCrit');
+  if (hasCannotCrit) effectiveCritChance = 0;
+  if (hasAlwaysCrit) effectiveCritChance = 100;
+
+  const critChance = Math.min(effectiveCritChance, 100) / 100;
   const isCrit = Math.random() < critChance;
-  const critDmgMult = stats.critMultiplier / 100;
+  const critDmgMult = (stats.critMultiplier + (graphMod?.incCritMultiplier ?? 0)) / 100;
 
   // Damage with +/-10% variance
   const variance = 0.9 + Math.random() * 0.2;
   const damage = baseDmgPerCast * variance * (isCrit ? critDmgMult : 1);
 
-  return { damage, isCrit, isHit: true };
+  return { damage, isCrit, isHit: true, graphMod };
 }
 
 // ─── Unified Wrappers ───

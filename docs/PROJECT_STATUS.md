@@ -1,10 +1,30 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-02 (Post-Sprint 11A: Class Talent Trees)
+> Last updated: 2026-03-02 (Post-Sprint 11B: Per-Skill Graph Trees — Wand Prototype)
 
 ## Current Phase
-**Sprint 11A: Class Talent Trees** — COMPLETE.
+**Sprint 11B: Per-Skill Graph Trees (Wand Prototype)** — COMPLETE.
+
+- **Branching graph skill trees**: Replaced linear 3-path skill trees with PoE-style branching graph trees. Prototype with all 9 wand skills (6 active + 3 buff/passive). ~35 nodes per tree, ~315 total nodes.
+- **3 node types**: Minor (small stat bumps), Notable (medium bonuses), Keystone (build-defining mechanics). Start node auto-available, must path through connected nodes.
+- **Points**: 1 point per skill level, max 20 points, ~35 nodes per tree (~57% fillable). Points = `level - allocatedNodes.length`.
+- **New SkillModifier system**: Richer than old `Partial<AbilityEffect>`. Supports: `incDamage`, `flatDamage`, `incCritChance`, `incCritMultiplier`, `incCastSpeed`, `extraHits`, `durationBonus`, `cooldownReduction`, element conversion, AoE conversion, debuff application, proc on hit, flags (pierce/fork/alwaysCrit/cannotCrit/lifeLeech/ignoreResists).
+- **Debuff system**: 4 debuff types (chilled +10% dmg taken, shocked +15% dmg/stack x3, burning fire DoT, poisoned chaos DoT x10 stacks). Applied via keystone/notable graph nodes. Debuffs tick in real-time combat, cleared on mob/boss death.
+- **Element conversion**: Keystones can convert skill elements (e.g., Cold→Fire), changing which %increased stats apply to the skill.
+- **AoE conversion**: Keystones can add AoE tag to single-target skills, enabling %incAoEDamage scaling.
+- **Cross-skill synergy**: Debuffs from one skill increase damage from all skills (e.g., Frostbolt chill → Chain Lightning deals more damage).
+- **Wand skill tree themes**: Magic Missile (raw dmg/crit/speed), Chain Lightning (shock/lightning), Frostbolt (chill/cold/crit), Searing Ray (burn/fire/DoT), Essence Drain (poison/chaos/leech), Void Blast (raw dmg/conversion/crit), Chain Lightning Buff (duration/loot), Time Warp (duration/clear speed), Mystic Insight (XP/items/materials).
+- **Coexistence**: `skill.skillGraph` → new graph system. `skill.skillTree` (no skillGraph) → old 3-path system. Non-wand weapons unchanged.
+- **Engine**: `src/engine/skillGraph.ts` (pure functions: resolve modifiers, can-allocate adjacency check, allocate, respec, respec cost). `calcSkillDamagePerCast` and `rollSkillCast` accept optional `ResolvedSkillModifier` for graph bonuses. `resolveSkillEffect`, `getSkillEffectiveDuration`, `getSkillEffectiveCooldown` branch on graph vs old tree.
+- **Store**: `allocateAbilityNode` and `respecAbility` branch for graph trees (use `skillProgress` directly, not `abilityProgress`). `tickCombat` resolves graph modifier, applies debuff damage amp, applies new debuffs on hit, ticks debuff durations/DoT, handles life leech flag. Graph respec preserves XP/level (cost: `50 * level^2`).
+- **UI**: `SkillGraphView.tsx` — SVG visualization with tiered layout, connection lines, diamond keystones, circle minors/notables. Color coding: gray=locked, green=available, purple=allocated, gold=keystone. Collapsible tier-based list view for mobile. Tooltip on hover. `SkillPanel.tsx` branches to `SkillGraphView` for graph skills, old `SkillTreeView` for non-graph skills. "Tree" button now shows for active skills with graph trees too.
+- **New files**: `src/engine/skillGraph.ts`, `src/data/debuffs.ts`, `src/data/skillGraphs/wand.ts`, `src/ui/components/SkillGraphView.tsx`.
+- **Edited files**: `src/types/index.ts` (+80 lines: SkillGraphNode, SkillGraph, SkillModifier, DebuffDef, ActiveDebuff, etc.), `src/engine/unifiedSkills.ts` (+80 lines), `src/data/unifiedSkills.ts` (+10 lines), `src/store/gameStore.ts` (+100 lines), `src/ui/components/SkillPanel.tsx` (+5 lines).
+- **Save version**: v28 → v29 (migration clears wand skill allocations, preserves XP/level, inits activeDebuffs).
+- **Zero-allocation identity**: With 0 nodes allocated on a graph tree, behavior identical to pre-sprint.
+
+**Previous: Sprint 11A: Class Talent Trees** — COMPLETE.
 
 - **Class-wide passive talent trees**: Each of the 4 classes (Warrior, Mage, Ranger, Rogue) gets a talent tree with 3 thematic paths and 8 nodes each (96 total nodes). Tier 4 nodes are build-defining keystones (`isPathPayoff`).
 - **Warrior paths**: Blood (sustain/defense), Iron (armor/resist), Fury (damage/crits).
@@ -21,7 +41,7 @@
 - **Save version**: v27 → v28 (migration adds `talentAllocations: []`).
 - **Zero-allocation identity**: When no talents allocated, behavior is identical to pre-sprint.
 
-**Next sprint TBD.** Potential: per-skill passive trees (11B), mob type differentiation, skill discovery/unlocks, zone mastery.
+**Next sprint TBD.** Potential: per-skill graph trees for non-wand weapons, mob type differentiation, skill discovery/unlocks, zone mastery.
 
 **Sprint 10R: Boss Damage Smoothing — Prevent One-Shots** — COMPLETE (previous).
 

@@ -563,6 +563,72 @@ export interface CraftingMilestone {
   description: string;
 }
 
+// --- Skill Graph Trees (Sprint 11B) ---
+
+export type DamageElement = 'Physical' | 'Fire' | 'Cold' | 'Lightning' | 'Chaos';
+export type SkillModifierFlag = 'pierce' | 'fork' | 'alwaysCrit' | 'cannotCrit' | 'lifeLeech' | 'ignoreResists';
+
+export interface SkillModifier {
+  // Additive stat bonuses (for damage pipeline)
+  incDamage?: number;           // %increased damage (additive with gear)
+  flatDamage?: number;          // flat bonus damage
+  incCritChance?: number;       // +% crit chance
+  incCritMultiplier?: number;   // +% crit multiplier
+  incCastSpeed?: number;        // +% cast speed
+
+  // Buff/passive effect passthrough
+  abilityEffect?: Partial<AbilityEffect>;
+
+  // Duration/cooldown
+  durationBonus?: number;       // +X seconds to duration
+  cooldownReduction?: number;   // -X% cooldown
+
+  // Hit mechanics
+  extraHits?: number;           // +N extra hits per cast
+
+  // Mechanic-changing (keystones)
+  convertElement?: { from: DamageElement; to: DamageElement; percent: number };
+  convertToAoE?: boolean;       // single target → AoE
+  applyDebuff?: { debuffId: string; chance: number; duration: number };
+  procOnHit?: { effectId: string; chance: number };
+  flags?: SkillModifierFlag[];
+}
+
+export interface SkillGraphNode {
+  id: string;
+  name: string;
+  description: string;
+  nodeType: 'start' | 'minor' | 'notable' | 'keystone';
+  tier: number;                 // 0-4 for UI rings (0=center)
+  connections: string[];        // adjacent node IDs
+  modifier?: SkillModifier;
+}
+
+export interface SkillGraph {
+  skillId: string;
+  nodes: SkillGraphNode[];
+  maxPoints: number;            // 20
+}
+
+export interface DebuffDef {
+  id: string;
+  name: string;
+  description: string;
+  stackable: boolean;
+  maxStacks: number;
+  effect: {
+    incDamageTaken?: number;    // % more damage taken per stack
+    dotDps?: number;            // damage per second per stack
+  };
+}
+
+export interface ActiveDebuff {
+  debuffId: string;
+  stacks: number;
+  remainingDuration: number;    // seconds
+  appliedBySkillId: string;
+}
+
 // --- Active Skills ---
 
 /** Damage tags — determine which stats apply to a skill. */
@@ -619,6 +685,7 @@ export interface SkillDef {
   duration?: number;
   effect?: AbilityEffect;
   skillTree?: AbilitySkillTree;
+  skillGraph?: SkillGraph;
 }
 
 export interface EquippedSkill {
@@ -702,6 +769,9 @@ export interface GameState {
 
   // Class talent tree (v28)
   talentAllocations: string[];
+
+  // Skill graph debuffs (v29 — ephemeral, not persisted)
+  activeDebuffs: ActiveDebuff[];
 
   // Per-clear combat sim result (v25 — ephemeral, not persisted)
   lastClearResult: CombatClearResult | null;
