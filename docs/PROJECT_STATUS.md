@@ -1,12 +1,17 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-03 (Post-Sprint 12B/12C/12D: Enhanced Drops + Daily Quests)
+> Last updated: 2026-03-03 (Post-Sprint 12B/12C/12D + hotfix: Enhanced Drops + Daily Quests)
 
 ## Current Phase
 **Sprint 12B: Enhanced Mob Drop Tables** — COMPLETE.
 **Sprint 12C: Daily Quest Engine** — COMPLETE.
 **Sprint 12D: Daily Quest UI** — COMPLETE.
+
+**Hotfix: Random mob targeting + quest tracking** — COMPLETE.
+- **Bug**: Random mob mode always displayed the zone's default mob name and never changed between kills. Mob kills in random mode didn't count toward daily kill quests.
+- **Root cause**: No ephemeral state tracked which mob was actually being fought. `processNewClears` called `simulateSingleClear` which picked its own independent random mob, disconnected from the visual mob and quest tracking.
+- **Fix**: Added `currentMobTypeId` ephemeral state. On each mob death, a new weighted-random mob is picked (or targeted mob reused). MobDisplay shows the actual mob name/drops. `processNewClears` passes `currentMobTypeId` to `simulateSingleClear` so drops + quest progress match the mob being fought. HP multipliers now correctly apply in random mode too.
 
 - **Enhanced drop tables**: Each mob now has 2-5 drops with independent roll chances instead of 1 flat 25% unique drop. Drops have `common`/`uncommon`/`rare` rarity tiers with color-coded UI. ~25 new band-tiered crafting materials (frayed_cloth, woven_sinew, spectral_thread, etc.) plus 5 cross-band rares.
 - **Drop table builder**: `buildMobDropTable()` helper generates drops based on mob's unique material, band, spawn weight, and theme (beast/insectoid/construct/elemental/undead/humanoid). Common mobs get 3-4 drops, rare mobs get 4-5 with better chances.
