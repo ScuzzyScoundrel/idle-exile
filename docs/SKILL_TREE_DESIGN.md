@@ -650,55 +650,80 @@ Scope: Straightforward, highest-impact fields. Wired into `tickCombat` with guar
 
 ---
 
-## 8. Phase 3 Implementation — Chain Lightning Showcase
+## 8. Phase 3 Implementation — Chain Lightning Showcase (SUPERSEDED)
+
+**Status:** SUPERSEDED by Phase 3B (Cross-Skill Synergy Redesign)
+
+The 51-node showcase tree proved that all Phase 2 modifier systems worked, but created a self-contained damage machine with no reason to equip other skills. Phase 3B replaced it with a rotation-focused design.
+
+---
+
+## 8B. Phase 3B — Chain Lightning Cross-Skill Synergy Redesign
 
 **Status:** COMPLETE (2026-03-03)
 
-Replaced the 34-node, 3-branch Chain Lightning graph with a 51-node, 5-branch showcase tree. This is the first skill tree to use the Phase 2 modifier systems and establishes the pattern for all future trees.
+Replaced the 51-node, 5-branch CL showcase tree with a 15-node, 3-branch rotation engine. CL is now weaker solo but creates conditions and triggers that make other equipped skills matter. This design sets the template for ALL future skill trees.
 
-### Engine Tweak
-- `whileDebuffActive` in `combatHelpers.ts` now supports `threshold` parameter. When `threshold > 1`, counts unique debuff types (via `new Set(activeDebuffs.map(d => d.debuffId)).size`). Default behavior (threshold absent or 1) unchanged.
+### Design Principles
+- **Aggressive power shift**: CL weaker solo (-20% to -40% base damage on keystones), rotation rewards thoughtful builds
+- **Keystones name specific companion skills**: castSkill Frostbolt, castSkill Void Blast, resetCooldown Essence Drain
+- **Minors/notables use generic effects**: debuffs, crit, fortify — universally useful
+- **Leaner structure**: ~15 nodes, 10 maxPoints (down from 51 nodes / 20 maxPoints). Compact enough to replicate for every skill.
 
 ### Tree Structure
-- **51 nodes**: 1 start, 10 tier-1, 15 tier-2 (incl. 5 cross-connects), 15 tier-3, 5 tier-4 (keystones)
-- **5 branches**: Overcharge, Storm Cascade, Voltaic Precision, Tempest Weaver, Stormshield
-- **Cross-connect ring**: 5 bridge minors at tier 2 forming B1↔B2↔B3↔B4↔B5↔B1
-- **maxPoints: 20** — enough for 1 keystone deep (9-10 nodes) + dip into adjacent branch
+- **19 nodes total**: 1 start + 4 per branch (root, minor, notable, keystone) × 3 branches + 3 bridge minors
+- **3 branches**: Voltaic Trigger, Tempest Weaver, Stormshield
+- **Cross-connect ring**: 3 bridge minors at tier 2 forming B1↔B2↔B3
+- **maxPoints: 10** — enough for 1 full branch (4 nodes) + bridges + dip into a second
+
+### Branch Details
+
+**B1: Voltaic Trigger** (Crit Spellslinger)
+- Play pattern: CL crits → Frostbolt fires free → Frostbolt AoE exploits Vulnerable. Kill → Frostbolt CD resets.
+- Root: +5% crit, +3 flat. Minor: +5% crit mult, 15% onHit Shock. Notable: 25% onCrit cast Frostbolt, guaranteed Shock, +10% crit.
+- **CHAIN REACTION** keystone: -35% CL damage. 35% onCrit Frostbolt, 15% onCrit Void Blast. Crits apply Vulnerable. onKill reset Frostbolt CD. +5% crit to all skills.
+
+**B2: Tempest Weaver** (Debuff Overload)
+- Play pattern: CL paints enemies with 4-5 debuffs. All rotation skills benefit from debuff-stacked enemies.
+- Root: +3% damage, 25% onHit Burn. Minor: guaranteed Shock, 20% onHit Chill. Notable: 25% onHit Chill/Poison, +25% debuff duration, +5% cast speed at 3+ debuffs.
+- **PRISMATIC STORM** keystone: -40% CL damage. Guaranteed Shock + Burn. 40% each Chill/Poison/Cursed. +50% debuff effects. +15% attack speed to all skills. onKill reset Essence Drain CD.
+
+**B3: Stormshield** (Reactive Counter-Attacker)
+- Play pattern: CL builds fortify. Dodge → cast Void Blast. Block → cast Frostbolt. Defense = offense.
+- Root: +3 life on hit, +10 resist. Minor: Fortify (1 stack, 5s, 3% DR), +5 resist. Notable: Fortify (2 stacks, 5s, 4% DR), onDodge bonus CL cast, +5% armor→damage.
+- **EYE OF THE STORM** keystone: -20% CL damage. Fortify (3 stacks, 6s, 5% DR). onDodge cast Void Blast. onBlock cast Frostbolt. 5% life leech. +15 resist.
+
+### Engine Work
+- **onDodge/onBlock proc triggers**: Added defensive proc evaluation in `gameStore.ts` `tickCombat` after both boss attack and zone attack resolution. When `bossAttackResult.isDodged/isBlocked` or `zoneAttackResult.isDodged/isBlocked`, evaluates `skillProcs` for `onDodge`/`onBlock` triggers. Applies damage directly to enemy (not via `procDamage` which was already applied). Merges temp buffs and debuffs using same patterns as onHit/onCrit procs.
+- **Save migration v36**: Resets CL `allocatedNodes` (node IDs changed). Players keep XP/level.
 
 ### Modifier Systems Used
 | System | Nodes |
 |---|---|
-| conditionalMods (pre-roll: whileDebuffActive) | B1 n2, B1 k, B3 k, B4 n2 (threshold=4) |
-| conditionalMods (post-roll: onCrit) | B3 m2 |
-| procs/bonusCast | B3 n1, B3 n2, B5 n1 |
-| procs/applyDebuff | B2 n1, B2 n2, B4 k (4 procs) |
-| debuffInteraction.bonusDamageVsDebuffed | B1 n1 |
-| debuffInteraction.consumeDebuff | B1 n2 |
-| debuffInteraction.debuffDurationBonus | B1 m3, B4 n1, B4 n2 |
-| debuffInteraction.debuffEffectBonus | B1 k, B4 n2, B4 k |
-| debuffInteraction.debuffOnCrit | B3 m4, B3 k |
-| rampingDamage | B1 m4, B2 k |
-| fortifyOnHit | B5 m4, B5 n2, B5 k |
-| damageFromArmor | B5 n2, B5 k |
-| leechPercent | B5 m2, B5 k |
-| lifeOnHit / lifeOnKill | B5 root, B5 n2, B5 m3 |
-| splitDamage | B4 n1, B4 k |
-| chainCount | B2 root, B2 m2, x12, x23 |
-| extraHits | B2 n1, B2 n2, B2 k |
-| convertToAoE | B2 m3, B2 n2 |
-| globalEffect | All 5 keystones |
+| procs/castSkill | B1 n1 (Frostbolt), B1 k (Frostbolt + Void Blast), B3 k (Void Blast + Frostbolt) |
+| procs/resetCooldown | B1 k (Frostbolt), B2 k (Essence Drain) |
+| procs/bonusCast | B3 n1 (onDodge) |
+| procs/applyDebuff | B1 m1, B2 root, B2 m1, B2 n1, B2 k (5 procs), x12, x23 |
+| conditionalMods (whileDebuffActive) | B2 n1 (threshold=3) |
+| debuffInteraction.debuffDurationBonus | B2 n1 |
+| debuffInteraction.debuffEffectBonus | B2 k |
+| applyDebuff (guaranteed) | B1 n1, B2 m1, B2 k, B1 k (Vulnerable) |
+| fortifyOnHit | B3 m1, B3 n1, B3 k |
+| damageFromArmor | B3 n1 |
+| leechPercent | B3 k |
+| lifeOnHit | B3 root, x31 |
+| abilityEffect.resistBonus | B3 root, B3 m1, B3 k, x23 |
+| globalEffect | All 3 keystones |
+| onDodge trigger (NEW) | B3 n1, B3 k |
+| onBlock trigger (NEW) | B3 k |
 
-### Tooltip Enhancement
-`formatModifier()` in `SkillGraphView.tsx` now renders:
-- **conditionalMods**: per-condition display (e.g., "+80% dmg while 4+ debuffs")
-- **procs**: per-proc display (e.g., "25% on crit: re-cast", "20% on hit: shocked")
-- **debuffInteraction**: per-sub-field display (e.g., "+15% vs shocked", "Consume shocked: 25 dmg/stack")
-
-### Simplification Decisions
-- "Shock 5 stacks" (Superconductor) → `debuffEffectBonus: 50` (makes each stack 50% stronger)
-- "-30% vs unshocked" → Permanent `incDamage: -30` + conditional `+80%` = net +50% vs shocked
-- "crits chain at full damage" → `bonusCast: true` proc on crit
-- "stored damage" → `fortifyOnHit` + `damageFromArmor` via existing mechanics
+### Power Budget Comparison
+| Metric | Old Tree (B1 Keystone) | New Tree (CHAIN REACTION) |
+|---|---|---|
+| CL self-damage | +50% net (80% conditional - 30% base) | -35% base |
+| Cross-skill DPS | ~0 (globalEffect +10% generic) | +35% Frostbolt procs + CD resets |
+| Build decision | None (just allocate CL nodes) | "Which companion skills do I equip?" |
+| Gameplay feel | Number goes up | Crit → cascade of triggered spells |
 
 ---
 

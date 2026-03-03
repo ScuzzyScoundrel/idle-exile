@@ -1,10 +1,24 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-03 (Post-Sprint: Combat Status Feedback)
+> Last updated: 2026-03-03 (Post-Sprint: CL Cross-Skill Synergy Redesign)
 
 ## Current Phase
-**Sprint: Combat Status Feedback — Debuff Badges + Fortify Indicators** — COMPLETE.
+**Sprint: Chain Lightning Skill Tree Redesign — Cross-Skill Synergy** — COMPLETE.
+
+- **Purpose**: Replace the self-contained 51-node CL damage tree with a 15-node rotation engine. CL weaker solo, but creates conditions/triggers that make companion skills matter. Sets the design template for ALL future skill trees.
+- **Tree redesign**: 51 nodes / 5 branches / 20 maxPoints → 19 nodes (15 + start + 3 bridges) / 3 branches / 10 maxPoints.
+  - **B1 Voltaic Trigger**: Crit spellslinger. CL crits → cast Frostbolt/Void Blast. Kill → reset Frostbolt CD.
+  - **B2 Tempest Weaver**: Debuff overload. CL paints 4-5 debuffs. All rotation skills benefit. Kill → reset Essence Drain CD.
+  - **B3 Stormshield**: Reactive counter-attacker. Fortify stacking. Dodge → cast Void Blast. Block → cast Frostbolt.
+  - **3 cross-connect bridges**: Voltaic Storm, Elemental Shield, Storm Recovery.
+- **Engine work**: Wired `onDodge`/`onBlock` proc evaluation in `tickCombat` after boss attack and zone attack resolution (~30 lines each, 2 locations). Defensive procs apply damage directly to enemy, merge temp buffs/debuffs using same patterns as `onHit`/`onCrit`.
+- **Save migration v36**: Resets CL `allocatedNodes` (node IDs changed). Players keep XP/level.
+- **Save version**: v35 → v36
+- **Files modified**: `src/data/skillGraphs/wand.ts` (complete CL tree rewrite), `src/store/gameStore.ts` (onDodge/onBlock procs + save migration v36), `docs/PROJECT_STATUS.md`, `docs/SKILL_TREE_DESIGN.md`
+- **Next**: TBD — Apply cross-skill synergy pattern to more skill trees, balance tuning, or UI work.
+
+**Previous: Sprint: Combat Status Feedback — Debuff Badges + Fortify Indicators** — COMPLETE.
 
 - **Purpose**: Add visual status indicators so players can see their build systems working during combat. Debuff badges on mobs, fortify indicator on player HP, subtle glow effects.
 - **Debuff badges**: 10 debuff types (chilled, shocked, burning, poisoned, bleeding, weakened, blinded, vulnerable, cursed, slowed) with color-coded compact badges (3-letter labels + stack counts) on MobDisplay and BossFightDisplay.
@@ -13,7 +27,6 @@
 - **No new files. No new types. No save migration.**
 - **Save version**: v34 (unchanged)
 - **Files modified**: `src/store/gameStore.ts` (export calcFortifyDR), `src/ui/screens/ZoneScreen.tsx` (DebuffBadge component, wired debuff/fortify props to MobDisplay/PlayerHpBar/BossFightDisplay), `src/index.css` (debuff-glow + fortify-glow keyframes), `docs/PROJECT_STATUS.md`
-- **Next**: TBD — More skill trees, balance tuning, or further UI polish.
 
 **Previous: Phase 3: Chain Lightning 5-Branch Skill Tree Showcase** — COMPLETE.
 

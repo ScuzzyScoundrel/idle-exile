@@ -79,271 +79,149 @@ const MAGIC_MISSILE_GRAPH: SkillGraph = {
 };
 
 // ────────────────────────────────────────────
-// 2. CHAIN LIGHTNING — Phase 3 Showcase Tree
-// 5-branch, 51-node skill tree exercising all Phase 2 modifier systems.
-// B1: Overcharge (shock/power), B2: Storm Cascade (chain/AoE),
-// B3: Voltaic Precision (crit/procs), B4: Tempest Weaver (multi-debuff),
-// B5: Stormshield (defense). Cross-connect ring B1↔B2↔B3↔B4↔B5↔B1.
+// 2. CHAIN LIGHTNING — Cross-Skill Synergy Tree
+// 3-branch, 15-node tree (+ start + 3 bridges = 19 total).
+// maxPoints: 10. CL weaker solo, rotation rewards thoughtful builds.
+// B1: Voltaic Trigger (crit spellslinger → Frostbolt/Void Blast on crit)
+// B2: Tempest Weaver (debuff overload → all skills benefit)
+// B3: Stormshield (reactive defense → Void Blast on dodge, Frostbolt on block)
+// Cross-connect ring: 3 bridge minors B1↔B2↔B3.
 // ────────────────────────────────────────────
 const CHAIN_LIGHTNING_GRAPH: SkillGraph = {
   skillId: 'wand_chain_lightning',
-  maxPoints: 20,
+  maxPoints: 10,
   nodes: [
     // ─── Start ───
-    { id: 'cl2_start', name: 'Spark', description: 'Starting node — gateway to all 5 branches.', nodeType: 'start', tier: 0,
-      connections: ['cl2_b1_root', 'cl2_b2_root', 'cl2_b3_root', 'cl2_b4_root', 'cl2_b5_root'] },
+    { id: 'cl_start', name: 'Spark', description: 'Starting node — gateway to all 3 branches.', nodeType: 'start', tier: 0,
+      connections: ['cl_b1_root', 'cl_b2_root', 'cl_b3_root'] },
 
     // ═══════════════════════════════════════
-    // BRANCH 1: OVERCHARGE (Raw Power + Shock)
+    // BRANCH 1: VOLTAIC TRIGGER (Crit Spellslinger)
+    // CL crits → cast Frostbolt/Void Blast free. Kill → reset Frostbolt CD.
     // ═══════════════════════════════════════
 
-    // Tier 1
-    minor('cl2_b1_root', 'Voltage Surge', '+4% damage, +3 flat damage', 1,
-      ['cl2_start', 'cl2_b1_m1', 'cl2_x12', 'cl2_x51'],
-      { incDamage: 4, flatDamage: 3 }),
-    minor('cl2_b1_m1', 'Crackling Power', '+3% damage, 10% chance: Shock', 1,
-      ['cl2_b1_root', 'cl2_b1_m2', 'cl2_b1_n1'],
-      { incDamage: 3, applyDebuff: { debuffId: 'shocked', chance: 0.10, duration: 3 } }),
+    minor('cl_b1_root', 'Storm Focus', '+5% crit chance, +3 flat damage', 1,
+      ['cl_start', 'cl_b1_m1', 'cl_x12', 'cl_x31'],
+      { incCritChance: 5, flatDamage: 3 }),
 
-    // Tier 2
-    minor('cl2_b1_m2', 'Supercharged Arc', '+5% damage, +8% crit dmg', 2,
-      ['cl2_b1_m1', 'cl2_b1_n1'],
-      { incDamage: 5, incCritMultiplier: 8 }),
-    notable('cl2_b1_n1', 'Thunder God', '+20% damage. Guaranteed Shock (3s). +15% damage vs Shocked.', 2,
-      ['cl2_b1_m1', 'cl2_b1_m2', 'cl2_b1_m3', 'cl2_b1_m4'],
-      { incDamage: 20, applyDebuff: { debuffId: 'shocked', chance: 1.0, duration: 3 },
-        debuffInteraction: { bonusDamageVsDebuffed: { debuffId: 'shocked', incDamage: 15 } } }),
+    minor('cl_b1_m1', 'Charged Bolts', '+5% crit multiplier. 15% on hit: Shock (2s).', 2,
+      ['cl_b1_root', 'cl_b1_n1', 'cl_x12', 'cl_x31'],
+      { incCritMultiplier: 5,
+        procs: [{ id: 'cl_b1_m1_shock', chance: 0.15, trigger: 'onHit',
+          applyDebuff: { debuffId: 'shocked', stacks: 1, duration: 2 } }] }),
 
-    // Tier 3
-    minor('cl2_b1_m3', 'Ionized Air', '+4% damage. Debuffs last 30% longer.', 3,
-      ['cl2_b1_n1', 'cl2_b1_n2'],
-      { incDamage: 4, debuffInteraction: { debuffDurationBonus: 30 } }),
-    minor('cl2_b1_m4', 'Static Buildup', 'Ramping: +3% damage per hit (max 8 stacks, decays after 5s)', 3,
-      ['cl2_b1_n1', 'cl2_b1_n2'],
-      { rampingDamage: { perHit: 3, maxStacks: 8, decayAfter: 5 } }),
-    notable('cl2_b1_n2', 'Lightning Rod', '+30% damage while enemy is debuffed. Consume Shocked stacks for 25 damage each.', 3,
-      ['cl2_b1_m3', 'cl2_b1_m4', 'cl2_b1_m5'],
-      { conditionalMods: [{ condition: 'whileDebuffActive', modifier: { incDamage: 30 } }],
-        debuffInteraction: { consumeDebuff: { debuffId: 'shocked', damagePerStack: 25, element: 'Lightning' } } }),
-    minor('cl2_b1_m5', 'Conductor', '+5% damage, +2% crit', 3,
-      ['cl2_b1_n2', 'cl2_b1_k'],
-      { incDamage: 5, incCritChance: 2 }),
+    notable('cl_b1_n1', 'Spellslinger', '25% on crit: cast Frostbolt. Crits guarantee Shock (3s). +10% crit chance.', 3,
+      ['cl_b1_m1', 'cl_b1_k'],
+      { incCritChance: 10,
+        applyDebuff: { debuffId: 'shocked', chance: 1.0, duration: 3 },
+        procs: [{ id: 'cl_b1_n1_fb', chance: 0.25, trigger: 'onCrit', castSkill: 'wand_frostbolt' }] }),
 
-    // Tier 4 — Keystone
-    keystone('cl2_b1_k', 'SUPERCONDUCTOR', '-30% damage (permanent). +80% damage while enemy is debuffed (net +50% vs shocked). Guaranteed Shock. Debuff effects 50% stronger. +10% damage to all skills.', 4,
-      ['cl2_b1_m5'],
-      { incDamage: -30,
-        conditionalMods: [{ condition: 'whileDebuffActive', modifier: { incDamage: 80 } }],
-        applyDebuff: { debuffId: 'shocked', chance: 1.0, duration: 4 },
-        debuffInteraction: { debuffEffectBonus: 50 },
-        globalEffect: { damageMult: 1.10 } }),
-
-    // ═══════════════════════════════════════
-    // BRANCH 2: STORM CASCADE (Chain/Multi-hit + AoE)
-    // ═══════════════════════════════════════
-
-    // Tier 1
-    minor('cl2_b2_root', 'Arc Conductor', '+1 chain, +2% damage', 1,
-      ['cl2_start', 'cl2_b2_m1', 'cl2_x12', 'cl2_x23'],
-      { chainCount: 1, incDamage: 2 }),
-    minor('cl2_b2_m1', 'Wide Arc', '+3% damage, +3% cast speed', 1,
-      ['cl2_b2_root', 'cl2_b2_m2', 'cl2_b2_n1'],
-      { incDamage: 3, incCastSpeed: 3 }),
-
-    // Tier 2
-    minor('cl2_b2_m2', 'Bouncing Bolt', '+1 chain, +3 flat damage', 2,
-      ['cl2_b2_m1', 'cl2_b2_n1'],
-      { chainCount: 1, flatDamage: 3 }),
-    notable('cl2_b2_n1', 'Forked Lightning', '+1 chain, +1 extra hit. 20% on hit: Shock (3s).', 2,
-      ['cl2_b2_m1', 'cl2_b2_m2', 'cl2_b2_m3', 'cl2_b2_m4'],
-      { chainCount: 1, extraHits: 1,
-        procs: [{ id: 'cl2_b2_n1_shock', chance: 0.20, trigger: 'onHit',
-          applyDebuff: { debuffId: 'shocked', stacks: 1, duration: 3 } }] }),
-
-    // Tier 3
-    minor('cl2_b2_m3', 'Storm Spread', '+3% damage. Converts to AoE.', 3,
-      ['cl2_b2_n1', 'cl2_b2_n2'],
-      { incDamage: 3, convertToAoE: true }),
-    minor('cl2_b2_m4', 'Electrostatic Field', '+1 extra hit, -5% damage (tradeoff)', 3,
-      ['cl2_b2_n1', 'cl2_b2_n2'],
-      { extraHits: 1, incDamage: -5 }),
-    notable('cl2_b2_n2', 'Ball Lightning', 'AoE. +2 extra hits, -20% damage. 15% on hit: Shock (3s).', 3,
-      ['cl2_b2_m3', 'cl2_b2_m4', 'cl2_b2_m5'],
-      { convertToAoE: true, extraHits: 2, incDamage: -20,
-        procs: [{ id: 'cl2_b2_n2_shock', chance: 0.15, trigger: 'onHit',
-          applyDebuff: { debuffId: 'shocked', stacks: 1, duration: 3 } }] }),
-    minor('cl2_b2_m5', 'Amplified Arcs', '+6% damage, +4% cast speed', 3,
-      ['cl2_b2_n2', 'cl2_b2_k'],
-      { incDamage: 6, incCastSpeed: 4 }),
-
-    // Tier 4 — Keystone
-    keystone('cl2_b2_k', 'STORM TEMPEST', '+2 chains, +2 extra hits, -40% damage. Ramping: +4%/hit (max 10). +5% attack speed to all skills.', 4,
-      ['cl2_b2_m5'],
-      { chainCount: 2, extraHits: 2, incDamage: -40,
-        rampingDamage: { perHit: 4, maxStacks: 10, decayAfter: 4 },
-        globalEffect: { attackSpeedMult: 1.05 } }),
-
-    // ═══════════════════════════════════════
-    // BRANCH 3: VOLTAIC PRECISION (Crit + Crit-triggered Procs)
-    // ═══════════════════════════════════════
-
-    // Tier 1
-    minor('cl2_b3_root', 'Precision Arc', '+3% crit, +2% damage', 1,
-      ['cl2_start', 'cl2_b3_m1', 'cl2_x23', 'cl2_x34'],
-      { incCritChance: 3, incDamage: 2 }),
-    minor('cl2_b3_m1', 'Sharp Focus', '+2% crit, +10% crit dmg', 1,
-      ['cl2_b3_root', 'cl2_b3_m2', 'cl2_b3_n1'],
-      { incCritChance: 2, incCritMultiplier: 10 }),
-
-    // Tier 2
-    minor('cl2_b3_m2', 'Focused Discharge', '+2% crit. On crit: +5 flat damage.', 2,
-      ['cl2_b3_m1', 'cl2_b3_n1'],
-      { incCritChance: 2,
-        conditionalMods: [{ condition: 'onCrit', modifier: { flatDamage: 5 } }] }),
-    notable('cl2_b3_n1', 'Galvanize', '+5% crit. 25% on crit: bonus cast.', 2,
-      ['cl2_b3_m1', 'cl2_b3_m2', 'cl2_b3_m3', 'cl2_b3_m4'],
-      { incCritChance: 5,
-        procs: [{ id: 'cl2_b3_n1_bc', chance: 0.25, trigger: 'onCrit', bonusCast: true }] }),
-
-    // Tier 3
-    minor('cl2_b3_m3', 'Lethal Current', '+15% crit dmg, +1% crit', 3,
-      ['cl2_b3_n1', 'cl2_b3_n2'],
-      { incCritMultiplier: 15, incCritChance: 1 }),
-    minor('cl2_b3_m4', 'Voltaic Surge', '+10% crit dmg. Crits apply Shocked (2 stacks, 3s).', 3,
-      ['cl2_b3_n1', 'cl2_b3_n2'],
-      { incCritMultiplier: 10,
-        debuffInteraction: { debuffOnCrit: { debuffId: 'shocked', stacks: 2, duration: 3 } } }),
-    notable('cl2_b3_n2', 'Voltaic Cascade', '+25% crit dmg. 40% on crit: bonus cast.', 3,
-      ['cl2_b3_m3', 'cl2_b3_m4', 'cl2_b3_m5'],
-      { incCritMultiplier: 25,
-        procs: [{ id: 'cl2_b3_n2_bc', chance: 0.40, trigger: 'onCrit', bonusCast: true }] }),
-    minor('cl2_b3_m5', 'Overcharged Strikes', '+3% crit, +5% damage', 3,
-      ['cl2_b3_n2', 'cl2_b3_k'],
-      { incCritChance: 3, incDamage: 5 }),
-
-    // Tier 4 — Keystone
-    keystone('cl2_b3_k', 'LIGHTNING SAVANT', '+100% crit dmg, -25% damage. Crits apply Shocked (3 stacks). +25% damage while debuffed (net 0% vs shocked). +5% crit to all skills.', 4,
-      ['cl2_b3_m5'],
-      { incCritMultiplier: 100, incDamage: -25,
-        debuffInteraction: { debuffOnCrit: { debuffId: 'shocked', stacks: 3, duration: 4 } },
-        conditionalMods: [{ condition: 'whileDebuffActive', modifier: { incDamage: 25 } }],
+    keystone('cl_b1_k', 'CHAIN REACTION',
+      '-35% CL base damage. 35% on crit: cast Frostbolt. 15% on crit: cast Void Blast. Crits apply Vulnerable (4s). On kill: reset Frostbolt CD. +5% crit to all skills.', 4,
+      ['cl_b1_n1'],
+      { incDamage: -35,
+        procs: [
+          { id: 'cl_b1_k_fb', chance: 0.35, trigger: 'onCrit', castSkill: 'wand_frostbolt' },
+          { id: 'cl_b1_k_vb', chance: 0.15, trigger: 'onCrit', castSkill: 'wand_void_blast' },
+          { id: 'cl_b1_k_reset', chance: 1.0, trigger: 'onKill', resetCooldown: 'wand_frostbolt' },
+        ],
+        applyDebuff: { debuffId: 'vulnerable', chance: 1.0, duration: 4 },
         globalEffect: { critChanceBonus: 5 } }),
 
     // ═══════════════════════════════════════
-    // BRANCH 4: TEMPEST WEAVER (Multi-Element + Debuff Mastery)
+    // BRANCH 2: TEMPEST WEAVER (Debuff Overload)
+    // CL paints enemies with 4-5 debuffs. All rotation skills benefit.
+    // Kill → reset Essence Drain CD.
     // ═══════════════════════════════════════
 
-    // Tier 1
-    minor('cl2_b4_root', 'Elemental Spark', '+3% damage. 15% chance: Burn (3s).', 1,
-      ['cl2_start', 'cl2_b4_m1', 'cl2_x34', 'cl2_x45'],
-      { incDamage: 3, applyDebuff: { debuffId: 'burning', chance: 0.15, duration: 3 } }),
-    minor('cl2_b4_m1', 'Frost Discharge', '+2% damage. 15% chance: Chill (3s).', 1,
-      ['cl2_b4_root', 'cl2_b4_m2', 'cl2_b4_n1'],
-      { incDamage: 2, applyDebuff: { debuffId: 'chilled', chance: 0.15, duration: 3 } }),
+    minor('cl_b2_root', 'Elemental Spark', '+3% damage. 25% on hit: Burn (3s).', 1,
+      ['cl_start', 'cl_b2_m1', 'cl_x12', 'cl_x23'],
+      { incDamage: 3,
+        procs: [{ id: 'cl_b2_root_burn', chance: 0.25, trigger: 'onHit',
+          applyDebuff: { debuffId: 'burning', stacks: 1, duration: 3 } }] }),
 
-    // Tier 2
-    minor('cl2_b4_m2', 'Toxic Current', '+2% damage. 15% chance: Poison (3s).', 2,
-      ['cl2_b4_m1', 'cl2_b4_n1'],
-      { incDamage: 2, applyDebuff: { debuffId: 'poisoned', chance: 0.15, duration: 3 } }),
-    notable('cl2_b4_n1', 'Elemental Storm', '+10% damage. 30% chance: Shock (4s). 25% Fire + 25% Cold split. Debuffs last 20% longer.', 2,
-      ['cl2_b4_m1', 'cl2_b4_m2', 'cl2_b4_m3', 'cl2_b4_m4'],
-      { incDamage: 10,
-        applyDebuff: { debuffId: 'shocked', chance: 0.30, duration: 4 },
-        splitDamage: [{ element: 'Fire', percent: 25 }, { element: 'Cold', percent: 25 }],
-        debuffInteraction: { debuffDurationBonus: 20 } }),
+    minor('cl_b2_m1', 'Storm Conductor', 'Guaranteed Shock on hit. 20% on hit: Chill (3s).', 2,
+      ['cl_b2_root', 'cl_b2_n1', 'cl_x12', 'cl_x23'],
+      { applyDebuff: { debuffId: 'shocked', chance: 1.0, duration: 3 },
+        procs: [{ id: 'cl_b2_m1_chill', chance: 0.20, trigger: 'onHit',
+          applyDebuff: { debuffId: 'chilled', stacks: 1, duration: 3 } }] }),
 
-    // Tier 3
-    minor('cl2_b4_m3', 'Weakening Discharge', '+3% damage. 20% chance: Weakened (3s).', 3,
-      ['cl2_b4_n1', 'cl2_b4_n2'],
-      { incDamage: 3, applyDebuff: { debuffId: 'weakened', chance: 0.20, duration: 3 } }),
-    minor('cl2_b4_m4', 'Cursed Lightning', '+2% damage. 20% chance: Cursed (3s).', 3,
-      ['cl2_b4_n1', 'cl2_b4_n2'],
-      { incDamage: 2, applyDebuff: { debuffId: 'cursed', chance: 0.20, duration: 3 } }),
-    notable('cl2_b4_n2', 'Elemental Overload', '+80% damage while 4+ unique debuffs active. Debuff effects 30% stronger. Debuffs last 40% longer.', 3,
-      ['cl2_b4_m3', 'cl2_b4_m4', 'cl2_b4_m5'],
-      { conditionalMods: [{ condition: 'whileDebuffActive', threshold: 4, modifier: { incDamage: 80 } }],
-        debuffInteraction: { debuffEffectBonus: 30, debuffDurationBonus: 40 } }),
-    minor('cl2_b4_m5', 'Elemental Mastery', '+5% damage, +2% crit', 3,
-      ['cl2_b4_n2', 'cl2_b4_k'],
-      { incDamage: 5, incCritChance: 2 }),
+    notable('cl_b2_n1', 'Prismatic Touch', '25% on hit: Chill. 25% on hit: Poison. +25% debuff duration. +5% cast speed while 3+ debuffs active.', 3,
+      ['cl_b2_m1', 'cl_b2_k'],
+      { debuffInteraction: { debuffDurationBonus: 25 },
+        procs: [
+          { id: 'cl_b2_n1_chill', chance: 0.25, trigger: 'onHit', applyDebuff: { debuffId: 'chilled', stacks: 1, duration: 3 } },
+          { id: 'cl_b2_n1_poison', chance: 0.25, trigger: 'onHit', applyDebuff: { debuffId: 'poisoned', stacks: 1, duration: 3 } },
+        ],
+        conditionalMods: [{ condition: 'whileDebuffActive', threshold: 3, modifier: { incCastSpeed: 5 } }] }),
 
-    // Tier 4 — Keystone
-    keystone('cl2_b4_k', 'PRISMATIC STORM', '20% Fire + 20% Cold + 20% Chaos split. Guaranteed Shock. 50% on hit: Burn/Chill/Poison. 30% on hit: Cursed. -20% damage. Debuff effects 50% stronger. +8% damage to all skills.', 4,
-      ['cl2_b4_m5'],
-      { splitDamage: [{ element: 'Fire', percent: 20 }, { element: 'Cold', percent: 20 }, { element: 'Chaos', percent: 20 }],
+    keystone('cl_b2_k', 'PRISMATIC STORM',
+      '-40% CL base damage. Guaranteed Shock + Burn. 40% on hit: Chill, Poison, Cursed each. Debuff effects +50%. +15% attack speed to all skills. On kill: reset Essence Drain CD.', 4,
+      ['cl_b2_n1'],
+      { incDamage: -40,
         applyDebuff: { debuffId: 'shocked', chance: 1.0, duration: 4 },
         procs: [
-          { id: 'cl2_b4_k_burn', chance: 0.50, trigger: 'onHit', applyDebuff: { debuffId: 'burning', stacks: 1, duration: 4 } },
-          { id: 'cl2_b4_k_chill', chance: 0.50, trigger: 'onHit', applyDebuff: { debuffId: 'chilled', stacks: 1, duration: 4 } },
-          { id: 'cl2_b4_k_poison', chance: 0.50, trigger: 'onHit', applyDebuff: { debuffId: 'poisoned', stacks: 1, duration: 4 } },
-          { id: 'cl2_b4_k_curse', chance: 0.30, trigger: 'onHit', applyDebuff: { debuffId: 'cursed', stacks: 1, duration: 4 } },
+          { id: 'cl_b2_k_burn', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'burning', stacks: 1, duration: 4 } },
+          { id: 'cl_b2_k_chill', chance: 0.40, trigger: 'onHit', applyDebuff: { debuffId: 'chilled', stacks: 1, duration: 4 } },
+          { id: 'cl_b2_k_poison', chance: 0.40, trigger: 'onHit', applyDebuff: { debuffId: 'poisoned', stacks: 1, duration: 4 } },
+          { id: 'cl_b2_k_curse', chance: 0.40, trigger: 'onHit', applyDebuff: { debuffId: 'cursed', stacks: 1, duration: 4 } },
+          { id: 'cl_b2_k_reset', chance: 1.0, trigger: 'onKill', resetCooldown: 'wand_essence_drain' },
         ],
-        incDamage: -20,
         debuffInteraction: { debuffEffectBonus: 50 },
-        globalEffect: { damageMult: 1.08 } }),
+        globalEffect: { attackSpeedMult: 1.15 } }),
 
     // ═══════════════════════════════════════
-    // BRANCH 5: STORMSHIELD (Defensive Lightning)
+    // BRANCH 3: STORMSHIELD (Reactive Counter-Attacker)
+    // CL builds fortify. Dodge → cast Void Blast. Block → cast Frostbolt.
     // ═══════════════════════════════════════
 
-    // Tier 1
-    minor('cl2_b5_root', 'Storm Barrier', '+2% damage, +3 life on hit', 1,
-      ['cl2_start', 'cl2_b5_m1', 'cl2_x45', 'cl2_x51'],
-      { incDamage: 2, lifeOnHit: 3 }),
-    minor('cl2_b5_m1', 'Charged Shield', '+2% damage, +5 resist', 1,
-      ['cl2_b5_root', 'cl2_b5_m2', 'cl2_b5_n1'],
-      { incDamage: 2, abilityEffect: { resistBonus: 5 } }),
+    minor('cl_b3_root', 'Storm Barrier', '+3 life on hit, +10 all resist', 1,
+      ['cl_start', 'cl_b3_m1', 'cl_x23', 'cl_x31'],
+      { lifeOnHit: 3, abilityEffect: { resistBonus: 10 } }),
 
-    // Tier 2
-    minor('cl2_b5_m2', 'Arc Drain', '3% life leech, +3% damage', 2,
-      ['cl2_b5_m1', 'cl2_b5_n1'],
-      { leechPercent: 3, incDamage: 3 }),
-    notable('cl2_b5_n1', 'Storm Armor', '+15 resist. 100% on dodge: bonus cast. +8% damage.', 2,
-      ['cl2_b5_m1', 'cl2_b5_m2', 'cl2_b5_m3', 'cl2_b5_m4'],
-      { abilityEffect: { resistBonus: 15 }, incDamage: 8,
-        procs: [{ id: 'cl2_b5_n1_bc', chance: 1.0, trigger: 'onDodge', bonusCast: true }] }),
+    minor('cl_b3_m1', 'Galvanic Ward', 'Fortify on hit (1 stack, 5s, 3% DR). +5 all resist.', 2,
+      ['cl_b3_root', 'cl_b3_n1', 'cl_x23', 'cl_x31'],
+      { fortifyOnHit: { stacks: 1, duration: 5, damageReduction: 3 },
+        abilityEffect: { resistBonus: 5 } }),
 
-    // Tier 3
-    minor('cl2_b5_m3', 'Lightning Leech', '3% life leech, +10 life on kill', 3,
-      ['cl2_b5_n1', 'cl2_b5_n2'],
-      { leechPercent: 3, lifeOnKill: 10 }),
-    minor('cl2_b5_m4', 'Galvanic Skin', 'Fortify on hit (1 stack, 4s, 3% DR). +3% damage.', 3,
-      ['cl2_b5_n1', 'cl2_b5_n2'],
-      { fortifyOnHit: { stacks: 1, duration: 4, damageReduction: 3 }, incDamage: 3 }),
-    notable('cl2_b5_n2', 'Galvanic Ward', 'Fortify on hit (2 stacks, 5s, 4% DR). +5% armor as damage. +5 life on hit.', 3,
-      ['cl2_b5_m3', 'cl2_b5_m4', 'cl2_b5_m5'],
-      { fortifyOnHit: { stacks: 2, duration: 5, damageReduction: 4 }, damageFromArmor: 5, lifeOnHit: 5 }),
-    minor('cl2_b5_m5', 'Resilient Current', '+4% damage, +5 resist', 3,
-      ['cl2_b5_n2', 'cl2_b5_k'],
-      { incDamage: 4, abilityEffect: { resistBonus: 5 } }),
+    notable('cl_b3_n1', 'Storm Armor', 'Fortify on hit (2 stacks, 5s, 4% DR). On dodge: bonus CL cast. +5% armor→damage.', 3,
+      ['cl_b3_m1', 'cl_b3_k'],
+      { fortifyOnHit: { stacks: 2, duration: 5, damageReduction: 4 },
+        damageFromArmor: 5,
+        procs: [{ id: 'cl_b3_n1_bc', chance: 1.0, trigger: 'onDodge', bonusCast: true }] }),
 
-    // Tier 4 — Keystone
-    keystone('cl2_b5_k', 'EYE OF THE STORM', '+30 resist. +10% armor as damage. 8% life leech. Fortify on hit (3 stacks, 6s, 5% DR). -15% damage. +10% defense to all skills.', 4,
-      ['cl2_b5_m5'],
-      { abilityEffect: { resistBonus: 30 }, damageFromArmor: 10, leechPercent: 8,
+    keystone('cl_b3_k', 'EYE OF THE STORM',
+      '-20% CL base damage. Fortify on hit (3 stacks, 6s, 5% DR). On dodge: cast Void Blast. On block: cast Frostbolt. 5% life leech (global). +15 all resist.', 4,
+      ['cl_b3_n1'],
+      { incDamage: -20,
         fortifyOnHit: { stacks: 3, duration: 6, damageReduction: 5 },
-        incDamage: -15,
+        procs: [
+          { id: 'cl_b3_k_dodge_vb', chance: 1.0, trigger: 'onDodge', castSkill: 'wand_void_blast' },
+          { id: 'cl_b3_k_block_fb', chance: 1.0, trigger: 'onBlock', castSkill: 'wand_frostbolt' },
+        ],
+        leechPercent: 5,
+        abilityEffect: { resistBonus: 15 },
         globalEffect: { defenseMult: 1.10 } }),
 
     // ═══════════════════════════════════════
-    // CROSS-CONNECT RING (5 bridge minors, tier 2)
+    // CROSS-CONNECT RING (3 bridge minors, tier 2)
     // ═══════════════════════════════════════
 
-    minor('cl2_x12', 'Overcharged Arc', '+3% damage, +1 chain', 2,
-      ['cl2_b1_root', 'cl2_b1_n1', 'cl2_b2_root', 'cl2_b2_n1'],
-      { incDamage: 3, chainCount: 1 }),
-    minor('cl2_x23', 'Cascading Precision', '+2% crit, +1 chain', 2,
-      ['cl2_b2_root', 'cl2_b2_n1', 'cl2_b3_root', 'cl2_b3_n1'],
-      { incCritChance: 2, chainCount: 1 }),
-    minor('cl2_x34', 'Voltaic Storm', '+2% crit. 10% chance: Shock (3s).', 2,
-      ['cl2_b3_root', 'cl2_b3_n1', 'cl2_b4_root', 'cl2_b4_n1'],
-      { incCritChance: 2, applyDebuff: { debuffId: 'shocked', chance: 0.10, duration: 3 } }),
-    minor('cl2_x45', 'Elemental Shield', '+2% damage, +5 resist. 10% chance: Chill (3s).', 2,
-      ['cl2_b4_root', 'cl2_b4_n1', 'cl2_b5_root', 'cl2_b5_n1'],
-      { incDamage: 2, abilityEffect: { resistBonus: 5 }, applyDebuff: { debuffId: 'chilled', chance: 0.10, duration: 3 } }),
-    minor('cl2_x51', 'Storm Recovery', '+3% damage, +2 life on hit', 2,
-      ['cl2_b5_root', 'cl2_b5_n1', 'cl2_b1_root', 'cl2_b1_n1'],
-      { incDamage: 3, lifeOnHit: 2 }),
+    minor('cl_x12', 'Voltaic Storm', '+3% crit. 15% on hit: Shock (2s).', 2,
+      ['cl_b1_root', 'cl_b1_m1', 'cl_b2_root', 'cl_b2_m1'],
+      { incCritChance: 3,
+        procs: [{ id: 'cl_x12_shock', chance: 0.15, trigger: 'onHit',
+          applyDebuff: { debuffId: 'shocked', stacks: 1, duration: 2 } }] }),
+
+    minor('cl_x23', 'Elemental Shield', '+5 all resist. 15% on hit: Chill (2s).', 2,
+      ['cl_b2_root', 'cl_b2_m1', 'cl_b3_root', 'cl_b3_m1'],
+      { abilityEffect: { resistBonus: 5 },
+        procs: [{ id: 'cl_x23_chill', chance: 0.15, trigger: 'onHit',
+          applyDebuff: { debuffId: 'chilled', stacks: 1, duration: 2 } }] }),
+
+    minor('cl_x31', 'Storm Recovery', '+2 life on hit, +3% crit', 2,
+      ['cl_b3_root', 'cl_b3_m1', 'cl_b1_root', 'cl_b1_m1'],
+      { lifeOnHit: 2, incCritChance: 3 }),
   ],
 };
 

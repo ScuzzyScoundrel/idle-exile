@@ -2762,6 +2762,57 @@ export const useGameStore = create<GameState & GameActions>()(
           if (bossAttackResult?.isDodged) newLastDodgeAt = now;
           if (bossAttackResult && bossAttackResult.damage > 0) newKillStreak = 0;
 
+          // Defensive proc evaluation (onDodge + onBlock triggers)
+          if (graphMod?.skillProcs?.length && bossAttackResult) {
+            const defenseTriggers: TriggerCondition[] = [];
+            if (bossAttackResult.isDodged) defenseTriggers.push('onDodge');
+            if (bossAttackResult.isBlocked) defenseTriggers.push('onBlock');
+            if (defenseTriggers.length > 0) {
+              const defProcCtx: ProcContext = {
+                isHit: roll.isHit, isCrit: roll.isCrit,
+                skillId: skill.id, effectiveMaxLife,
+                stats: effectiveStats,
+                weaponAvgDmg: avgDamage, weaponSpellPower: spellPower,
+                damageMult, now,
+              };
+              for (const trigger of defenseTriggers) {
+                const pr = evaluateProcs(graphMod.skillProcs, trigger, defProcCtx);
+                // Apply defensive proc damage directly to boss (onHit/onCrit proc damage was already applied)
+                if (pr.bonusDamage > 0) {
+                  newBossHp -= pr.bonusDamage;
+                  totalDamage += pr.bonusDamage;
+                }
+                procHeal += pr.healAmount;
+                procCooldownResets.push(...pr.cooldownResets);
+                for (const buff of pr.newTempBuffs) {
+                  const existingIdx = activeTempBuffs.findIndex(b => b.id === buff.id);
+                  if (existingIdx >= 0) {
+                    const existing = activeTempBuffs[existingIdx];
+                    activeTempBuffs = [
+                      ...activeTempBuffs.slice(0, existingIdx),
+                      { ...existing, expiresAt: buff.expiresAt, stacks: Math.min(existing.stacks + 1, existing.maxStacks) },
+                      ...activeTempBuffs.slice(existingIdx + 1),
+                    ];
+                  } else {
+                    activeTempBuffs = [...activeTempBuffs, buff];
+                  }
+                }
+                for (const pd of pr.newDebuffs) {
+                  const existingIdx = newDebuffs.findIndex(d => d.debuffId === pd.debuffId);
+                  const debuffDef = getDebuffDef(pd.debuffId);
+                  if (existingIdx >= 0 && debuffDef?.stackable) {
+                    const d = newDebuffs[existingIdx];
+                    newDebuffs[existingIdx] = { ...d, stacks: Math.min(d.stacks + pd.stacks, debuffDef.maxStacks), remainingDuration: pd.duration, appliedBySkillId: pd.skillId };
+                  } else if (existingIdx >= 0) {
+                    newDebuffs[existingIdx] = { ...newDebuffs[existingIdx], remainingDuration: pd.duration, appliedBySkillId: pd.skillId };
+                  } else {
+                    newDebuffs.push({ debuffId: pd.debuffId, stacks: pd.stacks, remainingDuration: pd.duration, appliedBySkillId: pd.skillId });
+                  }
+                }
+              }
+            }
+          }
+
           // Passive regen per tick
           playerHp = Math.min(effectiveMaxLife, playerHp + stats.lifeRegen * dtSec);
 
@@ -3015,6 +3066,57 @@ export const useGameStore = create<GameState & GameActions>()(
         if (zoneAttackResult?.isBlocked) newLastBlockAt = now;
         if (zoneAttackResult?.isDodged) newLastDodgeAt = now;
         if (zoneAttackResult && zoneAttackResult.damage > 0) newKillStreak = 0;
+
+        // Defensive proc evaluation (onDodge + onBlock triggers)
+        if (graphMod?.skillProcs?.length && zoneAttackResult) {
+          const defenseTriggers: TriggerCondition[] = [];
+          if (zoneAttackResult.isDodged) defenseTriggers.push('onDodge');
+          if (zoneAttackResult.isBlocked) defenseTriggers.push('onBlock');
+          if (defenseTriggers.length > 0) {
+            const defProcCtx: ProcContext = {
+              isHit: roll.isHit, isCrit: roll.isCrit,
+              skillId: skill.id, effectiveMaxLife,
+              stats: effectiveStats,
+              weaponAvgDmg: avgDamage, weaponSpellPower: spellPower,
+              damageMult, now,
+            };
+            for (const trigger of defenseTriggers) {
+              const pr = evaluateProcs(graphMod.skillProcs, trigger, defProcCtx);
+              // Apply defensive proc damage directly to mob (onHit/onCrit proc damage was already applied)
+              if (pr.bonusDamage > 0) {
+                currentMobHp -= pr.bonusDamage;
+                totalDamage += pr.bonusDamage;
+              }
+              procHeal += pr.healAmount;
+              procCooldownResets.push(...pr.cooldownResets);
+              for (const buff of pr.newTempBuffs) {
+                const existingIdx = activeTempBuffs.findIndex(b => b.id === buff.id);
+                if (existingIdx >= 0) {
+                  const existing = activeTempBuffs[existingIdx];
+                  activeTempBuffs = [
+                    ...activeTempBuffs.slice(0, existingIdx),
+                    { ...existing, expiresAt: buff.expiresAt, stacks: Math.min(existing.stacks + 1, existing.maxStacks) },
+                    ...activeTempBuffs.slice(existingIdx + 1),
+                  ];
+                } else {
+                  activeTempBuffs = [...activeTempBuffs, buff];
+                }
+              }
+              for (const pd of pr.newDebuffs) {
+                const existingIdx = newDebuffs.findIndex(d => d.debuffId === pd.debuffId);
+                const debuffDef = getDebuffDef(pd.debuffId);
+                if (existingIdx >= 0 && debuffDef?.stackable) {
+                  const d = newDebuffs[existingIdx];
+                  newDebuffs[existingIdx] = { ...d, stacks: Math.min(d.stacks + pd.stacks, debuffDef.maxStacks), remainingDuration: pd.duration, appliedBySkillId: pd.skillId };
+                } else if (existingIdx >= 0) {
+                  newDebuffs[existingIdx] = { ...newDebuffs[existingIdx], remainingDuration: pd.duration, appliedBySkillId: pd.skillId };
+                } else {
+                  newDebuffs.push({ debuffId: pd.debuffId, stacks: pd.stacks, remainingDuration: pd.duration, appliedBySkillId: pd.skillId });
+                }
+              }
+            }
+          }
+        }
 
         const trackingClear = {
           consecutiveHits: newConsecutiveHits,
@@ -3346,7 +3448,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 35,
+      version: 36,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -4003,6 +4105,15 @@ export const useGameStore = create<GameState & GameActions>()(
               item.isProfessionGear = true;
               delete item.isGatheringGear;
             }
+          }
+        }
+
+        if (version < 36) {
+          // v36: Chain Lightning tree redesign (51 nodes → 15 nodes, cross-skill synergy).
+          // Node IDs changed — reset CL allocatedNodes. Players keep XP/level.
+          const sp36 = (state.skillProgress ?? {}) as Record<string, SkillProgress>;
+          if (sp36['wand_chain_lightning']) {
+            sp36['wand_chain_lightning'] = { ...sp36['wand_chain_lightning'], allocatedNodes: [] };
           }
         }
 
