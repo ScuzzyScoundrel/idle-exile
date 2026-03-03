@@ -19,6 +19,7 @@ export default function CombatStatusBar() {
   const selectedGatheringProfession = useGameStore(s => s.selectedGatheringProfession);
   const character = useGameStore(s => s.character);
   const gatheringSkills = useGameStore(s => s.gatheringSkills);
+  const currentEs = useGameStore(s => s.currentEs);
 
   // Tick for smooth progress bar animation
   const [, setTick] = useState(0);
@@ -82,9 +83,7 @@ export default function CombatStatusBar() {
   }
 
   // --- Combat mode ---
-  const currentEs = useGameStore(s => s.currentEs);
-  const stats = resolveStats(character);
-  const maxEs = stats.energyShield;
+  const maxEs = resolveStats(character).energyShield;
   const hpPct = maxHp > 0 ? Math.max(0, Math.min(100, (currentHp / maxHp) * 100)) : 0;
   const hpColor = hpPct > 60 ? 'bg-green-500' : hpPct > 30 ? 'bg-yellow-500' : 'bg-red-500';
   const esPct = maxEs > 0 ? Math.max(0, Math.min(100, (currentEs / maxEs) * 100)) : 0;
