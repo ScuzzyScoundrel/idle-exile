@@ -846,6 +846,7 @@ export interface GameState {
 
   // Mob types & targeted farming
   targetedMobId: string | null;
+  currentMobTypeId: string | null;  // ephemeral: the mob currently being fought (random or targeted)
   mobKillCounts: Record<string, number>;
   bossKillCounts: Record<string, number>;
   totalZoneClears: Record<string, number>;

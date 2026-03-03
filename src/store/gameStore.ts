@@ -56,7 +56,7 @@ import { aggregateClassTalentEffect, canAllocateTalentNode, allocateTalentNode a
 import { getUnifiedSkillDef, ABILITY_ID_MIGRATION } from '../data/unifiedSkills';
 import { canAllocateGraphNode, allocateGraphNode, respecGraphNodes, getGraphRespecCost } from '../engine/skillGraph';
 import { getDebuffDef } from '../data/debuffs';
-import { getMobTypeDef, getZoneMobTypes } from '../data/mobTypes';
+import { getMobTypeDef, getZoneMobTypes, weightedRandomMob } from '../data/mobTypes';
 import {
   generateDailyQuests, getUtcDateString, shouldResetDailyQuests,
   createInitialProgress, updateQuestProgressForKills,
@@ -75,6 +75,14 @@ const INITIAL_CURRENCIES: Record<CurrencyType, number> = {
   perfect_exalt: 0,
   socket: 50,
 };
+
+/** Pick the mob currently being fought: targeted mob or weighted random from zone. */
+function pickCurrentMob(zoneId: string, targetedMobId: string | null): string | null {
+  if (targetedMobId) return targetedMobId;
+  const mobs = getZoneMobTypes(zoneId);
+  if (mobs.length === 0) return null;
+  return weightedRandomMob(mobs).id;
+}
 
 /** Rarity sort order for auto-salvage comparison. */
 const RARITY_ORDER: Record<Rarity, number> = {
@@ -424,6 +432,7 @@ function createInitialState(): GameState {
     nextActiveSkillAt: 0,
     zoneNextAttackAt: 0,
     targetedMobId: null,
+    currentMobTypeId: null,
     mobKillCounts: {},
     bossKillCounts: {},
     totalZoneClears: {},
@@ -693,10 +702,12 @@ export const useGameStore = create<GameState & GameActions>()(
         const newZoneClearCounts = { ...state.zoneClearCounts };
         delete newZoneClearCounts[zoneId];
 
-        // Real-time combat: initialize mob HP (10K-A) — use targeted mob's hpMultiplier
+        // Real-time combat: initialize mob HP (10K-A) — pick mob and use its hpMultiplier
         let mobHp = 0;
+        let initialMobTypeId: string | null = null;
         if (zone && state.idleMode === 'combat') {
-          const hpMult = state.targetedMobId ? (getMobTypeDef(state.targetedMobId)?.hpMultiplier ?? 1.0) : 1.0;
+          initialMobTypeId = pickCurrentMob(zoneId, state.targetedMobId);
+          const hpMult = initialMobTypeId ? (getMobTypeDef(initialMobTypeId)?.hpMultiplier ?? 1.0) : 1.0;
           mobHp = calcMobHp(zone, hpMult);
         }
 
@@ -714,6 +725,7 @@ export const useGameStore = create<GameState & GameActions>()(
           zoneClearCounts: newZoneClearCounts,
           currentMobHp: mobHp,
           maxMobHp: mobHp,
+          currentMobTypeId: initialMobTypeId,
           nextActiveSkillAt: now,
           zoneNextAttackAt: now + ZONE_ATTACK_INTERVAL * 1000,
         });
@@ -836,7 +848,9 @@ export const useGameStore = create<GameState & GameActions>()(
 
         const accMobKills: Record<string, number> = {};
         for (let i = 0; i < totalClears; i++) {
-          const clear = simulateSingleClear(state.character, zone, abilityEffect, lootMod.rareFindBonus, lootMod.materialYieldBonus, state.targetedMobId);
+          // Use currentMobTypeId so drops come from the mob actually being fought
+          const effectiveMobId = state.currentMobTypeId ?? state.targetedMobId;
+          const clear = simulateSingleClear(state.character, zone, abilityEffect, lootMod.rareFindBonus, lootMod.materialYieldBonus, effectiveMobId);
           if (clear.item) allItems.push(clear.item);
 
           for (const [key, val] of Object.entries(clear.currencyDrops)) {
@@ -1005,9 +1019,10 @@ export const useGameStore = create<GameState & GameActions>()(
         if (state.idleStartTime && state.currentZoneId && state.idleMode === 'combat') {
           const zone = ZONE_DEFS.find(z => z.id === state.currentZoneId);
           if (zone) {
-            const hpMult = mobTypeId ? (getMobTypeDef(mobTypeId)?.hpMultiplier ?? 1.0) : 1.0;
+            const currentMob = pickCurrentMob(state.currentZoneId, mobTypeId);
+            const hpMult = currentMob ? (getMobTypeDef(currentMob)?.hpMultiplier ?? 1.0) : 1.0;
             const mobHp = calcMobHp(zone, hpMult);
-            set({ targetedMobId: mobTypeId, currentMobHp: mobHp, maxMobHp: mobHp });
+            set({ targetedMobId: mobTypeId, currentMobTypeId: currentMob, currentMobHp: mobHp, maxMobHp: mobHp });
             return;
           }
         }
@@ -2165,10 +2180,14 @@ export const useGameStore = create<GameState & GameActions>()(
         }
 
         // Check for mob death(s) — cap at 10 kills per tick for safety
-        const targetHpMult = state.targetedMobId ? (getMobTypeDef(state.targetedMobId)?.hpMultiplier ?? 1.0) : 1.0;
-        const maxMobHp = state.maxMobHp > 0 ? state.maxMobHp : calcMobHp(zone, targetHpMult);
+        let maxMobHp = state.maxMobHp > 0 ? state.maxMobHp : calcMobHp(zone, 1.0);
+        let newMobTypeId = state.currentMobTypeId;
         while (currentMobHp <= 0 && mobKills < 10) {
           mobKills++;
+          // Pick a new mob for respawn (random or targeted)
+          newMobTypeId = pickCurrentMob(zone.id, state.targetedMobId);
+          const hpMult = newMobTypeId ? (getMobTypeDef(newMobTypeId)?.hpMultiplier ?? 1.0) : 1.0;
+          maxMobHp = calcMobHp(zone, hpMult);
           currentMobHp = maxMobHp + currentMobHp; // carry over overkill damage
           if (currentMobHp <= 0) currentMobHp = maxMobHp; // safety: reset if still negative
           newDebuffs = []; // Clear debuffs on mob death
@@ -2211,6 +2230,7 @@ export const useGameStore = create<GameState & GameActions>()(
             currentHp: 0,
             currentMobHp,
             maxMobHp,
+            currentMobTypeId: newMobTypeId,
             nextActiveSkillAt,
             skillTimers: newTimers,
             zoneNextAttackAt: nextZoneAttack,
@@ -2233,6 +2253,7 @@ export const useGameStore = create<GameState & GameActions>()(
         set({
           currentMobHp,
           maxMobHp,
+          currentMobTypeId: newMobTypeId,
           nextActiveSkillAt,
           skillTimers: newTimers,
           currentHp: playerHp,
@@ -2355,9 +2376,10 @@ export const useGameStore = create<GameState & GameActions>()(
             ? state.currentHp + (stats.maxLife - state.currentHp) * BOSS_VICTORY_HEAL_RATIO
             : stats.maxLife;
 
-          // Reset mob HP for real-time combat (10K-A) — use targeted mob hpMultiplier
+          // Reset mob HP for real-time combat (10K-A) — pick new mob for respawn
           const zone = state.currentZoneId ? ZONE_DEFS.find(z => z.id === state.currentZoneId) : null;
-          const recoveryHpMult = state.targetedMobId ? (getMobTypeDef(state.targetedMobId)?.hpMultiplier ?? 1.0) : 1.0;
+          const recoveryMobId = zone ? pickCurrentMob(zone.id, state.targetedMobId) : null;
+          const recoveryHpMult = recoveryMobId ? (getMobTypeDef(recoveryMobId)?.hpMultiplier ?? 1.0) : 1.0;
           const mobHp = zone ? calcMobHp(zone, recoveryHpMult) : 0;
 
           set({
@@ -2367,6 +2389,7 @@ export const useGameStore = create<GameState & GameActions>()(
             currentHp: Math.min(stats.maxLife, healedHp),
             currentMobHp: mobHp,
             maxMobHp: mobHp,
+            currentMobTypeId: recoveryMobId,
             nextActiveSkillAt: Date.now(),
             zoneNextAttackAt: Date.now() + ZONE_ATTACK_INTERVAL * 1000,
           });

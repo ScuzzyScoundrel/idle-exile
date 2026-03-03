@@ -719,6 +719,7 @@ export default function ZoneScreen() {
     lastClearResult,
     tickCombat, currentMobHp, maxMobHp, zoneNextAttackAt,
     targetedMobId, setTargetedMob, mobKillCounts,
+    currentMobTypeId,
   } = useGameStore();
 
   const hydrated = useHasHydrated();
@@ -1378,12 +1379,12 @@ export default function ZoneScreen() {
               {idleMode === 'combat' && runningZone ? (
                 <div className="relative">
                   <MobDisplay
-                    mobName={targetedMobId ? (getMobTypeDef(targetedMobId)?.name ?? runningZone.mobName) : runningZone.mobName}
+                    mobName={currentMobTypeId ? (getMobTypeDef(currentMobTypeId)?.name ?? runningZone.mobName) : runningZone.mobName}
                     mobCurrentHp={currentMobHp}
                     mobMaxHp={maxMobHp}
                     bossIn={BOSS_INTERVAL - ((zoneClearCounts[currentZoneId!] || 0) % BOSS_INTERVAL)}
                     swingProgress={zoneSwingProgress}
-                    signatureDrop={targetedMobId ? (getMobTypeDef(targetedMobId)?.drops.find(d => d.rarity === 'rare') ?? getMobTypeDef(targetedMobId)?.drops[0]) : undefined}
+                    signatureDrop={currentMobTypeId ? (getMobTypeDef(currentMobTypeId)?.drops.find(d => d.rarity === 'rare') ?? getMobTypeDef(currentMobTypeId)?.drops[0]) : undefined}
                   />
                   <DamageFloaters floaters={floaters} />
                 </div>
