@@ -26,7 +26,7 @@ import {
 import { createCharacter, resolveStats, addXp, getWeaponDamageInfo } from '../engine/character';
 import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, simulateCombatClear, createBossEncounter, generateBossLoot, applyAbilityResists, calcHazardPenalty, rollZoneAttack, calcLevelDamageMult } from '../engine/zones';
 import { calcMobHp, calcSkillCastInterval, rollSkillCast } from '../engine/unifiedSkills';
-import { BOSS_VICTORY_DURATION, BOSS_DEFEAT_RECOVERY, BOSS_VICTORY_HEAL_RATIO, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO, SKILL_GCD, ACTIVE_SKILL_GCD, LEECH_PERCENT, ZONE_ATTACK_INTERVAL, ZONE_DMG_BASE, ZONE_PHYS_RATIO, ZONE_ACCURACY_BASE, MAX_REGEN_RATIO, BOSS_CRIT_CHANCE, BOSS_CRIT_MULTIPLIER, BOSS_MAX_DMG_RATIO } from '../data/balance';
+import { BOSS_VICTORY_DURATION, BOSS_DEFEAT_RECOVERY, BOSS_VICTORY_HEAL_RATIO, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO, SKILL_GCD, LEECH_PERCENT, ZONE_ATTACK_INTERVAL, ZONE_DMG_BASE, ZONE_PHYS_RATIO, ZONE_ACCURACY_BASE, MAX_REGEN_RATIO, BOSS_CRIT_CHANCE, BOSS_CRIT_MULTIPLIER, BOSS_MAX_DMG_RATIO } from '../data/balance';
 import { pickBestItem, generateId, isTwoHandedWeapon } from '../engine/items';
 import { applyCurrency } from '../engine/crafting';
 import {
@@ -1730,7 +1730,8 @@ export const useGameStore = create<GameState & GameActions>()(
           if (timer.cooldownUntil && now < timer.cooldownUntil) return state;
 
           const duration = getSkillEffectiveDuration(def, progress);
-          const cooldown = getSkillEffectiveCooldown(def, progress);
+          const charStats = resolveStats(state.character);
+          const cooldown = getSkillEffectiveCooldown(def, progress, charStats.abilityHaste);
 
           if (def.kind === 'buff') {
             newSkillTimers[stIdx] = {
@@ -2048,18 +2049,25 @@ export const useGameStore = create<GameState & GameActions>()(
         // Life leech from graph flag
         const hasLifeLeech = graphMod?.flags.includes('lifeLeech');
 
-        // Update GCD: next active skill can fire after max(GCD, castInterval)
-        const gcdMs = Math.max(ACTIVE_SKILL_GCD, castInterval) * 1000;
-        const nextActiveSkillAt = now + gcdMs;
+        // Update GCD: next active skill can fire after castInterval (already includes GCD floor)
+        const nextActiveSkillAt = now + castInterval * 1000;
 
         // Update per-skill cooldown timer (if skill has a cooldown)
+        // Apply graph CDR + ability haste for effective cooldown
         let newTimers = state.skillTimers;
         if (skill.cooldown > 0) {
+          let effectiveCD = skill.cooldown * (1 - (graphMod?.cooldownReduction ?? 0) / 100);
+          if (effectiveStats.abilityHaste > 0) {
+            effectiveCD = effectiveCD / (1 + effectiveStats.abilityHaste / 100);
+          }
+          effectiveCD = Math.max(1, effectiveCD);
+          const cdMs = effectiveCD * 1000;
+
           const timerIdx = state.skillTimers.findIndex(t => t.skillId === skill!.id);
           if (timerIdx >= 0) {
             newTimers = state.skillTimers.map((t, i) =>
               i === timerIdx
-                ? { ...t, cooldownUntil: now + skill!.cooldown * 1000 }
+                ? { ...t, cooldownUntil: now + cdMs }
                 : t,
             );
           } else {
@@ -2067,7 +2075,7 @@ export const useGameStore = create<GameState & GameActions>()(
             newTimers = [...state.skillTimers, {
               skillId: skill!.id,
               activatedAt: null,
-              cooldownUntil: now + skill!.cooldown * 1000,
+              cooldownUntil: now + cdMs,
             }];
           }
         }
@@ -2278,7 +2286,7 @@ export const useGameStore = create<GameState & GameActions>()(
         const zone = ZONE_DEFS.find(z => z.id === state.currentZoneId);
         if (!zone) return;
         const abilityEffect = getFullEffect(state, Date.now(), false);
-        const boss = createBossEncounter(state.character, zone, abilityEffect);
+        const boss = createBossEncounter(state.character, zone, abilityEffect, undefined, state.skillBar, state.skillProgress);
         set({
           combatPhase: 'boss_fight' as CombatPhase,
           bossState: boss,

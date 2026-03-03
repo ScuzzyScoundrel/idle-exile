@@ -308,6 +308,12 @@ export const SKILL_GCD = 1.0;
 /** Global cooldown between active skill rotation casts (seconds). */
 export const ACTIVE_SKILL_GCD = 1.0;
 
+/** Base GCD before speed reduction (seconds). Speed compresses this. */
+export const BASE_GCD = 1.0;
+
+/** Absolute minimum cast/GCD interval (seconds). Prevents degenerate tick rates. */
+export const GCD_FLOOR = 0.4;
+
 /** Maximum skill level (applies to all skill kinds). */
 export const SKILL_MAX_LEVEL = 20;
 

@@ -13,7 +13,7 @@ import type {
 import { ABILITY_SLOT_UNLOCKS } from '../types';
 import { calcHitChance } from './character';
 import { getUnifiedSkillDef, getAbilityDef, getSkillsForWeapon } from '../data/unifiedSkills';
-import { POWER_DIVISOR, SKILL_MAX_LEVEL } from '../data/balance';
+import { POWER_DIVISOR, SKILL_MAX_LEVEL, BASE_GCD, GCD_FLOOR } from '../data/balance';
 import { resolveSkillGraphModifiers, type ResolvedSkillModifier } from './skillGraph';
 
 // ─── Constants ───
@@ -219,29 +219,39 @@ export function getSkillEffectiveDuration(
 }
 
 /**
- * Get effective cooldown for a skill (base + tree bonuses).
+ * Get effective cooldown for a skill (base + tree bonuses + ability haste).
+ * Ability haste uses LoL-style diminishing returns: cd / (1 + haste/100).
  */
 export function getSkillEffectiveCooldown(
   skill: SkillDef,
   progress: SkillProgress | undefined,
+  abilityHaste: number = 0,
 ): number {
   if (!skill.cooldown) return 0;
+
+  let cooldown: number;
 
   // Graph tree path
   if (skill.skillGraph && progress) {
     const graphMod = resolveSkillGraphModifiers(skill.skillGraph, progress.allocatedNodes);
-    return Math.max(1, skill.cooldown * (1 - graphMod.cooldownReduction / 100));
+    cooldown = skill.cooldown * (1 - graphMod.cooldownReduction / 100);
+  } else {
+    // Old tree path
+    const abilityProgress: AbilityProgress | undefined = progress ? {
+      abilityId: progress.skillId,
+      xp: progress.xp,
+      level: progress.level,
+      allocatedNodes: progress.allocatedNodes,
+    } : undefined;
+    cooldown = getEffectiveCooldown(skill as any, abilityProgress);
   }
 
-  // Old tree path
-  const abilityProgress: AbilityProgress | undefined = progress ? {
-    abilityId: progress.skillId,
-    xp: progress.xp,
-    level: progress.level,
-    allocatedNodes: progress.allocatedNodes,
-  } : undefined;
+  // Apply ability haste (diminishing returns: cd / (1 + haste/100))
+  if (abilityHaste > 0) {
+    cooldown = cooldown / (1 + abilityHaste / 100);
+  }
 
-  return getEffectiveCooldown(skill as any, abilityProgress);
+  return Math.max(1, cooldown);
 }
 
 // ─── Instant / Proc / Bonus Clears ───
@@ -702,48 +712,64 @@ export function calcSkillDamagePerCast(
 
 /**
  * Calculate DPS for an active skill given resolved character stats and weapon info.
- *
- * Uses PoE-style ADDITIVE %increased:
- *   totalInc = sum of all matching %inc stats
- *   multiplier = (1 + totalInc / 100)
+ * Cooldown-aware: DPS = dmgPerCast / cycleTime where cycleTime = max(castInterval, effectiveCooldown).
+ * Speed compresses cast time & GCD; ability haste compresses cooldowns. Orthogonal.
  *
  * @param skill - The active skill definition
- * @param stats - Fully resolved character stats
+ * @param stats - Fully resolved character stats (including abilityHaste)
  * @param weaponAvgDmg - Average physical damage of equipped weapon
  * @param weaponSpellPower - Base spell power of equipped weapon
+ * @param graphMod - Optional skill graph modifier (for CDR, flat damage, etc.)
+ * @param atkSpeedMult - Ability/class attack speed multiplier (default 1.0)
  */
 export function calcSkillDps(
   skill: ActiveSkillDef,
   stats: ResolvedStats,
   weaponAvgDmg: number,
   weaponSpellPower: number,
+  graphMod?: ResolvedSkillModifier,
+  atkSpeedMult: number = 1.0,
 ): number {
-  const dmgPerCast = calcSkillDamagePerCast(skill, stats, weaponAvgDmg, weaponSpellPower);
+  const dmgPerCast = calcSkillDamagePerCast(skill, stats, weaponAvgDmg, weaponSpellPower, graphMod);
   if (dmgPerCast <= 0) return 0;
 
   const tags = skill.tags;
   const isAttack = tags.includes('Attack');
-  const isSpell = tags.includes('Spell');
-
-  // --- Speed multiplier ---
-  let speedMult = 1.0;
-  if (isAttack) speedMult = 1 + stats.attackSpeed / 100;
-  if (isSpell) speedMult = 1 + stats.castSpeed / 100;
 
   // --- Hit chance (Attack only; Spells always hit) ---
   const hitChance = isAttack ? calcHitChance(stats.accuracy) : 1.0;
 
-  // --- Crit multiplier (expected value) ---
-  const critMult = 1 + (stats.critChance / 100) * ((stats.critMultiplier - 100) / 100);
+  // --- Crit multiplier (expected value), with graph bonuses ---
+  const effectiveCritChance = Math.min(stats.critChance + (graphMod?.incCritChance ?? 0), 100);
+  const effectiveCritMult = stats.critMultiplier + (graphMod?.incCritMultiplier ?? 0);
+  const critMult = 1 + (effectiveCritChance / 100) * ((effectiveCritMult - 100) / 100);
+
+  // --- Cast interval (speed-compressed, GCD-floored) ---
+  const graphSpeedMult = graphMod?.incCastSpeed ? (1 + graphMod.incCastSpeed / 100) : 1;
+  const castInterval = calcSkillCastInterval(skill, stats, atkSpeedMult * graphSpeedMult);
+
+  // --- Effective cooldown (graph CDR + ability haste) ---
+  let effectiveCooldown = 0;
+  if (skill.cooldown > 0) {
+    const graphCDR = graphMod?.cooldownReduction ?? 0;
+    effectiveCooldown = skill.cooldown * (1 - graphCDR / 100);
+    if (stats.abilityHaste > 0) {
+      effectiveCooldown = effectiveCooldown / (1 + stats.abilityHaste / 100);
+    }
+    effectiveCooldown = Math.max(1, effectiveCooldown);
+  }
+
+  // --- Cycle time: the real bottleneck ---
+  const cycleTime = Math.max(castInterval, effectiveCooldown);
 
   // --- Per-second DPS ---
   const effectiveDmgPerCast = dmgPerCast * hitChance * critMult;
-  let dps = (effectiveDmgPerCast / skill.castTime) * speedMult;
+  let dps = effectiveDmgPerCast / cycleTime;
 
-  // --- DoT bonus ---
+  // --- DoT bonus: damage dealt over dotDuration, amortized over cycleTime ---
   if (skill.dotDuration && skill.dotDamagePercent) {
-    const dotDpsBonus = (effectiveDmgPerCast * skill.dotDamagePercent * skill.dotDuration) / skill.castTime * speedMult;
-    dps += dotDpsBonus;
+    const dotTotalDmg = effectiveDmgPerCast * skill.dotDamagePercent * skill.dotDuration;
+    dps += dotTotalDmg / cycleTime;
   }
 
   return dps;
@@ -787,7 +813,8 @@ export function calcMobHp(zone: ZoneDef, hpMultiplier: number = 1.0): number {
 
 /**
  * Calculate effective cast interval (seconds) for an active skill,
- * accounting for attack/cast speed and ability speed multiplier.
+ * accounting for attack/cast speed, ability speed multiplier, and GCD floor.
+ * Returns max(castTime/speed, BASE_GCD/speed, GCD_FLOOR).
  */
 export function calcSkillCastInterval(
   skill: ActiveSkillDef,
@@ -802,7 +829,10 @@ export function calcSkillCastInterval(
   if (isAttack) speedMult = (1 + stats.attackSpeed / 100) * atkSpeedMult;
   if (isSpell) speedMult = (1 + stats.castSpeed / 100) * atkSpeedMult;
 
-  return skill.castTime / speedMult;
+  const effectiveCastTime = skill.castTime / speedMult;
+  const effectiveGCD = BASE_GCD / speedMult;
+
+  return Math.max(effectiveCastTime, effectiveGCD, GCD_FLOOR);
 }
 
 /**
@@ -876,6 +906,32 @@ export function calcUnifiedDamagePerCast(
 ): number {
   if (skill.kind !== 'active') return 0;
   return calcSkillDamagePerCast(skill, stats, weaponAvgDmg, weaponSpellPower);
+}
+
+/**
+ * Calculate total rotation DPS across all equipped active skills.
+ * Each skill contributes its individual DPS (dmg/cycleTime), summed together.
+ * This works because skills fire independently on staggered cooldowns.
+ */
+export function calcRotationDps(
+  skillBar: (EquippedSkill | null)[],
+  skillProgress: Record<string, SkillProgress>,
+  stats: ResolvedStats,
+  weaponAvgDmg: number,
+  weaponSpellPower: number,
+  atkSpeedMult: number = 1.0,
+): number {
+  let totalDps = 0;
+  for (const equipped of skillBar) {
+    if (!equipped) continue;
+    const skill = getUnifiedSkillDef(equipped.skillId);
+    if (!skill || skill.kind !== 'active') continue;
+
+    const progress = skillProgress[equipped.skillId];
+    const graphMod = getSkillGraphModifier(skill, progress);
+    totalDps += calcSkillDps(skill, stats, weaponAvgDmg, weaponSpellPower, graphMod ?? undefined, atkSpeedMult);
+  }
+  return totalDps;
 }
 
 /**

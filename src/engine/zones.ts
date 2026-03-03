@@ -3,10 +3,10 @@
 // Pure functions: no React, no side effects, no DOM.
 // ============================================================
 
-import type { Character, ZoneDef, IdleRunResult, Item, CurrencyType, GearSlot, ResolvedStats, AbilityEffect, GatheringProfession, BossState, CombatClearResult, ActiveSkillDef, MobTypeDef } from '../types';
+import type { Character, ZoneDef, IdleRunResult, Item, CurrencyType, GearSlot, ResolvedStats, AbilityEffect, GatheringProfession, BossState, CombatClearResult, ActiveSkillDef, MobTypeDef, EquippedSkill, SkillProgress } from '../types';
 import { generateItem, generateGatheringItem } from './items';
 import { getWeaponDamageInfo } from './character';
-import { calcSkillDps, calcSkillDamagePerCast, getDefaultSkillForWeapon } from './unifiedSkills';
+import { calcSkillDps, calcSkillDamagePerCast, getDefaultSkillForWeapon, calcRotationDps } from './unifiedSkills';
 import { getSkillDef } from '../data/unifiedSkills';
 import { calcGatheringYield } from './gathering';
 import { rollRareMaterialDrop } from './rareMaterials';
@@ -112,11 +112,17 @@ export function checkZoneMastery(stats: ResolvedStats, zone: ZoneDef): boolean {
 }
 
 /**
- * Calculate player's total DPS using skill-based or legacy formula.
- * If equippedSkills[0] is set, uses tag-based skill DPS.
- * Returns 0 if no skill is equipped and no weapon default exists.
+ * Calculate player's total DPS using cooldown-aware rotation formula.
+ * If skillBar + skillProgress provided, sums DPS across ALL equipped active skills.
+ * Falls back to single-skill or default weapon skill if no skill bar provided.
  */
-export function calcPlayerDps(char: Character, abilityEffect?: AbilityEffect, equippedSkills?: (string | null)[]): number {
+export function calcPlayerDps(
+  char: Character,
+  abilityEffect?: AbilityEffect,
+  equippedSkills?: (string | null)[],
+  skillBar?: (EquippedSkill | null)[],
+  skillProgress?: Record<string, SkillProgress>,
+): number {
   const stats = char.stats;
   const { avgDamage, spellPower } = getWeaponDamageInfo(char.equipment);
 
@@ -125,32 +131,34 @@ export function calcPlayerDps(char: Character, abilityEffect?: AbilityEffect, eq
   if (abilityEffect?.critChanceBonus) effectiveStats.critChance += abilityEffect.critChanceBonus;
   if (abilityEffect?.critMultiplierBonus) effectiveStats.critMultiplier += abilityEffect.critMultiplierBonus;
 
+  const atkSpeedMult = abilityEffect?.attackSpeedMult ?? 1;
   let dps: number;
 
-  // Try skill-based DPS first
-  const activeSkillId = equippedSkills?.[0];
-  const skillDef = activeSkillId ? getSkillDef(activeSkillId) : null;
-
-  if (skillDef) {
-    // Skill-based DPS (tag-based additive %inc)
-    dps = calcSkillDps(skillDef, effectiveStats, avgDamage, spellPower);
+  // Full rotation DPS: sum DPS across all equipped active skills
+  if (skillBar && skillProgress) {
+    dps = calcRotationDps(skillBar, skillProgress, effectiveStats, avgDamage, spellPower, atkSpeedMult);
   } else {
-    // Auto-assign default skill based on weapon type
-    const weaponType = char.equipment.mainhand?.weaponType;
-    const defaultSkill = weaponType ? getDefaultSkillForWeapon(weaponType, char.level) : null;
+    // Legacy path: single skill ID
+    const activeSkillId = equippedSkills?.[0];
+    const skillDef = activeSkillId ? getSkillDef(activeSkillId) : null;
 
-    if (defaultSkill) {
-      dps = calcSkillDps(defaultSkill, effectiveStats, avgDamage, spellPower);
+    if (skillDef) {
+      dps = calcSkillDps(skillDef, effectiveStats, avgDamage, spellPower, undefined, atkSpeedMult);
     } else {
-      // No skill equipped and no weapon default — can't deal damage
-      dps = 0;
+      // Auto-assign default skill based on weapon type
+      const weaponType = char.equipment.mainhand?.weaponType;
+      const defaultSkill = weaponType ? getDefaultSkillForWeapon(weaponType, char.level) : null;
+
+      if (defaultSkill) {
+        dps = calcSkillDps(defaultSkill, effectiveStats, avgDamage, spellPower, undefined, atkSpeedMult);
+      } else {
+        dps = 0;
+      }
     }
   }
 
   // Apply ability damage multiplier
   dps *= (abilityEffect?.damageMult ?? 1);
-  // Apply ability attack speed multiplier (boosts all components)
-  dps *= (abilityEffect?.attackSpeedMult ?? 1);
 
   return dps;
 }
@@ -713,7 +721,11 @@ export function calcBossAttackProfile(char: Character, zone: ZoneDef, abilityEff
 }
 
 /** Create BossState at fight start with per-hit attack profile. */
-export function createBossEncounter(char: Character, zone: ZoneDef, abilityEffect?: AbilityEffect, equippedSkills?: (string | null)[]): BossState {
+export function createBossEncounter(
+  char: Character, zone: ZoneDef, abilityEffect?: AbilityEffect,
+  equippedSkills?: (string | null)[],
+  skillBar?: (EquippedSkill | null)[], skillProgress?: Record<string, SkillProgress>,
+): BossState {
   const bossHp = calcBossMaxHp(zone);
   const profile = calcBossAttackProfile(char, zone, abilityEffect);
   // Compute effective DPS for UI display: dmg/interval (pre-mitigation)
@@ -722,7 +734,7 @@ export function createBossEncounter(char: Character, zone: ZoneDef, abilityEffec
     bossName: zone.bossName,
     bossMaxHp: bossHp,
     bossCurrentHp: bossHp,
-    playerDps: calcPlayerDps(char, abilityEffect, equippedSkills),
+    playerDps: calcPlayerDps(char, abilityEffect, equippedSkills, skillBar, skillProgress),
     bossDps: effectiveBossDps,
     bossDamagePerHit: profile.damagePerHit,
     bossAttackInterval: profile.attackInterval,

@@ -1,14 +1,31 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-03 (Post-Sprint 12B/12C/12D + hotfix: Enhanced Drops + Daily Quests)
+> Last updated: 2026-03-03 (Post-Sprint 13A: Cooldown-Aware Combat Stats)
 
 ## Current Phase
-**Sprint 12B: Enhanced Mob Drop Tables** — COMPLETE.
-**Sprint 12C: Daily Quest Engine** — COMPLETE.
-**Sprint 12D: Daily Quest UI** — COMPLETE.
+**Sprint 13A: Make Attack Speed, Cast Speed & Ability Haste Work With Cooldown System** — COMPLETE.
 
-**Hotfix: Random mob targeting + quest tracking** — COMPLETE.
+- **Problem**: Three stats were broken or meaningless after the skill-based cooldown rework:
+  1. Attack/Cast Speed was a raw DPS multiplier (`dps = (dmg/castTime) * speed`) that didn't interact with cooldowns — mathematically identical to %increased damage.
+  2. Ability Haste existed on gear but was never used in any cooldown calculation — completely dead stat.
+  3. Offline DPS only used skill slot 1, ignoring skills 2-5. Real-time rotation worked but offline was wrong.
+  4. Real-time cooldown timer used raw `skill.cooldown`, ignoring graph CDR nodes.
+- **Core formula change**: DPS is now cooldown-aware: `dps = dmgPerCast / max(castInterval, effectiveCooldown)`. Speed compresses cast time & GCD (orthogonal to cooldowns). Ability haste compresses cooldowns with LoL-style diminishing returns: `cd / (1 + haste/100)`.
+- **New constants**: `BASE_GCD = 1.0` (base GCD before speed), `GCD_FLOOR = 0.4` (absolute minimum interval).
+- **`getSkillEffectiveCooldown()`**: Now accepts `abilityHaste` param. Applies haste after graph CDR.
+- **`calcSkillCastInterval()`**: Returns `max(castTime/speed, BASE_GCD/speed, GCD_FLOOR)` — speed compresses the GCD too.
+- **`calcSkillDps()`**: Rewritten. Computes `cycleTime = max(castInterval, effectiveCooldown)` as denominator. Accepts `graphMod` for CDR/crit bonuses and `atkSpeedMult` for ability multipliers.
+- **`calcRotationDps()`**: New function. Sums individual DPS across all equipped active skills.
+- **`calcPlayerDps()`**: Now accepts full skill bar + progress for rotation DPS. All 5 skill slots contribute.
+- **Real-time combat fixes**: Cooldown timer applies graph CDR + ability haste. GCD uses `castInterval` directly (already includes floor logic). Removed redundant `ACTIVE_SKILL_GCD` usage.
+- **UI**: Ability Haste stat shows effective CDR% (e.g. `50 (33.3% CDR)`). SkillBar cooldown sweep uses effective cooldown. CharacterScreen shows "Rotation DPS" across all skills.
+- **Stat fantasy**: Speed = "I swing/cast faster" (cast animation bottleneck). Haste = "Skills recharge faster" (cooldown bottleneck). Early game: haste > speed. Late game: both matter.
+- **Edited files**: `src/data/balance.ts` (+6), `src/engine/unifiedSkills.ts` (+40 net), `src/engine/zones.ts` (refactored), `src/store/gameStore.ts` (timer fixes), `src/ui/components/SkillBar.tsx` (cooldown display), `src/ui/screens/CharacterScreen.tsx` (rotation DPS + haste CDR%).
+- **No save migration needed**: All changes are to combat formulas and display (no persisted state changes).
+- **Save version**: v32 (unchanged).
+
+**Previous: Sprint 12B/12C/12D + hotfix: Enhanced Drops + Daily Quests** — COMPLETE.
 - **Bug**: Random mob mode always displayed the zone's default mob name and never changed between kills. Mob kills in random mode didn't count toward daily kill quests.
 - **Root cause**: No ephemeral state tracked which mob was actually being fought. `processNewClears` called `simulateSingleClear` which picked its own independent random mob, disconnected from the visual mob and quest tracking.
 - **Fix**: Added `currentMobTypeId` ephemeral state. On each mob death, a new weighted-random mob is picked (or targeted mob reused). MobDisplay shows the actual mob name/drops. `processNewClears` passes `currentMobTypeId` to `simulateSingleClear` so drops + quest progress match the mob being fought. HP multipliers now correctly apply in random mode too.
@@ -77,7 +94,7 @@
 - **Save version**: v27 → v28 (migration adds `talentAllocations: []`).
 - **Zero-allocation identity**: When no talents allocated, behavior is identical to pre-sprint.
 
-**Next sprint TBD.** Potential: per-skill graph trees for non-wand weapons, mob type differentiation, skill discovery/unlocks, zone mastery.
+**Next sprint TBD.** Potential: per-skill graph trees for non-wand weapons, skill discovery/unlocks, zone mastery, crafting expansion.
 
 **Sprint 10R: Boss Damage Smoothing — Prevent One-Shots** — COMPLETE (previous).
 

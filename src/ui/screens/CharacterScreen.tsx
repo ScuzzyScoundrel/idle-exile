@@ -9,9 +9,8 @@ import { CLASS_DEFS } from '../../data/classes';
 import { calcSetBonuses, calcDefensiveEfficiency } from '../../engine/setBonus';
 import SkillPanel from '../components/SkillPanel';
 import ClassTalentPanel from '../components/ClassTalentPanel';
-import { calcSkillDps, getDefaultSkillForWeapon } from '../../engine/unifiedSkills';
+import { calcSkillDps, calcRotationDps, getDefaultSkillForWeapon } from '../../engine/unifiedSkills';
 import { resolveStats, getWeaponDamageInfo } from '../../engine/character';
-import { getSkillDef } from '../../data/unifiedSkills';
 import { SET_BONUS_DEFS } from '../../data/setBonuses';
 import { ZONE_DEFS } from '../../data/zones';
 
@@ -48,7 +47,7 @@ const STAT_TOOLTIPS: Partial<Record<StatKey, string>> = {
   incElementalDamage: '% increased elemental damage.',
   critChance: '% chance to critically strike.',
   critMultiplier: 'Multiplier on critical hits.',
-  abilityHaste: 'Reduces ability cooldowns.',
+  abilityHaste: 'Reduces all skill cooldowns. Diminishing returns: CDR% = haste / (100 + haste).',
   // Defensive
   maxLife: 'Maximum health pool.',
   incMaxLife: '% increased maximum life.',
@@ -124,7 +123,10 @@ const STAT_SECTIONS: StatSection[] = [
   {
     label: 'Utility',
     stats: [
-      { key: 'abilityHaste', label: 'Ability Haste', icon: '\u23F1\uFE0F', format: (v) => `${v.toFixed(0)}%` },
+      { key: 'abilityHaste', label: 'Ability Haste', icon: '\u23F1\uFE0F', format: (v) => {
+        const cdr = v / (100 + v) * 100;
+        return v > 0 ? `${v.toFixed(0)} (${cdr.toFixed(1)}% CDR)` : '0';
+      }},
       { key: 'movementSpeed', label: 'Move Speed', icon: '\uD83D\uDC5F', format: (v) => `${v.toFixed(0)}%` },
       { key: 'itemQuantity', label: 'Item Quantity', icon: '\uD83D\uDCE6', format: (v) => `${v.toFixed(0)}%` },
       { key: 'itemRarity', label: 'Item Rarity', icon: '\u2B50', format: (v) => `${v.toFixed(0)}%` },
@@ -176,20 +178,22 @@ const ASCII_SILHOUETTE = `    O
 export default function CharacterScreen() {
   const { character, resetGame, unequipSlot } = useGameStore();
   const skillBar = useGameStore(s => s.skillBar);
+  const skillProgress = useGameStore(s => s.skillProgress);
   const isMobile = useIsMobile();
   const [hoveredSlot, setHoveredSlot] = useState<GearSlot | null>(null);
   const hoveredItem = hoveredSlot ? character.equipment[hoveredSlot] ?? null : null;
 
-  // Compute skill-based DPS for stats display
+  // Compute rotation DPS across all equipped active skills
   const weaponType = getEquippedWeaponType(character.equipment);
-  const equippedSkillId = skillBar[0]?.skillId ?? null;
-  const equippedSkillDef = equippedSkillId ? getSkillDef(equippedSkillId) : null;
-  const activeSkill = equippedSkillDef ?? (weaponType ? getDefaultSkillForWeapon(weaponType, character.level) : null);
   const skillDps = (() => {
-    if (!activeSkill) return 0;
     const stats = resolveStats(character);
     const { avgDamage, spellPower } = getWeaponDamageInfo(character.equipment);
-    return calcSkillDps(activeSkill, stats, avgDamage, spellPower);
+    // Try full rotation DPS first
+    const rotDps = calcRotationDps(skillBar, skillProgress, stats, avgDamage, spellPower);
+    if (rotDps > 0) return rotDps;
+    // Fallback to default weapon skill
+    const defaultSkill = weaponType ? getDefaultSkillForWeapon(weaponType, character.level) : null;
+    return defaultSkill ? calcSkillDps(defaultSkill, stats, avgDamage, spellPower) : 0;
   })();
 
   return (
@@ -321,9 +325,9 @@ export default function CharacterScreen() {
         {/* Skill DPS summary */}
         {skillDps > 0 && (
           <div className="flex items-center gap-2 bg-gray-900/50 rounded-lg p-2">
-            <span className="text-sm">{activeSkill?.icon ?? '\u2694\uFE0F'}</span>
+            <span className="text-sm">{'\u2694\uFE0F'}</span>
             <div className="flex-1">
-              <div className="text-xs text-gray-400">Skill DPS ({activeSkill?.name ?? 'None'})</div>
+              <div className="text-xs text-gray-400">Rotation DPS</div>
               <div className="text-sm font-bold text-yellow-300">
                 {skillDps >= 1000 ? `${(skillDps / 1000).toFixed(1)}k` : skillDps.toFixed(1)}
               </div>

@@ -110,8 +110,9 @@ export default function SkillBar({ lastFiredSkillId }: { lastFiredSkillId?: stri
         if (def.kind === 'active') {
           const shortName = def.name.length > 6 ? def.name.slice(0, 6) + '..' : def.name;
           const isFlashing = equipped.skillId === lastFiredSkillId;
-          const activeCdPct = isOnCooldown && def.cooldown > 0
-            ? Math.max(0, Math.min(1, remainingCd / def.cooldown))
+          const effectiveActiveCd = getSkillEffectiveCooldown(def, progress, character.stats.abilityHaste);
+          const activeCdPct = isOnCooldown && effectiveActiveCd > 0
+            ? Math.max(0, Math.min(1, remainingCd / effectiveActiveCd))
             : 0;
           return (
             <div
@@ -241,7 +242,7 @@ export default function SkillBar({ lastFiredSkillId }: { lastFiredSkillId?: stri
         const isFlashingBtn = equipped.skillId === lastFiredSkillId;
 
         // Cooldown sweep: compute percentage for conic-gradient overlay
-        const cooldown = getSkillEffectiveCooldown(def, progress);
+        const cooldown = getSkillEffectiveCooldown(def, progress, character.stats.abilityHaste);
         const totalCdMs = def.kind === 'buff'
           ? (duration + cooldown) * 1000
           : cooldown * 1000;
