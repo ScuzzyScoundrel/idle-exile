@@ -220,11 +220,21 @@ export interface ZoneHazard {
   threshold: number;
 }
 
+export type MobDropRarity = 'common' | 'uncommon' | 'rare';
+
+export interface MobDrop {
+  materialId: string;
+  chance: number;        // 0-1 independent roll per clear
+  minQty: number;
+  maxQty: number;
+  rarity: MobDropRarity; // for UI color coding
+}
+
 export interface MobTypeDef {
   id: string;              // globally unique, e.g. 'thicket_crawler'
   name: string;            // "Thicket Crawler"
   weight: number;          // spawn weight when farming whole zone
-  uniqueDrops: string[];   // material IDs exclusive to this mob
+  drops: MobDrop[];        // 2-5 drops with independent roll chances
   hpMultiplier?: number;   // 0.8-1.2, defaults 1.0
   description?: string;    // flavor text
 }
@@ -718,6 +728,43 @@ export interface SkillTimerState {
   cooldownUntil: number | null;
 }
 
+// --- Daily Quests ---
+
+export type QuestObjectiveType = 'kill_mob' | 'clear_zone' | 'defeat_boss';
+
+export interface QuestObjective {
+  type: QuestObjectiveType;
+  targetId: string;       // mobTypeId or zoneId
+  targetName: string;
+  required: number;
+}
+
+export interface QuestReward {
+  gold?: number;
+  xp?: number;
+  materials?: Record<string, number>;
+  currencies?: Partial<Record<CurrencyType, number>>;
+}
+
+export interface QuestDef {
+  id: string;
+  band: number;
+  objective: QuestObjective;
+  reward: QuestReward;
+}
+
+export interface QuestProgress {
+  questId: string;
+  current: number;
+  claimed: boolean;
+}
+
+export interface DailyQuestState {
+  questDate: string;  // 'YYYY-MM-DD' UTC
+  quests: QuestDef[];
+  progress: Record<string, QuestProgress>;
+}
+
 // --- Game State ---
 
 export interface GameState {
@@ -802,6 +849,9 @@ export interface GameState {
   mobKillCounts: Record<string, number>;
   bossKillCounts: Record<string, number>;
   totalZoneClears: Record<string, number>;
+
+  // Daily quests
+  dailyQuests: DailyQuestState;
 
   // Tutorial
   tutorialStep: number;

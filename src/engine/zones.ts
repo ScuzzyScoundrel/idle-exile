@@ -3,7 +3,7 @@
 // Pure functions: no React, no side effects, no DOM.
 // ============================================================
 
-import type { Character, ZoneDef, IdleRunResult, Item, CurrencyType, GearSlot, ResolvedStats, AbilityEffect, GatheringProfession, BossState, CombatClearResult, ActiveSkillDef } from '../types';
+import type { Character, ZoneDef, IdleRunResult, Item, CurrencyType, GearSlot, ResolvedStats, AbilityEffect, GatheringProfession, BossState, CombatClearResult, ActiveSkillDef, MobTypeDef } from '../types';
 import { generateItem, generateGatheringItem } from './items';
 import { getWeaponDamageInfo } from './character';
 import { calcSkillDps, calcSkillDamagePerCast, getDefaultSkillForWeapon } from './unifiedSkills';
@@ -26,7 +26,6 @@ import {
   BLOCK_CAP, BLOCK_REDUCTION,
   BOSS_DMG_PER_HIT_BASE, BOSS_ATTACK_INTERVAL,
   LEECH_PERCENT, MAX_REGEN_RATIO,
-  MOB_UNIQUE_DROP_CHANCE,
 } from '../data/balance';
 import { getZoneMobTypes, weightedRandomMob, getMobTypeDef } from '../data/mobTypes';
 
@@ -48,6 +47,20 @@ const HAZARD_STAT_MAP: Record<string, keyof ResolvedStats> = {
   lightning: 'lightningResist',
   chaos: 'chaosResist',
 };
+
+// --- Mob Drop Rolling ---
+
+/** Roll each drop in a mob's drop table independently. Returns materialId → quantity. */
+export function rollMobDrops(mob: MobTypeDef): Record<string, number> {
+  const result: Record<string, number> = {};
+  for (const drop of mob.drops) {
+    if (Math.random() < drop.chance) {
+      const qty = drop.minQty + Math.floor(Math.random() * (drop.maxQty - drop.minQty + 1));
+      result[drop.materialId] = (result[drop.materialId] ?? 0) + qty;
+    }
+  }
+  return result;
+}
 
 // --- Ability Effect Helpers ---
 
@@ -355,15 +368,15 @@ export function simulateIdleRun(
       }
     }
 
-    // Mob-unique drops (offline batched)
+    // Mob drops (offline batched — roll full drop table)
     const idleMobs = getZoneMobTypes(zone.id);
     if (idleMobs.length > 0) {
       const mob = _targetedMobId
         ? (idleMobs.find(m => m.id === _targetedMobId) ?? weightedRandomMob(idleMobs))
         : weightedRandomMob(idleMobs);
-      if (mob.uniqueDrops.length > 0 && Math.random() < MOB_UNIQUE_DROP_CHANCE) {
-        const drop = mob.uniqueDrops[Math.floor(Math.random() * mob.uniqueDrops.length)];
-        materials[drop] = (materials[drop] ?? 0) + 1;
+      const mobDrops = rollMobDrops(mob);
+      for (const [matId, qty] of Object.entries(mobDrops)) {
+        materials[matId] = (materials[matId] ?? 0) + qty;
       }
     }
 
@@ -473,12 +486,14 @@ export function simulateSingleClear(
       mobTypeId = weightedRandomMob(zoneMobs).id;
     }
 
-    // Roll mob-unique drop
+    // Roll mob drop table
     if (mobTypeId) {
       const mobDef = getMobTypeDef(mobTypeId);
-      if (mobDef && mobDef.uniqueDrops.length > 0 && Math.random() < MOB_UNIQUE_DROP_CHANCE) {
-        const drop = mobDef.uniqueDrops[Math.floor(Math.random() * mobDef.uniqueDrops.length)];
-        materials[drop] = (materials[drop] ?? 0) + 1;
+      if (mobDef) {
+        const mobDrops = rollMobDrops(mobDef);
+        for (const [matId, qty] of Object.entries(mobDrops)) {
+          materials[matId] = (materials[matId] ?? 0) + qty;
+        }
       }
     }
   }

@@ -1,10 +1,25 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-02 (Post-Sprint 12A: Mob Types + Targeted Farming)
+> Last updated: 2026-03-03 (Post-Sprint 12B/12C/12D: Enhanced Drops + Daily Quests)
 
 ## Current Phase
-**Sprint 12A: Mob Types + Targeted Farming** — COMPLETE.
+**Sprint 12B: Enhanced Mob Drop Tables** — COMPLETE.
+**Sprint 12C: Daily Quest Engine** — COMPLETE.
+**Sprint 12D: Daily Quest UI** — COMPLETE.
+
+- **Enhanced drop tables**: Each mob now has 2-5 drops with independent roll chances instead of 1 flat 25% unique drop. Drops have `common`/`uncommon`/`rare` rarity tiers with color-coded UI. ~25 new band-tiered crafting materials (frayed_cloth, woven_sinew, spectral_thread, etc.) plus 5 cross-band rares.
+- **Drop table builder**: `buildMobDropTable()` helper generates drops based on mob's unique material, band, spawn weight, and theme (beast/insectoid/construct/elemental/undead/humanoid). Common mobs get 3-4 drops, rare mobs get 4-5 with better chances.
+- **Drop engine**: `rollMobDrops(mob)` helper rolls each drop independently. Replaces flat `MOB_UNIQUE_DROP_CHANCE` in both `simulateSingleClear` and `simulateIdleRun`.
+- **Daily quest system**: 3 quests per accessible band (kill_mob, clear_zone, defeat_boss). Quests reset daily at midnight UTC with seeded RNG (same quests for all players). Progress tracks mob kills, zone clears, and boss defeats in real-time and offline.
+- **Quest rewards**: Gold + XP per quest, scaled by band. Kill quests get 1.5x, boss quests get 2x. Band 3+ adds augment orbs, Band 5+ adds chaos orbs.
+- **Quest UI**: Collapsible DailyQuestPanel on ZoneScreen with progress bars, claim buttons (green glow/pulse), reward preview, countdown to reset. Quests grouped by band.
+- **Balance**: Kill quests 150-500 kills, clear quests 100-300 clears, boss quests 5-20 kills (30-90 min per band). Targeted farming synergizes with kill quests.
+- **New files**: `src/data/mobDropHelpers.ts`, `src/engine/dailyQuests.ts`, `src/ui/components/DailyQuestPanel.tsx`
+- **Edited files**: `src/types/index.ts` (+50 lines: MobDrop, MobDropRarity, quest types, DailyQuestState), `src/data/balance.ts` (+15 lines: quest constants), `src/data/mobTypes.ts` (90 mobs → drops[]), `src/engine/zones.ts` (+15 lines: rollMobDrops), `src/store/gameStore.ts` (+100 lines: quest actions, progress tracking, migration), `src/ui/screens/ZoneScreen.tsx` (+15 lines: drop table UI, quest panel)
+- **Save version**: v30 → v32
+
+**Previous: Sprint 12A: Mob Types + Targeted Farming** — COMPLETE.
 
 - **Mob type system**: Each zone now has 3 distinct mob types with spawn weights (50/35/15), hpMultipliers (1.0/0.9/1.15), unique drop materials, and flavor text. ~90 mob types across 30 zones.
 - **Targeted farming**: Players can select a specific mob type to farm (guaranteed that mob spawns) or farm randomly (weighted selection). Mob selector panel on ZoneScreen shows all mob types with kill counts and unique drops.

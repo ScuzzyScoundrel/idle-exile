@@ -318,8 +318,27 @@ export const COMBAT_TICK_INTERVAL = 250;
 // MOB TYPES & TARGETED FARMING
 // =============================================
 
-/** Chance per clear to drop a mob-type-unique material (on top of zone drops). */
+/** @deprecated — replaced by per-mob MobDrop.chance values in Sprint 12B. */
 export const MOB_UNIQUE_DROP_CHANCE = 0.25;
+
+// =============================================
+// DAILY QUESTS
+// =============================================
+
+/** Kill quest required counts per band (index 0 = band 1). */
+export const QUEST_KILL_COUNTS = [150, 200, 250, 300, 400, 500];
+
+/** Zone clear quest required counts per band. */
+export const QUEST_CLEAR_COUNTS = [100, 125, 150, 200, 250, 300];
+
+/** Boss defeat quest required counts per band. */
+export const QUEST_BOSS_COUNTS = [5, 8, 10, 12, 15, 20];
+
+/** Base gold reward per quest per band. Kill quests get 1.5x, boss quests get 2x. */
+export const QUEST_GOLD_REWARD = [200, 500, 1000, 2000, 4000, 8000];
+
+/** Base XP reward per quest per band. Kill quests get 1.5x, boss quests get 2x. */
+export const QUEST_XP_REWARD = [100, 250, 500, 1000, 2000, 4000];
 
 /** Clear speed penalty multiplier when targeted farming (1.0 = no penalty). */
 export const TARGETED_FARMING_SPEED_PENALTY = 1.0;

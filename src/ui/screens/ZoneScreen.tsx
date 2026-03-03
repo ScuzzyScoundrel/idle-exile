@@ -16,6 +16,7 @@ import { WeaponType } from '../../types';
 import { getRareMaterialDef } from '../../data/rareMaterials';
 import { BOSS_INTERVAL, ZONE_ATTACK_INTERVAL } from '../../data/balance';
 import { getZoneMobTypes, getMobTypeDef } from '../../data/mobTypes';
+import DailyQuestPanel from '../components/DailyQuestPanel';
 import { resolveStats } from '../../engine/character';
 import { getClassDef } from '../../data/classes';
 
@@ -72,6 +73,15 @@ const HAZARD_STAT_MAP: Record<string, string> = {
 function formatMatName(id: string): string {
   return id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
+
+// Mob drop rarity colors
+import type { MobDropRarity, MobDrop } from '../../types';
+
+const MOB_DROP_RARITY_COLOR: Record<MobDropRarity, string> = {
+  common: 'text-amber-400/80',
+  uncommon: 'text-blue-400',
+  rare: 'text-yellow-300',
+};
 
 // Rarity color classes
 const RARITY_TEXT: Record<Rarity, string> = {
@@ -210,9 +220,9 @@ function PlayerHpBar({ currentHp, maxHp, trailHp }: { currentHp: number; maxHp: 
 }
 
 // --- Mob Display (during clearing) ---
-function MobDisplay({ mobName, mobCurrentHp, mobMaxHp, bossIn, swingProgress, uniqueDrop }: {
+function MobDisplay({ mobName, mobCurrentHp, mobMaxHp, bossIn, swingProgress, signatureDrop }: {
   mobName: string; mobCurrentHp: number; mobMaxHp: number; bossIn: number; swingProgress: number;
-  uniqueDrop?: string;
+  signatureDrop?: MobDrop;
 }) {
   // Real-time mob HP bar (10K-A)
   const mobHpPct = mobMaxHp > 0 ? Math.max(0, Math.min(100, (mobCurrentHp / mobMaxHp) * 100)) : 0;
@@ -221,9 +231,10 @@ function MobDisplay({ mobName, mobCurrentHp, mobMaxHp, bossIn, swingProgress, un
       <div className="flex justify-between text-xs mb-1">
         <span className="text-gray-200 font-semibold">{mobName}</span>
         <div className="flex items-center gap-2">
-          {uniqueDrop && (
-            <span className="text-amber-400/70 text-[10px]" title={`Drops: ${formatMatName(uniqueDrop)}`}>
-              {formatMatName(uniqueDrop)}
+          {signatureDrop && (
+            <span className={`${MOB_DROP_RARITY_COLOR[signatureDrop.rarity]} text-[10px]`}
+                  title={`Drops: ${formatMatName(signatureDrop.materialId)} (${Math.round(signatureDrop.chance * 100)}%)`}>
+              {formatMatName(signatureDrop.materialId)}
             </span>
           )}
           <span className="text-gray-400">Boss in {bossIn}</span>
@@ -1221,6 +1232,9 @@ export default function ZoneScreen() {
         )}
       </div>
 
+      {/* Daily Quest Panel */}
+      {idleMode === 'combat' && <DailyQuestPanel currentZoneId={selectedZone} />}
+
       {/* Mob Type Selector (combat mode) */}
       {idleMode === 'combat' && (() => {
         const zoneMobs = getZoneMobTypes(zone.id);
@@ -1259,10 +1273,12 @@ export default function ZoneScreen() {
                     </div>
                     {kills > 0 && <span className="text-gray-500">{kills.toLocaleString()}</span>}
                   </div>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <span className="text-amber-400/80 text-[10px]">
-                      {formatMatName(mob.uniqueDrops[0])}
-                    </span>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0 mt-0.5">
+                    {mob.drops.map(drop => (
+                      <span key={drop.materialId} className={`${MOB_DROP_RARITY_COLOR[drop.rarity]} text-[10px]`}>
+                        {formatMatName(drop.materialId)} ({Math.round(drop.chance * 100)}%)
+                      </span>
+                    ))}
                   </div>
                 </button>
               );
@@ -1367,7 +1383,7 @@ export default function ZoneScreen() {
                     mobMaxHp={maxMobHp}
                     bossIn={BOSS_INTERVAL - ((zoneClearCounts[currentZoneId!] || 0) % BOSS_INTERVAL)}
                     swingProgress={zoneSwingProgress}
-                    uniqueDrop={targetedMobId ? (getMobTypeDef(targetedMobId)?.uniqueDrops[0]) : undefined}
+                    signatureDrop={targetedMobId ? (getMobTypeDef(targetedMobId)?.drops.find(d => d.rarity === 'rare') ?? getMobTypeDef(targetedMobId)?.drops[0]) : undefined}
                   />
                   <DamageFloaters floaters={floaters} />
                 </div>

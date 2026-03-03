@@ -56,7 +56,13 @@ import { aggregateClassTalentEffect, canAllocateTalentNode, allocateTalentNode a
 import { getUnifiedSkillDef, ABILITY_ID_MIGRATION } from '../data/unifiedSkills';
 import { canAllocateGraphNode, allocateGraphNode, respecGraphNodes, getGraphRespecCost } from '../engine/skillGraph';
 import { getDebuffDef } from '../data/debuffs';
-import { getMobTypeDef } from '../data/mobTypes';
+import { getMobTypeDef, getZoneMobTypes } from '../data/mobTypes';
+import {
+  generateDailyQuests, getUtcDateString, shouldResetDailyQuests,
+  createInitialProgress, updateQuestProgressForKills,
+  updateQuestProgressForClears, updateQuestProgressForBossKill,
+  isQuestComplete,
+} from '../engine/dailyQuests';
 
 
 const INITIAL_CURRENCIES: Record<CurrencyType, number> = {
@@ -343,6 +349,10 @@ interface GameActions {
   activateSkillBarSlot: (slotIndex: number) => void;
   tickAutoCast: () => void;
 
+  // Daily quests
+  checkDailyQuestReset: () => void;
+  claimQuestReward: (questId: string) => boolean;
+
   // Tutorial
   advanceTutorial: (step: number) => void;
 
@@ -417,6 +427,7 @@ function createInitialState(): GameState {
     mobKillCounts: {},
     bossKillCounts: {},
     totalZoneClears: {},
+    dailyQuests: { questDate: '', quests: [], progress: {} },
     tutorialStep: 1,
     lastSaveTime: Date.now(),
   };
@@ -882,6 +893,13 @@ export const useGameStore = create<GameState & GameActions>()(
         const newTotalZoneClears = { ...state.totalZoneClears };
         newTotalZoneClears[zoneId] = (newTotalZoneClears[zoneId] || 0) + clearCount;
 
+        // Update daily quest progress (kill + clear quests)
+        let questProgress = state.dailyQuests.progress;
+        for (const [mobId, count] of Object.entries(accMobKills)) {
+          questProgress = updateQuestProgressForKills(state.dailyQuests.quests, questProgress, mobId, count);
+        }
+        questProgress = updateQuestProgressForClears(state.dailyQuests.quests, questProgress, zoneId, clearCount);
+
         // Add ability XP to all equipped non-active skills in skillBar
         const xpPerClear = getAbilityXpPerClear(zone.band);
         const totalAbilityXp = xpPerClear * clearCount;
@@ -950,6 +968,7 @@ export const useGameStore = create<GameState & GameActions>()(
           fastestClears: newFastestClears,
           mobKillCounts: newMobKillCounts,
           totalZoneClears: newTotalZoneClears,
+          dailyQuests: { ...state.dailyQuests, progress: questProgress },
         });
 
         return {
@@ -1408,6 +1427,19 @@ export const useGameStore = create<GameState & GameActions>()(
         const newChar = addXp(state.character, progress.xpGained);
         newChar.stats = resolveStats(newChar);
 
+        // Update daily quest progress for offline clears (clear_zone + defeat_boss only; kill_mob skips offline)
+        let offlineQuestProgress = state.dailyQuests.progress;
+        offlineQuestProgress = updateQuestProgressForClears(
+          state.dailyQuests.quests, offlineQuestProgress, progress.zoneId, progress.clearsCompleted,
+        );
+        // Estimate boss kills from offline clears (1 boss per BOSS_INTERVAL clears)
+        const offlineBossKills = Math.floor(progress.clearsCompleted / 10); // BOSS_INTERVAL = 10
+        for (let b = 0; b < offlineBossKills; b++) {
+          offlineQuestProgress = updateQuestProgressForBossKill(
+            state.dailyQuests.quests, offlineQuestProgress, progress.zoneId,
+          );
+        }
+
         set({
           character: newChar,
           inventory: newInventory,
@@ -1416,6 +1448,7 @@ export const useGameStore = create<GameState & GameActions>()(
           gold: newGold,
           bagStash: newBagStash,
           offlineProgress: null,
+          dailyQuests: { ...state.dailyQuests, progress: offlineQuestProgress },
         });
       },
 
@@ -2257,6 +2290,11 @@ export const useGameStore = create<GameState & GameActions>()(
         const newBossKillCounts = { ...state.bossKillCounts };
         newBossKillCounts[state.currentZoneId] = (newBossKillCounts[state.currentZoneId] || 0) + 1;
 
+        // Update daily quest progress for boss kill
+        const bossQuestProgress = updateQuestProgressForBossKill(
+          state.dailyQuests.quests, state.dailyQuests.progress, state.currentZoneId,
+        );
+
         set({
           inventory: newInventory,
           materials: newMaterials,
@@ -2265,6 +2303,7 @@ export const useGameStore = create<GameState & GameActions>()(
           combatPhaseStartedAt: Date.now(),
           zoneClearCounts: newZoneClearCounts,
           bossKillCounts: newBossKillCounts,
+          dailyQuests: { ...state.dailyQuests, progress: bossQuestProgress },
         });
 
         return {
@@ -2358,13 +2397,86 @@ export const useGameStore = create<GameState & GameActions>()(
         set({ craftAutoSalvageMinRarity: rarity });
       },
 
+      // --- Daily Quests ---
+      checkDailyQuestReset: () => {
+        const state = get();
+        const now = new Date();
+        if (!shouldResetDailyQuests(state.dailyQuests, now) && state.dailyQuests.quests.length > 0) return;
+
+        const dateStr = getUtcDateString(now);
+        // Determine accessible bands (any zone the player has reached)
+        const accessibleBands = new Set<number>();
+        for (const zoneId of Object.keys(state.totalZoneClears)) {
+          const zone = ZONE_DEFS.find(z => z.id === zoneId);
+          if (zone) accessibleBands.add(zone.band);
+        }
+        // Always include band 1
+        accessibleBands.add(1);
+        const bands = Array.from(accessibleBands).sort((a, b) => a - b);
+
+        // Build zone/mob lookups
+        const zonesByBand: Record<number, typeof ZONE_DEFS> = {};
+        for (const z of ZONE_DEFS) {
+          if (!zonesByBand[z.band]) zonesByBand[z.band] = [];
+          zonesByBand[z.band].push(z);
+        }
+        const mobTypesByZone: Record<string, ReturnType<typeof getZoneMobTypes>> = {};
+        for (const z of ZONE_DEFS) {
+          mobTypesByZone[z.id] = getZoneMobTypes(z.id);
+        }
+
+        const quests = generateDailyQuests(dateStr, bands, zonesByBand, mobTypesByZone);
+        const progress = createInitialProgress(quests);
+        set({ dailyQuests: { questDate: dateStr, quests, progress } });
+      },
+
+      claimQuestReward: (questId: string) => {
+        const state = get();
+        const quest = state.dailyQuests.quests.find(q => q.id === questId);
+        const progress = state.dailyQuests.progress[questId];
+        if (!quest || !progress || progress.claimed) return false;
+        if (!isQuestComplete(quest, progress)) return false;
+
+        const reward = quest.reward;
+        const newGold = state.gold + (reward.gold ?? 0);
+        const xpResult = addXp(state.character, reward.xp ?? 0);
+
+        const newMaterials = { ...state.materials };
+        if (reward.materials) {
+          for (const [matId, qty] of Object.entries(reward.materials)) {
+            newMaterials[matId] = (newMaterials[matId] ?? 0) + qty;
+          }
+        }
+
+        const newCurrencies = { ...state.currencies };
+        if (reward.currencies) {
+          for (const [cur, qty] of Object.entries(reward.currencies)) {
+            if (qty) newCurrencies[cur as CurrencyType] = (newCurrencies[cur as CurrencyType] ?? 0) + qty;
+          }
+        }
+
+        const newProgress = {
+          ...state.dailyQuests.progress,
+          [questId]: { ...progress, claimed: true },
+        };
+
+        set({
+          gold: newGold,
+          character: { ...state.character, ...xpResult },
+          materials: newMaterials,
+          currencies: newCurrencies,
+          dailyQuests: { ...state.dailyQuests, progress: newProgress },
+        });
+        return true;
+      },
+
       resetGame: () => {
         set(createInitialState());
       },
     }),
     {
       name: 'idle-exile-save',
-      version: 30,
+      version: 32,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -2379,6 +2491,14 @@ export const useGameStore = create<GameState & GameActions>()(
           state.bossState = null;
           state.combatPhaseStartedAt = null;
           state.lastClearResult = null;
+
+          // Check daily quest reset on rehydrate
+          // (Must use useGameStore.getState() because state here is the raw object,
+          // but checkDailyQuestReset uses get()/set() which need the store to be ready.
+          // Schedule for next tick to ensure store is fully initialized.)
+          setTimeout(() => {
+            useGameStore.getState().checkDailyQuestReset();
+          }, 0);
 
           // Auto-assign default active skill to skillBar[0] if weapon equipped but no skill set
           if (state.character?.equipment?.mainhand?.weaponType) {
@@ -2952,6 +3072,17 @@ export const useGameStore = create<GameState & GameActions>()(
           raw.mobKillCounts = {};
           raw.bossKillCounts = {};
           raw.totalZoneClears = {};
+        }
+
+        if (version < 31) {
+          // v31: Enhanced mob drop tables — no state shape change needed.
+          // MobTypeDef.drops replaces .uniqueDrops (code-only, not persisted).
+          // New crafting materials just appear as they drop into existing materials dict.
+        }
+
+        if (version < 32) {
+          // v32: Daily quest system
+          raw.dailyQuests = { questDate: '', quests: [], progress: {} };
         }
 
         return state;
