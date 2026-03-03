@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { useGameStore, ProcessClearsResult, useHasHydrated } from '../../store/gameStore';
+import { useGameStore, ProcessClearsResult, useHasHydrated, calcFortifyDR } from '../../store/gameStore';
 import { ZONE_DEFS, BAND_NAMES } from '../../data/zones';
 import { checkZoneMastery, calcXpScale } from '../../engine/zones';
 // calcDefensiveEfficiency removed — defense is now real-time
 import { canGatherInZone, getGatheringSkillRequirement, calcGatheringXpRequired } from '../../engine/gathering';
 import { GATHERING_PROFESSION_DEFS } from '../../data/gatheringProfessions';
-import { ZoneDef, Rarity, IdleMode, GatheringProfession, ClassResourceState } from '../../types';
+import { ZoneDef, Rarity, IdleMode, GatheringProfession, ClassResourceState, ActiveDebuff } from '../../types';
 import { calcBagCapacity } from '../../data/items';
 import SkillBar from '../components/SkillBar';
 import { DamageFloaters, FloaterEntry } from '../components/DamageFloater';
@@ -68,6 +68,32 @@ const HAZARD_STAT_MAP: Record<string, string> = {
   lightning: 'lightningResist',
   chaos: 'chaosResist',
 };
+
+// Debuff badge color/label mapping
+const DEBUFF_META: Record<string, { text: string; bg: string; label: string }> = {
+  chilled:    { text: 'text-cyan-300',   bg: 'bg-cyan-900/60',   label: 'CHI' },
+  shocked:    { text: 'text-yellow-300', bg: 'bg-yellow-900/60', label: 'SHK' },
+  burning:    { text: 'text-orange-400', bg: 'bg-orange-900/60', label: 'BRN' },
+  poisoned:   { text: 'text-green-400',  bg: 'bg-green-900/60',  label: 'PSN' },
+  bleeding:   { text: 'text-red-400',    bg: 'bg-red-900/60',    label: 'BLD' },
+  weakened:   { text: 'text-gray-300',   bg: 'bg-gray-700/60',   label: 'WKN' },
+  blinded:    { text: 'text-violet-300', bg: 'bg-violet-900/60', label: 'BLN' },
+  vulnerable: { text: 'text-pink-400',   bg: 'bg-pink-900/60',   label: 'VLN' },
+  cursed:     { text: 'text-purple-400', bg: 'bg-purple-900/60', label: 'CRS' },
+  slowed:     { text: 'text-teal-300',   bg: 'bg-teal-900/60',   label: 'SLO' },
+};
+
+function DebuffBadge({ debuff }: { debuff: ActiveDebuff }) {
+  const meta = DEBUFF_META[debuff.debuffId];
+  const label = meta?.label ?? debuff.debuffId.slice(0, 3).toUpperCase();
+  const text = meta?.text ?? 'text-gray-300';
+  const bg = meta?.bg ?? 'bg-gray-700/60';
+  return (
+    <span className={`rounded-full px-1.5 text-[10px] font-mono font-semibold ${bg} ${text}`}>
+      {label}{debuff.stacks > 1 ? ` x${debuff.stacks}` : ''}
+    </span>
+  );
+}
 
 // Format material ID to display name (snake_case → Title Case)
 function formatMatName(id: string): string {
@@ -193,16 +219,30 @@ function accumulateSession(session: SessionSummary, result: ProcessClearsResult,
 }
 
 // --- Player HP Bar ---
-function PlayerHpBar({ currentHp, maxHp, trailHp }: { currentHp: number; maxHp: number; trailHp?: number }) {
+function PlayerHpBar({ currentHp, maxHp, trailHp, fortifyStacks, fortifyDR }: {
+  currentHp: number; maxHp: number; trailHp?: number;
+  fortifyStacks?: number; fortifyDR?: number;
+}) {
   const pct = maxHp > 0 ? Math.max(0, Math.min(100, (currentHp / maxHp) * 100)) : 0;
   const trailPct = trailHp != null && maxHp > 0
     ? Math.max(0, Math.min(100, (trailHp / maxHp) * 100))
     : pct;
   const color = pct > 60 ? 'bg-green-500' : pct > 30 ? 'bg-yellow-500' : 'bg-red-500';
+  const hasFortify = (fortifyDR ?? 0) > 0;
   return (
-    <div className="bg-gray-800/50 rounded-lg border border-gray-700 p-2">
+    <div
+      className={`bg-gray-800/50 rounded-lg border p-2 ${hasFortify ? 'border-amber-500/40' : 'border-gray-700'}`}
+      style={hasFortify ? { animation: 'fortify-glow 2s ease-in-out infinite' } : undefined}
+    >
       <div className="flex justify-between text-xs mb-1">
-        <span className="text-gray-300 font-semibold">HP</span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-gray-300 font-semibold">HP</span>
+          {hasFortify && (
+            <span className="text-[10px] font-mono text-amber-300">
+              FORT {fortifyStacks} ({Math.round((fortifyDR ?? 0) * 100)}% DR)
+            </span>
+          )}
+        </div>
         <span className="text-white font-mono">{Math.ceil(currentHp)}/{maxHp}</span>
       </div>
       <div className="h-3 bg-gray-700 rounded-full overflow-hidden relative">
@@ -220,14 +260,18 @@ function PlayerHpBar({ currentHp, maxHp, trailHp }: { currentHp: number; maxHp: 
 }
 
 // --- Mob Display (during clearing) ---
-function MobDisplay({ mobName, mobCurrentHp, mobMaxHp, bossIn, swingProgress, signatureDrop }: {
+function MobDisplay({ mobName, mobCurrentHp, mobMaxHp, bossIn, swingProgress, signatureDrop, activeDebuffs }: {
   mobName: string; mobCurrentHp: number; mobMaxHp: number; bossIn: number; swingProgress: number;
-  signatureDrop?: MobDrop;
+  signatureDrop?: MobDrop; activeDebuffs: ActiveDebuff[];
 }) {
   // Real-time mob HP bar (10K-A)
   const mobHpPct = mobMaxHp > 0 ? Math.max(0, Math.min(100, (mobCurrentHp / mobMaxHp) * 100)) : 0;
+  const hasDebuffs = activeDebuffs.length > 0;
   return (
-    <div className="bg-gray-800/60 rounded-lg border border-gray-700 p-2">
+    <div
+      className={`bg-gray-800/60 rounded-lg border p-2 ${hasDebuffs ? 'border-red-500/40' : 'border-gray-700'}`}
+      style={hasDebuffs ? { animation: 'debuff-glow 2s ease-in-out infinite' } : undefined}
+    >
       <div className="flex justify-between text-xs mb-1">
         <span className="text-gray-200 font-semibold">{mobName}</span>
         <div className="flex items-center gap-2">
@@ -240,6 +284,11 @@ function MobDisplay({ mobName, mobCurrentHp, mobMaxHp, bossIn, swingProgress, si
           <span className="text-gray-400">Boss in {bossIn}</span>
         </div>
       </div>
+      {hasDebuffs && (
+        <div className="flex flex-wrap gap-0.5 mb-0.5">
+          {activeDebuffs.map(d => <DebuffBadge key={d.debuffId} debuff={d} />)}
+        </div>
+      )}
       <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
         <div className="h-full bg-red-500 rounded-full transition-all duration-200"
              style={{ width: `${mobHpPct}%` }} />
@@ -254,19 +303,30 @@ function MobDisplay({ mobName, mobCurrentHp, mobMaxHp, bossIn, swingProgress, si
 }
 
 // --- Boss Fight Display ---
-function BossFightDisplay({ bossName, bossHp, bossMaxHp, playerHp, maxHp, bossDps, swingProgress }: {
+function BossFightDisplay({ bossName, bossHp, bossMaxHp, playerHp, maxHp, bossDps, swingProgress, activeDebuffs, fortifyStacks, fortifyDR }: {
   bossName: string; bossHp: number; bossMaxHp: number;
   playerHp: number; maxHp: number; bossDps: number; swingProgress: number;
+  activeDebuffs: ActiveDebuff[]; fortifyStacks: number; fortifyDR: number;
 }) {
   const bossPct = bossMaxHp > 0 ? Math.max(0, (bossHp / bossMaxHp) * 100) : 0;
   const playerPct = maxHp > 0 ? Math.max(0, (playerHp / maxHp) * 100) : 0;
   const playerColor = playerPct > 60 ? 'bg-green-500' : playerPct > 30 ? 'bg-yellow-500' : 'bg-red-500';
+  const hasDebuffs = activeDebuffs.length > 0;
+  const hasFortify = fortifyDR > 0;
   return (
     <div className="bg-gradient-to-br from-red-950 via-gray-900 to-red-950 rounded-lg border-2 border-red-700 p-3 space-y-2">
       <div className="text-center text-red-400 font-bold text-xs uppercase tracking-wider">Boss Fight</div>
       <div className="text-center text-white font-bold text-sm">{bossName}</div>
+      {hasDebuffs && (
+        <div className="flex flex-wrap justify-center gap-0.5">
+          {activeDebuffs.map(d => <DebuffBadge key={d.debuffId} debuff={d} />)}
+        </div>
+      )}
       {/* Boss HP */}
-      <div>
+      <div
+        className={hasDebuffs ? 'rounded-lg p-1 -m-1' : undefined}
+        style={hasDebuffs ? { animation: 'debuff-glow 2s ease-in-out infinite' } : undefined}
+      >
         <div className="flex justify-between text-xs mb-0.5">
           <span className="text-red-300 font-semibold">Boss HP</span>
           <span className="text-white font-mono">{Math.ceil(bossHp)}/{bossMaxHp}</span>
@@ -282,9 +342,19 @@ function BossFightDisplay({ bossName, bossHp, bossMaxHp, playerHp, maxHp, bossDp
              style={{ width: `${Math.max(0, Math.min(1, swingProgress)) * 100}%` }} />
       </div>
       {/* Player HP */}
-      <div>
+      <div
+        className={hasFortify ? 'rounded-lg p-1 -m-1' : undefined}
+        style={hasFortify ? { animation: 'fortify-glow 2s ease-in-out infinite' } : undefined}
+      >
         <div className="flex justify-between text-xs mb-0.5">
-          <span className="text-gray-300 font-semibold">Your HP</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-gray-300 font-semibold">Your HP</span>
+            {hasFortify && (
+              <span className="text-[10px] font-mono text-amber-300">
+                FORT {fortifyStacks} ({Math.round(fortifyDR * 100)}% DR)
+              </span>
+            )}
+          </div>
           <span className="text-white font-mono">{Math.ceil(playerHp)}/{maxHp}</span>
         </div>
         <div className="h-3 bg-gray-700 rounded-full overflow-hidden">
@@ -720,6 +790,7 @@ export default function ZoneScreen() {
     tickCombat, currentMobHp, maxMobHp, zoneNextAttackAt,
     targetedMobId, setTargetedMob, mobKillCounts,
     currentMobTypeId,
+    activeDebuffs, fortifyStacks, fortifyExpiresAt, fortifyDRPerStack,
   } = useGameStore();
 
   const hydrated = useHasHydrated();
@@ -1021,6 +1092,7 @@ export default function ZoneScreen() {
     : 0;
   // HP is now updated in real-time by tickCombat — no interpolation needed
   const displayHp = currentHp;
+  const fortifyDR = calcFortifyDR(fortifyStacks, fortifyExpiresAt, fortifyDRPerStack, Date.now());
 
   // Zone enemy swing timer progress (0→1 as attack approaches)
   const zoneSwingProgress = zoneNextAttackAt > 0
@@ -1338,6 +1410,9 @@ export default function ZoneScreen() {
                 maxHp={maxHp}
                 bossDps={bossState.bossDps}
                 swingProgress={bossSwingProgress}
+                activeDebuffs={activeDebuffs}
+                fortifyStacks={fortifyStacks}
+                fortifyDR={fortifyDR}
               />
               <DamageFloaters floaters={floaters} />
             </div>
@@ -1367,7 +1442,7 @@ export default function ZoneScreen() {
             <>
               {/* Player HP Bar (combat only, clearing) */}
               {idleMode === 'combat' && hydrated && (
-                <PlayerHpBar currentHp={displayHp} maxHp={maxHp} />
+                <PlayerHpBar currentHp={displayHp} maxHp={maxHp} fortifyStacks={fortifyStacks} fortifyDR={fortifyDR} />
               )}
 
               {/* Class Resource Bar (combat only) */}
@@ -1385,6 +1460,7 @@ export default function ZoneScreen() {
                     bossIn={BOSS_INTERVAL - ((zoneClearCounts[currentZoneId!] || 0) % BOSS_INTERVAL)}
                     swingProgress={zoneSwingProgress}
                     signatureDrop={currentMobTypeId ? (getMobTypeDef(currentMobTypeId)?.drops.find(d => d.rarity === 'rare') ?? getMobTypeDef(currentMobTypeId)?.drops[0]) : undefined}
+                    activeDebuffs={activeDebuffs}
                   />
                   <DamageFloaters floaters={floaters} />
                 </div>

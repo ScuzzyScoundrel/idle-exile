@@ -46,7 +46,8 @@ import { canRefine, refine, canDeconstruct, deconstruct } from '../engine/refine
 import { canCraftRecipe, executeCraft, addCraftingXp, getCraftingXpForTier } from '../engine/craftingProfessions';
 import { canCraftComponent, autoPickMobDrop } from '../engine/componentCrafting';
 import { getComponentRecipe } from '../data/componentRecipes';
-import { COMPONENT_XP_PER_BAND, CRAFT_OUTPUT_BUFFER_SIZE, CRAFT_LOG_MAX_ENTRIES } from '../data/balance';
+import { COMPONENT_XP_PER_BAND, CRAFT_OUTPUT_BUFFER_SIZE, CRAFT_LOG_MAX_ENTRIES, MAX_GOLD_EFFICIENCY } from '../data/balance';
+import { resolveProfessionBonuses } from '../engine/professionBonuses';
 import { REFINEMENT_RECIPES } from '../data/refinement';
 import { getCraftingRecipe } from '../data/craftingRecipes';
 import { getClassDef } from '../data/classes';
@@ -117,7 +118,7 @@ function calcEnemyDebuffMods(activeDebuffs: ActiveDebuff[]): {
 }
 
 /** Compute fortify damage reduction from stacks. Returns 0 if expired or no stacks. */
-function calcFortifyDR(fortifyStacks: number, fortifyExpiresAt: number, fortifyDRPerStack: number, now: number): number {
+export function calcFortifyDR(fortifyStacks: number, fortifyExpiresAt: number, fortifyDRPerStack: number, now: number): number {
   if (fortifyStacks <= 0 || now > fortifyExpiresAt) return 0;
   return Math.min(fortifyStacks * fortifyDRPerStack / 100, FORTIFY_MAX_DR);
 }
@@ -409,6 +410,10 @@ interface GameActions {
   checkDailyQuestReset: () => void;
   claimQuestReward: (questId: string) => boolean;
 
+  // Profession gear
+  equipProfessionGear: (itemId: string) => void;
+  unequipProfessionSlot: (slot: GearSlot) => void;
+
   // Tutorial
   advanceTutorial: (step: number) => void;
 
@@ -451,6 +456,7 @@ function createInitialState(): GameState {
     gatheringSkills: createDefaultGatheringSkills(),
     gatheringEquipment: {},
     selectedGatheringProfession: null,
+    professionEquipment: {},
     craftingSkills: createDefaultCraftingSkills(),
     autoSalvageMinRarity: 'common',
     autoDisposalAction: 'salvage' as const,
@@ -746,7 +752,8 @@ export const useGameStore = create<GameState & GameActions>()(
           if (state.idleMode === 'gathering') {
             const profession = state.selectedGatheringProfession;
             if (profession) {
-              initialClearTime = calcGatherClearTime(state.gatheringSkills[profession].level, zone);
+              const pb = resolveProfessionBonuses(state.professionEquipment);
+              initialClearTime = calcGatherClearTime(state.gatheringSkills[profession].level, zone, pb.gatherSpeed);
             }
           } else {
             const abilityEffect = getFullEffect(state, Date.now(), false);
@@ -805,14 +812,17 @@ export const useGameStore = create<GameState & GameActions>()(
           if (!profession) return null;
 
           const skillLevel = state.gatheringSkills[profession].level;
-          const rareFindBonus = calcRareFindBonus(skillLevel);
+          const profBonuses = resolveProfessionBonuses(state.professionEquipment);
+          const rareFindBonus = calcRareFindBonus(skillLevel, profBonuses.rareFind);
+          const yieldMult = 1.0 + profBonuses.gatherYield / 100;
+          const instantGatherChance = profBonuses.instantGather / 100;
           let accMaterials: Record<string, number> = {};
           let accRareMaterials: Record<string, number> = {};
           let totalGatheringXp = 0;
           const allItems: Item[] = [];
 
           for (let i = 0; i < clearCount; i++) {
-            const result = simulateGatheringClear(skillLevel, zone, profession, 1.0, 0, rareFindBonus);
+            const result = simulateGatheringClear(skillLevel, zone, profession, yieldMult, instantGatherChance, rareFindBonus);
             for (const [key, val] of Object.entries(result.materials)) {
               accMaterials[key] = (accMaterials[key] || 0) + val;
             }
@@ -820,7 +830,7 @@ export const useGameStore = create<GameState & GameActions>()(
               accRareMaterials[key] = (accRareMaterials[key] || 0) + val;
             }
             totalGatheringXp += result.gatheringXp;
-            if (result.gatheringGearDrop) allItems.push(result.gatheringGearDrop);
+            if (result.professionGearDrop) allItems.push(result.professionGearDrop);
           }
 
           // Apply materials directly to state
@@ -850,7 +860,7 @@ export const useGameStore = create<GameState & GameActions>()(
           const newClearStartedAt = state.clearStartedAt + clearCount * state.currentClearTime * 1000;
 
           // Recalculate clear time with potentially leveled-up skill
-          const newGatherClearTime = calcGatherClearTime(newGatheringSkills[profession].level, zone);
+          const newGatherClearTime = calcGatherClearTime(newGatheringSkills[profession].level, zone, profBonuses.gatherSpeed);
 
           set({
             materials: matsAfterItems,
@@ -913,6 +923,7 @@ export const useGameStore = create<GameState & GameActions>()(
           const effectiveMobId = state.currentMobTypeId ?? state.targetedMobId;
           const clear = simulateSingleClear(state.character, zone, abilityEffect, lootMod.rareFindBonus, lootMod.materialYieldBonus, effectiveMobId);
           if (clear.item) allItems.push(clear.item);
+          if (clear.professionGearDrop) allItems.push(clear.professionGearDrop);
 
           for (const [key, val] of Object.entries(clear.currencyDrops)) {
             accCurrencies[key as CurrencyType] += val;
@@ -1113,7 +1124,8 @@ export const useGameStore = create<GameState & GameActions>()(
         if (state.idleMode === 'gathering') {
           const profession = state.selectedGatheringProfession;
           if (!profession) return 999;
-          return calcGatherClearTime(state.gatheringSkills[profession].level, zone);
+          const pb = resolveProfessionBonuses(state.professionEquipment);
+          return calcGatherClearTime(state.gatheringSkills[profession].level, zone, pb.gatherSpeed);
         }
 
         const abilityEffect = getFullEffect(state, Date.now(), false);
@@ -1149,7 +1161,8 @@ export const useGameStore = create<GameState & GameActions>()(
           if (runningZone) {
             const zone = ZONE_DEFS.find(z => z.id === runningZone);
             if (zone && canGatherInZone(get().gatheringSkills[profession].level, zone)) {
-              const newClearTime = calcGatherClearTime(get().gatheringSkills[profession].level, zone);
+              const pb = resolveProfessionBonuses(get().professionEquipment);
+              const newClearTime = calcGatherClearTime(get().gatheringSkills[profession].level, zone, pb.gatherSpeed);
               const now = Date.now();
               set({
                 currentZoneId: runningZone,
@@ -1321,10 +1334,17 @@ export const useGameStore = create<GameState & GameActions>()(
         if (!recipe) return null;
         if (!canCraftRecipe(recipe, state.craftingSkills, state.materials, state.gold)) return null;
 
-        // Consume materials
+        // Resolve profession bonuses
+        const profBonuses = resolveProfessionBonuses(state.professionEquipment);
+
+        // Consume materials (with material preservation chance)
         const newMaterials = { ...state.materials };
         for (const { materialId, amount } of recipe.materials) {
-          newMaterials[materialId] = (newMaterials[materialId] ?? 0) - amount;
+          let consumed = 0;
+          for (let j = 0; j < amount; j++) {
+            if (Math.random() >= profBonuses.materialSave / 100) consumed++;
+          }
+          newMaterials[materialId] = (newMaterials[materialId] ?? 0) - consumed;
         }
         // Consume required catalyst
         if (recipe.requiredCatalyst) {
@@ -1339,16 +1359,23 @@ export const useGameStore = create<GameState & GameActions>()(
         if (affixCatalystId) {
           newMaterials[affixCatalystId] = (newMaterials[affixCatalystId] ?? 0) - 1;
         }
-        // Consume component cost
+        // Consume component cost (with material preservation)
         if (recipe.componentCost) {
           for (const { materialId, amount } of recipe.componentCost) {
-            newMaterials[materialId] = (newMaterials[materialId] ?? 0) - amount;
+            let consumed = 0;
+            for (let j = 0; j < amount; j++) {
+              if (Math.random() >= profBonuses.materialSave / 100) consumed++;
+            }
+            newMaterials[materialId] = (newMaterials[materialId] ?? 0) - consumed;
           }
         }
-        const newGold = state.gold - recipe.goldCost;
+        // Gold cost with reduction
+        const goldCost = Math.max(1, Math.round(recipe.goldCost * (1 - Math.min(profBonuses.goldEfficiency / 100, MAX_GOLD_EFFICIENCY))));
+        const newGold = state.gold - goldCost;
 
-        // Add crafting XP
-        const xp = getCraftingXpForTier(recipe.tier);
+        // Add crafting XP (with bonus)
+        const baseXp = getCraftingXpForTier(recipe.tier);
+        const xp = Math.round(baseXp * (1 + profBonuses.craftXp / 100));
         const newCraftingSkills = addCraftingXp(state.craftingSkills, recipe.profession, xp);
 
         // Material-producing recipe (e.g. alchemist catalysts)
@@ -1366,38 +1393,42 @@ export const useGameStore = create<GameState & GameActions>()(
           };
         }
 
-        // Generate item
-        const item = executeCraft(recipe, catalystId, affixCatalystId);
+        // Generate item (with profession gear bonus iLvl)
+        const item = executeCraft(recipe, catalystId, affixCatalystId, profBonuses.bonusIlvl);
+
+        // Critical craft: chance for double output
+        const isCrit = profBonuses.criticalCraft > 0 && Math.random() < profBonuses.criticalCraft / 100;
+        const critItem = isCrit ? executeCraft(recipe, catalystId, affixCatalystId, profBonuses.bonusIlvl) : null;
 
         // Place in output buffer first; overflow into inventory
         const currentBuffer = [...state.craftOutputBuffer];
         let wasSalvaged = false;
-        if (currentBuffer.length < CRAFT_OUTPUT_BUFFER_SIZE) {
-          currentBuffer.push(item);
-          set({
-            materials: newMaterials,
-            gold: newGold,
-            craftingSkills: newCraftingSkills,
-            craftOutputBuffer: currentBuffer,
-          });
-        } else {
-          // Buffer full — overflow to inventory with auto-salvage
-          const { newInventory, newMaterials: matsAfterItems, salvageStats } = addItemsWithOverflow(
-            state.inventory,
-            getInventoryCapacity(state),
-            state.craftAutoSalvageMinRarity,
-            'salvage',
-            newMaterials,
-            [item],
-          );
-          wasSalvaged = salvageStats.itemsSalvaged > 0;
-          set({
-            materials: matsAfterItems,
-            gold: newGold,
-            craftingSkills: newCraftingSkills,
-            inventory: newInventory,
-          });
+        const itemsToPlace = critItem ? [item, critItem] : [item];
+        let currentInventory = [...state.inventory];
+        for (const craftItem of itemsToPlace) {
+          if (currentBuffer.length < CRAFT_OUTPUT_BUFFER_SIZE) {
+            currentBuffer.push(craftItem);
+          } else {
+            const { newInventory: ni, newMaterials: mi, salvageStats: si } = addItemsWithOverflow(
+              currentInventory,
+              getInventoryCapacity(state),
+              state.craftAutoSalvageMinRarity,
+              'salvage',
+              newMaterials,
+              [craftItem],
+            );
+            if (si.itemsSalvaged > 0) wasSalvaged = true;
+            for (const [k, v] of Object.entries(mi)) newMaterials[k] = v;
+            currentInventory = ni;
+          }
         }
+        set({
+          materials: newMaterials,
+          gold: newGold,
+          craftingSkills: newCraftingSkills,
+          craftOutputBuffer: currentBuffer,
+          inventory: currentInventory,
+        });
 
         get().addCraftLogEntry({
           type: 'gear', recipeName: recipe.name, count: 1, xpGained: xp,
@@ -1413,6 +1444,8 @@ export const useGameStore = create<GameState & GameActions>()(
         const recipe = getCraftingRecipe(recipeId);
         if (!recipe) return null;
 
+        const profBonuses = resolveProfessionBonuses(state.professionEquipment);
+
         let curMaterials = { ...state.materials };
         let curGold = state.gold;
         let curCraftingSkills = { ...state.craftingSkills };
@@ -1424,9 +1457,13 @@ export const useGameStore = create<GameState & GameActions>()(
         for (let i = 0; i < count; i++) {
           if (!canCraftRecipe(recipe, curCraftingSkills, curMaterials, curGold)) break;
 
-          // Consume materials
+          // Consume materials (with material preservation)
           for (const { materialId, amount } of recipe.materials) {
-            curMaterials[materialId] = (curMaterials[materialId] ?? 0) - amount;
+            let consumed = 0;
+            for (let j = 0; j < amount; j++) {
+              if (Math.random() >= profBonuses.materialSave / 100) consumed++;
+            }
+            curMaterials[materialId] = (curMaterials[materialId] ?? 0) - consumed;
           }
           if (recipe.requiredCatalyst) {
             curMaterials[recipe.requiredCatalyst.rareMaterialId] =
@@ -1440,29 +1477,41 @@ export const useGameStore = create<GameState & GameActions>()(
           }
           if (recipe.componentCost) {
             for (const { materialId, amount } of recipe.componentCost) {
-              curMaterials[materialId] = (curMaterials[materialId] ?? 0) - amount;
+              let consumed = 0;
+              for (let j = 0; j < amount; j++) {
+                if (Math.random() >= profBonuses.materialSave / 100) consumed++;
+              }
+              curMaterials[materialId] = (curMaterials[materialId] ?? 0) - consumed;
             }
           }
-          curGold -= recipe.goldCost;
+          const goldCost = Math.max(1, Math.round(recipe.goldCost * (1 - Math.min(profBonuses.goldEfficiency / 100, MAX_GOLD_EFFICIENCY))));
+          curGold -= goldCost;
 
-          // Add crafting XP per craft
-          const xp = getCraftingXpForTier(recipe.tier);
+          // Add crafting XP per craft (with bonus)
+          const baseXp = getCraftingXpForTier(recipe.tier);
+          const xp = Math.round(baseXp * (1 + profBonuses.craftXp / 100));
           curCraftingSkills = addCraftingXp(curCraftingSkills, recipe.profession, xp);
 
           if (recipe.outputMaterialId) {
             curMaterials[recipe.outputMaterialId] = (curMaterials[recipe.outputMaterialId] ?? 0) + 1;
             materialOutputCount++;
           } else {
-            const item = executeCraft(recipe, catalystId, affixCatalystId);
+            const item = executeCraft(recipe, catalystId, affixCatalystId, profBonuses.bonusIlvl);
             allItems.push(item);
             lastItem = item;
+            // Critical craft
+            if (profBonuses.criticalCraft > 0 && Math.random() < profBonuses.criticalCraft / 100) {
+              const critItem = executeCraft(recipe, catalystId, affixCatalystId, profBonuses.bonusIlvl);
+              allItems.push(critItem);
+              lastItem = critItem;
+            }
           }
           crafted++;
         }
 
         if (crafted === 0) return null;
 
-        const totalXp = getCraftingXpForTier(recipe.tier) * crafted;
+        const totalXp = Math.round(getCraftingXpForTier(recipe.tier) * (1 + profBonuses.craftXp / 100)) * crafted;
 
         // Handle item recipes: fill output buffer first, overflow to inventory
         let salvaged = 0;
@@ -3159,6 +3208,43 @@ export const useGameStore = create<GameState & GameActions>()(
         return false;
       },
 
+      // --- Profession Gear ---
+
+      equipProfessionGear: (itemId: string) => {
+        set((state) => {
+          const idx = state.inventory.findIndex(i => i.id === itemId);
+          if (idx === -1) return state;
+          const item = state.inventory[idx];
+          if (!item.isProfessionGear) return state;
+
+          const slot = item.slot;
+          const newInventory = [...state.inventory];
+          newInventory.splice(idx, 1);
+
+          // Unequip existing item in that slot back to inventory
+          const existing = state.professionEquipment[slot];
+          if (existing) newInventory.push(existing);
+
+          return {
+            inventory: newInventory,
+            professionEquipment: { ...state.professionEquipment, [slot]: item },
+          };
+        });
+      },
+
+      unequipProfessionSlot: (slot: GearSlot) => {
+        set((state) => {
+          const item = state.professionEquipment[slot];
+          if (!item) return state;
+          const newEquip = { ...state.professionEquipment };
+          delete newEquip[slot];
+          return {
+            inventory: [...state.inventory, item],
+            professionEquipment: newEquip,
+          };
+        });
+      },
+
       advanceTutorial: (step: number) => {
         set((state) => {
           // Only advance forward, or set to 0 (done)
@@ -3260,7 +3346,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 34,
+      version: 35,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -3376,14 +3462,18 @@ export const useGameStore = create<GameState & GameActions>()(
               return;
             }
             const skillLevel = state.gatheringSkills[profession].level;
-            const clearTime = calcGatherClearTime(skillLevel, zone);
+            const offlineProfBonuses = resolveProfessionBonuses(state.professionEquipment);
+            const clearTime = calcGatherClearTime(skillLevel, zone, offlineProfBonuses.gatherSpeed);
             const clearsCompleted = Math.floor(elapsedSeconds / clearTime);
 
             if (clearsCompleted > 0) {
               let accMaterials: Record<string, number> = {};
               let totalGatheringXp = 0;
+              const offlineYieldMult = 1.0 + offlineProfBonuses.gatherYield / 100;
+              const offlineInstantChance = offlineProfBonuses.instantGather / 100;
+              const offlineRareFindBonus = calcRareFindBonus(skillLevel, offlineProfBonuses.rareFind);
               for (let i = 0; i < clearsCompleted; i++) {
-                const result = simulateGatheringClear(skillLevel, zone, profession);
+                const result = simulateGatheringClear(skillLevel, zone, profession, offlineYieldMult, offlineInstantChance, offlineRareFindBonus);
                 for (const [key, val] of Object.entries(result.materials)) {
                   accMaterials[key] = (accMaterials[key] || 0) + val;
                 }
@@ -3892,6 +3982,28 @@ export const useGameStore = create<GameState & GameActions>()(
           // v34: Craft output buffer (persisted staging area for crafted gear).
           // craftLog is ephemeral (reset on rehydrate), no migration needed.
           (state as any).craftOutputBuffer = [];
+        }
+
+        if (version < 35) {
+          // v35: Profession gear system.
+          // Initialize profession equipment.
+          (state as any).professionEquipment = {};
+          // Wipe old gatheringEquipment (bonuses were never applied, safe to drop).
+          (state as any).gatheringEquipment = {};
+          // Re-tag any isGatheringGear items in inventory as isProfessionGear.
+          for (const item of ((state as any).inventory ?? [])) {
+            if (item.isGatheringGear) {
+              item.isProfessionGear = true;
+              delete item.isGatheringGear;
+            }
+          }
+          // Also check craft output buffer.
+          for (const item of ((state as any).craftOutputBuffer ?? [])) {
+            if (item.isGatheringGear) {
+              item.isProfessionGear = true;
+              delete item.isGatheringGear;
+            }
+          }
         }
 
         return state;

@@ -1,10 +1,21 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-03 (Post-Phase 3: Chain Lightning Showcase Tree)
+> Last updated: 2026-03-03 (Post-Sprint: Combat Status Feedback)
 
 ## Current Phase
-**Phase 3: Chain Lightning 5-Branch Skill Tree Showcase** — COMPLETE.
+**Sprint: Combat Status Feedback — Debuff Badges + Fortify Indicators** — COMPLETE.
+
+- **Purpose**: Add visual status indicators so players can see their build systems working during combat. Debuff badges on mobs, fortify indicator on player HP, subtle glow effects.
+- **Debuff badges**: 10 debuff types (chilled, shocked, burning, poisoned, bleeding, weakened, blinded, vulnerable, cursed, slowed) with color-coded compact badges (3-letter labels + stack counts) on MobDisplay and BossFightDisplay.
+- **Fortify indicator**: Shows "FORT {stacks} ({DR}% DR)" on PlayerHpBar and BossFightDisplay player HP section when fortify is active.
+- **Glow effects**: Subtle pulsing `debuff-glow` (red) on debuffed mobs, `fortify-glow` (amber) on fortified player HP bars.
+- **No new files. No new types. No save migration.**
+- **Save version**: v34 (unchanged)
+- **Files modified**: `src/store/gameStore.ts` (export calcFortifyDR), `src/ui/screens/ZoneScreen.tsx` (DebuffBadge component, wired debuff/fortify props to MobDisplay/PlayerHpBar/BossFightDisplay), `src/index.css` (debuff-glow + fortify-glow keyframes), `docs/PROJECT_STATUS.md`
+- **Next**: TBD — More skill trees, balance tuning, or further UI polish.
+
+**Previous: Phase 3: Chain Lightning 5-Branch Skill Tree Showcase** — COMPLETE.
 
 - **Purpose**: Replace the boring 3-branch, 34-node Chain Lightning graph with a 51-node, 5-branch showcase tree that exercises all Phase 2 modifier systems. Establishes the pattern for all future weapon skill trees.
 - **5 branches**:
