@@ -579,6 +579,9 @@ export interface SkillModifier {
   // Buff/passive effect passthrough
   abilityEffect?: Partial<AbilityEffect>;
 
+  // Cross-skill: buffs ALL equipped skills, not just this skill's tree
+  globalEffect?: Partial<AbilityEffect>;
+
   // Duration/cooldown
   durationBonus?: number;       // +X seconds to duration
   cooldownReduction?: number;   // -X% cooldown

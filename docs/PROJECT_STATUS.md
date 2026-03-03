@@ -1,10 +1,22 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-02 (Post-Sprint 11B: Per-Skill Graph Trees — Wand Prototype)
+> Last updated: 2026-03-02 (Post-Sprint 11B-Polish: Skill Graph — Cooler Nodes + Better UX)
 
 ## Current Phase
-**Sprint 11B: Per-Skill Graph Trees (Wand Prototype)** — COMPLETE.
+**Sprint 11B-Polish: Skill Graph Tree — Cooler Nodes + Better UX** — COMPLETE.
+
+- **Cross-skill `globalEffect`**: New `SkillModifier.globalEffect` field. Keystones can now buff ALL equipped skills, not just their own tree. Wired through `ResolvedSkillModifier`, `resolveSkillGraphModifiers()`, new `aggregateGraphGlobalEffects()`, and `getFullEffect()` in gameStore.
+- **Minor node diversification**: ~60% of single-stat minors converted to 2-stat combos (e.g., `+3% damage, +2 flat` instead of `+5% damage`). Themed per branch: power branch (damage + flat), utility branch (speed + CD), crit branch (crit chance + crit dmg).
+- **Notable upgrades**: Several notables upgraded to mini-keystones: `Spell Echo` now gives +1 extra hit, `Ball Lightning`/`Avalanche`/`Dark Explosion` add AoE conversion, `Storm Conduit` adds shock chance, `Arcane Mastery` has +1% crit globalEffect.
+- **Keystone overhaul**: All 18 active-skill keystones now have `globalEffect` (cross-skill bonuses like +5% all damage, +5% all speed, +10% defense, +10% items, etc.). 3 buff/passive keystones also got `globalEffect` (Magnetic Storm +5% items, Temporal Mastery +5% clear speed, Enlightenment +5% XP).
+- **Debuff-flavored minors**: 2 minors per element tree get small debuff application (5% chance, 2s duration) for Chain Lightning (shock), Frostbolt (chill), Searing Ray (burn), Essence Drain (poison).
+- **Select-then-allocate UX**: Click = select node (detail panel), double-click = allocate directly. Detail panel shows name, type badge, description, modifiers, connections, and Allocate button. Works on both desktop and mobile.
+- **Visual polish**: Notable/keystone labels on SVG nodes. Available nodes pulse green (`node-pulse` keyframe). Allocation triggers purple flash (`node-allocate` keyframe). Selected nodes have blue pulsing ring (`node-selected`). Connection lines: `strokeLinecap="round"`, wider allocated lines (2.5), unallocated notable paths in faint blue.
+- **Mobile path-tracing view**: SVG hidden on mobile (via `useIsMobile`). New branch-tabbed path view: `deriveBranches()` BFS algorithm traces 3 branches from start to keystones, plus cross-connect section. Full-width cards with type indicator, mod text, connection lines (purple/dashed/gray by allocation state). Tap = select (shows Allocate button), no accidental allocation.
+- **No save migration needed**: All node IDs unchanged. `globalEffect` defaults to undefined (no-op) for existing allocations.
+
+**Previous: Sprint 11B: Per-Skill Graph Trees (Wand Prototype)** — COMPLETE.
 
 - **Branching graph skill trees**: Replaced linear 3-path skill trees with PoE-style branching graph trees. Prototype with all 9 wand skills (6 active + 3 buff/passive). ~35 nodes per tree, ~315 total nodes.
 - **3 node types**: Minor (small stat bumps), Notable (medium bonuses), Keystone (build-defining mechanics). Start node auto-available, must path through connected nodes.

@@ -1,7 +1,7 @@
 # Idle Exile — Sprint Plan & Roadmap
 
 > **Full development roadmap.** Read `PROJECT_STATUS.md` first for current state.
-> Last updated: 2026-03-02 (Post-Sprint 10Q)
+> Last updated: 2026-03-02 (Post-Sprint 11B-Polish)
 
 ## Micro-Sprint Workflow
 
@@ -67,6 +67,9 @@ Each conversation = one micro-sprint (3-5 focused changes):
 | **10N** | **Skill XP + Passive Points: all equipped skills earn XP, max level 20, quadratic XP curve, level badges on skill bar** |
 | **10O** | **Per-Hit Defense System: rollZoneAttack pipeline (dodge→block→armor→resist), simulateClearDefense, boss per-hit attacks, life leech, regen cap** |
 | **10Q** | **Real-Time Zone Defense + Swing Timer: zone attacks in tickCombat (mirrors boss model), enemy swing timer UI, enemy damage floaters, balance retuning, removed batched defense from processNewClears** |
+| **11A** | **Class Talent Trees: 4 classes x 3 paths x 8 nodes = 96 talent nodes, keystones, ClassTalentPanel UI** |
+| **11B** | **Per-Skill Graph Trees (Wand): 9 wand skills x ~35 nodes, SkillModifier system, debuffs, element/AoE conversion, SkillGraphView** |
+| **11B-Polish** | **Skill Graph — Cooler Nodes + Better UX: cross-skill globalEffect on keystones, 2-stat minor combos, select-then-allocate, mobile branch path view, SVG visual polish** |
 
 See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
 

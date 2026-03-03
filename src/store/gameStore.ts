@@ -51,7 +51,7 @@ import {
 } from '../engine/classResource';
 import { getDefaultSkillForWeapon } from '../engine/unifiedSkills';
 import { getSkillDef } from '../data/unifiedSkills';
-import { aggregateSkillBarEffects, getPrimaryDamageSkill, getNextRotationSkill, getSkillEffectiveDuration, getSkillEffectiveCooldown, mergeEffect, getSkillGraphModifier } from '../engine/unifiedSkills';
+import { aggregateSkillBarEffects, aggregateGraphGlobalEffects, getPrimaryDamageSkill, getNextRotationSkill, getSkillEffectiveDuration, getSkillEffectiveCooldown, mergeEffect, getSkillGraphModifier } from '../engine/unifiedSkills';
 import { aggregateClassTalentEffect, canAllocateTalentNode, allocateTalentNode as allocateTalentNodeEngine, respecTalents as respecTalentsEngine, getTalentRespecCost } from '../engine/classTalents';
 import { getUnifiedSkillDef, ABILITY_ID_MIGRATION } from '../data/unifiedSkills';
 import { canAllocateGraphNode, allocateGraphNode, respecGraphNodes, getGraphRespecCost } from '../engine/skillGraph';
@@ -195,7 +195,11 @@ function getFullEffect(
     offlineMode,
   );
   const talentEffect = aggregateClassTalentEffect(state.character.class, state.talentAllocations);
-  return mergeEffect(skillEffect, talentEffect);
+  const graphGlobalEffect = aggregateGraphGlobalEffects(
+    overrides?.skillBar ?? state.skillBar,
+    overrides?.skillProgress ?? state.skillProgress,
+  );
+  return mergeEffect(mergeEffect(skillEffect, talentEffect), graphGlobalEffect);
 }
 
 /**

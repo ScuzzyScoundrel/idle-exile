@@ -465,6 +465,29 @@ export function aggregateSkillBarEffects(
   return result;
 }
 
+// ─── Graph Global Effects ───
+
+/**
+ * Aggregate globalEffect from ALL equipped skills' graph trees.
+ * These cross-skill effects (from keystones) buff ALL skills, not just their own tree.
+ */
+export function aggregateGraphGlobalEffects(
+  skillBar: (EquippedSkill | null)[],
+  skillProgress: Record<string, SkillProgress>,
+): AbilityEffect {
+  let result: AbilityEffect = {};
+  for (const slot of skillBar) {
+    if (!slot) continue;
+    const def = getUnifiedSkillDef(slot.skillId);
+    if (!def?.skillGraph) continue;
+    const progress = skillProgress[slot.skillId];
+    if (!progress || progress.allocatedNodes.length === 0) continue;
+    const mod = resolveSkillGraphModifiers(def.skillGraph, progress.allocatedNodes);
+    result = mergeEffect(result, mod.globalEffect);
+  }
+  return result;
+}
+
 // ─── Compatibility ───
 
 /**

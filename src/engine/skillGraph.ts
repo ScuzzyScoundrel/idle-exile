@@ -16,6 +16,7 @@ export interface ResolvedSkillModifier {
   durationBonus: number;
   cooldownReduction: number;
   abilityEffect: AbilityEffect;
+  globalEffect: AbilityEffect;
   convertElement: { from: string; to: string; percent: number } | null;
   convertToAoE: boolean;
   debuffs: { debuffId: string; chance: number; duration: number }[];
@@ -34,6 +35,7 @@ export const EMPTY_GRAPH_MOD: ResolvedSkillModifier = {
   durationBonus: 0,
   cooldownReduction: 0,
   abilityEffect: {},
+  globalEffect: {},
   convertElement: null,
   convertToAoE: false,
   debuffs: [],
@@ -52,6 +54,7 @@ export function resolveSkillGraphModifiers(
 ): ResolvedSkillModifier {
   const result: ResolvedSkillModifier = { ...EMPTY_GRAPH_MOD, debuffs: [], procs: [], flags: [] };
   let abilEffect: AbilityEffect = {};
+  let globalEff: AbilityEffect = {};
 
   for (const nodeId of allocatedNodes) {
     const node = graph.nodes.find(n => n.id === nodeId);
@@ -87,6 +90,25 @@ export function resolveSkillGraphModifiers(
       };
     }
 
+    // GlobalEffect passthrough — same merge pattern as abilityEffect
+    if (m.globalEffect) {
+      const ge = m.globalEffect;
+      globalEff = {
+        damageMult: (globalEff.damageMult ?? 1) * (ge.damageMult ?? 1),
+        attackSpeedMult: (globalEff.attackSpeedMult ?? 1) * (ge.attackSpeedMult ?? 1),
+        defenseMult: (globalEff.defenseMult ?? 1) * (ge.defenseMult ?? 1),
+        clearSpeedMult: (globalEff.clearSpeedMult ?? 1) * (ge.clearSpeedMult ?? 1),
+        xpMult: (globalEff.xpMult ?? 1) * (ge.xpMult ?? 1),
+        itemDropMult: (globalEff.itemDropMult ?? 1) * (ge.itemDropMult ?? 1),
+        materialDropMult: (globalEff.materialDropMult ?? 1) * (ge.materialDropMult ?? 1),
+        critChanceBonus: (globalEff.critChanceBonus ?? 0) + (ge.critChanceBonus ?? 0),
+        critMultiplierBonus: (globalEff.critMultiplierBonus ?? 0) + (ge.critMultiplierBonus ?? 0),
+        resistBonus: (globalEff.resistBonus ?? 0) + (ge.resistBonus ?? 0),
+        ignoreHazards: (globalEff.ignoreHazards ?? false) || (ge.ignoreHazards ?? false),
+        doubleClears: (globalEff.doubleClears ?? false) || (ge.doubleClears ?? false),
+      };
+    }
+
     // Conversion: last-wins
     if (m.convertElement) result.convertElement = m.convertElement;
     if (m.convertToAoE) result.convertToAoE = true;
@@ -98,6 +120,7 @@ export function resolveSkillGraphModifiers(
   }
 
   result.abilityEffect = abilEffect;
+  result.globalEffect = globalEff;
   return result;
 }
 
