@@ -205,6 +205,7 @@ export default function InventoryScreen() {
   const handleEquip = (item: Item) => {
     equipItem(item);
     setSelectedItem(null);
+    setSelectedCurrency(null);
   };
 
   const advanceSelection = (idx: number) => {
@@ -218,6 +219,7 @@ export default function InventoryScreen() {
       setSelectedItem(remaining[Math.min(idx, remaining.length - 1)]);
     } else {
       setSelectedItem(null);
+      setSelectedCurrency(null);
     }
   };
 
@@ -260,6 +262,7 @@ export default function InventoryScreen() {
     }
     showFeedback('disenchant', `Disenchanted ${count} items — ${formatReward(totalCurr, totalMats)}`);
     setSelectedItem(null);
+    setSelectedCurrency(null);
   };
 
   const handleCraft = (item: Item) => {
@@ -402,6 +405,7 @@ export default function InventoryScreen() {
                   if (selectedEquipSlot) {
                     unequipSlot(selectedEquipSlot);
                     setSelectedItem(null);
+                    setSelectedCurrency(null);
                   }
                 }}
                 className="flex-1 py-2 bg-yellow-700 hover:bg-yellow-600 text-white text-sm rounded-lg font-semibold"
@@ -663,6 +667,7 @@ export default function InventoryScreen() {
               e.preventDefault();
               equipItem(item);
               setSelectedItem(null);
+              setSelectedCurrency(null);
             }}
             onMouseEnter={isMobile ? undefined : (e) => showTooltip(e, item, item.slot)}
             onMouseLeave={isMobile ? undefined : hideTooltip}

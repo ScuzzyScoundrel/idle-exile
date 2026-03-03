@@ -222,7 +222,7 @@ export default function SkillPanel() {
           return (
             <div
               key={skill.id}
-              className={`rounded-lg border p-2 transition-all ${
+              className={`rounded-lg border p-2 transition-all overflow-hidden ${
                 isEquipped
                   ? 'border-yellow-600 bg-yellow-950/20'
                   : isLocked
@@ -234,7 +234,7 @@ export default function SkillPanel() {
                 <span className="text-lg">{isLocked ? '\uD83D\uDD12' : skill.icon}</span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className={`text-xs font-bold ${isLocked ? 'text-gray-500' : 'text-white'}`}>
+                    <span className={`text-xs font-bold truncate ${isLocked ? 'text-gray-500' : 'text-white'}`}>
                       {skill.name}
                     </span>
                     <span className={`text-xs px-1 rounded ${KIND_BADGE_COLORS[skill.kind] ?? 'bg-gray-700 text-gray-300'}`}>

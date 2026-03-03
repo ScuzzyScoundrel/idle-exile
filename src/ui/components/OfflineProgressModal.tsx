@@ -67,9 +67,9 @@ export default function OfflineProgressModal() {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div className="w-full max-w-lg bg-gray-900 rounded-xl border border-indigo-500/30 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+      <div className="w-full max-w-lg bg-gray-900 rounded-xl border border-indigo-500/30 shadow-2xl overflow-hidden max-h-[85vh] flex flex-col">
         {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-900 via-purple-900 to-indigo-900 px-6 py-5 text-center">
+        <div className="bg-gradient-to-r from-indigo-900 via-purple-900 to-indigo-900 px-4 py-3 sm:px-6 sm:py-5 text-center">
           <h2 className="text-2xl font-bold text-white">Welcome Back, Exile!</h2>
           <p className="text-indigo-200 mt-1">
             You were away for <span className="font-semibold text-white">{formatDuration(progress.elapsedSeconds)}</span>
@@ -80,7 +80,7 @@ export default function OfflineProgressModal() {
         </div>
 
         {/* Scrollable content */}
-        <div className="overflow-y-auto flex-1 px-6 py-4 space-y-4">
+        <div className="overflow-y-auto flex-1 px-4 py-3 sm:px-6 sm:py-4 space-y-4">
           {/* Stats grid */}
           <div className="grid grid-cols-3 gap-3">
             <StatCard label="Clears" value={formatNumber(progress.clearsCompleted)} icon={'\u2694\uFE0F'} />
@@ -197,7 +197,7 @@ export default function OfflineProgressModal() {
         </div>
 
         {/* Claim button */}
-        <div className="px-6 py-4 bg-gray-900 border-t border-gray-700">
+        <div className="px-4 py-3 sm:px-6 sm:py-4 bg-gray-900 border-t border-gray-700">
           <button
             onClick={claimOfflineProgress}
             className="w-full py-3 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-lg transition-all active:scale-[0.98]"
