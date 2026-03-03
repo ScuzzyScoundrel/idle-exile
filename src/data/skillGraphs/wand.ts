@@ -104,28 +104,32 @@ const CHAIN_LIGHTNING_GRAPH: SkillGraph = {
       ['cl_start', 'cl_b1_m1', 'cl_x12', 'cl_x31'],
       { incCritChance: 5, flatDamage: 3 }),
 
-    minor('cl_b1_m1', 'Charged Bolts', '+5% crit multiplier. 15% on hit: Shock (2s).', 2,
+    minor('cl_b1_m1', 'Charged Bolts', '+5% crit multiplier. 15% on hit: Shock (2s). Crits apply Vulnerable (4s).', 2,
       ['cl_b1_root', 'cl_b1_n1', 'cl_x12', 'cl_x31'],
       { incCritMultiplier: 5,
-        procs: [{ id: 'cl_b1_m1_shock', chance: 0.15, trigger: 'onHit',
-          applyDebuff: { debuffId: 'shocked', stacks: 1, duration: 2 } }] }),
+        procs: [
+          { id: 'cl_b1_m1_shock', chance: 0.15, trigger: 'onHit',
+            applyDebuff: { debuffId: 'shocked', stacks: 1, duration: 2 } },
+          { id: 'cl_b1_m1_vuln', chance: 1.0, trigger: 'onCrit',
+            applyDebuff: { debuffId: 'vulnerable', stacks: 1, duration: 4 } },
+        ] }),
 
-    notable('cl_b1_n1', 'Spellslinger', '25% on crit: cast Frostbolt. Crits guarantee Shock (3s). +10% crit chance.', 3,
+    notable('cl_b1_n1', 'Spellslinger', '25% on crit: cast Frostbolt. On kill: reset Frostbolt CD. Crits guarantee Shock (3s). +10% crit chance.', 3,
       ['cl_b1_m1', 'cl_b1_k'],
       { incCritChance: 10,
         applyDebuff: { debuffId: 'shocked', chance: 1.0, duration: 3 },
-        procs: [{ id: 'cl_b1_n1_fb', chance: 0.25, trigger: 'onCrit', castSkill: 'wand_frostbolt' }] }),
+        procs: [
+          { id: 'cl_b1_n1_fb', chance: 0.25, trigger: 'onCrit', castSkill: 'wand_frostbolt' },
+          { id: 'cl_b1_n1_reset', chance: 1.0, trigger: 'onKill', resetCooldown: 'wand_frostbolt' },
+        ] }),
 
     keystone('cl_b1_k', 'CHAIN REACTION',
-      '-35% CL base damage. 35% on crit: cast Frostbolt. 15% on crit: cast Void Blast. Crits apply Vulnerable (4s). On kill: reset Frostbolt CD. +5% crit to all skills.', 4,
+      'Your critical strikes always cast Void Blast. -35% CL base damage. +5% crit to all skills.', 4,
       ['cl_b1_n1'],
       { incDamage: -35,
         procs: [
-          { id: 'cl_b1_k_fb', chance: 0.35, trigger: 'onCrit', castSkill: 'wand_frostbolt' },
-          { id: 'cl_b1_k_vb', chance: 0.15, trigger: 'onCrit', castSkill: 'wand_void_blast' },
-          { id: 'cl_b1_k_reset', chance: 1.0, trigger: 'onKill', resetCooldown: 'wand_frostbolt' },
+          { id: 'cl_b1_k_vb', chance: 1.0, trigger: 'onCrit', castSkill: 'wand_void_blast' },
         ],
-        applyDebuff: { debuffId: 'vulnerable', chance: 1.0, duration: 4 },
         globalEffect: { critChanceBonus: 5 } }),
 
     // ═══════════════════════════════════════
@@ -140,11 +144,14 @@ const CHAIN_LIGHTNING_GRAPH: SkillGraph = {
         procs: [{ id: 'cl_b2_root_burn', chance: 0.25, trigger: 'onHit',
           applyDebuff: { debuffId: 'burning', stacks: 1, duration: 3 } }] }),
 
-    minor('cl_b2_m1', 'Storm Conductor', 'Guaranteed Shock on hit. 20% on hit: Chill (3s).', 2,
+    minor('cl_b2_m1', 'Storm Conductor', 'Guaranteed Shock on hit. 20% on hit: Chill (3s). On kill: reset Essence Drain CD.', 2,
       ['cl_b2_root', 'cl_b2_n1', 'cl_x12', 'cl_x23'],
       { applyDebuff: { debuffId: 'shocked', chance: 1.0, duration: 3 },
-        procs: [{ id: 'cl_b2_m1_chill', chance: 0.20, trigger: 'onHit',
-          applyDebuff: { debuffId: 'chilled', stacks: 1, duration: 3 } }] }),
+        procs: [
+          { id: 'cl_b2_m1_chill', chance: 0.20, trigger: 'onHit',
+            applyDebuff: { debuffId: 'chilled', stacks: 1, duration: 3 } },
+          { id: 'cl_b2_m1_reset', chance: 1.0, trigger: 'onKill', resetCooldown: 'wand_essence_drain' },
+        ] }),
 
     notable('cl_b2_n1', 'Prismatic Touch', '25% on hit: Chill. 25% on hit: Poison. +25% debuff duration. +5% cast speed while 3+ debuffs active.', 3,
       ['cl_b2_m1', 'cl_b2_k'],
@@ -156,18 +163,11 @@ const CHAIN_LIGHTNING_GRAPH: SkillGraph = {
         conditionalMods: [{ condition: 'whileDebuffActive', threshold: 3, modifier: { incCastSpeed: 5 } }] }),
 
     keystone('cl_b2_k', 'PRISMATIC STORM',
-      '-40% CL base damage. Guaranteed Shock + Burn. 40% on hit: Chill, Poison, Cursed each. Debuff effects +50%. +15% attack speed to all skills. On kill: reset Essence Drain CD.', 4,
+      'Your hits always apply Cursed. All debuff effects doubled. -40% CL base damage. +15% attack speed to all skills.', 4,
       ['cl_b2_n1'],
       { incDamage: -40,
-        applyDebuff: { debuffId: 'shocked', chance: 1.0, duration: 4 },
-        procs: [
-          { id: 'cl_b2_k_burn', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'burning', stacks: 1, duration: 4 } },
-          { id: 'cl_b2_k_chill', chance: 0.40, trigger: 'onHit', applyDebuff: { debuffId: 'chilled', stacks: 1, duration: 4 } },
-          { id: 'cl_b2_k_poison', chance: 0.40, trigger: 'onHit', applyDebuff: { debuffId: 'poisoned', stacks: 1, duration: 4 } },
-          { id: 'cl_b2_k_curse', chance: 0.40, trigger: 'onHit', applyDebuff: { debuffId: 'cursed', stacks: 1, duration: 4 } },
-          { id: 'cl_b2_k_reset', chance: 1.0, trigger: 'onKill', resetCooldown: 'wand_essence_drain' },
-        ],
-        debuffInteraction: { debuffEffectBonus: 50 },
+        applyDebuff: { debuffId: 'cursed', chance: 1.0, duration: 4 },
+        debuffInteraction: { debuffEffectBonus: 100 },
         globalEffect: { attackSpeedMult: 1.15 } }),
 
     // ═══════════════════════════════════════
@@ -184,23 +184,22 @@ const CHAIN_LIGHTNING_GRAPH: SkillGraph = {
       { fortifyOnHit: { stacks: 1, duration: 5, damageReduction: 3 },
         abilityEffect: { resistBonus: 5 } }),
 
-    notable('cl_b3_n1', 'Storm Armor', 'Fortify on hit (2 stacks, 5s, 4% DR). On dodge: bonus CL cast. +5% armor→damage.', 3,
+    notable('cl_b3_n1', 'Storm Armor', 'Fortify on hit (2 stacks, 5s, 4% DR). On dodge: cast Void Blast. +5% armor→damage. 5% life leech. +15 all resist.', 3,
       ['cl_b3_m1', 'cl_b3_k'],
       { fortifyOnHit: { stacks: 2, duration: 5, damageReduction: 4 },
         damageFromArmor: 5,
-        procs: [{ id: 'cl_b3_n1_bc', chance: 1.0, trigger: 'onDodge', bonusCast: true }] }),
+        leechPercent: 5,
+        abilityEffect: { resistBonus: 15 },
+        procs: [{ id: 'cl_b3_n1_vb', chance: 1.0, trigger: 'onDodge', castSkill: 'wand_void_blast' }] }),
 
     keystone('cl_b3_k', 'EYE OF THE STORM',
-      '-20% CL base damage. Fortify on hit (3 stacks, 6s, 5% DR). On dodge: cast Void Blast. On block: cast Frostbolt. 5% life leech (global). +15 all resist.', 4,
+      'When you block, cast Frostbolt. Fortify on hit (3 stacks, 6s, 5% DR). -20% CL base damage. +10% defense to all skills.', 4,
       ['cl_b3_n1'],
       { incDamage: -20,
         fortifyOnHit: { stacks: 3, duration: 6, damageReduction: 5 },
         procs: [
-          { id: 'cl_b3_k_dodge_vb', chance: 1.0, trigger: 'onDodge', castSkill: 'wand_void_blast' },
           { id: 'cl_b3_k_block_fb', chance: 1.0, trigger: 'onBlock', castSkill: 'wand_frostbolt' },
         ],
-        leechPercent: 5,
-        abilityEffect: { resistBonus: 15 },
         globalEffect: { defenseMult: 1.10 } }),
 
     // ═══════════════════════════════════════

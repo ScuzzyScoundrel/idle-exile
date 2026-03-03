@@ -680,18 +680,18 @@ Replaced the 51-node, 5-branch CL showcase tree with a 15-node, 3-branch rotatio
 
 **B1: Voltaic Trigger** (Crit Spellslinger)
 - Play pattern: CL crits → Frostbolt fires free → Frostbolt AoE exploits Vulnerable. Kill → Frostbolt CD resets.
-- Root: +5% crit, +3 flat. Minor: +5% crit mult, 15% onHit Shock. Notable: 25% onCrit cast Frostbolt, guaranteed Shock, +10% crit.
-- **CHAIN REACTION** keystone: -35% CL damage. 35% onCrit Frostbolt, 15% onCrit Void Blast. Crits apply Vulnerable. onKill reset Frostbolt CD. +5% crit to all skills.
+- Root: +5% crit, +3 flat. Minor: +5% crit mult, 15% onHit Shock, **crits apply Vulnerable (4s)**. Notable: 25% onCrit cast Frostbolt, **onKill reset Frostbolt CD**, guaranteed Shock, +10% crit.
+- **CHAIN REACTION** keystone: *"Your critical strikes always cast Void Blast."* 100% onCrit cast Void Blast. -35% CL damage. +5% crit to all skills.
 
 **B2: Tempest Weaver** (Debuff Overload)
 - Play pattern: CL paints enemies with 4-5 debuffs. All rotation skills benefit from debuff-stacked enemies.
-- Root: +3% damage, 25% onHit Burn. Minor: guaranteed Shock, 20% onHit Chill. Notable: 25% onHit Chill/Poison, +25% debuff duration, +5% cast speed at 3+ debuffs.
-- **PRISMATIC STORM** keystone: -40% CL damage. Guaranteed Shock + Burn. 40% each Chill/Poison/Cursed. +50% debuff effects. +15% attack speed to all skills. onKill reset Essence Drain CD.
+- Root: +3% damage, 25% onHit Burn. Minor: guaranteed Shock, 20% onHit Chill, **onKill reset Essence Drain CD**. Notable: 25% onHit Chill/Poison, +25% debuff duration, +5% cast speed at 3+ debuffs.
+- **PRISMATIC STORM** keystone: *"Your hits always apply Cursed. All debuff effects doubled."* Guaranteed Cursed (4s). debuffEffectBonus 100. -40% CL damage. +15% attack speed to all skills.
 
 **B3: Stormshield** (Reactive Counter-Attacker)
-- Play pattern: CL builds fortify. Dodge → cast Void Blast. Block → cast Frostbolt. Defense = offense.
-- Root: +3 life on hit, +10 resist. Minor: Fortify (1 stack, 5s, 3% DR), +5 resist. Notable: Fortify (2 stacks, 5s, 4% DR), onDodge bonus CL cast, +5% armor→damage.
-- **EYE OF THE STORM** keystone: -20% CL damage. Fortify (3 stacks, 6s, 5% DR). onDodge cast Void Blast. onBlock cast Frostbolt. 5% life leech. +15 resist.
+- Play pattern: CL builds fortify. Dodge → cast Void Blast (from notable). Block → cast Frostbolt (from keystone). Defense = offense.
+- Root: +3 life on hit, +10 resist. Minor: Fortify (1 stack, 5s, 3% DR), +5 resist. Notable: Fortify (2 stacks, 5s, 4% DR), **onDodge cast Void Blast**, +5% armor→damage, **5% life leech**, **+15 resist**.
+- **EYE OF THE STORM** keystone: *"When you block, cast Frostbolt."* Fortify (3 stacks, 6s, 5% DR). -20% CL damage. +10% defense to all skills.
 
 ### Engine Work
 - **onDodge/onBlock proc triggers**: Added defensive proc evaluation in `gameStore.ts` `tickCombat` after both boss attack and zone attack resolution. When `bossAttackResult.isDodged/isBlocked` or `zoneAttackResult.isDodged/isBlocked`, evaluates `skillProcs` for `onDodge`/`onBlock` triggers. Applies damage directly to enemy (not via `procDamage` which was already applied). Merges temp buffs and debuffs using same patterns as onHit/onCrit procs.
@@ -700,22 +700,21 @@ Replaced the 51-node, 5-branch CL showcase tree with a 15-node, 3-branch rotatio
 ### Modifier Systems Used
 | System | Nodes |
 |---|---|
-| procs/castSkill | B1 n1 (Frostbolt), B1 k (Frostbolt + Void Blast), B3 k (Void Blast + Frostbolt) |
-| procs/resetCooldown | B1 k (Frostbolt), B2 k (Essence Drain) |
-| procs/bonusCast | B3 n1 (onDodge) |
-| procs/applyDebuff | B1 m1, B2 root, B2 m1, B2 n1, B2 k (5 procs), x12, x23 |
+| procs/castSkill | B1 n1 (onCrit Frostbolt), B1 k (onCrit Void Blast), B3 n1 (onDodge Void Blast), B3 k (onBlock Frostbolt) |
+| procs/resetCooldown | B1 n1 (onKill Frostbolt), B2 m1 (onKill Essence Drain) |
+| procs/applyDebuff | B1 m1 (onHit Shock + onCrit Vulnerable), B2 root, B2 m1, B2 n1, x12, x23 |
 | conditionalMods (whileDebuffActive) | B2 n1 (threshold=3) |
 | debuffInteraction.debuffDurationBonus | B2 n1 |
-| debuffInteraction.debuffEffectBonus | B2 k |
-| applyDebuff (guaranteed) | B1 n1, B2 m1, B2 k, B1 k (Vulnerable) |
+| debuffInteraction.debuffEffectBonus | B2 k (100 = doubled) |
+| applyDebuff (guaranteed) | B1 n1 (Shocked), B2 m1 (Shocked), B2 k (Cursed) |
 | fortifyOnHit | B3 m1, B3 n1, B3 k |
 | damageFromArmor | B3 n1 |
-| leechPercent | B3 k |
+| leechPercent | B3 n1 |
 | lifeOnHit | B3 root, x31 |
-| abilityEffect.resistBonus | B3 root, B3 m1, B3 k, x23 |
+| abilityEffect.resistBonus | B3 root, B3 m1, B3 n1, x23 |
 | globalEffect | All 3 keystones |
-| onDodge trigger (NEW) | B3 n1, B3 k |
-| onBlock trigger (NEW) | B3 k |
+| onDodge trigger | B3 n1 (cast Void Blast) |
+| onBlock trigger | B3 k (cast Frostbolt) |
 
 ### Power Budget Comparison
 | Metric | Old Tree (B1 Keystone) | New Tree (CHAIN REACTION) |
