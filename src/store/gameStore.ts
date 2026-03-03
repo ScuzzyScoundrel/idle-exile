@@ -1659,7 +1659,7 @@ export const useGameStore = create<GameState & GameActions>()(
         const newBuffer = state.craftOutputBuffer.filter(i => i.id !== itemId);
         const { newInventory, newMaterials } = addItemsWithOverflow(
           state.inventory, getInventoryCapacity(state),
-          'legendary', 'salvage', // never auto-salvage claimed items
+          'common', 'salvage', // never auto-salvage claimed items
           { ...state.materials }, [item],
         );
         set({ craftOutputBuffer: newBuffer, inventory: newInventory, materials: newMaterials });
@@ -1670,7 +1670,7 @@ export const useGameStore = create<GameState & GameActions>()(
         if (state.craftOutputBuffer.length === 0) return;
         const { newInventory, newMaterials } = addItemsWithOverflow(
           state.inventory, getInventoryCapacity(state),
-          'legendary', 'salvage',
+          'common', 'salvage', // never auto-salvage claimed items
           { ...state.materials }, [...state.craftOutputBuffer],
         );
         set({ craftOutputBuffer: [], inventory: newInventory, materials: newMaterials });
