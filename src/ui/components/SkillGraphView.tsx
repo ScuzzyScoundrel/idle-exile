@@ -45,6 +45,35 @@ function formatModifier(mod: SkillModifier | undefined): string[] {
   if (mod.flags?.includes('cannotCrit')) parts.push('Cannot crit');
   if (mod.flags?.includes('ignoreResists')) parts.push('Ignore resists');
 
+  // Phase 1: expanded fields
+  if (mod.leechPercent) parts.push(`${mod.leechPercent}% life leech`);
+  if (mod.lifeOnHit) parts.push(`+${mod.lifeOnHit} life on hit`);
+  if (mod.lifeOnKill) parts.push(`+${mod.lifeOnKill} life on kill`);
+  if (mod.damageFromArmor) parts.push(`+${mod.damageFromArmor}% armor as damage`);
+  if (mod.damageFromEvasion) parts.push(`+${mod.damageFromEvasion}% evasion as damage`);
+  if (mod.damageFromMaxLife) parts.push(`+${mod.damageFromMaxLife}% max life as damage`);
+  if (mod.chainCount) parts.push(`+${mod.chainCount} chain`);
+  if (mod.forkCount) parts.push(`+${mod.forkCount} fork`);
+  if (mod.pierceCount) parts.push(`+${mod.pierceCount} pierce`);
+  if (mod.executeThreshold) parts.push(`Execute below ${mod.executeThreshold}% HP`);
+  if (mod.overkillDamage) parts.push(`${mod.overkillDamage}% overkill carried`);
+  if (mod.selfDamagePercent) parts.push(`Self-damage: ${mod.selfDamagePercent}% max life`);
+  if (mod.cannotLeech) parts.push('Cannot leech');
+  if (mod.reducedMaxLife) parts.push(`-${mod.reducedMaxLife}% max life`);
+  if (mod.increasedDamageTaken) parts.push(`+${mod.increasedDamageTaken}% damage taken`);
+  if (mod.fortifyOnHit) parts.push(`Fortify on hit (${mod.fortifyOnHit.damageReduction}% DR)`);
+  if (mod.berserk) parts.push(`Berserk: +${mod.berserk.damageBonus}% dmg, +${mod.berserk.damageTakenIncrease}% taken`);
+  if (mod.rampingDamage) parts.push(`Ramping: +${mod.rampingDamage.perHit}%/hit (max ${mod.rampingDamage.maxStacks})`);
+  if (mod.conditionalMods?.length) parts.push(`${mod.conditionalMods.length} conditional effect(s)`);
+  if (mod.procs?.length) parts.push(`${mod.procs.length} proc effect(s)`);
+  if (mod.debuffInteraction) parts.push('Debuff interaction');
+  if (mod.chargeConfig) parts.push(`Charges: ${mod.chargeConfig.chargeId} (max ${mod.chargeConfig.maxCharges})`);
+  if (mod.splitDamage?.length) {
+    for (const s of mod.splitDamage) parts.push(`${s.percent}% as ${s.element}`);
+  }
+  if (mod.addTag) parts.push(`+${mod.addTag} tag`);
+  if (mod.removeTag) parts.push(`-${mod.removeTag} tag`);
+
   // AbilityEffect passthrough
   if (mod.abilityEffect) {
     const ae = mod.abilityEffect;

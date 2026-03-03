@@ -425,6 +425,15 @@ function createInitialState(): GameState {
     skillTimers: [],
     talentAllocations: [],
     activeDebuffs: [],
+    consecutiveHits: 0,
+    lastSkillsCast: [],
+    lastOverkillDamage: 0,
+    killStreak: 0,
+    lastCritAt: 0,
+    lastBlockAt: 0,
+    lastDodgeAt: 0,
+    tempBuffs: [],
+    skillCharges: {},
     lastClearResult: null,
     lastSkillActivation: 0,
     currentMobHp: 0,
@@ -2580,6 +2589,16 @@ export const useGameStore = create<GameState & GameActions>()(
           state.zoneNextAttackAt = 0;
           // Reset ephemeral debuffs (11B)
           state.activeDebuffs = [];
+          // Reset ephemeral combat state (Phase 1 — skill tree expansion)
+          state.consecutiveHits = 0;
+          state.lastSkillsCast = [];
+          state.lastOverkillDamage = 0;
+          state.killStreak = 0;
+          state.lastCritAt = 0;
+          state.lastBlockAt = 0;
+          state.lastDodgeAt = 0;
+          state.tempBuffs = [];
+          state.skillCharges = {};
 
           // Ensure all equipped skills default to autoCast: true (fix for pre-10I saves)
           if (state.skillBar) {

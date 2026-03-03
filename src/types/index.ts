@@ -573,6 +573,27 @@ export interface CraftingRecipeDef {
     rareMaterialId: string;
     amount: number;
   };
+  componentCost?: { materialId: string; amount: number }[];  // components required to craft this gear
+}
+
+// --- Component Crafting ---
+
+export type ComponentVariant = 'general' | 'specialist' | 'masterwork';
+
+export interface ComponentRecipeDef {
+  id: string;                     // e.g. 'comp_ws_b1_general'
+  profession: CraftingProfession;
+  name: string;                   // e.g. 'Crude Hilt'
+  band: number;                   // 1-6
+  variant: ComponentVariant;
+  requiredLevel: number;
+  materials: { materialId: string; amount: number }[];  // fixed ingredients
+  mobDropChoice?: {               // for specialist: pick ONE of these
+    amount: number;               // how many of the chosen drop needed
+    anyOf: string[];              // acceptable materialIds (3 per band)
+  };
+  goldCost: number;
+  outputMaterialId: string;       // component material produced
 }
 
 export interface CraftingMilestone {
@@ -586,6 +607,59 @@ export interface CraftingMilestone {
 
 export type DamageElement = 'Physical' | 'Fire' | 'Cold' | 'Lightning' | 'Chaos';
 export type SkillModifierFlag = 'pierce' | 'fork' | 'alwaysCrit' | 'cannotCrit' | 'lifeLeech' | 'ignoreResists';
+
+// --- Skill Tree Phase 1: Expanded Modifier Types ---
+
+export type TriggerCondition =
+  | 'onCrit' | 'onKill' | 'onBlock' | 'onDodge' | 'onHit'
+  | 'onDebuffApplied' | 'whileLowHp' | 'whileFullHp'
+  | 'whileDebuffActive' | 'afterConsecutiveHits'
+  | 'onBossPhase' | 'onFirstHit' | 'onOverkill';
+
+export interface ConditionalModifier {
+  condition: TriggerCondition;
+  threshold?: number;
+  modifier: SkillModifier;
+}
+
+export interface SkillProcEffect {
+  id: string;
+  chance: number;
+  trigger: TriggerCondition;
+  castSkill?: string;
+  resetCooldown?: string;
+  bonusCast?: boolean;
+  applyBuff?: { effect: AbilityEffect; duration: number };
+  applyDebuff?: { debuffId: string; stacks: number; duration: number };
+  instantDamage?: { flatDamage: number; element: DamageElement; scaleStat?: string; scaleRatio?: number };
+  healPercent?: number;
+}
+
+export interface DebuffInteraction {
+  bonusDamageVsDebuffed?: { debuffId: string; incDamage: number };
+  spreadDebuffOnKill?: { debuffIds: string[]; refreshDuration: number };
+  debuffOnCrit?: { debuffId: string; stacks: number; duration: number };
+  consumeDebuff?: { debuffId: string; damagePerStack: number; element: DamageElement };
+  debuffDurationBonus?: number;
+  debuffEffectBonus?: number;
+}
+
+export interface SkillChargeConfig {
+  chargeId: string;
+  maxCharges: number;
+  gainOn: TriggerCondition;
+  gainAmount: number;
+  decayRate?: number;
+  perChargeDamage?: number;
+  perChargeCritChance?: number;
+  perChargeCastSpeed?: number;
+  spendAll?: {
+    trigger: 'onCast' | 'onCrit';
+    damagePerCharge: number;
+    element: DamageElement;
+    applyDebuff?: { debuffId: string; stacksPerCharge: number; duration: number };
+  };
+}
 
 export interface SkillModifier {
   // Additive stat bonuses (for damage pipeline)
@@ -614,6 +688,41 @@ export interface SkillModifier {
   applyDebuff?: { debuffId: string; chance: number; duration: number };
   procOnHit?: { effectId: string; chance: number };
   flags?: SkillModifierFlag[];
+
+  // --- Phase 1: Conditional & proc ---
+  conditionalMods?: ConditionalModifier[];
+  procs?: SkillProcEffect[];
+  debuffInteraction?: DebuffInteraction;
+  chargeConfig?: SkillChargeConfig;
+
+  // --- Phase 1: Defensive-offensive ---
+  damageFromArmor?: number;       // % of armor added as flat damage
+  damageFromEvasion?: number;     // % of evasion added as flat damage
+  damageFromMaxLife?: number;     // % of max life added as flat damage
+  leechPercent?: number;          // % of damage leeched as life
+  lifeOnHit?: number;             // flat life gained per hit
+  lifeOnKill?: number;            // flat life gained per kill
+  fortifyOnHit?: { stacks: number; duration: number; damageReduction: number };
+
+  // --- Phase 1: Conversion/transform ---
+  chainCount?: number;            // number of chain bounces
+  forkCount?: number;             // number of forks
+  pierceCount?: number;           // number of pierces
+  splitDamage?: { element: DamageElement; percent: number }[];
+  addTag?: DamageTag;
+  removeTag?: DamageTag;
+
+  // --- Phase 1: Momentum ---
+  rampingDamage?: { perHit: number; maxStacks: number; decayAfter: number };
+  executeThreshold?: number;      // % HP threshold for execute bonus
+  overkillDamage?: number;        // % of overkill carried to next target
+
+  // --- Phase 1: Risk/reward ---
+  selfDamagePercent?: number;     // % of max life dealt to self per cast
+  cannotLeech?: boolean;
+  reducedMaxLife?: number;        // % reduction to max life
+  increasedDamageTaken?: number;  // % more damage taken
+  berserk?: { damageBonus: number; damageTakenIncrease: number; lifeThreshold: number };
 }
 
 export interface SkillGraphNode {
@@ -641,6 +750,11 @@ export interface DebuffDef {
   effect: {
     incDamageTaken?: number;    // % more damage taken per stack
     dotDps?: number;            // damage per second per stack
+    reducedDamageDealt?: number;   // Weakened: % reduced damage dealt
+    missChance?: number;           // Blinded: % chance to miss
+    incCritDamageTaken?: number;   // Vulnerable: % increased crit damage taken
+    reducedResists?: number;       // Cursed: flat resist reduction per stack
+    reducedAttackSpeed?: number;   // Slowed: % reduced attack speed
   };
 }
 
@@ -649,6 +763,15 @@ export interface ActiveDebuff {
   stacks: number;
   remainingDuration: number;    // seconds
   appliedBySkillId: string;
+}
+
+export interface TempBuff {
+  id: string;
+  effect: AbilityEffect;
+  expiresAt: number;
+  sourceSkillId: string;
+  stacks: number;
+  maxStacks: number;
 }
 
 // --- Active Skills ---
@@ -831,6 +954,17 @@ export interface GameState {
 
   // Skill graph debuffs (v29 — ephemeral, not persisted)
   activeDebuffs: ActiveDebuff[];
+
+  // Skill tree Phase 1: ephemeral combat state (not persisted, reset on rehydrate)
+  consecutiveHits: number;
+  lastSkillsCast: string[];
+  lastOverkillDamage: number;
+  killStreak: number;
+  lastCritAt: number;
+  lastBlockAt: number;
+  lastDodgeAt: number;
+  tempBuffs: TempBuff[];
+  skillCharges: Record<string, { current: number; max: number; chargeId: string }>;
 
   // Per-clear combat sim result (v25 — ephemeral, not persisted)
   lastClearResult: CombatClearResult | null;

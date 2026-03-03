@@ -1,10 +1,25 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-03 (Post-Sprint 13A: Cooldown-Aware Combat Stats)
+> Last updated: 2026-03-03 (Post-Sprint 13A-Phase1: Skill Tree Types & Engine Expansion)
 
 ## Current Phase
-**Sprint 13A: Make Attack Speed, Cast Speed & Ability Haste Work With Cooldown System** — COMPLETE.
+**Sprint 13A-Phase1: Skill Tree Types & Engine Expansion** — COMPLETE.
+
+- **Purpose**: Lay the type foundation for the Skill Tree Design Framework (`docs/SKILL_TREE_DESIGN.md`). All new interfaces, expanded existing types, new debuffs, and ephemeral combat state. No gameplay changes yet (Phase 2 wires these into the combat tick).
+- **6 new types**: `TriggerCondition`, `ConditionalModifier`, `SkillProcEffect`, `DebuffInteraction`, `SkillChargeConfig`, `TempBuff`
+- **~25 new SkillModifier fields**: Conditional/proc (`conditionalMods`, `procs`, `debuffInteraction`, `chargeConfig`), defensive-offensive (`damageFromArmor/Evasion/MaxLife`, `leechPercent`, `lifeOnHit/Kill`, `fortifyOnHit`), conversion/transform (`chainCount`, `forkCount`, `pierceCount`, `splitDamage`, `addTag/removeTag`), momentum (`rampingDamage`, `executeThreshold`, `overkillDamage`), risk/reward (`selfDamagePercent`, `cannotLeech`, `reducedMaxLife`, `increasedDamageTaken`, `berserk`)
+- **6 new debuffs**: Bleeding (DoT, stacks 5), Weakened (reduced damage dealt), Blinded (miss chance), Vulnerable (increased crit damage taken), Cursed (resist reduction, stacks 3), Slowed (reduced attack speed)
+- **5 new DebuffDef.effect fields**: `reducedDamageDealt`, `missChance`, `incCritDamageTaken`, `reducedResists`, `reducedAttackSpeed`
+- **9 ephemeral GameState fields**: `consecutiveHits`, `lastSkillsCast`, `lastOverkillDamage`, `killStreak`, `lastCritAt/BlockAt/DodgeAt`, `tempBuffs`, `skillCharges`
+- **Resolver expansion**: `ResolvedSkillModifier` + `EMPTY_GRAPH_MOD` + `resolveSkillGraphModifiers` all expanded to handle new fields with proper resolution strategies (additive, max-wins, boolean OR, array collectors, last-wins)
+- **Tooltip support**: `formatModifier()` in SkillGraphView displays all new fields
+- **No save migration needed**: All new GameState fields are ephemeral (reset on rehydrate)
+- **No gameplay changes**: All new fields are optional, existing 9 wand skill graphs continue working unchanged
+- **Save version**: v32 (unchanged)
+- **Edited files**: `src/types/index.ts`, `src/store/gameStore.ts`, `src/engine/skillGraph.ts`, `src/data/debuffs.ts`, `src/ui/components/SkillGraphView.tsx`
+
+**Previous: Sprint 13A: Cooldown-Aware Combat Stats** — COMPLETE.
 
 - **Problem**: Three stats were broken or meaningless after the skill-based cooldown rework:
   1. Attack/Cast Speed was a raw DPS multiplier (`dps = (dmg/castTime) * speed`) that didn't interact with cooldowns — mathematically identical to %increased damage.

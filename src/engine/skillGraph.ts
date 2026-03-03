@@ -3,7 +3,8 @@
 // Pure functions for graph-based skill tree allocation & resolution.
 // ============================================================
 
-import type { SkillGraph, AbilityEffect } from '../types';
+import type { SkillGraph, AbilityEffect, ConditionalModifier, SkillProcEffect,
+  DebuffInteraction, SkillChargeConfig, DamageTag } from '../types';
 
 /** Resolved modifier: all allocated node modifiers summed together. */
 export interface ResolvedSkillModifier {
@@ -22,6 +23,33 @@ export interface ResolvedSkillModifier {
   debuffs: { debuffId: string; chance: number; duration: number }[];
   procs: { effectId: string; chance: number }[];
   flags: string[];
+
+  // Phase 1: expanded fields
+  conditionalMods: ConditionalModifier[];
+  skillProcs: SkillProcEffect[];
+  debuffInteraction: DebuffInteraction | null;
+  chargeConfig: SkillChargeConfig | null;
+  damageFromArmor: number;
+  damageFromEvasion: number;
+  damageFromMaxLife: number;
+  leechPercent: number;
+  lifeOnHit: number;
+  lifeOnKill: number;
+  fortifyOnHit: { stacks: number; duration: number; damageReduction: number } | null;
+  chainCount: number;
+  forkCount: number;
+  pierceCount: number;
+  splitDamage: { element: string; percent: number }[];
+  addTags: DamageTag[];
+  removeTags: DamageTag[];
+  rampingDamage: { perHit: number; maxStacks: number; decayAfter: number } | null;
+  executeThreshold: number;
+  overkillDamage: number;
+  selfDamagePercent: number;
+  cannotLeech: boolean;
+  reducedMaxLife: number;
+  increasedDamageTaken: number;
+  berserk: { damageBonus: number; damageTakenIncrease: number; lifeThreshold: number } | null;
 }
 
 /** Empty modifier (identity). */
@@ -41,6 +69,32 @@ export const EMPTY_GRAPH_MOD: ResolvedSkillModifier = {
   debuffs: [],
   procs: [],
   flags: [],
+  // Phase 1 defaults
+  conditionalMods: [],
+  skillProcs: [],
+  debuffInteraction: null,
+  chargeConfig: null,
+  damageFromArmor: 0,
+  damageFromEvasion: 0,
+  damageFromMaxLife: 0,
+  leechPercent: 0,
+  lifeOnHit: 0,
+  lifeOnKill: 0,
+  fortifyOnHit: null,
+  chainCount: 0,
+  forkCount: 0,
+  pierceCount: 0,
+  splitDamage: [],
+  addTags: [],
+  removeTags: [],
+  rampingDamage: null,
+  executeThreshold: 0,
+  overkillDamage: 0,
+  selfDamagePercent: 0,
+  cannotLeech: false,
+  reducedMaxLife: 0,
+  increasedDamageTaken: 0,
+  berserk: null,
 };
 
 /**
@@ -52,7 +106,11 @@ export function resolveSkillGraphModifiers(
   graph: SkillGraph,
   allocatedNodes: string[],
 ): ResolvedSkillModifier {
-  const result: ResolvedSkillModifier = { ...EMPTY_GRAPH_MOD, debuffs: [], procs: [], flags: [] };
+  const result: ResolvedSkillModifier = {
+    ...EMPTY_GRAPH_MOD,
+    debuffs: [], procs: [], flags: [],
+    conditionalMods: [], skillProcs: [], splitDamage: [], addTags: [], removeTags: [],
+  };
   let abilEffect: AbilityEffect = {};
   let globalEff: AbilityEffect = {};
 
@@ -117,6 +175,42 @@ export function resolveSkillGraphModifiers(
     if (m.applyDebuff) result.debuffs.push(m.applyDebuff);
     if (m.procOnHit) result.procs.push(m.procOnHit);
     if (m.flags) result.flags.push(...m.flags);
+
+    // Phase 1: expanded field resolution
+    // Array collectors
+    if (m.conditionalMods) result.conditionalMods.push(...m.conditionalMods);
+    if (m.procs) result.skillProcs.push(...m.procs);
+    if (m.splitDamage) result.splitDamage.push(...m.splitDamage);
+    if (m.addTag) result.addTags.push(m.addTag);
+    if (m.removeTag) result.removeTags.push(m.removeTag);
+
+    // Additive scalars
+    if (m.damageFromArmor) result.damageFromArmor += m.damageFromArmor;
+    if (m.damageFromEvasion) result.damageFromEvasion += m.damageFromEvasion;
+    if (m.damageFromMaxLife) result.damageFromMaxLife += m.damageFromMaxLife;
+    if (m.leechPercent) result.leechPercent += m.leechPercent;
+    if (m.lifeOnHit) result.lifeOnHit += m.lifeOnHit;
+    if (m.lifeOnKill) result.lifeOnKill += m.lifeOnKill;
+    if (m.chainCount) result.chainCount += m.chainCount;
+    if (m.forkCount) result.forkCount += m.forkCount;
+    if (m.pierceCount) result.pierceCount += m.pierceCount;
+    if (m.overkillDamage) result.overkillDamage += m.overkillDamage;
+    if (m.selfDamagePercent) result.selfDamagePercent += m.selfDamagePercent;
+    if (m.reducedMaxLife) result.reducedMaxLife += m.reducedMaxLife;
+    if (m.increasedDamageTaken) result.increasedDamageTaken += m.increasedDamageTaken;
+
+    // Max-wins
+    if (m.executeThreshold) result.executeThreshold = Math.max(result.executeThreshold, m.executeThreshold);
+
+    // Boolean OR
+    if (m.cannotLeech) result.cannotLeech = true;
+
+    // Last-wins (complex objects)
+    if (m.debuffInteraction) result.debuffInteraction = m.debuffInteraction;
+    if (m.chargeConfig) result.chargeConfig = m.chargeConfig;
+    if (m.fortifyOnHit) result.fortifyOnHit = m.fortifyOnHit;
+    if (m.rampingDamage) result.rampingDamage = m.rampingDamage;
+    if (m.berserk) result.berserk = m.berserk;
   }
 
   result.abilityEffect = abilEffect;
