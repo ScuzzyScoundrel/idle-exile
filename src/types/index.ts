@@ -220,6 +220,15 @@ export interface ZoneHazard {
   threshold: number;
 }
 
+export interface MobTypeDef {
+  id: string;              // globally unique, e.g. 'thicket_crawler'
+  name: string;            // "Thicket Crawler"
+  weight: number;          // spawn weight when farming whole zone
+  uniqueDrops: string[];   // material IDs exclusive to this mob
+  hpMultiplier?: number;   // 0.8-1.2, defaults 1.0
+  description?: string;    // flavor text
+}
+
 export interface ZoneDef {
   id: string;
   name: string;
@@ -787,6 +796,12 @@ export interface GameState {
   maxMobHp: number;
   nextActiveSkillAt: number;
   zoneNextAttackAt: number;  // next zone attack timestamp (ms), 0 when not clearing
+
+  // Mob types & targeted farming
+  targetedMobId: string | null;
+  mobKillCounts: Record<string, number>;
+  bossKillCounts: Record<string, number>;
+  totalZoneClears: Record<string, number>;
 
   // Tutorial
   tutorialStep: number;

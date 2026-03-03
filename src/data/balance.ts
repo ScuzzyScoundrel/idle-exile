@@ -313,3 +313,13 @@ export const SKILL_MAX_LEVEL = 20;
 
 /** Real-time combat tick interval (ms). Documents engine tick rate. */
 export const COMBAT_TICK_INTERVAL = 250;
+
+// =============================================
+// MOB TYPES & TARGETED FARMING
+// =============================================
+
+/** Chance per clear to drop a mob-type-unique material (on top of zone drops). */
+export const MOB_UNIQUE_DROP_CHANCE = 0.25;
+
+/** Clear speed penalty multiplier when targeted farming (1.0 = no penalty). */
+export const TARGETED_FARMING_SPEED_PENALTY = 1.0;

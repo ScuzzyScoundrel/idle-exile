@@ -26,7 +26,9 @@ import {
   BLOCK_CAP, BLOCK_REDUCTION,
   BOSS_DMG_PER_HIT_BASE, BOSS_ATTACK_INTERVAL,
   LEECH_PERCENT, MAX_REGEN_RATIO,
+  MOB_UNIQUE_DROP_CHANCE,
 } from '../data/balance';
+import { getZoneMobTypes, weightedRandomMob, getMobTypeDef } from '../data/mobTypes';
 
 // --- Gear slots used for random item drops ---
 
@@ -315,6 +317,7 @@ export function simulateIdleRun(
   elapsed: number,
   clearTime: number,
   abilityEffect?: AbilityEffect,
+  _targetedMobId?: string | null,
 ): IdleRunResult {
   const clearsCompleted = clearTime > 0 && isFinite(clearTime) ? Math.floor(elapsed / clearTime) : 0;
 
@@ -352,6 +355,18 @@ export function simulateIdleRun(
       }
     }
 
+    // Mob-unique drops (offline batched)
+    const idleMobs = getZoneMobTypes(zone.id);
+    if (idleMobs.length > 0) {
+      const mob = _targetedMobId
+        ? (idleMobs.find(m => m.id === _targetedMobId) ?? weightedRandomMob(idleMobs))
+        : weightedRandomMob(idleMobs);
+      if (mob.uniqueDrops.length > 0 && Math.random() < MOB_UNIQUE_DROP_CHANCE) {
+        const drop = mob.uniqueDrops[Math.floor(Math.random() * mob.uniqueDrops.length)];
+        materials[drop] = (materials[drop] ?? 0) + 1;
+      }
+    }
+
     for (const [type, chance] of Object.entries(CURRENCY_DROP_CHANCES)) {
       if (Math.random() < chance) {
         currencyDrops[type as CurrencyType] += doubleClear ? 2 : 1;
@@ -383,6 +398,7 @@ export interface SingleClearResult {
   goldGained: number;
   xpGained: number;
   bagDrop: string | null;
+  mobTypeId: string | null;
 }
 
 /**
@@ -395,6 +411,7 @@ export function simulateSingleClear(
   abilityEffect?: AbilityEffect,
   classRareFindBonus: number = 0,
   classMaterialYieldBonus: number = 0,
+  targetedMobId: string | null = null,
 ): SingleClearResult {
   const hasMastery = checkZoneMastery(char.stats, zone);
   let itemDropChance = hasMastery
@@ -442,6 +459,30 @@ export function simulateSingleClear(
     }
   }
 
+  // Resolve mob type: targeted or weighted random
+  let mobTypeId: string | null = null;
+  const zoneMobs = getZoneMobTypes(zone.id);
+  if (zoneMobs.length > 0) {
+    if (targetedMobId) {
+      const targeted = zoneMobs.find(m => m.id === targetedMobId);
+      if (targeted) {
+        mobTypeId = targeted.id;
+      }
+    }
+    if (!mobTypeId) {
+      mobTypeId = weightedRandomMob(zoneMobs).id;
+    }
+
+    // Roll mob-unique drop
+    if (mobTypeId) {
+      const mobDef = getMobTypeDef(mobTypeId);
+      if (mobDef && mobDef.uniqueDrops.length > 0 && Math.random() < MOB_UNIQUE_DROP_CHANCE) {
+        const drop = mobDef.uniqueDrops[Math.floor(Math.random() * mobDef.uniqueDrops.length)];
+        materials[drop] = (materials[drop] ?? 0) + 1;
+      }
+    }
+  }
+
   const xpScale = calcXpScale(char.level, zone.iLvlMin);
   return {
     item,
@@ -450,6 +491,7 @@ export function simulateSingleClear(
     goldGained: GOLD_PER_BAND * zone.band * (doubleClear ? 2 : 1),
     xpGained: Math.round(XP_PER_BAND * zone.band * xpMult * xpScale),
     bagDrop,
+    mobTypeId,
   };
 }
 

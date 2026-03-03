@@ -1,20 +1,24 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-02 (Post-Sprint 11B-Polish: Skill Graph — Cooler Nodes + Better UX)
+> Last updated: 2026-03-02 (Post-Sprint 12A: Mob Types + Targeted Farming)
 
 ## Current Phase
-**Sprint 11B-Polish: Skill Graph Tree — Cooler Nodes + Better UX** — COMPLETE.
+**Sprint 12A: Mob Types + Targeted Farming** — COMPLETE.
 
-- **Cross-skill `globalEffect`**: New `SkillModifier.globalEffect` field. Keystones can now buff ALL equipped skills, not just their own tree. Wired through `ResolvedSkillModifier`, `resolveSkillGraphModifiers()`, new `aggregateGraphGlobalEffects()`, and `getFullEffect()` in gameStore.
-- **Minor node diversification**: ~60% of single-stat minors converted to 2-stat combos (e.g., `+3% damage, +2 flat` instead of `+5% damage`). Themed per branch: power branch (damage + flat), utility branch (speed + CD), crit branch (crit chance + crit dmg).
-- **Notable upgrades**: Several notables upgraded to mini-keystones: `Spell Echo` now gives +1 extra hit, `Ball Lightning`/`Avalanche`/`Dark Explosion` add AoE conversion, `Storm Conduit` adds shock chance, `Arcane Mastery` has +1% crit globalEffect.
-- **Keystone overhaul**: All 18 active-skill keystones now have `globalEffect` (cross-skill bonuses like +5% all damage, +5% all speed, +10% defense, +10% items, etc.). 3 buff/passive keystones also got `globalEffect` (Magnetic Storm +5% items, Temporal Mastery +5% clear speed, Enlightenment +5% XP).
-- **Debuff-flavored minors**: 2 minors per element tree get small debuff application (5% chance, 2s duration) for Chain Lightning (shock), Frostbolt (chill), Searing Ray (burn), Essence Drain (poison).
-- **Select-then-allocate UX**: Click = select node (detail panel), double-click = allocate directly. Detail panel shows name, type badge, description, modifiers, connections, and Allocate button. Works on both desktop and mobile.
-- **Visual polish**: Notable/keystone labels on SVG nodes. Available nodes pulse green (`node-pulse` keyframe). Allocation triggers purple flash (`node-allocate` keyframe). Selected nodes have blue pulsing ring (`node-selected`). Connection lines: `strokeLinecap="round"`, wider allocated lines (2.5), unallocated notable paths in faint blue.
-- **Mobile path-tracing view**: SVG hidden on mobile (via `useIsMobile`). New branch-tabbed path view: `deriveBranches()` BFS algorithm traces 3 branches from start to keystones, plus cross-connect section. Full-width cards with type indicator, mod text, connection lines (purple/dashed/gray by allocation state). Tap = select (shows Allocate button), no accidental allocation.
-- **No save migration needed**: All node IDs unchanged. `globalEffect` defaults to undefined (no-op) for existing allocations.
+- **Mob type system**: Each zone now has 3 distinct mob types with spawn weights (50/35/15), hpMultipliers (1.0/0.9/1.15), unique drop materials, and flavor text. ~90 mob types across 30 zones.
+- **Targeted farming**: Players can select a specific mob type to farm (guaranteed that mob spawns) or farm randomly (weighted selection). Mob selector panel on ZoneScreen shows all mob types with kill counts and unique drops.
+- **Mob-unique drops**: Each mob type has 1 unique material drop at 25% chance per clear (`MOB_UNIQUE_DROP_CHANCE`). Materials flow into the same `materials` pool.
+- **Kill tracking**: `mobKillCounts`, `bossKillCounts`, `totalZoneClears` persisted in GameState. Kill counts shown in mob selector UI.
+- **hpMultiplier**: `calcMobHp()` now accepts optional `hpMultiplier`. Targeted mob's HP multiplier applied on run start, mob respawn, target switch, and recovery.
+- **Engine changes**: `simulateSingleClear` resolves mob type (targeted or weighted random), rolls unique drops, returns `mobTypeId` in `SingleClearResult`. `simulateIdleRun` also rolls mob-unique drops per clear.
+- **Store changes**: `setTargetedMob` action (recalculates mob HP mid-run), `processNewClears` passes `targetedMobId` and tracks mob/zone kill counts, `handleBossVictory` increments `bossKillCounts`.
+- **UI changes**: Mob type selector panel on ZoneScreen (below stats, above Start). MobDisplay shows targeted mob name + unique drop indicator. ZoneDefeatOverlay uses targeted mob name.
+- **New files**: `src/data/mobTypes.ts` (~840 lines)
+- **Edited files**: `src/types/index.ts` (+13 lines), `src/data/balance.ts` (+8 lines), `src/engine/zones.ts` (+30 lines), `src/engine/unifiedSkills.ts` (+1 line), `src/store/gameStore.ts` (+35 lines), `src/ui/screens/ZoneScreen.tsx` (+55 lines)
+- **Save version**: v29 → v30
+
+**Previous: Sprint 11B-Polish: Skill Graph Tree — Cooler Nodes + Better UX** — COMPLETE.
 
 **Previous: Sprint 11B: Per-Skill Graph Trees (Wand Prototype)** — COMPLETE.
 

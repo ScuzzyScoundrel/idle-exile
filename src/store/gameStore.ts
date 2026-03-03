@@ -56,6 +56,7 @@ import { aggregateClassTalentEffect, canAllocateTalentNode, allocateTalentNode a
 import { getUnifiedSkillDef, ABILITY_ID_MIGRATION } from '../data/unifiedSkills';
 import { canAllocateGraphNode, allocateGraphNode, respecGraphNodes, getGraphRespecCost } from '../engine/skillGraph';
 import { getDebuffDef } from '../data/debuffs';
+import { getMobTypeDef } from '../data/mobTypes';
 
 
 const INITIAL_CURRENCIES: Record<CurrencyType, number> = {
@@ -286,6 +287,7 @@ interface GameActions {
   stopIdleRun: () => void;
   grantIdleXp: (xp: number) => void;
   getEstimatedClearTime: (zoneId: string) => number;
+  setTargetedMob: (mobTypeId: string | null) => void;
 
   // Mode / Gathering
   setIdleMode: (mode: IdleMode) => void;
@@ -411,6 +413,10 @@ function createInitialState(): GameState {
     maxMobHp: 0,
     nextActiveSkillAt: 0,
     zoneNextAttackAt: 0,
+    targetedMobId: null,
+    mobKillCounts: {},
+    bossKillCounts: {},
+    totalZoneClears: {},
     tutorialStep: 1,
     lastSaveTime: Date.now(),
   };
@@ -676,10 +682,11 @@ export const useGameStore = create<GameState & GameActions>()(
         const newZoneClearCounts = { ...state.zoneClearCounts };
         delete newZoneClearCounts[zoneId];
 
-        // Real-time combat: initialize mob HP (10K-A)
+        // Real-time combat: initialize mob HP (10K-A) — use targeted mob's hpMultiplier
         let mobHp = 0;
         if (zone && state.idleMode === 'combat') {
-          mobHp = calcMobHp(zone);
+          const hpMult = state.targetedMobId ? (getMobTypeDef(state.targetedMobId)?.hpMultiplier ?? 1.0) : 1.0;
+          mobHp = calcMobHp(zone, hpMult);
         }
 
         set({
@@ -816,8 +823,9 @@ export const useGameStore = create<GameState & GameActions>()(
         // Get class loot modifiers (Ranger tracking)
         const lootMod = getClassLootModifier(classRes, classDef);
 
+        const accMobKills: Record<string, number> = {};
         for (let i = 0; i < totalClears; i++) {
-          const clear = simulateSingleClear(state.character, zone, abilityEffect, lootMod.rareFindBonus, lootMod.materialYieldBonus);
+          const clear = simulateSingleClear(state.character, zone, abilityEffect, lootMod.rareFindBonus, lootMod.materialYieldBonus, state.targetedMobId);
           if (clear.item) allItems.push(clear.item);
 
           for (const [key, val] of Object.entries(clear.currencyDrops)) {
@@ -829,6 +837,9 @@ export const useGameStore = create<GameState & GameActions>()(
           accGold += clear.goldGained;
           if (clear.bagDrop) {
             accBagDrops[clear.bagDrop] = (accBagDrops[clear.bagDrop] || 0) + 1;
+          }
+          if (clear.mobTypeId) {
+            accMobKills[clear.mobTypeId] = (accMobKills[clear.mobTypeId] || 0) + 1;
           }
         }
 
@@ -862,6 +873,14 @@ export const useGameStore = create<GameState & GameActions>()(
         {
           newZoneClearCounts[zoneId] = (newZoneClearCounts[zoneId] || 0) + clearCount;
         }
+
+        // Track mob kill counts & total zone clears
+        const newMobKillCounts = { ...state.mobKillCounts };
+        for (const [mobId, count] of Object.entries(accMobKills)) {
+          newMobKillCounts[mobId] = (newMobKillCounts[mobId] || 0) + count;
+        }
+        const newTotalZoneClears = { ...state.totalZoneClears };
+        newTotalZoneClears[zoneId] = (newTotalZoneClears[zoneId] || 0) + clearCount;
 
         // Add ability XP to all equipped non-active skills in skillBar
         const xpPerClear = getAbilityXpPerClear(zone.band);
@@ -929,6 +948,8 @@ export const useGameStore = create<GameState & GameActions>()(
           lastClearResult: newClearResult,
           totalKills: state.totalKills + totalClears,
           fastestClears: newFastestClears,
+          mobKillCounts: newMobKillCounts,
+          totalZoneClears: newTotalZoneClears,
         });
 
         return {
@@ -957,6 +978,21 @@ export const useGameStore = create<GameState & GameActions>()(
           classResource: resetResourceOnEvent(state.classResource, cDef, 'stop'),
           zoneNextAttackAt: 0,
         });
+      },
+
+      setTargetedMob: (mobTypeId: string | null) => {
+        const state = get();
+        // If mid-run, recalculate mob HP with the new target's hpMultiplier
+        if (state.idleStartTime && state.currentZoneId && state.idleMode === 'combat') {
+          const zone = ZONE_DEFS.find(z => z.id === state.currentZoneId);
+          if (zone) {
+            const hpMult = mobTypeId ? (getMobTypeDef(mobTypeId)?.hpMultiplier ?? 1.0) : 1.0;
+            const mobHp = calcMobHp(zone, hpMult);
+            set({ targetedMobId: mobTypeId, currentMobHp: mobHp, maxMobHp: mobHp });
+            return;
+          }
+        }
+        set({ targetedMobId: mobTypeId });
       },
 
       grantIdleXp: (xp: number) => {
@@ -2096,7 +2132,8 @@ export const useGameStore = create<GameState & GameActions>()(
         }
 
         // Check for mob death(s) — cap at 10 kills per tick for safety
-        const maxMobHp = state.maxMobHp > 0 ? state.maxMobHp : calcMobHp(zone);
+        const targetHpMult = state.targetedMobId ? (getMobTypeDef(state.targetedMobId)?.hpMultiplier ?? 1.0) : 1.0;
+        const maxMobHp = state.maxMobHp > 0 ? state.maxMobHp : calcMobHp(zone, targetHpMult);
         while (currentMobHp <= 0 && mobKills < 10) {
           mobKills++;
           currentMobHp = maxMobHp + currentMobHp; // carry over overkill damage
@@ -2216,6 +2253,10 @@ export const useGameStore = create<GameState & GameActions>()(
         const newZoneClearCounts = { ...state.zoneClearCounts };
         delete newZoneClearCounts[state.currentZoneId];
 
+        // Track boss kill count
+        const newBossKillCounts = { ...state.bossKillCounts };
+        newBossKillCounts[state.currentZoneId] = (newBossKillCounts[state.currentZoneId] || 0) + 1;
+
         set({
           inventory: newInventory,
           materials: newMaterials,
@@ -2223,6 +2264,7 @@ export const useGameStore = create<GameState & GameActions>()(
           combatPhase: 'boss_victory' as CombatPhase,
           combatPhaseStartedAt: Date.now(),
           zoneClearCounts: newZoneClearCounts,
+          bossKillCounts: newBossKillCounts,
         });
 
         return {
@@ -2274,9 +2316,10 @@ export const useGameStore = create<GameState & GameActions>()(
             ? state.currentHp + (stats.maxLife - state.currentHp) * BOSS_VICTORY_HEAL_RATIO
             : stats.maxLife;
 
-          // Reset mob HP for real-time combat (10K-A)
+          // Reset mob HP for real-time combat (10K-A) — use targeted mob hpMultiplier
           const zone = state.currentZoneId ? ZONE_DEFS.find(z => z.id === state.currentZoneId) : null;
-          const mobHp = zone ? calcMobHp(zone) : 0;
+          const recoveryHpMult = state.targetedMobId ? (getMobTypeDef(state.targetedMobId)?.hpMultiplier ?? 1.0) : 1.0;
+          const mobHp = zone ? calcMobHp(zone, recoveryHpMult) : 0;
 
           set({
             combatPhase: 'clearing' as CombatPhase,
@@ -2321,7 +2364,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 29,
+      version: 30,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -2901,6 +2944,14 @@ export const useGameStore = create<GameState & GameActions>()(
               ap[id] = { ...ap[id], allocatedNodes: [] };
             }
           }
+        }
+
+        if (version < 30) {
+          // v30: Mob types & targeted farming
+          raw.targetedMobId = null;
+          raw.mobKillCounts = {};
+          raw.bossKillCounts = {};
+          raw.totalZoneClears = {};
         }
 
         return state;

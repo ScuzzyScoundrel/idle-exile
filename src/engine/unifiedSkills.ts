@@ -779,8 +779,8 @@ export function getDefaultSkillForWeapon(weaponType: WeaponType, playerLevel: nu
  *            = (baseClearTime * POWER_DIVISOR) / charPower
  *            = mobHp / charPower
  */
-export function calcMobHp(zone: ZoneDef): number {
-  return zone.baseClearTime * POWER_DIVISOR;
+export function calcMobHp(zone: ZoneDef, hpMultiplier: number = 1.0): number {
+  return zone.baseClearTime * POWER_DIVISOR * hpMultiplier;
 }
 
 // ─── Real-Time Combat (10K-A) ───

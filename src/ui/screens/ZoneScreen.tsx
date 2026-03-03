@@ -15,6 +15,7 @@ import { getUnlockedSlotCount } from '../../engine/unifiedSkills';
 import { WeaponType } from '../../types';
 import { getRareMaterialDef } from '../../data/rareMaterials';
 import { BOSS_INTERVAL, ZONE_ATTACK_INTERVAL } from '../../data/balance';
+import { getZoneMobTypes, getMobTypeDef } from '../../data/mobTypes';
 import { resolveStats } from '../../engine/character';
 import { getClassDef } from '../../data/classes';
 
@@ -66,6 +67,11 @@ const HAZARD_STAT_MAP: Record<string, string> = {
   lightning: 'lightningResist',
   chaos: 'chaosResist',
 };
+
+// Format material ID to display name (snake_case → Title Case)
+function formatMatName(id: string): string {
+  return id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
 
 // Rarity color classes
 const RARITY_TEXT: Record<Rarity, string> = {
@@ -204,8 +210,9 @@ function PlayerHpBar({ currentHp, maxHp, trailHp }: { currentHp: number; maxHp: 
 }
 
 // --- Mob Display (during clearing) ---
-function MobDisplay({ mobName, mobCurrentHp, mobMaxHp, bossIn, swingProgress }: {
+function MobDisplay({ mobName, mobCurrentHp, mobMaxHp, bossIn, swingProgress, uniqueDrop }: {
   mobName: string; mobCurrentHp: number; mobMaxHp: number; bossIn: number; swingProgress: number;
+  uniqueDrop?: string;
 }) {
   // Real-time mob HP bar (10K-A)
   const mobHpPct = mobMaxHp > 0 ? Math.max(0, Math.min(100, (mobCurrentHp / mobMaxHp) * 100)) : 0;
@@ -213,7 +220,14 @@ function MobDisplay({ mobName, mobCurrentHp, mobMaxHp, bossIn, swingProgress }: 
     <div className="bg-gray-800/60 rounded-lg border border-gray-700 p-2">
       <div className="flex justify-between text-xs mb-1">
         <span className="text-gray-200 font-semibold">{mobName}</span>
-        <span className="text-gray-400">Boss in {bossIn}</span>
+        <div className="flex items-center gap-2">
+          {uniqueDrop && (
+            <span className="text-amber-400/70 text-[10px]" title={`Drops: ${formatMatName(uniqueDrop)}`}>
+              {formatMatName(uniqueDrop)}
+            </span>
+          )}
+          <span className="text-gray-400">Boss in {bossIn}</span>
+        </div>
       </div>
       <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
         <div className="h-full bg-red-500 rounded-full transition-all duration-200"
@@ -688,6 +702,7 @@ export default function ZoneScreen() {
     totalKills, fastestClears,
     lastClearResult,
     tickCombat, currentMobHp, maxMobHp, zoneNextAttackAt,
+    targetedMobId, setTargetedMob, mobKillCounts,
   } = useGameStore();
 
   const hydrated = useHasHydrated();
@@ -1201,6 +1216,56 @@ export default function ZoneScreen() {
         )}
       </div>
 
+      {/* Mob Type Selector (combat mode) */}
+      {idleMode === 'combat' && (() => {
+        const zoneMobs = getZoneMobTypes(zone.id);
+        if (zoneMobs.length === 0) return null;
+        return (
+          <div className="bg-gray-800/60 rounded-lg border border-gray-700 p-2 space-y-1">
+            <div className="text-xs text-gray-400 font-semibold mb-1">Target Mob</div>
+            <button
+              onClick={() => setTargetedMob(null)}
+              className={`w-full text-left text-xs px-2 py-1 rounded transition-colors ${
+                !targetedMobId ? 'bg-green-800/60 text-green-300 border border-green-600' : 'bg-gray-700/40 text-gray-300 hover:bg-gray-700'
+              }`}
+            >
+              <span className="font-semibold">Random</span>
+              <span className="text-gray-500 ml-1">(all mob types)</span>
+            </button>
+            {zoneMobs.map(mob => {
+              const isSelected = targetedMobId === mob.id;
+              const kills = mobKillCounts[mob.id] || 0;
+              return (
+                <button
+                  key={mob.id}
+                  onClick={() => setTargetedMob(isSelected ? null : mob.id)}
+                  className={`w-full text-left text-xs px-2 py-1 rounded transition-colors ${
+                    isSelected ? 'bg-amber-800/60 text-amber-200 border border-amber-600' : 'bg-gray-700/40 text-gray-300 hover:bg-gray-700'
+                  }`}
+                >
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <span className="font-semibold">{mob.name}</span>
+                      {mob.hpMultiplier && mob.hpMultiplier !== 1.0 && (
+                        <span className={`ml-1 ${mob.hpMultiplier > 1 ? 'text-red-400' : 'text-green-400'}`}>
+                          ({mob.hpMultiplier > 1 ? '+' : ''}{Math.round((mob.hpMultiplier - 1) * 100)}% HP)
+                        </span>
+                      )}
+                    </div>
+                    {kills > 0 && <span className="text-gray-500">{kills.toLocaleString()}</span>}
+                  </div>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <span className="text-amber-400/80 text-[10px]">
+                      {formatMatName(mob.uniqueDrops[0])}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        );
+      })()}
+
       {/* Ability Picker (combat, before starting) */}
       {!isRunning && idleMode === 'combat' && <SkillPicker />}
 
@@ -1272,7 +1337,7 @@ export default function ZoneScreen() {
           )}
 
           {idleMode === 'combat' && combatPhase === 'zone_defeat' && runningZone && (
-            <ZoneDefeatOverlay mobName={runningZone.mobName} zoneName={runningZone.name} currentHp={currentHp} maxHp={maxHp} />
+            <ZoneDefeatOverlay mobName={targetedMobId ? (getMobTypeDef(targetedMobId)?.name ?? runningZone.mobName) : runningZone.mobName} zoneName={runningZone.name} currentHp={currentHp} maxHp={maxHp} />
           )}
 
           {/* Normal progress (clearing phase or gathering) */}
@@ -1292,11 +1357,12 @@ export default function ZoneScreen() {
               {idleMode === 'combat' && runningZone ? (
                 <div className="relative">
                   <MobDisplay
-                    mobName={runningZone.mobName}
+                    mobName={targetedMobId ? (getMobTypeDef(targetedMobId)?.name ?? runningZone.mobName) : runningZone.mobName}
                     mobCurrentHp={currentMobHp}
                     mobMaxHp={maxMobHp}
                     bossIn={BOSS_INTERVAL - ((zoneClearCounts[currentZoneId!] || 0) % BOSS_INTERVAL)}
                     swingProgress={zoneSwingProgress}
+                    uniqueDrop={targetedMobId ? (getMobTypeDef(targetedMobId)?.uniqueDrops[0]) : undefined}
                   />
                   <DamageFloaters floaters={floaters} />
                 </div>
