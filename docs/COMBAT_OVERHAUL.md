@@ -1,10 +1,65 @@
-# Combat Overhaul Roadmap (Sprints 10J → 10N)
+# Combat Overhaul Roadmap (Sprints 10J → 10R)
 
 > **Machine-readable sprint doc.** Each sprint has exact file paths, function names, and checklists.
 > At the start of any session, read this file to pick up where the last session left off.
 > Last updated: 2026-03-02
 
-## Current Sprint: **10O — Per-Hit Defense System** ✅ COMPLETE
+## Current Sprint: **10R — Boss Damage Smoothing** ✅ COMPLETE
+
+### Goal
+Prevent boss one-shots at-level. Make boss damage gradual and readable with variance, crits, and a damage cap.
+
+### What was done:
+- [x] `BOSS_DMG_PER_HIT_BASE` 8→6 in `data/balance.ts`
+- [x] New constants: `BOSS_CRIT_CHANCE = 0.15`, `BOSS_CRIT_MULTIPLIER = 1.5`, `BOSS_MAX_DMG_RATIO = 0.40`
+- [x] Extended `CombatTickResult` with `bossAttack?: { damage, isDodged, isBlocked, isCrit }`
+- [x] Updated `applyBossDamage` helper in `gameStore.ts`: variance roll (0.6–1.0), crit roll (15%), damage cap (40% maxHP)
+- [x] Updated boss_fight skill-fire path: same variance + crit + cap logic
+- [x] Extended `FloaterEntry` with `isBossCrit?: boolean` in `DamageFloater.tsx`
+- [x] Boss crit floaters: bright red (`text-red-300`) + larger text (`text-base`)
+- [x] Wired boss attack floaters into ZoneScreen boss_fight tick loop
+- [x] `npm run build` passes
+
+### Math (band 3 boss, level 20 player, 200 HP):
+- **Before**: 8 × 9 × 1.12 = 80.6 per hit, every hit identical. Dead in 3 hits.
+- **After normal** (avg 80%): 6 × 9 × 1.12 × 0.8 = 48.4 raw → ~35 after mitigation = 17.5% maxHP
+- **After crit** (15% chance): 6 × 9 × 1.12 × 1.5 = 90.7 raw → capped at 80 (40% maxHP)
+- **Expected hits to kill**: 5–7 normal (7.5–10.5s), worst case 3 (back-to-back crits, very rare)
+
+### Files changed:
+- `src/data/balance.ts` — 1 changed, 3 new constants
+- `src/types/index.ts` — extended `CombatTickResult`
+- `src/store/gameStore.ts` — both boss attack paths + new imports
+- `src/ui/components/DamageFloater.tsx` — `isBossCrit` field + styling
+- `src/ui/screens/ZoneScreen.tsx` — boss attack floater wiring
+
+---
+
+## Sprint 10Q: Real-Time Zone Defense + Swing Timer ✅ COMPLETE
+**Goal:** Replace batched `simulateClearDefense()` with real-time zone attacks that happen during clears, matching the boss per-hit model. Add visual swing timers and damage floaters for zone mobs.
+
+### What was done:
+- [x] New `applyZoneDamage()` helper inside `tickCombat()`: checks `zoneNextAttackAt`, computes `ZONE_DMG_BASE * band * levelMult * variance(0.8-1.2)`, runs through `rollZoneAttack()`, applies regen + leech, handles death → `zone_defeat`
+- [x] Wired into all 4 clearing code paths: GCD gap, all skills on CD, no skill found, and normal clearing after player skill fires
+- [x] New ephemeral state: `zoneNextAttackAt: number`. Init in `startIdleRun`, reset in `stopIdleRun`/`onRehydrateStorage`/`startBossFight`, re-init in `checkRecoveryComplete`
+- [x] Removed batched defense from `processNewClears()` — HP managed entirely by `tickCombat`
+- [x] Balance retuning: `ZONE_ATTACK_INTERVAL` 1.0→2.0s, `ZONE_DMG_BASE` 8→6, `MAX_REGEN_RATIO` 0.40→0.50, `LEECH_PERCENT` 0.03→0.04 (~62% less total zone damage per clear)
+- [x] Enemy swing timer: orange progress bar on MobDisplay and BossFightDisplay
+- [x] Enemy damage floaters: "DODGE" (blue), blocked (orange), hit (red). Extended `FloaterEntry` with `isEnemyAttack`, `isDodged`, `isBlocked`
+- [x] Extended `CombatTickResult`: `zoneAttack?: { damage, isDodged, isBlocked }`, `zoneDeath?: boolean`
+- [x] Removed displayHp interpolation (real-time HP updates directly from store)
+- [x] `npm run build` passes
+
+### Files modified:
+- `data/balance.ts` — 4 constant changes
+- `types/index.ts` — CombatTickResult extended
+- `store/gameStore.ts` — `applyZoneDamage` helper, all 4 clearing paths, removed batched defense
+- `ui/components/DamageFloater.tsx` — `FloaterEntry` extended
+- `ui/screens/ZoneScreen.tsx` — swing timer, zone attack floaters, removed HP interpolation
+
+---
+
+## Sprint 10O — Per-Hit Defense System ✅ COMPLETE
 
 ---
 

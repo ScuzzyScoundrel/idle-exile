@@ -6,6 +6,7 @@ export interface FloaterEntry {
   isEnemyAttack?: boolean;
   isDodged?: boolean;
   isBlocked?: boolean;
+  isBossCrit?: boolean;
 }
 
 export function DamageFloaters({ floaters }: { floaters: FloaterEntry[] }) {
@@ -20,7 +21,9 @@ export function DamageFloaters({ floaters }: { floaters: FloaterEntry[] }) {
                 ? 'text-blue-400 text-sm'
                 : f.isBlocked
                   ? 'text-orange-400 text-sm'
-                  : 'text-red-400 text-sm'
+                  : f.isBossCrit
+                    ? 'text-red-300 text-base'
+                    : 'text-red-400 text-sm'
               : !f.isHit
                 ? 'text-gray-400 text-sm'
                 : f.isCrit

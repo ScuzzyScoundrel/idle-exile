@@ -291,6 +291,7 @@ export interface CombatTickResult {
   isHit: boolean;
   bossOutcome?: 'ongoing' | 'victory' | 'defeat';
   zoneAttack?: { damage: number; isDodged: boolean; isBlocked: boolean } | null;
+  bossAttack?: { damage: number; isDodged: boolean; isBlocked: boolean; isCrit: boolean } | null;
   zoneDeath?: boolean;
 }
 

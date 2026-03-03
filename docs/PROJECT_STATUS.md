@@ -1,44 +1,53 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-02 (Post-Sprint 10Q: Real-Time Zone Defense + Swing Timer)
+> Last updated: 2026-03-02 (Post-Sprint 10R: Boss Damage Smoothing)
 
 ## Current Phase
-**Sprint 10Q: Real-Time Zone Defense + Swing Timer** — COMPLETE.
+**Sprint 10R: Boss Damage Smoothing — Prevent One-Shots** — COMPLETE.
 
-- **Real-time zone defense**: Zone attacks now happen in real-time via `tickCombat()` (mirrors boss per-hit model), replacing the batched `simulateClearDefense()` that ran at clear completion. Player sees damage as it happens.
-- **New `applyZoneDamage` helper**: Inside `tickCombat()`, checks `zoneNextAttackAt` timestamp, computes `ZONE_DMG_BASE * band * levelMult * variance`, runs through `rollZoneAttack()` pipeline (dodge/block/armor/resist), applies regen + leech, handles death → `zone_defeat`.
-- **Wired into all 4 clearing code paths**: GCD gap, all skills on CD, no skill found, and normal clearing (after player skill fires). Zone attacks happen every `ZONE_ATTACK_INTERVAL` seconds regardless of skill state.
-- **New ephemeral state field**: `zoneNextAttackAt: number` on GameState. Init in `startIdleRun`, reset in `stopIdleRun`/`onRehydrateStorage`/`startBossFight`, re-init in `checkRecoveryComplete`.
-- **Removed batched defense from `processNewClears`**: No longer calls `simulateClearDefense()` in a loop. HP managed entirely by `tickCombat`. `simulateClearDefense` still exists in `engine/zones.ts` for offline progression.
-- **Balance retuning**: `ZONE_ATTACK_INTERVAL` 1.0→2.0 (halves hits/clear), `ZONE_DMG_BASE` 8→6 (softer hits), `MAX_REGEN_RATIO` 0.40→0.50 (more healing), `LEECH_PERCENT` 0.03→0.04 (better sustain). ~62% less total damage per clear.
-- **Enemy swing timer**: Orange progress bar on MobDisplay (zone clearing) and BossFightDisplay (boss fights). Fills left→right over attack interval, resets on each attack.
-- **Enemy damage floaters**: Near player HP bar — "DODGE" (blue), blocked damage (orange), hit damage (red). Uses extended `FloaterEntry` with `isEnemyAttack`, `isDodged`, `isBlocked` fields.
-- **Removed displayHp interpolation**: Old `calcDefensiveEfficiency`-based HP prediction removed. Real-time HP updates directly from store every 250ms tick.
-- **CombatTickResult extended**: New fields `zoneAttack?: { damage, isDodged, isBlocked }` and `zoneDeath?: boolean`.
-- **`calcDefensiveEfficiency` no longer imported in ZoneScreen**: Defense is fully real-time now.
-- **No save migration needed**: `zoneNextAttackAt` is ephemeral (reset on rehydrate).
+- **Problem**: Boss damage scaled with `band²` while player HP scaled linearly. At-level boss fights were coin-flip one-shots (72 raw damage vs ~200 HP).
+- **Boss damage variance**: Normal hits roll `0.6x–1.0x` base damage (avg 80%). Replaces flat damage per hit.
+- **Boss crits**: 15% chance per attack, deals `1.5x` base damage. Provides danger spikes without constant lethality.
+- **Damage cap**: `BOSS_MAX_DMG_RATIO = 0.40` — no single boss hit can exceed 40% of player maxHP after defense pipeline. Guarantees 3+ hits to kill even with zero defense.
+- **Base damage reduced**: `BOSS_DMG_PER_HIT_BASE` 8→6. Combined with 80% avg variance, effective base drops from 72→43.2 at band 3.
+- **Boss attack floaters**: Boss hits now show damage floaters during boss fights (same pattern as zone attack floaters from 10Q). Boss crits render in bright red + larger text (`text-base`).
+- **New balance constants**: `BOSS_CRIT_CHANCE = 0.15`, `BOSS_CRIT_MULTIPLIER = 1.5`, `BOSS_MAX_DMG_RATIO = 0.40`.
+- **CombatTickResult extended**: New field `bossAttack?: { damage, isDodged, isBlocked, isCrit }`.
+- **FloaterEntry extended**: New `isBossCrit?: boolean` for distinct boss crit styling.
+- **Both boss attack paths updated**: `applyBossDamage` helper (GCD/idle ticks) and boss_fight skill-fire path both apply variance + crit + cap.
+- **No save migration needed**: All changes are to combat mechanics (ephemeral state).
 - **Save version**: v27 (unchanged).
 
 **Next sprint TBD.** Potential: mob type differentiation, skill discovery/unlocks, zone mastery system.
 
+**Sprint 10Q: Real-Time Zone Defense + Swing Timer** — COMPLETE (previous).
+
+- **Real-time zone defense**: Zone attacks now happen via `tickCombat()` every `ZONE_ATTACK_INTERVAL` (2.0s), replacing batched `simulateClearDefense()` that ran at clear completion. Uses `rollZoneAttack()` pipeline (dodge/block/armor/resist). Wired into all 4 clearing code paths (GCD gap, all skills on CD, no skill found, normal clearing).
+- **New ephemeral state**: `zoneNextAttackAt: number`. Init in `startIdleRun`, reset on stop/rehydrate/boss start, re-init on recovery complete.
+- **Balance retuning**: `ZONE_ATTACK_INTERVAL` 1.0→2.0s, `ZONE_DMG_BASE` 8→6, `MAX_REGEN_RATIO` 0.40→0.50, `LEECH_PERCENT` 0.03→0.04. ~62% less total zone damage per clear.
+- **Enemy swing timer**: Orange progress bar on MobDisplay and BossFightDisplay. Fills over attack interval, resets on attack.
+- **Enemy damage floaters**: "DODGE" (blue), blocked damage (orange), hit damage (red). Extended `FloaterEntry` with `isEnemyAttack`, `isDodged`, `isBlocked`.
+- **CombatTickResult extended**: `zoneAttack?: { damage, isDodged, isBlocked }` and `zoneDeath?: boolean`.
+
 **Sprint 10O: Per-Hit Defense System** — COMPLETE (previous).
 
-- Per-hit defense pipeline: `rollZoneAttack()` (dodge→block→armor→resist), `simulateClearDefense()`, `calcBossAttackProfile()`.
-- Boss per-hit attacks via `bossNextAttackAt` timestamp. Life leech, regen cap. 7 new balance constants.
+- **Per-hit defense pipeline**: `rollZoneAttack()` rolls each incoming attack through dodge→block→armor→resist. `simulateClearDefense()` for offline/batched. `calcBossAttackProfile()` computes per-hit boss stats.
+- **BossState expanded**: `bossDamagePerHit`, `bossAttackInterval`, `bossNextAttackAt`, `bossAccuracy`, `bossPhysRatio`.
+- **Boss per-hit attacks**: `applyBossDamage()` helper in `tickCombat()` checks `bossNextAttackAt` timestamp, fires through `rollZoneAttack()`. Life leech (`LEECH_PERCENT`), regen cap (`MAX_REGEN_RATIO`).
+- **7 new balance constants**: `ZONE_ATTACK_INTERVAL`, `ZONE_DMG_BASE`, `ZONE_PHYS_RATIO`, `BOSS_DMG_PER_HIT_BASE`, `BOSS_ATTACK_INTERVAL`, `LEECH_PERCENT`, `MAX_REGEN_RATIO`.
+- **Removed**: `applyNormalClearHp`, `calcDamagePerClear`, `calcRegenPerClear`, `calcBossDps`, `CLEAR_DAMAGE_RATIO`, `BOSS_DPS_BASE`, `BOSS_DPS_ZONE_FACTOR`, `BOSS_DAMAGE_MULTIPLIER`.
 
 **Sprint 10N: Skill XP + Passive Points** — COMPLETE (previous).
 
-- **All skills earn XP**: Removed `kind === 'active'` filter in `processNewClears()`. All equipped skills (active, buff, passive, toggle, etc.) now earn equal XP per clear. Must be equipped in skill bar.
-- **Max level raised**: 10 → 20. New constant `SKILL_MAX_LEVEL = 20` in `data/balance.ts`.
-- **Quadratic XP curve**: `100 * (level + 1) * (1 + level * 0.1)`. Level 1→2: 200 XP. Level 10→11: 2,200 XP. Level 19→20: 6,000 XP. Total 0→20: ~38,000 XP.
-- **Level badges**: All skill bar slots show `Lv.X` in top-right corner (purple text, 9px). Shows "MAX" at level 20. Hidden at level 0.
-- **SkillPanel XP display**: Active skills now show XP bar + level in the browse panel (was hidden for actives). Points line hidden for active skills (no trees yet).
-- **No save migration needed**: `skillProgress` entries created on-the-fly. Active skills start at level 0.
-- **Save version**: v27 (unchanged).
-- **Bundle size**: 503 kB.
+- All skills earn XP (removed `kind === 'active'` filter). Max level 10→20. Quadratic XP curve. Level badges on all skill bar slots. SkillPanel XP display for active skills.
 
 **Sprint 10M: Multi-Skill Rotation (Foundation)** — COMPLETE (previous).
+
+- **Cooldown-based rotation**: All active skills have individual cooldowns (3s basic → 6s specialist, 8-12s finishers). `getNextRotationSkill()` iterates skill bar in slot-priority order, fires first off-CD skill.
+- **`ACTIVE_SKILL_GCD` (1.0s)**: Independent from buff auto-cast GCD. `nextActiveSkillAt` replaces `lastSkillCastAt`.
+- **Active skill CD overlay**: `conic-gradient` sweep + remaining CD text on SkillBar slots.
+- **v27 migration**: Renames ephemeral field, ensures active skill timer entries exist.
 
 **Sprint 10L: Cooldown UI + Visual Polish** — COMPLETE (previous).
 
@@ -195,15 +204,15 @@ Bottom: mainhand, offhand, trinket1, trinket2
 - **Rare material drops**: 25 defs (5 professions × 5 rarities). Per-clear roll, highest rarity first. Rates scale with band (common ~8-18%, legendary 0-0.3%). `rareFindBonus` from milestones + gear.
 - **Refinement**: 36 recipes (6 tracks × 6 tiers). T1: 5 raw + gold → 1 refined. T2+: 5 raw + 2 previous refined + gold → 1 refined. Deconstruct: 1 refined → 2 previous tier (T2+ only).
 - **Crafting professions**: 6 professions, level 1-100. XP curve: `50 * 1.10^(level-1)` (softened from 1.35 in 8G). Gold costs: T1=10, T2=25, T3=35, T4=70, T5=200, T6=500. 205 recipes (table-driven armor generation). Catalyst system: optional affix catalyst → guaranteed affix; optional rare mat → guaranteed minimum rarity + 1 boosted affix. `executeCraft()` generates item with reroll loop + boosted affix upgrade.
-- **Combat HP**: `applyNormalClearHp()` per clear. Damage = maxHp * 0.15 * scale(defEff) * levelDamageMult * variance(0.7-1.3). Regen = maxHp * 0.08 + lifeRegen * clearTime. When underleveled: minimum net damage floor = maxHp * 0.02 * levelDelta (prevents immortality via regen). `calcLevelDamageMult()`: underleveled = `1.12^delta` exponential, overleveled = `1 - delta*0.06` linear (floor 0.30). `calcDefensiveEfficiency()` accepts optional `zoneILvlMin` for intra-band pressure refinement (+4% per iLvl above band base). **Death possible**: HP can reach 0, triggering `zone_defeat` recovery phase (5s, resets boss counter). Ability `resistBonus` applied via `applyAbilityResists()`.
-- **Boss mechanics**: Every 10 clears (count resets on new run or zone death). `calcBossMaxHp(zone)` = `150 * band^2`. `calcBossDps()` = zone-specific pressure (`BOSS_DPS_BASE * band^1.5 + baseClearTime * 0.2`) + hazard bonus (15% per unresisted hazard) * damageScale * multiplier(1.0) * `calcLevelDamageMult()`. Underleveled boss fights are deadly. `calcPlayerDps()` drives real-time simulation. `tickBossFight()` resolves frame-by-frame. `generateBossLoot()` at iLvlMax + 5. Victory/defeat/zone_defeat phases with timed recovery.
+- **Combat HP (real-time per-hit)**: Zone attacks fire every `ZONE_ATTACK_INTERVAL` (2.0s) during normal clears via `tickCombat()`. Each attack: `ZONE_DMG_BASE * band * levelMult * variance(0.8-1.2)` → `rollZoneAttack()` pipeline (dodge→block→armor→resist). Regen: `lifeRegen * dt` per tick, capped at `MAX_REGEN_RATIO` (50%) of maxHP per clear. Life leech: `LEECH_PERCENT` (4%) of player damage dealt. `calcLevelDamageMult()`: underleveled = `1.12^delta` exponential, overleveled = `1 - delta*0.10` linear (floor 0.30). **Death possible**: HP can reach 0, triggering `zone_defeat` recovery phase (5s, resets boss counter). Ability `resistBonus` applied via `applyAbilityResists()`.
+- **Boss mechanics**: Every 10 clears (count resets on new run or zone death). `calcBossMaxHp(zone)` = `150 * band^2`. `calcBossAttackProfile()`: base damage = `BOSS_DMG_PER_HIT_BASE(6) * band^2 * levelMult` + hazard bonus (15% per unresisted hazard). Boss attacks every `BOSS_ATTACK_INTERVAL` (1.5s) via `bossNextAttackAt` timestamp. **Boss damage smoothing (10R)**: normal hits roll 0.6x–1.0x variance (avg 80%), boss crits (15% chance) deal 1.5x, damage capped at 40% maxHP per hit (`BOSS_MAX_DMG_RATIO`). Player attacks boss via `rollSkillCast()` (same skill rotation as normal clearing). `generateBossLoot()` at iLvlMax + 5. Victory/defeat/zone_defeat phases with timed recovery.
 - **Auto-apply resources**: `processNewClears()` immediately applies all drops to state. Session summary tracked in UI local state.
 - **Ability system**: 6 ability kinds (passive/buff/instant/proc/toggle/ultimate). Per-ability skill trees with 3 paths x 2 nodes. Ability XP: `10 + floor(band*2)` per clear. XP per level: `100*(level+1)`. Max level 10. Respec cost: `50*level^2` gold. Slot unlock at character Lv.1/5/12/20.
 - **Per-clear tracking**: `clearStartedAt` + `currentClearTime` replace modulo-based progress. Mid-clear ability activation preserves progress % but adjusts remaining time.
 - **Bag system**: 5 equippable bag slots (T1:6→T5:14). Start 30 total, max 70.
 - **Crafting (currencies)**: `applyCurrency(item, type)` — augment, chaos, divine, annul, exalt, greater_exalt (top-2 tiers), perfect_exalt (T1 guaranteed)
 - **Active skills**: 51 skills (6-8 per weapon × 8 weapons). Tag-based DPS: `calcSkillDps()` computes base damage → additive %increased (including delivery tag stats: Melee/Projectile/AoE/DoT/Channel) → speed → hit chance → crit → hits → per-second → DoT bonus. Attack skills use weapon damage + flat phys/ele. Spell skills use spell power + flat spell ele. Default skill auto-assigned on weapon equip. Every weapon has elemental variety (Physical/Fire/Cold/Lightning/Chaos choices).
-- **Save**: Zustand persist v26. v25→v26 strips legacy `equippedAbilities`/`abilityTimers`/`equippedSkills`, truncates `skillBar` to 5. v24→v25 adds unified `skillBar`/`skillProgress`/`skillTimers`. v23→v24 adds `equippedSkills`. v22→v23 adds `autoDisposalAction: 'salvage'`. v21→v22 renames `materials.salvage_dust` → `materials.enchanting_essence`. v20→v21 adds `greater_exalt` + `perfect_exalt` currencies. Migrations: v11→v12 adds `craftingSkills`, v12→v13 adds leatherworker + jeweler skills, v13→v14 adds `craftAutoSalvageMinRarity`, v14→v15 adds `zoneClearCounts` + combat HP fields, v17→v18 adds `classResource` + `classSelected`, v18→v19 adds `abilityProgress` + `clearStartedAt` + `currentClearTime` (clears old mutator selections).
+- **Save**: Zustand persist v27. v26→v27 renames ephemeral combat field + ensures active skill timer entries. v25→v26 strips legacy `equippedAbilities`/`abilityTimers`/`equippedSkills`, truncates `skillBar` to 5. v24→v25 adds unified `skillBar`/`skillProgress`/`skillTimers`. v23→v24 adds `equippedSkills`. v22→v23 adds `autoDisposalAction: 'salvage'`. v21→v22 renames `materials.salvage_dust` → `materials.enchanting_essence`. v20→v21 adds `greater_exalt` + `perfect_exalt` currencies. Earlier migrations: v11→v15 adds crafting/combat fields, v17→v19 adds classes/abilities/per-clear tracking.
 
 ## Architecture
 ```
@@ -237,7 +246,7 @@ src/
     crafting.ts             — 6 currency crafting operations
     setBonus.ts             — Set bonus resolution
   store/
-    gameStore.ts            — Zustand store (state + actions + persistence + v26 migration). Actions: selectClass, tickClassResource, tickAutoCast, tickCombat, startBossFight, tickBoss, handleBossVictory, handleBossDefeat, checkRecoveryComplete, allocateAbilityNode, respecAbility, equipToSkillBar, unequipSkillBarSlot, toggleSkillAutoCast, reorderSkillBar, activateSkillBarSlot + all previous.
+    gameStore.ts            — Zustand store (state + actions + persistence + v27 migration). Actions: selectClass, tickClassResource, tickAutoCast, tickCombat, startBossFight, handleBossVictory, handleBossDefeat, checkRecoveryComplete, allocateAbilityNode, respecAbility, equipToSkillBar, unequipSkillBarSlot, toggleSkillAutoCast, reorderSkillBar, activateSkillBarSlot + all previous.
   ui/
     slotConfig.ts           — Shared gear slot icons/labels
     components/
@@ -248,6 +257,7 @@ src/
       SkillBar.tsx          — 8-slot unified skill bar (reads skillBar/skillTimers/skillProgress)
       SkillPanel.tsx        — Unified skill browser (all kinds + DPS comparison + skill trees)
       Tooltip.tsx           — Reusable hover tooltip component
+      DamageFloater.tsx     — FloaterEntry interface + DamageFloaters component (player/enemy/boss crit floaters)
       ClassPicker.tsx       — 4-class selection screen (new game / reset)
     screens/
       ZoneScreen.tsx        — Band tabs, Combat/Gathering toggle, profession selector, session summary with rare finds
@@ -272,8 +282,9 @@ src/
 ## What's Next
 **See `SPRINT_PLAN.md` for the full roadmap with detailed implementation notes.**
 
-Immediate priority:
-1. **Sprint 10K**: Real-Time Combat Triggers (see `COMBAT_OVERHAUL.md` for full roadmap)
+Combat overhaul sprints 10J→10R are complete. See `COMBAT_OVERHAUL.md` for detailed sprint history.
+
+Potential next sprints: mob type differentiation, skill discovery/unlocks, zone mastery system, passive skill trees.
 
 ## How to Run
 ```bash

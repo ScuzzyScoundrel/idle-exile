@@ -26,7 +26,7 @@ import {
 import { createCharacter, resolveStats, addXp, getWeaponDamageInfo } from '../engine/character';
 import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, simulateCombatClear, createBossEncounter, generateBossLoot, applyAbilityResists, calcHazardPenalty, rollZoneAttack, calcLevelDamageMult } from '../engine/zones';
 import { calcMobHp, calcSkillCastInterval, rollSkillCast } from '../engine/unifiedSkills';
-import { BOSS_VICTORY_DURATION, BOSS_DEFEAT_RECOVERY, BOSS_VICTORY_HEAL_RATIO, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO, SKILL_GCD, ACTIVE_SKILL_GCD, LEECH_PERCENT, ZONE_ATTACK_INTERVAL, ZONE_DMG_BASE, ZONE_PHYS_RATIO, ZONE_ACCURACY_BASE, MAX_REGEN_RATIO } from '../data/balance';
+import { BOSS_VICTORY_DURATION, BOSS_DEFEAT_RECOVERY, BOSS_VICTORY_HEAL_RATIO, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO, SKILL_GCD, ACTIVE_SKILL_GCD, LEECH_PERCENT, ZONE_ATTACK_INTERVAL, ZONE_DMG_BASE, ZONE_PHYS_RATIO, ZONE_ACCURACY_BASE, MAX_REGEN_RATIO, BOSS_CRIT_CHANCE, BOSS_CRIT_MULTIPLIER, BOSS_MAX_DMG_RATIO } from '../data/balance';
 import { pickBestItem, generateId, isTwoHandedWeapon } from '../engine/items';
 import { applyCurrency } from '../engine/crafting';
 import {
@@ -1701,12 +1701,22 @@ export const useGameStore = create<GameState & GameActions>()(
             const abilEff = aggregateSkillBarEffects(state.skillBar, state.skillProgress, state.skillTimers, now, false);
             const defStats = applyAbilityResists(bossStats, abilEff);
             let playerHp = state.currentHp;
+            let bossAttackResult: CombatTickResult['bossAttack'] = null;
 
             // Check if boss attack is due
             let nextAttack = bs.bossNextAttackAt;
             if (now >= nextAttack) {
-              const roll = rollZoneAttack(bs.bossDamagePerHit, bs.bossPhysRatio, bs.bossAccuracy, defStats);
-              playerHp -= roll.damage;
+              // Boss damage smoothing: variance + crit
+              const isBossCrit = Math.random() < BOSS_CRIT_CHANCE;
+              const variance = 0.6 + Math.random() * 0.4; // 60%-100% normal
+              const rawDmg = bs.bossDamagePerHit * (isBossCrit ? BOSS_CRIT_MULTIPLIER : variance);
+
+              const roll = rollZoneAttack(rawDmg, bs.bossPhysRatio, bs.bossAccuracy, defStats);
+
+              // Damage cap: never exceed BOSS_MAX_DMG_RATIO of maxHP per hit
+              const cappedDmg = Math.min(roll.damage, bossStats.maxLife * BOSS_MAX_DMG_RATIO);
+              playerHp -= cappedDmg;
+              bossAttackResult = { damage: cappedDmg, isDodged: roll.isDodged, isBlocked: roll.isBlocked, isCrit: isBossCrit };
               nextAttack = now + bs.bossAttackInterval * 1000;
             }
 
@@ -1715,10 +1725,10 @@ export const useGameStore = create<GameState & GameActions>()(
 
             if (playerHp <= 0) {
               set({ currentHp: 0, bossState: { ...bs, bossNextAttackAt: nextAttack } });
-              return { ...noResult, bossOutcome: 'defeat' };
+              return { ...noResult, bossOutcome: 'defeat', bossAttack: bossAttackResult };
             }
             set({ currentHp: playerHp, bossState: { ...bs, bossNextAttackAt: nextAttack } });
-            return { ...noResult, bossOutcome: 'ongoing' };
+            return { ...noResult, bossOutcome: 'ongoing', bossAttack: bossAttackResult };
           }
           return noResult;
         };
@@ -1858,9 +1868,19 @@ export const useGameStore = create<GameState & GameActions>()(
           // Boss per-hit attack (if attack timer is due)
           let playerHp = state.currentHp;
           let nextAttack = bs.bossNextAttackAt;
+          let bossAttackResult: CombatTickResult['bossAttack'] = null;
           if (now >= nextAttack) {
-            const bossRoll = rollZoneAttack(bs.bossDamagePerHit, bs.bossPhysRatio, bs.bossAccuracy, effectiveStats);
-            playerHp -= bossRoll.damage;
+            // Boss damage smoothing: variance + crit
+            const isBossCrit = Math.random() < BOSS_CRIT_CHANCE;
+            const bossVariance = 0.6 + Math.random() * 0.4; // 60%-100% normal
+            const rawBossDmg = bs.bossDamagePerHit * (isBossCrit ? BOSS_CRIT_MULTIPLIER : bossVariance);
+
+            const bossRoll = rollZoneAttack(rawBossDmg, bs.bossPhysRatio, bs.bossAccuracy, effectiveStats);
+
+            // Damage cap: never exceed BOSS_MAX_DMG_RATIO of maxHP per hit
+            const cappedBossDmg = Math.min(bossRoll.damage, stats.maxLife * BOSS_MAX_DMG_RATIO);
+            playerHp -= cappedBossDmg;
+            bossAttackResult = { damage: cappedBossDmg, isDodged: bossRoll.isDodged, isBlocked: bossRoll.isBlocked, isCrit: isBossCrit };
             nextAttack = now + bs.bossAttackInterval * 1000;
           }
 
@@ -1885,7 +1905,7 @@ export const useGameStore = create<GameState & GameActions>()(
             return {
               mobKills: 0, skillFired: true, damageDealt: totalDamage,
               skillId: skill.id, isCrit: roll.isCrit, isHit: roll.isHit,
-              bossOutcome: 'victory',
+              bossOutcome: 'victory', bossAttack: bossAttackResult,
             };
           }
           if (playerHp <= 0) {
@@ -1898,7 +1918,7 @@ export const useGameStore = create<GameState & GameActions>()(
             return {
               mobKills: 0, skillFired: true, damageDealt: totalDamage,
               skillId: skill.id, isCrit: roll.isCrit, isHit: roll.isHit,
-              bossOutcome: 'defeat',
+              bossOutcome: 'defeat', bossAttack: bossAttackResult,
             };
           }
 
@@ -1911,7 +1931,7 @@ export const useGameStore = create<GameState & GameActions>()(
           return {
             mobKills: 0, skillFired: true, damageDealt: totalDamage,
             skillId: skill.id, isCrit: roll.isCrit, isHit: roll.isHit,
-            bossOutcome: 'ongoing',
+            bossOutcome: 'ongoing', bossAttack: bossAttackResult,
           };
         }
 

@@ -284,7 +284,13 @@ export const ZONE_DMG_BASE = 6;
 /** Fraction of zone damage that's physical (rest is elemental). */
 export const ZONE_PHYS_RATIO = 0.7;
 /** Boss damage per hit base. Scales with band^2. */
-export const BOSS_DMG_PER_HIT_BASE = 8;
+export const BOSS_DMG_PER_HIT_BASE = 6;
+/** Boss crit chance per attack (15%). */
+export const BOSS_CRIT_CHANCE = 0.15;
+/** Boss crit damage multiplier. */
+export const BOSS_CRIT_MULTIPLIER = 1.5;
+/** Max boss damage per hit as fraction of player maxHP (prevents one-shots). */
+export const BOSS_MAX_DMG_RATIO = 0.40;
 /** Seconds between boss attacks. */
 export const BOSS_ATTACK_INTERVAL = 1.5;
 /** Innate life leech: fraction of damage dealt that heals player. */

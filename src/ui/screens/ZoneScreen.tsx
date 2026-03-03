@@ -849,6 +849,20 @@ export default function ZoneScreen() {
             isHit: bossResult.isHit,
           }].slice(-20));
         }
+        // Boss attack floaters (damage smoothing — shows dodge/block/crit)
+        if (bossResult.bossAttack) {
+          const ba = bossResult.bossAttack;
+          setFloaters(prev => [...prev, {
+            id: floaterIdRef.current++,
+            damage: ba.damage,
+            isCrit: false,
+            isHit: !ba.isDodged,
+            isEnemyAttack: true,
+            isDodged: ba.isDodged,
+            isBlocked: ba.isBlocked,
+            isBossCrit: ba.isCrit,
+          }].slice(-8));
+        }
         if (bossResult.bossOutcome === 'victory') {
           // Capture fight stats before handleBossVictory modifies state
           const bState = useGameStore.getState().bossState;
