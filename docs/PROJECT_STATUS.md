@@ -1,10 +1,29 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-02 (Post-Sprint 10R: Boss Damage Smoothing)
+> Last updated: 2026-03-02 (Post-Sprint 11A: Class Talent Trees)
 
 ## Current Phase
-**Sprint 10R: Boss Damage Smoothing — Prevent One-Shots** — COMPLETE.
+**Sprint 11A: Class Talent Trees** — COMPLETE.
+
+- **Class-wide passive talent trees**: Each of the 4 classes (Warrior, Mage, Ranger, Rogue) gets a talent tree with 3 thematic paths and 8 nodes each (96 total nodes). Tier 4 nodes are build-defining keystones (`isPathPayoff`).
+- **Warrior paths**: Blood (sustain/defense), Iron (armor/resist), Fury (damage/crits).
+- **Mage paths**: Arcane (burst/charges), Elements (elemental damage/resist), Mind (XP/knowledge).
+- **Ranger paths**: Predator (damage/crits), Warden (evasion/defense), Pathfinder (loot/materials).
+- **Rogue paths**: Shadow (crit/burst), Swiftness (clear speed), Cunning (item find/utility).
+- **Points**: 1 talent point per character level. Available = `level - allocated`.
+- **Respec**: Full respec costs `25 * level` gold. Clears all allocations.
+- **Keystones**: `doubleClears`, `ignoreHazards`, large damage/defense multipliers (1.25-1.50x), combined stat bonuses.
+- **Integration**: `getFullEffect()` helper merges skill bar effects + class talent effects via `mergeEffect()`. Replaced all 12 `aggregateSkillBarEffects()` call sites in gameStore, including offline progression.
+- **UI**: `ClassTalentPanel` on CharacterScreen (collapsible, 3-path tabs, class-themed colors, keystone highlighting, points counter, respec button).
+- **New files**: `src/data/classTalents.ts` (96 node definitions), `src/engine/classTalents.ts` (pure functions), `src/ui/components/ClassTalentPanel.tsx`.
+- **Edited files**: `src/types/index.ts` (added `talentAllocations`), `src/store/gameStore.ts` (actions, helper, migration), `src/ui/screens/CharacterScreen.tsx` (panel integration).
+- **Save version**: v27 → v28 (migration adds `talentAllocations: []`).
+- **Zero-allocation identity**: When no talents allocated, behavior is identical to pre-sprint.
+
+**Next sprint TBD.** Potential: per-skill passive trees (11B), mob type differentiation, skill discovery/unlocks, zone mastery.
+
+**Sprint 10R: Boss Damage Smoothing — Prevent One-Shots** — COMPLETE (previous).
 
 - **Problem**: Boss damage scaled with `band²` while player HP scaled linearly. At-level boss fights were coin-flip one-shots (72 raw damage vs ~200 HP).
 - **Boss damage variance**: Normal hits roll `0.6x–1.0x` base damage (avg 80%). Replaces flat damage per hit.

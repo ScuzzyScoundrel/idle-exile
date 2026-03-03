@@ -700,6 +700,9 @@ export interface GameState {
   skillProgress: Record<string, SkillProgress>;
   skillTimers: SkillTimerState[];
 
+  // Class talent tree (v28)
+  talentAllocations: string[];
+
   // Per-clear combat sim result (v25 — ephemeral, not persisted)
   lastClearResult: CombatClearResult | null;
 

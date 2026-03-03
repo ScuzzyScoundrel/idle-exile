@@ -51,7 +51,8 @@ import {
 } from '../engine/classResource';
 import { getDefaultSkillForWeapon } from '../engine/unifiedSkills';
 import { getSkillDef } from '../data/unifiedSkills';
-import { aggregateSkillBarEffects, getPrimaryDamageSkill, getNextRotationSkill, getSkillEffectiveDuration, getSkillEffectiveCooldown } from '../engine/unifiedSkills';
+import { aggregateSkillBarEffects, getPrimaryDamageSkill, getNextRotationSkill, getSkillEffectiveDuration, getSkillEffectiveCooldown, mergeEffect } from '../engine/unifiedSkills';
+import { aggregateClassTalentEffect, canAllocateTalentNode, allocateTalentNode as allocateTalentNodeEngine, respecTalents as respecTalentsEngine, getTalentRespecCost } from '../engine/classTalents';
 import { getUnifiedSkillDef, ABILITY_ID_MIGRATION } from '../data/unifiedSkills';
 
 
@@ -171,6 +172,31 @@ export interface ProcessClearsResult {
 }
 
 /**
+ * Aggregate skill bar effects + class talent effects into one AbilityEffect.
+ * When no talents are allocated, talent effect is {} (identity under mergeEffect).
+ */
+function getFullEffect(
+  state: GameState,
+  now: number,
+  offlineMode: boolean,
+  overrides?: {
+    skillBar?: (EquippedSkill | null)[];
+    skillProgress?: Record<string, SkillProgress>;
+    skillTimers?: SkillTimerState[];
+  },
+): import('../types').AbilityEffect {
+  const skillEffect = aggregateSkillBarEffects(
+    overrides?.skillBar ?? state.skillBar,
+    overrides?.skillProgress ?? state.skillProgress,
+    overrides?.skillTimers ?? state.skillTimers,
+    now,
+    offlineMode,
+  );
+  const talentEffect = aggregateClassTalentEffect(state.character.class, state.talentAllocations);
+  return mergeEffect(skillEffect, talentEffect);
+}
+
+/**
  * Compute clear time for next clear using per-hit combat sim.
  * Falls back to expected-value calcClearTime if no skill is available.
  */
@@ -282,6 +308,10 @@ interface GameActions {
   allocateAbilityNode: (abilityId: string, nodeId: string) => void;
   respecAbility: (abilityId: string) => void;
 
+  // Class talent tree
+  allocateTalentNode: (nodeId: string) => void;
+  respecTalents: () => void;
+
   // Class resource
   tickClassResource: (dtSeconds: number) => void;
 
@@ -367,6 +397,7 @@ function createInitialState(): GameState {
     skillBar: [null, null, null, null, null],
     skillProgress: {},
     skillTimers: [],
+    talentAllocations: [],
     lastClearResult: null,
     lastSkillActivation: 0,
     currentMobHp: 0,
@@ -624,9 +655,7 @@ export const useGameStore = create<GameState & GameActions>()(
               initialClearTime = calcGatherClearTime(state.gatheringSkills[profession].level, zone);
             }
           } else {
-            const abilityEffect = aggregateSkillBarEffects(
-              state.skillBar, state.skillProgress, state.skillTimers, Date.now(), false,
-            );
+            const abilityEffect = getFullEffect(state, Date.now(), false);
             const classDmgMult = getClassDamageModifier(newResource, classDef);
             const classSpdMult = getClassClearSpeedModifier(newResource, classDef);
             const sim = computeNextClear(state, zone, abilityEffect, classDmgMult, classSpdMult);
@@ -760,7 +789,7 @@ export const useGameStore = create<GameState & GameActions>()(
         const accBagDrops: Record<string, number> = {};
         let bonusMageClears = 0;
 
-        const abilityEffect = aggregateSkillBarEffects(state.skillBar, state.skillProgress, state.skillTimers, Date.now(), false);
+        const abilityEffect = getFullEffect(state, Date.now(), false);
 
         // Build class resource stacks per clear
         const zoneId = state.currentZoneId!;
@@ -865,9 +894,7 @@ export const useGameStore = create<GameState & GameActions>()(
         // Recalculate currentClearTime for next clear (picks up current ability/class state)
         const cDmgMult = getClassDamageModifier(classRes, classDef);
         const cSpdMult = getClassClearSpeedModifier(classRes, classDef);
-        const updatedAbilityEffect = aggregateSkillBarEffects(
-          state.skillBar, newSkillProgress, state.skillTimers, Date.now(), false,
-        );
+        const updatedAbilityEffect = getFullEffect(state, Date.now(), false, { skillProgress: newSkillProgress });
         const simState = { ...state, abilityProgress: newAbilityProgress, skillProgress: newSkillProgress } as GameState;
         const { clearTime: newClearTime, clearResult: newClearResult } = computeNextClear(
           simState, zone, updatedAbilityEffect, cDmgMult, cSpdMult,
@@ -951,7 +978,7 @@ export const useGameStore = create<GameState & GameActions>()(
           return calcGatherClearTime(state.gatheringSkills[profession].level, zone);
         }
 
-        const abilityEffect = aggregateSkillBarEffects(state.skillBar, state.skillProgress, state.skillTimers, Date.now(), false);
+        const abilityEffect = getFullEffect(state, Date.now(), false);
         const cDef = getClassDef(state.character.class);
         const classDmgMult = getClassDamageModifier(state.classResource, cDef);
         const classSpdMult = getClassClearSpeedModifier(state.classResource, cDef);
@@ -1374,6 +1401,25 @@ export const useGameStore = create<GameState & GameActions>()(
         });
       },
 
+      // Class talent tree
+      allocateTalentNode: (nodeId: string) => {
+        set((state) => {
+          if (!canAllocateTalentNode(state.character.class, state.talentAllocations, nodeId, state.character.level)) {
+            return state;
+          }
+          return { talentAllocations: allocateTalentNodeEngine(state.talentAllocations, nodeId) };
+        });
+      },
+
+      respecTalents: () => {
+        set((state) => {
+          if (state.talentAllocations.length === 0) return state;
+          const cost = getTalentRespecCost(state.character.level);
+          if (state.gold < cost) return state;
+          return { talentAllocations: respecTalentsEngine(), gold: state.gold - cost };
+        });
+      },
+
       // Active skill equip
       equipSkill: (skillId: string, _slot?: number) => {
         const state = get();
@@ -1405,9 +1451,7 @@ export const useGameStore = create<GameState & GameActions>()(
           const zone = ZONE_DEFS.find(z => z.id === state.currentZoneId);
           if (zone) {
             const cDef = getClassDef(state.character.class);
-            const abilityEffect = aggregateSkillBarEffects(
-              newSkillBar, state.skillProgress, state.skillTimers, now, false,
-            );
+            const abilityEffect = getFullEffect(state, now, false, { skillBar: newSkillBar });
             const classDmgMult = getClassDamageModifier(state.classResource, cDef);
             const classSpdMult = getClassClearSpeedModifier(state.classResource, cDef);
             const tempState = { ...state, skillBar: newSkillBar };
@@ -1473,10 +1517,11 @@ export const useGameStore = create<GameState & GameActions>()(
           const clampedProgress = Math.min(Math.max(progress, 0), 0.99);
           const zone = ZONE_DEFS.find(z => z.id === state.currentZoneId);
           if (zone) {
-            const abilityEffect = aggregateSkillBarEffects(
-              newSkillBar, updates.skillProgress ?? state.skillProgress,
-              updates.skillTimers ?? state.skillTimers, now, false,
-            );
+            const abilityEffect = getFullEffect(state, now, false, {
+              skillBar: newSkillBar,
+              skillProgress: updates.skillProgress ?? state.skillProgress,
+              skillTimers: updates.skillTimers ?? state.skillTimers,
+            });
             const cDef = getClassDef(state.character.class);
             const classDmgMult = getClassDamageModifier(state.classResource, cDef);
             const classSpdMult = getClassClearSpeedModifier(state.classResource, cDef);
@@ -1603,9 +1648,9 @@ export const useGameStore = create<GameState & GameActions>()(
             const clampedProgress = Math.min(Math.max(prog, 0), 0.99);
             const zone = ZONE_DEFS.find(z => z.id === state.currentZoneId);
             if (zone) {
-              const newAbilityEffect = aggregateSkillBarEffects(
-                state.skillBar, state.skillProgress, updates.skillTimers ?? state.skillTimers, now, false,
-              );
+              const newAbilityEffect = getFullEffect(state, now, false, {
+                skillTimers: updates.skillTimers ?? state.skillTimers,
+              });
               const classDmgMult = getClassDamageModifier(updates.classResource ?? state.classResource, cDef);
               const classSpdMult = getClassClearSpeedModifier(updates.classResource ?? state.classResource, cDef);
               const { clearTime: newClearTime, clearResult: newClearResult } = computeNextClear(
@@ -1698,7 +1743,7 @@ export const useGameStore = create<GameState & GameActions>()(
           if (phase === 'boss_fight' && state.bossState) {
             const bs = state.bossState;
             const bossStats = resolveStats(state.character);
-            const abilEff = aggregateSkillBarEffects(state.skillBar, state.skillProgress, state.skillTimers, now, false);
+            const abilEff = getFullEffect(state, now, false);
             const defStats = applyAbilityResists(bossStats, abilEff);
             let playerHp = state.currentHp;
             let bossAttackResult: CombatTickResult['bossAttack'] = null;
@@ -1742,7 +1787,7 @@ export const useGameStore = create<GameState & GameActions>()(
 
           if (nextAttackAt > 0 && now >= nextAttackAt) {
             const playerStats = resolveStats(state.character);
-            const abilEff = aggregateSkillBarEffects(state.skillBar, state.skillProgress, state.skillTimers, now, false);
+            const abilEff = getFullEffect(state, now, false);
             const defStats = applyAbilityResists(playerStats, abilEff);
             // Apply defenseMult from abilities to armor/evasion
             const buffedStats: ResolvedStats = abilEff.defenseMult
@@ -1811,9 +1856,7 @@ export const useGameStore = create<GameState & GameActions>()(
         }
 
         const stats = resolveStats(state.character);
-        const abilityEffect = aggregateSkillBarEffects(
-          state.skillBar, state.skillProgress, state.skillTimers, now, false,
-        );
+        const abilityEffect = getFullEffect(state, now, false);
 
         // Apply ability stat bonuses to effective stats
         const effectiveStats = { ...stats };
@@ -2032,7 +2075,7 @@ export const useGameStore = create<GameState & GameActions>()(
         if (!state.currentZoneId) return;
         const zone = ZONE_DEFS.find(z => z.id === state.currentZoneId);
         if (!zone) return;
-        const abilityEffect = aggregateSkillBarEffects(state.skillBar, state.skillProgress, state.skillTimers, Date.now(), false);
+        const abilityEffect = getFullEffect(state, Date.now(), false);
         const boss = createBossEncounter(state.character, zone, abilityEffect);
         set({
           combatPhase: 'boss_fight' as CombatPhase,
@@ -2167,7 +2210,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 27,
+      version: 28,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -2307,13 +2350,7 @@ export const useGameStore = create<GameState & GameActions>()(
           }
 
           // Combat mode offline simulation — use same DPS path as real-time
-          const passiveEffect = aggregateSkillBarEffects(
-            state.skillBar ?? [null, null, null, null, null, null, null, null],
-            state.skillProgress ?? {},
-            state.skillTimers ?? [],
-            Date.now(),
-            true, // offlineMode: passives only
-          );
+          const passiveEffect = getFullEffect(state, Date.now(), true);
           const offlineClassDef = getClassDef(state.character.class);
           const offlineClassDmgMult = getClassDamageModifier(state.classResource, offlineClassDef);
           const offlineClassSpdMult = getClassClearSpeedModifier(state.classResource, offlineClassDef);
@@ -2722,6 +2759,11 @@ export const useGameStore = create<GameState & GameActions>()(
             }
           }
           raw.skillTimers = timers27;
+        }
+
+        if (version < 28) {
+          // v28: Class talent tree
+          raw.talentAllocations = [];
         }
 
         return state;

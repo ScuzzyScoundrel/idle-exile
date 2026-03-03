@@ -8,6 +8,7 @@ import { formatAffix, getEquippedWeaponType } from '../../engine/items';
 import { CLASS_DEFS } from '../../data/classes';
 import { calcSetBonuses, calcDefensiveEfficiency } from '../../engine/setBonus';
 import SkillPanel from '../components/SkillPanel';
+import ClassTalentPanel from '../components/ClassTalentPanel';
 import { calcSkillDps, getDefaultSkillForWeapon } from '../../engine/unifiedSkills';
 import { resolveStats, getWeaponDamageInfo } from '../../engine/character';
 import { getSkillDef } from '../../data/unifiedSkills';
@@ -228,6 +229,9 @@ export default function CharacterScreen() {
           </div>
         )}
       </div>
+
+      {/* Class Talent Tree */}
+      <ClassTalentPanel />
 
       {/* Paper Doll — icon grid layout */}
       <div className="bg-gray-800 rounded-lg p-3 overflow-hidden">
