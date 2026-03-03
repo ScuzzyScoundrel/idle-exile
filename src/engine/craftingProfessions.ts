@@ -74,6 +74,13 @@ export function canCraftRecipe(
     if ((materials[recipe.requiredCatalyst.rareMaterialId] ?? 0) < recipe.requiredCatalyst.amount) return false;
   }
 
+  // Check component cost
+  if (recipe.componentCost) {
+    for (const { materialId, amount } of recipe.componentCost) {
+      if ((materials[materialId] ?? 0) < amount) return false;
+    }
+  }
+
   return true;
 }
 

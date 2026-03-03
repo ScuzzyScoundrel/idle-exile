@@ -1,6 +1,33 @@
-import type { CraftingRecipeDef } from '../types';
-import type { CraftingProfession } from '../types';
+import type { CraftingRecipeDef, CraftingProfession } from '../types';
 import { ITEM_BASE_DEFS } from './items';
+
+// ─── Component Cost Helper ──────────────────────────────────────────────
+// Maps profession to shortcode for component material IDs.
+const COMP_CODE: Record<CraftingProfession, string> = {
+  weaponsmith: 'ws', armorer: 'ar', leatherworker: 'lw',
+  tailor: 'ta', jeweler: 'je', alchemist: 'al',
+};
+
+/**
+ * Compute the componentCost for a gear recipe based on tier and profession.
+ * T1: 1 general | T2-T3: 1 general + 1 specialist | T4-T5: 2 specialist | T6: 2 specialist + 1 general
+ * Tier maps directly to band (T1→B1, ..., T6→B6).
+ */
+function getComponentCost(tier: number, profession: CraftingProfession): { materialId: string; amount: number }[] {
+  const code = COMP_CODE[profession];
+  const gen = `comp_${code}_b${tier}_general`;
+  const spec = `comp_${code}_b${tier}_specialist`;
+
+  switch (tier) {
+    case 1: return [{ materialId: gen, amount: 1 }];
+    case 2:
+    case 3: return [{ materialId: gen, amount: 1 }, { materialId: spec, amount: 1 }];
+    case 4:
+    case 5: return [{ materialId: spec, amount: 2 }];
+    case 6: return [{ materialId: spec, amount: 2 }, { materialId: gen, amount: 1 }];
+    default: return [];
+  }
+}
 
 // ─── Tier Constants ───────────────────────────────────────────────
 // Gold:  T1=10, T2=25, T3=35, T4=70, T5=200, T6=500
@@ -44,6 +71,7 @@ function generateArmorRecipes(
         outputBaseId: baseId,
         outputILvl: tc.iLvl,
         catalystSlot: true,
+        componentCost: getComponentCost(tc.tier, profession),
       });
     }
   }
@@ -787,7 +815,18 @@ const uniqueRecipes: CraftingRecipeDef[] = [
 
 // ─── Combined Export ──────────────────────────────────────────────
 
-export const CRAFTING_RECIPES: CraftingRecipeDef[] = [
+// Auto-inject componentCost for gear-producing recipes that don't have one yet.
+// Alchemist catalyst recipes (outputMaterialId set) skip component costs.
+function injectComponentCosts(recipes: CraftingRecipeDef[]): CraftingRecipeDef[] {
+  return recipes.map(r => {
+    if (r.componentCost) return r;             // already has one (generated armor)
+    if (r.outputMaterialId) return r;          // material-producing (alchemist catalysts)
+    if (!r.outputBaseId) return r;             // safety guard
+    return { ...r, componentCost: getComponentCost(r.tier, r.profession) };
+  });
+}
+
+export const CRAFTING_RECIPES: CraftingRecipeDef[] = injectComponentCosts([
   ...weaponsmithRecipes,
   ...armorerRecipes,
   ...leatherworkerRecipes,
@@ -795,7 +834,7 @@ export const CRAFTING_RECIPES: CraftingRecipeDef[] = [
   ...alchemistRecipes,
   ...jewelerRecipes,
   ...uniqueRecipes,
-];
+]);
 
 /** Look up a single crafting recipe by id */
 export function getCraftingRecipe(id: string): CraftingRecipeDef | undefined {

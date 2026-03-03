@@ -7,6 +7,9 @@ import { CRAFTING_PROFESSION_DEFS } from '../../data/craftingProfessions';
 import { getRecipesForProfession } from '../../data/craftingRecipes';
 import { canCraftRecipe } from '../../engine/craftingProfessions';
 import { calcCraftingXpRequired } from '../../engine/craftingProfessions';
+import { getComponentRecipesForProfession, isComponentMaterial, getComponentMeta } from '../../data/componentRecipes';
+import { canCraftComponent, getMaxCraftableComponents, autoPickMobDrop } from '../../engine/componentCrafting';
+import type { ComponentRecipeDef } from '../../types';
 import { RARE_MATERIAL_DEFS, getRareMaterialDef } from '../../data/rareMaterials';
 import { AFFIX_CATALYST_DEFS, getAffixCatalystDef } from '../../data/affixCatalysts';
 import { CATALYST_RARITY_MAP, CATALYST_BEST_TIER } from '../../data/balance';
@@ -59,7 +62,7 @@ const RARITY_GRADIENT: Record<Rarity, string> = {
   legendary: 'from-orange-900/50',
 };
 
-type SubTab = 'materials' | 'refine' | 'craft';
+type SubTab = 'materials' | 'refine' | 'components' | 'craft';
 
 // Build track lookups from refinement recipes (static, computed once)
 const rawToTrack = new Map<string, RefinementTrack>();
@@ -86,20 +89,22 @@ export default function CraftingScreen() {
     <div className="space-y-3">
       <h2 className="text-lg font-bold text-yellow-400">Crafting</h2>
 
-      {/* 3-tab toggle */}
+      {/* 4-tab toggle */}
       <div className="flex gap-1 bg-gray-800 rounded-lg p-1">
         {([
           { key: 'materials' as const, icon: '\uD83E\uDEA8', label: 'Materials' },
           { key: 'refine' as const, icon: '\u2697\uFE0F', label: 'Refine' },
+          { key: 'components' as const, icon: '\uD83E\uDDE9', label: 'Components' },
           { key: 'craft' as const, icon: '\uD83D\uDD28', label: 'Craft' },
         ]).map(tab => (
           <button
             key={tab.key}
             onClick={() => setSubTab(tab.key)}
-            className={`flex-1 py-2 px-2 rounded-md text-sm font-bold transition-all ${
+            className={`flex-1 py-2 px-1 rounded-md text-xs sm:text-sm font-bold transition-all ${
               subTab === tab.key
                 ? tab.key === 'craft' ? 'bg-blue-600 text-white'
                   : tab.key === 'refine' ? 'bg-amber-600 text-white'
+                  : tab.key === 'components' ? 'bg-teal-600 text-white'
                   : 'bg-gray-600 text-white'
                 : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
             } ${tutorialStep === 6 ? 'ring-2 ring-yellow-400 animate-pulse' : ''}`}
@@ -109,7 +114,10 @@ export default function CraftingScreen() {
         ))}
       </div>
 
-      {subTab === 'materials' ? <MaterialsPanel /> : subTab === 'refine' ? <RefinePanel /> : <CraftPanel />}
+      {subTab === 'materials' ? <MaterialsPanel />
+        : subTab === 'refine' ? <RefinePanel />
+        : subTab === 'components' ? <ComponentCraftPanel />
+        : <CraftPanel />}
     </div>
   );
 }
@@ -138,11 +146,20 @@ function MaterialsPanel() {
   const affixCats: MatItem[] = [];
   const rare: MatItem[] = [];
   const misc: MatItem[] = [];
+  const components: MatItem[] = [];
 
   for (const [id, count] of Object.entries(materials)) {
     if (count <= 0) continue;
 
-    if (affixCatIds.has(id)) {
+    if (isComponentMaterial(id)) {
+      const meta = getComponentMeta(id);
+      components.push({
+        id, count,
+        icon: '\uD83E\uDDE9',
+        color: 'text-teal-400',
+        subtitle: meta ? `${meta.variant} (B${meta.band})` : undefined,
+      });
+    } else if (affixCatIds.has(id)) {
       const def = AFFIX_CATALYST_DEFS.find(d => d.id === id);
       affixCats.push({
         id, count,
@@ -183,6 +200,7 @@ function MaterialsPanel() {
       sections.push({ label: trackDef.name, icon: trackDef.icon, items });
     }
   }
+  if (components.length > 0) sections.push({ label: 'Components', icon: '\uD83E\uDDE9', items: components });
   if (affixCats.length > 0) sections.push({ label: 'Affix Catalysts', icon: '\u2697\uFE0F', items: affixCats });
   if (rare.length > 0) sections.push({ label: 'Rare Materials', icon: '\uD83D\uDC8E', items: rare });
   if (misc.length > 0) sections.push({ label: 'Misc', icon: '\uD83D\uDCE6', items: misc });
@@ -233,6 +251,12 @@ function MaterialsPanel() {
 
 /** Generate tooltip text for a material. */
 function getMatTooltip(id: string): string | null {
+  // Component material
+  if (isComponentMaterial(id)) {
+    const meta = getComponentMeta(id);
+    if (meta) return `${meta.name} (${meta.variant}, Band ${meta.band}). Used in ${meta.profession} gear recipes.`;
+  }
+
   // Affix catalyst
   const affixDef = AFFIX_CATALYST_DEFS.find(d => d.id === id);
   if (affixDef) {
@@ -432,6 +456,263 @@ function RefinePanel() {
   );
 }
 
+// ─── Component Craft Panel ───────────────────────────────────────
+
+// Variant colors
+const VARIANT_COLORS: Record<string, string> = {
+  general: 'border-l-teal-500',
+  specialist: 'border-l-amber-500',
+  masterwork: 'border-l-purple-500',
+};
+
+const VARIANT_BADGE: Record<string, string> = {
+  general: 'bg-teal-900/60 text-teal-300',
+  specialist: 'bg-amber-900/60 text-amber-300',
+  masterwork: 'bg-purple-900/60 text-purple-300',
+};
+
+function ComponentCraftPanel() {
+  const { craftingSkills, materials, gold, craftComponent, craftComponentBatch } = useGameStore();
+  const [selectedProfession, setSelectedProfession] = useState<CraftingProfession>('weaponsmith');
+  const [selectedDrops, setSelectedDrops] = useState<Record<string, string>>({});
+  const [flashId, setFlashId] = useState<string | null>(null);
+  const [flashMsg, setFlashMsg] = useState<string | null>(null);
+
+  const skill = craftingSkills[selectedProfession];
+  const xpToNext = calcCraftingXpRequired(skill.level);
+
+  // Include alchemist for masterwork recipes
+  const professions: CraftingProfession[] = ['weaponsmith', 'armorer', 'leatherworker', 'tailor', 'jeweler', 'alchemist'];
+  const recipes = getComponentRecipesForProfession(selectedProfession);
+
+  // Group by band
+  const bandGroups = useMemo(() => {
+    const groups = new Map<number, ComponentRecipeDef[]>();
+    for (const r of recipes) {
+      if (!groups.has(r.band)) groups.set(r.band, []);
+      groups.get(r.band)!.push(r);
+    }
+    return groups;
+  }, [selectedProfession]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleCraft = (recipe: ComponentRecipeDef) => {
+    const dropId = selectedDrops[recipe.id];
+    const ok = craftComponent(recipe.id, dropId || undefined);
+    if (ok) {
+      setFlashId(recipe.id);
+      setTimeout(() => setFlashId(null), 600);
+    }
+  };
+
+  const handleCraftAll = (recipe: ComponentRecipeDef) => {
+    const dropId = selectedDrops[recipe.id];
+    const maxCount = getMaxCraftableComponents(recipe, craftingSkills, materials, gold, dropId || undefined);
+    if (maxCount <= 0) return;
+    const crafted = craftComponentBatch(recipe.id, maxCount, dropId || undefined);
+    if (crafted > 0) {
+      setFlashId(recipe.id);
+      setFlashMsg(`Crafted x${crafted}`);
+      setTimeout(() => { setFlashId(null); setFlashMsg(null); }, 1200);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* Profession selector pills */}
+      <div className="flex gap-1 bg-gray-800/50 rounded-lg p-1">
+        {professions.map(profId => {
+          const profDef = CRAFTING_PROFESSION_DEFS.find(p => p.id === profId);
+          const s = craftingSkills[profId];
+          const isActive = selectedProfession === profId;
+          return (
+            <button
+              key={profId}
+              onClick={() => setSelectedProfession(profId)}
+              className={`flex-1 py-1.5 px-1 rounded-md text-xs font-semibold transition-all ${
+                isActive
+                  ? 'bg-teal-600 text-white'
+                  : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+              }`}
+            >
+              <span className="block text-center">
+                <span className="text-sm">{profDef?.icon ?? '\u2699\uFE0F'}</span>
+                <span className="block text-xs mt-0.5">{profDef?.name ?? profId}</span>
+                <span className="block text-xs opacity-70">Lv.{s.level}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* XP bar */}
+      <div className="bg-gray-800 rounded-lg px-3 py-2">
+        <div className="flex justify-between text-xs mb-1">
+          <span className="text-teal-400 font-semibold">
+            {CRAFTING_PROFESSION_DEFS.find(p => p.id === selectedProfession)?.icon}{' '}
+            {selectedProfession.charAt(0).toUpperCase() + selectedProfession.slice(1)} Lv.{skill.level}
+          </span>
+          <span className="text-gray-500">{skill.xp}/{xpToNext} XP</span>
+        </div>
+        <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-teal-500 rounded-full transition-all duration-300"
+            style={{ width: `${(skill.xp / xpToNext) * 100}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Flash message */}
+      {flashMsg && (
+        <div className="text-center text-sm font-bold text-teal-400 py-1 animate-pulse">
+          {flashMsg}
+        </div>
+      )}
+
+      {/* Recipes grouped by band */}
+      {recipes.length === 0 ? (
+        <div className="bg-gray-800 rounded-lg p-6 text-center text-gray-500 text-sm">
+          No component recipes for this profession.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {Array.from(bandGroups.entries()).sort(([a], [b]) => a - b).map(([band, bandRecipes]) => (
+            <div key={band}>
+              <div className="text-xs font-bold text-gray-400 border-b border-gray-700/50 pb-1 mb-2">
+                Band {band}
+              </div>
+              <div className="space-y-2">
+                {bandRecipes.map(recipe => {
+                  const levelLocked = skill.level < recipe.requiredLevel;
+                  const dropId = selectedDrops[recipe.id];
+                  const craftable = !levelLocked && canCraftComponent(recipe, craftingSkills, materials, gold, dropId || undefined);
+                  const owned = materials[recipe.outputMaterialId] ?? 0;
+                  const isFlashing = flashId === recipe.id;
+
+                  return (
+                    <div
+                      key={recipe.id}
+                      className={`bg-gray-800 rounded-lg border-l-4 border border-gray-700 transition-all ${
+                        VARIANT_COLORS[recipe.variant] ?? 'border-l-gray-500'
+                      } ${isFlashing ? 'border-teal-400 bg-teal-900/20' : ''} ${levelLocked ? 'opacity-50' : ''}`}
+                    >
+                      <div className="p-2.5 space-y-1.5">
+                        {/* Header */}
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm">{'\uD83E\uDDE9'}</span>
+                          <span className="text-xs font-bold text-white flex-1 truncate">{recipe.name}</span>
+                          <span className="text-xs text-gray-500">Own: {owned}</span>
+                          <span className={`text-xs font-bold px-1.5 py-0.5 rounded leading-none ${VARIANT_BADGE[recipe.variant] ?? ''}`}>
+                            {recipe.variant}
+                          </span>
+                        </div>
+
+                        {levelLocked ? (
+                          <div className="text-xs text-red-400 font-semibold">
+                            {'\uD83D\uDD12'} Req. Lv.{recipe.requiredLevel}
+                          </div>
+                        ) : (
+                          <>
+                            {/* Material pills */}
+                            <div className="flex flex-wrap gap-1">
+                              {recipe.materials.map(({ materialId, amount }) => {
+                                const have = materials[materialId] ?? 0;
+                                const met = have >= amount;
+                                return (
+                                  <Tooltip key={materialId} content={getMatTooltip(materialId) ?? formatMatName(materialId)}>
+                                    <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs cursor-help ${
+                                      met ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'
+                                    }`}>
+                                      {getMatIcon(materialId)} {formatMatName(materialId)} {have}/{amount}
+                                    </span>
+                                  </Tooltip>
+                                );
+                              })}
+                              <Tooltip content="Gold cost">
+                                <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs cursor-help ${
+                                  gold >= recipe.goldCost ? 'bg-yellow-900/30 text-yellow-400' : 'bg-red-900/30 text-red-400'
+                                }`}>
+                                  {'\uD83D\uDCB0'} {recipe.goldCost}
+                                </span>
+                              </Tooltip>
+                            </div>
+
+                            {/* Mob drop selector for specialist recipes */}
+                            {recipe.mobDropChoice && (
+                              <div className="space-y-1">
+                                <select
+                                  value={selectedDrops[recipe.id] ?? ''}
+                                  onChange={e => setSelectedDrops(prev => ({ ...prev, [recipe.id]: e.target.value }))}
+                                  className="w-full bg-gray-700 text-xs text-gray-300 rounded px-2 py-1.5 border border-gray-600"
+                                >
+                                  <option value="">Auto-pick best</option>
+                                  {recipe.mobDropChoice.anyOf.map(dropId => {
+                                    const have = materials[dropId] ?? 0;
+                                    const met = have >= recipe.mobDropChoice!.amount;
+                                    return (
+                                      <option key={dropId} value={dropId}>
+                                        {formatMatName(dropId)} ({have}/{recipe.mobDropChoice!.amount}){met ? ' \u2713' : ''}
+                                      </option>
+                                    );
+                                  })}
+                                </select>
+                                {/* Show mob drop requirement inline */}
+                                {(() => {
+                                  const effectiveDrop = dropId || autoPickMobDrop(recipe, materials);
+                                  if (!effectiveDrop) return (
+                                    <span className="text-xs text-red-400">No drops available ({recipe.mobDropChoice.amount} needed)</span>
+                                  );
+                                  const have = materials[effectiveDrop] ?? 0;
+                                  const met = have >= recipe.mobDropChoice.amount;
+                                  return (
+                                    <span className={`text-xs ${met ? 'text-amber-400' : 'text-red-400'}`}>
+                                      {'\uD83D\uDC80'} {formatMatName(effectiveDrop)} {have}/{recipe.mobDropChoice.amount}
+                                    </span>
+                                  );
+                                })()}
+                              </div>
+                            )}
+
+                            {/* Craft buttons */}
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => handleCraft(recipe)}
+                                disabled={!craftable}
+                                className={`flex-1 py-1.5 rounded text-xs font-bold transition-all ${
+                                  craftable
+                                    ? 'bg-teal-600 hover:bg-teal-500 text-white'
+                                    : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                                }`}
+                              >
+                                {'\uD83E\uDDE9'} Craft
+                              </button>
+                              <button
+                                onClick={() => handleCraftAll(recipe)}
+                                disabled={!craftable}
+                                className={`px-3 py-1.5 rounded text-xs font-bold transition-all ${
+                                  craftable
+                                    ? 'bg-teal-700 hover:bg-teal-600 text-teal-200'
+                                    : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                                }`}
+                                title="Craft maximum possible"
+                              >
+                                All
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Craft Panel ─────────────────────────────────────────────────
 
 // Tier left-border colors
@@ -481,6 +762,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 // Material icon lookup from refinement track
 function getMatIcon(matId: string): string {
+  if (isComponentMaterial(matId)) return '\uD83E\uDDE9';
   const track = rawToTrack.get(matId) ?? refinedToTrack.get(matId);
   if (track) {
     const td = REFINEMENT_TRACK_DEFS.find(t => t.id === track);
@@ -567,6 +849,12 @@ function CraftPanel() {
     if (recipe.requiredCatalyst) {
       const have = materials[recipe.requiredCatalyst.rareMaterialId] ?? 0;
       max = Math.min(max, Math.floor(have / recipe.requiredCatalyst.amount));
+    }
+    // Component cost limits
+    if (recipe.componentCost) {
+      for (const { materialId, amount } of recipe.componentCost) {
+        max = Math.min(max, Math.floor((materials[materialId] ?? 0) / amount));
+      }
     }
 
     // Optional catalysts consumed per craft
@@ -773,6 +1061,20 @@ function CraftPanel() {
                                     </Tooltip>
                                   );
                                 })}
+                                {recipe.componentCost?.map(({ materialId, amount }) => {
+                                  const have = materials[materialId] ?? 0;
+                                  const met = have >= amount;
+                                  const compName = getComponentMeta(materialId)?.name ?? formatMatName(materialId);
+                                  return (
+                                    <Tooltip key={materialId} content={getMatTooltip(materialId) ?? compName}>
+                                      <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs cursor-help ${
+                                        met ? 'bg-teal-900/30 text-teal-400' : 'bg-red-900/30 text-red-400'
+                                      }`}>
+                                        {'\uD83E\uDDE9'} {compName} {have}/{amount}
+                                      </span>
+                                    </Tooltip>
+                                  );
+                                })}
                                 <Tooltip content="Gold cost">
                                   <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs cursor-help ${
                                     gold >= recipe.goldCost ? 'bg-yellow-900/30 text-yellow-400' : 'bg-red-900/30 text-red-400'
@@ -893,5 +1195,9 @@ function CraftPanel() {
 // ─── Helpers ─────────────────────────────────────────────────────
 
 function formatMatName(id: string): string {
+  if (isComponentMaterial(id)) {
+    const meta = getComponentMeta(id);
+    if (meta) return meta.name;
+  }
   return id.replace(/_/g, ' ');
 }

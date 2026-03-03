@@ -1,10 +1,25 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-03 (Post-Sprint 13A-Phase1: Skill Tree Types & Engine Expansion)
+> Last updated: 2026-03-03 (Post-Sprint 13B: Component Crafting System)
 
 ## Current Phase
-**Sprint 13A-Phase1: Skill Tree Types & Engine Expansion** — COMPLETE.
+**Sprint 13B: Component Crafting System** — COMPLETE.
+
+- **Purpose**: Bridge combat drops into the crafting pipeline. Previously, 90 mob-specific drops + 18 band-tiered generic drops + 5 cross-band rares had zero crafting uses. Components create an intermediary layer: Gather → Refine + Kill Mobs → Craft Components → Craft Gear.
+- **65 new component recipes**: 30 general (5 professions × 6 bands), 30 specialist (5 professions × 6 bands), 5 masterwork (alchemist)
+- **Mob drop curation**: All 90 mob-specific drops curated into 5 profession groups per band (WS=sharp/offensive, AR=protective/rigid, LW=flexible/organic, TA=fine/magical, JE=exotic/crystalline)
+- **General components**: Use common generic mob drops + refined materials. Cheap, mass-producible.
+- **Specialist components**: Use mob-specific drops (anyOf 3) + refined materials + uncommon generics. Targeted farming.
+- **Masterwork components** (alchemist): Use cross-band rares. Premium substitutes for T5-T6 specialist components.
+- **All existing gear recipes modified**: T1=1 general, T2-T3=1 general+1 specialist, T4-T5=2 specialist, T6=2 specialist+1 general
+- **New UI**: "Components" sub-tab in Crafting (between Refine and Craft). Profession selector → band-grouped recipe cards → mob drop picker for specialists. Materials panel shows component section. Craft panel shows component costs as teal pills.
+- **New types**: `ComponentRecipeDef`, `ComponentVariant`, `componentCost` field on `CraftingRecipeDef`
+- **New files**: `src/data/componentRecipes.ts`, `src/engine/componentCrafting.ts`
+- **Modified files**: `src/types/index.ts`, `src/data/balance.ts`, `src/data/craftingRecipes.ts`, `src/engine/craftingProfessions.ts`, `src/store/gameStore.ts`, `src/ui/screens/CraftingScreen.tsx`
+- **Save version**: v32 → v33 (no-op migration, components stored as materials in existing dict)
+
+**Previous: Sprint 13A-Phase1: Skill Tree Types & Engine Expansion** — COMPLETE.
 
 - **Purpose**: Lay the type foundation for the Skill Tree Design Framework (`docs/SKILL_TREE_DESIGN.md`). All new interfaces, expanded existing types, new debuffs, and ephemeral combat state. No gameplay changes yet (Phase 2 wires these into the combat tick).
 - **6 new types**: `TriggerCondition`, `ConditionalModifier`, `SkillProcEffect`, `DebuffInteraction`, `SkillChargeConfig`, `TempBuff`

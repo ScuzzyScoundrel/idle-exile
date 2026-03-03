@@ -348,3 +348,22 @@ export const QUEST_XP_REWARD = [100, 250, 500, 1000, 2000, 4000];
 
 /** Clear speed penalty multiplier when targeted farming (1.0 = no penalty). */
 export const TARGETED_FARMING_SPEED_PENALTY = 1.0;
+
+// =============================================
+// COMPONENT CRAFTING
+// =============================================
+
+/** Gold cost for component recipes per band. [general, specialist] */
+export const COMPONENT_GOLD_COST: Record<number, { general: number; specialist: number }> = {
+  1: { general: 5, specialist: 8 },
+  2: { general: 10, specialist: 12 },
+  3: { general: 20, specialist: 25 },
+  4: { general: 30, specialist: 35 },
+  5: { general: 50, specialist: 60 },
+  6: { general: 80, specialist: 100 },
+};
+
+/** XP earned per component craft — same as crafting a gear item of that tier. */
+export const COMPONENT_XP_PER_BAND: Record<number, number> = {
+  1: 15, 2: 30, 3: 50, 4: 80, 5: 120, 6: 180,
+};

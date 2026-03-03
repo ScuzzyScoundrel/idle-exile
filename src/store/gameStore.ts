@@ -41,6 +41,9 @@ import { createDefaultCraftingSkills } from '../data/craftingProfessions';
 import { calcRareFindBonus } from '../engine/rareMaterials';
 import { canRefine, refine, canDeconstruct, deconstruct } from '../engine/refinement';
 import { canCraftRecipe, executeCraft, addCraftingXp, getCraftingXpForTier } from '../engine/craftingProfessions';
+import { canCraftComponent, autoPickMobDrop } from '../engine/componentCrafting';
+import { getComponentRecipe } from '../data/componentRecipes';
+import { COMPONENT_XP_PER_BAND } from '../data/balance';
 import { REFINEMENT_RECIPES } from '../data/refinement';
 import { getCraftingRecipe } from '../data/craftingRecipes';
 import { getClassDef } from '../data/classes';
@@ -322,6 +325,8 @@ interface GameActions {
   deconstructMaterial: (refinedId: string) => boolean;
   craftRecipe: (recipeId: string, catalystId?: string, affixCatalystId?: string) => { item: Item; wasSalvaged: boolean } | null;
   craftRecipeBatch: (recipeId: string, count: number, catalystId?: string, affixCatalystId?: string) => { crafted: number; lastItem: Item | null; salvaged: number } | null;
+  craftComponent: (recipeId: string, selectedMobDropId?: string) => boolean;
+  craftComponentBatch: (recipeId: string, count: number, selectedMobDropId?: string) => number;
 
   // Offline progression
   claimOfflineProgress: () => void;
@@ -1285,6 +1290,12 @@ export const useGameStore = create<GameState & GameActions>()(
         if (affixCatalystId) {
           newMaterials[affixCatalystId] = (newMaterials[affixCatalystId] ?? 0) - 1;
         }
+        // Consume component cost
+        if (recipe.componentCost) {
+          for (const { materialId, amount } of recipe.componentCost) {
+            newMaterials[materialId] = (newMaterials[materialId] ?? 0) - amount;
+          }
+        }
         const newGold = state.gold - recipe.goldCost;
 
         // Add crafting XP
@@ -1360,6 +1371,11 @@ export const useGameStore = create<GameState & GameActions>()(
           if (affixCatalystId) {
             curMaterials[affixCatalystId] = (curMaterials[affixCatalystId] ?? 0) - 1;
           }
+          if (recipe.componentCost) {
+            for (const { materialId, amount } of recipe.componentCost) {
+              curMaterials[materialId] = (curMaterials[materialId] ?? 0) - amount;
+            }
+          }
           curGold -= recipe.goldCost;
 
           // Add crafting XP per craft
@@ -1410,6 +1426,82 @@ export const useGameStore = create<GameState & GameActions>()(
         }
 
         return { crafted, lastItem, salvaged };
+      },
+
+      craftComponent: (recipeId: string, selectedMobDropId?: string) => {
+        const state = get();
+        const recipe = getComponentRecipe(recipeId);
+        if (!recipe) return false;
+        if (!canCraftComponent(recipe, state.craftingSkills, state.materials, state.gold, selectedMobDropId)) return false;
+
+        const newMaterials = { ...state.materials };
+
+        // Consume fixed materials
+        for (const { materialId, amount } of recipe.materials) {
+          newMaterials[materialId] = (newMaterials[materialId] ?? 0) - amount;
+        }
+
+        // Consume mob drop choice
+        if (recipe.mobDropChoice) {
+          const dropId = selectedMobDropId ?? autoPickMobDrop(recipe, state.materials);
+          if (!dropId) return false;
+          newMaterials[dropId] = (newMaterials[dropId] ?? 0) - recipe.mobDropChoice.amount;
+        }
+
+        const newGold = state.gold - recipe.goldCost;
+
+        // Produce component
+        newMaterials[recipe.outputMaterialId] = (newMaterials[recipe.outputMaterialId] ?? 0) + 1;
+
+        // Add crafting XP
+        const xp = COMPONENT_XP_PER_BAND[recipe.band] ?? 15;
+        const newCraftingSkills = addCraftingXp(state.craftingSkills, recipe.profession, xp);
+
+        set({ materials: newMaterials, gold: newGold, craftingSkills: newCraftingSkills });
+        return true;
+      },
+
+      craftComponentBatch: (recipeId: string, count: number, selectedMobDropId?: string) => {
+        if (count <= 0) return 0;
+        const state = get();
+        const recipe = getComponentRecipe(recipeId);
+        if (!recipe) return 0;
+
+        let curMaterials = { ...state.materials };
+        let curGold = state.gold;
+        let curCraftingSkills = { ...state.craftingSkills };
+        let crafted = 0;
+
+        for (let i = 0; i < count; i++) {
+          if (!canCraftComponent(recipe, curCraftingSkills, curMaterials, curGold, selectedMobDropId)) break;
+
+          // Consume fixed materials
+          for (const { materialId, amount } of recipe.materials) {
+            curMaterials[materialId] = (curMaterials[materialId] ?? 0) - amount;
+          }
+
+          // Consume mob drop choice
+          if (recipe.mobDropChoice) {
+            const dropId = selectedMobDropId ?? autoPickMobDrop(recipe, curMaterials);
+            if (!dropId) break;
+            curMaterials[dropId] = (curMaterials[dropId] ?? 0) - recipe.mobDropChoice.amount;
+          }
+
+          curGold -= recipe.goldCost;
+
+          // Produce component
+          curMaterials[recipe.outputMaterialId] = (curMaterials[recipe.outputMaterialId] ?? 0) + 1;
+
+          // XP
+          const xp = COMPONENT_XP_PER_BAND[recipe.band] ?? 15;
+          curCraftingSkills = addCraftingXp(curCraftingSkills, recipe.profession, xp);
+
+          crafted++;
+        }
+
+        if (crafted === 0) return 0;
+        set({ materials: curMaterials, gold: curGold, craftingSkills: curCraftingSkills });
+        return crafted;
       },
 
       claimOfflineProgress: () => {
@@ -2516,7 +2608,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 32,
+      version: 33,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -3133,6 +3225,12 @@ export const useGameStore = create<GameState & GameActions>()(
         if (version < 32) {
           // v32: Daily quest system
           raw.dailyQuests = { questDate: '', quests: [], progress: {} };
+        }
+
+        if (version < 33) {
+          // v33: Component crafting system — no state shape change.
+          // Components are stored as materials (comp_*) in existing materials dict.
+          // Existing gear recipes gain componentCost fields (code-only, not persisted).
         }
 
         return state;
