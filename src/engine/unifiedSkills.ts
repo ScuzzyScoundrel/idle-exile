@@ -760,11 +760,8 @@ export function calcSkillDps(
   const dmgPerCast = calcSkillDamagePerCast(skill, stats, weaponAvgDmg, weaponSpellPower, graphMod);
   if (dmgPerCast <= 0) return 0;
 
-  const tags = skill.tags;
-  const isAttack = tags.includes('Attack');
-
-  // --- Hit chance (Attack only; Spells always hit) ---
-  const hitChance = isAttack ? calcHitChance(stats.accuracy) : 1.0;
+  // --- Hit chance (both attacks and spells use accuracy) ---
+  const hitChance = calcHitChance(stats.accuracy);
 
   // --- Crit multiplier (expected value), with graph bonuses ---
   const effectiveCritChance = Math.min(stats.critChance + (graphMod?.incCritChance ?? 0), 100);
@@ -878,11 +875,8 @@ export function rollSkillCast(
   const baseDmgPerCast = calcSkillDamagePerCast(skill, stats, weaponAvgDmg, weaponSpellPower, graphMod) * damageMult;
   if (baseDmgPerCast <= 0) return { damage: 0, isCrit: false, isHit: false };
 
-  const tags = skill.tags;
-  const isAttack = tags.includes('Attack');
-
-  // Hit chance: attacks use accuracy formula, spells always hit
-  const hitChance = isAttack ? stats.accuracy / (stats.accuracy + 500) : 1.0;
+  // Hit chance: both attacks and spells use accuracy formula
+  const hitChance = calcHitChance(stats.accuracy);
   if (Math.random() > hitChance) return { damage: 0, isCrit: false, isHit: false };
 
   // Crit roll with graph modifier

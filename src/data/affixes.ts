@@ -376,6 +376,31 @@ export const AFFIX_DEFS: AffixDef[] = [
     tiers: buildTiers(1, 2, 2, 3, 3, 5, 5, 8, 8, 12, 12, 18),
     weight: 100, displayTemplate: '+{value}% Block Chance',
   },
+
+  // ================================================================
+  // SUFFIXES — Energy Shield
+  // ================================================================
+  {
+    id: 'flat_energy_shield', name: 'of the Barrier', category: 'flat_energy_shield',
+    slot: 'suffix', stat: 'energyShield',
+    allowedSlots: ['main_armor', 'shields', 'belt'],
+    tiers: buildTiers(5, 10, 10, 18, 18, 30, 28, 48, 44, 72, 80, 140),
+    weight: 70, displayTemplate: '+{value} Energy Shield',
+  },
+  {
+    id: 'inc_energy_shield', name: 'of Warding', category: 'inc_energy_shield',
+    slot: 'suffix', stat: 'incEnergyShield',
+    allowedSlots: ['chest', 'main_armor', 'belt'],
+    tiers: buildTiers(1, 2, 2, 4, 4, 7, 6, 10, 10, 16, 15, 25),
+    weight: 60, displayTemplate: '+{value}% Energy Shield',
+  },
+  {
+    id: 'es_recharge', name: 'of Renewal', category: 'es_recharge',
+    slot: 'suffix', stat: 'esRecharge',
+    allowedSlots: ['chest', 'main_armor'],
+    tiers: buildTiers(1, 1, 1, 2, 2, 3, 2, 4, 3, 5, 4, 8),
+    weight: 50, displayTemplate: '+{value} ES Recharge/s',
+  },
 ];
 
 // ============================================================

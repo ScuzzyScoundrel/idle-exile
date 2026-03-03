@@ -101,12 +101,16 @@ export function calcDefensiveEfficiency(stats: ResolvedStats, band: number, zone
     Math.min(stats.chaosResist, 75)
   ) / 4 / 75;
 
-  // Weighted blend: armor 25%, dodge 20%, life 25%, block 10%, resist 20%
-  const raw = armorComponent * 0.25
-    + dodgeChance * 0.20
-    + lifeComponent * 0.25
-    + effectiveBlock * 0.10
-    + resistAvg * 0.20;
+  // Energy Shield component: ES pool relative to zone pressure
+  const esComponent = stats.energyShield / (stats.energyShield + zonePressure * 3);
+
+  // Weighted blend: armor 22%, dodge 18%, life 22%, block 8%, resist 18%, ES 12%
+  const raw = armorComponent * 0.22
+    + dodgeChance * 0.18
+    + lifeComponent * 0.22
+    + effectiveBlock * 0.08
+    + resistAvg * 0.18
+    + esComponent * 0.12;
 
   // Scale to [0.2, 1.0] range
   return Math.max(0.2, 0.2 + 0.8 * raw);

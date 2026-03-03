@@ -82,8 +82,12 @@ export default function CombatStatusBar() {
   }
 
   // --- Combat mode ---
+  const currentEs = useGameStore(s => s.currentEs);
+  const stats = resolveStats(character);
+  const maxEs = stats.energyShield;
   const hpPct = maxHp > 0 ? Math.max(0, Math.min(100, (currentHp / maxHp) * 100)) : 0;
   const hpColor = hpPct > 60 ? 'bg-green-500' : hpPct > 30 ? 'bg-yellow-500' : 'bg-red-500';
+  const esPct = maxEs > 0 ? Math.max(0, Math.min(100, (currentEs / maxEs) * 100)) : 0;
 
   // Clear progress (mob HP)
   const nowMs = Date.now();
@@ -118,14 +122,25 @@ export default function CombatStatusBar() {
         {/* Zone name */}
         <span className="text-gray-300 font-semibold truncate shrink-0">{zone.name}</span>
 
-        {/* Player HP bar */}
+        {/* Player HP bar (+ ES bar if applicable) */}
         <div className="flex items-center gap-1.5 min-w-0 flex-1">
           <span className="text-gray-400 shrink-0">HP</span>
-          <div className="flex-1 h-2.5 bg-gray-700 rounded-full overflow-hidden">
-            <div className={`h-full ${hpColor} rounded-full transition-all duration-150`}
-                 style={{ width: `${hpPct}%` }} />
+          <div className="flex-1 flex flex-col gap-0.5">
+            <div className="h-2.5 bg-gray-700 rounded-full overflow-hidden">
+              <div className={`h-full ${hpColor} rounded-full transition-all duration-150`}
+                   style={{ width: `${hpPct}%` }} />
+            </div>
+            {maxEs > 0 && (
+              <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                <div className="h-full bg-blue-400 rounded-full transition-all duration-150"
+                     style={{ width: `${esPct}%` }} />
+              </div>
+            )}
           </div>
-          <span className="text-gray-400 font-mono shrink-0">{Math.ceil(currentHp)}/{maxHp}</span>
+          <span className="text-gray-400 font-mono shrink-0">
+            {Math.ceil(currentHp)}/{maxHp}
+            {maxEs > 0 && <span className="text-blue-400 text-[10px]"> ES:{Math.ceil(currentEs)}</span>}
+          </span>
         </div>
 
         {/* Mob progress OR Boss HP */}

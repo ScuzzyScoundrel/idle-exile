@@ -102,6 +102,11 @@ export function resolveStats(char: Character): ResolvedStats {
     stats.maxLife = Math.floor(stats.maxLife * (1 + stats.incMaxLife / 100));
   }
 
+  // Apply incEnergyShield as a multiplier on energyShield
+  if (stats.incEnergyShield > 0) {
+    stats.energyShield = Math.floor(stats.energyShield * (1 + stats.incEnergyShield / 100));
+  }
+
   return stats;
 }
 

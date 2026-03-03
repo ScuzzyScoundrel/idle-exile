@@ -76,13 +76,31 @@ export const ZONE_PHYS_DAMAGE_BASE = 50;
 export const ZONE_ACCURACY_BASE = 50;
 
 /** Divisor for accuracy-based hit chance: hitChance = accuracy / (accuracy + ACCURACY_DIVISOR). */
-export const ACCURACY_DIVISOR = 500;
+export const ACCURACY_DIVISOR = 50;
+
+/** Outgoing damage penalty base per level underleveled. 10 levels = 0.10^10 ~ 39%. */
+export const OUTGOING_DAMAGE_PENALTY_BASE = 1.10;
+/** Minimum outgoing damage multiplier (floor). */
+export const OUTGOING_DAMAGE_PENALTY_FLOOR = 0.10;
+
+/** Accuracy scaling per level the player is below zone iLvlMin. */
+export const UNDERLEVEL_ACCURACY_SCALE = 0.10;
 
 /** Block damage reduction multiplier (blocked hits deal 25% damage). */
 export const BLOCK_REDUCTION = 0.75;
 
 /** Maximum block chance percentage. */
 export const BLOCK_CAP = 75;
+
+/** Maximum dodge chance percentage. */
+export const DODGE_CAP = 75;
+
+/** Armor formula coefficient: armor / (armor + ARMOR_COEFFICIENT * physDmg). Lower = more effective. */
+export const ARMOR_COEFFICIENT = 3;
+/** Flat DR from armor: 1% per ARMOR_FLAT_DR_RATIO armor points. */
+export const ARMOR_FLAT_DR_RATIO = 100;
+/** Maximum flat DR from armor (20%). */
+export const ARMOR_FLAT_DR_CAP = 0.20;
 
 // =============================================
 // CHARACTER PROGRESSION
@@ -133,6 +151,10 @@ export const BASE_STATS: ResolvedStats = {
   coldResist: 0,
   lightningResist: 0,
   chaosResist: 0,
+  // Energy Shield
+  energyShield: 0,
+  incEnergyShield: 0,
+  esRecharge: 0,
   // Utility
   movementSpeed: 0,
   itemQuantity: 0,
@@ -150,7 +172,7 @@ export const ACCURACY_PER_LEVEL = 5;
 
 /** XP curve: XP to next level = XP_BASE * XP_GROWTH^(level-1). */
 export const XP_BASE = 100;
-export const XP_GROWTH = 1.5;
+export const XP_GROWTH = 1.15;
 
 // =============================================
 // ITEM GENERATION

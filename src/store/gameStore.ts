@@ -26,10 +26,10 @@ import {
   TriggerCondition,
   CraftLogEntry,
 } from '../types';
-import { createCharacter, resolveStats, addXp, getWeaponDamageInfo } from '../engine/character';
-import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, simulateCombatClear, createBossEncounter, generateBossLoot, applyAbilityResists, calcHazardPenalty, rollZoneAttack, calcLevelDamageMult } from '../engine/zones';
+import { createCharacter, resolveStats, addXp, getWeaponDamageInfo, calcXpToNext } from '../engine/character';
+import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, simulateCombatClear, createBossEncounter, generateBossLoot, applyAbilityResists, calcHazardPenalty, rollZoneAttack, calcLevelDamageMult, calcOutgoingDamageMult, calcZoneAccuracy } from '../engine/zones';
 import { calcMobHp, calcSkillCastInterval, rollSkillCast } from '../engine/unifiedSkills';
-import { BOSS_VICTORY_DURATION, BOSS_DEFEAT_RECOVERY, BOSS_VICTORY_HEAL_RATIO, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO, SKILL_GCD, LEECH_PERCENT, ZONE_ATTACK_INTERVAL, ZONE_DMG_BASE, ZONE_PHYS_RATIO, ZONE_ACCURACY_BASE, MAX_REGEN_RATIO, BOSS_CRIT_CHANCE, BOSS_CRIT_MULTIPLIER, BOSS_MAX_DMG_RATIO, FORTIFY_MAX_STACKS, FORTIFY_MAX_DR } from '../data/balance';
+import { BOSS_VICTORY_DURATION, BOSS_DEFEAT_RECOVERY, BOSS_VICTORY_HEAL_RATIO, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO, SKILL_GCD, LEECH_PERCENT, ZONE_ATTACK_INTERVAL, ZONE_DMG_BASE, ZONE_PHYS_RATIO, MAX_REGEN_RATIO, BOSS_CRIT_CHANCE, BOSS_CRIT_MULTIPLIER, BOSS_MAX_DMG_RATIO, FORTIFY_MAX_STACKS, FORTIFY_MAX_DR } from '../data/balance';
 import { pickBestItem, generateId, isTwoHandedWeapon } from '../engine/items';
 import { applyCurrency } from '../engine/crafting';
 import {
@@ -301,7 +301,8 @@ function computeNextClear(
   const levelDelta = Math.max(0, zone.iLvlMin - state.character.level);
   if (levelDelta > 0) effectiveMobHp *= Math.pow(LEVEL_PENALTY_BASE, levelDelta);
 
-  const damageMult = (abilityEffect?.damageMult ?? 1) * classDamageMult;
+  const outgoingMult = calcOutgoingDamageMult(state.character.level, zone.iLvlMin);
+  const damageMult = (abilityEffect?.damageMult ?? 1) * classDamageMult * outgoingMult;
   const atkSpeedMult = abilityEffect?.attackSpeedMult ?? 1;
 
   const result = simulateCombatClear(
@@ -466,6 +467,7 @@ function createInitialState(): GameState {
     clearStartedAt: 0,
     currentClearTime: 0,
     currentHp: 0,
+    currentEs: 0,
     combatPhase: 'clearing' as CombatPhase,
     bossState: null,
     zoneClearCounts: {},
@@ -785,6 +787,7 @@ export const useGameStore = create<GameState & GameActions>()(
           clearStartedAt: now,
           currentClearTime: initialClearTime,
           currentHp: stats.maxLife,
+          currentEs: stats.energyShield,
           combatPhase: 'clearing' as CombatPhase,
           bossState: null,
           combatPhaseStartedAt: null,
@@ -2180,9 +2183,21 @@ export const useGameStore = create<GameState & GameActions>()(
                 // Fortify DR (use previous tick's state)
                 const helperBossFortifyDR = calcFortifyDR(state.fortifyStacks, state.fortifyExpiresAt, state.fortifyDRPerStack, now);
                 if (helperBossFortifyDR > 0) cappedDmg *= (1 - helperBossFortifyDR);
+                // ES absorbs boss damage before HP
+                let bossCurrentEs = state.currentEs;
+                if (bossCurrentEs > 0 && cappedDmg > 0) {
+                  const esAbsorbed = Math.min(bossCurrentEs, cappedDmg);
+                  bossCurrentEs -= esAbsorbed;
+                  cappedDmg -= esAbsorbed;
+                }
                 playerHp -= cappedDmg;
                 bossAttackResult = { damage: cappedDmg, isDodged: roll.isDodged, isBlocked: roll.isBlocked, isCrit: isBossCrit };
                 nextAttack = now + bs.bossAttackInterval * helperEnemyMods.atkSpeedSlowMult * 1000;
+                // ES recharge per tick during boss
+                if (bossStats.esRecharge > 0) {
+                  bossCurrentEs = Math.min(bossStats.energyShield, bossCurrentEs + bossStats.esRecharge * dtSec);
+                }
+                set({ currentEs: bossCurrentEs });
               }
             }
 
@@ -2190,7 +2205,7 @@ export const useGameStore = create<GameState & GameActions>()(
             playerHp = Math.min(bossStats.maxLife, playerHp + bossStats.lifeRegen * dtSec);
 
             if (playerHp <= 0) {
-              set({ currentHp: 0, bossState: { ...bs, bossNextAttackAt: nextAttack } });
+              set({ currentHp: 0, currentEs: 0, bossState: { ...bs, bossNextAttackAt: nextAttack } });
               return { ...noResult, bossOutcome: 'defeat', bossAttack: bossAttackResult };
             }
             set({ currentHp: playerHp, bossState: { ...bs, bossNextAttackAt: nextAttack } });
@@ -2223,7 +2238,7 @@ export const useGameStore = create<GameState & GameActions>()(
                 : defStats;
 
               const levelMult = calcLevelDamageMult(state.character.level, zone.iLvlMin);
-              const zoneAccuracy = ZONE_ACCURACY_BASE * (1 + (zone.band - 1) * 0.5);
+              const zoneAccuracy = calcZoneAccuracy(zone.band, state.character.level, zone.iLvlMin);
               const variance = 0.8 + Math.random() * 0.4;
               const rawDmg = ZONE_DMG_BASE * zone.band * levelMult * variance;
 
@@ -2232,9 +2247,24 @@ export const useGameStore = create<GameState & GameActions>()(
               // Fortify DR (use previous tick's state)
               const helperZoneFortifyDR = calcFortifyDR(state.fortifyStacks, state.fortifyExpiresAt, state.fortifyDRPerStack, now);
               if (helperZoneFortifyDR > 0) helperZoneDmg *= (1 - helperZoneFortifyDR);
+              // ES absorbs damage before HP
+              let currentEs = state.currentEs;
+              if (currentEs > 0 && helperZoneDmg > 0) {
+                const esAbsorbed = Math.min(currentEs, helperZoneDmg);
+                currentEs -= esAbsorbed;
+                helperZoneDmg -= esAbsorbed;
+              }
               playerHp -= helperZoneDmg;
               zoneAttackResult = roll;
               nextAttackAt = now + ZONE_ATTACK_INTERVAL * helperEnemyMods.atkSpeedSlowMult * 1000;
+
+              // ES recharge per tick
+              const zoneStats = resolveStats(state.character);
+              if (zoneStats.esRecharge > 0) {
+                currentEs = Math.min(zoneStats.energyShield, currentEs + zoneStats.esRecharge * dt);
+              }
+              // Store ES update
+              set({ currentEs });
             }
 
             // Passive regen per tick
@@ -2244,7 +2274,7 @@ export const useGameStore = create<GameState & GameActions>()(
             playerHp = Math.min(maxLife, playerHp + regen);
 
             if (playerHp <= 0) {
-              set({ currentHp: 0, zoneNextAttackAt: nextAttackAt, combatPhase: 'zone_defeat' as CombatPhase, combatPhaseStartedAt: Date.now() });
+              set({ currentHp: 0, currentEs: 0, zoneNextAttackAt: nextAttackAt, combatPhase: 'zone_defeat' as CombatPhase, combatPhaseStartedAt: Date.now() });
               return { ...noResult, zoneAttack: zoneAttackResult, zoneDeath: true };
             }
             set({ currentHp: playerHp, zoneNextAttackAt: nextAttackAt });
@@ -2342,7 +2372,8 @@ export const useGameStore = create<GameState & GameActions>()(
         // Per-charge damage bonus
         const chargeDamageMult = (chargeConfig?.perChargeDamage && newSkillCharges[skill.id])
           ? 1 + (chargeConfig.perChargeDamage / 100) * newSkillCharges[skill.id].current : 1;
-        let damageMult = (combinedAbilityEffect.damageMult ?? 1) * getClassDamageModifier(state.classResource, classDef) * berserkMult * chargeDamageMult;
+        const outgoingDmgMult = calcOutgoingDamageMult(state.character.level, zone.iLvlMin);
+        let damageMult = (combinedAbilityEffect.damageMult ?? 1) * getClassDamageModifier(state.classResource, classDef) * berserkMult * chargeDamageMult * outgoingDmgMult;
 
         // Pre-roll conditional modifiers (while conditions)
         let condSpeedBonus = 0;
@@ -2939,6 +2970,7 @@ export const useGameStore = create<GameState & GameActions>()(
 
         // Move playerHp before death loop for lifeOnKill
         let playerHp = state.currentHp;
+        let newCurrentEs = state.currentEs;
 
         // Check for mob death(s) — cap at 10 kills per tick for safety
         let maxMobHp = state.maxMobHp > 0 ? state.maxMobHp : calcMobHp(zone, 1.0);
@@ -3018,7 +3050,7 @@ export const useGameStore = create<GameState & GameActions>()(
               : defStats;
 
             const levelMult = calcLevelDamageMult(state.character.level, zone.iLvlMin);
-            const zoneAccuracy = ZONE_ACCURACY_BASE * (1 + (zone.band - 1) * 0.5);
+            const zoneAccuracy = calcZoneAccuracy(zone.band, state.character.level, zone.iLvlMin);
             const variance = 0.8 + Math.random() * 0.4;
             const rawDmg = ZONE_DMG_BASE * zone.band * levelMult * variance;
 
@@ -3033,6 +3065,12 @@ export const useGameStore = create<GameState & GameActions>()(
             // Fortify DR (current tick values)
             const mainClearFortifyDR = calcFortifyDR(newFortifyStacks, newFortifyExpiresAt, newFortifyDRPerStack, now);
             if (mainClearFortifyDR > 0) clearZoneDmg *= (1 - mainClearFortifyDR);
+            // ES absorbs damage before HP
+            if (newCurrentEs > 0 && clearZoneDmg > 0) {
+              const esAbs = Math.min(newCurrentEs, clearZoneDmg);
+              newCurrentEs -= esAbs;
+              clearZoneDmg -= esAbs;
+            }
             playerHp -= clearZoneDmg;
             zoneAttackResult = zoneRoll;
             nextZoneAttack = now + ZONE_ATTACK_INTERVAL * clearEnemyMods.atkSpeedSlowMult * 1000;
@@ -3130,11 +3168,17 @@ export const useGameStore = create<GameState & GameActions>()(
           fortifyStacks: newFortifyStacks, fortifyExpiresAt: newFortifyExpiresAt, fortifyDRPerStack: newFortifyDRPerStack,
         };
 
+        // ES recharge per tick
+        if (stats.esRecharge > 0) {
+          newCurrentEs = Math.min(stats.energyShield, newCurrentEs + stats.esRecharge * dtSec);
+        }
+
         // Zone death check
         if (playerHp <= 0) {
           set({
             ...trackingClear,
             currentHp: 0,
+            currentEs: 0,
             currentMobHp,
             maxMobHp,
             currentMobTypeId: newMobTypeId,
@@ -3167,6 +3211,7 @@ export const useGameStore = create<GameState & GameActions>()(
           nextActiveSkillAt,
           skillTimers: newTimers,
           currentHp: playerHp,
+          currentEs: newCurrentEs,
           zoneNextAttackAt: nextZoneAttack,
           activeDebuffs: newDebuffs,
           tempBuffs: activeTempBuffs,
@@ -3191,12 +3236,14 @@ export const useGameStore = create<GameState & GameActions>()(
         if (!zone) return;
         const abilityEffect = getFullEffect(state, Date.now(), false);
         const boss = createBossEncounter(state.character, zone, abilityEffect, undefined, state.skillBar, state.skillProgress);
+        const bossStartStats = resolveStats(state.character);
         set({
           combatPhase: 'boss_fight' as CombatPhase,
           bossState: boss,
           combatPhaseStartedAt: Date.now(),
           nextActiveSkillAt: Date.now(),
           zoneNextAttackAt: 0,
+          currentEs: bossStartStats.energyShield,
         });
       },
 
@@ -3299,6 +3346,7 @@ export const useGameStore = create<GameState & GameActions>()(
             bossState: null,
             combatPhaseStartedAt: null,
             currentHp: Math.min(stats.maxLife, healedHp),
+            currentEs: stats.energyShield,
             currentMobHp: mobHp,
             maxMobHp: mobHp,
             currentMobTypeId: recoveryMobId,
@@ -3459,6 +3507,10 @@ export const useGameStore = create<GameState & GameActions>()(
           state.currentHp = (state.currentHp > 0 && state.currentHp <= rehydrateStats.maxLife)
             ? state.currentHp
             : rehydrateStats.maxLife;
+          // Recalculate xpToNext in case XP curve constants changed
+          state.character.xpToNext = calcXpToNext(state.character.level);
+          // Reset ES to full on rehydrate
+          state.currentEs = rehydrateStats.energyShield;
           state.combatPhase = 'clearing';
           state.bossState = null;
           state.combatPhaseStartedAt = null;

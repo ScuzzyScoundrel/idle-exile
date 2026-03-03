@@ -175,13 +175,13 @@ export const ITEM_BASE_DEFS: ItemBaseDef[] = [
   { id: 'void_hood', name: 'Void Hood', slot: 'helmet', armorType: 'leather', baseStats: { armor: 26, evasion: 150 }, iLvl: 50 },
   { id: 'starforged_headband', name: 'Starforged Headband', slot: 'helmet', armorType: 'leather', baseStats: { armor: 34, evasion: 190 }, iLvl: 60 },
   // -- Cloth --
-  { id: 'linen_hood', name: 'Linen Hood', slot: 'helmet', armorType: 'cloth', baseStats: { armor: 1, abilityHaste: 2 }, iLvl: 1 },
-  { id: 'silk_circlet', name: 'Silk Circlet', slot: 'helmet', armorType: 'cloth', baseStats: { armor: 3, abilityHaste: 5 }, iLvl: 10 },
-  { id: 'arcane_crown', name: 'Arcane Crown', slot: 'helmet', armorType: 'cloth', baseStats: { armor: 5, abilityHaste: 8 }, iLvl: 20 },
-  { id: 'mithril_circlet', name: 'Mithril Circlet', slot: 'helmet', armorType: 'cloth', baseStats: { armor: 7, abilityHaste: 11 }, iLvl: 30 },
-  { id: 'runic_crown', name: 'Runic Crown', slot: 'helmet', armorType: 'cloth', baseStats: { armor: 10, abilityHaste: 15 }, iLvl: 40 },
-  { id: 'void_circlet', name: 'Void Circlet', slot: 'helmet', armorType: 'cloth', baseStats: { armor: 14, abilityHaste: 20 }, iLvl: 50 },
-  { id: 'starforged_crown', name: 'Starforged Crown', slot: 'helmet', armorType: 'cloth', baseStats: { armor: 18, abilityHaste: 26 }, iLvl: 60 },
+  { id: 'linen_hood', name: 'Linen Hood', slot: 'helmet', armorType: 'cloth', baseStats: { armor: 1, abilityHaste: 2, energyShield: 20, esRecharge: 2 }, iLvl: 1 },
+  { id: 'silk_circlet', name: 'Silk Circlet', slot: 'helmet', armorType: 'cloth', baseStats: { armor: 3, abilityHaste: 5, energyShield: 35, esRecharge: 3 }, iLvl: 10 },
+  { id: 'arcane_crown', name: 'Arcane Crown', slot: 'helmet', armorType: 'cloth', baseStats: { armor: 5, abilityHaste: 8, energyShield: 55, esRecharge: 4 }, iLvl: 20 },
+  { id: 'mithril_circlet', name: 'Mithril Circlet', slot: 'helmet', armorType: 'cloth', baseStats: { armor: 7, abilityHaste: 11, energyShield: 80, esRecharge: 5 }, iLvl: 30 },
+  { id: 'runic_crown', name: 'Runic Crown', slot: 'helmet', armorType: 'cloth', baseStats: { armor: 10, abilityHaste: 15, energyShield: 110, esRecharge: 6 }, iLvl: 40 },
+  { id: 'void_circlet', name: 'Void Circlet', slot: 'helmet', armorType: 'cloth', baseStats: { armor: 14, abilityHaste: 20, energyShield: 145, esRecharge: 7 }, iLvl: 50 },
+  { id: 'starforged_crown', name: 'Starforged Crown', slot: 'helmet', armorType: 'cloth', baseStats: { armor: 18, abilityHaste: 26, energyShield: 185, esRecharge: 8 }, iLvl: 60 },
 
   // ==================== Neck ====================
   { id: 'bone_charm', name: 'Bone Charm', slot: 'neck', baseStats: { maxLife: 8 }, iLvl: 1 },
@@ -210,13 +210,13 @@ export const ITEM_BASE_DEFS: ItemBaseDef[] = [
   { id: 'void_shoulderpads', name: 'Void Shoulderpads', slot: 'shoulders', armorType: 'leather', baseStats: { armor: 22, evasion: 130 }, iLvl: 50 },
   { id: 'starforged_shoulderpads', name: 'Starforged Shoulderpads', slot: 'shoulders', armorType: 'leather', baseStats: { armor: 28, evasion: 160 }, iLvl: 60 },
   // -- Cloth --
-  { id: 'linen_shawl', name: 'Linen Shawl', slot: 'shoulders', armorType: 'cloth', baseStats: { armor: 1, abilityHaste: 2 }, iLvl: 1 },
-  { id: 'silk_epaulets', name: 'Silk Epaulets', slot: 'shoulders', armorType: 'cloth', baseStats: { armor: 3, abilityHaste: 4 }, iLvl: 10 },
-  { id: 'arcane_mantle', name: 'Arcane Mantle', slot: 'shoulders', armorType: 'cloth', baseStats: { armor: 5, abilityHaste: 7 }, iLvl: 20 },
-  { id: 'mithril_epaulets', name: 'Mithril Epaulets', slot: 'shoulders', armorType: 'cloth', baseStats: { armor: 7, abilityHaste: 10 }, iLvl: 30 },
-  { id: 'runic_epaulets', name: 'Runic Epaulets', slot: 'shoulders', armorType: 'cloth', baseStats: { armor: 10, abilityHaste: 13 }, iLvl: 40 },
-  { id: 'void_epaulets', name: 'Void Epaulets', slot: 'shoulders', armorType: 'cloth', baseStats: { armor: 13, abilityHaste: 17 }, iLvl: 50 },
-  { id: 'starforged_epaulets', name: 'Starforged Epaulets', slot: 'shoulders', armorType: 'cloth', baseStats: { armor: 17, abilityHaste: 22 }, iLvl: 60 },
+  { id: 'linen_shawl', name: 'Linen Shawl', slot: 'shoulders', armorType: 'cloth', baseStats: { armor: 1, abilityHaste: 2, energyShield: 15 }, iLvl: 1 },
+  { id: 'silk_epaulets', name: 'Silk Epaulets', slot: 'shoulders', armorType: 'cloth', baseStats: { armor: 3, abilityHaste: 4, energyShield: 30 }, iLvl: 10 },
+  { id: 'arcane_mantle', name: 'Arcane Mantle', slot: 'shoulders', armorType: 'cloth', baseStats: { armor: 5, abilityHaste: 7, energyShield: 50 }, iLvl: 20 },
+  { id: 'mithril_epaulets', name: 'Mithril Epaulets', slot: 'shoulders', armorType: 'cloth', baseStats: { armor: 7, abilityHaste: 10, energyShield: 70 }, iLvl: 30 },
+  { id: 'runic_epaulets', name: 'Runic Epaulets', slot: 'shoulders', armorType: 'cloth', baseStats: { armor: 10, abilityHaste: 13, energyShield: 95 }, iLvl: 40 },
+  { id: 'void_epaulets', name: 'Void Epaulets', slot: 'shoulders', armorType: 'cloth', baseStats: { armor: 13, abilityHaste: 17, energyShield: 125 }, iLvl: 50 },
+  { id: 'starforged_epaulets', name: 'Starforged Epaulets', slot: 'shoulders', armorType: 'cloth', baseStats: { armor: 17, abilityHaste: 22, energyShield: 160 }, iLvl: 60 },
 
   // ==================== Cloak ====================
   { id: 'tattered_cloak', name: 'Tattered Cloak', slot: 'cloak', baseStats: { armor: 2, evasion: 10 }, iLvl: 1 },
@@ -245,13 +245,13 @@ export const ITEM_BASE_DEFS: ItemBaseDef[] = [
   { id: 'void_vest', name: 'Void Vest', slot: 'chest', armorType: 'leather', baseStats: { armor: 32, evasion: 180 }, iLvl: 50 },
   { id: 'starforged_vest', name: 'Starforged Vest', slot: 'chest', armorType: 'leather', baseStats: { armor: 42, evasion: 220 }, iLvl: 60 },
   // -- Cloth --
-  { id: 'linen_robe', name: 'Linen Robe', slot: 'chest', armorType: 'cloth', baseStats: { armor: 10, maxLife: 5 }, iLvl: 1 },
-  { id: 'silk_robe', name: 'Silk Robe', slot: 'chest', armorType: 'cloth', baseStats: { armor: 4, abilityHaste: 6 }, iLvl: 10 },
-  { id: 'arcane_vestment', name: 'Arcane Vestment', slot: 'chest', armorType: 'cloth', baseStats: { armor: 7, abilityHaste: 10 }, iLvl: 20 },
-  { id: 'mithril_robe', name: 'Mithril Robe', slot: 'chest', armorType: 'cloth', baseStats: { armor: 10, abilityHaste: 13 }, iLvl: 30 },
-  { id: 'runic_vestment', name: 'Runic Vestment', slot: 'chest', armorType: 'cloth', baseStats: { armor: 14, abilityHaste: 18 }, iLvl: 40 },
-  { id: 'void_robe', name: 'Void Robe', slot: 'chest', armorType: 'cloth', baseStats: { armor: 18, abilityHaste: 24 }, iLvl: 50 },
-  { id: 'starforged_vestment', name: 'Starforged Vestment', slot: 'chest', armorType: 'cloth', baseStats: { armor: 24, abilityHaste: 30 }, iLvl: 60 },
+  { id: 'linen_robe', name: 'Linen Robe', slot: 'chest', armorType: 'cloth', baseStats: { armor: 10, maxLife: 5, energyShield: 25, esRecharge: 3 }, iLvl: 1 },
+  { id: 'silk_robe', name: 'Silk Robe', slot: 'chest', armorType: 'cloth', baseStats: { armor: 4, abilityHaste: 6, energyShield: 45, esRecharge: 4 }, iLvl: 10 },
+  { id: 'arcane_vestment', name: 'Arcane Vestment', slot: 'chest', armorType: 'cloth', baseStats: { armor: 7, abilityHaste: 10, energyShield: 70, esRecharge: 5 }, iLvl: 20 },
+  { id: 'mithril_robe', name: 'Mithril Robe', slot: 'chest', armorType: 'cloth', baseStats: { armor: 10, abilityHaste: 13, energyShield: 100, esRecharge: 6 }, iLvl: 30 },
+  { id: 'runic_vestment', name: 'Runic Vestment', slot: 'chest', armorType: 'cloth', baseStats: { armor: 14, abilityHaste: 18, energyShield: 135, esRecharge: 7 }, iLvl: 40 },
+  { id: 'void_robe', name: 'Void Robe', slot: 'chest', armorType: 'cloth', baseStats: { armor: 18, abilityHaste: 24, energyShield: 175, esRecharge: 8 }, iLvl: 50 },
+  { id: 'starforged_vestment', name: 'Starforged Vestment', slot: 'chest', armorType: 'cloth', baseStats: { armor: 24, abilityHaste: 30, energyShield: 220, esRecharge: 10 }, iLvl: 60 },
 
   // ==================== Bracers ====================
   { id: 'wrapped_bracers', name: 'Wrapped Bracers', slot: 'bracers', baseStats: { armor: 4, maxLife: 3 }, iLvl: 1 },
@@ -280,13 +280,13 @@ export const ITEM_BASE_DEFS: ItemBaseDef[] = [
   { id: 'void_hide_gloves', name: 'Void Hide Gloves', slot: 'gloves', armorType: 'leather', baseStats: { armor: 16, evasion: 120 }, iLvl: 50 },
   { id: 'starforged_hide_gloves', name: 'Starforged Hide Gloves', slot: 'gloves', armorType: 'leather', baseStats: { armor: 22, evasion: 150 }, iLvl: 60 },
   // -- Cloth --
-  { id: 'linen_gloves', name: 'Linen Gloves', slot: 'gloves', armorType: 'cloth', baseStats: { armor: 1, abilityHaste: 1 }, iLvl: 1 },
-  { id: 'silk_gloves', name: 'Silk Gloves', slot: 'gloves', armorType: 'cloth', baseStats: { armor: 2, abilityHaste: 3 }, iLvl: 10 },
-  { id: 'arcane_handwraps', name: 'Arcane Handwraps', slot: 'gloves', armorType: 'cloth', baseStats: { armor: 4, abilityHaste: 5 }, iLvl: 20 },
-  { id: 'mithril_handwraps', name: 'Mithril Handwraps', slot: 'gloves', armorType: 'cloth', baseStats: { armor: 6, abilityHaste: 7 }, iLvl: 30 },
-  { id: 'runic_handwraps', name: 'Runic Handwraps', slot: 'gloves', armorType: 'cloth', baseStats: { armor: 8, abilityHaste: 10 }, iLvl: 40 },
-  { id: 'void_handwraps', name: 'Void Handwraps', slot: 'gloves', armorType: 'cloth', baseStats: { armor: 11, abilityHaste: 13 }, iLvl: 50 },
-  { id: 'starforged_handwraps', name: 'Starforged Handwraps', slot: 'gloves', armorType: 'cloth', baseStats: { armor: 14, abilityHaste: 17 }, iLvl: 60 },
+  { id: 'linen_gloves', name: 'Linen Gloves', slot: 'gloves', armorType: 'cloth', baseStats: { armor: 1, abilityHaste: 1, energyShield: 10 }, iLvl: 1 },
+  { id: 'silk_gloves', name: 'Silk Gloves', slot: 'gloves', armorType: 'cloth', baseStats: { armor: 2, abilityHaste: 3, energyShield: 20 }, iLvl: 10 },
+  { id: 'arcane_handwraps', name: 'Arcane Handwraps', slot: 'gloves', armorType: 'cloth', baseStats: { armor: 4, abilityHaste: 5, energyShield: 35 }, iLvl: 20 },
+  { id: 'mithril_handwraps', name: 'Mithril Handwraps', slot: 'gloves', armorType: 'cloth', baseStats: { armor: 6, abilityHaste: 7, energyShield: 50 }, iLvl: 30 },
+  { id: 'runic_handwraps', name: 'Runic Handwraps', slot: 'gloves', armorType: 'cloth', baseStats: { armor: 8, abilityHaste: 10, energyShield: 70 }, iLvl: 40 },
+  { id: 'void_handwraps', name: 'Void Handwraps', slot: 'gloves', armorType: 'cloth', baseStats: { armor: 11, abilityHaste: 13, energyShield: 95 }, iLvl: 50 },
+  { id: 'starforged_handwraps', name: 'Starforged Handwraps', slot: 'gloves', armorType: 'cloth', baseStats: { armor: 14, abilityHaste: 17, energyShield: 120 }, iLvl: 60 },
 
   // ==================== Belt ====================
   { id: 'rope_belt', name: 'Rope Belt', slot: 'belt', baseStats: { armor: 3, maxLife: 5 }, iLvl: 1 },
@@ -315,13 +315,13 @@ export const ITEM_BASE_DEFS: ItemBaseDef[] = [
   { id: 'void_leggings', name: 'Void Leggings', slot: 'pants', armorType: 'leather', baseStats: { armor: 30, evasion: 160 }, iLvl: 50 },
   { id: 'starforged_leggings', name: 'Starforged Leggings', slot: 'pants', armorType: 'leather', baseStats: { armor: 38, evasion: 200 }, iLvl: 60 },
   // -- Cloth --
-  { id: 'linen_trousers', name: 'Linen Trousers', slot: 'pants', armorType: 'cloth', baseStats: { armor: 2, abilityHaste: 3 }, iLvl: 1 },
-  { id: 'silk_pants', name: 'Silk Pants', slot: 'pants', armorType: 'cloth', baseStats: { armor: 4, abilityHaste: 5 }, iLvl: 10 },
-  { id: 'arcane_leggings', name: 'Arcane Leggings', slot: 'pants', armorType: 'cloth', baseStats: { armor: 6, abilityHaste: 9 }, iLvl: 20 },
-  { id: 'mithril_trousers', name: 'Mithril Trousers', slot: 'pants', armorType: 'cloth', baseStats: { armor: 9, abilityHaste: 12 }, iLvl: 30 },
-  { id: 'runic_trousers', name: 'Runic Trousers', slot: 'pants', armorType: 'cloth', baseStats: { armor: 12, abilityHaste: 16 }, iLvl: 40 },
-  { id: 'void_trousers', name: 'Void Trousers', slot: 'pants', armorType: 'cloth', baseStats: { armor: 16, abilityHaste: 21 }, iLvl: 50 },
-  { id: 'starforged_trousers', name: 'Starforged Trousers', slot: 'pants', armorType: 'cloth', baseStats: { armor: 20, abilityHaste: 27 }, iLvl: 60 },
+  { id: 'linen_trousers', name: 'Linen Trousers', slot: 'pants', armorType: 'cloth', baseStats: { armor: 2, abilityHaste: 3, energyShield: 15 }, iLvl: 1 },
+  { id: 'silk_pants', name: 'Silk Pants', slot: 'pants', armorType: 'cloth', baseStats: { armor: 4, abilityHaste: 5, energyShield: 30 }, iLvl: 10 },
+  { id: 'arcane_leggings', name: 'Arcane Leggings', slot: 'pants', armorType: 'cloth', baseStats: { armor: 6, abilityHaste: 9, energyShield: 50 }, iLvl: 20 },
+  { id: 'mithril_trousers', name: 'Mithril Trousers', slot: 'pants', armorType: 'cloth', baseStats: { armor: 9, abilityHaste: 12, energyShield: 70 }, iLvl: 30 },
+  { id: 'runic_trousers', name: 'Runic Trousers', slot: 'pants', armorType: 'cloth', baseStats: { armor: 12, abilityHaste: 16, energyShield: 95 }, iLvl: 40 },
+  { id: 'void_trousers', name: 'Void Trousers', slot: 'pants', armorType: 'cloth', baseStats: { armor: 16, abilityHaste: 21, energyShield: 125 }, iLvl: 50 },
+  { id: 'starforged_trousers', name: 'Starforged Trousers', slot: 'pants', armorType: 'cloth', baseStats: { armor: 20, abilityHaste: 27, energyShield: 160 }, iLvl: 60 },
 
   // ==================== Boots ====================
   // -- Plate --
@@ -341,13 +341,13 @@ export const ITEM_BASE_DEFS: ItemBaseDef[] = [
   { id: 'void_treads', name: 'Void Treads', slot: 'boots', armorType: 'leather', baseStats: { armor: 22, evasion: 150 }, iLvl: 50 },
   { id: 'starforged_treads', name: 'Starforged Treads', slot: 'boots', armorType: 'leather', baseStats: { armor: 28, evasion: 180 }, iLvl: 60 },
   // -- Cloth --
-  { id: 'linen_sandals', name: 'Linen Sandals', slot: 'boots', armorType: 'cloth', baseStats: { armor: 1, evasion: 10, abilityHaste: 2 }, iLvl: 1 },
-  { id: 'silk_slippers', name: 'Silk Slippers', slot: 'boots', armorType: 'cloth', baseStats: { armor: 3, evasion: 20, abilityHaste: 4 }, iLvl: 10 },
-  { id: 'runic_treads', name: 'Runic Treads', slot: 'boots', armorType: 'cloth', baseStats: { armor: 8, evasion: 50 }, iLvl: 20 },
-  { id: 'mithril_slippers', name: 'Mithril Slippers', slot: 'boots', armorType: 'cloth', baseStats: { armor: 5, evasion: 30, abilityHaste: 6 }, iLvl: 30 },
-  { id: 'runic_slippers', name: 'Runic Slippers', slot: 'boots', armorType: 'cloth', baseStats: { armor: 7, evasion: 40, abilityHaste: 8 }, iLvl: 40 },
-  { id: 'void_slippers', name: 'Void Slippers', slot: 'boots', armorType: 'cloth', baseStats: { armor: 10, evasion: 50, abilityHaste: 11 }, iLvl: 50 },
-  { id: 'starforged_slippers', name: 'Starforged Slippers', slot: 'boots', armorType: 'cloth', baseStats: { armor: 13, evasion: 60, abilityHaste: 14 }, iLvl: 60 },
+  { id: 'linen_sandals', name: 'Linen Sandals', slot: 'boots', armorType: 'cloth', baseStats: { armor: 1, evasion: 10, abilityHaste: 2, energyShield: 10 }, iLvl: 1 },
+  { id: 'silk_slippers', name: 'Silk Slippers', slot: 'boots', armorType: 'cloth', baseStats: { armor: 3, evasion: 20, abilityHaste: 4, energyShield: 20 }, iLvl: 10 },
+  { id: 'runic_treads', name: 'Runic Treads', slot: 'boots', armorType: 'cloth', baseStats: { armor: 8, evasion: 50, energyShield: 35 }, iLvl: 20 },
+  { id: 'mithril_slippers', name: 'Mithril Slippers', slot: 'boots', armorType: 'cloth', baseStats: { armor: 5, evasion: 30, abilityHaste: 6, energyShield: 50 }, iLvl: 30 },
+  { id: 'runic_slippers', name: 'Runic Slippers', slot: 'boots', armorType: 'cloth', baseStats: { armor: 7, evasion: 40, abilityHaste: 8, energyShield: 70 }, iLvl: 40 },
+  { id: 'void_slippers', name: 'Void Slippers', slot: 'boots', armorType: 'cloth', baseStats: { armor: 10, evasion: 50, abilityHaste: 11, energyShield: 95 }, iLvl: 50 },
+  { id: 'starforged_slippers', name: 'Starforged Slippers', slot: 'boots', armorType: 'cloth', baseStats: { armor: 13, evasion: 60, abilityHaste: 14, energyShield: 120 }, iLvl: 60 },
 
   // ==================== Rings ====================
   { id: 'copper_band', name: 'Copper Band', slot: 'ring1', baseStats: { maxLife: 5 }, iLvl: 1 },

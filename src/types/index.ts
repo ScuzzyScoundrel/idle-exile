@@ -46,7 +46,10 @@ export type AffixCategory =
   | 'chaos_resist'
   | 'movement_speed'
   | 'item_quantity'
-  | 'item_rarity';
+  | 'item_rarity'
+  | 'flat_energy_shield'
+  | 'inc_energy_shield'
+  | 'es_recharge';
 
 export type AffixTier = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 
@@ -184,6 +187,10 @@ export type StatKey =
   | 'coldResist'
   | 'lightningResist'
   | 'chaosResist'
+  // Energy Shield
+  | 'energyShield'
+  | 'incEnergyShield'
+  | 'esRecharge'
   // Utility
   | 'movementSpeed'
   | 'itemQuantity'
@@ -954,6 +961,7 @@ export interface GameState {
 
   // Combat (v15)
   currentHp: number;
+  currentEs: number;  // energy shield pool (ephemeral, not persisted)
   combatPhase: CombatPhase;
   bossState: BossState | null;
   zoneClearCounts: Record<string, number>;  // persisted: clears per zone toward boss

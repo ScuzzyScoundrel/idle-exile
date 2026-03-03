@@ -7,7 +7,7 @@ import type { Character, ZoneDef, IdleRunResult, Item, CurrencyType, GearSlot, R
 import { generateItem, generateProfessionItem } from './items';
 import { PROFESSION_GEAR_SLOTS } from '../types';
 import { PROFESSION_GEAR_DROP_CHANCE, PROFESSION_GEAR_GATHER_DROP_CHANCE } from '../data/balance';
-import { getWeaponDamageInfo } from './character';
+import { getWeaponDamageInfo, calcHitChance } from './character';
 import { calcSkillDps, calcSkillDamagePerCast, getDefaultSkillForWeapon, calcRotationDps } from './unifiedSkills';
 import { getSkillDef } from '../data/unifiedSkills';
 import { calcGatheringYield } from './gathering';
@@ -25,9 +25,12 @@ import {
   BOSS_ILVL_BONUS, BOSS_DROP_COUNT_MIN, BOSS_DROP_COUNT_MAX,
   LEVEL_DAMAGE_BASE, OVERLEVEL_DAMAGE_REDUCTION, OVERLEVEL_DAMAGE_FLOOR, UNDERLEVEL_MIN_NET_DAMAGE,
   ZONE_ATTACK_INTERVAL, ZONE_DMG_BASE, ZONE_PHYS_RATIO, ZONE_ACCURACY_BASE,
-  BLOCK_CAP, BLOCK_REDUCTION,
+  BLOCK_CAP, BLOCK_REDUCTION, DODGE_CAP,
   BOSS_DMG_PER_HIT_BASE, BOSS_ATTACK_INTERVAL,
   LEECH_PERCENT, MAX_REGEN_RATIO,
+  OUTGOING_DAMAGE_PENALTY_BASE, OUTGOING_DAMAGE_PENALTY_FLOOR,
+  UNDERLEVEL_ACCURACY_SCALE,
+  ARMOR_COEFFICIENT, ARMOR_FLAT_DR_RATIO, ARMOR_FLAT_DR_CAP,
 } from '../data/balance';
 import { getZoneMobTypes, weightedRandomMob, getMobTypeDef } from '../data/mobTypes';
 
@@ -187,7 +190,8 @@ export function calcClearTime(
   // Defense does NOT affect clear speed (8E philosophy: offense=speed, defense=survivability).
   // Only hazards slow you down if resists are lacking.
   const hazardMult = abilityEffect?.ignoreHazards ? 1.0 : calcHazardPenalty(effectiveStats, zone);
-  const charPower = playerDps * hazardMult;
+  const outgoingMult = calcOutgoingDamageMult(char.level, zone.iLvlMin);
+  const charPower = playerDps * hazardMult * outgoingMult;
 
   let clearTime = zone.baseClearTime / (charPower / POWER_DIVISOR);
 
@@ -231,8 +235,8 @@ export function simulateCombatClear(
   const isAttack = tags.includes('Attack');
   const isSpell = tags.includes('Spell');
 
-  // Hit chance: attacks use accuracy formula, spells always hit
-  const hitChance = isAttack ? stats.accuracy / (stats.accuracy + 500) : 1.0;
+  // Hit chance: both attacks and spells use accuracy formula
+  const hitChance = calcHitChance(stats.accuracy);
 
   // Crit
   const critChance = Math.min(stats.critChance, 100) / 100;
@@ -604,6 +608,26 @@ export function calcLevelDamageMult(playerLevel: number, zoneILvlMin: number): n
   return 1.0;
 }
 
+/**
+ * Outgoing damage penalty when player is underleveled for a zone.
+ * Reduces player damage output exponentially per level below zone iLvlMin.
+ */
+export function calcOutgoingDamageMult(playerLevel: number, zoneILvlMin: number): number {
+  const delta = zoneILvlMin - playerLevel;
+  if (delta <= 0) return 1.0;
+  return Math.max(OUTGOING_DAMAGE_PENALTY_FLOOR, Math.pow(OUTGOING_DAMAGE_PENALTY_BASE, -delta));
+}
+
+/**
+ * Calculate zone accuracy with level-based scaling.
+ * Underleveled players face much higher accuracy, degrading evasion effectiveness.
+ */
+export function calcZoneAccuracy(band: number, playerLevel: number, zoneILvlMin: number): number {
+  const baseAccuracy = ZONE_ACCURACY_BASE * (1 + (band - 1) * 0.5);
+  const levelDelta = Math.max(0, zoneILvlMin - playerLevel);
+  return levelDelta > 0 ? baseAccuracy * (1 + levelDelta * UNDERLEVEL_ACCURACY_SCALE) : baseAccuracy;
+}
+
 // ── Per-Hit Defense Pipeline ──
 
 /**
@@ -619,8 +643,8 @@ export function rollZoneAttack(
   zoneAccuracy: number,
   stats: ResolvedStats,
 ): { damage: number; isDodged: boolean; isBlocked: boolean } {
-  // 1. Dodge check
-  const dodgeChance = stats.evasion / (stats.evasion + zoneAccuracy);
+  // 1. Dodge check (capped at DODGE_CAP%)
+  const dodgeChance = Math.min(stats.evasion / (stats.evasion + zoneAccuracy), DODGE_CAP / 100);
   if (Math.random() < dodgeChance) {
     return { damage: 0, isDodged: true, isBlocked: false };
   }
@@ -636,9 +660,9 @@ export function rollZoneAttack(
     eleDmg *= (1 - BLOCK_REDUCTION);
   }
 
-  // 3. Armor mitigation (PoE-style, physical only)
+  // 3. Armor mitigation (PoE-style, physical only — improved coefficient)
   if (physDmg > 0) {
-    const armorReduction = stats.armor / (stats.armor + 5 * physDmg);
+    const armorReduction = stats.armor / (stats.armor + ARMOR_COEFFICIENT * physDmg);
     physDmg *= (1 - armorReduction);
   }
 
@@ -653,7 +677,14 @@ export function rollZoneAttack(
     eleDmg *= (1 - avgResist / 100);
   }
 
-  return { damage: Math.max(0, physDmg + eleDmg), isDodged: false, isBlocked };
+  // 5. Flat DR from armor (applied to total damage after all other mitigation)
+  let totalDmg = physDmg + eleDmg;
+  if (stats.armor > 0) {
+    const flatDR = Math.min(stats.armor / ARMOR_FLAT_DR_RATIO / 100, ARMOR_FLAT_DR_CAP);
+    totalDmg *= (1 - flatDR);
+  }
+
+  return { damage: Math.max(0, totalDmg), isDodged: false, isBlocked };
 }
 
 /**
@@ -668,7 +699,7 @@ export function simulateClearDefense(
   const levelMult = calcLevelDamageMult(playerLevel, zone.iLvlMin);
   const hitsPerClear = Math.max(1, Math.floor(clearTime / ZONE_ATTACK_INTERVAL));
   const baseDmgPerHit = ZONE_DMG_BASE * zone.band * levelMult;
-  const zoneAccuracy = ZONE_ACCURACY_BASE * (1 + (zone.band - 1) * 0.5);
+  const zoneAccuracy = calcZoneAccuracy(zone.band, playerLevel, zone.iLvlMin);
   const physRatio = ZONE_PHYS_RATIO;
 
   let totalDamage = 0;
@@ -726,7 +757,7 @@ export function calcBossAttackProfile(char: Character, zone: ZoneDef, abilityEff
   return {
     damagePerHit: baseDmg + hazardBonus,
     attackInterval: BOSS_ATTACK_INTERVAL,
-    accuracy: ZONE_ACCURACY_BASE * (1 + zone.band * 0.5) * 1.5, // bosses are more accurate
+    accuracy: calcZoneAccuracy(zone.band, char.level, zone.iLvlMin) * 1.5, // bosses are more accurate
     physRatio: ZONE_PHYS_RATIO,
   };
 }

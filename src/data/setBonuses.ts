@@ -23,9 +23,9 @@ export const SET_BONUS_DEFS: Record<ArmorType, SetBonusDef> = {
     armorType: 'cloth',
     name: 'Rapid Caster',
     thresholds: {
-      2: { abilityHaste: 6 },
+      2: { abilityHaste: 6, energyShield: 40 },
       4: { critChance: 3 },
-      6: { abilityHaste: 10, critMultiplier: 5 },
+      6: { abilityHaste: 10, critMultiplier: 5, energyShield: 80, esRecharge: 3 },
     },
   },
 };
