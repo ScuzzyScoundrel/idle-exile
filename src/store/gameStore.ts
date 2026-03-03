@@ -2835,6 +2835,7 @@ export const useGameStore = create<GameState & GameActions>()(
             };
           }
 
+          if (newDebuffs.length > 0) console.log('[DEBUG] Boss debuffs:', newDebuffs.map(d => `${d.debuffId} x${d.stacks}`));
           set({
             ...trackingBoss,
             bossState: updatedBoss,
@@ -3057,6 +3058,7 @@ export const useGameStore = create<GameState & GameActions>()(
           };
         }
 
+        if (newDebuffs.length > 0) console.log('[DEBUG] Clear debuffs:', newDebuffs.map(d => `${d.debuffId} x${d.stacks}`), 'mobHp:', currentMobHp);
         set({
           ...trackingClear,
           currentMobHp,
