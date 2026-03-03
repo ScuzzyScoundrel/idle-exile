@@ -80,7 +80,8 @@ export type GearSlot =
 export type ArmorType = 'plate' | 'leather' | 'cloth';
 export type WeaponType =
   | 'sword' | 'axe' | 'mace' | 'dagger' | 'staff' | 'wand' | 'bow' | 'crossbow'
-  | 'greatsword' | 'greataxe' | 'maul' | 'scepter' | 'gauntlet' | 'tome';
+  | 'greatsword' | 'greataxe' | 'maul' | 'scepter' | 'gauntlet' | 'tome'
+  | 'tool';
 export type WeaponScalingType = 'attack' | 'spell' | 'hybrid';
 export type OffhandType = 'shield' | 'focus' | 'quiver';
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
@@ -116,8 +117,26 @@ export interface Item {
   baseDamageMax?: number;
   baseSpellPower?: number;
   isGatheringGear?: boolean;
+  isProfessionGear?: boolean;
   isCrafted?: boolean;
 }
+
+// --- Profession Gear ---
+
+export interface ProfessionBonuses {
+  gatherSpeed: number;        // % faster gathering
+  gatherYield: number;        // % more materials
+  instantGather: number;      // % chance to instant gather
+  rareFind: number;           // % better rare mat rates
+  craftSpeed: number;         // % faster crafting (future hook)
+  materialSave: number;       // % chance to preserve mats (per-material roll)
+  craftXp: number;            // % more crafting XP
+  bonusIlvl: number;          // flat iLvl bonus on crafted gear
+  criticalCraft: number;      // % chance for double output
+  goldEfficiency: number;     // % gold cost reduction (capped 50%)
+}
+
+export const PROFESSION_GEAR_SLOTS: GearSlot[] = ['helmet', 'shoulders', 'chest', 'gloves', 'pants', 'boots', 'mainhand'];
 
 // --- Character ---
 
@@ -568,6 +587,7 @@ export interface CraftingRecipeDef {
   outputILvl: number;
   outputMaterialId?: string;        // for recipes that produce materials (e.g. catalysts)
   isGatheringGear?: boolean;
+  isProfessionGear?: boolean;
   catalystSlot?: boolean;           // true = recipe accepts an optional catalyst
   requiredCatalyst?: {              // for unique recipes that REQUIRE a specific rare mat
     rareMaterialId: string;
@@ -910,6 +930,9 @@ export interface GameState {
   gatheringSkills: GatheringSkills;
   gatheringEquipment: Partial<Record<GearSlot, Item>>;
   selectedGatheringProfession: GatheringProfession | null;
+
+  // Profession gear
+  professionEquipment: Partial<Record<GearSlot, Item>>;
 
   // Crafting professions
   craftingSkills: CraftingSkills;

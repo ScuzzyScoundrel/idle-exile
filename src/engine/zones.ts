@@ -4,7 +4,9 @@
 // ============================================================
 
 import type { Character, ZoneDef, IdleRunResult, Item, CurrencyType, GearSlot, ResolvedStats, AbilityEffect, GatheringProfession, BossState, CombatClearResult, ActiveSkillDef, MobTypeDef, EquippedSkill, SkillProgress } from '../types';
-import { generateItem, generateGatheringItem } from './items';
+import { generateItem, generateProfessionItem } from './items';
+import { PROFESSION_GEAR_SLOTS } from '../types';
+import { PROFESSION_GEAR_DROP_CHANCE, PROFESSION_GEAR_GATHER_DROP_CHANCE } from '../data/balance';
 import { getWeaponDamageInfo } from './character';
 import { calcSkillDps, calcSkillDamagePerCast, getDefaultSkillForWeapon, calcRotationDps } from './unifiedSkills';
 import { getSkillDef } from '../data/unifiedSkills';
@@ -414,6 +416,7 @@ export function simulateIdleRun(
 
 export interface SingleClearResult {
   item: Item | null;
+  professionGearDrop: Item | null;
   materials: Record<string, number>;
   currencyDrops: Record<CurrencyType, number>;
   goldGained: number;
@@ -506,9 +509,18 @@ export function simulateSingleClear(
     }
   }
 
+  // Independent profession gear drop roll
+  let professionGearDrop: Item | null = null;
+  if (Math.random() < PROFESSION_GEAR_DROP_CHANCE) {
+    const profSlot = PROFESSION_GEAR_SLOTS[Math.floor(Math.random() * PROFESSION_GEAR_SLOTS.length)];
+    const dropILvl = zone.iLvlMin + Math.floor(Math.random() * (zone.iLvlMax - zone.iLvlMin + 1));
+    professionGearDrop = generateProfessionItem(profSlot, dropILvl);
+  }
+
   const xpScale = calcXpScale(char.level, zone.iLvlMin);
   return {
     item,
+    professionGearDrop,
     materials,
     currencyDrops,
     goldGained: GOLD_PER_BAND * zone.band * (doubleClear ? 2 : 1),
@@ -523,7 +535,7 @@ export function simulateSingleClear(
 export interface GatheringClearResult {
   materials: Record<string, number>;
   gatheringXp: number;
-  gatheringGearDrop: Item | null;
+  professionGearDrop: Item | null;
   rareMaterialDrops: Record<string, number>;
 }
 
@@ -555,12 +567,11 @@ export function simulateGatheringClear(
 
   const gatheringXp = 5 * zone.band;
 
-  let gatheringGearDrop: Item | null = null;
-  if (Math.random() < 0.02) {
-    const gearSlots: GearSlot[] = ['helmet', 'gloves', 'boots', 'belt', 'chest'];
-    const slot = gearSlots[Math.floor(Math.random() * gearSlots.length)];
+  let professionGearDrop: Item | null = null;
+  if (Math.random() < PROFESSION_GEAR_GATHER_DROP_CHANCE) {
+    const slot = PROFESSION_GEAR_SLOTS[Math.floor(Math.random() * PROFESSION_GEAR_SLOTS.length)];
     const dropILvl = zone.iLvlMin + Math.floor(Math.random() * (zone.iLvlMax - zone.iLvlMin + 1));
-    gatheringGearDrop = generateGatheringItem(slot, dropILvl);
+    professionGearDrop = generateProfessionItem(slot, dropILvl);
   }
 
   const rareMaterialDrops: Record<string, number> = {};
@@ -569,7 +580,7 @@ export function simulateGatheringClear(
     rareMaterialDrops[rareDrop.id] = 1;
   }
 
-  return { materials, gatheringXp, gatheringGearDrop, rareMaterialDrops };
+  return { materials, gatheringXp, professionGearDrop, rareMaterialDrops };
 }
 
 // ============================================================

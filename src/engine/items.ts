@@ -3,11 +3,19 @@
 // Pure functions: no React, no side effects, no DOM.
 // ============================================================
 
-import type { Item, Affix, AffixDef, AffixTier, AffixCategory, Rarity, GearSlot, StatKey, WeaponType, OffhandType } from '../types';
+import type { Item, Affix, AffixDef, AffixTier, AffixCategory, Rarity, GearSlot, StatKey, WeaponType, OffhandType, ItemBaseDef } from '../types';
 import { AFFIX_DEFS, getAffixesForSlot } from '../data/affixes';
 import { GATHERING_AFFIX_DEFS } from '../data/gatheringAffixes';
+import { PROFESSION_AFFIX_DEFS } from '../data/professionAffixes';
+import { PROFESSION_BASE_DEFS } from '../data/professionBases';
 import { ITEM_BASE_DEFS } from '../data/items';
 import { TIER_LOW_WEIGHTS, TIER_HIGH_WEIGHTS, TIER_ILVL_CAP, AFFIX_COUNT_WEIGHTS } from '../data/balance';
+
+/** Unified affix lookup across all pools (combat + gathering + profession). */
+const ALL_AFFIX_DEFS: AffixDef[] = [...AFFIX_DEFS, ...GATHERING_AFFIX_DEFS, ...PROFESSION_AFFIX_DEFS];
+
+/** Unified base lookup (combat + profession). */
+const ALL_BASE_DEFS: ItemBaseDef[] = [...ITEM_BASE_DEFS, ...PROFESSION_BASE_DEFS];
 
 // --- Helpers ---
 
@@ -95,7 +103,7 @@ export function classifyRarity(item: Item): Rarity {
  * Build a display name for an item based on its affixes and base.
  */
 export function buildItemName(item: Item): string {
-  const baseDef = ITEM_BASE_DEFS.find(b => b.id === item.baseId);
+  const baseDef = ALL_BASE_DEFS.find(b => b.id === item.baseId);
   const baseName = baseDef?.name ?? 'Unknown';
 
   const allAffixes = [...item.prefixes, ...item.suffixes];
@@ -380,9 +388,9 @@ function avgAffixTier(item: Item): number {
   return all.reduce((sum, a) => sum + a.tier, 0) / all.length;
 }
 
-/** Lookup an AffixDef by its id. */
+/** Lookup an AffixDef by its id (searches all affix pools). */
 export function getAffixDef(defId: string): AffixDef | undefined {
-  return AFFIX_DEFS.find(d => d.id === defId);
+  return ALL_AFFIX_DEFS.find(d => d.id === defId);
 }
 
 /** Format an affix into a human-readable string. */
@@ -475,4 +483,68 @@ export function getComparisonTarget(
   if (slot === 'trinket2') return equipment['trinket1'] ?? null;
 
   return null;
+}
+
+/**
+ * Generate a profession gear item for a given gear slot and item level.
+ * Always rolls exactly 2 prefixes + 2 suffixes from the profession affix pool.
+ */
+export function generateProfessionItem(slot: GearSlot, iLvl: number, baseId?: string): Item {
+  let base = baseId ? PROFESSION_BASE_DEFS.find(b => b.id === baseId) : undefined;
+
+  if (!base) {
+    let qualifying = PROFESSION_BASE_DEFS.filter(b => b.slot === slot && b.iLvl <= iLvl);
+    if (qualifying.length === 0) {
+      qualifying = PROFESSION_BASE_DEFS.filter(b => b.slot === slot);
+    }
+    if (qualifying.length === 0) {
+      return {
+        id: generateId(), baseId: 'unknown', name: `Unknown ${slot}`,
+        slot, rarity: 'common', iLvl, prefixes: [], suffixes: [], baseStats: {},
+        isProfessionGear: true,
+      };
+    }
+    const maxILvl = qualifying.reduce((best, cur) => Math.max(best, cur.iLvl), 0);
+    const topBases = qualifying.filter(b => b.iLvl === maxILvl);
+    base = topBases[Math.floor(Math.random() * topBases.length)];
+  }
+
+  // Always exactly 2 prefixes from profession pool
+  const profPrefixes = PROFESSION_AFFIX_DEFS.filter(d => d.slot === 'prefix');
+  const prefixes: Affix[] = [];
+  let prefPool = [...profPrefixes];
+  for (let i = 0; i < 2 && prefPool.length > 0; i++) {
+    const affix = rollAffix(prefPool, iLvl);
+    prefixes.push(affix);
+    prefPool = prefPool.filter(d => d.id !== affix.defId);
+  }
+
+  // Always exactly 2 suffixes from profession pool
+  const profSuffixes = PROFESSION_AFFIX_DEFS.filter(d => d.slot === 'suffix');
+  const suffixes: Affix[] = [];
+  let sufPool = [...profSuffixes];
+  for (let i = 0; i < 2 && sufPool.length > 0; i++) {
+    const affix = rollAffix(sufPool, iLvl);
+    suffixes.push(affix);
+    sufPool = sufPool.filter(d => d.id !== affix.defId);
+  }
+
+  const item: Item = {
+    id: generateId(),
+    baseId: base.id,
+    name: '',
+    slot,
+    rarity: 'common',
+    iLvl,
+    prefixes,
+    suffixes,
+    baseStats: { ...base.baseStats },
+    weaponType: base.weaponType,
+    isProfessionGear: true,
+  };
+
+  item.rarity = classifyRarity(item);
+  item.name = buildItemName(item);
+
+  return item;
 }

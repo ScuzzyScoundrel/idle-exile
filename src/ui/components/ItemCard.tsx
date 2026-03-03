@@ -66,6 +66,9 @@ export default function ItemCard({ item, onClick, selected, compact }: ItemCardP
         <span className={`text-sm font-semibold truncate ${RARITY_TEXT[item.rarity]}`}>
           {item.name}
         </span>
+        {item.isProfessionGear && (
+          <span className="text-[9px] px-1 py-0.5 rounded bg-teal-800 text-teal-300 font-bold shrink-0">PROF</span>
+        )}
       </div>
 
       {/* Item info */}

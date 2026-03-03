@@ -202,8 +202,13 @@ export default function InventoryScreen() {
     }
   };
 
+  const equipProfessionGear = useGameStore.getState().equipProfessionGear;
   const handleEquip = (item: Item) => {
-    equipItem(item);
+    if (item.isProfessionGear) {
+      equipProfessionGear(item.id);
+    } else {
+      equipItem(item);
+    }
     setSelectedItem(null);
     setSelectedCurrency(null);
   };
@@ -416,9 +421,9 @@ export default function InventoryScreen() {
               <>
                 <button
                   onClick={() => handleEquip(selectedItem)}
-                  className="flex-1 py-2 bg-green-700 hover:bg-green-600 text-white text-sm rounded-lg font-semibold"
+                  className={`flex-1 py-2 ${selectedItem.isProfessionGear ? 'bg-teal-700 hover:bg-teal-600' : 'bg-green-700 hover:bg-green-600'} text-white text-sm rounded-lg font-semibold`}
                 >
-                  Equip
+                  {selectedItem.isProfessionGear ? 'Equip (Prof)' : 'Equip'}
                 </button>
                 <button
                   onClick={() => handleSell(selectedItem)}
@@ -665,7 +670,11 @@ export default function InventoryScreen() {
             onClick={() => handleItemTileClick(item)}
             onContextMenu={(e) => {
               e.preventDefault();
-              equipItem(item);
+              if (item.isProfessionGear) {
+                equipProfessionGear(item.id);
+              } else {
+                equipItem(item);
+              }
               setSelectedItem(null);
               setSelectedCurrency(null);
             }}
@@ -683,11 +692,17 @@ export default function InventoryScreen() {
                 title="Upgrade for equipped slot"
               >{'\u25B2'}</div>
             )}
-            {item.isCrafted && (
+            {item.isCrafted && !item.isProfessionGear && (
               <div
                 className="absolute -top-1 -left-1 w-3.5 h-3.5 bg-amber-600 rounded-full flex items-center justify-center text-white text-[8px] font-bold shadow-lg z-10 ring-1 ring-amber-400/60"
                 title="Crafted item"
               >{'\uD83D\uDD28'}</div>
+            )}
+            {item.isProfessionGear && (
+              <div
+                className="absolute -top-1 -left-1 w-3.5 h-3.5 bg-teal-600 rounded-full flex items-center justify-center text-white text-[7px] font-bold shadow-lg z-10 ring-1 ring-teal-400/60"
+                title="Profession gear"
+              >{'\u2699\uFE0F'}</div>
             )}
             {item.armorType && (
               <div className={`absolute bottom-0 right-0 px-0.5 py-px rounded-tl text-[7px] font-bold z-10 ${ARMOR_TYPE_BADGE[item.armorType].cls}`}>

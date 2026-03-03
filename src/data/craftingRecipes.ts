@@ -826,15 +826,20 @@ function injectComponentCosts(recipes: CraftingRecipeDef[]): CraftingRecipeDef[]
   });
 }
 
-export const CRAFTING_RECIPES: CraftingRecipeDef[] = injectComponentCosts([
-  ...weaponsmithRecipes,
-  ...armorerRecipes,
-  ...leatherworkerRecipes,
-  ...tailorRecipes,
-  ...alchemistRecipes,
-  ...jewelerRecipes,
-  ...uniqueRecipes,
-]);
+import { PROFESSION_GEAR_RECIPES } from './professionGearRecipes';
+
+export const CRAFTING_RECIPES: CraftingRecipeDef[] = [
+  ...injectComponentCosts([
+    ...weaponsmithRecipes,
+    ...armorerRecipes,
+    ...leatherworkerRecipes,
+    ...tailorRecipes,
+    ...alchemistRecipes,
+    ...jewelerRecipes,
+    ...uniqueRecipes,
+  ]),
+  ...PROFESSION_GEAR_RECIPES,
+];
 
 /** Look up a single crafting recipe by id */
 export function getCraftingRecipe(id: string): CraftingRecipeDef | undefined {

@@ -38,6 +38,9 @@ export const WEAPON_TYPE_META: Record<WeaponType, WeaponTypeMeta> = {
   // 2H Spell
   staff:      { scaling: 'spell',  speedModifier: 0.8,  handedness: '2h', category: 'spell' },
   tome:       { scaling: 'spell',  speedModifier: 1.0,  handedness: '2h', category: 'spell' },
+
+  // Profession tool (not used in combat)
+  tool:       { scaling: 'attack', speedModifier: 1.0,  handedness: '1h', category: 'melee' },
 };
 
 /** Get the scaling type for a weapon. */

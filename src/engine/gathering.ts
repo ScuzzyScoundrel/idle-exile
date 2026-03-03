@@ -44,11 +44,11 @@ export function addGatheringXp(
 /**
  * Calculate gathering clear time for a zone.
  * Gathering is slower than combat but scales with skill level.
- * Formula: baseClearTime * 2 / (1 + skillLevel / 25)
+ * Formula: baseClearTime * 2 / (1 + skillLevel / 25) / (1 + gatherSpeedBonus / 100)
  */
-export function calcGatherClearTime(skillLevel: number, zone: ZoneDef): number {
+export function calcGatherClearTime(skillLevel: number, zone: ZoneDef, gatherSpeedBonus: number = 0): number {
   const base = zone.baseClearTime * 2;
-  return base / (1 + skillLevel / 25);
+  return base / (1 + skillLevel / 25) / (1 + gatherSpeedBonus / 100);
 }
 
 /**

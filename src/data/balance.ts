@@ -381,6 +381,25 @@ export const CRAFT_OUTPUT_BUFFER_SIZE = 8;
 export const CRAFT_LOG_MAX_ENTRIES = 50;
 
 // =============================================
+// PROFESSION GEAR
+// =============================================
+
+/** Chance per combat clear to drop profession gear. */
+export const PROFESSION_GEAR_DROP_CHANCE = 0.01;
+
+/** Chance per gathering clear to drop profession gear. */
+export const PROFESSION_GEAR_GATHER_DROP_CHANCE = 0.02;
+
+/** Profession gear always rolls exactly 4 affixes (2 prefix + 2 suffix). */
+export const PROFESSION_GEAR_AFFIX_COUNT = 4;
+
+/** Maximum gold cost reduction from profession gear (50%). */
+export const MAX_GOLD_EFFICIENCY = 0.50;
+
+/** Maximum material preservation chance from profession gear (50%). */
+export const MAX_MATERIAL_SAVE = 0.50;
+
+// =============================================
 // CONDITIONAL / PROC SYSTEM
 // =============================================
 

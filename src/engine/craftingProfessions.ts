@@ -6,8 +6,7 @@
 import type { CraftingSkills, CraftingProfession, CraftingRecipeDef, CraftingMilestone, Item, Rarity, RareMaterialRarity, AffixTier } from '../types';
 import { CRAFTING_MILESTONES } from '../data/craftingProfessions';
 import { CRAFTING_XP_PER_TIER, CATALYST_RARITY_MAP, CATALYST_BEST_TIER, CATALYST_ILVL_BONUS } from '../data/balance';
-import { generateItem, generateGatheringItem, rollAffixValue, classifyRarity, buildItemName } from './items';
-import { AFFIX_DEFS } from '../data/affixes';
+import { generateItem, generateGatheringItem, generateProfessionItem, rollAffixValue, classifyRarity, buildItemName, getAffixDef } from './items';
 import { getRareMaterialDef } from '../data/rareMaterials';
 import { getAffixCatalystDef } from '../data/affixCatalysts';
 
@@ -96,6 +95,7 @@ export function executeCraft(
   recipe: CraftingRecipeDef,
   catalystId?: string,
   affixCatalystId?: string,
+  bonusIlvl: number = 0,
 ): Item {
   // Resolve guaranteed affix from affix catalyst
   const affixCatDef = affixCatalystId ? getAffixCatalystDef(affixCatalystId) : undefined;
@@ -110,11 +110,17 @@ export function executeCraft(
     const cd = getRareMaterialDef(catalystId);
     if (cd) catalystILvlBonus = CATALYST_ILVL_BONUS[cd.rarity];
   }
-  const effectiveILvl = recipe.outputILvl + catalystILvlBonus;
+  const effectiveILvl = recipe.outputILvl + catalystILvlBonus + bonusIlvl;
 
   // Generate the base item — pass outputBaseId to ensure correct item type
   let item: Item;
-  if (recipe.isGatheringGear) {
+  if (recipe.isProfessionGear) {
+    item = generateProfessionItem(
+      getSlotFromBaseId(recipe.outputBaseId),
+      effectiveILvl,
+      recipe.outputBaseId,
+    );
+  } else if (recipe.isGatheringGear) {
     item = generateGatheringItem(
       getSlotFromBaseId(recipe.outputBaseId),
       effectiveILvl,
@@ -149,7 +155,13 @@ export function executeCraft(
   // Reroll item if it doesn't meet minimum rarity (max 10 attempts to prevent infinite loop)
   if (minRarity && RARITY_RANK[item.rarity] < RARITY_RANK[minRarity]) {
     for (let i = 0; i < 10; i++) {
-      if (recipe.isGatheringGear) {
+      if (recipe.isProfessionGear) {
+        item = generateProfessionItem(
+          getSlotFromBaseId(recipe.outputBaseId),
+          effectiveILvl,
+          recipe.outputBaseId,
+        );
+      } else if (recipe.isGatheringGear) {
         item = generateGatheringItem(
           getSlotFromBaseId(recipe.outputBaseId),
           effectiveILvl,
@@ -186,7 +198,7 @@ export function executeCraft(
     if (allAffixes.length > 0) {
       const target = allAffixes[Math.floor(Math.random() * allAffixes.length)];
       if (bestTier < target.tier) {
-        const def = AFFIX_DEFS.find(d => d.id === target.defId);
+        const def = getAffixDef(target.defId);
         if (def?.tiers[bestTier as AffixTier]) {
           const td = def.tiers[bestTier as AffixTier];
           target.tier = bestTier as AffixTier;
@@ -217,9 +229,11 @@ export function getActiveCraftingMilestones(level: number): CraftingMilestone[] 
  * We import ITEM_BASE_DEFS to find the slot.
  */
 import { ITEM_BASE_DEFS } from '../data/items';
+import { PROFESSION_BASE_DEFS } from '../data/professionBases';
 import type { GearSlot } from '../types';
 
 function getSlotFromBaseId(baseId: string): GearSlot {
-  const base = ITEM_BASE_DEFS.find(b => b.id === baseId);
+  const base = ITEM_BASE_DEFS.find(b => b.id === baseId)
+    ?? PROFESSION_BASE_DEFS.find(b => b.id === baseId);
   return base?.slot ?? 'mainhand';
 }
