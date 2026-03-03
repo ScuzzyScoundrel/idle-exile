@@ -13,7 +13,7 @@ import { CATALYST_RARITY_MAP, CATALYST_BEST_TIER } from '../../data/balance';
 import { ITEM_BASE_DEFS } from '../../data/items';
 import { REFINEMENT_RECIPES } from '../../data/refinement';
 import { ZONE_DEFS } from '../../data/zones';
-import { CraftIcon, resolveMaterialIcon } from '../../ui/craftIcon';
+import { CraftIcon, resolveMaterialMeta } from '../../ui/craftIcon';
 import Tooltip from '../components/Tooltip';
 import type { CraftingProfession, CraftingRecipeDef, Rarity, RefinementTrack } from '../../types';
 
@@ -44,11 +44,19 @@ const CRAFT_AUTO_SALVAGE_OPTIONS: { value: Rarity; label: string }[] = [
 ];
 
 const RARITY_BORDER: Record<Rarity, string> = {
-  common: 'border-gray-600',
-  uncommon: 'border-green-600',
-  rare: 'border-blue-600',
-  epic: 'border-purple-600',
-  legendary: 'border-orange-600',
+  common: 'border-green-600',
+  uncommon: 'border-blue-500',
+  rare: 'border-yellow-500',
+  epic: 'border-purple-500',
+  legendary: 'border-orange-500',
+};
+
+const RARITY_GRADIENT: Record<Rarity, string> = {
+  common: 'from-green-900/50',
+  uncommon: 'from-blue-900/50',
+  rare: 'from-yellow-900/50',
+  epic: 'from-purple-900/50',
+  legendary: 'from-orange-900/50',
 };
 
 type SubTab = 'materials' | 'refine' | 'craft';
@@ -192,28 +200,22 @@ function MaterialsPanel() {
       {sections.map(sec => (
         <div key={sec.label}>
           <div className="text-sm font-bold text-gray-400 border-b border-gray-700/50 pb-1 mb-2">{sec.icon} {sec.label}</div>
-          <div className="grid grid-cols-4 gap-1.5">
+          <div className="grid grid-cols-5 sm:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-1.5">
             {sec.items.map(item => {
               const tooltipContent = getMatTooltip(item.id);
-              const borderClass = item.rarity
-                ? RARITY_BORDER[item.rarity]
-                : item.isAffix ? 'border-gray-700 border-l-2 border-l-cyan-500'
-                : 'border-gray-700';
-              const resolved = resolveMaterialIcon(item.id);
+              const meta = resolveMaterialMeta(item.id);
+              const border = item.rarity ? RARITY_BORDER[item.rarity] : item.isAffix ? 'border-cyan-600' : 'border-gray-600';
+              const grad = item.rarity ? RARITY_GRADIENT[item.rarity] : '';
               const card = (
-                <div className={`bg-gray-800 rounded-lg p-2 text-center border ${borderClass}`}>
-                  <div className="flex justify-center leading-tight">
-                    {resolved
-                      ? <CraftIcon category={resolved.category} id={item.id} fallback={resolved.emoji} size="md" />
-                      : <span className="text-lg">{item.icon ?? '\uD83E\uDEA8'}</span>}
-                  </div>
-                  <div className={`text-xs font-semibold truncate ${item.color ?? 'text-gray-300'}`}>
-                    {formatMatName(item.id)}
-                  </div>
-                  {item.subtitle && (
-                    <div className="text-xs text-gray-500 truncate">{item.subtitle}</div>
+                <div className={`relative aspect-square rounded-lg border-2 flex flex-col items-center justify-center overflow-hidden ${item.rarity ? '' : 'bg-gray-900'} ${border}`}>
+                  {item.rarity && (
+                    <div className={`absolute inset-0 bg-gradient-to-t ${grad} to-transparent pointer-events-none`} />
                   )}
-                  <div className="text-xs text-white font-bold">{item.count}</div>
+                  {meta
+                    ? <CraftIcon category={meta.category} id={item.id} fallback={meta.emoji} size="xl" className="relative z-10" />
+                    : <span className="text-3xl">{item.icon ?? '\uD83E\uDEA8'}</span>}
+                  <span className="absolute top-0 right-0 bg-black/70 text-white text-[9px] font-bold px-1 rounded-bl z-10">{item.count}</span>
+                  <span className="relative z-10 text-[8px] text-gray-400 text-center leading-tight truncate w-full px-0.5 mt-auto">{meta?.name ?? formatMatName(item.id)}</span>
                 </div>
               );
               return tooltipContent ? (
