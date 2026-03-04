@@ -312,6 +312,8 @@ export const BOSS_VICTORY_HEAL_RATIO = 0.6;
 export const ZONE_ATTACK_INTERVAL = 2.0;
 /** Base zone damage per hit at band 1. Scales linearly with band. */
 export const ZONE_DMG_BASE = 6;
+/** Per-iLvl damage scaling so zones get harder within a band. */
+export const ZONE_DMG_ILVL_SCALE = 0.8;
 /** Fraction of zone damage that's physical (rest is elemental). */
 export const ZONE_PHYS_RATIO = 0.7;
 /** Boss damage per hit base. Scales with band^2. */
