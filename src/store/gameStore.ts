@@ -4171,8 +4171,7 @@ export const useGameStore = create<GameState & GameActions>()(
 
         if (version < 37) {
           // v37: All-weapon skill-tree rollout (compact 16-node trees).
-          // New trees for sword, axe (+ reworked wand old trees later).
-          // Reset allocatedNodes for all skills that now have new graph trees.
+          // Reset allocatedNodes for all skills with new graph trees.
           // Players keep XP/level.
           const sp37 = (state.skillProgress ?? {}) as Record<string, SkillProgress>;
           const newTreeSkills = [
@@ -4184,6 +4183,18 @@ export const useGameStore = create<GameState & GameActions>()(
             'axe_chop', 'axe_frenzy', 'axe_cleave', 'axe_searing_axe',
             'axe_rend', 'axe_decapitate', 'axe_frost_rend',
             'axe_cleave_buff', 'axe_berserker_rage', 'axe_heavy_blows',
+            // Dagger
+            'dagger_stab', 'dagger_blade_flurry', 'dagger_fan_of_knives', 'dagger_viper_strike',
+            'dagger_smoke_screen', 'dagger_assassinate', 'dagger_lightning_lunge',
+            'dagger_flurry', 'dagger_shadow_strike', 'dagger_lethality',
+            // Mace
+            'mace_crush', 'mace_rapid_strikes', 'mace_shockwave', 'mace_glacial_hammer',
+            'mace_concussive_blow', 'mace_pulverise',
+            'mace_shockwave_buff', 'mace_fortify', 'mace_crushing_force',
+            // Bow
+            'bow_arrow_shot', 'bow_rapid_fire', 'bow_multi_shot', 'bow_burning_arrow',
+            'bow_smoke_arrow', 'bow_snipe',
+            'bow_rapid_fire_buff', 'bow_piercing_shot', 'bow_eagle_eye',
           ];
           for (const sid of newTreeSkills) {
             if (sp37[sid]) {
