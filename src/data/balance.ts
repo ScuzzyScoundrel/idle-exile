@@ -143,7 +143,7 @@ export const BASE_STATS: ResolvedStats = {
   // Defensive
   maxLife: 100,
   incMaxLife: 0,
-  lifeRegen: 1,
+  lifeRegen: 3,
   armor: 0,
   evasion: 0,
   blockChance: 0,
