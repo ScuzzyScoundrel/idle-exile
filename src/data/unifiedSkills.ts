@@ -5,7 +5,7 @@
 // ============================================================
 
 import type { SkillDef, SkillKind, WeaponType, ActiveSkillDef, AbilityDef } from '../types';
-import { WAND_SKILL_GRAPHS } from './skillGraphs/wand';
+import { ALL_SKILL_GRAPHS } from './skillGraphs/index';
 
 // ============================================================
 // ACTIVE SKILL DEFINITIONS (93 skills, 10E elemental diversity + 10P weapon coverage)
@@ -2429,8 +2429,8 @@ const convertedActiveSkills: SkillDef[] = ACTIVE_SKILL_DEFS.map(s => ({
   hitCount: s.hitCount,
   dotDuration: s.dotDuration,
   dotDamagePercent: s.dotDamagePercent,
-  // Wire graph tree for wand active skills
-  skillGraph: WAND_SKILL_GRAPHS[s.id],
+  // Wire graph tree for all weapons
+  skillGraph: ALL_SKILL_GRAPHS[s.id],
 }));
 
 // Convert AbilityDefs -> SkillDefs (keep original kind)
@@ -2441,8 +2441,8 @@ const convertedAbilities: SkillDef[] = ABILITY_DEFS.map(a => {
   // Track all ability ID mappings (even unchanged ones) for migration
   ABILITY_ID_MIGRATION[a.id] = newId;
 
-  // Check if this wand ability has a graph tree (replaces old skillTree)
-  const graph = WAND_SKILL_GRAPHS[newId];
+  // Check if this ability has a graph tree (replaces old skillTree)
+  const graph = ALL_SKILL_GRAPHS[newId];
 
   return {
     id: newId,

@@ -3496,7 +3496,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 36,
+      version: 37,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -4166,6 +4166,29 @@ export const useGameStore = create<GameState & GameActions>()(
           const sp36 = (state.skillProgress ?? {}) as Record<string, SkillProgress>;
           if (sp36['wand_chain_lightning']) {
             sp36['wand_chain_lightning'] = { ...sp36['wand_chain_lightning'], allocatedNodes: [] };
+          }
+        }
+
+        if (version < 37) {
+          // v37: All-weapon skill-tree rollout (compact 16-node trees).
+          // New trees for sword, axe (+ reworked wand old trees later).
+          // Reset allocatedNodes for all skills that now have new graph trees.
+          // Players keep XP/level.
+          const sp37 = (state.skillProgress ?? {}) as Record<string, SkillProgress>;
+          const newTreeSkills = [
+            // Sword
+            'sword_slash', 'sword_double_strike', 'sword_whirlwind', 'sword_flame_slash',
+            'sword_blade_ward', 'sword_mortal_strike', 'sword_ice_thrust',
+            'sword_blade_fury', 'sword_riposte', 'sword_keen_edge',
+            // Axe
+            'axe_chop', 'axe_frenzy', 'axe_cleave', 'axe_searing_axe',
+            'axe_rend', 'axe_decapitate', 'axe_frost_rend',
+            'axe_cleave_buff', 'axe_berserker_rage', 'axe_heavy_blows',
+          ];
+          for (const sid of newTreeSkills) {
+            if (sp37[sid]) {
+              sp37[sid] = { ...sp37[sid], allocatedNodes: [] };
+            }
           }
         }
 
