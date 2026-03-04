@@ -4195,6 +4195,47 @@ export const useGameStore = create<GameState & GameActions>()(
             'bow_arrow_shot', 'bow_rapid_fire', 'bow_multi_shot', 'bow_burning_arrow',
             'bow_smoke_arrow', 'bow_snipe',
             'bow_rapid_fire_buff', 'bow_piercing_shot', 'bow_eagle_eye',
+            // Staff
+            'staff_arcane_bolt', 'staff_spark', 'staff_fireball', 'staff_ice_shard',
+            'staff_arcane_shield', 'staff_meteor',
+            'staff_arcane_blast', 'staff_elemental_ward', 'staff_wisdom',
+            // Crossbow
+            'crossbow_bolt_shot', 'crossbow_burst_fire', 'crossbow_explosive_bolt',
+            'crossbow_frost_bolt', 'crossbow_net_shot', 'crossbow_siege_shot',
+            'crossbow_power_shot', 'crossbow_explosive_bolt_buff', 'crossbow_steady_aim',
+            // Greatsword
+            'greatsword_cleave', 'greatsword_wide_sweep', 'greatsword_flame_arc',
+            'greatsword_frost_wave', 'greatsword_thunder_crash', 'greatsword_bleeding_edge',
+            'greatsword_annihilate',
+            'greatsword_momentum', 'greatsword_iron_will', 'greatsword_heavy_impact',
+            // Greataxe
+            'greataxe_hew', 'greataxe_double_chop', 'greataxe_searing_cleave',
+            'greataxe_glacial_rend', 'greataxe_shock_split', 'greataxe_hemorrhage',
+            'greataxe_skull_splitter',
+            'greataxe_bloodrage', 'greataxe_savage_roar', 'greataxe_butchery',
+            // Maul
+            'maul_slam', 'maul_ground_pound', 'maul_molten_strike', 'maul_permafrost',
+            'maul_thunder_slam', 'maul_seismic_wave', 'maul_cataclysm',
+            'maul_earthquake', 'maul_stone_skin', 'maul_crushing_weight',
+            // Scepter
+            'scepter_smite', 'scepter_holy_strike', 'scepter_flame_brand',
+            'scepter_frost_judgment', 'scepter_divine_bolt', 'scepter_chaos_curse',
+            'scepter_wrath',
+            'scepter_divine_favor', 'scepter_zealotry', 'scepter_consecration',
+            // Gauntlet
+            'gauntlet_arcane_fist', 'gauntlet_rapid_bolts', 'gauntlet_flame_palm',
+            'gauntlet_frost_grip', 'gauntlet_shock_pulse', 'gauntlet_void_grasp',
+            'gauntlet_elemental_burst',
+            'gauntlet_power_surge', 'gauntlet_arcane_shield', 'gauntlet_spell_fist',
+            // Tome
+            'tome_incantation', 'tome_eldritch_barrage', 'tome_inferno_page',
+            'tome_glacial_tome', 'tome_thunderscript', 'tome_curse_of_decay',
+            'tome_apocalypse',
+            'tome_forbidden_knowledge', 'tome_eldritch_ward', 'tome_ancient_wisdom',
+            // Wand rework (existing IDs, new compact trees)
+            'wand_magic_missile', 'wand_frostbolt', 'wand_searing_ray',
+            'wand_essence_drain', 'wand_void_blast',
+            'wand_chain_lightning_buff', 'wand_time_warp', 'wand_mystic_insight',
           ];
           for (const sid of newTreeSkills) {
             if (sp37[sid]) {

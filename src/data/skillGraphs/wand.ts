@@ -1,13 +1,211 @@
 // ============================================================
-// Idle Exile — Wand Skill Graph Trees (Sprint 11B-Polish)
-// 9 wand skills x ~35 nodes each = ~315 total nodes
-// Diversified minors (2-stat combos), upgraded notables,
-// keystones with cross-skill globalEffect.
+// Idle Exile — Wand Skill Graphs
+// 5 active + 2 buff + 1 passive = 8 compact trees (16-node)
+// + 1 Chain Lightning tree (kept as-is, already compact)
+// Branch archetypes:
+//   B1 Arcane Power    — raw spell power, crit, flat damage
+//   B2 Elemental Weave — burn/chill/shock/poison, debuffs
+//   B3 Mystic Shield   — resist, fortify, defensive
 // ============================================================
 
 import type { SkillGraph, SkillGraphNode } from '../../types';
+import {
+  createCompactTree,
+  type BranchTemplate,
+  type BridgeTemplate,
+  type SkillNodeOverride,
+} from './treeBuilder';
 
-// Helper: create a node with shorthand
+// ─── Shared branch templates ───────────────────────────────
+
+const B1_ARCANE_POWER: BranchTemplate = {
+  name: 'Arcane Power',
+  root:  { name: 'Arcane Focus',    desc: '+5% crit chance, +3 flat damage',  modifier: { incCritChance: 5, flatDamage: 3 } },
+  minor: { name: 'Spell Surge',     desc: '+8% crit multiplier. +3% cast speed.', modifier: { incCritMultiplier: 8, incCastSpeed: 3 } },
+};
+
+const B2_ELEMENTAL_WEAVE: BranchTemplate = {
+  name: 'Elemental Weave',
+  root:  { name: 'Elemental Tap',   desc: '+3% damage. 15% on hit: Burn (3s).', modifier: { incDamage: 3, procs: [{ id: 'wd_b2_burn', chance: 0.15, trigger: 'onHit', applyDebuff: { debuffId: 'burning', stacks: 1, duration: 3 } }] } },
+  minor: { name: 'Prismatic Touch', desc: '10% on hit: Chill (3s). 10% on hit: Shocked (3s).', modifier: { procs: [{ id: 'wd_b2_chill', chance: 0.10, trigger: 'onHit', applyDebuff: { debuffId: 'chilled', stacks: 1, duration: 3 } }, { id: 'wd_b2_shock', chance: 0.10, trigger: 'onHit', applyDebuff: { debuffId: 'shocked', stacks: 1, duration: 3 } }] } },
+};
+
+const B3_MYSTIC_SHIELD: BranchTemplate = {
+  name: 'Mystic Shield',
+  root:  { name: 'Mystic Ward',     desc: '+3 life on hit, +5% armor→damage', modifier: { lifeOnHit: 3, damageFromArmor: 5 } },
+  minor: { name: 'Spell Barrier',   desc: 'Fortify on hit (1 stack, 5s, 3% DR). +10 all resist.', modifier: { fortifyOnHit: { stacks: 1, duration: 5, damageReduction: 3 }, abilityEffect: { resistBonus: 10 } } },
+};
+
+// ─── Shared bridges ────────────────────────────────────────
+
+const BRIDGE_12: BridgeTemplate = { name: 'Arcane Element',  desc: '+3% crit, 10% on hit: Burn (2s).',    modifier: { incCritChance: 3, procs: [{ id: 'wd_x12_burn', chance: 0.10, trigger: 'onHit', applyDebuff: { debuffId: 'burning', stacks: 1, duration: 2 } }] } };
+const BRIDGE_23: BridgeTemplate = { name: 'Elemental Shield', desc: '+5 all resist, 10% on hit: Chill (2s).', modifier: { abilityEffect: { resistBonus: 5 }, procs: [{ id: 'wd_x23_chill', chance: 0.10, trigger: 'onHit', applyDebuff: { debuffId: 'chilled', stacks: 1, duration: 2 } }] } };
+const BRIDGE_31: BridgeTemplate = { name: 'Mystic Power',    desc: '+2 life on hit, +3% crit chance',     modifier: { lifeOnHit: 2, incCritChance: 3 } };
+
+const WD_BRANCHES: [BranchTemplate, BranchTemplate, BranchTemplate] = [B1_ARCANE_POWER, B2_ELEMENTAL_WEAVE, B3_MYSTIC_SHIELD];
+const WD_BRIDGES:  [BridgeTemplate, BridgeTemplate, BridgeTemplate] = [BRIDGE_12, BRIDGE_23, BRIDGE_31];
+
+// ─── Cross-skill reference map ─────────────────────────────
+// B1 (onCrit cast)          B2 (debuff)               B3 (onDodge cast)
+// Magic Missile→ Void Blast | Burn+Shocked             | onDodge → Frostbolt
+// Frostbolt    → MagicMiss  | Chill always, +chill DPS | onDodge → Searing Ray
+// Searing Ray  → Frostbolt  | Burn always, +burn DPS   | onDodge → Essence Drain
+// Essence Drain→ Searing Ray| Poison+Cursed            | onDodge → Void Blast
+// Void Blast   → Ess Drain  | Vulnerable, execute      | onDodge → Magic Missile
+
+// ─── 1. MAGIC MISSILE ───────────────────────────────────────
+
+const MAGIC_MISSILE_OVERRIDES: [SkillNodeOverride, SkillNodeOverride, SkillNodeOverride] = [
+  { // B1
+    notable: { name: 'Arcane Barrage', desc: '25% on crit: cast Void Blast. On kill: reset Void Blast CD. +10% crit.', modifier: { incCritChance: 10, procs: [{ id: 'wmm_b1_n1_vb', chance: 0.25, trigger: 'onCrit', castSkill: 'wand_void_blast' }, { id: 'wmm_b1_n1_reset', chance: 1.0, trigger: 'onKill', resetCooldown: 'wand_void_blast' }] } },
+    keystone: { name: 'ARCANE OVERLOAD', desc: 'Crits always cast Void Blast. -35% Magic Missile damage. +5% crit to all skills.', modifier: { incDamage: -35, procs: [{ id: 'wmm_b1_k_vb', chance: 1.0, trigger: 'onCrit', castSkill: 'wand_void_blast' }], globalEffect: { critChanceBonus: 5 } } },
+  },
+  { // B2
+    notable: { name: 'Charged Missile', desc: 'Guaranteed Burn + Shocked. +25% debuff duration. +50% vs burning.', modifier: { applyDebuff: { debuffId: 'burning', chance: 1.0, duration: 4 }, debuffInteraction: { debuffDurationBonus: 25, bonusDamageVsDebuffed: { debuffId: 'burning', incDamage: 50 } } } },
+    keystone: { name: 'ELEMENTAL SURGE', desc: 'Always Cursed. Debuffs doubled. -40% Magic Missile damage. +15% attack speed to all skills.', modifier: { incDamage: -40, applyDebuff: { debuffId: 'cursed', chance: 1.0, duration: 4 }, debuffInteraction: { debuffEffectBonus: 100 }, globalEffect: { attackSpeedMult: 1.15 } } },
+  },
+  { // B3
+    notable: { name: 'Arcane Barrier', desc: 'On dodge: cast Frostbolt. +5% armor→damage. 5% leech. +15 all resist.', modifier: { damageFromArmor: 5, leechPercent: 5, abilityEffect: { resistBonus: 15 }, procs: [{ id: 'wmm_b3_n1_fb', chance: 1.0, trigger: 'onDodge', castSkill: 'wand_frostbolt' }] } },
+    keystone: { name: 'ARCANE FORTRESS', desc: 'On dodge: cast Frostbolt. Fortify 3 stacks. -20% Magic Missile damage. +10% defense to all skills.', modifier: { incDamage: -20, fortifyOnHit: { stacks: 3, duration: 6, damageReduction: 5 }, procs: [{ id: 'wmm_b3_k_fb', chance: 1.0, trigger: 'onDodge', castSkill: 'wand_frostbolt' }], globalEffect: { defenseMult: 1.10 } } },
+  },
+];
+
+// ─── 2. FROSTBOLT ────────────────────────────────────────────
+
+const FROSTBOLT_OVERRIDES: [SkillNodeOverride, SkillNodeOverride, SkillNodeOverride] = [
+  { // B1
+    notable: { name: 'Glacial Lance', desc: '25% on crit: cast Magic Missile. +1 extra hit. +10% crit.', modifier: { incCritChance: 10, extraHits: 1, procs: [{ id: 'wfb_b1_n1_mm', chance: 0.25, trigger: 'onCrit', castSkill: 'wand_magic_missile' }] } },
+    keystone: { name: 'ABSOLUTE ZERO', desc: 'Crits always cast Magic Missile. +2 extra hits. -35% Frostbolt damage. +5% crit to all skills.', modifier: { incDamage: -35, extraHits: 2, procs: [{ id: 'wfb_b1_k_mm', chance: 1.0, trigger: 'onCrit', castSkill: 'wand_magic_missile' }], globalEffect: { critChanceBonus: 5 } } },
+  },
+  { // B2
+    notable: { name: 'Deep Freeze', desc: 'Guaranteed Chill. +25% chill duration. +50% vs chilled.', modifier: { applyDebuff: { debuffId: 'chilled', chance: 1.0, duration: 4 }, debuffInteraction: { debuffDurationBonus: 25, bonusDamageVsDebuffed: { debuffId: 'chilled', incDamage: 50 } } } },
+    keystone: { name: 'PERMAFROST', desc: 'Always Chill + Cursed. Debuffs doubled. -40% Frostbolt damage. +15% attack speed to all skills.', modifier: { incDamage: -40, applyDebuff: { debuffId: 'cursed', chance: 1.0, duration: 4 }, debuffInteraction: { debuffEffectBonus: 100 }, globalEffect: { attackSpeedMult: 1.15 } } },
+  },
+  { // B3
+    notable: { name: 'Frost Shield', desc: 'On dodge: cast Searing Ray. +5% armor→damage. 5% leech. +15 all resist.', modifier: { damageFromArmor: 5, leechPercent: 5, abilityEffect: { resistBonus: 15 }, procs: [{ id: 'wfb_b3_n1_sr', chance: 1.0, trigger: 'onDodge', castSkill: 'wand_searing_ray' }] } },
+    keystone: { name: 'ICE FORTRESS', desc: 'On dodge: cast Searing Ray. Fortify 3 stacks. -20% Frostbolt damage. +10% defense to all skills.', modifier: { incDamage: -20, fortifyOnHit: { stacks: 3, duration: 6, damageReduction: 5 }, procs: [{ id: 'wfb_b3_k_sr', chance: 1.0, trigger: 'onDodge', castSkill: 'wand_searing_ray' }], globalEffect: { defenseMult: 1.10 } } },
+  },
+];
+
+// ─── 3. SEARING RAY ─────────────────────────────────────────
+
+const SEARING_RAY_OVERRIDES: [SkillNodeOverride, SkillNodeOverride, SkillNodeOverride] = [
+  { // B1
+    notable: { name: 'Pyroblast', desc: '25% on crit: cast Frostbolt. On kill: reset Frostbolt CD. +10% crit.', modifier: { incCritChance: 10, procs: [{ id: 'wsr_b1_n1_fb', chance: 0.25, trigger: 'onCrit', castSkill: 'wand_frostbolt' }, { id: 'wsr_b1_n1_reset', chance: 1.0, trigger: 'onKill', resetCooldown: 'wand_frostbolt' }] } },
+    keystone: { name: 'INFERNO', desc: 'Crits always cast Frostbolt. -35% Searing Ray damage. +5% crit to all skills.', modifier: { incDamage: -35, procs: [{ id: 'wsr_b1_k_fb', chance: 1.0, trigger: 'onCrit', castSkill: 'wand_frostbolt' }], globalEffect: { critChanceBonus: 5 } } },
+  },
+  { // B2
+    notable: { name: 'Searing Flames', desc: 'Guaranteed Burn. +50% burn DPS. +25% debuff duration.', modifier: { applyDebuff: { debuffId: 'burning', chance: 1.0, duration: 4 }, debuffInteraction: { debuffEffectBonus: 50, debuffDurationBonus: 25 } } },
+    keystone: { name: 'CONFLAGRATION', desc: 'Burns always Cursed. Burn doubled. -40% Searing Ray damage. +15% attack speed to all skills.', modifier: { incDamage: -40, applyDebuff: { debuffId: 'cursed', chance: 1.0, duration: 4 }, debuffInteraction: { debuffEffectBonus: 100 }, globalEffect: { attackSpeedMult: 1.15 } } },
+  },
+  { // B3
+    notable: { name: 'Flame Shield', desc: 'On dodge: cast Essence Drain. +5% armor→damage. 5% leech. +15 all resist.', modifier: { damageFromArmor: 5, leechPercent: 5, abilityEffect: { resistBonus: 15 }, procs: [{ id: 'wsr_b3_n1_ed', chance: 1.0, trigger: 'onDodge', castSkill: 'wand_essence_drain' }] } },
+    keystone: { name: 'FLAME FORTRESS', desc: 'On dodge: cast Essence Drain. Fortify 3 stacks. -20% Searing Ray damage. +10% defense to all skills.', modifier: { incDamage: -20, fortifyOnHit: { stacks: 3, duration: 6, damageReduction: 5 }, procs: [{ id: 'wsr_b3_k_ed', chance: 1.0, trigger: 'onDodge', castSkill: 'wand_essence_drain' }], globalEffect: { defenseMult: 1.10 } } },
+  },
+];
+
+// ─── 4. ESSENCE DRAIN ────────────────────────────────────────
+
+const ESSENCE_DRAIN_OVERRIDES: [SkillNodeOverride, SkillNodeOverride, SkillNodeOverride] = [
+  { // B1
+    notable: { name: 'Dark Barrage', desc: '25% on crit: cast Searing Ray. On kill: reset Searing Ray CD. +10% crit.', modifier: { incCritChance: 10, procs: [{ id: 'wed_b1_n1_sr', chance: 0.25, trigger: 'onCrit', castSkill: 'wand_searing_ray' }, { id: 'wed_b1_n1_reset', chance: 1.0, trigger: 'onKill', resetCooldown: 'wand_searing_ray' }] } },
+    keystone: { name: 'PLAGUE MASTER', desc: 'Crits always cast Searing Ray. -35% Essence Drain damage. +5% crit to all skills.', modifier: { incDamage: -35, procs: [{ id: 'wed_b1_k_sr', chance: 1.0, trigger: 'onCrit', castSkill: 'wand_searing_ray' }], globalEffect: { critChanceBonus: 5 } } },
+  },
+  { // B2
+    notable: { name: 'Virulent Drain', desc: 'Guaranteed Poison + Cursed. +25% poison duration. +50% vs poisoned.', modifier: { applyDebuff: { debuffId: 'poisoned', chance: 1.0, duration: 4 }, debuffInteraction: { debuffDurationBonus: 25, bonusDamageVsDebuffed: { debuffId: 'poisoned', incDamage: 50 } } } },
+    keystone: { name: 'DEATH PLAGUE', desc: 'Always Cursed. Debuffs doubled. -40% Essence Drain damage. +15% attack speed to all skills.', modifier: { incDamage: -40, applyDebuff: { debuffId: 'cursed', chance: 1.0, duration: 4 }, debuffInteraction: { debuffEffectBonus: 100 }, globalEffect: { attackSpeedMult: 1.15 } } },
+  },
+  { // B3
+    notable: { name: 'Dark Shield', desc: 'On dodge: cast Void Blast. +5% armor→damage. 5% leech. +15 all resist.', modifier: { damageFromArmor: 5, leechPercent: 5, abilityEffect: { resistBonus: 15 }, procs: [{ id: 'wed_b3_n1_vb', chance: 1.0, trigger: 'onDodge', castSkill: 'wand_void_blast' }] } },
+    keystone: { name: 'DARK FORTRESS', desc: 'On dodge: cast Void Blast. Fortify 3 stacks. -20% Essence Drain damage. +10% defense to all skills.', modifier: { incDamage: -20, fortifyOnHit: { stacks: 3, duration: 6, damageReduction: 5 }, procs: [{ id: 'wed_b3_k_vb', chance: 1.0, trigger: 'onDodge', castSkill: 'wand_void_blast' }], globalEffect: { defenseMult: 1.10 } } },
+  },
+];
+
+// ─── 5. VOID BLAST ───────────────────────────────────────────
+
+const VOID_BLAST_OVERRIDES: [SkillNodeOverride, SkillNodeOverride, SkillNodeOverride] = [
+  { // B1
+    notable: { name: 'Void Detonation', desc: '25% on crit: cast Essence Drain. Execute below 20%. +10% crit.', modifier: { incCritChance: 10, executeThreshold: 20, procs: [{ id: 'wvb_b1_n1_ed', chance: 0.25, trigger: 'onCrit', castSkill: 'wand_essence_drain' }] } },
+    keystone: { name: 'ANNIHILATION', desc: 'Crits always cast Essence Drain. Execute below 25%. -35% Void Blast damage. +5% crit to all skills.', modifier: { incDamage: -35, executeThreshold: 25, procs: [{ id: 'wvb_b1_k_ed', chance: 1.0, trigger: 'onCrit', castSkill: 'wand_essence_drain' }], globalEffect: { critChanceBonus: 5 } } },
+  },
+  { // B2
+    notable: { name: 'Void Corruption', desc: 'Apply Vulnerable + Cursed. +50% vs debuffed. Execute bonus below 25%.', modifier: { applyDebuff: { debuffId: 'vulnerable', chance: 1.0, duration: 4 }, debuffInteraction: { bonusDamageVsDebuffed: { debuffId: 'vulnerable', incDamage: 50 } }, executeThreshold: 25 } },
+    keystone: { name: 'DIMENSIONAL RIFT', desc: 'Always Cursed. Execute below 30%. Debuffs doubled. -40% Void Blast damage. +15% attack speed to all skills.', modifier: { incDamage: -40, executeThreshold: 30, applyDebuff: { debuffId: 'cursed', chance: 1.0, duration: 5 }, debuffInteraction: { debuffEffectBonus: 100 }, globalEffect: { attackSpeedMult: 1.15 } } },
+  },
+  { // B3
+    notable: { name: 'Void Ward', desc: 'On dodge: cast Magic Missile. +5% armor→damage. 5% leech. +15 all resist.', modifier: { damageFromArmor: 5, leechPercent: 5, abilityEffect: { resistBonus: 15 }, procs: [{ id: 'wvb_b3_n1_mm', chance: 1.0, trigger: 'onDodge', castSkill: 'wand_magic_missile' }] } },
+    keystone: { name: 'VOID FORTRESS', desc: 'On dodge: cast Magic Missile. Fortify 3 stacks. -20% Void Blast damage. +10% defense to all skills.', modifier: { incDamage: -20, fortifyOnHit: { stacks: 3, duration: 6, damageReduction: 5 }, procs: [{ id: 'wvb_b3_k_mm', chance: 1.0, trigger: 'onDodge', castSkill: 'wand_magic_missile' }], globalEffect: { defenseMult: 1.10 } } },
+  },
+];
+
+// ─── Buff/passive branch templates ─────────────────────────
+
+const BUFF_B1: BranchTemplate = { name: 'Duration', root: { name: 'Extended Focus', desc: '+2s duration, -5% cooldown', modifier: { durationBonus: 2, cooldownReduction: 5 } }, minor: { name: 'Steady Pulse', desc: '+2s duration, +3% cast speed', modifier: { durationBonus: 2, incCastSpeed: 3 } } };
+const BUFF_B2: BranchTemplate = { name: 'Amplification', root: { name: 'Empowered', desc: '+5% buff effect, +3% damage', modifier: { abilityEffect: { damageMult: 1.05 }, incDamage: 3 } }, minor: { name: 'Intensify', desc: '+5% buff effect, +3% crit chance', modifier: { abilityEffect: { damageMult: 1.05 }, incCritChance: 3 } } };
+const BUFF_B3: BranchTemplate = { name: 'Synergy', root: { name: 'Linked Power', desc: '+3% damage to all skills, +3 life on hit', modifier: { globalEffect: { damageMult: 1.03 }, lifeOnHit: 3 } }, minor: { name: 'Resonance', desc: '+3% crit to all skills, +5 resist', modifier: { globalEffect: { critChanceBonus: 3 }, abilityEffect: { resistBonus: 5 } } } };
+const BUFF_BR12: BridgeTemplate = { name: 'Sustained Power', desc: '+1s duration, +3% buff effect', modifier: { durationBonus: 1, abilityEffect: { damageMult: 1.03 } } };
+const BUFF_BR23: BridgeTemplate = { name: 'Shared Strength', desc: '+3% buff effect, +5 resist', modifier: { abilityEffect: { damageMult: 1.03, resistBonus: 5 } } };
+const BUFF_BR31: BridgeTemplate = { name: 'Enduring Link', desc: '+1s duration, +2 life on hit', modifier: { durationBonus: 1, lifeOnHit: 2 } };
+const BUFF_BRANCHES: [BranchTemplate, BranchTemplate, BranchTemplate] = [BUFF_B1, BUFF_B2, BUFF_B3];
+const BUFF_BRIDGES:  [BridgeTemplate, BridgeTemplate, BridgeTemplate] = [BUFF_BR12, BUFF_BR23, BUFF_BR31];
+
+const PASSIVE_B1: BranchTemplate = { name: 'Drop Rate', root: { name: 'Scavenger', desc: '+5% item drops, +3% material drops', modifier: { abilityEffect: { itemDropMult: 1.05, materialDropMult: 1.03 } } }, minor: { name: 'Prospector', desc: '+5% material drops, +3% item drops', modifier: { abilityEffect: { materialDropMult: 1.05, itemDropMult: 1.03 } } } };
+const PASSIVE_B2: BranchTemplate = { name: 'XP & Progression', root: { name: 'Quick Learner', desc: '+5% XP, +3% item drops', modifier: { abilityEffect: { xpMult: 1.05, itemDropMult: 1.03 } } }, minor: { name: 'Studious', desc: '+5% XP, +3% material drops', modifier: { abilityEffect: { xpMult: 1.05, materialDropMult: 1.03 } } } };
+const PASSIVE_B3: BranchTemplate = { name: 'Global Power', root: { name: 'Inner Strength', desc: '+3% damage, +3% crit chance', modifier: { incDamage: 3, incCritChance: 3 } }, minor: { name: 'Focus', desc: '+3% cast speed, +3% crit multiplier', modifier: { incCastSpeed: 3, incCritMultiplier: 3 } } };
+const PASS_BR12: BridgeTemplate = { name: 'Lucky Find', desc: '+3% items, +3% XP', modifier: { abilityEffect: { itemDropMult: 1.03, xpMult: 1.03 } } };
+const PASS_BR23: BridgeTemplate = { name: 'Enlightened', desc: '+3% XP, +3% damage', modifier: { abilityEffect: { xpMult: 1.03 }, incDamage: 3 } };
+const PASS_BR31: BridgeTemplate = { name: 'Power Finds', desc: '+3% items, +3% crit', modifier: { abilityEffect: { itemDropMult: 1.03 }, incCritChance: 3 } };
+const PASSIVE_BRANCHES: [BranchTemplate, BranchTemplate, BranchTemplate] = [PASSIVE_B1, PASSIVE_B2, PASSIVE_B3];
+const PASSIVE_BRIDGES:  [BridgeTemplate, BridgeTemplate, BridgeTemplate] = [PASS_BR12, PASS_BR23, PASS_BR31];
+
+// ─── 6. CHAIN LIGHTNING BUFF ─────────────────────────────────
+
+const CL_BUFF_OVERRIDES: [SkillNodeOverride, SkillNodeOverride, SkillNodeOverride] = [
+  { notable: { name: 'Sustained Storm', desc: '+4s duration. -15% cooldown. On activation: reset Magic Missile CD.', modifier: { durationBonus: 4, cooldownReduction: 15, procs: [{ id: 'wcb_b1_n1_reset', chance: 1.0, trigger: 'onHit', resetCooldown: 'wand_magic_missile' }] } },
+    keystone: { name: 'ENDLESS STORM', desc: '+8s duration. -25% cooldown. -30% buff effect. +5% attack speed to all skills.', modifier: { durationBonus: 8, cooldownReduction: 25, abilityEffect: { damageMult: 0.70 }, globalEffect: { attackSpeedMult: 1.05 } } } },
+  { notable: { name: 'Heightened Storm', desc: '+50% buff damage effect. +10% crit while active.', modifier: { abilityEffect: { damageMult: 1.50 }, incCritChance: 10 } },
+    keystone: { name: 'OVERCHARGE', desc: '+100% buff damage effect. +20% damage taken. +5% damage to all skills.', modifier: { abilityEffect: { damageMult: 2.0 }, increasedDamageTaken: 20, globalEffect: { damageMult: 1.05 } } } },
+  { notable: { name: 'Storm Synergy', desc: 'While active: all wand skills +5% crit. Fortify 2 stacks.', modifier: { fortifyOnHit: { stacks: 2, duration: 5, damageReduction: 4 }, globalEffect: { critChanceBonus: 5 } } },
+    keystone: { name: 'TEMPEST LORD', desc: 'While active: all skills +10% damage. -50% duration. +10% defense to all skills.', modifier: { durationBonus: -5, globalEffect: { damageMult: 1.10, defenseMult: 1.10 } } } },
+];
+
+// ─── 7. TIME WARP (Buff) ─────────────────────────────────────
+
+const TIME_WARP_OVERRIDES: [SkillNodeOverride, SkillNodeOverride, SkillNodeOverride] = [
+  { notable: { name: 'Sustained Warp', desc: '+3s duration. -15% cooldown. On activation: reset Void Blast CD.', modifier: { durationBonus: 3, cooldownReduction: 15, procs: [{ id: 'wtw_b1_n1_reset', chance: 1.0, trigger: 'onHit', resetCooldown: 'wand_void_blast' }] } },
+    keystone: { name: 'ETERNAL WARP', desc: '+6s duration. -25% cooldown. -30% speed bonus. +5% crit to all skills.', modifier: { durationBonus: 6, cooldownReduction: 25, abilityEffect: { attackSpeedMult: 0.70 }, globalEffect: { critChanceBonus: 5 } } } },
+  { notable: { name: 'Empowered Warp', desc: '+50% speed buff effect. +10% crit.', modifier: { abilityEffect: { attackSpeedMult: 1.50 }, incCritChance: 10 } },
+    keystone: { name: 'TIME LORD', desc: '+100% speed buff effect. -20% damage. +5% damage to all skills.', modifier: { abilityEffect: { attackSpeedMult: 2.0 }, incDamage: -20, globalEffect: { damageMult: 1.05 } } } },
+  { notable: { name: 'Warp Synergy', desc: 'While active: on dodge cast Magic Missile. Fortify 2 stacks.', modifier: { fortifyOnHit: { stacks: 2, duration: 5, damageReduction: 4 }, procs: [{ id: 'wtw_b3_n1_mm', chance: 1.0, trigger: 'onDodge', castSkill: 'wand_magic_missile' }] } },
+    keystone: { name: 'TEMPORAL MASTER', desc: 'While active: all skills +15 resist. -50% duration. +10% attack speed to all skills.', modifier: { durationBonus: -4, globalEffect: { resistBonus: 15, attackSpeedMult: 1.10 } } } },
+];
+
+// ─── 8. MYSTIC INSIGHT (Passive) ─────────────────────────────
+
+const MYSTIC_INSIGHT_OVERRIDES: [SkillNodeOverride, SkillNodeOverride, SkillNodeOverride] = [
+  { notable: { name: 'Mystic Scavenger', desc: '+15% item drops. +10% material drops.', modifier: { abilityEffect: { itemDropMult: 1.15, materialDropMult: 1.10 } } },
+    keystone: { name: 'TREASURE SEEKER', desc: '+25% items, +25% materials. -10% damage. +5% items to all skills.', modifier: { incDamage: -10, abilityEffect: { itemDropMult: 1.25, materialDropMult: 1.25 }, globalEffect: { itemDropMult: 1.05 } } } },
+  { notable: { name: 'Sage\'s Insight', desc: '+15% XP. +5% item drops.', modifier: { abilityEffect: { xpMult: 1.15, itemDropMult: 1.05 } } },
+    keystone: { name: 'ARCHMAGE', desc: '+30% XP. -10% damage. +5% XP to all skills.', modifier: { incDamage: -10, abilityEffect: { xpMult: 1.30 }, globalEffect: { xpMult: 1.05 } } } },
+  { notable: { name: 'Wand Mastery', desc: '+8% damage, +5% crit, +5% speed.', modifier: { incDamage: 8, incCritChance: 5, incCastSpeed: 5 } },
+    keystone: { name: 'GRAND MAGUS', desc: '+5% damage, +3% crit, +5% speed to all skills.', modifier: { globalEffect: { damageMult: 1.05, critChanceBonus: 3, attackSpeedMult: 1.05 } } } },
+];
+
+// ─── Build compact trees ───────────────────────────────────
+
+const MAGIC_MISSILE_GRAPH   = createCompactTree({ skillId: 'wand_magic_missile',   prefix: 'wmm', branches: WD_BRANCHES, bridges: WD_BRIDGES, overrides: MAGIC_MISSILE_OVERRIDES, startName: 'Arcane Core' });
+const FROSTBOLT_GRAPH       = createCompactTree({ skillId: 'wand_frostbolt',       prefix: 'wfb', branches: WD_BRANCHES, bridges: WD_BRIDGES, overrides: FROSTBOLT_OVERRIDES, startName: 'Frost Core' });
+const SEARING_RAY_GRAPH     = createCompactTree({ skillId: 'wand_searing_ray',     prefix: 'wsr', branches: WD_BRANCHES, bridges: WD_BRIDGES, overrides: SEARING_RAY_OVERRIDES, startName: 'Flame Core' });
+const ESSENCE_DRAIN_GRAPH   = createCompactTree({ skillId: 'wand_essence_drain',   prefix: 'wed', branches: WD_BRANCHES, bridges: WD_BRIDGES, overrides: ESSENCE_DRAIN_OVERRIDES, startName: 'Dark Core' });
+const VOID_BLAST_GRAPH      = createCompactTree({ skillId: 'wand_void_blast',      prefix: 'wvb', branches: WD_BRANCHES, bridges: WD_BRIDGES, overrides: VOID_BLAST_OVERRIDES, startName: 'Void Core' });
+
+const CL_BUFF_GRAPH         = createCompactTree({ skillId: 'wand_chain_lightning_buff', prefix: 'wcb', branches: BUFF_BRANCHES, bridges: BUFF_BRIDGES, overrides: CL_BUFF_OVERRIDES, startName: 'Storm Core' });
+const TIME_WARP_GRAPH       = createCompactTree({ skillId: 'wand_time_warp',       prefix: 'wtw', branches: BUFF_BRANCHES, bridges: BUFF_BRIDGES, overrides: TIME_WARP_OVERRIDES, startName: 'Warp Core' });
+
+const MYSTIC_INSIGHT_GRAPH  = createCompactTree({ skillId: 'wand_mystic_insight',  prefix: 'wmi', branches: PASSIVE_BRANCHES, bridges: PASSIVE_BRIDGES, overrides: MYSTIC_INSIGHT_OVERRIDES, startName: 'Insight Core' });
+
+// ─── Chain Lightning (kept as-is, already compact) ──────────
+
 function minor(id: string, name: string, desc: string, tier: number, connections: string[], modifier: SkillGraphNode['modifier']): SkillGraphNode {
   return { id, name, description: desc, nodeType: 'minor', tier, connections, modifier };
 }
@@ -18,102 +216,23 @@ function keystone(id: string, name: string, desc: string, tier: number, connecti
   return { id, name, description: desc, nodeType: 'keystone', tier, connections, modifier };
 }
 
-// ────────────────────────────────────────────
-// 1. MAGIC MISSILE
-// Branch A: power (damage + flat) → Arcane Overload
-// Branch B: utility (speed + CD) → Split Bolt
-// Branch C: crit (crit chance + crit dmg) → Arcane Crit
-// ────────────────────────────────────────────
-const MAGIC_MISSILE_GRAPH: SkillGraph = {
-  skillId: 'wand_magic_missile',
-  maxPoints: 20,
-  nodes: [
-    // Start
-    { id: 'mm_start', name: 'Arcane Focus', description: 'Starting node.', nodeType: 'start', tier: 0, connections: ['mm_m1', 'mm_m2', 'mm_m3'] },
-    // Tier 1 — Branch A (power)
-    minor('mm_m1', 'Missile Force', '+3% damage, +2 flat', 1, ['mm_start', 'mm_m4', 'mm_m5'], { incDamage: 3, flatDamage: 2 }),
-    // Tier 1 — Branch B (utility)
-    minor('mm_m2', 'Quick Cast', '+3% cast speed, -2% cooldown', 1, ['mm_start', 'mm_m6', 'mm_m7'], { incCastSpeed: 3, cooldownReduction: 2 }),
-    // Tier 1 — Branch C (crit)
-    minor('mm_m3', 'Precision', '+2% crit, +5% crit dmg', 1, ['mm_start', 'mm_m8', 'mm_m9'], { incCritChance: 2, incCritMultiplier: 5 }),
-    // Tier 1-2 connectors — Branch A
-    minor('mm_m4', 'Arcane Power', '+3% damage, +5% crit dmg', 1, ['mm_m1', 'mm_n1'], { incDamage: 3, incCritMultiplier: 5 }),
-    minor('mm_m5', 'Impact', '+3 flat damage, +2% damage', 1, ['mm_m1', 'mm_m10'], { flatDamage: 3, incDamage: 2 }),
-    // Tier 1-2 connectors — Branch B
-    minor('mm_m6', 'Rapid Fire', '+3% cast speed, -2% cooldown', 1, ['mm_m2', 'mm_n2'], { incCastSpeed: 3, cooldownReduction: 2 }),
-    minor('mm_m7', 'Efficiency', '-5% cooldown, +2 flat', 1, ['mm_m2', 'mm_m11'], { cooldownReduction: 5, flatDamage: 2 }),
-    // Tier 1-2 connectors — Branch C
-    minor('mm_m8', 'Sharp Focus', '+2% crit, +3% damage', 1, ['mm_m3', 'mm_n3'], { incCritChance: 2, incDamage: 3 }),
-    minor('mm_m9', 'Deadly Aim', '+10% crit dmg, +1% crit', 1, ['mm_m3', 'mm_m12'], { incCritMultiplier: 10, incCritChance: 1 }),
-    // Tier 2 minors
-    minor('mm_m10', 'Raw Force', '+5 flat damage, +2% damage', 2, ['mm_m5', 'mm_n1'], { flatDamage: 5, incDamage: 2 }),
-    minor('mm_m11', 'Nimble Casting', '-5% cooldown, +3% cast speed', 2, ['mm_m7', 'mm_n2'], { cooldownReduction: 5, incCastSpeed: 3 }),
-    minor('mm_m12', 'Lethal Precision', '+12% crit dmg, +1% crit', 2, ['mm_m9', 'mm_n3'], { incCritMultiplier: 12, incCritChance: 1 }),
-    // Tier 2 notables
-    notable('mm_n1', 'Arcane Surge', '+12% damage, +5 flat damage', 2, ['mm_m4', 'mm_m10', 'mm_m13'], { incDamage: 12, flatDamage: 5 }),
-    notable('mm_n2', 'Spell Echo', '+8% cast speed, +1 extra hit', 2, ['mm_m6', 'mm_m11', 'mm_m14'], { incCastSpeed: 8, extraHits: 1 }),
-    notable('mm_n3', 'Assassin\'s Mark', '+4% crit, +20% crit dmg', 2, ['mm_m8', 'mm_m12', 'mm_m15'], { incCritChance: 4, incCritMultiplier: 20 }),
-    // Tier 3 minors (leading to keystones)
-    minor('mm_m13', 'Overcharged', '+5% damage, +3 flat', 3, ['mm_n1', 'mm_k1'], { incDamage: 5, flatDamage: 3 }),
-    minor('mm_m14', 'Haste', '+5% cast speed, +3% damage', 3, ['mm_n2', 'mm_k2'], { incCastSpeed: 5, incDamage: 3 }),
-    minor('mm_m15', 'Executioner', '+2% crit, +8% crit dmg', 3, ['mm_n3', 'mm_k3'], { incCritChance: 2, incCritMultiplier: 8 }),
-    // Tier 3 cross-connects
-    minor('mm_m16', 'Power Tap', '+4% damage, +4% cast speed', 3, ['mm_n1', 'mm_n2'], { incDamage: 4, incCastSpeed: 4 }),
-    minor('mm_m17', 'Crit Surge', '+2% crit, +5% damage', 3, ['mm_n1', 'mm_n3'], { incCritChance: 2, incDamage: 5 }),
-    minor('mm_m18', 'Swift Strikes', '+4% cast speed, +2% crit', 3, ['mm_n2', 'mm_n3'], { incCastSpeed: 4, incCritChance: 2 }),
-    // Tier 3 notables
-    notable('mm_n4', 'Concentrated Force', '+18% damage, +5 flat, converts to AoE', 3, ['mm_m13', 'mm_m16'], { incDamage: 18, flatDamage: 5, convertToAoE: true }),
-    notable('mm_n5', 'Blur', '+12% cast speed, -5% cooldown', 3, ['mm_m14', 'mm_m18'], { incCastSpeed: 12, cooldownReduction: 5 }),
-    // Tier 4 keystones — all with globalEffect
-    keystone('mm_k1', 'Arcane Overload', '+50% damage, -20% cast speed. Arcane mastery empowers all your magic (+5% all skill damage)', 4, ['mm_m13', 'mm_n4'], { incDamage: 50, incCastSpeed: -20, globalEffect: { damageMult: 1.05 } }),
-    keystone('mm_k2', 'Split Bolt', '+2 extra hits, -15% damage. Rapid projectiles quicken all your casts (+5% all speed)', 4, ['mm_m14', 'mm_n5'], { extraHits: 2, incDamage: -15, globalEffect: { attackSpeedMult: 1.05 } }),
-    keystone('mm_k3', 'Arcane Crit', 'Always crit, -30% crit mult. Arcane precision sharpens all your skills (+3% all crit)', 4, ['mm_m15'], { flags: ['alwaysCrit'], incCritMultiplier: -30, globalEffect: { critChanceBonus: 3 } }),
-    // Additional pathing minors
-    minor('mm_m19', 'Arcane Resilience', '+3% damage, +3% cast speed', 2, ['mm_m4', 'mm_m6'], { incDamage: 3, incCastSpeed: 3 }),
-    minor('mm_m20', 'Focus Crystal', '+2% crit, +3% damage', 2, ['mm_m6', 'mm_m8'], { incCritChance: 2, incDamage: 3 }),
-    minor('mm_m21', 'Missile Barrage', '+3 flat damage, +1% crit', 2, ['mm_m1', 'mm_m3'], { flatDamage: 3, incCritChance: 1 }),
-    minor('mm_m22', 'Spell Penetration', '+5% damage, +5% crit dmg', 3, ['mm_n4', 'mm_k1'], { incDamage: 5, incCritMultiplier: 5 }),
-    minor('mm_m23', 'Echo Chamber', '+5% cast speed, +2 flat', 3, ['mm_n5', 'mm_k2'], { incCastSpeed: 5, flatDamage: 2 }),
-    notable('mm_n6', 'Arcane Mastery', '+8% damage, +5% cast speed, +2% crit. +1% crit to all skills', 3, ['mm_m16', 'mm_m17', 'mm_m18'], { incDamage: 8, incCastSpeed: 5, incCritChance: 2, globalEffect: { critChanceBonus: 1 } }),
-  ],
-};
-
-// ────────────────────────────────────────────
-// 2. CHAIN LIGHTNING — Cross-Skill Synergy Tree
-// 3-branch, 15-node tree (+ start + 3 bridges = 19 total).
-// maxPoints: 10. CL weaker solo, rotation rewards thoughtful builds.
-// B1: Voltaic Trigger (crit spellslinger → Frostbolt/Void Blast on crit)
-// B2: Tempest Weaver (debuff overload → all skills benefit)
-// B3: Stormshield (reactive defense → Void Blast on dodge, Frostbolt on block)
-// Cross-connect ring: 3 bridge minors B1↔B2↔B3.
-// ────────────────────────────────────────────
 const CHAIN_LIGHTNING_GRAPH: SkillGraph = {
   skillId: 'wand_chain_lightning',
   maxPoints: 10,
   nodes: [
-    // ─── Start ───
     { id: 'cl_start', name: 'Spark', description: 'Starting node — gateway to all 3 branches.', nodeType: 'start', tier: 0,
       connections: ['cl_b1_root', 'cl_b2_root', 'cl_b3_root'] },
-
-    // ═══════════════════════════════════════
-    // BRANCH 1: VOLTAIC TRIGGER (Crit Spellslinger)
-    // CL crits → cast Frostbolt/Void Blast free. Kill → reset Frostbolt CD.
-    // ═══════════════════════════════════════
-
+    // Branch 1: Voltaic Trigger
     minor('cl_b1_root', 'Storm Focus', '+5% crit chance, +3 flat damage', 1,
       ['cl_start', 'cl_b1_m1', 'cl_x12', 'cl_x31'],
       { incCritChance: 5, flatDamage: 3 }),
-
     minor('cl_b1_m1', 'Charged Bolts', '+5% crit multiplier. 15% on hit: Shock (2s). Crits apply Vulnerable (4s).', 2,
       ['cl_b1_root', 'cl_b1_n1', 'cl_x12', 'cl_x31'],
       { incCritMultiplier: 5,
         procs: [
-          { id: 'cl_b1_m1_shock', chance: 0.15, trigger: 'onHit',
-            applyDebuff: { debuffId: 'shocked', stacks: 1, duration: 2 } },
-          { id: 'cl_b1_m1_vuln', chance: 1.0, trigger: 'onCrit',
-            applyDebuff: { debuffId: 'vulnerable', stacks: 1, duration: 4 } },
+          { id: 'cl_b1_m1_shock', chance: 0.15, trigger: 'onHit', applyDebuff: { debuffId: 'shocked', stacks: 1, duration: 2 } },
+          { id: 'cl_b1_m1_vuln', chance: 1.0, trigger: 'onCrit', applyDebuff: { debuffId: 'vulnerable', stacks: 1, duration: 4 } },
         ] }),
-
     notable('cl_b1_n1', 'Spellslinger', '25% on crit: cast Frostbolt. On kill: reset Frostbolt CD. Crits guarantee Shock (3s). +10% crit chance.', 3,
       ['cl_b1_m1', 'cl_b1_k'],
       { incCritChance: 10,
@@ -122,37 +241,24 @@ const CHAIN_LIGHTNING_GRAPH: SkillGraph = {
           { id: 'cl_b1_n1_fb', chance: 0.25, trigger: 'onCrit', castSkill: 'wand_frostbolt' },
           { id: 'cl_b1_n1_reset', chance: 1.0, trigger: 'onKill', resetCooldown: 'wand_frostbolt' },
         ] }),
-
     keystone('cl_b1_k', 'CHAIN REACTION',
       'Your critical strikes always cast Void Blast. -35% CL base damage. +5% crit to all skills.', 4,
       ['cl_b1_n1'],
       { incDamage: -35,
-        procs: [
-          { id: 'cl_b1_k_vb', chance: 1.0, trigger: 'onCrit', castSkill: 'wand_void_blast' },
-        ],
+        procs: [{ id: 'cl_b1_k_vb', chance: 1.0, trigger: 'onCrit', castSkill: 'wand_void_blast' }],
         globalEffect: { critChanceBonus: 5 } }),
-
-    // ═══════════════════════════════════════
-    // BRANCH 2: TEMPEST WEAVER (Debuff Overload)
-    // CL paints enemies with 4-5 debuffs. All rotation skills benefit.
-    // Kill → reset Essence Drain CD.
-    // ═══════════════════════════════════════
-
+    // Branch 2: Tempest Weaver
     minor('cl_b2_root', 'Elemental Spark', '+3% damage. 25% on hit: Burn (3s).', 1,
       ['cl_start', 'cl_b2_m1', 'cl_x12', 'cl_x23'],
       { incDamage: 3,
-        procs: [{ id: 'cl_b2_root_burn', chance: 0.25, trigger: 'onHit',
-          applyDebuff: { debuffId: 'burning', stacks: 1, duration: 3 } }] }),
-
+        procs: [{ id: 'cl_b2_root_burn', chance: 0.25, trigger: 'onHit', applyDebuff: { debuffId: 'burning', stacks: 1, duration: 3 } }] }),
     minor('cl_b2_m1', 'Storm Conductor', 'Guaranteed Shock on hit. 20% on hit: Chill (3s). On kill: reset Essence Drain CD.', 2,
       ['cl_b2_root', 'cl_b2_n1', 'cl_x12', 'cl_x23'],
       { applyDebuff: { debuffId: 'shocked', chance: 1.0, duration: 3 },
         procs: [
-          { id: 'cl_b2_m1_chill', chance: 0.20, trigger: 'onHit',
-            applyDebuff: { debuffId: 'chilled', stacks: 1, duration: 3 } },
+          { id: 'cl_b2_m1_chill', chance: 0.20, trigger: 'onHit', applyDebuff: { debuffId: 'chilled', stacks: 1, duration: 3 } },
           { id: 'cl_b2_m1_reset', chance: 1.0, trigger: 'onKill', resetCooldown: 'wand_essence_drain' },
         ] }),
-
     notable('cl_b2_n1', 'Prismatic Touch', '25% on hit: Chill. 25% on hit: Poison. +25% debuff duration. +5% cast speed while 3+ debuffs active.', 3,
       ['cl_b2_m1', 'cl_b2_k'],
       { debuffInteraction: { debuffDurationBonus: 25 },
@@ -161,7 +267,6 @@ const CHAIN_LIGHTNING_GRAPH: SkillGraph = {
           { id: 'cl_b2_n1_poison', chance: 0.25, trigger: 'onHit', applyDebuff: { debuffId: 'poisoned', stacks: 1, duration: 3 } },
         ],
         conditionalMods: [{ condition: 'whileDebuffActive', threshold: 3, modifier: { incCastSpeed: 5 } }] }),
-
     keystone('cl_b2_k', 'PRISMATIC STORM',
       'Your hits always apply Cursed. All debuff effects doubled. -40% CL base damage. +15% attack speed to all skills.', 4,
       ['cl_b2_n1'],
@@ -169,383 +274,50 @@ const CHAIN_LIGHTNING_GRAPH: SkillGraph = {
         applyDebuff: { debuffId: 'cursed', chance: 1.0, duration: 4 },
         debuffInteraction: { debuffEffectBonus: 100 },
         globalEffect: { attackSpeedMult: 1.15 } }),
-
-    // ═══════════════════════════════════════
-    // BRANCH 3: STORMSHIELD (Reactive Counter-Attacker)
-    // CL builds fortify. Dodge → cast Void Blast. Block → cast Frostbolt.
-    // ═══════════════════════════════════════
-
+    // Branch 3: Stormshield
     minor('cl_b3_root', 'Storm Barrier', '+3 life on hit, +10 all resist', 1,
       ['cl_start', 'cl_b3_m1', 'cl_x23', 'cl_x31'],
       { lifeOnHit: 3, abilityEffect: { resistBonus: 10 } }),
-
     minor('cl_b3_m1', 'Galvanic Ward', 'Fortify on hit (1 stack, 5s, 3% DR). +5 all resist.', 2,
       ['cl_b3_root', 'cl_b3_n1', 'cl_x23', 'cl_x31'],
-      { fortifyOnHit: { stacks: 1, duration: 5, damageReduction: 3 },
-        abilityEffect: { resistBonus: 5 } }),
-
+      { fortifyOnHit: { stacks: 1, duration: 5, damageReduction: 3 }, abilityEffect: { resistBonus: 5 } }),
     notable('cl_b3_n1', 'Storm Armor', 'Fortify on hit (2 stacks, 5s, 4% DR). On dodge: cast Void Blast. +5% armor→damage. 5% life leech. +15 all resist.', 3,
       ['cl_b3_m1', 'cl_b3_k'],
       { fortifyOnHit: { stacks: 2, duration: 5, damageReduction: 4 },
-        damageFromArmor: 5,
-        leechPercent: 5,
-        abilityEffect: { resistBonus: 15 },
+        damageFromArmor: 5, leechPercent: 5, abilityEffect: { resistBonus: 15 },
         procs: [{ id: 'cl_b3_n1_vb', chance: 1.0, trigger: 'onDodge', castSkill: 'wand_void_blast' }] }),
-
     keystone('cl_b3_k', 'EYE OF THE STORM',
       'When you block, cast Frostbolt. Fortify on hit (3 stacks, 6s, 5% DR). -20% CL base damage. +10% defense to all skills.', 4,
       ['cl_b3_n1'],
       { incDamage: -20,
         fortifyOnHit: { stacks: 3, duration: 6, damageReduction: 5 },
-        procs: [
-          { id: 'cl_b3_k_block_fb', chance: 1.0, trigger: 'onBlock', castSkill: 'wand_frostbolt' },
-        ],
+        procs: [{ id: 'cl_b3_k_block_fb', chance: 1.0, trigger: 'onBlock', castSkill: 'wand_frostbolt' }],
         globalEffect: { defenseMult: 1.10 } }),
-
-    // ═══════════════════════════════════════
-    // CROSS-CONNECT RING (3 bridge minors, tier 2)
-    // ═══════════════════════════════════════
-
+    // Bridges
     minor('cl_x12', 'Voltaic Storm', '+3% crit. 15% on hit: Shock (2s).', 2,
       ['cl_b1_root', 'cl_b1_m1', 'cl_b2_root', 'cl_b2_m1'],
       { incCritChance: 3,
-        procs: [{ id: 'cl_x12_shock', chance: 0.15, trigger: 'onHit',
-          applyDebuff: { debuffId: 'shocked', stacks: 1, duration: 2 } }] }),
-
+        procs: [{ id: 'cl_x12_shock', chance: 0.15, trigger: 'onHit', applyDebuff: { debuffId: 'shocked', stacks: 1, duration: 2 } }] }),
     minor('cl_x23', 'Elemental Shield', '+5 all resist. 15% on hit: Chill (2s).', 2,
       ['cl_b2_root', 'cl_b2_m1', 'cl_b3_root', 'cl_b3_m1'],
       { abilityEffect: { resistBonus: 5 },
-        procs: [{ id: 'cl_x23_chill', chance: 0.15, trigger: 'onHit',
-          applyDebuff: { debuffId: 'chilled', stacks: 1, duration: 2 } }] }),
-
+        procs: [{ id: 'cl_x23_chill', chance: 0.15, trigger: 'onHit', applyDebuff: { debuffId: 'chilled', stacks: 1, duration: 2 } }] }),
     minor('cl_x31', 'Storm Recovery', '+2 life on hit, +3% crit', 2,
       ['cl_b3_root', 'cl_b3_m1', 'cl_b1_root', 'cl_b1_m1'],
       { lifeOnHit: 2, incCritChance: 3 }),
   ],
 };
 
-// ────────────────────────────────────────────
-// 3. FROSTBOLT
-// Branch A: power (damage + chill) → Flash Freeze
-// Branch B: utility (flat + AoE) → Glacial Cascade
-// Branch C: crit → Permafrost Crit
-// ────────────────────────────────────────────
-const FROSTBOLT_GRAPH: SkillGraph = {
-  skillId: 'wand_frostbolt',
-  maxPoints: 20,
-  nodes: [
-    { id: 'fb_start', name: 'Frost Core', description: 'Starting node.', nodeType: 'start', tier: 0, connections: ['fb_m1', 'fb_m2', 'fb_m3'] },
-    minor('fb_m1', 'Frozen Touch', '+3% damage, +2 flat', 1, ['fb_start', 'fb_m4', 'fb_m5'], { incDamage: 3, flatDamage: 2 }),
-    minor('fb_m2', 'Ice Shard', '+4 flat, +2% damage', 1, ['fb_start', 'fb_m6', 'fb_m7'], { flatDamage: 4, incDamage: 2 }),
-    minor('fb_m3', 'Brittle', '+2% crit, +5% crit dmg', 1, ['fb_start', 'fb_m8', 'fb_m9'], { incCritChance: 2, incCritMultiplier: 5 }),
-    minor('fb_m4', 'Cold Snap', '+3% damage, +3% cast speed', 1, ['fb_m1', 'fb_n1'], { incDamage: 3, incCastSpeed: 3 }),
-    minor('fb_m5', 'Frostbite', '+3 flat, 5% chill chance', 1, ['fb_m1', 'fb_m10'], { flatDamage: 3, applyDebuff: { debuffId: 'chilled', chance: 0.05, duration: 2 } }),
-    minor('fb_m6', 'Glacial Force', '+5 flat, +2% damage', 1, ['fb_m2', 'fb_n2'], { flatDamage: 5, incDamage: 2 }),
-    minor('fb_m7', 'Permafrost', '+3% damage, +3% cast speed', 1, ['fb_m2', 'fb_m11'], { incDamage: 3, incCastSpeed: 3 }),
-    minor('fb_m8', 'Ice Lens', '+2% crit, +3% damage', 1, ['fb_m3', 'fb_n3'], { incCritChance: 2, incDamage: 3 }),
-    minor('fb_m9', 'Shatter', '+12% crit dmg, +1% crit', 1, ['fb_m3', 'fb_m12'], { incCritMultiplier: 12, incCritChance: 1 }),
-    minor('fb_m10', 'Hypothermia', '+3% damage, +2 flat', 2, ['fb_m5', 'fb_n1'], { incDamage: 3, flatDamage: 2 }),
-    minor('fb_m11', 'Frost Nova', '+3% damage, +3% cast speed', 2, ['fb_m7', 'fb_n2'], { incDamage: 3, incCastSpeed: 3 }),
-    minor('fb_m12', 'Ice Pick', '+8% crit dmg, +1% crit', 2, ['fb_m9', 'fb_n3'], { incCritMultiplier: 8, incCritChance: 1 }),
-    notable('fb_n1', 'Deep Freeze', '+12% damage, 30% chill (4s)', 2, ['fb_m4', 'fb_m10', 'fb_m13'], { incDamage: 12, applyDebuff: { debuffId: 'chilled', chance: 0.3, duration: 4 } }),
-    notable('fb_n2', 'Avalanche', '+8 flat damage, converts to AoE', 2, ['fb_m6', 'fb_m11', 'fb_m14'], { flatDamage: 8, convertToAoE: true }),
-    notable('fb_n3', 'Frozen Precision', '+4% crit, +18% crit dmg', 2, ['fb_m8', 'fb_m12', 'fb_m15'], { incCritChance: 4, incCritMultiplier: 18 }),
-    minor('fb_m13', 'Glacial Power', '+5% damage, +3 flat', 3, ['fb_n1', 'fb_k1'], { incDamage: 5, flatDamage: 3 }),
-    minor('fb_m14', 'Ice Storm', '+3% damage, +3% cast speed', 3, ['fb_n2', 'fb_k2'], { incDamage: 3, incCastSpeed: 3 }),
-    minor('fb_m15', 'Absolute Zero', '+2% crit, +5% crit dmg', 3, ['fb_n3', 'fb_k3'], { incCritChance: 2, incCritMultiplier: 5 }),
-    minor('fb_m16', 'Cold Front', '+4% damage, +3% cast speed', 3, ['fb_n1', 'fb_n2'], { incDamage: 4, incCastSpeed: 3 }),
-    minor('fb_m17', 'Frozen Core', '+5% damage, +2% crit', 3, ['fb_n1', 'fb_n3'], { incDamage: 5, incCritChance: 2 }),
-    minor('fb_m18', 'Crystallize', '+4% cast speed, +2% crit', 3, ['fb_n2', 'fb_n3'], { incCastSpeed: 4, incCritChance: 2 }),
-    notable('fb_n4', 'Blizzard', '+18% damage, +5 flat', 3, ['fb_m13', 'fb_m16'], { incDamage: 18, flatDamage: 5 }),
-    notable('fb_n5', 'Ice Assassin', '+4% crit, +15% crit dmg', 3, ['fb_m15', 'fb_m18'], { incCritChance: 4, incCritMultiplier: 15 }),
-    keystone('fb_k1', 'Flash Freeze', '60% chill (6s). Chilling presence bolsters defenses (+10% all defense)', 4, ['fb_m13', 'fb_n4'], { applyDebuff: { debuffId: 'chilled', chance: 0.6, duration: 6 }, globalEffect: { defenseMult: 1.10 } }),
-    keystone('fb_k2', 'Glacial Cascade', 'AoE + 1 hit, full Cold conversion', 4, ['fb_m14'], { convertToAoE: true, extraHits: 1, convertElement: { from: 'Physical', to: 'Cold', percent: 100 } }),
-    keystone('fb_k3', 'Permafrost Crit', '+80% crit dmg vs chilled. Frozen precision empowers all crits (+8% crit dmg)', 4, ['fb_m15', 'fb_n5'], { incCritMultiplier: 80, globalEffect: { critMultiplierBonus: 8 } }),
-    minor('fb_m19', 'Cold Mastery', '+3% cast speed, +2% damage', 2, ['fb_m4', 'fb_m6'], { incCastSpeed: 3, incDamage: 2 }),
-    minor('fb_m20', 'Frost Armor', '+2% crit, +2 flat', 2, ['fb_m6', 'fb_m8'], { incCritChance: 2, flatDamage: 2 }),
-    minor('fb_m21', 'Icy Veins', '+3 flat, +1% crit', 2, ['fb_m1', 'fb_m3'], { flatDamage: 3, incCritChance: 1 }),
-    minor('fb_m22', 'Arctic Blast', '+5% damage, +5% crit dmg', 3, ['fb_n4', 'fb_k1'], { incDamage: 5, incCritMultiplier: 5 }),
-    minor('fb_m23', 'Frigid Strikes', '+4% cast speed, +2% crit', 3, ['fb_n5', 'fb_k3'], { incCastSpeed: 4, incCritChance: 2 }),
-    notable('fb_n6', 'Winter\'s Grasp', '+8% damage, +5% cast speed, +2% crit', 3, ['fb_m16', 'fb_m17', 'fb_m18'], { incDamage: 8, incCastSpeed: 5, incCritChance: 2 }),
-  ],
-};
+// ─── Export ────────────────────────────────────────────────
 
-// ────────────────────────────────────────────
-// 4. SEARING RAY
-// Branch A: power (damage + burn) → Incinerate
-// Branch B: utility (flat + conversion) → Inferno Beam
-// Branch C: speed → Meltdown
-// ────────────────────────────────────────────
-const SEARING_RAY_GRAPH: SkillGraph = {
-  skillId: 'wand_searing_ray',
-  maxPoints: 20,
-  nodes: [
-    { id: 'sr_start', name: 'Ignition', description: 'Starting node.', nodeType: 'start', tier: 0, connections: ['sr_m1', 'sr_m2', 'sr_m3'] },
-    minor('sr_m1', 'Heat Wave', '+3% damage, +2 flat', 1, ['sr_start', 'sr_m4', 'sr_m5'], { incDamage: 3, flatDamage: 2 }),
-    minor('sr_m2', 'Ember', '+3 flat, +3% damage', 1, ['sr_start', 'sr_m6', 'sr_m7'], { flatDamage: 3, incDamage: 3 }),
-    minor('sr_m3', 'Quick Burn', '+3% cast speed, +2% damage', 1, ['sr_start', 'sr_m8', 'sr_m9'], { incCastSpeed: 3, incDamage: 2 }),
-    minor('sr_m4', 'Blaze', '+3% damage, 5% burn chance', 1, ['sr_m1', 'sr_n1'], { incDamage: 3, applyDebuff: { debuffId: 'burning', chance: 0.05, duration: 2 } }),
-    minor('sr_m5', 'Flame Lick', '+3 flat, +2% damage', 1, ['sr_m1', 'sr_m10'], { flatDamage: 3, incDamage: 2 }),
-    minor('sr_m6', 'Kindling', '+4 flat, +3% cast speed', 1, ['sr_m2', 'sr_n2'], { flatDamage: 4, incCastSpeed: 3 }),
-    minor('sr_m7', 'Scorching', '+3% damage, +5% crit dmg', 1, ['sr_m2', 'sr_m11'], { incDamage: 3, incCritMultiplier: 5 }),
-    minor('sr_m8', 'Rapid Channel', '+4% cast speed, +2 flat', 1, ['sr_m3', 'sr_n3'], { incCastSpeed: 4, flatDamage: 2 }),
-    minor('sr_m9', 'Singe', '+2% crit, +3% damage', 1, ['sr_m3', 'sr_m12'], { incCritChance: 2, incDamage: 3 }),
-    minor('sr_m10', 'Fuel', '+3% damage, +2 flat', 2, ['sr_m5', 'sr_n1'], { incDamage: 3, flatDamage: 2 }),
-    minor('sr_m11', 'Conflagration', '+3% damage, +3% cast speed', 2, ['sr_m7', 'sr_n2'], { incDamage: 3, incCastSpeed: 3 }),
-    minor('sr_m12', 'Fire Focus', '+2% crit, +5% crit dmg', 2, ['sr_m9', 'sr_n3'], { incCritChance: 2, incCritMultiplier: 5 }),
-    notable('sr_n1', 'Pyroclasm', '+12% damage, 30% burn (4s)', 2, ['sr_m4', 'sr_m10', 'sr_m13'], { incDamage: 12, applyDebuff: { debuffId: 'burning', chance: 0.3, duration: 4 } }),
-    notable('sr_n2', 'Firestorm', '+8 flat damage, +5% cast speed', 2, ['sr_m6', 'sr_m11', 'sr_m14'], { flatDamage: 8, incCastSpeed: 5 }),
-    notable('sr_n3', 'Blazing Speed', '+12% cast speed, +3% crit', 2, ['sr_m8', 'sr_m12', 'sr_m15'], { incCastSpeed: 12, incCritChance: 3 }),
-    minor('sr_m13', 'Infernal', '+5% damage, +3 flat', 3, ['sr_n1', 'sr_k1'], { incDamage: 5, flatDamage: 3 }),
-    minor('sr_m14', 'Magma Core', '+3% damage, +3% cast speed', 3, ['sr_n2', 'sr_k2'], { incDamage: 3, incCastSpeed: 3 }),
-    minor('sr_m15', 'Flame Rush', '+5% cast speed, +3% damage', 3, ['sr_n3', 'sr_k3'], { incCastSpeed: 5, incDamage: 3 }),
-    minor('sr_m16', 'Fire Link', '+4% damage, +3% cast speed', 3, ['sr_n1', 'sr_n2'], { incDamage: 4, incCastSpeed: 3 }),
-    minor('sr_m17', 'Burning Focus', '+5% damage, +2% crit', 3, ['sr_n1', 'sr_n3'], { incDamage: 5, incCritChance: 2 }),
-    minor('sr_m18', 'Channeled Fire', '+4% cast speed, +2% crit', 3, ['sr_n2', 'sr_n3'], { incCastSpeed: 4, incCritChance: 2 }),
-    notable('sr_n4', 'Volcano', '+18% damage, +5 flat', 3, ['sr_m13', 'sr_m16'], { incDamage: 18, flatDamage: 5 }),
-    notable('sr_n5', 'Flame Whip', '+10% cast speed, +8% damage', 3, ['sr_m15', 'sr_m18'], { incCastSpeed: 10, incDamage: 8 }),
-    keystone('sr_k1', 'Incinerate', '100% burn (6s). Searing heat empowers all damage (+8%)', 4, ['sr_m13', 'sr_n4'], { applyDebuff: { debuffId: 'burning', chance: 1.0, duration: 6 }, globalEffect: { damageMult: 1.08 } }),
-    keystone('sr_k2', 'Inferno Beam', 'Convert Cold→Fire, +40% damage. Infernal knowledge (+5% XP)', 4, ['sr_m14'], { convertElement: { from: 'Cold', to: 'Fire', percent: 100 }, incDamage: 40, globalEffect: { xpMult: 1.05 } }),
-    keystone('sr_k3', 'Meltdown', '+30% cast speed, +20% damage. Meltdown energy quickens all skills (+5% speed)', 4, ['sr_m15', 'sr_n5'], { incCastSpeed: 30, incDamage: 20, globalEffect: { attackSpeedMult: 1.05 } }),
-    minor('sr_m19', 'Heat Sink', '+3% cast speed, +2% damage', 2, ['sr_m4', 'sr_m6'], { incCastSpeed: 3, incDamage: 2 }),
-    minor('sr_m20', 'Thermal', '+2% crit, +3% cast speed', 2, ['sr_m6', 'sr_m8'], { incCritChance: 2, incCastSpeed: 3 }),
-    minor('sr_m21', 'Flame Trail', '+3 flat, +2% damage', 2, ['sr_m1', 'sr_m3'], { flatDamage: 3, incDamage: 2 }),
-    minor('sr_m22', 'Hellfire', '+5% damage, +5% crit dmg', 3, ['sr_n4', 'sr_k1'], { incDamage: 5, incCritMultiplier: 5 }),
-    minor('sr_m23', 'Rapid Burn', '+4% cast speed, +2% damage', 3, ['sr_n5', 'sr_k3'], { incCastSpeed: 4, incDamage: 2 }),
-    notable('sr_n6', 'Fire Mastery', '+8% damage, +5% cast speed, +2% crit', 3, ['sr_m16', 'sr_m17', 'sr_m18'], { incDamage: 8, incCastSpeed: 5, incCritChance: 2 }),
-  ],
-};
-
-// ────────────────────────────────────────────
-// 5. ESSENCE DRAIN
-// Branch A: power (damage + poison) → Virulent Plague
-// Branch B: utility (flat + leech) → Soul Siphon
-// Branch C: crit → Withering Touch
-// ────────────────────────────────────────────
-const ESSENCE_DRAIN_GRAPH: SkillGraph = {
-  skillId: 'wand_essence_drain',
-  maxPoints: 20,
-  nodes: [
-    { id: 'ed_start', name: 'Dark Tap', description: 'Starting node.', nodeType: 'start', tier: 0, connections: ['ed_m1', 'ed_m2', 'ed_m3'] },
-    minor('ed_m1', 'Corruption', '+3% damage, +2 flat', 1, ['ed_start', 'ed_m4', 'ed_m5'], { incDamage: 3, flatDamage: 2 }),
-    minor('ed_m2', 'Venom', '+3 flat, +3% damage', 1, ['ed_start', 'ed_m6', 'ed_m7'], { flatDamage: 3, incDamage: 3 }),
-    minor('ed_m3', 'Decay', '+2% crit, +5% crit dmg', 1, ['ed_start', 'ed_m8', 'ed_m9'], { incCritChance: 2, incCritMultiplier: 5 }),
-    minor('ed_m4', 'Blight', '+3% damage, 5% poison chance', 1, ['ed_m1', 'ed_n1'], { incDamage: 3, applyDebuff: { debuffId: 'poisoned', chance: 0.05, duration: 2 } }),
-    minor('ed_m5', 'Wither', '+3 flat, +2% damage', 1, ['ed_m1', 'ed_m10'], { flatDamage: 3, incDamage: 2 }),
-    minor('ed_m6', 'Toxic Shot', '+4 flat, +3% cast speed', 1, ['ed_m2', 'ed_n2'], { flatDamage: 4, incCastSpeed: 3 }),
-    minor('ed_m7', 'Contagion', '+3% damage, +3% cast speed', 1, ['ed_m2', 'ed_m11'], { incDamage: 3, incCastSpeed: 3 }),
-    minor('ed_m8', 'Virulence', '+2% crit, +3% damage', 1, ['ed_m3', 'ed_n3'], { incCritChance: 2, incDamage: 3 }),
-    minor('ed_m9', 'Necrosis', '+8% crit dmg, +1% crit', 1, ['ed_m3', 'ed_m12'], { incCritMultiplier: 8, incCritChance: 1 }),
-    minor('ed_m10', 'Pestilence', '+3% damage, +2 flat', 2, ['ed_m5', 'ed_n1'], { incDamage: 3, flatDamage: 2 }),
-    minor('ed_m11', 'Putrefaction', '+3% damage, +3% cast speed', 2, ['ed_m7', 'ed_n2'], { incDamage: 3, incCastSpeed: 3 }),
-    minor('ed_m12', 'Dark Precision', '+12% crit dmg, +1% crit', 2, ['ed_m9', 'ed_n3'], { incCritMultiplier: 12, incCritChance: 1 }),
-    notable('ed_n1', 'Plague Bearer', '+12% damage, 40% poison (5s)', 2, ['ed_m4', 'ed_m10', 'ed_m13'], { incDamage: 12, applyDebuff: { debuffId: 'poisoned', chance: 0.4, duration: 5 } }),
-    notable('ed_n2', 'Toxic Blast', '+8 flat, +1 extra hit', 2, ['ed_m6', 'ed_m11', 'ed_m14'], { flatDamage: 8, extraHits: 1 }),
-    notable('ed_n3', 'Lethal Dose', '+4% crit, +18% crit dmg', 2, ['ed_m8', 'ed_m12', 'ed_m15'], { incCritChance: 4, incCritMultiplier: 18 }),
-    minor('ed_m13', 'Spreading Rot', '+5% damage, +3 flat', 3, ['ed_n1', 'ed_k1'], { incDamage: 5, flatDamage: 3 }),
-    minor('ed_m14', 'Dark Energy', '+3% damage, +3% cast speed', 3, ['ed_n2', 'ed_k2'], { incDamage: 3, incCastSpeed: 3 }),
-    minor('ed_m15', 'Entropy', '+2% crit, +5% crit dmg', 3, ['ed_n3', 'ed_k3'], { incCritChance: 2, incCritMultiplier: 5 }),
-    minor('ed_m16', 'Chaos Link', '+4% damage, +3% cast speed', 3, ['ed_n1', 'ed_n2'], { incDamage: 4, incCastSpeed: 3 }),
-    minor('ed_m17', 'Void Touch', '+5% damage, +2% crit', 3, ['ed_n1', 'ed_n3'], { incDamage: 5, incCritChance: 2 }),
-    minor('ed_m18', 'Toxic Crit', '+4% cast speed, +2% crit', 3, ['ed_n2', 'ed_n3'], { incCastSpeed: 4, incCritChance: 2 }),
-    notable('ed_n4', 'Pandemic', '+18% damage, +5 flat', 3, ['ed_m13', 'ed_m16'], { incDamage: 18, flatDamage: 5 }),
-    notable('ed_n5', 'Dark Crit', '+4% crit, +15% crit dmg', 3, ['ed_m15', 'ed_m18'], { incCritChance: 4, incCritMultiplier: 15 }),
-    keystone('ed_k1', 'Virulent Plague', 'AoE + 70% poison (8s). Decay yields more materials (+10%)', 4, ['ed_m13', 'ed_n4'], { convertToAoE: true, applyDebuff: { debuffId: 'poisoned', chance: 0.7, duration: 8 }, globalEffect: { materialDropMult: 1.10 } }),
-    keystone('ed_k2', 'Soul Siphon', 'Life leech, +25% damage. Soul energy fortifies (+8% all defense)', 4, ['ed_m14'], { flags: ['lifeLeech'], incDamage: 25, globalEffect: { defenseMult: 1.08 } }),
-    keystone('ed_k3', 'Withering Touch', '+50% crit dmg, 100% poison (6s). Withering corruption amplifies all damage (+6%)', 4, ['ed_m15', 'ed_n5'], { incCritMultiplier: 50, applyDebuff: { debuffId: 'poisoned', chance: 1.0, duration: 6 }, globalEffect: { damageMult: 1.06 } }),
-    minor('ed_m19', 'Dark Flow', '+3% cast speed, +2% damage', 2, ['ed_m4', 'ed_m6'], { incCastSpeed: 3, incDamage: 2 }),
-    minor('ed_m20', 'Malice', '+2% crit, +2 flat', 2, ['ed_m6', 'ed_m8'], { incCritChance: 2, flatDamage: 2 }),
-    minor('ed_m21', 'Poison Tip', '+3 flat, +1% crit', 2, ['ed_m1', 'ed_m3'], { flatDamage: 3, incCritChance: 1 }),
-    minor('ed_m22', 'Noxious', '+5% damage, +5% crit dmg', 3, ['ed_n4', 'ed_k1'], { incDamage: 5, incCritMultiplier: 5 }),
-    minor('ed_m23', 'Vile Intent', '+4% cast speed, +2% crit', 3, ['ed_n5', 'ed_k3'], { incCastSpeed: 4, incCritChance: 2 }),
-    notable('ed_n6', 'Chaos Mastery', '+8% damage, +5% cast speed, +2% crit', 3, ['ed_m16', 'ed_m17', 'ed_m18'], { incDamage: 8, incCastSpeed: 5, incCritChance: 2 }),
-  ],
-};
-
-// ────────────────────────────────────────────
-// 6. VOID BLAST
-// Branch A: power (damage + AoE) → Void Rift
-// Branch B: utility (flat + big hits) → Annihilation
-// Branch C: crit → Dimensional Collapse
-// ────────────────────────────────────────────
-const VOID_BLAST_GRAPH: SkillGraph = {
-  skillId: 'wand_void_blast',
-  maxPoints: 20,
-  nodes: [
-    { id: 'vb_start', name: 'Void Seed', description: 'Starting node.', nodeType: 'start', tier: 0, connections: ['vb_m1', 'vb_m2', 'vb_m3'] },
-    minor('vb_m1', 'Void Force', '+3% damage, +2 flat', 1, ['vb_start', 'vb_m4', 'vb_m5'], { incDamage: 3, flatDamage: 2 }),
-    minor('vb_m2', 'Dark Matter', '+4 flat, +2% damage', 1, ['vb_start', 'vb_m6', 'vb_m7'], { flatDamage: 4, incDamage: 2 }),
-    minor('vb_m3', 'Entropy', '+2% crit, +5% crit dmg', 1, ['vb_start', 'vb_m8', 'vb_m9'], { incCritChance: 2, incCritMultiplier: 5 }),
-    minor('vb_m4', 'Void Power', '+3% damage, +3% cast speed', 1, ['vb_m1', 'vb_n1'], { incDamage: 3, incCastSpeed: 3 }),
-    minor('vb_m5', 'Collapse', '+5 flat, +2% damage', 1, ['vb_m1', 'vb_m10'], { flatDamage: 5, incDamage: 2 }),
-    minor('vb_m6', 'Singularity', '+5 flat, +3% cast speed', 1, ['vb_m2', 'vb_n2'], { flatDamage: 5, incCastSpeed: 3 }),
-    minor('vb_m7', 'Gravitation', '+3% damage, +5% crit dmg', 1, ['vb_m2', 'vb_m11'], { incDamage: 3, incCritMultiplier: 5 }),
-    minor('vb_m8', 'Annihilation Focus', '+2% crit, +3% damage', 1, ['vb_m3', 'vb_n3'], { incCritChance: 2, incDamage: 3 }),
-    minor('vb_m9', 'Void Strike', '+8% crit dmg, +1% crit', 1, ['vb_m3', 'vb_m12'], { incCritMultiplier: 8, incCritChance: 1 }),
-    minor('vb_m10', 'Dark Compression', '+3% damage, +2 flat', 2, ['vb_m5', 'vb_n1'], { incDamage: 3, flatDamage: 2 }),
-    minor('vb_m11', 'Event Horizon', '+3% damage, +3% cast speed', 2, ['vb_m7', 'vb_n2'], { incDamage: 3, incCastSpeed: 3 }),
-    minor('vb_m12', 'Unstable Core', '+12% crit dmg, +1% crit', 2, ['vb_m9', 'vb_n3'], { incCritMultiplier: 12, incCritChance: 1 }),
-    notable('vb_n1', 'Void Surge', '+12% damage, +5% cast speed', 2, ['vb_m4', 'vb_m10', 'vb_m13'], { incDamage: 12, incCastSpeed: 5 }),
-    notable('vb_n2', 'Dark Explosion', '+10 flat, converts to AoE', 2, ['vb_m6', 'vb_m11', 'vb_m14'], { flatDamage: 10, convertToAoE: true }),
-    notable('vb_n3', 'Void Precision', '+4% crit, +22% crit dmg', 2, ['vb_m8', 'vb_m12', 'vb_m15'], { incCritChance: 4, incCritMultiplier: 22 }),
-    minor('vb_m13', 'Spatial Tear', '+5% damage, +3 flat', 3, ['vb_n1', 'vb_k1'], { incDamage: 5, flatDamage: 3 }),
-    minor('vb_m14', 'Dimensional Rift', '+3% damage, +3% cast speed', 3, ['vb_n2', 'vb_k2'], { incDamage: 3, incCastSpeed: 3 }),
-    minor('vb_m15', 'Chaos Entropy', '+2% crit, +5% crit dmg', 3, ['vb_n3', 'vb_k3'], { incCritChance: 2, incCritMultiplier: 5 }),
-    minor('vb_m16', 'Void Link', '+4% damage, +3% cast speed', 3, ['vb_n1', 'vb_n2'], { incDamage: 4, incCastSpeed: 3 }),
-    minor('vb_m17', 'Dark Focus', '+5% damage, +2% crit', 3, ['vb_n1', 'vb_n3'], { incDamage: 5, incCritChance: 2 }),
-    minor('vb_m18', 'Void Crit', '+4% cast speed, +2% crit', 3, ['vb_n2', 'vb_n3'], { incCastSpeed: 4, incCritChance: 2 }),
-    notable('vb_n4', 'Abyssal Power', '+18% damage, +8 flat', 3, ['vb_m13', 'vb_m16'], { incDamage: 18, flatDamage: 8 }),
-    notable('vb_n5', 'Void Assassin', '+4% crit, +15% crit dmg', 3, ['vb_m15', 'vb_m18'], { incCritChance: 4, incCritMultiplier: 15 }),
-    keystone('vb_k1', 'Void Rift', 'AoE + 20% damage. Void rifts reveal hidden treasures (+10% items)', 4, ['vb_m13', 'vb_n4'], { convertToAoE: true, incDamage: 20, globalEffect: { itemDropMult: 1.10 } }),
-    keystone('vb_k2', 'Annihilation', 'Cannot crit, +40 flat, +30% damage. Annihilation force empowers everything (+8% damage)', 4, ['vb_m14'], { flags: ['cannotCrit'], flatDamage: 40, incDamage: 30, globalEffect: { damageMult: 1.08 } }),
-    keystone('vb_k3', 'Dimensional Collapse', '+70% crit dmg, life leech. Dimensional energy sustains and empowers (+10% crit dmg)', 4, ['vb_m15', 'vb_n5'], { incCritMultiplier: 70, flags: ['lifeLeech'], globalEffect: { critMultiplierBonus: 10 } }),
-    minor('vb_m19', 'Dark Speed', '+3% cast speed, +2% damage', 2, ['vb_m4', 'vb_m6'], { incCastSpeed: 3, incDamage: 2 }),
-    minor('vb_m20', 'Void Shard', '+2% crit, +2 flat', 2, ['vb_m6', 'vb_m8'], { incCritChance: 2, flatDamage: 2 }),
-    minor('vb_m21', 'Space Warp', '+4 flat, +1% crit', 2, ['vb_m1', 'vb_m3'], { flatDamage: 4, incCritChance: 1 }),
-    minor('vb_m22', 'Void Storm', '+5% damage, +5% crit dmg', 3, ['vb_n4', 'vb_k1'], { incDamage: 5, incCritMultiplier: 5 }),
-    minor('vb_m23', 'Dark Intent', '+4% cast speed, +2% crit', 3, ['vb_n5', 'vb_k3'], { incCastSpeed: 4, incCritChance: 2 }),
-    notable('vb_n6', 'Void Mastery', '+8% damage, +5% cast speed, +2% crit', 3, ['vb_m16', 'vb_m17', 'vb_m18'], { incDamage: 8, incCastSpeed: 5, incCritChance: 2 }),
-  ],
-};
-
-// ────────────────────────────────────────────
-// 7. CHAIN LIGHTNING BUFF (non-active)
-// Buff/passive trees kept with diverse abilityEffect (already good).
-// Keystones get globalEffect.
-// ────────────────────────────────────────────
-const CHAIN_LIGHTNING_BUFF_GRAPH: SkillGraph = {
-  skillId: 'wand_chain_lightning_buff',
-  maxPoints: 20,
-  nodes: [
-    { id: 'clb_start', name: 'Storm Seed', description: 'Starting node.', nodeType: 'start', tier: 0, connections: ['clb_m1', 'clb_m2', 'clb_m3'] },
-    minor('clb_m1', 'Extended Storm', '+2s duration', 1, ['clb_start', 'clb_m4', 'clb_m5'], { durationBonus: 2 }),
-    minor('clb_m2', 'Storm Power', '+5% damage', 1, ['clb_start', 'clb_m6', 'clb_m7'], { abilityEffect: { damageMult: 1.05 } }),
-    minor('clb_m3', 'Material Storm', '+5% materials', 1, ['clb_start', 'clb_m8', 'clb_m9'], { abilityEffect: { materialDropMult: 1.05 } }),
-    minor('clb_m4', 'Lasting Charge', '+2s duration', 1, ['clb_m1', 'clb_n1'], { durationBonus: 2 }),
-    minor('clb_m5', 'Storm Speed', '-5% cooldown', 1, ['clb_m1', 'clb_m10'], { cooldownReduction: 5 }),
-    minor('clb_m6', 'Lightning Boost', '+5% damage', 1, ['clb_m2', 'clb_n2'], { abilityEffect: { damageMult: 1.05 } }),
-    minor('clb_m7', 'Storm Fury', '+3% crit', 1, ['clb_m2', 'clb_m11'], { abilityEffect: { critChanceBonus: 3 } }),
-    minor('clb_m8', 'Rich Harvest', '+5% materials', 1, ['clb_m3', 'clb_n3'], { abilityEffect: { materialDropMult: 1.05 } }),
-    minor('clb_m9', 'Item Storm', '+5% items', 1, ['clb_m3', 'clb_m12'], { abilityEffect: { itemDropMult: 1.05 } }),
-    minor('clb_m10', 'Reduced Cooldown', '-5% cooldown', 2, ['clb_m5', 'clb_n1'], { cooldownReduction: 5 }),
-    minor('clb_m11', 'Crackling Power', '+3% crit dmg', 2, ['clb_m7', 'clb_n2'], { abilityEffect: { critMultiplierBonus: 3 } }),
-    minor('clb_m12', 'Lucky Storm', '+5% items', 2, ['clb_m9', 'clb_n3'], { abilityEffect: { itemDropMult: 1.05 } }),
-    notable('clb_n1', 'Sustained Storm', '+5s duration, -10% CD', 2, ['clb_m4', 'clb_m10', 'clb_m13'], { durationBonus: 5, cooldownReduction: 10 }),
-    notable('clb_n2', 'Thunder God', '+15% damage, +5% crit', 2, ['clb_m6', 'clb_m11', 'clb_m14'], { abilityEffect: { damageMult: 1.15, critChanceBonus: 5 } }),
-    notable('clb_n3', 'Storm Harvest', '+10% materials, +10% items', 2, ['clb_m8', 'clb_m12', 'clb_m15'], { abilityEffect: { materialDropMult: 1.1, itemDropMult: 1.1 } }),
-    minor('clb_m13', 'Eternal Storm', '+3s duration', 3, ['clb_n1', 'clb_k1'], { durationBonus: 3 }),
-    minor('clb_m14', 'Wrath', '+5% damage', 3, ['clb_n2', 'clb_k2'], { abilityEffect: { damageMult: 1.05 } }),
-    minor('clb_m15', 'Fortune', '+5% items', 3, ['clb_n3', 'clb_k3'], { abilityEffect: { itemDropMult: 1.05 } }),
-    minor('clb_m16', 'Storm Bridge', '+3s duration, +5% damage', 3, ['clb_n1', 'clb_n2'], { durationBonus: 3, abilityEffect: { damageMult: 1.05 } }),
-    minor('clb_m17', 'Charged Harvest', '+5% materials', 3, ['clb_n1', 'clb_n3'], { abilityEffect: { materialDropMult: 1.05 } }),
-    minor('clb_m18', 'Power Loot', '+5% damage, +5% items', 3, ['clb_n2', 'clb_n3'], { abilityEffect: { damageMult: 1.05, itemDropMult: 1.05 } }),
-    notable('clb_n4', 'Tempest Lord', '+10s duration', 3, ['clb_m13', 'clb_m16'], { durationBonus: 10 }),
-    notable('clb_n5', 'Lightning Empowerment', '+20% damage, +8% crit', 3, ['clb_m14', 'clb_m18'], { abilityEffect: { damageMult: 1.2, critChanceBonus: 8 } }),
-    keystone('clb_k1', 'Perpetual Storm', '+10s duration, +50% lightning damage', 4, ['clb_m13', 'clb_n4'], { durationBonus: 10, abilityEffect: { damageMult: 1.5 } }),
-    keystone('clb_k2', 'Overcharge', 'Shock on every hit, +30% damage, +10% crit', 4, ['clb_m14', 'clb_n5'], { abilityEffect: { damageMult: 1.3, critChanceBonus: 10 } }),
-    keystone('clb_k3', 'Magnetic Storm', '+30% items, +20% materials. Magnetic fields enhance all item discovery (+5%)', 4, ['clb_m15'], { abilityEffect: { itemDropMult: 1.3, materialDropMult: 1.2 }, globalEffect: { itemDropMult: 1.05 } }),
-    minor('clb_m19', 'Storm Flow', '+2s duration', 2, ['clb_m4', 'clb_m6'], { durationBonus: 2 }),
-    minor('clb_m20', 'Spark Harvest', '+5% materials', 2, ['clb_m6', 'clb_m8'], { abilityEffect: { materialDropMult: 1.05 } }),
-    minor('clb_m21', 'Quick Charge', '-5% cooldown', 2, ['clb_m1', 'clb_m3'], { cooldownReduction: 5 }),
-    notable('clb_n6', 'Storm Mastery', '+5s duration, +10% damage, +5% items', 3, ['clb_m16', 'clb_m17', 'clb_m18'], { durationBonus: 5, abilityEffect: { damageMult: 1.1, itemDropMult: 1.05 } }),
-  ],
-};
-
-// ────────────────────────────────────────────
-// 8. TIME WARP (buff)
-// Keystones get globalEffect.
-// ────────────────────────────────────────────
-const TIME_WARP_GRAPH: SkillGraph = {
-  skillId: 'wand_time_warp',
-  maxPoints: 20,
-  nodes: [
-    { id: 'tw_start', name: 'Temporal Seed', description: 'Starting node.', nodeType: 'start', tier: 0, connections: ['tw_m1', 'tw_m2', 'tw_m3'] },
-    minor('tw_m1', 'Time Stretch', '+2s duration', 1, ['tw_start', 'tw_m4', 'tw_m5'], { durationBonus: 2 }),
-    minor('tw_m2', 'Acceleration', '+10% clear speed', 1, ['tw_start', 'tw_m6', 'tw_m7'], { abilityEffect: { clearSpeedMult: 1.1 } }),
-    minor('tw_m3', 'Efficiency', '-5% cooldown', 1, ['tw_start', 'tw_m8', 'tw_m9'], { cooldownReduction: 5 }),
-    minor('tw_m4', 'Extended Time', '+2s duration', 1, ['tw_m1', 'tw_n1'], { durationBonus: 2 }),
-    minor('tw_m5', 'Quick Recovery', '-5% cooldown', 1, ['tw_m1', 'tw_m10'], { cooldownReduction: 5 }),
-    minor('tw_m6', 'Speed Boost', '+10% clear speed', 1, ['tw_m2', 'tw_n2'], { abilityEffect: { clearSpeedMult: 1.1 } }),
-    minor('tw_m7', 'Time Loot', '+5% materials', 1, ['tw_m2', 'tw_m11'], { abilityEffect: { materialDropMult: 1.05 } }),
-    minor('tw_m8', 'Rapid Recharge', '-5% cooldown', 1, ['tw_m3', 'tw_n3'], { cooldownReduction: 5 }),
-    minor('tw_m9', 'Time Bonus', '+5% XP', 1, ['tw_m3', 'tw_m12'], { abilityEffect: { xpMult: 1.05 } }),
-    minor('tw_m10', 'Quick Cycle', '-5% cooldown', 2, ['tw_m5', 'tw_n1'], { cooldownReduction: 5 }),
-    minor('tw_m11', 'Harvest Time', '+5% materials', 2, ['tw_m7', 'tw_n2'], { abilityEffect: { materialDropMult: 1.05 } }),
-    minor('tw_m12', 'XP Warp', '+5% XP', 2, ['tw_m9', 'tw_n3'], { abilityEffect: { xpMult: 1.05 } }),
-    notable('tw_n1', 'Time Lord', '+5s duration, -10% CD', 2, ['tw_m4', 'tw_m10', 'tw_m13'], { durationBonus: 5, cooldownReduction: 10 }),
-    notable('tw_n2', 'Haste Aura', '+25% clear speed, +10% materials', 2, ['tw_m6', 'tw_m11', 'tw_m14'], { abilityEffect: { clearSpeedMult: 1.25, materialDropMult: 1.1 } }),
-    notable('tw_n3', 'Time Efficiency', '-15% CD, +5% XP', 2, ['tw_m8', 'tw_m12', 'tw_m15'], { cooldownReduction: 15, abilityEffect: { xpMult: 1.05 } }),
-    minor('tw_m13', 'Eternal Warp', '+3s duration', 3, ['tw_n1', 'tw_k1'], { durationBonus: 3 }),
-    minor('tw_m14', 'Overdrive', '+10% clear speed', 3, ['tw_n2', 'tw_k2'], { abilityEffect: { clearSpeedMult: 1.1 } }),
-    minor('tw_m15', 'Time Mastery', '-5% CD', 3, ['tw_n3', 'tw_k3'], { cooldownReduction: 5 }),
-    minor('tw_m16', 'Time Bridge', '+3s duration, +10% clear speed', 3, ['tw_n1', 'tw_n2'], { durationBonus: 3, abilityEffect: { clearSpeedMult: 1.1 } }),
-    minor('tw_m17', 'Temporal Harvest', '+5% materials', 3, ['tw_n1', 'tw_n3'], { abilityEffect: { materialDropMult: 1.05 } }),
-    minor('tw_m18', 'Speed XP', '+5% XP, +10% clear speed', 3, ['tw_n2', 'tw_n3'], { abilityEffect: { xpMult: 1.05, clearSpeedMult: 1.1 } }),
-    notable('tw_n4', 'Temporal Mastery', '+8s duration', 3, ['tw_m13', 'tw_m16'], { durationBonus: 8 }),
-    notable('tw_n5', 'Warp Drive', '+30% clear speed', 3, ['tw_m14', 'tw_m18'], { abilityEffect: { clearSpeedMult: 1.3 } }),
-    keystone('tw_k1', 'Temporal Mastery', '+15s duration, -30% CD. Temporal mastery accelerates all clearing (+5%)', 4, ['tw_m13', 'tw_n4'], { durationBonus: 15, cooldownReduction: 30, globalEffect: { clearSpeedMult: 1.05 } }),
-    keystone('tw_k2', 'Haste Overdrive', '+50% clear speed, +20% atk speed', 4, ['tw_m14', 'tw_n5'], { abilityEffect: { clearSpeedMult: 1.5, attackSpeedMult: 1.2 } }),
-    keystone('tw_k3', 'Time Paradox', '-40% CD, +10% XP, +10% items', 4, ['tw_m15'], { cooldownReduction: 40, abilityEffect: { xpMult: 1.1, itemDropMult: 1.1 } }),
-    minor('tw_m19', 'Temporal Flow', '+2s duration', 2, ['tw_m4', 'tw_m6'], { durationBonus: 2 }),
-    minor('tw_m20', 'Speed Harvest', '+5% materials', 2, ['tw_m6', 'tw_m8'], { abilityEffect: { materialDropMult: 1.05 } }),
-    minor('tw_m21', 'Quick Warp', '-5% cooldown', 2, ['tw_m1', 'tw_m3'], { cooldownReduction: 5 }),
-    notable('tw_n6', 'Warp Mastery', '+5s duration, +15% clear speed, +5% XP', 3, ['tw_m16', 'tw_m17', 'tw_m18'], { durationBonus: 5, abilityEffect: { clearSpeedMult: 1.15, xpMult: 1.05 } }),
-  ],
-};
-
-// ────────────────────────────────────────────
-// 9. MYSTIC INSIGHT (passive)
-// Keystones get globalEffect.
-// ────────────────────────────────────────────
-const MYSTIC_INSIGHT_GRAPH: SkillGraph = {
-  skillId: 'wand_mystic_insight',
-  maxPoints: 20,
-  nodes: [
-    { id: 'mi_start', name: 'Inner Eye', description: 'Starting node.', nodeType: 'start', tier: 0, connections: ['mi_m1', 'mi_m2', 'mi_m3'] },
-    minor('mi_m1', 'Keen Eye', '+3% items', 1, ['mi_start', 'mi_m4', 'mi_m5'], { abilityEffect: { itemDropMult: 1.03 } }),
-    minor('mi_m2', 'Resource Sense', '+3% materials', 1, ['mi_start', 'mi_m6', 'mi_m7'], { abilityEffect: { materialDropMult: 1.03 } }),
-    minor('mi_m3', 'Wisdom', '+3% XP', 1, ['mi_start', 'mi_m8', 'mi_m9'], { abilityEffect: { xpMult: 1.03 } }),
-    minor('mi_m4', 'Treasure Hunter', '+3% items', 1, ['mi_m1', 'mi_n1'], { abilityEffect: { itemDropMult: 1.03 } }),
-    minor('mi_m5', 'Dual Sense', '+3% items, +3% materials', 1, ['mi_m1', 'mi_m10'], { abilityEffect: { itemDropMult: 1.03, materialDropMult: 1.03 } }),
-    minor('mi_m6', 'Material Focus', '+3% materials', 1, ['mi_m2', 'mi_n2'], { abilityEffect: { materialDropMult: 1.03 } }),
-    minor('mi_m7', 'Rich Veins', '+5% materials', 1, ['mi_m2', 'mi_m11'], { abilityEffect: { materialDropMult: 1.05 } }),
-    minor('mi_m8', 'Scholar', '+3% XP', 1, ['mi_m3', 'mi_n3'], { abilityEffect: { xpMult: 1.03 } }),
-    minor('mi_m9', 'Quick Study', '+5% XP', 1, ['mi_m3', 'mi_m12'], { abilityEffect: { xpMult: 1.05 } }),
-    minor('mi_m10', 'Lucky Find', '+5% items', 2, ['mi_m5', 'mi_n1'], { abilityEffect: { itemDropMult: 1.05 } }),
-    minor('mi_m11', 'Deep Dig', '+5% materials', 2, ['mi_m7', 'mi_n2'], { abilityEffect: { materialDropMult: 1.05 } }),
-    minor('mi_m12', 'Fast Learner', '+5% XP', 2, ['mi_m9', 'mi_n3'], { abilityEffect: { xpMult: 1.05 } }),
-    notable('mi_n1', 'Treasure Sense', '+10% items', 2, ['mi_m4', 'mi_m10', 'mi_m13'], { abilityEffect: { itemDropMult: 1.1 } }),
-    notable('mi_n2', 'Material Mastery', '+10% materials', 2, ['mi_m6', 'mi_m11', 'mi_m14'], { abilityEffect: { materialDropMult: 1.1 } }),
-    notable('mi_n3', 'XP Mastery', '+10% XP', 2, ['mi_m8', 'mi_m12', 'mi_m15'], { abilityEffect: { xpMult: 1.1 } }),
-    minor('mi_m13', 'Greed', '+5% items', 3, ['mi_n1', 'mi_k1'], { abilityEffect: { itemDropMult: 1.05 } }),
-    minor('mi_m14', 'Abundance', '+5% materials', 3, ['mi_n2', 'mi_k2'], { abilityEffect: { materialDropMult: 1.05 } }),
-    minor('mi_m15', 'Enlightened', '+5% XP', 3, ['mi_n3', 'mi_k3'], { abilityEffect: { xpMult: 1.05 } }),
-    minor('mi_m16', 'Item Sense', '+5% items, +3% materials', 3, ['mi_n1', 'mi_n2'], { abilityEffect: { itemDropMult: 1.05, materialDropMult: 1.03 } }),
-    minor('mi_m17', 'Insight XP', '+5% items, +3% XP', 3, ['mi_n1', 'mi_n3'], { abilityEffect: { itemDropMult: 1.05, xpMult: 1.03 } }),
-    minor('mi_m18', 'Material XP', '+3% materials, +3% XP', 3, ['mi_n2', 'mi_n3'], { abilityEffect: { materialDropMult: 1.03, xpMult: 1.03 } }),
-    notable('mi_n4', 'Fortune\'s Favor', '+15% items', 3, ['mi_m13', 'mi_m16'], { abilityEffect: { itemDropMult: 1.15 } }),
-    notable('mi_n5', 'Deep Knowledge', '+10% XP, +5% materials', 3, ['mi_m15', 'mi_m18'], { abilityEffect: { xpMult: 1.1, materialDropMult: 1.05 } }),
-    keystone('mi_k1', 'Enlightenment', '+30% XP. Enlightenment boosts all XP gains (+5%)', 4, ['mi_m13', 'mi_n4'], { abilityEffect: { xpMult: 1.3 }, globalEffect: { xpMult: 1.05 } }),
-    keystone('mi_k2', 'Treasure Sense', '+25% items, +25% materials', 4, ['mi_m14'], { abilityEffect: { itemDropMult: 1.25, materialDropMult: 1.25 } }),
-    keystone('mi_k3', 'Sage\'s Wisdom', '+20% XP, +15% items, +15% materials', 4, ['mi_m15', 'mi_n5'], { abilityEffect: { xpMult: 1.2, itemDropMult: 1.15, materialDropMult: 1.15 } }),
-    minor('mi_m19', 'Dual Focus', '+3% items, +3% XP', 2, ['mi_m4', 'mi_m6'], { abilityEffect: { itemDropMult: 1.03, xpMult: 1.03 } }),
-    minor('mi_m20', 'Balanced', '+3% materials, +3% XP', 2, ['mi_m6', 'mi_m8'], { abilityEffect: { materialDropMult: 1.03, xpMult: 1.03 } }),
-    minor('mi_m21', 'All Seeing', '+3% items, +3% materials', 2, ['mi_m1', 'mi_m3'], { abilityEffect: { itemDropMult: 1.03, materialDropMult: 1.03 } }),
-    notable('mi_n6', 'Insight Mastery', '+5% items, +5% materials, +5% XP', 3, ['mi_m16', 'mi_m17', 'mi_m18'], { abilityEffect: { itemDropMult: 1.05, materialDropMult: 1.05, xpMult: 1.05 } }),
-  ],
-};
-
-// ────────────────────────────────────────────
-// EXPORT: All wand skill graphs
-// ────────────────────────────────────────────
 export const WAND_SKILL_GRAPHS: Record<string, SkillGraph> = {
-  'wand_magic_missile': MAGIC_MISSILE_GRAPH,
-  'wand_chain_lightning': CHAIN_LIGHTNING_GRAPH,
-  'wand_frostbolt': FROSTBOLT_GRAPH,
-  'wand_searing_ray': SEARING_RAY_GRAPH,
-  'wand_essence_drain': ESSENCE_DRAIN_GRAPH,
-  'wand_void_blast': VOID_BLAST_GRAPH,
-  'wand_chain_lightning_buff': CHAIN_LIGHTNING_BUFF_GRAPH,
-  'wand_time_warp': TIME_WARP_GRAPH,
-  'wand_mystic_insight': MYSTIC_INSIGHT_GRAPH,
+  'wand_magic_missile':        MAGIC_MISSILE_GRAPH,
+  'wand_chain_lightning':      CHAIN_LIGHTNING_GRAPH,
+  'wand_frostbolt':            FROSTBOLT_GRAPH,
+  'wand_searing_ray':          SEARING_RAY_GRAPH,
+  'wand_essence_drain':        ESSENCE_DRAIN_GRAPH,
+  'wand_void_blast':           VOID_BLAST_GRAPH,
+  'wand_chain_lightning_buff': CL_BUFF_GRAPH,
+  'wand_time_warp':            TIME_WARP_GRAPH,
+  'wand_mystic_insight':       MYSTIC_INSIGHT_GRAPH,
 };
