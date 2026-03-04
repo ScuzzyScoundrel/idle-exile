@@ -17,7 +17,7 @@ export const MASTERY_DROP_BONUS = 1.15;
 
 /** Material drops per clear (gathering base): uniform random in [min, max]. */
 export const MATERIAL_DROP_MIN = 2;
-export const MATERIAL_DROP_MAX = 4;
+export const MATERIAL_DROP_MAX = 6;
 
 /** Combat-specific material drop rates (lower than gathering). */
 export const COMBAT_MATERIAL_DROP_CHANCE = 0.30;
