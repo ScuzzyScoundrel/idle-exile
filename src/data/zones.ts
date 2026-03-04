@@ -21,7 +21,7 @@ export const ZONE_DEFS: ZoneDef[] = [
     band: 1,
     bandIndex: 0,
     description: 'Gentle forest, first steps.',
-    baseClearTime: 15,
+    baseClearTime: 10,
     iLvlMin: 1,
     iLvlMax: 3,
     recommendedLevel: 1,
