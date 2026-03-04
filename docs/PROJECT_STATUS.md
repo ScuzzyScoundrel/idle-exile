@@ -1,10 +1,21 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-04 (Sprint 1: Debuff Overhaul)
+> Last updated: 2026-03-04 (Sprint 2: Combat Log & Debuff UX)
 
 ## Current Phase
-**Sprint: Debuff Overhaul — Sprint 1 (Core Engine)** — COMPLETE.
+**Sprint: Debuff Overhaul — Sprint 2 (Combat Log & Debuff UX)** — COMPLETE.
+
+- **Purpose**: Surface debuff damage in the combat log so players can see their debuffs working. Add tooltips to debuff badges.
+- **Changes**:
+  - **CombatTickResult extended**: 3 new optional fields (`dotDamage`, `bleedTriggerDamage`, `shatterDamage`) tracked and returned from all main tick paths.
+  - **Combat log overhaul**: New entry types (`skill`/`dot`/`bleed`/`shatter`), color-coded rendering (green DoT, red bleed, cyan shatter), 12 entries reversed (newest first), bigger container.
+  - **Debuff badge tooltips**: `<Tooltip>` wrapper with name, description, stacks/maxStacks, remaining duration, snapshot DPS estimate (bleed per trigger, poison per second), burn rate for %maxHP.
+- **Modified files**: `src/types/index.ts`, `src/store/gameStore.ts`, `src/ui/zones/CombatPanel.tsx`, `src/ui/zones/DebuffBadge.tsx`
+- **Save version**: v41 (unchanged, no migration needed)
+- **Next**: Sprint 3 (Skill Tree Debuff Integration)
+
+**Previous: Sprint: Debuff Overhaul — Sprint 1 (Core Engine)** — COMPLETE.
 
 - **Purpose**: Redesign each debuff to have a distinct, interesting identity instead of flat DPS/damage-taken mechanics. Fix `incDoTDamage` gear stat bug (never applied to DoT calculations).
 - **Debuff changes**:
@@ -20,7 +31,6 @@
 - **Modified files**: `src/types/index.ts`, `src/data/debuffs.ts`, `src/store/gameStore.ts`
 - **New files**: `docs/DEBUFF_OVERHAUL_PLAN.md`
 - **Save version**: v40 → v41
-- **Next**: Sprint 2 (Combat Log & Debuff UX), Sprint 3 (Skill Tree Debuff Integration)
 
 **Previous: Sprint: Crafting Overhaul** — COMPLETE.
 
