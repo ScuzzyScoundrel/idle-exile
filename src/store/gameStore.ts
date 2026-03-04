@@ -74,14 +74,14 @@ import {
 
 
 const INITIAL_CURRENCIES: Record<CurrencyType, number> = {
-  augment: 50,
-  chaos: 50,
-  divine: 50,
-  annul: 50,
-  exalt: 50,
+  augment: 0,
+  chaos: 0,
+  divine: 0,
+  annul: 0,
+  exalt: 0,
   greater_exalt: 0,
   perfect_exalt: 0,
-  socket: 50,
+  socket: 0,
 };
 
 /** Pick the mob currently being fought: targeted mob or weighted random from zone. */
@@ -3496,7 +3496,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 37,
+      version: 38,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -4167,6 +4167,11 @@ export const useGameStore = create<GameState & GameActions>()(
           if (sp36['wand_chain_lightning']) {
             sp36['wand_chain_lightning'] = { ...sp36['wand_chain_lightning'], allocatedNodes: [] };
           }
+        }
+
+        if (version < 38) {
+          // v38: Full account wipe — fresh start for progression testing
+          return createInitialState() as unknown as Record<string, unknown>;
         }
 
         if (version < 37) {
