@@ -655,7 +655,7 @@ function ZoneCard({
           )}
           {!isUnlocked && zone.unlockRequirement && (
             <div className="text-xs text-gray-400 mt-0.5">
-              Clear {ZONE_DEFS.find(z => z.id === zone.unlockRequirement)?.name ?? zone.unlockRequirement} to unlock
+              Defeat the boss of {ZONE_DEFS.find(z => z.id === zone.unlockRequirement)?.name ?? zone.unlockRequirement} to unlock
             </div>
           )}
         </div>
@@ -842,7 +842,7 @@ export default function ZoneScreen() {
     totalKills, fastestClears,
     lastClearResult,
     tickCombat, currentMobHp, maxMobHp, zoneNextAttackAt,
-    targetedMobId, setTargetedMob, mobKillCounts,
+    targetedMobId, setTargetedMob, mobKillCounts, bossKillCounts,
     currentMobTypeId,
     activeDebuffs, fortifyStacks, fortifyExpiresAt, fortifyDRPerStack,
     totalZoneClears,
@@ -1105,10 +1105,10 @@ export default function ZoneScreen() {
     }
   }, [elapsed, isRunning, runningZone, idleMode, combatPhase, processNewClears]);
 
-  // Check if a zone is unlocked (must clear prerequisite zone at least once)
+  // Check if a zone is unlocked (must defeat the boss of the prerequisite zone)
   const isZoneUnlocked = (z: ZoneDef): boolean => {
     if (!z.unlockRequirement) return true;
-    return (totalZoneClears[z.unlockRequirement] ?? 0) >= 1;
+    return (bossKillCounts[z.unlockRequirement] ?? 0) >= 1;
   };
 
   const handleStart = () => {
