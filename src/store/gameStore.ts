@@ -44,9 +44,7 @@ import { createDefaultCraftingSkills } from '../data/craftingProfessions';
 import { calcRareFindBonus } from '../engine/rareMaterials';
 import { canRefine, refine, canDeconstruct, deconstruct } from '../engine/refinement';
 import { canCraftRecipe, executeCraft, addCraftingXp, getCraftingXpForTier } from '../engine/craftingProfessions';
-import { canCraftComponent, autoPickMobDrop } from '../engine/componentCrafting';
-import { getComponentRecipe } from '../data/componentRecipes';
-import { COMPONENT_XP_PER_BAND, CRAFT_OUTPUT_BUFFER_SIZE, CRAFT_LOG_MAX_ENTRIES, MAX_GOLD_EFFICIENCY } from '../data/balance';
+import { CRAFT_OUTPUT_BUFFER_SIZE, CRAFT_LOG_MAX_ENTRIES, MAX_GOLD_EFFICIENCY } from '../data/balance';
 import { resolveProfessionBonuses } from '../engine/professionBonuses';
 import { REFINEMENT_RECIPES } from '../data/refinement';
 import { getCraftingRecipe } from '../data/craftingRecipes';
@@ -367,8 +365,6 @@ interface GameActions {
   deconstructMaterial: (refinedId: string) => boolean;
   craftRecipe: (recipeId: string, catalystId?: string, affixCatalystId?: string) => { item: Item; wasSalvaged: boolean } | null;
   craftRecipeBatch: (recipeId: string, count: number, catalystId?: string, affixCatalystId?: string) => { crafted: number; lastItem: Item | null; salvaged: number } | null;
-  craftComponent: (recipeId: string, selectedMobDropId?: string) => boolean;
-  craftComponentBatch: (recipeId: string, count: number, selectedMobDropId?: string) => number;
 
   // Craft log & output buffer
   addCraftLogEntry: (entry: Omit<CraftLogEntry, 'id' | 'timestamp'>) => void;
@@ -468,6 +464,7 @@ function createInitialState(): GameState {
     selectedGatheringProfession: null,
     professionEquipment: {},
     craftingSkills: createDefaultCraftingSkills(),
+    ownedPatterns: [],
     autoSalvageMinRarity: 'common',
     autoDisposalAction: 'salvage' as const,
     craftAutoSalvageMinRarity: 'common',
@@ -820,7 +817,6 @@ export const useGameStore = create<GameState & GameActions>()(
         if (!state.currentZoneId) return null;
         const zone = ZONE_DEFS.find((z) => z.id === state.currentZoneId);
         if (!zone) return null;
-        console.warn('[VOID-DEBUG] processNewClears called | clears:', clearCount, '| zone:', state.currentZoneId, '| invaded:', isZoneInvaded(state.invasionState, state.currentZoneId, zone.band), '| invasions:', JSON.stringify(state.invasionState.activeInvasions));
 
         // ─── Gathering Mode ───
         if (state.idleMode === 'gathering') {
@@ -949,13 +945,10 @@ export const useGameStore = create<GameState & GameActions>()(
           // During invasion: roll corruption on dropped items
           if (zoneInvaded && clear.item) {
             const corruption = rollCorruption(zone.band);
-            console.warn('[VOID] Corruption roll:', corruption ? `YES - ${corruption.defId}` : 'NO', '| Zone:', zoneId, '| Band:', zone.band);
             if (corruption) {
               clear.item.implicit = corruption;
               clear.item.isCorrupted = true;
             }
-          } else if (clear.item) {
-            console.warn('[VOID] Zone NOT invaded | zoneId:', zoneId, '| band:', zone.band, '| activeInvasions:', JSON.stringify(state.invasionState.activeInvasions));
           }
           if (clear.item) allItems.push(clear.item);
           if (clear.professionGearDrop) allItems.push(clear.professionGearDrop);
@@ -1442,18 +1435,8 @@ export const useGameStore = create<GameState & GameActions>()(
         if (affixCatalystId) {
           newMaterials[affixCatalystId] = (newMaterials[affixCatalystId] ?? 0) - 1;
         }
-        // Consume component cost (with material preservation)
-        if (recipe.componentCost) {
-          for (const { materialId, amount } of recipe.componentCost) {
-            let consumed = 0;
-            for (let j = 0; j < amount; j++) {
-              if (Math.random() >= profBonuses.materialSave / 100) consumed++;
-            }
-            newMaterials[materialId] = (newMaterials[materialId] ?? 0) - consumed;
-          }
-        }
         // Gold cost with reduction
-        const goldCost = Math.max(1, Math.round(recipe.goldCost * (1 - Math.min(profBonuses.goldEfficiency / 100, MAX_GOLD_EFFICIENCY))));
+        const goldCost = Math.max(0, Math.round(recipe.goldCost * (1 - Math.min(profBonuses.goldEfficiency / 100, MAX_GOLD_EFFICIENCY))));
         const newGold = state.gold - goldCost;
 
         // Add crafting XP (with bonus)
@@ -1558,16 +1541,7 @@ export const useGameStore = create<GameState & GameActions>()(
           if (affixCatalystId) {
             curMaterials[affixCatalystId] = (curMaterials[affixCatalystId] ?? 0) - 1;
           }
-          if (recipe.componentCost) {
-            for (const { materialId, amount } of recipe.componentCost) {
-              let consumed = 0;
-              for (let j = 0; j < amount; j++) {
-                if (Math.random() >= profBonuses.materialSave / 100) consumed++;
-              }
-              curMaterials[materialId] = (curMaterials[materialId] ?? 0) - consumed;
-            }
-          }
-          const goldCost = Math.max(1, Math.round(recipe.goldCost * (1 - Math.min(profBonuses.goldEfficiency / 100, MAX_GOLD_EFFICIENCY))));
+          const goldCost = Math.max(0, Math.round(recipe.goldCost * (1 - Math.min(profBonuses.goldEfficiency / 100, MAX_GOLD_EFFICIENCY))));
           curGold -= goldCost;
 
           // Add crafting XP per craft (with bonus)
@@ -1647,80 +1621,6 @@ export const useGameStore = create<GameState & GameActions>()(
         });
 
         return { crafted, lastItem, salvaged };
-      },
-
-      craftComponent: (recipeId: string, selectedMobDropId?: string) => {
-        const state = get();
-        const recipe = getComponentRecipe(recipeId);
-        if (!recipe) return false;
-        if (!canCraftComponent(recipe, state.craftingSkills, state.materials, state.gold, selectedMobDropId)) return false;
-
-        const newMaterials = { ...state.materials };
-
-        // Consume fixed materials
-        for (const { materialId, amount } of recipe.materials) {
-          newMaterials[materialId] = (newMaterials[materialId] ?? 0) - amount;
-        }
-
-        // Consume mob drop choice
-        if (recipe.mobDropChoice) {
-          const dropId = selectedMobDropId ?? autoPickMobDrop(recipe, state.materials);
-          if (!dropId) return false;
-          newMaterials[dropId] = (newMaterials[dropId] ?? 0) - recipe.mobDropChoice.amount;
-        }
-
-        const newGold = state.gold - recipe.goldCost;
-
-        // Produce component
-        newMaterials[recipe.outputMaterialId] = (newMaterials[recipe.outputMaterialId] ?? 0) + 1;
-
-        // Add crafting XP
-        const xp = COMPONENT_XP_PER_BAND[recipe.band] ?? 15;
-        const newCraftingSkills = addCraftingXp(state.craftingSkills, recipe.profession, xp);
-
-        set({ materials: newMaterials, gold: newGold, craftingSkills: newCraftingSkills });
-        get().addCraftLogEntry({ type: 'component', recipeName: recipe.name, count: 1, xpGained: xp, profession: recipe.profession });
-        return true;
-      },
-
-      craftComponentBatch: (recipeId: string, count: number, selectedMobDropId?: string) => {
-        if (count <= 0) return 0;
-        const state = get();
-        const recipe = getComponentRecipe(recipeId);
-        if (!recipe) return 0;
-
-        let curMaterials = { ...state.materials };
-        let curGold = state.gold;
-        let curCraftingSkills = { ...state.craftingSkills };
-        let crafted = 0;
-
-        for (let i = 0; i < count; i++) {
-          if (!canCraftComponent(recipe, curCraftingSkills, curMaterials, curGold, selectedMobDropId)) break;
-
-          for (const { materialId, amount } of recipe.materials) {
-            curMaterials[materialId] = (curMaterials[materialId] ?? 0) - amount;
-          }
-
-          if (recipe.mobDropChoice) {
-            const dropId = selectedMobDropId ?? autoPickMobDrop(recipe, curMaterials);
-            if (!dropId) break;
-            curMaterials[dropId] = (curMaterials[dropId] ?? 0) - recipe.mobDropChoice.amount;
-          }
-
-          curGold -= recipe.goldCost;
-          curMaterials[recipe.outputMaterialId] = (curMaterials[recipe.outputMaterialId] ?? 0) + 1;
-
-          const xp = COMPONENT_XP_PER_BAND[recipe.band] ?? 15;
-          curCraftingSkills = addCraftingXp(curCraftingSkills, recipe.profession, xp);
-
-          crafted++;
-        }
-
-        if (crafted === 0) return 0;
-        set({ materials: curMaterials, gold: curGold, craftingSkills: curCraftingSkills });
-        const totalXp = (COMPONENT_XP_PER_BAND[recipe.band] ?? 15) * crafted;
-        get().addCraftLogEntry({ type: 'component', recipeName: recipe.name, count: crafted, xpGained: totalXp, profession: recipe.profession });
-        return crafted;
       },
 
       // ─── Craft Log & Output Buffer ──────────────────────

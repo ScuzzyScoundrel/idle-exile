@@ -559,14 +559,12 @@ function formatTimeRemaining(ms: number): string {
 function InvasionTracker({
   invasionState,
   selectedBand,
-  onForceInvasion,
 }: {
   invasionState: {
     activeInvasions: Record<number, { zoneId: string; startTime: number; endTime: number }>;
     bandCooldowns: Record<number, number>;
   };
   selectedBand: number;
-  onForceInvasion: (band: number) => void;
 }) {
   const now = Date.now();
   const activeInvasion = invasionState.activeInvasions[selectedBand];
@@ -605,15 +603,6 @@ function InvasionTracker({
             </span>
           )}
         </div>
-        {!hasActiveInvasion && (
-          <button
-            onClick={() => onForceInvasion(selectedBand)}
-            className="px-2 py-0.5 rounded bg-purple-900/50 text-purple-400 hover:bg-purple-800/60 text-[10px] font-bold"
-            title="Force a void invasion for testing"
-          >
-            Summon Void
-          </button>
-        )}
       </div>
     </div>
   );
@@ -921,7 +910,6 @@ export default function ZoneScreen() {
     zoneMasteryClaimed,
     invasionState,
     tickInvasions,
-    forceInvasion,
   } = useGameStore();
 
   const hydrated = useHasHydrated();
@@ -1361,7 +1349,6 @@ export default function ZoneScreen() {
         <InvasionTracker
           invasionState={invasionState}
           selectedBand={selectedBand}
-          onForceInvasion={forceInvasion}
         />
       )}
 
