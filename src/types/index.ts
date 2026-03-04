@@ -340,6 +340,9 @@ export interface CombatTickResult {
   zoneAttack?: { damage: number; isDodged: boolean; isBlocked: boolean } | null;
   bossAttack?: { damage: number; isDodged: boolean; isBlocked: boolean; isCrit: boolean } | null;
   zoneDeath?: boolean;
+  dotDamage?: number;           // poison + burning DoT this tick
+  bleedTriggerDamage?: number;  // bleed trigger damage this tick
+  shatterDamage?: number;       // chilled shatter damage this tick
 }
 
 export type CombatPhase = 'clearing' | 'boss_fight' | 'boss_victory' | 'boss_defeat' | 'zone_defeat';

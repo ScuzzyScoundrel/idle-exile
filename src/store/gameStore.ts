@@ -2834,6 +2834,7 @@ export const useGameStore = create<GameState & GameActions>()(
         if (phase === 'boss_fight' && state.bossState) {
           const bs = state.bossState;
           let totalDamage = 0;
+          let bleedTriggerDamage = 0;
           let newBossHp = bs.bossCurrentHp;
 
           if (roll.isHit) {
@@ -2876,6 +2877,7 @@ export const useGameStore = create<GameState & GameActions>()(
             if (mainBleedDmg > 0) {
               newBossHp -= mainBleedDmg;
               totalDamage += mainBleedDmg;
+              bleedTriggerDamage += mainBleedDmg;
             }
 
             // Miss chance from debuffs (e.g. Blinded)
@@ -3015,6 +3017,7 @@ export const useGameStore = create<GameState & GameActions>()(
               mobKills: 0, skillFired: true, damageDealt: totalDamage,
               skillId: skill.id, isCrit: roll.isCrit, isHit: roll.isHit,
               bossOutcome: 'victory', bossAttack: bossAttackResult,
+              dotDamage: debuffDotDamage, bleedTriggerDamage,
             };
           }
           if (playerHp <= 0) {
@@ -3032,6 +3035,7 @@ export const useGameStore = create<GameState & GameActions>()(
               mobKills: 0, skillFired: true, damageDealt: totalDamage,
               skillId: skill.id, isCrit: roll.isCrit, isHit: roll.isHit,
               bossOutcome: 'defeat', bossAttack: bossAttackResult,
+              dotDamage: debuffDotDamage, bleedTriggerDamage,
             };
           }
 
@@ -3049,6 +3053,7 @@ export const useGameStore = create<GameState & GameActions>()(
             mobKills: 0, skillFired: true, damageDealt: totalDamage,
             skillId: skill.id, isCrit: roll.isCrit, isHit: roll.isHit,
             bossOutcome: 'ongoing', bossAttack: bossAttackResult,
+            dotDamage: debuffDotDamage, bleedTriggerDamage,
           };
         }
 
@@ -3056,6 +3061,8 @@ export const useGameStore = create<GameState & GameActions>()(
         let currentMobHp = state.currentMobHp;
         let mobKills = 0;
         let totalDamage = 0;
+        let bleedTriggerDamage = 0;
+        let shatterDamage = 0;
 
         if (roll.isHit) {
           currentMobHp -= roll.damage;
@@ -3143,6 +3150,7 @@ export const useGameStore = create<GameState & GameActions>()(
           const shatterDmg = chilledDebuff
             ? overkillAmount * ((getDebuffDef('chilled')?.effect.shatterOverkillPercent ?? 0) / 100)
             : 0;
+          if (shatterDmg > 0) shatterDamage += shatterDmg;
 
           currentMobHp = maxMobHp - overkillAmount - overkillBonus - shatterDmg;
           if (currentMobHp <= 0) currentMobHp = maxMobHp; // safety: reset if still negative
@@ -3170,6 +3178,7 @@ export const useGameStore = create<GameState & GameActions>()(
           if (clearBleedDmg > 0) {
             currentMobHp -= clearBleedDmg;
             totalDamage += clearBleedDmg;
+            bleedTriggerDamage += clearBleedDmg;
           }
 
           // Miss chance from debuffs (e.g. Blinded)
@@ -3333,6 +3342,7 @@ export const useGameStore = create<GameState & GameActions>()(
             isHit: roll.isHit,
             zoneAttack: zoneAttackResult,
             zoneDeath: true,
+            dotDamage: debuffDotDamage, bleedTriggerDamage, shatterDamage,
           };
         }
 
@@ -3359,6 +3369,7 @@ export const useGameStore = create<GameState & GameActions>()(
           isCrit: roll.isCrit,
           isHit: roll.isHit,
           zoneAttack: zoneAttackResult,
+          dotDamage: debuffDotDamage, bleedTriggerDamage, shatterDamage,
         };
       },
 

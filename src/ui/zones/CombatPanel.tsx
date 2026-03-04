@@ -69,7 +69,8 @@ export default function CombatPanel() {
   const floaterIdRef = useRef(0);
   const lastFiredTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const [combatLog, setCombatLog] = useState<Array<{
-    id: number; skill: string; damage: number; isCrit: boolean; isHit: boolean;
+    id: number; type: 'skill' | 'dot' | 'bleed' | 'shatter';
+    label: string; damage: number; isCrit?: boolean; isHit?: boolean;
   }>>([]);
   const logIdRef = useRef(0);
 
@@ -104,12 +105,31 @@ export default function CombatPanel() {
               ? (getUnifiedSkillDef(combatResult.skillId)?.name ?? '???')
               : '???';
             setCombatLog(prev => [...prev, {
-              id: logIdRef.current++,
-              skill: skillName,
+              id: logIdRef.current++, type: 'skill' as const,
+              label: skillName,
               damage: combatResult.damageDealt,
               isCrit: combatResult.isCrit,
               isHit: combatResult.isHit,
             }].slice(-20));
+            // Debuff damage log entries
+            if (combatResult.dotDamage && combatResult.dotDamage > 1) {
+              setCombatLog(prev => [...prev, {
+                id: logIdRef.current++, type: 'dot' as const,
+                label: 'DoT', damage: combatResult.dotDamage!,
+              }].slice(-20));
+            }
+            if (combatResult.bleedTriggerDamage && combatResult.bleedTriggerDamage > 0) {
+              setCombatLog(prev => [...prev, {
+                id: logIdRef.current++, type: 'bleed' as const,
+                label: 'Bleed', damage: combatResult.bleedTriggerDamage!,
+              }].slice(-20));
+            }
+            if (combatResult.shatterDamage && combatResult.shatterDamage > 0) {
+              setCombatLog(prev => [...prev, {
+                id: logIdRef.current++, type: 'shatter' as const,
+                label: 'Shatter', damage: combatResult.shatterDamage!,
+              }].slice(-20));
+            }
           }
           if (combatResult.mobKills > 0) {
             const rz = ZONE_DEFS.find(z => z.id === storeState.currentZoneId);
@@ -169,12 +189,25 @@ export default function CombatPanel() {
             ? (getUnifiedSkillDef(bossResult.skillId)?.name ?? '???')
             : '???';
           setCombatLog(prev => [...prev, {
-            id: logIdRef.current++,
-            skill: skillName,
+            id: logIdRef.current++, type: 'skill' as const,
+            label: skillName,
             damage: bossResult.damageDealt,
             isCrit: bossResult.isCrit,
             isHit: bossResult.isHit,
           }].slice(-20));
+          // Debuff damage log entries
+          if (bossResult.dotDamage && bossResult.dotDamage > 1) {
+            setCombatLog(prev => [...prev, {
+              id: logIdRef.current++, type: 'dot' as const,
+              label: 'DoT', damage: bossResult.dotDamage!,
+            }].slice(-20));
+          }
+          if (bossResult.bleedTriggerDamage && bossResult.bleedTriggerDamage > 0) {
+            setCombatLog(prev => [...prev, {
+              id: logIdRef.current++, type: 'bleed' as const,
+              label: 'Bleed', damage: bossResult.bleedTriggerDamage!,
+            }].slice(-20));
+          }
         }
         if (bossResult.bossAttack) {
           const ba = bossResult.bossAttack;
@@ -399,15 +432,28 @@ export default function CombatPanel() {
 
       {/* Combat log */}
       {idleMode === 'combat' && combatLog.length > 0 && (
-        <div className="max-h-16 overflow-y-auto text-xs space-y-0.5 bg-gray-900/50 rounded px-2 py-1 font-mono">
-          {combatLog.slice(-5).map(entry => (
+        <div className="max-h-40 overflow-y-auto text-[11px] space-y-0.5 bg-gray-900/50 rounded px-2 py-1 font-mono">
+          {combatLog.slice(-12).reverse().map(entry => (
             <div key={entry.id} className="text-gray-400">
-              <span className="text-gray-500">{entry.skill}</span>
-              {entry.isHit
-                ? <> <span className={entry.isCrit ? 'text-yellow-300 font-bold' : 'text-white'}>{Math.round(entry.damage)}</span>
-                    {entry.isCrit && <span className="text-yellow-400 ml-1">CRIT</span>}</>
-                : <span className="text-red-400 ml-1">MISS</span>
-              }
+              {entry.type === 'skill' ? (
+                <>
+                  <span className="text-gray-500">{entry.label}</span>
+                  {entry.isHit
+                    ? <> <span className={entry.isCrit ? 'text-yellow-300 font-bold' : 'text-white'}>{Math.round(entry.damage)}</span>
+                        {entry.isCrit && <span className="text-yellow-400 ml-1">CRIT</span>}</>
+                    : <span className="text-red-400 ml-1">MISS</span>
+                  }
+                </>
+              ) : (
+                <>
+                  <span className={
+                    entry.type === 'dot' ? 'text-green-400' :
+                    entry.type === 'bleed' ? 'text-red-400' :
+                    'text-cyan-300'
+                  }>{entry.label}</span>
+                  {' '}<span className="text-gray-300">{Math.round(entry.damage)}</span>
+                </>
+              )}
             </div>
           ))}
         </div>
