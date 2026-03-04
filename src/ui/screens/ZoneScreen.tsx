@@ -220,9 +220,12 @@ export default function ZoneScreen() {
             </button>
           )}
 
-          {/* Mob Type Selector (combat mode) */}
+          {/* Mob Selector + Daily Quests side-by-side (combat mode) */}
           {idleMode === 'combat' && (
-            <MobSelector zoneId={zone.id} targetedMobId={targetedMobId} mobKillCounts={mobKillCounts} onTargetMob={setTargetedMob} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <MobSelector zoneId={zone.id} targetedMobId={targetedMobId} mobKillCounts={mobKillCounts} onTargetMob={setTargetedMob} />
+              <DailyQuestPanel currentZoneId={selectedZone} />
+            </div>
           )}
         </div>
 
@@ -252,9 +255,6 @@ export default function ZoneScreen() {
           ) : (
             <CombatPanel key={idleStartTime} />
           )}
-
-          {/* Daily Quests (combat mode) */}
-          {idleMode === 'combat' && <DailyQuestPanel currentZoneId={selectedZone} />}
         </div>
       </div>
     </div>
