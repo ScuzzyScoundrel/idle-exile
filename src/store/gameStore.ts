@@ -180,8 +180,9 @@ function addItemsWithOverflow(
   const keptItems: Item[] = [];
 
   for (const item of items) {
+    // Never auto-salvage corrupted items (void invasion drops are always valuable)
     // Auto-dispose by rarity threshold
-    if (minOrder > 0 && RARITY_ORDER[item.rarity] < minOrder) {
+    if (!item.isCorrupted && minOrder > 0 && RARITY_ORDER[item.rarity] < minOrder) {
       if (autoDisposalAction === 'sell') {
         autoSoldGold += SELL_GOLD[item.rarity] + Math.floor(item.iLvl / 5);
         autoSoldCount++;
@@ -947,10 +948,13 @@ export const useGameStore = create<GameState & GameActions>()(
           // During invasion: roll corruption on dropped items
           if (zoneInvaded && clear.item) {
             const corruption = rollCorruption(zone.band);
+            console.warn('[VOID] Corruption roll:', corruption ? `YES - ${corruption.defId}` : 'NO', '| Zone:', zoneId, '| Band:', zone.band);
             if (corruption) {
               clear.item.implicit = corruption;
               clear.item.isCorrupted = true;
             }
+          } else if (clear.item) {
+            console.warn('[VOID] Zone NOT invaded | zoneId:', zoneId, '| band:', zone.band, '| activeInvasions:', JSON.stringify(state.invasionState.activeInvasions));
           }
           if (clear.item) allItems.push(clear.item);
           if (clear.professionGearDrop) allItems.push(clear.professionGearDrop);
@@ -3499,8 +3503,17 @@ export const useGameStore = create<GameState & GameActions>()(
         const state = get();
         const now = Date.now();
         const newInvasionState = tickInvasionsPure(state.invasionState, now, ZONE_DEFS);
-        // Only update if state actually changed
-        if (newInvasionState !== state.invasionState) {
+        // Deep-compare active invasions to avoid unnecessary state churn
+        // (tickInvasionsPure always returns a new object via spread, so !== is always true)
+        const oldKeys = Object.keys(state.invasionState.activeInvasions);
+        const newKeys = Object.keys(newInvasionState.activeInvasions);
+        const invasionsChanged = oldKeys.length !== newKeys.length
+          || oldKeys.some(k => state.invasionState.activeInvasions[Number(k)]?.zoneId
+            !== newInvasionState.activeInvasions[Number(k)]?.zoneId);
+        const cooldownsChanged = Object.keys(newInvasionState.bandCooldowns).some(
+          k => state.invasionState.bandCooldowns[Number(k)] !== newInvasionState.bandCooldowns[Number(k)]
+        );
+        if (invasionsChanged || cooldownsChanged) {
           set({ invasionState: newInvasionState });
         }
       },
