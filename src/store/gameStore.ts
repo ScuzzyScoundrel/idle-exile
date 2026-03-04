@@ -820,6 +820,7 @@ export const useGameStore = create<GameState & GameActions>()(
         if (!state.currentZoneId) return null;
         const zone = ZONE_DEFS.find((z) => z.id === state.currentZoneId);
         if (!zone) return null;
+        console.warn('[VOID-DEBUG] processNewClears called | clears:', clearCount, '| zone:', state.currentZoneId, '| invaded:', isZoneInvaded(state.invasionState, state.currentZoneId, zone.band), '| invasions:', JSON.stringify(state.invasionState.activeInvasions));
 
         // ─── Gathering Mode ───
         if (state.idleMode === 'gathering') {
