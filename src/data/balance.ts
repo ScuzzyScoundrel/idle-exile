@@ -39,8 +39,11 @@ export const CURRENCY_DROP_CHANCES: Record<CurrencyType, number> = {
 /** Gold gained per clear = GOLD_PER_BAND * zone.band. */
 export const GOLD_PER_BAND = 4;
 
-/** XP gained per clear = XP_PER_BAND * zone.band. */
+/** XP gained per clear = XP_PER_BAND * zone.band + XP_ILVL_SCALE * zone.iLvlMin. */
 export const XP_PER_BAND = 10;
+
+/** Bonus XP per zone iLvl — rewards pushing to harder zones within a band. */
+export const XP_ILVL_SCALE = 0.5;
 
 /** Bag upgrade drop chance per clear. */
 export const BAG_DROP_CHANCE = 0.015;

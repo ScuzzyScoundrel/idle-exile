@@ -7,7 +7,7 @@ import type { Character, ZoneDef, IdleRunResult, Item, CurrencyType, GearSlot, R
 import { generateItem, generateProfessionItem } from './items';
 import { PROFESSION_GEAR_SLOTS } from '../types';
 import { PROFESSION_GEAR_DROP_CHANCE, PROFESSION_GEAR_GATHER_DROP_CHANCE } from '../data/balance';
-import { getWeaponDamageInfo, calcHitChance } from './character';
+import { getWeaponDamageInfo, calcHitChance, calcXpToNext } from './character';
 import { calcSkillDps, calcSkillDamagePerCast, getDefaultSkillForWeapon, calcRotationDps } from './unifiedSkills';
 import { getSkillDef } from '../data/unifiedSkills';
 import { calcGatheringYield } from './gathering';
@@ -17,7 +17,7 @@ import {
   BASE_ITEM_DROP_CHANCE, MASTERY_DROP_BONUS,
   MATERIAL_DROP_MIN, MATERIAL_DROP_MAX,
   COMBAT_MATERIAL_DROP_CHANCE, COMBAT_MATERIAL_DROP_MIN, COMBAT_MATERIAL_DROP_MAX,
-  CURRENCY_DROP_CHANCES, GOLD_PER_BAND, XP_PER_BAND, BAG_DROP_CHANCE,
+  CURRENCY_DROP_CHANCES, GOLD_PER_BAND, XP_PER_BAND, XP_ILVL_SCALE, BAG_DROP_CHANCE,
   POWER_DIVISOR, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO,
   HAZARD_PENALTY_FLOOR, HAZARD_OVERCAP_MULT,
   CLEAR_REGEN_RATIO, BOSS_BASE_HP,
@@ -409,8 +409,27 @@ export function simulateIdleRun(
     }
   }
 
-  const xpScale = calcXpScale(char.level, zone.iLvlMin);
-  const xpGained = Math.round(XP_PER_BAND * zone.band * clearsCompleted * xpMult * xpScale);
+  // Simulate XP gain level-by-level so overlevel penalty kicks in as the player levels up.
+  // Without this, overnight idle at low zones grants way too much XP (penalty calculated once at start).
+  let tempLevel = char.level;
+  let tempXp = char.xp;
+  let tempXpToNext = char.xpToNext;
+  const baseXpPerClear = (XP_PER_BAND * zone.band + XP_ILVL_SCALE * zone.iLvlMin) * xpMult;
+  let totalXpGained = 0;
+
+  for (let i = 0; i < clearsCompleted; i++) {
+    const xpScale = calcXpScale(tempLevel, zone.iLvlMin);
+    const clearXp = Math.round(baseXpPerClear * xpScale);
+    totalXpGained += clearXp;
+    tempXp += clearXp;
+    while (tempXp >= tempXpToNext) {
+      tempXp -= tempXpToNext;
+      tempLevel++;
+      tempXpToNext = calcXpToNext(tempLevel);
+    }
+  }
+
+  const xpGained = totalXpGained;
   const goldGained = GOLD_PER_BAND * zone.band * clearsCompleted * (doubleClear ? 2 : 1);
 
   return { items, materials, currencyDrops, bagDrops, xpGained, goldGained, clearsCompleted, elapsed };
@@ -528,7 +547,7 @@ export function simulateSingleClear(
     materials,
     currencyDrops,
     goldGained: GOLD_PER_BAND * zone.band * (doubleClear ? 2 : 1),
-    xpGained: Math.round(XP_PER_BAND * zone.band * xpMult * xpScale),
+    xpGained: Math.round((XP_PER_BAND * zone.band + XP_ILVL_SCALE * zone.iLvlMin) * xpMult * xpScale),
     bagDrop,
     mobTypeId,
   };
