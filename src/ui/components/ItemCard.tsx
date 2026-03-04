@@ -1,6 +1,7 @@
 import { Item, Affix, Rarity, AffixTier, ArmorType } from '../../types';
 import { formatAffix, getBestTierForILvl } from '../../engine/items';
 import { slotIcon } from '../slotConfig';
+import { formatCorruptionAffix } from '../../data/corruptionAffixes';
 
 const ARMOR_TYPE_BADGE: Record<ArmorType, { label: string; cls: string }> = {
   plate:   { label: 'Plate',   cls: 'bg-gray-600 text-gray-200' },
@@ -80,21 +81,25 @@ interface ItemCardProps {
 }
 
 export default function ItemCard({ item, onClick, selected, compact }: ItemCardProps) {
+  const borderClass = item.isCorrupted ? 'border-purple-500 bg-purple-950' : RARITY_COLORS[item.rarity];
   return (
     <div
       onClick={onClick}
       className={`
         border rounded-lg p-2 cursor-pointer transition-all
-        ${RARITY_COLORS[item.rarity]}
+        ${borderClass}
         ${selected ? 'ring-2 ring-white scale-105' : 'hover:scale-102 hover:brightness-110'}
       `}
     >
       {/* Header */}
       <div className="flex items-center gap-1 mb-1">
         <span className="text-sm">{slotIcon(item.slot)}</span>
-        <span className={`text-sm font-semibold truncate ${RARITY_TEXT[item.rarity]}`}>
+        <span className={`text-sm font-semibold truncate ${item.isCorrupted ? 'text-purple-300' : RARITY_TEXT[item.rarity]}`}>
           {item.name}
         </span>
+        {item.isCorrupted && (
+          <span className="text-[9px] px-1 py-0.5 rounded bg-purple-800 text-purple-200 font-bold shrink-0">VOID</span>
+        )}
         {item.isProfessionGear && (
           <span className="text-[9px] px-1 py-0.5 rounded bg-teal-800 text-teal-300 font-bold shrink-0">PROF</span>
         )}
@@ -132,6 +137,13 @@ export default function ItemCard({ item, onClick, selected, compact }: ItemCardP
           {Object.entries(item.baseStats).map(([key, val]) => (
             <span key={key} className="mr-2">{val} base {key}</span>
           ))}
+        </div>
+      )}
+
+      {/* Corruption Implicit */}
+      {!compact && item.implicit && (
+        <div className="text-xs text-purple-400 mb-0.5 border-b border-purple-800 pb-0.5">
+          {formatCorruptionAffix(item.implicit)}
         </div>
       )}
 

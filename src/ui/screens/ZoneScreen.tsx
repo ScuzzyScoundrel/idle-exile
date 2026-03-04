@@ -14,11 +14,12 @@ import { getEquippedWeaponType } from '../../engine/items';
 import { getUnlockedSlotCount } from '../../engine/unifiedSkills';
 import { WeaponType } from '../../types';
 import { getRareMaterialDef } from '../../data/rareMaterials';
-import { BOSS_INTERVAL, ZONE_ATTACK_INTERVAL } from '../../data/balance';
+import { BOSS_INTERVAL, ZONE_ATTACK_INTERVAL, MASTERY_MILESTONES } from '../../data/balance';
 import { getZoneMobTypes, getMobTypeDef } from '../../data/mobTypes';
 import DailyQuestPanel from '../components/DailyQuestPanel';
 import { resolveStats } from '../../engine/character';
 import { getClassDef } from '../../data/classes';
+import { getZoneInvasion } from '../../engine/invasions';
 
 // Band visual theming
 const BAND_GRADIENTS: Record<number, string> = {
@@ -560,12 +561,23 @@ interface ZoneCardProps {
   idleMode: IdleMode;
   selectedProfession: GatheringProfession | null;
   gatheringSkillLevel: number;
+  zoneClears: number;
+  zoneMasteryTier: number;
+  isInvaded: boolean;
+  invasionEndTime: number;
   onSelect: () => void;
 }
 
+const MASTERY_ICONS: Record<string, { icon: string; cls: string }> = {
+  bronze: { icon: '\u{1F944}', cls: 'text-amber-600' },
+  silver: { icon: '\u{1FA99}', cls: 'text-gray-300' },
+  gold:   { icon: '\u{1F3C6}', cls: 'text-yellow-400' },
+};
+
 function ZoneCard({
   zone, band, isBoss, isSelected, isActive, isUnlocked, hasMastery,
-  playerStats, charLevel, idleMode, selectedProfession, gatheringSkillLevel, onSelect,
+  playerStats, charLevel, idleMode, selectedProfession, gatheringSkillLevel,
+  zoneClears, zoneMasteryTier, isInvaded, invasionEndTime, onSelect,
 }: ZoneCardProps) {
   const underleveled = charLevel < zone.recommendedLevel;
   const skillReq = getGatheringSkillRequirement(zone.band);
@@ -583,11 +595,14 @@ function ZoneCard({
         ${isBoss ? 'h-44 border-2' : 'h-36'}
         ${!isUnlocked
           ? 'border-gray-700 opacity-40 cursor-not-allowed'
-          : isSelected
-            ? 'border-yellow-400 ring-2 ring-yellow-400/50'
-            : `${BAND_BORDERS[band]} hover:brightness-125`}
+          : isInvaded
+            ? 'border-purple-500 ring-2 ring-purple-500/50'
+            : isSelected
+              ? 'border-yellow-400 ring-2 ring-yellow-400/50'
+              : `${BAND_BORDERS[band]} hover:brightness-125`}
         ${idleMode === 'gathering' && !hasMatchingProfession ? 'opacity-30' : ''}
       `}
+      style={isInvaded && isUnlocked ? { animation: 'invasion-glow 2s ease-in-out infinite' } : undefined}
     >
       {/* Gradient background */}
       <div className={`absolute inset-0 ${BAND_GRADIENTS[band]}`} />
@@ -638,10 +653,49 @@ function ZoneCard({
           {skillTooLow && (
             <div className="text-xs text-red-400 mt-0.5">Skill too low (need {skillReq})</div>
           )}
+          {!isUnlocked && zone.unlockRequirement && (
+            <div className="text-xs text-gray-400 mt-0.5">
+              Clear {ZONE_DEFS.find(z => z.id === zone.unlockRequirement)?.name ?? zone.unlockRequirement} to unlock
+            </div>
+          )}
         </div>
 
-        {/* Middle: description */}
-        <div className="text-xs text-gray-300/80 leading-snug">{zone.description}</div>
+        {/* Middle: description or invasion flavor */}
+        {isInvaded && isUnlocked ? (
+          <div className="text-xs text-purple-300 leading-snug italic">
+            Void energies surge through this zone...
+            <span className="block text-purple-400 font-semibold mt-0.5">
+              {(() => {
+                const remaining = Math.max(0, invasionEndTime - Date.now());
+                const mins = Math.floor(remaining / 60000);
+                const secs = Math.floor((remaining % 60000) / 1000);
+                return `${mins}:${secs.toString().padStart(2, '0')} remaining`;
+              })()}
+            </span>
+          </div>
+        ) : (
+          <div className="text-xs text-gray-300/80 leading-snug">{!isUnlocked ? '???' : zone.description}</div>
+        )}
+
+        {/* Mastery milestones */}
+        {isUnlocked && idleMode === 'combat' && (
+          <div className="flex items-center gap-1.5">
+            {MASTERY_MILESTONES.map(m => {
+              const claimed = zoneMasteryTier >= m.threshold;
+              const nextTarget = !claimed && zoneClears < m.threshold;
+              return (
+                <span
+                  key={m.threshold}
+                  className={`text-xs ${claimed ? MASTERY_ICONS[m.tier].cls : 'text-gray-600'}`}
+                  title={`${m.tier}: ${m.threshold} clears${claimed ? ' (claimed!)' : ` (${zoneClears}/${m.threshold})`}`}
+                >
+                  {MASTERY_ICONS[m.tier].icon}
+                  {nextTarget && <span className="text-[9px] text-gray-500 ml-0.5">{zoneClears}/{m.threshold}</span>}
+                </span>
+              );
+            })}
+          </div>
+        )}
 
         {/* Bottom: iLvl + materials + gathering types */}
         <div className="flex items-center gap-2 text-sm text-gray-400">
@@ -791,6 +845,10 @@ export default function ZoneScreen() {
     targetedMobId, setTargetedMob, mobKillCounts,
     currentMobTypeId,
     activeDebuffs, fortifyStacks, fortifyExpiresAt, fortifyDRPerStack,
+    totalZoneClears,
+    zoneMasteryClaimed,
+    invasionState,
+    tickInvasions,
   } = useGameStore();
 
   const hydrated = useHasHydrated();
@@ -850,6 +908,7 @@ export default function ZoneScreen() {
       const dtSec = Math.min((now - lastTickTimeRef.current) / 1000, 2);
       tickClassResource(dtSec);
       tickAutoCast();
+      tickInvasions();
 
       if (phase === 'clearing') {
         setElapsed((now - idleStartTime) / 1000);
@@ -1005,7 +1064,7 @@ export default function ZoneScreen() {
       lastTickTimeRef.current = now;
     }, 250);
     return () => clearInterval(interval);
-  }, [isRunning, idleStartTime, handleBossVictory, handleBossDefeat, checkRecoveryComplete, tickClassResource, tickAutoCast, tickCombat, grantIdleXp, processNewClears, startBossFight]);
+  }, [isRunning, idleStartTime, handleBossVictory, handleBossDefeat, checkRecoveryComplete, tickClassResource, tickAutoCast, tickInvasions, tickCombat, grantIdleXp, processNewClears, startBossFight]);
 
   // Auto-remove floaters after animation completes (10K-B2)
   useEffect(() => {
@@ -1046,9 +1105,10 @@ export default function ZoneScreen() {
     }
   }, [elapsed, isRunning, runningZone, idleMode, combatPhase, processNewClears]);
 
-  // Check if a zone is unlocked
-  const isZoneUnlocked = (_z: ZoneDef): boolean => {
-    return true; // Future: track completion
+  // Check if a zone is unlocked (must clear prerequisite zone at least once)
+  const isZoneUnlocked = (z: ZoneDef): boolean => {
+    if (!z.unlockRequirement) return true;
+    return (totalZoneClears[z.unlockRequirement] ?? 0) >= 1;
   };
 
   const handleStart = () => {
@@ -1238,6 +1298,10 @@ export default function ZoneScreen() {
               idleMode={idleMode}
               selectedProfession={selectedGatheringProfession}
               gatheringSkillLevel={currentGatheringLevel}
+              zoneClears={totalZoneClears[z.id] ?? 0}
+              zoneMasteryTier={zoneMasteryClaimed[z.id] ?? 0}
+              isInvaded={!!getZoneInvasion(invasionState, z.id, z.band)}
+              invasionEndTime={getZoneInvasion(invasionState, z.id, z.band)?.endTime ?? 0}
               onSelect={() => isZoneUnlocked(z) && setSelectedZone(z.id)}
             />
           ))}
@@ -1257,6 +1321,10 @@ export default function ZoneScreen() {
             idleMode={idleMode}
             selectedProfession={selectedGatheringProfession}
             gatheringSkillLevel={currentGatheringLevel}
+            zoneClears={totalZoneClears[bossZone.id] ?? 0}
+            zoneMasteryTier={zoneMasteryClaimed[bossZone.id] ?? 0}
+            isInvaded={!!getZoneInvasion(invasionState, bossZone.id, bossZone.band)}
+            invasionEndTime={getZoneInvasion(invasionState, bossZone.id, bossZone.band)?.endTime ?? 0}
             onSelect={() => isZoneUnlocked(bossZone) && setSelectedZone(bossZone.id)}
           />
         )}

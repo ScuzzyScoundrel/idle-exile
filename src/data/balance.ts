@@ -423,6 +423,31 @@ export const PROFESSION_GEAR_AFFIX_COUNT = 4;
 /** Maximum gold cost reduction from profession gear (50%). */
 export const MAX_GOLD_EFFICIENCY = 0.50;
 
+// =============================================
+// ZONE MASTERY MILESTONES
+// =============================================
+
+export const MASTERY_MILESTONES = [
+  { threshold: 25,  tier: 'bronze' as const, goldMult: 50,  xpMult: 25,  iLvlPick: 'min' as const, dropBonus: 0.05, matBonus: 0.05 },
+  { threshold: 100, tier: 'silver' as const, goldMult: 150, xpMult: 75,  iLvlPick: 'mid' as const, dropBonus: 0.10, matBonus: 0.10 },
+  { threshold: 500, tier: 'gold'   as const, goldMult: 500, xpMult: 250, iLvlPick: 'max' as const, dropBonus: 0.15, matBonus: 0.15 },
+] as const;
+
+// =============================================
+// VOID INVASIONS
+// =============================================
+
+/** Minimum ms between invasions per band. */
+export const INVASION_MIN_COOLDOWN_MS = 30 * 60 * 1000;
+/** Minimum invasion duration in ms. */
+export const INVASION_DURATION_MIN_MS = 30 * 60 * 1000;
+/** Maximum invasion duration in ms. */
+export const INVASION_DURATION_MAX_MS = 60 * 60 * 1000;
+/** Chance per tick (250ms) to start invasion after cooldown expires. */
+export const INVASION_ROLL_CHANCE = 0.001;
+/** Chance that an item dropped during invasion gains a void implicit. */
+export const CORRUPTION_DROP_CHANCE = 0.25;
+
 /** Maximum material preservation chance from profession gear (50%). */
 export const MAX_MATERIAL_SAVE = 0.50;
 

@@ -435,6 +435,22 @@ export function simulateIdleRun(
   return { items, materials, currencyDrops, bagDrops, xpGained, goldGained, clearsCompleted, elapsed };
 }
 
+// --- Zone Mastery Milestone Functions ---
+
+import { MASTERY_MILESTONES } from '../data/balance';
+
+/** Returns milestones that are claimable but haven't been claimed yet. */
+export function getClaimableMilestones(totalClears: number, highestClaimed: number): typeof MASTERY_MILESTONES[number][] {
+  return MASTERY_MILESTONES.filter(m => totalClears >= m.threshold && m.threshold > highestClaimed);
+}
+
+/** Returns the permanent drop/material bonus for a zone based on highest claimed milestone. */
+export function getMasteryBonus(zoneMasteryClaimed: Record<string, number>, zoneId: string): { dropBonus: number; matBonus: number } {
+  const highest = zoneMasteryClaimed[zoneId] ?? 0;
+  const milestone = [...MASTERY_MILESTONES].reverse().find(m => m.threshold <= highest);
+  return milestone ? { dropBonus: milestone.dropBonus, matBonus: milestone.matBonus } : { dropBonus: 0, matBonus: 0 };
+}
+
 // --- Single Clear Result ---
 
 export interface SingleClearResult {
@@ -459,6 +475,8 @@ export function simulateSingleClear(
   classRareFindBonus: number = 0,
   classMaterialYieldBonus: number = 0,
   targetedMobId: string | null = null,
+  masteryDropBonus: number = 0,
+  masteryMaterialBonus: number = 0,
 ): SingleClearResult {
   const hasMastery = checkZoneMastery(char.stats, zone);
   let itemDropChance = hasMastery
@@ -466,8 +484,9 @@ export function simulateSingleClear(
     : BASE_ITEM_DROP_CHANCE;
   itemDropChance *= (abilityEffect?.itemDropMult ?? 1);
   if (classRareFindBonus > 0) itemDropChance *= (1 + classRareFindBonus);
+  if (masteryDropBonus > 0) itemDropChance *= (1 + masteryDropBonus);
 
-  const matMult = (abilityEffect?.materialDropMult ?? 1);
+  const matMult = (abilityEffect?.materialDropMult ?? 1) * (1 + masteryMaterialBonus);
   const xpMult = abilityEffect?.xpMult ?? 1;
   const doubleClear = abilityEffect?.doubleClears ?? false;
 

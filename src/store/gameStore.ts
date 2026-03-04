@@ -27,10 +27,10 @@ import {
   CraftLogEntry,
 } from '../types';
 import { createCharacter, resolveStats, addXp, getWeaponDamageInfo, calcXpToNext } from '../engine/character';
-import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, simulateCombatClear, createBossEncounter, generateBossLoot, applyAbilityResists, calcHazardPenalty, rollZoneAttack, calcLevelDamageMult, calcOutgoingDamageMult, calcZoneAccuracy } from '../engine/zones';
+import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, simulateCombatClear, createBossEncounter, generateBossLoot, applyAbilityResists, calcHazardPenalty, rollZoneAttack, calcLevelDamageMult, calcOutgoingDamageMult, calcZoneAccuracy, getClaimableMilestones, getMasteryBonus } from '../engine/zones';
 import { calcMobHp, calcSkillCastInterval, rollSkillCast } from '../engine/unifiedSkills';
 import { BOSS_VICTORY_DURATION, BOSS_DEFEAT_RECOVERY, BOSS_VICTORY_HEAL_RATIO, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO, SKILL_GCD, LEECH_PERCENT, ZONE_ATTACK_INTERVAL, ZONE_DMG_BASE, ZONE_DMG_ILVL_SCALE, ZONE_PHYS_RATIO, MAX_REGEN_RATIO, BOSS_CRIT_CHANCE, BOSS_CRIT_MULTIPLIER, BOSS_MAX_DMG_RATIO, FORTIFY_MAX_STACKS, FORTIFY_MAX_DR } from '../data/balance';
-import { pickBestItem, generateId, isTwoHandedWeapon } from '../engine/items';
+import { pickBestItem, generateId, isTwoHandedWeapon, generateItem } from '../engine/items';
 import { applyCurrency } from '../engine/crafting';
 import {
   createAbilityProgress, addAbilityXp, getAbilityXpPerClear,
@@ -65,6 +65,8 @@ import { canAllocateGraphNode, allocateGraphNode, respecGraphNodes, getGraphResp
 import { getDebuffDef } from '../data/debuffs';
 import { evaluateConditionalMods, evaluateProcs, type ConditionContext, type ProcContext } from '../engine/combatHelpers';
 import { getMobTypeDef, getZoneMobTypes, weightedRandomMob } from '../data/mobTypes';
+import { tickInvasions as tickInvasionsPure, isZoneInvaded, rollCorruption } from '../engine/invasions';
+import { getInvasionMobs } from '../data/invasionMobs';
 import {
   generateDailyQuests, getUtcDateString, shouldResetDailyQuests,
   createInitialProgress, updateQuestProgressForKills,
@@ -407,6 +409,9 @@ interface GameActions {
   activateSkillBarSlot: (slotIndex: number) => void;
   tickAutoCast: () => void;
 
+  // Void invasions
+  tickInvasions: () => void;
+
   // Daily quests
   checkDailyQuestReset: () => void;
   claimQuestReward: (questId: string) => boolean;
@@ -506,6 +511,8 @@ function createInitialState(): GameState {
     dailyQuests: { questDate: '', quests: [], progress: {} },
     craftLog: [],
     craftOutputBuffer: [],
+    zoneMasteryClaimed: {},
+    invasionState: { activeInvasions: {}, bandCooldowns: {} },
     tutorialStep: 1,
     lastSaveTime: Date.now(),
   };
@@ -920,13 +927,40 @@ export const useGameStore = create<GameState & GameActions>()(
         // Get class loot modifiers (Ranger tracking)
         const lootMod = getClassLootModifier(classRes, classDef);
 
+        // Zone mastery permanent bonuses
+        const masteryBonuses = getMasteryBonus(state.zoneMasteryClaimed, zoneId);
+
+        // Check if zone is invaded
+        const zoneInvaded = isZoneInvaded(state.invasionState, zoneId, zone.band);
+        const invasionMobs = zoneInvaded ? getInvasionMobs(zone.band) : [];
+
         const accMobKills: Record<string, number> = {};
         for (let i = 0; i < totalClears; i++) {
           // Use currentMobTypeId so drops come from the mob actually being fought
           const effectiveMobId = state.currentMobTypeId ?? state.targetedMobId;
-          const clear = simulateSingleClear(state.character, zone, abilityEffect, lootMod.rareFindBonus, lootMod.materialYieldBonus, effectiveMobId);
+          const clear = simulateSingleClear(state.character, zone, abilityEffect, lootMod.rareFindBonus, lootMod.materialYieldBonus, effectiveMobId, masteryBonuses.dropBonus, masteryBonuses.matBonus);
+
+          // During invasion: roll corruption on dropped items
+          if (zoneInvaded && clear.item) {
+            const corruption = rollCorruption(zone.band);
+            if (corruption) {
+              clear.item.implicit = corruption;
+              clear.item.isCorrupted = true;
+            }
+          }
           if (clear.item) allItems.push(clear.item);
           if (clear.professionGearDrop) allItems.push(clear.professionGearDrop);
+
+          // During invasion: also roll invasion mob drops
+          if (zoneInvaded && invasionMobs.length > 0) {
+            const invMob = invasionMobs[Math.floor(Math.random() * invasionMobs.length)];
+            for (const drop of invMob.drops) {
+              if (Math.random() < drop.chance) {
+                const qty = drop.minQty + Math.floor(Math.random() * (drop.maxQty - drop.minQty + 1));
+                accMaterials[drop.materialId] = (accMaterials[drop.materialId] || 0) + qty;
+              }
+            }
+          }
 
           for (const [key, val] of Object.entries(clear.currencyDrops)) {
             accCurrencies[key as CurrencyType] += val;
@@ -981,6 +1015,32 @@ export const useGameStore = create<GameState & GameActions>()(
         }
         const newTotalZoneClears = { ...state.totalZoneClears };
         newTotalZoneClears[zoneId] = (newTotalZoneClears[zoneId] || 0) + clearCount;
+
+        // Check zone mastery milestones
+        const newZoneMasteryClaimed = { ...state.zoneMasteryClaimed };
+        const claimable = getClaimableMilestones(
+          newTotalZoneClears[zoneId],
+          newZoneMasteryClaimed[zoneId] ?? 0,
+        );
+        for (const milestone of claimable) {
+          // Award one-time gold + XP
+          accGold += milestone.goldMult * zone.band;
+
+          // Award guaranteed item at appropriate iLvl
+          let rewardILvl = zone.iLvlMin;
+          if (milestone.iLvlPick === 'mid') rewardILvl = Math.floor((zone.iLvlMin + zone.iLvlMax) / 2);
+          else if (milestone.iLvlPick === 'max') rewardILvl = zone.iLvlMax;
+          const REWARD_SLOTS: GearSlot[] = ['mainhand', 'offhand', 'helmet', 'chest', 'gloves', 'boots', 'ring1', 'trinket1'];
+          const rewardSlot = REWARD_SLOTS[Math.floor(Math.random() * REWARD_SLOTS.length)];
+          allItems.push(generateItem(rewardSlot, rewardILvl));
+
+          newZoneMasteryClaimed[zoneId] = milestone.threshold;
+        }
+        // XP from milestones is added via addXp below (accGold already includes gold)
+        let masteryXp = 0;
+        for (const milestone of claimable) {
+          masteryXp += milestone.xpMult * zone.band;
+        }
 
         // Update daily quest progress (kill + clear quests)
         let questProgress = state.dailyQuests.progress;
@@ -1040,7 +1100,16 @@ export const useGameStore = create<GameState & GameActions>()(
           newFastestClears[zoneId] = newClearTime;
         }
 
+        // Apply mastery XP to character if any milestones were claimed
+        const masteryCharUpdate: Partial<GameState> = {};
+        if (masteryXp > 0) {
+          const newChar = addXp(state.character, masteryXp);
+          newChar.stats = resolveStats(newChar);
+          masteryCharUpdate.character = newChar;
+        }
+
         set({
+          ...masteryCharUpdate,
           inventory: newInventory,
           materials: newMaterials,
           currencies: newCurrencies,
@@ -1057,6 +1126,7 @@ export const useGameStore = create<GameState & GameActions>()(
           fastestClears: newFastestClears,
           mobKillCounts: newMobKillCounts,
           totalZoneClears: newTotalZoneClears,
+          zoneMasteryClaimed: newZoneMasteryClaimed,
           dailyQuests: { ...state.dailyQuests, progress: questProgress },
         });
 
@@ -3418,6 +3488,16 @@ export const useGameStore = create<GameState & GameActions>()(
       },
 
       // --- Daily Quests ---
+      tickInvasions: () => {
+        const state = get();
+        const now = Date.now();
+        const newInvasionState = tickInvasionsPure(state.invasionState, now, ZONE_DEFS);
+        // Only update if state actually changed
+        if (newInvasionState !== state.invasionState) {
+          set({ invasionState: newInvasionState });
+        }
+      },
+
       checkDailyQuestReset: () => {
         const state = get();
         const now = new Date();
@@ -3496,7 +3576,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 38,
+      version: 39,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -4172,6 +4252,21 @@ export const useGameStore = create<GameState & GameActions>()(
         if (version < 38) {
           // v38: Full account wipe — fresh start for progression testing
           return createInitialState() as unknown as Record<string, unknown>;
+        }
+
+        if (version < 39) {
+          // v39: Zone mastery milestones + void invasions
+          raw.zoneMasteryClaimed = {};
+          raw.invasionState = { activeInvasions: {}, bandCooldowns: {} };
+          // Auto-claim mastery milestones for existing players
+          const clears = (raw.totalZoneClears ?? {}) as Record<string, number>;
+          const claimed: Record<string, number> = {};
+          for (const [zoneId, count] of Object.entries(clears)) {
+            if (count >= 500) claimed[zoneId] = 500;
+            else if (count >= 100) claimed[zoneId] = 100;
+            else if (count >= 25) claimed[zoneId] = 25;
+          }
+          raw.zoneMasteryClaimed = claimed;
         }
 
         if (version < 37) {

@@ -122,6 +122,8 @@ export interface Item {
   isGatheringGear?: boolean;
   isProfessionGear?: boolean;
   isCrafted?: boolean;
+  implicit?: Affix;          // corruption implicit from void invasions
+  isCorrupted?: boolean;     // flagged for purple UI treatment
 }
 
 // --- Profession Gear ---
@@ -1029,6 +1031,15 @@ export interface GameState {
 
   // Craft output buffer (persisted — staging area for crafted gear)
   craftOutputBuffer: Item[];
+
+  // Zone mastery milestones
+  zoneMasteryClaimed: Record<string, number>;  // zoneId → highest claimed threshold (0/25/100/500)
+
+  // Void invasions
+  invasionState: {
+    activeInvasions: Record<number, { zoneId: string; startTime: number; endTime: number }>;
+    bandCooldowns: Record<number, number>;  // band → timestamp when cooldown expires
+  };
 
   // Tutorial
   tutorialStep: number;
