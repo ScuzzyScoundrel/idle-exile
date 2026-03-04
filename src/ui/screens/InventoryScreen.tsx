@@ -79,6 +79,15 @@ const RARITY_GRADIENT: Record<Rarity, string> = {
   legendary: 'from-orange-900/50',
 };
 
+/** Corrupted item tile: gradient from rarity color into fuchsia */
+const CORRUPTED_TILE_GRADIENT: Record<Rarity, string> = {
+  common: 'from-green-900/50 via-fuchsia-900/40',
+  uncommon: 'from-blue-900/50 via-fuchsia-900/40',
+  rare: 'from-yellow-900/50 via-fuchsia-900/40',
+  epic: 'from-purple-900/50 via-fuchsia-900/40',
+  legendary: 'from-orange-900/50 via-fuchsia-900/40',
+};
+
 const ARMOR_TYPE_BADGE: Record<ArmorType, { label: string; cls: string }> = {
   plate:   { label: 'Plate',   cls: 'bg-gray-600 text-gray-200' },
   leather: { label: 'Leather', cls: 'bg-amber-900 text-amber-200' },
@@ -362,7 +371,7 @@ export default function InventoryScreen() {
 
     return (
       <div className="space-y-3">
-        <div className={`rounded-lg border-2 p-3 space-y-2 ${selectedItem.isCorrupted ? 'bg-fuchsia-950 border-fuchsia-500' : RARITY_BG[selectedItem.rarity]}`}>
+        <div className={`rounded-lg border-2 p-3 space-y-2 ${RARITY_BG[selectedItem.rarity]} ${selectedItem.isCorrupted ? 'bg-gradient-to-br from-transparent to-fuchsia-950/60 ring-1 ring-fuchsia-500/40' : ''}`}>
           <div className="flex items-center justify-between">
             <div className="min-w-0">
               <div className="font-bold text-white flex items-center gap-1.5">
@@ -707,7 +716,8 @@ export default function InventoryScreen() {
             className={`
               relative aspect-square rounded-lg border-2 cursor-pointer transition-all
               flex items-center justify-center overflow-hidden bg-gray-900
-              ${item.isCorrupted ? 'border-fuchsia-500' : RARITY_TILE_BORDER[item.rarity]}
+              ${RARITY_TILE_BORDER[item.rarity]}
+              ${item.isCorrupted && selectedItem?.id !== item.id ? 'ring-2 ring-fuchsia-500/60' : ''}
               ${selectedItem?.id === item.id ? 'ring-2 ring-white scale-105' : ''}
               ${selectedCurrency ? 'hover:ring-2 hover:ring-purple-400' : 'hover:brightness-125'}
               ${tutorialStep === 1 && item.slot === 'mainhand' ? 'ring-2 ring-yellow-400 animate-pulse' : ''}
@@ -727,7 +737,7 @@ export default function InventoryScreen() {
             onMouseLeave={isMobile ? undefined : hideTooltip}
           >
             {/* Rarity gradient overlay */}
-            <div className={`absolute inset-0 bg-gradient-to-t ${item.isCorrupted ? 'from-fuchsia-900/50' : RARITY_GRADIENT[item.rarity]} to-transparent pointer-events-none`} />
+            <div className={`absolute inset-0 bg-gradient-to-t ${item.isCorrupted ? CORRUPTED_TILE_GRADIENT[item.rarity] : RARITY_GRADIENT[item.rarity]} to-transparent pointer-events-none`} />
             {/* Icon */}
             <ItemIcon item={item} size="lg" />
             {/* Badges */}
@@ -860,7 +870,7 @@ export default function InventoryScreen() {
       {tooltip && (
         <div
           ref={tooltipRef}
-          className={`fixed z-[9999] w-64 rounded-lg border p-3 shadow-xl pointer-events-none text-left ${tooltip.item.isCorrupted ? 'bg-fuchsia-950 border-fuchsia-500' : RARITY_TOOLTIP_BG[tooltip.item.rarity]}`}
+          className={`fixed z-[9999] w-64 rounded-lg border p-3 shadow-xl pointer-events-none text-left ${RARITY_TOOLTIP_BG[tooltip.item.rarity]} ${tooltip.item.isCorrupted ? 'bg-gradient-to-br from-transparent to-fuchsia-950/60 ring-1 ring-fuchsia-500/40' : ''}`}
           style={{
             left: `${tooltipPos.left}px`,
             top: `${tooltipPos.top}px`,
@@ -1293,7 +1303,8 @@ function EquipSlotCard({
       className={`
         rounded-lg border-2 p-1.5 cursor-pointer transition-all min-w-0
         flex flex-col items-center justify-center text-center
-        ${item.isCorrupted ? 'bg-fuchsia-950 border-fuchsia-500' : `${RARITY_BG[item.rarity]} ${RARITY_BORDER_RING[item.rarity]}`}
+        ${RARITY_BG[item.rarity]} ${RARITY_BORDER_RING[item.rarity]}
+        ${item.isCorrupted ? 'ring-1 ring-fuchsia-500/40' : ''}
         ${isSelected ? 'ring-2 ring-white scale-105' : ''}
         ${selectedCurrency ? 'hover:ring-2 hover:ring-purple-400' : 'hover:brightness-125'}
       `}

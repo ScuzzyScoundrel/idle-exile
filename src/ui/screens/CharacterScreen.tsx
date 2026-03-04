@@ -548,7 +548,8 @@ function GearSlotCard({
       className={`
         aspect-square rounded-lg border-2 cursor-pointer transition-all
         flex items-center justify-center min-w-0
-        ${item.isCorrupted ? 'border-fuchsia-500 bg-fuchsia-950' : `${RARITY_BORDER[item.rarity]} ${RARITY_BG[item.rarity]}`} hover:brightness-125
+        ${RARITY_BORDER[item.rarity]} ${RARITY_BG[item.rarity]} hover:brightness-125
+        ${item.isCorrupted ? 'ring-1 ring-fuchsia-500/40' : ''}
         ${isShowingTooltip ? 'ring-2 ring-yellow-400' : ''}
         ${className ?? 'w-full'}
       `}
@@ -565,7 +566,7 @@ function GearSlotCard({
 /** Tooltip showing full item details */
 function ItemTooltip({ item }: { item: Item }) {
   return (
-    <div className={`rounded-lg border-2 p-3 space-y-1.5 ${item.isCorrupted ? 'border-fuchsia-500 bg-fuchsia-950' : `${RARITY_BORDER[item.rarity]} ${RARITY_BG[item.rarity]}`}`}>
+    <div className={`rounded-lg border-2 p-3 space-y-1.5 ${RARITY_BORDER[item.rarity]} ${RARITY_BG[item.rarity]} ${item.isCorrupted ? 'bg-gradient-to-br from-transparent to-fuchsia-950/60 ring-1 ring-fuchsia-500/40' : ''}`}>
       <div className="text-center">
         <div className="font-bold text-white text-sm flex items-center justify-center gap-1.5">
           <span className={item.isCorrupted ? 'text-fuchsia-300' : ''}>{item.name}</span>

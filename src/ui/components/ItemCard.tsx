@@ -81,13 +81,14 @@ interface ItemCardProps {
 }
 
 export default function ItemCard({ item, onClick, selected, compact }: ItemCardProps) {
-  const borderClass = item.isCorrupted ? 'border-fuchsia-500 bg-fuchsia-950' : RARITY_COLORS[item.rarity];
+  const borderClass = RARITY_COLORS[item.rarity];
+  const corruptedClass = item.isCorrupted ? 'bg-gradient-to-br from-transparent to-fuchsia-950/60 ring-1 ring-fuchsia-500/40' : '';
   return (
     <div
       onClick={onClick}
       className={`
         border rounded-lg p-2 cursor-pointer transition-all
-        ${borderClass}
+        ${borderClass} ${corruptedClass}
         ${selected ? 'ring-2 ring-white scale-105' : 'hover:scale-102 hover:brightness-110'}
       `}
     >
