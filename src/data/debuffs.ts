@@ -1,49 +1,60 @@
 // ============================================================
-// Idle Exile — Debuff Definitions (Sprint 11B)
+// Idle Exile — Debuff Definitions (Debuff Overhaul)
 // ============================================================
 
 import type { DebuffDef } from '../types';
 
 export const DEBUFF_DEFS: DebuffDef[] = [
   {
-    id: 'chilled',
-    name: 'Chilled',
-    description: 'Target takes 10% more damage.',
-    stackable: false,
-    maxStacks: 1,
-    effect: { incDamageTaken: 10 },
-  },
-  {
-    id: 'shocked',
-    name: 'Shocked',
-    description: 'Target takes 15% more damage per stack (max 3).',
+    id: 'bleeding',
+    name: 'Bleeding',
+    description: 'Each stack snapshots hit damage. 30% of total snapshot triggers when enemy attacks. Max 5 stacks.',
     stackable: true,
-    maxStacks: 3,
-    effect: { incDamageTaken: 15 },
-  },
-  {
-    id: 'burning',
-    name: 'Burning',
-    description: 'Target takes fire damage over time.',
-    stackable: false,
-    maxStacks: 1,
-    effect: { dotDps: 5 },
+    maxStacks: 5,
+    dotType: 'snapshot',
+    effect: { snapshotPercent: 30 },
   },
   {
     id: 'poisoned',
     name: 'Poisoned',
-    description: 'Target takes chaos damage over time (stacks up to 10).',
+    description: 'Each stack snapshots hit damage. 15% of total snapshot as chaos DoT per second. Max 10 stacks.',
     stackable: true,
     maxStacks: 10,
-    effect: { dotDps: 2 },
+    dotType: 'snapshot',
+    effect: { snapshotPercent: 15 },
   },
   {
-    id: 'bleeding',
-    name: 'Bleeding',
-    description: 'Target takes physical damage over time (stacks up to 5).',
+    id: 'burning',
+    name: 'Burning',
+    description: 'Burns for 2% of enemy max HP per second as fire damage.',
+    stackable: false,
+    maxStacks: 1,
+    dotType: 'percentMaxHp',
+    effect: { percentMaxHp: 2 },
+  },
+  {
+    id: 'shocked',
+    name: 'Shocked',
+    description: 'Enemy has +10% chance to be crit per stack (max 3).',
     stackable: true,
-    maxStacks: 5,
-    effect: { dotDps: 8 },
+    maxStacks: 3,
+    effect: { incCritChanceTaken: 10 },
+  },
+  {
+    id: 'chilled',
+    name: 'Chilled',
+    description: 'Shatter on Kill: 50% of overkill damage dealt to next enemy as cold damage.',
+    stackable: false,
+    maxStacks: 1,
+    effect: { shatterOverkillPercent: 50 },
+  },
+  {
+    id: 'vulnerable',
+    name: 'Vulnerable',
+    description: 'Target takes 20% more damage from all sources.',
+    stackable: false,
+    maxStacks: 1,
+    effect: { incDamageTaken: 20 },
   },
   {
     id: 'weakened',
@@ -60,14 +71,6 @@ export const DEBUFF_DEFS: DebuffDef[] = [
     stackable: false,
     maxStacks: 1,
     effect: { missChance: 20 },
-  },
-  {
-    id: 'vulnerable',
-    name: 'Vulnerable',
-    description: 'Target takes 30% increased critical damage.',
-    stackable: false,
-    maxStacks: 1,
-    effect: { incCritDamageTaken: 30 },
   },
   {
     id: 'cursed',

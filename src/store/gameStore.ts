@@ -129,6 +129,17 @@ function calcEnemyDebuffMods(activeDebuffs: ActiveDebuff[]): {
   return { damageMult: Math.max(0.1, damageMult), missChance: Math.min(missChance, 75), atkSpeedSlowMult };
 }
 
+/** Compute bleed trigger damage from active bleed debuff (triggers on enemy attack). */
+function calcBleedTriggerDamage(activeDebuffs: ActiveDebuff[], debuffEffectBonus: number, incDoTDamage: number): number {
+  const bleed = activeDebuffs.find(d => d.debuffId === 'bleeding');
+  if (!bleed?.stackSnapshots?.length) return 0;
+  const def = getDebuffDef('bleeding');
+  if (!def?.effect.snapshotPercent) return 0;
+  const snapSum = bleed.stackSnapshots.reduce((a, b) => a + b, 0);
+  const incDoTMult = 1 + (incDoTDamage ?? 0) / 100;
+  return snapSum * (def.effect.snapshotPercent / 100) * debuffEffectBonus * incDoTMult;
+}
+
 /** Compute fortify damage reduction from stacks. Returns 0 if expired or no stacks. */
 export function calcFortifyDR(fortifyStacks: number, fortifyExpiresAt: number, fortifyDRPerStack: number, now: number): number {
   if (fortifyStacks <= 0 || now > fortifyExpiresAt) return 0;
@@ -2190,7 +2201,12 @@ export const useGameStore = create<GameState & GameActions>()(
             // Check if boss attack is due
             const helperEnemyMods = calcEnemyDebuffMods(state.activeDebuffs);
             let nextAttack = bs.bossNextAttackAt;
+            let helperBossHp = bs.bossCurrentHp;
             if (now >= nextAttack) {
+              // Bleed trigger: enemy attacked (hit or miss — boss still swung)
+              const helperBleedDmg = calcBleedTriggerDamage(state.activeDebuffs, 1, bossStats.incDoTDamage ?? 0);
+              if (helperBleedDmg > 0) helperBossHp -= helperBleedDmg;
+
               // Miss chance from debuffs (e.g. Blinded)
               if (Math.random() * 100 < helperEnemyMods.missChance) {
                 bossAttackResult = { damage: 0, isDodged: true, isBlocked: false, isCrit: false };
@@ -2230,10 +2246,10 @@ export const useGameStore = create<GameState & GameActions>()(
             playerHp = Math.min(bossStats.maxLife, playerHp + bossStats.lifeRegen * dtSec);
 
             if (playerHp <= 0) {
-              set({ currentHp: 0, currentEs: 0, bossState: { ...bs, bossNextAttackAt: nextAttack } });
+              set({ currentHp: 0, currentEs: 0, bossState: { ...bs, bossNextAttackAt: nextAttack, bossCurrentHp: helperBossHp } });
               return { ...noResult, bossOutcome: 'defeat', bossAttack: bossAttackResult };
             }
-            set({ currentHp: playerHp, bossState: { ...bs, bossNextAttackAt: nextAttack } });
+            set({ currentHp: playerHp, bossState: { ...bs, bossNextAttackAt: nextAttack, bossCurrentHp: helperBossHp } });
             return { ...noResult, bossOutcome: 'ongoing', bossAttack: bossAttackResult };
           }
           return noResult;
@@ -2248,6 +2264,12 @@ export const useGameStore = create<GameState & GameActions>()(
 
           if (nextAttackAt > 0 && now >= nextAttackAt) {
             const helperEnemyMods = calcEnemyDebuffMods(state.activeDebuffs);
+
+            // Bleed trigger: zone mob attacked (hit or miss — mob still swung)
+            const helperBleedDmg = calcBleedTriggerDamage(state.activeDebuffs, 1, resolveStats(state.character).incDoTDamage);
+            if (helperBleedDmg > 0) {
+              set({ currentMobHp: Math.max(0, state.currentMobHp - helperBleedDmg) });
+            }
 
             // Miss chance from debuffs (e.g. Blinded)
             if (Math.random() * 100 < helperEnemyMods.missChance) {
@@ -2425,6 +2447,14 @@ export const useGameStore = create<GameState & GameActions>()(
           : condSpeedBonus ? (1 + condSpeedBonus / 100) : 1;
         const castInterval = calcSkillCastInterval(skill, effectiveStats, atkSpeedMult * graphSpeedMult);
 
+        // Shocked: +crit chance on target per stack (applied pre-roll)
+        for (const debuff of state.activeDebuffs) {
+          const debuffDef = getDebuffDef(debuff.debuffId);
+          if (debuffDef?.effect.incCritChanceTaken) {
+            effectiveStats.critChance += debuffDef.effect.incCritChanceTaken * debuff.stacks;
+          }
+        }
+
         // Fire skill
         const { avgDamage, spellPower } = getWeaponDamageInfo(state.character.equipment);
         const roll = rollSkillCast(skill, effectiveStats, avgDamage, spellPower, damageMult, graphMod ?? undefined);
@@ -2555,19 +2585,33 @@ export const useGameStore = create<GameState & GameActions>()(
               }
               const existing = newDebuffs.findIndex(d => d.debuffId === debuffInfo.debuffId);
               const debuffDef = getDebuffDef(debuffInfo.debuffId);
+              const isSnapshotDebuff = debuffDef?.dotType === 'snapshot';
               if (existing >= 0 && debuffDef?.stackable) {
                 const d = newDebuffs[existing];
+                const newStacks = Math.min(d.stacks + 1, debuffDef.maxStacks);
+                // Snapshot: track hit damage per stack (FIFO at max)
+                let snapshots = d.stackSnapshots ? [...d.stackSnapshots] : undefined;
+                if (isSnapshotDebuff) {
+                  snapshots = snapshots ?? [];
+                  if (snapshots.length >= debuffDef.maxStacks) snapshots.shift(); // FIFO
+                  snapshots.push(roll.damage);
+                }
                 newDebuffs[existing] = {
                   ...d,
-                  stacks: Math.min(d.stacks + 1, debuffDef.maxStacks),
+                  stacks: newStacks,
                   remainingDuration: duration,
                   appliedBySkillId: skill.id,
+                  stackSnapshots: snapshots,
                 };
               } else if (existing >= 0) {
                 // Refresh duration (non-stackable)
                 newDebuffs[existing] = { ...newDebuffs[existing], remainingDuration: duration, appliedBySkillId: skill.id };
               } else {
-                newDebuffs.push({ debuffId: debuffInfo.debuffId, stacks: 1, remainingDuration: duration, appliedBySkillId: skill.id });
+                newDebuffs.push({
+                  debuffId: debuffInfo.debuffId, stacks: 1, remainingDuration: duration,
+                  appliedBySkillId: skill.id,
+                  stackSnapshots: isSnapshotDebuff ? [roll.damage] : undefined,
+                });
               }
             }
           }
@@ -2582,18 +2626,32 @@ export const useGameStore = create<GameState & GameActions>()(
           }
           const existing = newDebuffs.findIndex(d => d.debuffId === doc.debuffId);
           const debuffDef = getDebuffDef(doc.debuffId);
+          const isSnapshotDebuff = debuffDef?.dotType === 'snapshot';
           if (existing >= 0 && debuffDef?.stackable) {
             const d = newDebuffs[existing];
+            let snapshots = d.stackSnapshots ? [...d.stackSnapshots] : undefined;
+            if (isSnapshotDebuff) {
+              snapshots = snapshots ?? [];
+              for (let i = 0; i < doc.stacks; i++) {
+                if (snapshots.length >= debuffDef.maxStacks) snapshots.shift();
+                snapshots.push(roll.damage);
+              }
+            }
             newDebuffs[existing] = {
               ...d,
               stacks: Math.min(d.stacks + doc.stacks, debuffDef.maxStacks),
               remainingDuration: duration,
               appliedBySkillId: skill.id,
+              stackSnapshots: snapshots,
             };
           } else if (existing >= 0) {
             newDebuffs[existing] = { ...newDebuffs[existing], remainingDuration: duration, appliedBySkillId: skill.id };
           } else {
-            newDebuffs.push({ debuffId: doc.debuffId, stacks: doc.stacks, remainingDuration: duration, appliedBySkillId: skill.id });
+            const initSnapshots = isSnapshotDebuff ? Array(doc.stacks).fill(roll.damage) as number[] : undefined;
+            newDebuffs.push({
+              debuffId: doc.debuffId, stacks: doc.stacks, remainingDuration: duration,
+              appliedBySkillId: skill.id, stackSnapshots: initSnapshots,
+            });
           }
         }
 
@@ -2608,16 +2666,30 @@ export const useGameStore = create<GameState & GameActions>()(
           }
         }
 
-        // Tick debuff durations + apply DoT (with effectBonus scaling)
+        // Tick debuff durations + apply DoT (type-aware + incDoTDamage scaling)
         let debuffDotDamage = 0;
+        const incDoTMult = 1 + (stats.incDoTDamage ?? 0) / 100;
+        const enemyMaxHp = (phase === 'boss_fight' && state.bossState)
+          ? state.bossState.bossMaxHp
+          : (state.maxMobHp > 0 ? state.maxMobHp : 1);
         newDebuffs = newDebuffs
           .map(d => ({ ...d, remainingDuration: d.remainingDuration - dtSec }))
           .filter(d => d.remainingDuration > 0);
         for (const debuff of newDebuffs) {
           const debuffDef = getDebuffDef(debuff.debuffId);
-          if (debuffDef?.effect.dotDps) {
-            debuffDotDamage += debuffDef.effect.dotDps * debuff.stacks * effectBonus * dtSec;
+          if (!debuffDef) continue;
+          if (debuffDef.dotType === 'snapshot' && debuff.debuffId !== 'bleeding') {
+            // Poison: sum snapshots * snapshotPercent as DoT/sec
+            const snapSum = debuff.stackSnapshots?.reduce((a, b) => a + b, 0) ?? 0;
+            debuffDotDamage += snapSum * (debuffDef.effect.snapshotPercent ?? 0) / 100 * effectBonus * incDoTMult * dtSec;
+          } else if (debuffDef.dotType === 'percentMaxHp') {
+            // Burning: % of enemy max HP per second
+            debuffDotDamage += enemyMaxHp * (debuffDef.effect.percentMaxHp ?? 0) / 100 * effectBonus * incDoTMult * dtSec;
+          } else if (debuffDef.effect.dotDps) {
+            // Legacy flat DPS fallback
+            debuffDotDamage += debuffDef.effect.dotDps * debuff.stacks * effectBonus * incDoTMult * dtSec;
           }
+          // Note: bleeding (snapshot) triggers on enemy attack, NOT per-tick — handled separately
         }
 
         // Proc evaluation (onHit + onCrit triggers)
@@ -2658,22 +2730,36 @@ export const useGameStore = create<GameState & GameActions>()(
               }
             }
 
-            // Merge proc debuffs (standard stacking logic)
+            // Merge proc debuffs (standard stacking logic + snapshot support)
             for (const pd of pr.newDebuffs) {
               const existingIdx = newDebuffs.findIndex(d => d.debuffId === pd.debuffId);
               const debuffDef = getDebuffDef(pd.debuffId);
+              const isSnapshotDebuff = debuffDef?.dotType === 'snapshot';
               if (existingIdx >= 0 && debuffDef?.stackable) {
                 const d = newDebuffs[existingIdx];
+                let snapshots = d.stackSnapshots ? [...d.stackSnapshots] : undefined;
+                if (isSnapshotDebuff) {
+                  snapshots = snapshots ?? [];
+                  for (let i = 0; i < pd.stacks; i++) {
+                    if (snapshots.length >= debuffDef.maxStacks) snapshots.shift();
+                    snapshots.push(roll.damage);
+                  }
+                }
                 newDebuffs[existingIdx] = {
                   ...d,
                   stacks: Math.min(d.stacks + pd.stacks, debuffDef.maxStacks),
                   remainingDuration: pd.duration,
                   appliedBySkillId: pd.skillId,
+                  stackSnapshots: snapshots,
                 };
               } else if (existingIdx >= 0) {
                 newDebuffs[existingIdx] = { ...newDebuffs[existingIdx], remainingDuration: pd.duration, appliedBySkillId: pd.skillId };
               } else {
-                newDebuffs.push({ debuffId: pd.debuffId, stacks: pd.stacks, remainingDuration: pd.duration, appliedBySkillId: pd.skillId });
+                const initSnapshots = isSnapshotDebuff ? Array(pd.stacks).fill(roll.damage) as number[] : undefined;
+                newDebuffs.push({
+                  debuffId: pd.debuffId, stacks: pd.stacks, remainingDuration: pd.duration,
+                  appliedBySkillId: pd.skillId, stackSnapshots: initSnapshots,
+                });
               }
             }
           }
@@ -2785,6 +2871,13 @@ export const useGameStore = create<GameState & GameActions>()(
           let bossAttackResult: CombatTickResult['bossAttack'] = null;
           const mainEnemyMods = calcEnemyDebuffMods(state.activeDebuffs);
           if (now >= nextAttack) {
+            // Bleed trigger: boss attacked (hit or miss — boss still swung)
+            const mainBleedDmg = calcBleedTriggerDamage(newDebuffs, effectBonus, stats.incDoTDamage);
+            if (mainBleedDmg > 0) {
+              newBossHp -= mainBleedDmg;
+              totalDamage += mainBleedDmg;
+            }
+
             // Miss chance from debuffs (e.g. Blinded)
             if (Math.random() * 100 < mainEnemyMods.missChance) {
               bossAttackResult = { damage: 0, isDodged: true, isBlocked: false, isCrit: false };
@@ -3044,7 +3137,14 @@ export const useGameStore = create<GameState & GameActions>()(
           const overkillAmount = Math.abs(currentMobHp);
           newLastOverkillDamage = overkillAmount;
           const overkillBonus = graphMod?.overkillDamage ? overkillAmount * (graphMod.overkillDamage / 100) : 0;
-          currentMobHp = maxMobHp - overkillAmount - overkillBonus;
+
+          // Chilled shatter: deal % of overkill to next mob as cold damage
+          const chilledDebuff = preDeathDebuffs.find(d => d.debuffId === 'chilled');
+          const shatterDmg = chilledDebuff
+            ? overkillAmount * ((getDebuffDef('chilled')?.effect.shatterOverkillPercent ?? 0) / 100)
+            : 0;
+
+          currentMobHp = maxMobHp - overkillAmount - overkillBonus - shatterDmg;
           if (currentMobHp <= 0) currentMobHp = maxMobHp; // safety: reset if still negative
           newDebuffs = []; // Clear debuffs on mob death
 
@@ -3065,6 +3165,13 @@ export const useGameStore = create<GameState & GameActions>()(
         const clearEnemyMods = calcEnemyDebuffMods(state.activeDebuffs);
 
         if (nextZoneAttack > 0 && now >= nextZoneAttack) {
+          // Bleed trigger: zone mob attacked (hit or miss — mob still swung)
+          const clearBleedDmg = calcBleedTriggerDamage(newDebuffs, effectBonus, stats.incDoTDamage);
+          if (clearBleedDmg > 0) {
+            currentMobHp -= clearBleedDmg;
+            totalDamage += clearBleedDmg;
+          }
+
           // Miss chance from debuffs (e.g. Blinded)
           if (Math.random() * 100 < clearEnemyMods.missChance) {
             zoneAttackResult = { damage: 0, isDodged: true, isBlocked: false };
@@ -3660,7 +3767,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 40,
+      version: 41,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -4351,6 +4458,11 @@ export const useGameStore = create<GameState & GameActions>()(
             else if (count >= 25) claimed[zoneId] = 25;
           }
           raw.zoneMasteryClaimed = claimed;
+        }
+
+        if (version < 41) {
+          // v41: Debuff overhaul — reset active debuffs (structure changed: stackSnapshots, new mechanics)
+          raw.activeDebuffs = [];
         }
 
         if (version < 40) {

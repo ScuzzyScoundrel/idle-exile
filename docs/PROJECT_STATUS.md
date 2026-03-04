@@ -1,10 +1,28 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-04 (Post-Sprint: Crafting Overhaul)
+> Last updated: 2026-03-04 (Sprint 1: Debuff Overhaul)
 
 ## Current Phase
-**Sprint: Crafting Overhaul** — COMPLETE.
+**Sprint: Debuff Overhaul — Sprint 1 (Core Engine)** — COMPLETE.
+
+- **Purpose**: Redesign each debuff to have a distinct, interesting identity instead of flat DPS/damage-taken mechanics. Fix `incDoTDamage` gear stat bug (never applied to DoT calculations).
+- **Debuff changes**:
+  - **Bleeding**: Flat 8 DPS → snapshot-based. Each stack records hit damage. 30% of total snapshot triggers when enemy attacks (not per-tick). Max 5 stacks.
+  - **Poisoned**: Flat 2 DPS → snapshot-based. Each stack records hit damage. 15% of total snapshot as DoT/sec. Max 10 stacks.
+  - **Burning**: Flat 5 DPS → 2% of enemy max HP/sec. Scales with content difficulty.
+  - **Shocked**: +15% damage taken/stack → +10% crit chance on target per stack. Max 3 stacks.
+  - **Chilled**: +10% damage taken → Shatter on Kill: 50% of overkill damage to next enemy.
+  - **Vulnerable**: +30% crit damage taken → flat +20% more damage from all sources.
+  - **Slowed, Weakened, Blinded, Cursed**: Unchanged.
+- **Engine work**: Snapshot application on debuff apply (3 paths: normal, debuffOnCrit, proc), DoT tick rework (snapshot/percentMaxHp/flat + incDoTDamage bug fix), bleed-on-enemy-attack at all 4 attack sites (helper boss, helper zone, main boss, main clearing), shocked +crit pre-roll, chilled shatter on kill in death loop.
+- **Bug fix**: `incDoTDamage` gear stat now actually scales all DoT damage.
+- **Modified files**: `src/types/index.ts`, `src/data/debuffs.ts`, `src/store/gameStore.ts`
+- **New files**: `docs/DEBUFF_OVERHAUL_PLAN.md`
+- **Save version**: v40 → v41
+- **Next**: Sprint 2 (Combat Log & Debuff UX), Sprint 3 (Skill Tree Debuff Integration)
+
+**Previous: Sprint: Crafting Overhaul** — COMPLETE.
 
 - **Purpose**: Replace the component-crafting system with a pattern-based system. Patterns drop from zone clears, boss kills, and void invasions. Each pattern guarantees specific affixes and minimum rarity, consuming charges on use. Milestone rework ties profession leveling to pattern bonuses.
 - **6 phases**:
@@ -16,7 +34,6 @@
 - **New files**: `src/data/craftingPatterns.ts`, `src/ui/crafting/PatternPanel.tsx`
 - **Modified files**: `src/types/index.ts`, `src/data/balance.ts`, `src/data/craftingProfessions.ts`, `src/engine/zones.ts`, `src/engine/craftingProfessions.ts`, `src/store/gameStore.ts`, `src/ui/screens/CraftingScreen.tsx`, `src/ui/screens/ZoneScreen.tsx`
 - **Save version**: v39 → v40
-- **Next**: TBD
 
 **Previous: Sprint: Zone Progression** — COMPLETE.
 

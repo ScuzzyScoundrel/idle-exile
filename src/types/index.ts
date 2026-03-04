@@ -781,14 +781,19 @@ export interface DebuffDef {
   description: string;
   stackable: boolean;
   maxStacks: number;
+  dotType?: 'flat' | 'snapshot' | 'percentMaxHp'; // DoT calculation method
   effect: {
     incDamageTaken?: number;    // % more damage taken per stack
-    dotDps?: number;            // damage per second per stack
+    dotDps?: number;            // damage per second per stack (legacy flat)
     reducedDamageDealt?: number;   // Weakened: % reduced damage dealt
     missChance?: number;           // Blinded: % chance to miss
     incCritDamageTaken?: number;   // Vulnerable: % increased crit damage taken
     reducedResists?: number;       // Cursed: flat resist reduction per stack
     reducedAttackSpeed?: number;   // Slowed: % reduced attack speed
+    snapshotPercent?: number;      // % of hit damage as DoT per stack (bleed/poison)
+    percentMaxHp?: number;         // % of enemy max HP as DPS (burning)
+    incCritChanceTaken?: number;   // +crit chance on target per stack (shocked)
+    shatterOverkillPercent?: number; // % of overkill dealt to next mob (chilled)
   };
 }
 
@@ -797,6 +802,7 @@ export interface ActiveDebuff {
   stacks: number;
   remainingDuration: number;    // seconds
   appliedBySkillId: string;
+  stackSnapshots?: number[];    // hit damage that applied each stack (bleed/poison)
 }
 
 export interface TempBuff {
