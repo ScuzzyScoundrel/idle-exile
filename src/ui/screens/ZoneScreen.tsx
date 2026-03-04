@@ -547,6 +547,78 @@ function ClassResourceBar({ resource, charClass }: { resource: ClassResourceStat
   return null;
 }
 
+// --- Void Invasion Tracker ---
+
+function formatTimeRemaining(ms: number): string {
+  if (ms <= 0) return '0:00';
+  const mins = Math.floor(ms / 60000);
+  const secs = Math.floor((ms % 60000) / 1000);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+function InvasionTracker({
+  invasionState,
+  selectedBand,
+  onForceInvasion,
+}: {
+  invasionState: {
+    activeInvasions: Record<number, { zoneId: string; startTime: number; endTime: number }>;
+    bandCooldowns: Record<number, number>;
+  };
+  selectedBand: number;
+  onForceInvasion: (band: number) => void;
+}) {
+  const now = Date.now();
+  const activeInvasion = invasionState.activeInvasions[selectedBand];
+  const cooldownEnd = invasionState.bandCooldowns[selectedBand] ?? 0;
+  const cooldownRemaining = Math.max(0, cooldownEnd - now);
+  const hasActiveInvasion = !!activeInvasion;
+  const invasionRemaining = hasActiveInvasion ? Math.max(0, activeInvasion.endTime - now) : 0;
+  const invadedZone = hasActiveInvasion ? ZONE_DEFS.find(z => z.id === activeInvasion.zoneId) : null;
+
+  return (
+    <div className={`rounded-lg px-3 py-2 text-xs ${
+      hasActiveInvasion
+        ? 'bg-purple-950/60 border border-purple-700/50'
+        : 'bg-gray-800/40 border border-gray-700/30'
+    }`}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className={`font-bold ${hasActiveInvasion ? 'text-purple-300' : 'text-gray-500'}`}>
+            {hasActiveInvasion ? '\u{1F30C}' : '\u{1F311}'} Void Invasion
+          </span>
+          {hasActiveInvasion && invadedZone && (
+            <span className="text-purple-400">
+              <span className="font-semibold">{invadedZone.name}</span>
+              <span className="text-purple-500 ml-1.5">{formatTimeRemaining(invasionRemaining)} remaining</span>
+              <span className="text-purple-600 ml-1.5">+30% HP</span>
+            </span>
+          )}
+          {!hasActiveInvasion && cooldownRemaining > 0 && (
+            <span className="text-gray-500">
+              Next possible in {formatTimeRemaining(cooldownRemaining)}
+            </span>
+          )}
+          {!hasActiveInvasion && cooldownRemaining <= 0 && (
+            <span className="text-gray-600 italic">
+              Void rift could open any moment...
+            </span>
+          )}
+        </div>
+        {!hasActiveInvasion && (
+          <button
+            onClick={() => onForceInvasion(selectedBand)}
+            className="px-2 py-0.5 rounded bg-purple-900/50 text-purple-400 hover:bg-purple-800/60 text-[10px] font-bold"
+            title="Force a void invasion for testing"
+          >
+            Summon Void
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // --- Zone Card Component ---
 interface ZoneCardProps {
   zone: ZoneDef;
@@ -849,6 +921,7 @@ export default function ZoneScreen() {
     zoneMasteryClaimed,
     invasionState,
     tickInvasions,
+    forceInvasion,
   } = useGameStore();
 
   const hydrated = useHasHydrated();
@@ -1270,6 +1343,9 @@ export default function ZoneScreen() {
             }`}
           >
             {BAND_EMOJIS[band]} Band {band}
+            {invasionState.activeInvasions[band] && (
+              <span className="ml-1 inline-block w-2 h-2 rounded-full bg-purple-400 animate-pulse" title="Void Invasion active!" />
+            )}
           </button>
         ))}
       </div>
@@ -1279,6 +1355,15 @@ export default function ZoneScreen() {
         {BAND_NAMES[selectedBand]}
         <span className="text-gray-600 ml-2">iLvl {bandZones[0]?.iLvlMin}-{bandZones[bandZones.length - 1]?.iLvlMax}</span>
       </div>
+
+      {/* Void Invasion Tracker */}
+      {idleMode === 'combat' && (
+        <InvasionTracker
+          invasionState={invasionState}
+          selectedBand={selectedBand}
+          onForceInvasion={forceInvasion}
+        />
+      )}
 
       {/* Zone Cards */}
       <div className="space-y-3">

@@ -447,6 +447,8 @@ export const INVASION_DURATION_MAX_MS = 60 * 60 * 1000;
 export const INVASION_ROLL_CHANCE = 0.001;
 /** Chance that an item dropped during invasion gains a void implicit. */
 export const CORRUPTION_DROP_CHANCE = 0.25;
+/** Mob HP multiplier during void invasions (stacks with mob hpMultiplier). */
+export const INVASION_DIFFICULTY_MULT = 1.3;
 
 /** Maximum material preservation chance from profession gear (50%). */
 export const MAX_MATERIAL_SAVE = 0.50;

@@ -29,7 +29,7 @@ import {
 import { createCharacter, resolveStats, addXp, getWeaponDamageInfo, calcXpToNext } from '../engine/character';
 import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, simulateCombatClear, createBossEncounter, generateBossLoot, applyAbilityResists, calcHazardPenalty, rollZoneAttack, calcLevelDamageMult, calcOutgoingDamageMult, calcZoneAccuracy, getClaimableMilestones, getMasteryBonus } from '../engine/zones';
 import { calcMobHp, calcSkillCastInterval, rollSkillCast } from '../engine/unifiedSkills';
-import { BOSS_VICTORY_DURATION, BOSS_DEFEAT_RECOVERY, BOSS_VICTORY_HEAL_RATIO, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO, SKILL_GCD, LEECH_PERCENT, ZONE_ATTACK_INTERVAL, ZONE_DMG_BASE, ZONE_DMG_ILVL_SCALE, ZONE_PHYS_RATIO, MAX_REGEN_RATIO, BOSS_CRIT_CHANCE, BOSS_CRIT_MULTIPLIER, BOSS_MAX_DMG_RATIO, FORTIFY_MAX_STACKS, FORTIFY_MAX_DR } from '../data/balance';
+import { BOSS_VICTORY_DURATION, BOSS_DEFEAT_RECOVERY, BOSS_VICTORY_HEAL_RATIO, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO, SKILL_GCD, LEECH_PERCENT, ZONE_ATTACK_INTERVAL, ZONE_DMG_BASE, ZONE_DMG_ILVL_SCALE, ZONE_PHYS_RATIO, MAX_REGEN_RATIO, BOSS_CRIT_CHANCE, BOSS_CRIT_MULTIPLIER, BOSS_MAX_DMG_RATIO, FORTIFY_MAX_STACKS, FORTIFY_MAX_DR, INVASION_DIFFICULTY_MULT, INVASION_DURATION_MIN_MS, INVASION_DURATION_MAX_MS } from '../data/balance';
 import { pickBestItem, generateId, isTwoHandedWeapon, generateItem } from '../engine/items';
 import { applyCurrency } from '../engine/crafting';
 import {
@@ -290,7 +290,9 @@ function computeNextClear(
   if (abilityEffect?.critMultiplierBonus) effectiveStats.critMultiplier += abilityEffect.critMultiplierBonus;
 
   const { avgDamage, spellPower } = getWeaponDamageInfo(state.character.equipment);
-  const mobHp = calcMobHp(zone);
+  // Invasion difficulty: mobs have more HP during void invasions
+  const invasionMult = isZoneInvaded(state.invasionState, zone.id, zone.band) ? INVASION_DIFFICULTY_MULT : 1.0;
+  const mobHp = calcMobHp(zone) * invasionMult;
 
   // Hazard penalty: unresisted hazards make effective mob HP higher
   const hazardMult = abilityEffect?.ignoreHazards ? 1.0 : calcHazardPenalty(
@@ -411,6 +413,7 @@ interface GameActions {
 
   // Void invasions
   tickInvasions: () => void;
+  forceInvasion: (band: number) => void;
 
   // Daily quests
   checkDailyQuestReset: () => void;
@@ -785,7 +788,8 @@ export const useGameStore = create<GameState & GameActions>()(
         if (zone && state.idleMode === 'combat') {
           initialMobTypeId = pickCurrentMob(zoneId, state.targetedMobId);
           const hpMult = initialMobTypeId ? (getMobTypeDef(initialMobTypeId)?.hpMultiplier ?? 1.0) : 1.0;
-          mobHp = calcMobHp(zone, hpMult);
+          const invMult = isZoneInvaded(state.invasionState, zoneId, zone.band) ? INVASION_DIFFICULTY_MULT : 1.0;
+          mobHp = calcMobHp(zone, hpMult * invMult);
         }
 
         set({
@@ -1166,7 +1170,8 @@ export const useGameStore = create<GameState & GameActions>()(
           if (zone) {
             const currentMob = pickCurrentMob(state.currentZoneId, mobTypeId);
             const hpMult = currentMob ? (getMobTypeDef(currentMob)?.hpMultiplier ?? 1.0) : 1.0;
-            const mobHp = calcMobHp(zone, hpMult);
+            const invMult = isZoneInvaded(state.invasionState, state.currentZoneId, zone.band) ? INVASION_DIFFICULTY_MULT : 1.0;
+            const mobHp = calcMobHp(zone, hpMult * invMult);
             set({ targetedMobId: mobTypeId, currentMobTypeId: currentMob, currentMobHp: mobHp, maxMobHp: mobHp });
             return;
           }
@@ -3082,7 +3087,8 @@ export const useGameStore = create<GameState & GameActions>()(
           // Pick a new mob for respawn (random or targeted)
           newMobTypeId = pickCurrentMob(zone.id, state.targetedMobId);
           const hpMult = newMobTypeId ? (getMobTypeDef(newMobTypeId)?.hpMultiplier ?? 1.0) : 1.0;
-          maxMobHp = calcMobHp(zone, hpMult);
+          const invHpMult = isZoneInvaded(state.invasionState, zone.id, zone.band) ? INVASION_DIFFICULTY_MULT : 1.0;
+          maxMobHp = calcMobHp(zone, hpMult * invHpMult);
 
           // Overkill damage carry + bonus
           const overkillAmount = Math.abs(currentMobHp);
@@ -3409,7 +3415,8 @@ export const useGameStore = create<GameState & GameActions>()(
           const zone = state.currentZoneId ? ZONE_DEFS.find(z => z.id === state.currentZoneId) : null;
           const recoveryMobId = zone ? pickCurrentMob(zone.id, state.targetedMobId) : null;
           const recoveryHpMult = recoveryMobId ? (getMobTypeDef(recoveryMobId)?.hpMultiplier ?? 1.0) : 1.0;
-          const mobHp = zone ? calcMobHp(zone, recoveryHpMult) : 0;
+          const recoveryInvMult = zone && state.currentZoneId && isZoneInvaded(state.invasionState, state.currentZoneId, zone.band) ? INVASION_DIFFICULTY_MULT : 1.0;
+          const mobHp = zone ? calcMobHp(zone, recoveryHpMult * recoveryInvMult) : 0;
 
           set({
             combatPhase: 'clearing' as CombatPhase,
@@ -3496,6 +3503,18 @@ export const useGameStore = create<GameState & GameActions>()(
         if (newInvasionState !== state.invasionState) {
           set({ invasionState: newInvasionState });
         }
+      },
+
+      forceInvasion: (band: number) => {
+        const state = get();
+        const bandZones = ZONE_DEFS.filter(z => z.band === band);
+        if (bandZones.length === 0) return;
+        const picked = bandZones[Math.floor(Math.random() * bandZones.length)];
+        const now = Date.now();
+        const duration = INVASION_DURATION_MIN_MS + Math.random() * (INVASION_DURATION_MAX_MS - INVASION_DURATION_MIN_MS);
+        const newActive = { ...state.invasionState.activeInvasions };
+        newActive[band] = { zoneId: picked.id, startTime: now, endTime: now + duration };
+        set({ invasionState: { ...state.invasionState, activeInvasions: newActive } });
       },
 
       checkDailyQuestReset: () => {
