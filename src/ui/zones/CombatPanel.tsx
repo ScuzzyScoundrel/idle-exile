@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { useGameStore, useHasHydrated, calcFortifyDR } from '../../store/gameStore';
 import { ZONE_DEFS } from '../../data/zones';
 import { calcXpScale } from '../../engine/zones';
-import { canGatherInZone, getGatheringSkillRequirement } from '../../engine/gathering';
 import { Rarity } from '../../types';
 import { calcBagCapacity } from '../../data/items';
 import SkillBar from '../components/SkillBar';
@@ -26,16 +25,11 @@ import MobDisplay from './MobDisplay';
 import BossFightDisplay from './BossFightDisplay';
 import SkillPicker from './SkillPicker';
 
-interface CombatPanelProps {
-  selectedZone: string;
-  onSwitchZone: () => void;
-}
-
-export default function CombatPanel({ selectedZone, onSwitchZone }: CombatPanelProps) {
+export default function CombatPanel() {
   const {
     character, inventory, bagSlots,
     currentZoneId, idleStartTime, idleMode,
-    selectedGatheringProfession, gatheringSkills,
+    selectedGatheringProfession,
     stopIdleRun, processNewClears, grantIdleXp,
     currentHp, currentEs, combatPhase, bossState, zoneClearCounts,
     startBossFight, handleBossVictory, handleBossDefeat, checkRecoveryComplete,
@@ -53,16 +47,12 @@ export default function CombatPanel({ selectedZone, onSwitchZone }: CombatPanelP
 
   // Derived
   const runningZone = currentZoneId ? ZONE_DEFS.find(z => z.id === currentZoneId) ?? null : null;
-  const selectedZoneDef = ZONE_DEFS.find(z => z.id === selectedZone);
   const resolvedStats = resolveStats(character);
   const maxHp = resolvedStats.maxLife;
   const maxEs = resolvedStats.energyShield;
   const inventoryCapacity = calcBagCapacity(bagSlots);
   const displayHp = currentHp;
   const fortifyDR = calcFortifyDR(fortifyStacks, fortifyExpiresAt, fortifyDRPerStack, Date.now());
-  const currentGatheringLevel = selectedGatheringProfession
-    ? gatheringSkills[selectedGatheringProfession].level
-    : 0;
 
   // Local state
   const [elapsed, setElapsed] = useState(0);
@@ -294,24 +284,6 @@ export default function CombatPanel({ selectedZone, onSwitchZone }: CombatPanelP
 
   return (
     <div className="space-y-2">
-      {/* Switch zone button */}
-      {selectedZone !== currentZoneId && selectedZoneDef && (() => {
-        const canSwitch = !(idleMode === 'gathering' && selectedGatheringProfession && !canGatherInZone(currentGatheringLevel, selectedZoneDef));
-        return (
-          <button
-            onClick={onSwitchZone}
-            disabled={!canSwitch}
-            className={`w-full py-2 font-bold rounded-lg text-sm transition-all ${
-              canSwitch ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-gray-700 text-gray-500 cursor-not-allowed'
-            }`}
-          >
-            {canSwitch
-              ? `Switch to ${selectedZoneDef.name}`
-              : `Requires ${selectedGatheringProfession!.charAt(0).toUpperCase() + selectedGatheringProfession!.slice(1)} Lv.${getGatheringSkillRequirement(selectedZoneDef.band)}`}
-          </button>
-        );
-      })()}
-
       {/* Combat Phase Display */}
       {idleMode === 'combat' && combatPhase === 'boss_fight' && bossState && (
         <div className="relative">

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { ZONE_DEFS, BAND_NAMES } from '../../data/zones';
-import { calcXpScale } from '../../engine/zones';
 import { canGatherInZone, getGatheringSkillRequirement, calcGatheringXpRequired } from '../../engine/gathering';
 import { GATHERING_PROFESSION_DEFS } from '../../data/gatheringProfessions';
 import { IdleMode } from '../../types';
@@ -10,14 +9,13 @@ import ZoneCardGrid from '../zones/ZoneCardGrid';
 
 import {
   BAND_GRADIENTS, BAND_EMOJIS,
-  HAZARD_ICONS, HAZARD_STAT_MAP,
   PROFESSION_ICONS,
 } from '../zones/zoneConstants';
-import { formatClearTime } from '../zones/zoneHelpers';
 import InvasionTracker from '../zones/InvasionTracker';
 import SkillPicker from '../zones/SkillPicker';
 import MobSelector from '../zones/MobSelector';
 import CombatPanel from '../zones/CombatPanel';
+import StatsTicker from '../zones/StatsTicker';
 
 export default function ZoneScreen() {
   const {
@@ -25,9 +23,8 @@ export default function ZoneScreen() {
     currentZoneId, idleStartTime, idleMode,
     gatheringSkills, selectedGatheringProfession,
     startIdleRun, stopIdleRun,
-    setIdleMode, setGatheringProfession, getEstimatedClearTime,
+    setIdleMode, setGatheringProfession,
     tutorialStep,
-    totalKills, fastestClears,
     targetedMobId, setTargetedMob, mobKillCounts, bossKillCounts,
     totalZoneClears,
     zoneMasteryClaimed,
@@ -45,10 +42,6 @@ export default function ZoneScreen() {
 
   const isRunning = idleStartTime !== null;
   const zone = ZONE_DEFS.find((z) => z.id === selectedZone)!;
-  const clearTime = getEstimatedClearTime(selectedZone);
-
-  // XP scaling for selected zone
-  const xpScale = calcXpScale(character.level, zone.iLvlMin);
 
   const handleStart = () => {
     startIdleRun(selectedZone);
@@ -210,50 +203,22 @@ export default function ZoneScreen() {
             onSelectZone={setSelectedZone}
           />
 
-          {/* Clear Time Estimate + Stats */}
-          <div className="text-xs text-gray-400 bg-gray-800 rounded-lg p-2 space-y-1">
-            <div>
-              Est. clear time: <span className={`font-mono ${clearTime > 3600 ? 'text-red-400' : clearTime > 300 ? 'text-yellow-400' : 'text-white'}`}>{formatClearTime(clearTime)}</span>
-              {' '}&bull;{' '}iLvl: <span className="text-white">{zone.iLvlMin}-{zone.iLvlMax}</span>
-              {idleMode === 'combat' && zone.hazards.length > 0 && (
-                <span className="ml-2">
-                  {zone.hazards.map((h, i) => {
-                    const playerResist = (character.stats as Record<string, number>)[HAZARD_STAT_MAP[h.type]] ?? 0;
-                    const belowThreshold = playerResist < h.threshold;
-                    return (
-                      <span key={i} className={`ml-1 ${belowThreshold ? 'text-red-400' : 'text-green-400'}`}>
-                        {HAZARD_ICONS[h.type]} {Math.floor(playerResist)}/{h.threshold}
-                      </span>
-                    );
-                  })}
-                </span>
-              )}
-              {idleMode === 'gathering' && selectedGatheringProfession && (
-                <span className="ml-2 text-green-400">
-                  {PROFESSION_ICONS[selectedGatheringProfession]} Skill: {currentGatheringLevel}
-                  {!canGatherInZone(currentGatheringLevel, zone) && (
-                    <span className="text-red-400 ml-1">(need {getGatheringSkillRequirement(zone.band)})</span>
-                  )}
-                </span>
-              )}
-            </div>
-            {idleMode === 'combat' && (
-              <div className="flex flex-wrap gap-3 text-gray-500">
-                <span>{'\u{1F480}'} Kills: <span className="text-white font-semibold">{totalKills.toLocaleString()}</span></span>
-                {fastestClears[selectedZone] != null && (
-                  <span>{'\u26A1'} Best: <span className="text-yellow-400 font-mono">{formatClearTime(fastestClears[selectedZone])}</span></span>
-                )}
-                {xpScale < 1.0 && (
-                  <span className="text-yellow-500">
-                    XP: {Math.round(xpScale * 100)}%
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Daily Quest Panel */}
-          {idleMode === 'combat' && <DailyQuestPanel currentZoneId={selectedZone} />}
+          {/* Switch Zone button (contextual: only when running a different zone) */}
+          {isRunning && selectedZone !== currentZoneId && (
+            <button
+              onClick={handleStart}
+              disabled={idleMode === 'gathering' && selectedGatheringProfession != null && !canGatherInZone(currentGatheringLevel, zone)}
+              className={`w-full py-2 font-bold rounded-lg text-sm transition-all ${
+                idleMode === 'gathering' && selectedGatheringProfession != null && !canGatherInZone(currentGatheringLevel, zone)
+                  ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                  : 'bg-blue-600 hover:bg-blue-500 text-white'
+              }`}
+            >
+              {idleMode === 'gathering' && selectedGatheringProfession && !canGatherInZone(currentGatheringLevel, zone)
+                ? `Requires ${selectedGatheringProfession.charAt(0).toUpperCase() + selectedGatheringProfession.slice(1)} Lv.${getGatheringSkillRequirement(zone.band)}`
+                : `Switch to ${zone.name}`}
+            </button>
+          )}
 
           {/* Mob Type Selector (combat mode) */}
           {idleMode === 'combat' && (
@@ -261,8 +226,11 @@ export default function ZoneScreen() {
           )}
         </div>
 
-        {/* RIGHT COLUMN: combat panel / start controls */}
-        <div className="xl:sticky xl:top-[88px] xl:self-start xl:max-h-[calc(100vh-140px)] xl:overflow-y-auto space-y-2 mt-3 xl:mt-0">
+        {/* RIGHT COLUMN: stats + combat + quests */}
+        <div className="xl:sticky xl:top-[88px] xl:self-start xl:max-h-[calc(100vh-140px)] xl:overflow-y-auto space-y-1.5 mt-3 xl:mt-0">
+          {/* Stats Ticker (always visible) */}
+          <StatsTicker selectedZone={selectedZone} />
+
           {/* Ability Picker (combat, before starting) */}
           {!isRunning && idleMode === 'combat' && <SkillPicker />}
 
@@ -282,12 +250,11 @@ export default function ZoneScreen() {
                 : idleMode === 'gathering' ? 'Start Gathering' : 'Start Idle Run'}
             </button>
           ) : (
-            <CombatPanel
-              key={idleStartTime}
-              selectedZone={selectedZone}
-              onSwitchZone={handleStart}
-            />
+            <CombatPanel key={idleStartTime} />
           )}
+
+          {/* Daily Quests (combat mode) */}
+          {idleMode === 'combat' && <DailyQuestPanel currentZoneId={selectedZone} />}
         </div>
       </div>
     </div>
