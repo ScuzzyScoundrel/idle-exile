@@ -362,10 +362,15 @@ export default function InventoryScreen() {
 
     return (
       <div className="space-y-3">
-        <div className={`rounded-lg border-2 p-3 space-y-2 ${RARITY_BG[selectedItem.rarity]}`}>
+        <div className={`rounded-lg border-2 p-3 space-y-2 ${selectedItem.isCorrupted ? 'bg-fuchsia-950 border-fuchsia-500' : RARITY_BG[selectedItem.rarity]}`}>
           <div className="flex items-center justify-between">
             <div className="min-w-0">
-              <div className="font-bold text-white">{selectedItem.name}</div>
+              <div className="font-bold text-white flex items-center gap-1.5">
+                <span className={selectedItem.isCorrupted ? 'text-fuchsia-300' : ''}>{selectedItem.name}</span>
+                {selectedItem.isCorrupted && (
+                  <span className="text-[9px] px-1 py-0.5 rounded bg-fuchsia-800 text-fuchsia-200 font-bold shrink-0">VOID</span>
+                )}
+              </div>
               <div className="text-xs text-gray-400 flex items-center gap-1 flex-wrap">
                 <span>iLvl {selectedItem.iLvl} • {selectedItem.rarity} • {selectedItem.prefixes.length + selectedItem.suffixes.length} affixes • <span className="text-gray-500">T{getBestTierForILvl(selectedItem.iLvl)}+</span></span>
                 {selectedItem.armorType && ARMOR_TYPE_BADGE[selectedItem.armorType] && (
@@ -400,6 +405,12 @@ export default function InventoryScreen() {
               {Object.entries(selectedItem.baseStats).map(([k, v]) => (
                 <span key={k} className="mr-2">{v} base {k}</span>
               ))}
+            </div>
+          )}
+
+          {selectedItem.implicit && (
+            <div className="text-sm text-fuchsia-400 border-t border-fuchsia-800 pt-1 pb-0.5">
+              {formatCorruptionAffix(selectedItem.implicit)}
             </div>
           )}
 
@@ -696,7 +707,7 @@ export default function InventoryScreen() {
             className={`
               relative aspect-square rounded-lg border-2 cursor-pointer transition-all
               flex items-center justify-center overflow-hidden bg-gray-900
-              ${item.isCorrupted ? 'border-purple-500' : RARITY_TILE_BORDER[item.rarity]}
+              ${item.isCorrupted ? 'border-fuchsia-500' : RARITY_TILE_BORDER[item.rarity]}
               ${selectedItem?.id === item.id ? 'ring-2 ring-white scale-105' : ''}
               ${selectedCurrency ? 'hover:ring-2 hover:ring-purple-400' : 'hover:brightness-125'}
               ${tutorialStep === 1 && item.slot === 'mainhand' ? 'ring-2 ring-yellow-400 animate-pulse' : ''}
@@ -716,7 +727,7 @@ export default function InventoryScreen() {
             onMouseLeave={isMobile ? undefined : hideTooltip}
           >
             {/* Rarity gradient overlay */}
-            <div className={`absolute inset-0 bg-gradient-to-t ${RARITY_GRADIENT[item.rarity]} to-transparent pointer-events-none`} />
+            <div className={`absolute inset-0 bg-gradient-to-t ${item.isCorrupted ? 'from-fuchsia-900/50' : RARITY_GRADIENT[item.rarity]} to-transparent pointer-events-none`} />
             {/* Icon */}
             <ItemIcon item={item} size="lg" />
             {/* Badges */}
@@ -755,7 +766,7 @@ export default function InventoryScreen() {
             )}
             {item.isCorrupted && (
               <div
-                className="absolute bottom-0 left-0 px-0.5 py-px rounded-tr text-[7px] font-bold z-10 bg-purple-800 text-purple-200"
+                className="absolute bottom-0 left-0 px-0.5 py-px rounded-tr text-[7px] font-bold z-10 bg-fuchsia-800 text-fuchsia-200"
                 title="Void Corrupted"
               >VOID</div>
             )}
@@ -849,7 +860,7 @@ export default function InventoryScreen() {
       {tooltip && (
         <div
           ref={tooltipRef}
-          className={`fixed z-[9999] w-64 rounded-lg border p-3 shadow-xl pointer-events-none text-left ${tooltip.item.isCorrupted ? 'bg-purple-950 border-purple-500' : RARITY_TOOLTIP_BG[tooltip.item.rarity]}`}
+          className={`fixed z-[9999] w-64 rounded-lg border p-3 shadow-xl pointer-events-none text-left ${tooltip.item.isCorrupted ? 'bg-fuchsia-950 border-fuchsia-500' : RARITY_TOOLTIP_BG[tooltip.item.rarity]}`}
           style={{
             left: `${tooltipPos.left}px`,
             top: `${tooltipPos.top}px`,
@@ -857,9 +868,9 @@ export default function InventoryScreen() {
           }}
         >
           <div className="font-bold text-white text-sm flex items-center gap-1.5">
-            <span className={tooltip.item.isCorrupted ? 'text-purple-300' : ''}>{tooltip.item.name}</span>
+            <span className={tooltip.item.isCorrupted ? 'text-fuchsia-300' : ''}>{tooltip.item.name}</span>
             {tooltip.item.isCorrupted && (
-              <span className="text-[9px] px-1 py-0.5 rounded bg-purple-800 text-purple-200 font-bold shrink-0">VOID</span>
+              <span className="text-[9px] px-1 py-0.5 rounded bg-fuchsia-800 text-fuchsia-200 font-bold shrink-0">VOID</span>
             )}
           </div>
           <div className="text-xs text-gray-400 mb-1.5 flex items-center gap-1 flex-wrap">
@@ -890,7 +901,7 @@ export default function InventoryScreen() {
           )}
 
           {tooltip.item.implicit && (
-            <div className="text-sm text-purple-400 border-t border-purple-800 pt-1 pb-0.5">
+            <div className="text-sm text-fuchsia-400 border-t border-fuchsia-800 pt-1 pb-0.5">
               {formatCorruptionAffix(tooltip.item.implicit)}
             </div>
           )}
@@ -1282,7 +1293,7 @@ function EquipSlotCard({
       className={`
         rounded-lg border-2 p-1.5 cursor-pointer transition-all min-w-0
         flex flex-col items-center justify-center text-center
-        ${item.isCorrupted ? 'bg-purple-950 border-purple-500' : `${RARITY_BG[item.rarity]} ${RARITY_BORDER_RING[item.rarity]}`}
+        ${item.isCorrupted ? 'bg-fuchsia-950 border-fuchsia-500' : `${RARITY_BG[item.rarity]} ${RARITY_BORDER_RING[item.rarity]}`}
         ${isSelected ? 'ring-2 ring-white scale-105' : ''}
         ${selectedCurrency ? 'hover:ring-2 hover:ring-purple-400' : 'hover:brightness-125'}
       `}

@@ -548,7 +548,7 @@ function GearSlotCard({
       className={`
         aspect-square rounded-lg border-2 cursor-pointer transition-all
         flex items-center justify-center min-w-0
-        ${item.isCorrupted ? 'border-purple-500 bg-purple-950' : `${RARITY_BORDER[item.rarity]} ${RARITY_BG[item.rarity]}`} hover:brightness-125
+        ${item.isCorrupted ? 'border-fuchsia-500 bg-fuchsia-950' : `${RARITY_BORDER[item.rarity]} ${RARITY_BG[item.rarity]}`} hover:brightness-125
         ${isShowingTooltip ? 'ring-2 ring-yellow-400' : ''}
         ${className ?? 'w-full'}
       `}
@@ -565,12 +565,12 @@ function GearSlotCard({
 /** Tooltip showing full item details */
 function ItemTooltip({ item }: { item: Item }) {
   return (
-    <div className={`rounded-lg border-2 p-3 space-y-1.5 ${item.isCorrupted ? 'border-purple-500 bg-purple-950' : `${RARITY_BORDER[item.rarity]} ${RARITY_BG[item.rarity]}`}`}>
+    <div className={`rounded-lg border-2 p-3 space-y-1.5 ${item.isCorrupted ? 'border-fuchsia-500 bg-fuchsia-950' : `${RARITY_BORDER[item.rarity]} ${RARITY_BG[item.rarity]}`}`}>
       <div className="text-center">
         <div className="font-bold text-white text-sm flex items-center justify-center gap-1.5">
-          <span className={item.isCorrupted ? 'text-purple-300' : ''}>{item.name}</span>
+          <span className={item.isCorrupted ? 'text-fuchsia-300' : ''}>{item.name}</span>
           {item.isCorrupted && (
-            <span className="text-[9px] px-1 py-0.5 rounded bg-purple-800 text-purple-200 font-bold shrink-0">VOID</span>
+            <span className="text-[9px] px-1 py-0.5 rounded bg-fuchsia-800 text-fuchsia-200 font-bold shrink-0">VOID</span>
           )}
         </div>
         <div className="text-xs text-gray-400">
@@ -590,7 +590,7 @@ function ItemTooltip({ item }: { item: Item }) {
       )}
 
       {item.implicit && (
-        <div className="text-xs text-purple-400 border-t border-purple-800 pt-1 pb-0.5">
+        <div className="text-xs text-fuchsia-400 border-t border-fuchsia-800 pt-1 pb-0.5">
           {formatCorruptionAffix(item.implicit)}
         </div>
       )}

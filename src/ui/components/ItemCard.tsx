@@ -81,7 +81,7 @@ interface ItemCardProps {
 }
 
 export default function ItemCard({ item, onClick, selected, compact }: ItemCardProps) {
-  const borderClass = item.isCorrupted ? 'border-purple-500 bg-purple-950' : RARITY_COLORS[item.rarity];
+  const borderClass = item.isCorrupted ? 'border-fuchsia-500 bg-fuchsia-950' : RARITY_COLORS[item.rarity];
   return (
     <div
       onClick={onClick}
@@ -94,11 +94,11 @@ export default function ItemCard({ item, onClick, selected, compact }: ItemCardP
       {/* Header */}
       <div className="flex items-center gap-1 mb-1">
         <span className="text-sm">{slotIcon(item.slot)}</span>
-        <span className={`text-sm font-semibold truncate ${item.isCorrupted ? 'text-purple-300' : RARITY_TEXT[item.rarity]}`}>
+        <span className={`text-sm font-semibold truncate ${item.isCorrupted ? 'text-fuchsia-300' : RARITY_TEXT[item.rarity]}`}>
           {item.name}
         </span>
         {item.isCorrupted && (
-          <span className="text-[9px] px-1 py-0.5 rounded bg-purple-800 text-purple-200 font-bold shrink-0">VOID</span>
+          <span className="text-[9px] px-1 py-0.5 rounded bg-fuchsia-800 text-fuchsia-200 font-bold shrink-0">VOID</span>
         )}
         {item.isProfessionGear && (
           <span className="text-[9px] px-1 py-0.5 rounded bg-teal-800 text-teal-300 font-bold shrink-0">PROF</span>
@@ -142,7 +142,7 @@ export default function ItemCard({ item, onClick, selected, compact }: ItemCardP
 
       {/* Corruption Implicit */}
       {!compact && item.implicit && (
-        <div className="text-xs text-purple-400 mb-0.5 border-b border-purple-800 pb-0.5">
+        <div className="text-xs text-fuchsia-400 mb-0.5 border-b border-fuchsia-800 pb-0.5">
           {formatCorruptionAffix(item.implicit)}
         </div>
       )}
