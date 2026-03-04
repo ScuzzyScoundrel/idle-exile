@@ -829,7 +829,7 @@ export default function InventoryScreen() {
   );
 
   return (
-    <div className="overflow-x-hidden">
+    <div className="max-w-4xl xl:max-w-7xl mx-auto overflow-x-hidden">
       <div className="hidden lg:grid lg:grid-cols-[1fr_2fr] lg:gap-4">
         <div className="lg:sticky lg:top-16 lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto space-y-3">
           {selectedItem ? renderDetailPanel() : (

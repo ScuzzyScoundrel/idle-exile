@@ -198,7 +198,7 @@ export default function CharacterScreen() {
   })();
 
   return (
-    <div className="space-y-4">
+    <div className="max-w-4xl xl:max-w-7xl mx-auto space-y-4">
       {/* Character Header */}
       <div className="bg-gray-800 rounded-lg p-3">
         <div className="flex items-center gap-3">

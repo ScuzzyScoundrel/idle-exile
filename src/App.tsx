@@ -105,7 +105,7 @@ function App() {
 
       {/* Main content area — padded for top and bottom bars + optional combat status bar.
           All screens stay mounted (hidden via CSS) so local state persists across tab switches. */}
-      <main className={`max-w-4xl xl:max-w-7xl mx-auto px-3 ${isRunning ? 'pt-[88px]' : 'pt-16'} pb-20`}>
+      <main className={`px-3 ${isRunning ? 'pt-[88px]' : 'pt-16'} pb-20`}>
         <div className={activeTab === 'zones' ? '' : 'hidden'}><ZoneScreen /></div>
         <div className={activeTab === 'inventory' ? '' : 'hidden'}><InventoryScreen /></div>
         <div className={activeTab === 'crafting' ? '' : 'hidden'}><CraftingScreen /></div>

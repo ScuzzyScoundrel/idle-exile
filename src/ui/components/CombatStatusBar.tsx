@@ -130,15 +130,15 @@ export default function CombatStatusBar() {
                    style={{ width: `${hpPct}%` }} />
             </div>
             {maxEs > 0 && (
-              <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                <div className="h-full bg-blue-400 rounded-full transition-all duration-150"
+              <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                <div className="h-full bg-blue-500 rounded-full transition-all duration-150"
                      style={{ width: `${esPct}%` }} />
               </div>
             )}
           </div>
           <span className="text-gray-400 font-mono shrink-0">
             {Math.ceil(currentHp)}/{maxHp}
-            {maxEs > 0 && <span className="text-blue-400 text-[10px]"> ES:{Math.ceil(currentEs)}</span>}
+            {maxEs > 0 && <span className="text-blue-400 text-[11px] ml-1">ES:{Math.ceil(currentEs)}/{maxEs}</span>}
           </span>
         </div>
 

@@ -19,7 +19,7 @@ export default function CraftingScreen() {
   };
 
   return (
-    <div className="space-y-3">
+    <div className="max-w-4xl xl:max-w-7xl mx-auto space-y-3">
       <h2 className="text-lg font-bold text-yellow-400">Crafting</h2>
 
       {/* 5-tab toggle */}
