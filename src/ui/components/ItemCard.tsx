@@ -1,6 +1,35 @@
-import { Item, Affix, Rarity, AffixTier } from '../../types';
+import { Item, Affix, Rarity, AffixTier, ArmorType } from '../../types';
 import { formatAffix, getBestTierForILvl } from '../../engine/items';
 import { slotIcon } from '../slotConfig';
+
+const ARMOR_TYPE_BADGE: Record<ArmorType, { label: string; cls: string }> = {
+  plate:   { label: 'Plate',   cls: 'bg-gray-600 text-gray-200' },
+  leather: { label: 'Leather', cls: 'bg-amber-900 text-amber-200' },
+  cloth:   { label: 'Cloth',   cls: 'bg-purple-900 text-purple-200' },
+};
+
+const WEAPON_TYPE_BADGE: Record<string, { label: string; cls: string }> = {
+  sword:      { label: '1H Sword',      cls: 'bg-red-900 text-red-200' },
+  axe:        { label: '1H Axe',        cls: 'bg-red-900 text-red-200' },
+  mace:       { label: '1H Mace',       cls: 'bg-red-900 text-red-200' },
+  dagger:     { label: '1H Dagger',     cls: 'bg-yellow-900 text-yellow-200' },
+  scepter:    { label: '1H Scepter',    cls: 'bg-yellow-900 text-yellow-200' },
+  wand:       { label: '1H Wand',       cls: 'bg-blue-900 text-blue-200' },
+  gauntlet:   { label: '1H Gauntlet',   cls: 'bg-blue-900 text-blue-200' },
+  greatsword: { label: '2H Greatsword', cls: 'bg-red-900 text-red-200' },
+  greataxe:   { label: '2H Greataxe',   cls: 'bg-red-900 text-red-200' },
+  maul:       { label: '2H Maul',       cls: 'bg-red-900 text-red-200' },
+  bow:        { label: '2H Bow',        cls: 'bg-green-900 text-green-200' },
+  crossbow:   { label: '2H Crossbow',   cls: 'bg-green-900 text-green-200' },
+  staff:      { label: '2H Staff',      cls: 'bg-blue-900 text-blue-200' },
+  tome:       { label: '2H Tome',       cls: 'bg-blue-900 text-blue-200' },
+};
+
+const OFFHAND_TYPE_BADGE: Record<string, { label: string; cls: string }> = {
+  shield: { label: 'Shield', cls: 'bg-gray-600 text-gray-200' },
+  focus:  { label: 'Focus',  cls: 'bg-blue-900 text-blue-200' },
+  quiver: { label: 'Quiver', cls: 'bg-green-900 text-green-200' },
+};
 
 const RARITY_COLORS: Record<Rarity, string> = {
   common: 'border-green-600 bg-green-950',
@@ -68,6 +97,21 @@ export default function ItemCard({ item, onClick, selected, compact }: ItemCardP
         </span>
         {item.isProfessionGear && (
           <span className="text-[9px] px-1 py-0.5 rounded bg-teal-800 text-teal-300 font-bold shrink-0">PROF</span>
+        )}
+        {item.armorType && ARMOR_TYPE_BADGE[item.armorType] && (
+          <span className={`px-1 py-0.5 rounded text-[9px] font-bold leading-none shrink-0 ${ARMOR_TYPE_BADGE[item.armorType].cls}`}>
+            {ARMOR_TYPE_BADGE[item.armorType].label}
+          </span>
+        )}
+        {item.weaponType && WEAPON_TYPE_BADGE[item.weaponType] && (
+          <span className={`px-1 py-0.5 rounded text-[9px] font-bold leading-none shrink-0 ${WEAPON_TYPE_BADGE[item.weaponType].cls}`}>
+            {WEAPON_TYPE_BADGE[item.weaponType].label}
+          </span>
+        )}
+        {item.offhandType && OFFHAND_TYPE_BADGE[item.offhandType] && (
+          <span className={`px-1 py-0.5 rounded text-[9px] font-bold leading-none shrink-0 ${OFFHAND_TYPE_BADGE[item.offhandType].cls}`}>
+            {OFFHAND_TYPE_BADGE[item.offhandType].label}
+          </span>
         )}
       </div>
 

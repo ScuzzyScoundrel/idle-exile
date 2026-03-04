@@ -84,6 +84,29 @@ const ARMOR_TYPE_BADGE: Record<ArmorType, { label: string; cls: string }> = {
   cloth:   { label: 'Cloth',   cls: 'bg-purple-900 text-purple-200' },
 };
 
+const WEAPON_TYPE_BADGE: Record<string, { label: string; cls: string }> = {
+  sword:      { label: '1H Sword',      cls: 'bg-red-900 text-red-200' },
+  axe:        { label: '1H Axe',        cls: 'bg-red-900 text-red-200' },
+  mace:       { label: '1H Mace',       cls: 'bg-red-900 text-red-200' },
+  dagger:     { label: '1H Dagger',     cls: 'bg-yellow-900 text-yellow-200' },
+  scepter:    { label: '1H Scepter',    cls: 'bg-yellow-900 text-yellow-200' },
+  wand:       { label: '1H Wand',       cls: 'bg-blue-900 text-blue-200' },
+  gauntlet:   { label: '1H Gauntlet',   cls: 'bg-blue-900 text-blue-200' },
+  greatsword: { label: '2H Greatsword', cls: 'bg-red-900 text-red-200' },
+  greataxe:   { label: '2H Greataxe',   cls: 'bg-red-900 text-red-200' },
+  maul:       { label: '2H Maul',       cls: 'bg-red-900 text-red-200' },
+  bow:        { label: '2H Bow',        cls: 'bg-green-900 text-green-200' },
+  crossbow:   { label: '2H Crossbow',   cls: 'bg-green-900 text-green-200' },
+  staff:      { label: '2H Staff',      cls: 'bg-blue-900 text-blue-200' },
+  tome:       { label: '2H Tome',       cls: 'bg-blue-900 text-blue-200' },
+};
+
+const OFFHAND_TYPE_BADGE: Record<string, { label: string; cls: string }> = {
+  shield: { label: 'Shield', cls: 'bg-gray-600 text-gray-200' },
+  focus:  { label: 'Focus',  cls: 'bg-blue-900 text-blue-200' },
+  quiver: { label: 'Quiver', cls: 'bg-green-900 text-green-200' },
+};
+
 const AUTO_SALVAGE_OPTIONS: { value: Rarity; label: string }[] = [
   { value: 'common', label: 'None' },
   { value: 'uncommon', label: 'Common' },
@@ -347,6 +370,16 @@ export default function InventoryScreen() {
                 {selectedItem.armorType && ARMOR_TYPE_BADGE[selectedItem.armorType] && (
                   <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold leading-none ${ARMOR_TYPE_BADGE[selectedItem.armorType].cls}`}>
                     {ARMOR_TYPE_BADGE[selectedItem.armorType].label}
+                  </span>
+                )}
+                {selectedItem.weaponType && WEAPON_TYPE_BADGE[selectedItem.weaponType] && (
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold leading-none ${WEAPON_TYPE_BADGE[selectedItem.weaponType].cls}`}>
+                    {WEAPON_TYPE_BADGE[selectedItem.weaponType].label}
+                  </span>
+                )}
+                {selectedItem.offhandType && OFFHAND_TYPE_BADGE[selectedItem.offhandType] && (
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold leading-none ${OFFHAND_TYPE_BADGE[selectedItem.offhandType].cls}`}>
+                    {OFFHAND_TYPE_BADGE[selectedItem.offhandType].label}
                   </span>
                 )}
               </div>
@@ -709,6 +742,16 @@ export default function InventoryScreen() {
                 {item.armorType === 'plate' ? 'P' : item.armorType === 'leather' ? 'L' : 'C'}
               </div>
             )}
+            {item.weaponType && WEAPON_TYPE_BADGE[item.weaponType] && (
+              <div className={`absolute bottom-0 right-0 px-0.5 py-px rounded-tl text-[7px] font-bold z-10 ${WEAPON_TYPE_BADGE[item.weaponType].cls}`}>
+                {WEAPON_TYPE_BADGE[item.weaponType].label}
+              </div>
+            )}
+            {item.offhandType && OFFHAND_TYPE_BADGE[item.offhandType] && (
+              <div className={`absolute bottom-0 right-0 px-0.5 py-px rounded-tl text-[7px] font-bold z-10 ${OFFHAND_TYPE_BADGE[item.offhandType].cls}`}>
+                {OFFHAND_TYPE_BADGE[item.offhandType].label}
+              </div>
+            )}
           </div>
         ))}
         {Array.from({ length: Math.max(0, 10 - filteredInventory.length) }).map((_, i) => (
@@ -812,6 +855,16 @@ export default function InventoryScreen() {
             {tooltip.item.armorType && ARMOR_TYPE_BADGE[tooltip.item.armorType] && (
               <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold leading-none ${ARMOR_TYPE_BADGE[tooltip.item.armorType].cls}`}>
                 {ARMOR_TYPE_BADGE[tooltip.item.armorType].label}
+              </span>
+            )}
+            {tooltip.item.weaponType && WEAPON_TYPE_BADGE[tooltip.item.weaponType] && (
+              <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold leading-none ${WEAPON_TYPE_BADGE[tooltip.item.weaponType].cls}`}>
+                {WEAPON_TYPE_BADGE[tooltip.item.weaponType].label}
+              </span>
+            )}
+            {tooltip.item.offhandType && OFFHAND_TYPE_BADGE[tooltip.item.offhandType] && (
+              <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold leading-none ${OFFHAND_TYPE_BADGE[tooltip.item.offhandType].cls}`}>
+                {OFFHAND_TYPE_BADGE[tooltip.item.offhandType].label}
               </span>
             )}
           </div>
