@@ -3,6 +3,7 @@ import { useGameStore, SELL_GOLD } from '../../store/gameStore';
 import { Item, Affix, GearSlot, CurrencyType, Rarity, StatKey, ArmorType } from '../../types';
 import { CURRENCY_DEFS, BAG_UPGRADE_DEFS, getBagDef, calcBagCapacity } from '../../data/items';
 import { formatAffix, getBestTierForILvl, isUpgradeOver, getComparisonTarget, calcItemStatContribution } from '../../engine/items';
+import { formatCorruptionAffix } from '../../data/corruptionAffixes';
 import { slotLabel, DROPPABLE_SLOTS } from '../slotConfig';
 import { ItemIcon, SlotIcon, getSlotEmoji } from '../itemIcon';
 import { CraftIcon, resolveMaterialMeta } from '../craftIcon';
@@ -695,7 +696,7 @@ export default function InventoryScreen() {
             className={`
               relative aspect-square rounded-lg border-2 cursor-pointer transition-all
               flex items-center justify-center overflow-hidden bg-gray-900
-              ${RARITY_TILE_BORDER[item.rarity]}
+              ${item.isCorrupted ? 'border-purple-500' : RARITY_TILE_BORDER[item.rarity]}
               ${selectedItem?.id === item.id ? 'ring-2 ring-white scale-105' : ''}
               ${selectedCurrency ? 'hover:ring-2 hover:ring-purple-400' : 'hover:brightness-125'}
               ${tutorialStep === 1 && item.slot === 'mainhand' ? 'ring-2 ring-yellow-400 animate-pulse' : ''}
@@ -751,6 +752,12 @@ export default function InventoryScreen() {
               <div className={`absolute bottom-0 right-0 px-0.5 py-px rounded-tl text-[7px] font-bold z-10 ${OFFHAND_TYPE_BADGE[item.offhandType].cls}`}>
                 {OFFHAND_TYPE_BADGE[item.offhandType].label}
               </div>
+            )}
+            {item.isCorrupted && (
+              <div
+                className="absolute bottom-0 left-0 px-0.5 py-px rounded-tr text-[7px] font-bold z-10 bg-purple-800 text-purple-200"
+                title="Void Corrupted"
+              >VOID</div>
             )}
           </div>
         ))}
@@ -842,14 +849,19 @@ export default function InventoryScreen() {
       {tooltip && (
         <div
           ref={tooltipRef}
-          className={`fixed z-[9999] w-64 rounded-lg border p-3 shadow-xl pointer-events-none text-left ${RARITY_TOOLTIP_BG[tooltip.item.rarity]}`}
+          className={`fixed z-[9999] w-64 rounded-lg border p-3 shadow-xl pointer-events-none text-left ${tooltip.item.isCorrupted ? 'bg-purple-950 border-purple-500' : RARITY_TOOLTIP_BG[tooltip.item.rarity]}`}
           style={{
             left: `${tooltipPos.left}px`,
             top: `${tooltipPos.top}px`,
             visibility: tooltipPos.visible ? 'visible' : 'hidden',
           }}
         >
-          <div className="font-bold text-white text-sm">{tooltip.item.name}</div>
+          <div className="font-bold text-white text-sm flex items-center gap-1.5">
+            <span className={tooltip.item.isCorrupted ? 'text-purple-300' : ''}>{tooltip.item.name}</span>
+            {tooltip.item.isCorrupted && (
+              <span className="text-[9px] px-1 py-0.5 rounded bg-purple-800 text-purple-200 font-bold shrink-0">VOID</span>
+            )}
+          </div>
           <div className="text-xs text-gray-400 mb-1.5 flex items-center gap-1 flex-wrap">
             <span>iLvl {tooltip.item.iLvl} • {tooltip.item.rarity} • {slotLabel(tooltip.slot)} • <span className="text-gray-500">T{getBestTierForILvl(tooltip.item.iLvl)}+</span></span>
             {tooltip.item.armorType && ARMOR_TYPE_BADGE[tooltip.item.armorType] && (
@@ -874,6 +886,12 @@ export default function InventoryScreen() {
               {Object.entries(tooltip.item.baseStats).map(([k, v]) => (
                 <span key={k} className="mr-2">{v} base {k}</span>
               ))}
+            </div>
+          )}
+
+          {tooltip.item.implicit && (
+            <div className="text-sm text-purple-400 border-t border-purple-800 pt-1 pb-0.5">
+              {formatCorruptionAffix(tooltip.item.implicit)}
             </div>
           )}
 
@@ -1264,7 +1282,7 @@ function EquipSlotCard({
       className={`
         rounded-lg border-2 p-1.5 cursor-pointer transition-all min-w-0
         flex flex-col items-center justify-center text-center
-        ${RARITY_BG[item.rarity]} ${RARITY_BORDER_RING[item.rarity]}
+        ${item.isCorrupted ? 'bg-purple-950 border-purple-500' : `${RARITY_BG[item.rarity]} ${RARITY_BORDER_RING[item.rarity]}`}
         ${isSelected ? 'ring-2 ring-white scale-105' : ''}
         ${selectedCurrency ? 'hover:ring-2 hover:ring-purple-400' : 'hover:brightness-125'}
       `}
