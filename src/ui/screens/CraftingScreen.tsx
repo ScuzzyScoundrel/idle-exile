@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import MaterialsPanel from '../crafting/MaterialsPanel';
 import RefinePanel from '../crafting/RefinePanel';
-import ComponentCraftPanel from '../crafting/ComponentCraftPanel';
 import CraftPanel from '../crafting/CraftPanel';
+import PatternPanel from '../crafting/PatternPanel';
 import ProfessionGearPanel from '../crafting/ProfessionGearPanel';
 import MaterialDetailModal from '../crafting/MaterialDetailModal';
 
-type SubTab = 'materials' | 'refine' | 'components' | 'craft' | 'gear';
+type SubTab = 'materials' | 'refine' | 'patterns' | 'craft' | 'gear';
 
 export default function CraftingScreen() {
   const tutorialStep = useGameStore((s) => s.tutorialStep);
@@ -27,7 +27,7 @@ export default function CraftingScreen() {
         {([
           { key: 'materials' as const, icon: '\uD83E\uDEA8', label: 'Materials' },
           { key: 'refine' as const, icon: '\u2697\uFE0F', label: 'Refine' },
-          { key: 'components' as const, icon: '\uD83E\uDDE9', label: 'Components' },
+          { key: 'patterns' as const, icon: '\uD83D\uDCDC', label: 'Patterns' },
           { key: 'craft' as const, icon: '\uD83D\uDD28', label: 'Craft' },
           { key: 'gear' as const, icon: '\u2699\uFE0F', label: 'Prof. Gear' },
         ]).map(tab => (
@@ -38,7 +38,7 @@ export default function CraftingScreen() {
               subTab === tab.key
                 ? tab.key === 'craft' ? 'bg-blue-600 text-white'
                   : tab.key === 'refine' ? 'bg-amber-600 text-white'
-                  : tab.key === 'components' ? 'bg-teal-600 text-white'
+                  : tab.key === 'patterns' ? 'bg-yellow-700 text-white'
                   : tab.key === 'gear' ? 'bg-teal-700 text-white'
                   : 'bg-gray-600 text-white'
                 : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
@@ -51,7 +51,7 @@ export default function CraftingScreen() {
 
       {subTab === 'materials' ? <MaterialsPanel onMaterialClick={handleMaterialClick} />
         : subTab === 'refine' ? <RefinePanel />
-        : subTab === 'components' ? <ComponentCraftPanel onMaterialClick={handleMaterialClick} />
+        : subTab === 'patterns' ? <PatternPanel />
         : subTab === 'gear' ? <ProfessionGearPanel />
         : <CraftPanel onMaterialClick={handleMaterialClick} />}
 

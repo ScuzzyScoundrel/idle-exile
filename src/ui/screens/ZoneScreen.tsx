@@ -14,6 +14,7 @@ import { getEquippedWeaponType } from '../../engine/items';
 import { getUnlockedSlotCount } from '../../engine/unifiedSkills';
 import { WeaponType } from '../../types';
 import { getRareMaterialDef } from '../../data/rareMaterials';
+import { getPatternDef } from '../../data/craftingPatterns';
 import { BOSS_INTERVAL, ZONE_ATTACK_INTERVAL, MASTERY_MILESTONES } from '../../data/balance';
 import { getZoneMobTypes, getMobTypeDef } from '../../data/mobTypes';
 import DailyQuestPanel from '../components/DailyQuestPanel';
@@ -170,6 +171,7 @@ interface SessionSummary {
   itemsSalvaged: number;
   dustEarned: number;
   gatheringXp: number;
+  patternDrops: string[];
 }
 
 function emptySession(): SessionSummary {
@@ -183,6 +185,7 @@ function emptySession(): SessionSummary {
     itemsSalvaged: 0,
     dustEarned: 0,
     gatheringXp: 0,
+    patternDrops: [],
   };
 }
 
@@ -214,6 +217,10 @@ function accumulateSession(session: SessionSummary, result: ProcessClearsResult,
   s.itemsByRarity = { ...s.itemsByRarity };
   for (const it of result.items) {
     s.itemsByRarity[it.rarity] = (s.itemsByRarity[it.rarity] || 0) + 1;
+  }
+
+  if (result.patternDrops && result.patternDrops.length > 0) {
+    s.patternDrops = [...s.patternDrops, ...result.patternDrops];
   }
 
   return s;
@@ -1759,6 +1766,23 @@ export default function ZoneScreen() {
                       return (
                         <span key={matId} className={`bg-gray-800/80 border ${rarityBorder} rounded-md px-2 py-1 text-xs ${rarityColor} animate-pulse`}>
                           {def?.icon ?? ''} {def?.name ?? matId.replace(/_/g, ' ')} <span className="text-white font-semibold">x{count}</span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Patterns Found — purple/gold highlight */}
+              {session.patternDrops.length > 0 && (
+                <div>
+                  <div className="text-xs text-yellow-400 font-semibold mb-1">Patterns Found</div>
+                  <div className="flex flex-wrap gap-1">
+                    {session.patternDrops.map((patId, idx) => {
+                      const patDef = getPatternDef(patId);
+                      return (
+                        <span key={`${patId}-${idx}`} className="bg-yellow-900/30 border border-yellow-600/50 rounded-md px-2 py-1 text-xs text-yellow-300 animate-pulse">
+                          📜 {patDef?.name ?? patId}
                         </span>
                       );
                     })}

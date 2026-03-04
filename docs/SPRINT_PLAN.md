@@ -1,7 +1,7 @@
 # Idle Exile — Sprint Plan & Roadmap
 
 > **Full development roadmap.** Read `PROJECT_STATUS.md` first for current state.
-> Last updated: 2026-03-02 (Post-Sprint 11B-Polish)
+> Last updated: 2026-03-04 (Post-Sprint: Crafting Overhaul)
 
 ## Micro-Sprint Workflow
 
@@ -70,6 +70,9 @@ Each conversation = one micro-sprint (3-5 focused changes):
 | **11A** | **Class Talent Trees: 4 classes x 3 paths x 8 nodes = 96 talent nodes, keystones, ClassTalentPanel UI** |
 | **11B** | **Per-Skill Graph Trees (Wand): 9 wand skills x ~35 nodes, SkillModifier system, debuffs, element/AoE conversion, SkillGraphView** |
 | **11B-Polish** | **Skill Graph — Cooler Nodes + Better UX: cross-skill globalEffect on keystones, 2-stat minor combos, select-then-allocate, mobile branch path view, SVG visual polish** |
+| **CL Synergy** | **CL Skill Tree Redesign: 51→15 nodes, 3 cross-skill synergy branches, onDodge/onBlock procs** |
+| **Zone Progression** | **Zone unlock chain (boss kill gate), mastery milestones (3 tiers), void invasions (corrupted items, invasion mobs)** |
+| **Crafting Overhaul** | **Pattern-based crafting (35 patterns, zone/boss/invasion drops), milestone rework (+charges), PatternPanel UI, v40 migration** |
 
 See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
 
@@ -404,18 +407,8 @@ See `COMBAT_OVERHAUL.md` for detailed checklist.
 ## PHASE 5: NEW FEATURES
 
 ### Sprint 11A: Zone Mastery System
-**Status:** NOT STARTED
-**Files:** `types/index.ts`, `data/zones.ts`, `engine/zones.ts`, `store/gameStore.ts`, `ui/screens/ZoneScreen.tsx`
-
-1. **5-stage zone mastery**
-   - Track clears per zone (combat) and gathers per zone (gathering) separately
-   - Mastery tiers at 10/50/200/500/1000 completions
-   - Each tier: +X% drop rate, +Y% material yield, +Z% rare find for that zone
-   - Show mastery progress on zone cards
-
-2. **Mastery rewards**
-   - Cosmetic badge upgrades (bronze -> silver -> gold -> platinum -> diamond)
-   - Small permanent bonuses per zone
+**Status:** ABSORBED INTO Zone Progression Sprint
+**Note:** Implemented as 3-tier system (Bronze 25 / Silver 100 / Gold 500) instead of original 5-tier (10/50/200/500/1000). Added one-time rewards (gold + XP + item) and permanent zone bonuses (+5%/+10%/+15% drop rate & material yield). See Zone Progression sprint in `PROJECT_STATUS.md` for full details.
 
 ### Sprint 11B: Mob Loot Tables & Zone Identity
 **Status:** NOT STARTED

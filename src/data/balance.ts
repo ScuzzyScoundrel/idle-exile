@@ -424,6 +424,33 @@ export const PROFESSION_GEAR_AFFIX_COUNT = 4;
 export const MAX_GOLD_EFFICIENCY = 0.50;
 
 // =============================================
+// CRAFTING PATTERNS
+// =============================================
+
+/** Chance per zone clear to drop a crafting pattern, by band. */
+export const PATTERN_DROP_CHANCE_PER_BAND: Record<number, number> = {
+  1: 0.005, 2: 0.006, 3: 0.008,
+};
+
+/** Chance per boss kill to drop a crafting pattern, by band. */
+export const BOSS_PATTERN_DROP_CHANCE: Record<number, number> = {
+  1: 0.05, 2: 0.06, 3: 0.08,
+};
+
+/** Bonus drop chance for patterns during void invasions. */
+export const INVASION_PATTERN_DROP_BONUS = 0.03;
+
+/** Charge ranges for patterns by source type. */
+export const PATTERN_CHARGES: Record<string, { min: number; max: number }> = {
+  zone_drop: { min: 3, max: 6 },
+  boss_drop: { min: 5, max: 10 },
+  invasion_drop: { min: 3, max: 8 },
+};
+
+/** Patterns give 2x crafting XP. */
+export const PATTERN_XP_MULT = 2.0;
+
+// =============================================
 // ZONE MASTERY MILESTONES
 // =============================================
 

@@ -1,7 +1,6 @@
 import { ZONE_DEFS } from './zones';
 import { ZONE_MOB_TYPES } from './mobTypes';
 import { REFINEMENT_RECIPES } from './refinement';
-import { COMPONENT_RECIPES } from './componentRecipes';
 import { CRAFTING_RECIPES } from './craftingRecipes';
 
 export interface MaterialTraceInfo {
@@ -12,13 +11,13 @@ export interface MaterialTraceInfo {
   usedInRecipes: {
     name: string;
     id: string;
-    type: 'refine' | 'component' | 'gear';
+    type: 'refine' | 'gear';
     profession?: string;
   }[];
   producedByRecipes: {
     name: string;
     id: string;
-    type: 'refine' | 'component' | 'gear';
+    type: 'refine' | 'gear';
   }[];
 }
 
@@ -62,27 +61,10 @@ for (const r of REFINEMENT_RECIPES) {
   }
 }
 
-// Component recipes consume fixed materials + mob drops
-for (const r of COMPONENT_RECIPES) {
-  for (const { materialId } of r.materials) {
-    addUsedIn(materialId, { name: r.name, id: r.id, type: 'component', profession: r.profession });
-  }
-  if (r.mobDropChoice) {
-    for (const dropId of r.mobDropChoice.anyOf) {
-      addUsedIn(dropId, { name: r.name, id: r.id, type: 'component', profession: r.profession });
-    }
-  }
-}
-
-// Gear/material recipes consume refined materials, components, catalysts
+// Gear/material recipes consume refined materials, catalysts
 for (const r of CRAFTING_RECIPES) {
   for (const { materialId } of r.materials) {
     addUsedIn(materialId, { name: r.name, id: r.id, type: 'gear', profession: r.profession });
-  }
-  if (r.componentCost) {
-    for (const { materialId } of r.componentCost) {
-      addUsedIn(materialId, { name: r.name, id: r.id, type: 'gear', profession: r.profession });
-    }
   }
   if (r.requiredCatalyst) {
     addUsedIn(r.requiredCatalyst.rareMaterialId, { name: r.name, id: r.id, type: 'gear', profession: r.profession });
@@ -99,10 +81,6 @@ function addProducedBy(matId: string, entry: MaterialTraceInfo['producedByRecipe
 
 for (const r of REFINEMENT_RECIPES) {
   addProducedBy(r.outputId, { name: r.outputName, id: r.id, type: 'refine' });
-}
-
-for (const r of COMPONENT_RECIPES) {
-  addProducedBy(r.outputMaterialId, { name: r.name, id: r.id, type: 'component' });
 }
 
 for (const r of CRAFTING_RECIPES) {

@@ -5,7 +5,6 @@ import { getRareMaterialDef } from '../../data/rareMaterials';
 import { CATALYST_RARITY_MAP, CATALYST_BEST_TIER } from '../../data/balance';
 import { ZONE_DEFS } from '../../data/zones';
 import { ITEM_BASE_DEFS } from '../../data/items';
-import { isComponentMaterial, getComponentMeta } from '../../data/componentRecipes';
 import type { CraftingRecipeDef, RefinementTrack } from '../../types';
 
 // Build track lookups from refinement recipes (static, computed once)
@@ -26,21 +25,11 @@ for (const zone of ZONE_DEFS) {
 }
 
 export function formatMatName(id: string): string {
-  if (isComponentMaterial(id)) {
-    const meta = getComponentMeta(id);
-    if (meta) return meta.name;
-  }
   return id.replace(/_/g, ' ');
 }
 
 /** Generate tooltip text for a material. */
 export function getMatTooltip(id: string): string | null {
-  // Component material
-  if (isComponentMaterial(id)) {
-    const meta = getComponentMeta(id);
-    if (meta) return `${meta.name} (${meta.variant}, Band ${meta.band}). Used in ${meta.profession} gear recipes.`;
-  }
-
   // Affix catalyst
   const affixDef = AFFIX_CATALYST_DEFS.find(d => d.id === id);
   if (affixDef) {
@@ -83,7 +72,6 @@ export function getMatTooltip(id: string): string | null {
 
 /** Material icon lookup from refinement track */
 export function getMatIcon(matId: string): string {
-  if (isComponentMaterial(matId)) return '\uD83E\uDDE9';
   const track = rawToTrack.get(matId) ?? refinedToTrack.get(matId);
   if (track) {
     const td = REFINEMENT_TRACK_DEFS.find(t => t.id === track);

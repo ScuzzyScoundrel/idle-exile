@@ -29,7 +29,7 @@ export default function CraftLog() {
             <div key={entry.id} className="flex items-center gap-1.5 text-xs">
               <span className="text-gray-600 w-10 shrink-0 text-right">{ago}</span>
               <span className="text-gray-500">
-                {entry.type === 'refine' ? '\u2697\uFE0F' : entry.type === 'component' ? '\uD83E\uDDE9' : '\uD83D\uDD28'}
+                {entry.type === 'refine' ? '\u2697\uFE0F' : entry.type === 'pattern' ? '\uD83D\uDCDC' : '\uD83D\uDD28'}
               </span>
               <span className={rarityClass}>
                 {entry.count > 1 ? `${entry.count}x ` : ''}{entry.itemName ?? entry.recipeName}

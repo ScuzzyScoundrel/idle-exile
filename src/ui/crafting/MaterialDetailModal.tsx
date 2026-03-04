@@ -124,13 +124,11 @@ function Section({ title, icon, children }: { title: string; icon: string; child
 
 function typeIcon(type: string): string {
   if (type === 'refine') return '\u2697\uFE0F';
-  if (type === 'component') return '\uD83E\uDDE9';
   return '\uD83D\uDD28';
 }
 
 function typeColor(type: string): string {
   if (type === 'refine') return 'text-amber-400';
-  if (type === 'component') return 'text-teal-400';
   return 'text-blue-400';
 }
 

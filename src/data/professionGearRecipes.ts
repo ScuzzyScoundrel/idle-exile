@@ -1,52 +1,19 @@
-import type { CraftingRecipeDef, CraftingProfession } from '../types';
+import type { CraftingRecipeDef } from '../types';
 
 // ─── Profession Gear Tier Constants ─────────────────────────────────
 // Lower costs (~60% of regular gear) since these are profession tools, not combat gear.
-// Gold:   T1=8,  T2=20,  T3=30,  T4=55,   T5=150,  T6=400
+// Gold:   T1=0,  T2=0,   T3=0,   T4=10,   T5=30,   T6=75
 // iLvl:   T1=5,  T2=15,  T3=25,  T4=35,   T5=45,   T6=55
 // Level:  T1=1,  T2=5,   T3=10,  T4=20,   T5=35,   T6=50
 
 const PROF_TIER = [
-  { tier: 1, reqLevel: 1,  iLvl: 5,  gold: 8   },
-  { tier: 2, reqLevel: 5,  iLvl: 15, gold: 20  },
-  { tier: 3, reqLevel: 10, iLvl: 25, gold: 30  },
-  { tier: 4, reqLevel: 20, iLvl: 35, gold: 55  },
-  { tier: 5, reqLevel: 35, iLvl: 45, gold: 150 },
-  { tier: 6, reqLevel: 50, iLvl: 55, gold: 400 },
+  { tier: 1, reqLevel: 1,  iLvl: 5,  gold: 0  },
+  { tier: 2, reqLevel: 5,  iLvl: 15, gold: 0  },
+  { tier: 3, reqLevel: 10, iLvl: 25, gold: 0  },
+  { tier: 4, reqLevel: 20, iLvl: 35, gold: 10 },
+  { tier: 5, reqLevel: 35, iLvl: 45, gold: 30 },
+  { tier: 6, reqLevel: 50, iLvl: 55, gold: 75 },
 ] as const;
-
-// ─── Component Cost Helper ──────────────────────────────────────────
-// Profession short-codes for component material IDs.
-const PROF_CODE: Record<string, string> = {
-  armorer: 'ar',
-  leatherworker: 'lw',
-  tailor: 'ta',
-  weaponsmith: 'ws',
-};
-
-/**
- * Component costs for profession gear recipes.
- * T1: none | T2: 1 general | T3: 1 general | T4: 1 general + 1 specialist
- * T5: 2 specialist | T6: 2 specialist + 1 general
- */
-function getProfComponentCost(
-  tier: number,
-  profession: CraftingProfession,
-): { materialId: string; amount: number }[] | undefined {
-  if (tier <= 1) return undefined;
-  const code = PROF_CODE[profession];
-  const gen = `comp_${code}_b${tier}_general`;
-  const spec = `comp_${code}_b${tier}_specialist`;
-
-  switch (tier) {
-    case 2: return [{ materialId: gen, amount: 1 }];
-    case 3: return [{ materialId: gen, amount: 1 }];
-    case 4: return [{ materialId: gen, amount: 1 }, { materialId: spec, amount: 1 }];
-    case 5: return [{ materialId: spec, amount: 2 }];
-    case 6: return [{ materialId: spec, amount: 2 }, { materialId: gen, amount: 1 }];
-    default: return undefined;
-  }
-}
 
 // ─── Material Definitions Per Profession ────────────────────────────
 // Each entry is [tier-index] => array of { materialId, amount } pairs.
@@ -106,7 +73,7 @@ const SLOT_NAMES: Record<string, string[]> = {
 
 interface SlotConfig {
   slot: string;
-  profession: CraftingProfession;
+  profession: string;
   mats: MatRow[];
 }
 
@@ -117,11 +84,10 @@ function generateProfGearRecipes(configs: SlotConfig[]): CraftingRecipeDef[] {
     const names = SLOT_NAMES[slot];
     for (let ti = 0; ti < 6; ti++) {
       const tc = PROF_TIER[ti];
-      const componentCost = getProfComponentCost(tc.tier, profession);
 
       recipes.push({
         id: `prof_${slot}_t${tc.tier}`,
-        profession,
+        profession: profession as CraftingRecipeDef['profession'],
         name: names[ti],
         tier: tc.tier,
         requiredLevel: tc.reqLevel,
@@ -131,7 +97,6 @@ function generateProfGearRecipes(configs: SlotConfig[]): CraftingRecipeDef[] {
         outputILvl: tc.iLvl,
         isProfessionGear: true,
         catalystSlot: true,
-        ...(componentCost ? { componentCost } : {}),
       });
     }
   }

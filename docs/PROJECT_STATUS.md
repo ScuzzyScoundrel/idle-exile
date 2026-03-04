@@ -1,10 +1,35 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-03 (Post-Sprint: CL Cross-Skill Synergy Redesign)
+> Last updated: 2026-03-04 (Post-Sprint: Crafting Overhaul)
 
 ## Current Phase
-**Sprint: Chain Lightning Skill Tree Redesign — Cross-Skill Synergy** — COMPLETE.
+**Sprint: Crafting Overhaul** — COMPLETE.
+
+- **Purpose**: Replace the component-crafting system with a pattern-based system. Patterns drop from zone clears, boss kills, and void invasions. Each pattern guarantees specific affixes and minimum rarity, consuming charges on use. Milestone rework ties profession leveling to pattern bonuses.
+- **6 phases**:
+  - **Phase 1 (Remove Components)**: Done in previous session — removed component recipes, panels, and store actions.
+  - **Phase 2 (Reduce Gold Costs)**: Done in previous session — rebalanced crafting gold costs.
+  - **Phase 3 (Crafting Patterns)**: Data definitions (35 patterns across zone/boss/invasion sources, bands 1-3), engine functions (`canCraftPattern`, `executePatternCraft`, `getPatternMaterialCost`), drop integration in `simulateSingleClear` and `processNewClears`/`handleBossVictory`, invasion bonus drops, PatternPanel UI, session summary notifications.
+  - **Phase 4 (Milestone Rework)**: Level 10 milestone changed from `-10% gold cost` to `+1 pattern charge`. Level 100 mastery now includes `+3 pattern charges`. Bonus charges applied when patterns are created.
+  - **Phase 5 (Save Migration v40)**: Removes `comp_*` materials from inventory, initializes `ownedPatterns: []`.
+- **New files**: `src/data/craftingPatterns.ts`, `src/ui/crafting/PatternPanel.tsx`
+- **Modified files**: `src/types/index.ts`, `src/data/balance.ts`, `src/data/craftingProfessions.ts`, `src/engine/zones.ts`, `src/engine/craftingProfessions.ts`, `src/store/gameStore.ts`, `src/ui/screens/CraftingScreen.tsx`, `src/ui/screens/ZoneScreen.tsx`
+- **Save version**: v39 → v40
+- **Next**: TBD
+
+**Previous: Sprint: Zone Progression** — COMPLETE.
+
+- **Purpose**: Zones within a band felt interchangeable — no gating, no farming rewards, no dynamic events. This sprint added three systems to give zones identity and progression.
+- **3 features**:
+  - **Zone Unlock Chain**: Boss kill gating via `bossKillCounts` + "Defeat the boss of X to unlock" text. Players must beat a zone's boss before progressing to the next zone in a band.
+  - **Zone Mastery Milestones**: 3 tiers (Bronze 25 / Silver 100 / Gold 500 clears). One-time rewards (gold + XP + item) per tier. Permanent zone bonuses (+5% / +10% / +15% drop rate & material yield). Trophy UI on zone cards.
+  - **Void Invasions**: Random 30-60min events, 30min cooldown per band. Invasion mobs (1.5x HP + 1.3x difficulty mult). 25% corruption chance on drops. Purple glow + timer UI. InvasionTracker panel with "Summon Void" button.
+- **New files**: `src/data/corruptionAffixes.ts`, `src/data/invasionMobs.ts`, `src/engine/invasions.ts`
+- **Modified files**: `src/types/index.ts`, `src/data/balance.ts`, `src/engine/zones.ts`, `src/store/gameStore.ts`, `src/ui/screens/ZoneScreen.tsx`, `src/ui/components/ItemCard.tsx`, `src/index.css`
+- **Save version**: v38 → v39
+
+**Previous: Sprint: Chain Lightning Skill Tree Redesign — Cross-Skill Synergy** — COMPLETE.
 
 - **Purpose**: Replace the self-contained 51-node CL damage tree with a 15-node rotation engine. CL weaker solo, but creates conditions/triggers that make companion skills matter. Sets the design template for ALL future skill trees.
 - **Tree redesign**: 51 nodes / 5 branches / 20 maxPoints → 19 nodes (15 + start + 3 bridges) / 3 branches / 10 maxPoints.
@@ -16,7 +41,6 @@
 - **Save migration v36**: Resets CL `allocatedNodes` (node IDs changed). Players keep XP/level.
 - **Save version**: v35 → v36
 - **Files modified**: `src/data/skillGraphs/wand.ts` (complete CL tree rewrite), `src/store/gameStore.ts` (onDodge/onBlock procs + save migration v36), `docs/PROJECT_STATUS.md`, `docs/SKILL_TREE_DESIGN.md`
-- **Next**: TBD — Apply cross-skill synergy pattern to more skill trees, balance tuning, or UI work.
 
 **Previous: Sprint: Combat Status Feedback — Debuff Badges + Fortify Indicators** — COMPLETE.
 

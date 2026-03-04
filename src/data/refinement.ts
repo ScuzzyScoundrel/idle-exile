@@ -24,7 +24,7 @@ export const REFINEMENT_TRACK_DEFS: RefinementTrackDef[] = [
 // ---------------------------------------------------------------------------
 
 const GOLD_COST: Record<number, number> = {
-  1: 5, 2: 15, 3: 30, 4: 60, 5: 100, 6: 200,
+  1: 0, 2: 0, 3: 0, 4: 10, 5: 25, 6: 50,
 };
 
 const RAW_AMOUNT = 5;

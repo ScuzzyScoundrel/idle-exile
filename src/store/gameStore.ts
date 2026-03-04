@@ -40,11 +40,12 @@ import { getAbilityDef } from '../data/unifiedSkills';
 import { ZONE_DEFS } from '../data/zones';
 import { BAG_UPGRADE_DEFS, getBagDef, calcBagCapacity, BAG_SLOT_COUNT } from '../data/items';
 import { addGatheringXp, calcGatherClearTime, createDefaultGatheringSkills, canGatherInZone } from '../engine/gathering';
-import { createDefaultCraftingSkills } from '../data/craftingProfessions';
+import { createDefaultCraftingSkills, CRAFTING_MILESTONES } from '../data/craftingProfessions';
 import { calcRareFindBonus } from '../engine/rareMaterials';
 import { canRefine, refine, canDeconstruct, deconstruct } from '../engine/refinement';
-import { canCraftRecipe, executeCraft, addCraftingXp, getCraftingXpForTier } from '../engine/craftingProfessions';
-import { CRAFT_OUTPUT_BUFFER_SIZE, CRAFT_LOG_MAX_ENTRIES, MAX_GOLD_EFFICIENCY } from '../data/balance';
+import { canCraftRecipe, executeCraft, addCraftingXp, getCraftingXpForTier, canCraftPattern, executePatternCraft, getPatternMaterialCost } from '../engine/craftingProfessions';
+import { CRAFT_OUTPUT_BUFFER_SIZE, CRAFT_LOG_MAX_ENTRIES, MAX_GOLD_EFFICIENCY, BOSS_PATTERN_DROP_CHANCE, INVASION_PATTERN_DROP_BONUS, PATTERN_CHARGES, CRAFTING_XP_PER_TIER } from '../data/balance';
+import { getPatternDef, rollPatternDrop } from '../data/craftingPatterns';
 import { resolveProfessionBonuses } from '../engine/professionBonuses';
 import { REFINEMENT_RECIPES } from '../data/refinement';
 import { getCraftingRecipe } from '../data/craftingRecipes';
@@ -83,6 +84,17 @@ const INITIAL_CURRENCIES: Record<CurrencyType, number> = {
   perfect_exalt: 0,
   socket: 0,
 };
+
+/** Calculate bonus pattern charges from crafting milestones for a profession. */
+function getPatternChargeBonus(craftingSkills: import('../types').CraftingSkills, profession: import('../types').CraftingProfession): number {
+  const level = craftingSkills[profession].level;
+  let bonus = 0;
+  for (const m of CRAFTING_MILESTONES) {
+    if (level >= m.level && m.type === 'pattern_bonus') bonus += m.value;
+    if (level >= m.level && m.type === 'mastery') bonus += 3; // mastery grants +3 pattern charges
+  }
+  return bonus;
+}
 
 /** Pick the mob currently being fought: targeted mob or weighted random from zone. */
 function pickCurrentMob(zoneId: string, targetedMobId: string | null): string | null {
@@ -224,6 +236,7 @@ export interface ProcessClearsResult {
   autoSoldCount: number;
   autoSoldGold: number;
   rareMaterialDrops?: Record<string, number>;
+  patternDrops?: string[];
   // Gathering-specific fields
   gatheringXpGained?: number;
 }
@@ -422,6 +435,9 @@ interface GameActions {
 
   // Tutorial
   advanceTutorial: (step: number) => void;
+
+  // Pattern crafting
+  craftFromPattern: (patternIndex: number) => { item: Item; wasSalvaged: boolean } | null;
 
   // Settings
   setAutoSalvageRarity: (rarity: Rarity) => void;
@@ -936,6 +952,8 @@ export const useGameStore = create<GameState & GameActions>()(
         const zoneInvaded = isZoneInvaded(state.invasionState, zoneId, zone.band);
         const invasionMobs = zoneInvaded ? getInvasionMobs(zone.band) : [];
 
+        const accPatternDrops: string[] = [];
+
         const accMobKills: Record<string, number> = {};
         for (let i = 0; i < totalClears; i++) {
           // Use currentMobTypeId so drops come from the mob actually being fought
@@ -976,6 +994,20 @@ export const useGameStore = create<GameState & GameActions>()(
           }
           if (clear.mobTypeId) {
             accMobKills[clear.mobTypeId] = (accMobKills[clear.mobTypeId] || 0) + 1;
+          }
+
+          // Pattern drops: zone clear roll (already done in simulateSingleClear)
+          if (clear.patternDrop) {
+            accPatternDrops.push(clear.patternDrop);
+          }
+
+          // During invasions: extra chance for invasion-source pattern
+          if (zoneInvaded) {
+            const invasionPatternChance = INVASION_PATTERN_DROP_BONUS;
+            if (Math.random() < invasionPatternChance) {
+              const invPattern = rollPatternDrop(zone.band, 'invasion_drop');
+              if (invPattern) accPatternDrops.push(invPattern.id);
+            }
           }
         }
 
@@ -1102,6 +1134,17 @@ export const useGameStore = create<GameState & GameActions>()(
           newFastestClears[zoneId] = newClearTime;
         }
 
+        // Create OwnedPattern entries from pattern drops
+        const newOwnedPatterns = [...state.ownedPatterns];
+        for (const patId of accPatternDrops) {
+          const patDef = getPatternDef(patId);
+          if (!patDef) continue;
+          const chargeRange = PATTERN_CHARGES[patDef.source] ?? { min: 3, max: 6 };
+          const bonusCharges = getPatternChargeBonus(state.craftingSkills, patDef.profession);
+          const charges = chargeRange.min + Math.floor(Math.random() * (chargeRange.max - chargeRange.min + 1)) + bonusCharges;
+          newOwnedPatterns.push({ defId: patId, charges, discoveredAt: Date.now() });
+        }
+
         // Apply mastery XP to character if any milestones were claimed
         const masteryCharUpdate: Partial<GameState> = {};
         if (masteryXp > 0) {
@@ -1130,6 +1173,7 @@ export const useGameStore = create<GameState & GameActions>()(
           totalZoneClears: newTotalZoneClears,
           zoneMasteryClaimed: newZoneMasteryClaimed,
           dailyQuests: { ...state.dailyQuests, progress: questProgress },
+          ownedPatterns: newOwnedPatterns,
         });
 
         return {
@@ -1142,6 +1186,7 @@ export const useGameStore = create<GameState & GameActions>()(
           goldGained: accGold + autoSoldGold,
           autoSoldCount,
           autoSoldGold,
+          patternDrops: accPatternDrops,
         };
       },
 
@@ -3251,6 +3296,25 @@ export const useGameStore = create<GameState & GameActions>()(
         const newBossKillCounts = { ...state.bossKillCounts };
         newBossKillCounts[state.currentZoneId] = (newBossKillCounts[state.currentZoneId] || 0) + 1;
 
+        // Roll for boss pattern drop
+        const bossPatternDrops: string[] = [];
+        const bossPatChance = BOSS_PATTERN_DROP_CHANCE[zone.band] ?? 0;
+        if (bossPatChance > 0 && Math.random() < bossPatChance) {
+          const pat = rollPatternDrop(zone.band, 'boss_drop');
+          if (pat) bossPatternDrops.push(pat.id);
+        }
+
+        // Create OwnedPattern entries from boss pattern drops
+        const newOwnedPatterns = [...state.ownedPatterns];
+        for (const patId of bossPatternDrops) {
+          const patDef = getPatternDef(patId);
+          if (!patDef) continue;
+          const chargeRange = PATTERN_CHARGES[patDef.source] ?? { min: 5, max: 10 };
+          const bonusCharges = getPatternChargeBonus(state.craftingSkills, patDef.profession);
+          const charges = chargeRange.min + Math.floor(Math.random() * (chargeRange.max - chargeRange.min + 1)) + bonusCharges;
+          newOwnedPatterns.push({ defId: patId, charges, discoveredAt: Date.now() });
+        }
+
         // Update daily quest progress for boss kill
         const bossQuestProgress = updateQuestProgressForBossKill(
           state.dailyQuests.quests, state.dailyQuests.progress, state.currentZoneId,
@@ -3265,6 +3329,7 @@ export const useGameStore = create<GameState & GameActions>()(
           zoneClearCounts: newZoneClearCounts,
           bossKillCounts: newBossKillCounts,
           dailyQuests: { ...state.dailyQuests, progress: bossQuestProgress },
+          ownedPatterns: newOwnedPatterns,
         });
 
         return {
@@ -3277,6 +3342,7 @@ export const useGameStore = create<GameState & GameActions>()(
           goldGained: bossAutoSoldGold,
           autoSoldCount: bossAutoSoldCount,
           autoSoldGold: bossAutoSoldGold,
+          patternDrops: bossPatternDrops,
         };
       },
 
@@ -3399,6 +3465,91 @@ export const useGameStore = create<GameState & GameActions>()(
         set({ craftAutoSalvageMinRarity: rarity });
       },
 
+      // --- Pattern Crafting ---
+      craftFromPattern: (patternIndex: number) => {
+        const state = get();
+        const owned = state.ownedPatterns[patternIndex];
+        if (!owned) return null;
+        const patDef = getPatternDef(owned.defId);
+        if (!patDef) return null;
+
+        // Validate
+        if (!canCraftPattern(patDef, owned.charges, state.craftingSkills, state.materials, state.gold)) return null;
+
+        const cost = getPatternMaterialCost(patDef);
+        if (!cost) return null;
+
+        // Resolve profession bonuses
+        const profBonuses = resolveProfessionBonuses(state.professionEquipment);
+
+        // Consume materials (with material preservation chance)
+        const newMaterials = { ...state.materials };
+        for (const { materialId, amount } of cost.materials) {
+          let consumed = 0;
+          for (let j = 0; j < amount; j++) {
+            if (Math.random() >= profBonuses.materialSave / 100) consumed++;
+          }
+          newMaterials[materialId] = (newMaterials[materialId] ?? 0) - consumed;
+        }
+
+        // Gold cost with reduction
+        const goldCost = Math.max(0, Math.round(cost.goldCost * (1 - Math.min(profBonuses.goldEfficiency / 100, MAX_GOLD_EFFICIENCY))));
+        const newGold = state.gold - goldCost;
+
+        // Generate item
+        const item = executePatternCraft(patDef);
+
+        // Award XP: base tier XP × pattern xpMult (with profession gear bonus)
+        const baseXp = CRAFTING_XP_PER_TIER[patDef.band] ?? 15;
+        const xp = Math.round(baseXp * patDef.xpMult * (1 + profBonuses.craftXp / 100));
+        const newCraftingSkills = addCraftingXp(state.craftingSkills, patDef.profession, xp);
+
+        // Decrement charges; remove pattern if exhausted
+        const newOwnedPatterns = [...state.ownedPatterns];
+        const newCharges = owned.charges - 1;
+        if (newCharges <= 0) {
+          newOwnedPatterns.splice(patternIndex, 1);
+        } else {
+          newOwnedPatterns[patternIndex] = { ...owned, charges: newCharges };
+        }
+
+        // Place in output buffer
+        const currentBuffer = [...state.craftOutputBuffer];
+        let wasSalvaged = false;
+        let currentInventory = [...state.inventory];
+        if (currentBuffer.length < CRAFT_OUTPUT_BUFFER_SIZE) {
+          currentBuffer.push(item);
+        } else {
+          const { newInventory: ni, newMaterials: mi, salvageStats: si } = addItemsWithOverflow(
+            currentInventory,
+            getInventoryCapacity(state),
+            state.craftAutoSalvageMinRarity,
+            'salvage',
+            newMaterials,
+            [item],
+          );
+          if (si.itemsSalvaged > 0) wasSalvaged = true;
+          for (const [k, v] of Object.entries(mi)) newMaterials[k] = v;
+          currentInventory = ni;
+        }
+
+        set({
+          materials: newMaterials,
+          gold: newGold,
+          craftingSkills: newCraftingSkills,
+          ownedPatterns: newOwnedPatterns,
+          craftOutputBuffer: currentBuffer,
+          inventory: currentInventory,
+        });
+
+        get().addCraftLogEntry({
+          type: 'pattern', recipeName: patDef.name, count: 1, xpGained: xp,
+          profession: patDef.profession, itemName: item.name, itemRarity: item.rarity, wasSalvaged,
+        });
+
+        return { item, wasSalvaged };
+      },
+
       // --- Daily Quests ---
       tickInvasions: () => {
         const state = get();
@@ -3509,7 +3660,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 39,
+      version: 40,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -4200,6 +4351,15 @@ export const useGameStore = create<GameState & GameActions>()(
             else if (count >= 25) claimed[zoneId] = 25;
           }
           raw.zoneMasteryClaimed = claimed;
+        }
+
+        if (version < 40) {
+          // v40: Crafting patterns — remove component materials, init pattern inventory
+          const mats = (raw.materials ?? {}) as Record<string, number>;
+          for (const key of Object.keys(mats)) {
+            if (key.startsWith('comp_')) delete mats[key];
+          }
+          raw.ownedPatterns = [];
         }
 
         if (version < 37) {

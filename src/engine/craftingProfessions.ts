@@ -3,7 +3,7 @@
 // Pure functions: no React, no side effects, no DOM.
 // ============================================================
 
-import type { CraftingSkills, CraftingProfession, CraftingRecipeDef, CraftingMilestone, Item, Rarity, RareMaterialRarity, AffixTier } from '../types';
+import type { CraftingSkills, CraftingProfession, CraftingRecipeDef, CraftingMilestone, CraftingPatternDef, Item, Rarity, RareMaterialRarity, AffixTier } from '../types';
 import { CRAFTING_MILESTONES } from '../data/craftingProfessions';
 import { CRAFTING_XP_PER_TIER, CATALYST_RARITY_MAP, CATALYST_BEST_TIER, CATALYST_ILVL_BONUS } from '../data/balance';
 import { generateItem, generateGatheringItem, generateProfessionItem, rollAffixValue, classifyRarity, buildItemName, getAffixDef } from './items';
@@ -71,13 +71,6 @@ export function canCraftRecipe(
   // Check required catalyst (for unique recipes)
   if (recipe.requiredCatalyst) {
     if ((materials[recipe.requiredCatalyst.rareMaterialId] ?? 0) < recipe.requiredCatalyst.amount) return false;
-  }
-
-  // Check component cost
-  if (recipe.componentCost) {
-    for (const { materialId, amount } of recipe.componentCost) {
-      if ((materials[materialId] ?? 0) < amount) return false;
-    }
   }
 
   return true;
@@ -236,4 +229,126 @@ function getSlotFromBaseId(baseId: string): GearSlot {
   const base = ITEM_BASE_DEFS.find(b => b.id === baseId)
     ?? PROFESSION_BASE_DEFS.find(b => b.id === baseId);
   return base?.slot ?? 'mainhand';
+}
+
+// ─── Pattern Crafting ───────────────────────────────────────────
+
+import { CRAFTING_RECIPES } from '../data/craftingRecipes';
+
+/**
+ * Find the equivalent normal recipe for a pattern to determine base material cost.
+ * Matches by outputBaseId, or falls back to any recipe of the same tier+profession.
+ */
+function findEquivalentRecipe(pattern: CraftingPatternDef): CraftingRecipeDef | undefined {
+  // Try exact match on outputBaseId
+  let recipe = CRAFTING_RECIPES.find(
+    r => r.outputBaseId === pattern.outputBaseId && r.profession === pattern.profession,
+  );
+  if (recipe) return recipe;
+  // Fallback: any recipe of same profession+tier
+  recipe = CRAFTING_RECIPES.find(
+    r => r.profession === pattern.profession && r.tier === pattern.band,
+  );
+  return recipe;
+}
+
+/**
+ * Get the material cost for a pattern craft (base recipe cost × materialCostMult).
+ * Returns undefined if no equivalent recipe found.
+ */
+export function getPatternMaterialCost(
+  pattern: CraftingPatternDef,
+): { materials: { materialId: string; amount: number }[]; goldCost: number } | undefined {
+  const recipe = findEquivalentRecipe(pattern);
+  if (!recipe) return undefined;
+  const materials = recipe.materials.map(m => ({
+    materialId: m.materialId,
+    amount: Math.ceil(m.amount * pattern.materialCostMult),
+  }));
+  const goldCost = Math.ceil(recipe.goldCost * pattern.materialCostMult);
+  return { materials, goldCost };
+}
+
+/** Check if a pattern can be crafted (materials, charges, level). */
+export function canCraftPattern(
+  pattern: CraftingPatternDef,
+  charges: number,
+  skills: CraftingSkills,
+  materials: Record<string, number>,
+  gold: number,
+): boolean {
+  if (charges <= 0) return false;
+  const cost = getPatternMaterialCost(pattern);
+  if (!cost) return false;
+  // Check profession level (use tier requirement)
+  const recipe = findEquivalentRecipe(pattern);
+  if (recipe && skills[pattern.profession].level < recipe.requiredLevel) return false;
+  // Check gold
+  if (gold < cost.goldCost) return false;
+  // Check materials
+  for (const { materialId, amount } of cost.materials) {
+    if ((materials[materialId] ?? 0) < amount) return false;
+  }
+  return true;
+}
+
+/**
+ * Execute a pattern craft — generate an item with guaranteed affixes and minimum rarity.
+ */
+export function executePatternCraft(pattern: CraftingPatternDef): Item {
+  const slot = getSlotFromBaseId(pattern.outputBaseId);
+  // Generate with first guaranteed affix
+  let item = generateItem(slot, pattern.outputILvl, pattern.outputBaseId, pattern.guaranteedAffixes[0]);
+
+  // If pattern has a second guaranteed affix, ensure it's present
+  if (pattern.guaranteedAffixes.length > 1) {
+    const secondAffix = pattern.guaranteedAffixes[1];
+    const hasSecond = [...item.prefixes, ...item.suffixes].some(a => {
+      const def = getAffixDef(a.defId);
+      return def?.category === secondAffix;
+    });
+    if (!hasSecond) {
+      // Generate a second item with the second affix and steal its guaranteed affix
+      const secondItem = generateItem(slot, pattern.outputILvl, pattern.outputBaseId, secondAffix);
+      const secondAffixRoll = [...secondItem.prefixes, ...secondItem.suffixes].find(a => {
+        const def = getAffixDef(a.defId);
+        return def?.category === secondAffix;
+      });
+      if (secondAffixRoll) {
+        // Replace weakest existing affix with the guaranteed one
+        const allAffixes = [...item.prefixes, ...item.suffixes];
+        if (allAffixes.length > 0) {
+          // Find weakest affix (highest tier number = weakest)
+          let weakestIdx = 0;
+          let weakestTier = 0;
+          allAffixes.forEach((a, i) => {
+            if (a.tier > weakestTier) { weakestTier = a.tier; weakestIdx = i; }
+          });
+          if (weakestIdx < item.prefixes.length) {
+            item.prefixes[weakestIdx] = secondAffixRoll;
+          } else {
+            item.suffixes[weakestIdx - item.prefixes.length] = secondAffixRoll;
+          }
+        }
+      }
+    }
+  }
+
+  // Enforce minimum rarity
+  if (RARITY_RANK[item.rarity] < RARITY_RANK[pattern.minRarity]) {
+    // Reroll up to 10 times to try to meet min rarity
+    for (let i = 0; i < 10; i++) {
+      item = generateItem(slot, pattern.outputILvl, pattern.outputBaseId, pattern.guaranteedAffixes[0]);
+      if (RARITY_RANK[item.rarity] >= RARITY_RANK[pattern.minRarity]) break;
+    }
+    // Force if still below
+    if (RARITY_RANK[item.rarity] < RARITY_RANK[pattern.minRarity]) {
+      item.rarity = pattern.minRarity;
+    }
+  }
+
+  item.rarity = classifyRarity(item);
+  item.name = buildItemName(item);
+  item.isCrafted = true;
+  return item;
 }

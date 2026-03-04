@@ -602,34 +602,39 @@ export interface CraftingRecipeDef {
     rareMaterialId: string;
     amount: number;
   };
-  componentCost?: { materialId: string; amount: number }[];  // components required to craft this gear
-}
-
-// --- Component Crafting ---
-
-export type ComponentVariant = 'general' | 'specialist' | 'masterwork';
-
-export interface ComponentRecipeDef {
-  id: string;                     // e.g. 'comp_ws_b1_general'
-  profession: CraftingProfession;
-  name: string;                   // e.g. 'Crude Hilt'
-  band: number;                   // 1-6
-  variant: ComponentVariant;
-  requiredLevel: number;
-  materials: { materialId: string; amount: number }[];  // fixed ingredients
-  mobDropChoice?: {               // for specialist: pick ONE of these
-    amount: number;               // how many of the chosen drop needed
-    anyOf: string[];              // acceptable materialIds (3 per band)
-  };
-  goldCost: number;
-  outputMaterialId: string;       // component material produced
 }
 
 export interface CraftingMilestone {
   level: number;
-  type: 'efficiency' | 'bonus_output' | 'quality_boost' | 'mastery';
+  type: 'efficiency' | 'bonus_output' | 'quality_boost' | 'mastery' | 'pattern_bonus';
   value: number;
   description: string;
+}
+
+// --- Crafting Patterns ---
+
+export type PatternSource = 'zone_drop' | 'boss_drop' | 'invasion_drop';
+
+export interface CraftingPatternDef {
+  id: string;
+  name: string;
+  description: string;
+  band: number;                         // 1-3 for MVP
+  profession: CraftingProfession;
+  outputBaseId: string;                 // what item base it creates
+  outputILvl: number;
+  guaranteedAffixes: AffixCategory[];   // 1-2 guaranteed affix categories
+  minRarity: Rarity;                    // minimum output rarity
+  maxCharges: number;                   // base charges when found
+  source: PatternSource;
+  materialCostMult: number;             // 1.0 = same as normal recipe, 1.5 = 50% more
+  xpMult: number;                       // 2.0 = double XP
+}
+
+export interface OwnedPattern {
+  defId: string;
+  charges: number;
+  discoveredAt: number;
 }
 
 // --- Skill Graph Trees (Sprint 11B) ---
@@ -946,6 +951,9 @@ export interface GameState {
   // Crafting professions
   craftingSkills: CraftingSkills;
 
+  // Crafting patterns
+  ownedPatterns: OwnedPattern[];
+
   // Auto-salvage / auto-sell
   autoSalvageMinRarity: Rarity;
   autoDisposalAction: 'salvage' | 'sell';
@@ -1051,7 +1059,7 @@ export interface GameState {
 export interface CraftLogEntry {
   id: string;
   timestamp: number;
-  type: 'refine' | 'component' | 'gear';
+  type: 'refine' | 'gear' | 'pattern';
   recipeName: string;
   count: number;
   xpGained: number;

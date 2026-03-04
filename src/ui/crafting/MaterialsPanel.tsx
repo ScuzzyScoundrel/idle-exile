@@ -2,7 +2,6 @@ import { useGameStore } from '../../store/gameStore';
 import { REFINEMENT_TRACK_DEFS } from '../../data/refinement';
 import { AFFIX_CATALYST_DEFS } from '../../data/affixCatalysts';
 import { RARE_MATERIAL_DEFS, getRareMaterialDef } from '../../data/rareMaterials';
-import { isComponentMaterial, getComponentMeta } from '../../data/componentRecipes';
 import { CraftIcon, resolveMaterialMeta } from '../craftIcon';
 import Tooltip from '../components/Tooltip';
 import { RARITY_TEXT, RARITY_BORDER, RARITY_GRADIENT } from './craftingConstants';
@@ -35,20 +34,11 @@ export default function MaterialsPanel({ onMaterialClick }: MaterialsPanelProps)
   const affixCats: MatItem[] = [];
   const rare: MatItem[] = [];
   const misc: MatItem[] = [];
-  const components: MatItem[] = [];
 
   for (const [id, count] of Object.entries(materials)) {
     if (count <= 0) continue;
 
-    if (isComponentMaterial(id)) {
-      const meta = getComponentMeta(id);
-      components.push({
-        id, count,
-        icon: '\uD83E\uDDE9',
-        color: 'text-teal-400',
-        subtitle: meta ? `${meta.variant} (B${meta.band})` : undefined,
-      });
-    } else if (affixCatIds.has(id)) {
+    if (affixCatIds.has(id)) {
       const def = AFFIX_CATALYST_DEFS.find(d => d.id === id);
       affixCats.push({
         id, count,
@@ -89,7 +79,6 @@ export default function MaterialsPanel({ onMaterialClick }: MaterialsPanelProps)
       sections.push({ label: trackDef.name, icon: trackDef.icon, items });
     }
   }
-  if (components.length > 0) sections.push({ label: 'Components', icon: '\uD83E\uDDE9', items: components });
   if (affixCats.length > 0) sections.push({ label: 'Affix Catalysts', icon: '\u2697\uFE0F', items: affixCats });
   if (rare.length > 0) sections.push({ label: 'Rare Materials', icon: '\uD83D\uDC8E', items: rare });
   if (misc.length > 0) sections.push({ label: 'Misc', icon: '\uD83D\uDCE6', items: misc });

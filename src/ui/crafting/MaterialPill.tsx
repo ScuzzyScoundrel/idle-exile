@@ -1,13 +1,11 @@
 import Tooltip from '../components/Tooltip';
 import { formatMatName, getMatTooltip, getMatIcon } from './craftingHelpers';
-import { getComponentMeta } from '../../data/componentRecipes';
 
 interface MaterialPillProps {
   materialId: string;
   have: number;
   need: number;
-  /** 'component' uses teal color scheme instead of default green/red */
-  variant?: 'default' | 'component' | 'gold';
+  variant?: 'default' | 'gold';
   onMaterialClick?: (materialId: string) => void;
 }
 
@@ -17,18 +15,12 @@ export default function MaterialPill({ materialId, have, need, variant = 'defaul
   let colorClass: string;
   if (variant === 'gold') {
     colorClass = met ? 'bg-yellow-900/30 text-yellow-400' : 'bg-red-900/30 text-red-400';
-  } else if (variant === 'component') {
-    colorClass = met ? 'bg-teal-900/30 text-teal-400' : 'bg-red-900/30 text-red-400';
   } else {
     colorClass = met ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400';
   }
 
-  const icon = variant === 'gold' ? '\uD83D\uDCB0' : variant === 'component' ? '\uD83E\uDDE9' : getMatIcon(materialId);
-  const displayName = variant === 'gold'
-    ? `${need}`
-    : variant === 'component'
-    ? (getComponentMeta(materialId)?.name ?? formatMatName(materialId))
-    : formatMatName(materialId);
+  const icon = variant === 'gold' ? '\uD83D\uDCB0' : getMatIcon(materialId);
+  const displayName = variant === 'gold' ? `${need}` : formatMatName(materialId);
   const tooltipText = variant === 'gold' ? 'Gold cost' : (getMatTooltip(materialId) ?? displayName);
 
   const pill = (

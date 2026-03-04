@@ -22,11 +22,11 @@ export const CRAFTING_PROFESSION_DEFS: CraftingProfessionDef[] = [
 
 /** Milestones unlocked at specific crafting skill levels. */
 export const CRAFTING_MILESTONES: CraftingMilestone[] = [
-  { level: 10, type: 'efficiency', value: 0.10, description: '-10% gold cost on recipes' },
+  { level: 10, type: 'pattern_bonus', value: 1, description: '+1 charge on patterns for this profession' },
   { level: 25, type: 'bonus_output', value: 0.05, description: '5% chance for bonus craft' },
   { level: 50, type: 'quality_boost', value: 0.10, description: '+10% chance for higher rarity' },
   { level: 75, type: 'efficiency', value: 0.25, description: '-25% material cost on recipes' },
-  { level: 100, type: 'mastery', value: 0.50, description: 'Crafting mastery: +50% quality, guaranteed bonus affixes' },
+  { level: 100, type: 'mastery', value: 0.50, description: 'Crafting mastery: +50% quality, +3 pattern charges' },
 ];
 
 /** Minimum crafting skill level required per tier. */

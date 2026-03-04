@@ -113,11 +113,6 @@ export default function CraftPanel({ onMaterialClick }: CraftPanelProps) {
       const have = materials[recipe.requiredCatalyst.rareMaterialId] ?? 0;
       max = Math.min(max, Math.floor(have / recipe.requiredCatalyst.amount));
     }
-    if (recipe.componentCost) {
-      for (const { materialId, amount } of recipe.componentCost) {
-        max = Math.min(max, Math.floor((materials[materialId] ?? 0) / amount));
-      }
-    }
 
     const catalystId = rareCatalysts[recipe.id];
     const affixCatId = affixCatalysts[recipe.id];
@@ -364,16 +359,6 @@ function CraftRecipeCard({
                     materialId={materialId}
                     have={materials[materialId] ?? 0}
                     need={amount}
-                    onMaterialClick={onMaterialClick}
-                  />
-                ))}
-                {recipe.componentCost?.map(({ materialId, amount }) => (
-                  <MaterialPill
-                    key={materialId}
-                    materialId={materialId}
-                    have={materials[materialId] ?? 0}
-                    need={amount}
-                    variant="component"
                     onMaterialClick={onMaterialClick}
                   />
                 ))}

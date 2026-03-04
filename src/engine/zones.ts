@@ -12,6 +12,8 @@ import { calcSkillDps, calcSkillDamagePerCast, getDefaultSkillForWeapon, calcRot
 import { getSkillDef } from '../data/unifiedSkills';
 import { calcGatheringYield } from './gathering';
 import { rollRareMaterialDrop } from './rareMaterials';
+import { rollPatternDrop } from '../data/craftingPatterns';
+import { PATTERN_DROP_CHANCE_PER_BAND } from '../data/balance';
 import { BAG_UPGRADE_DEFS } from '../data/items';
 import {
   BASE_ITEM_DROP_CHANCE, MASTERY_DROP_BONUS,
@@ -462,6 +464,7 @@ export interface SingleClearResult {
   xpGained: number;
   bagDrop: string | null;
   mobTypeId: string | null;
+  patternDrop: string | null;
 }
 
 /**
@@ -559,6 +562,14 @@ export function simulateSingleClear(
     professionGearDrop = generateProfessionItem(profSlot, dropILvl);
   }
 
+  // Roll for crafting pattern drop
+  let patternDrop: string | null = null;
+  const patternChance = PATTERN_DROP_CHANCE_PER_BAND[zone.band] ?? 0;
+  if (patternChance > 0 && Math.random() < patternChance) {
+    const pattern = rollPatternDrop(zone.band, 'zone_drop');
+    if (pattern) patternDrop = pattern.id;
+  }
+
   const xpScale = calcXpScale(char.level, zone.iLvlMin);
   return {
     item,
@@ -569,6 +580,7 @@ export function simulateSingleClear(
     xpGained: Math.round((XP_PER_BAND * zone.band + XP_ILVL_SCALE * zone.iLvlMin) * xpMult * xpScale),
     bagDrop,
     mobTypeId,
+    patternDrop,
   };
 }
 
