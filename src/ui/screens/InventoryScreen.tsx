@@ -144,6 +144,7 @@ export default function InventoryScreen() {
   const [disenchantMsg, setDisenchantMsg] = useState<string | null>(null);
   const [craftMsg, setCraftMsg] = useState<string | null>(null);
   const [equippedOpen, setEquippedOpen] = useState(true);
+  const [currencyTip, setCurrencyTip] = useState<CurrencyType | null>(null);
 
   const [tooltip, setTooltip] = useState<{ item: Item; slot: GearSlot; x: number; y: number; rectHeight: number } | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -612,16 +613,25 @@ export default function InventoryScreen() {
     <div className="space-y-3">
       {/* Currency Summary Strip */}
       <div className="flex flex-wrap gap-2 bg-gray-800 rounded-lg px-3 py-2 items-center">
-        <span className="text-xs font-semibold text-yellow-400" title="Gold">{'\uD83D\uDCB0'} {gold}g</span>
+        <span className="text-xs font-semibold text-yellow-400">{'\uD83D\uDCB0'} {gold}g</span>
         {CURRENCY_DEFS.map((cur) => (
-          <span
+          <div
             key={cur.id}
-            className={`text-xs flex items-center gap-1 ${currencies[cur.id] > 0 ? 'text-gray-300' : 'text-gray-600 opacity-40'}`}
-            title={`${cur.name}: ${cur.description}`}
+            className="relative group"
+            onClick={isMobile ? () => setCurrencyTip(currencyTip === cur.id ? null : cur.id) : undefined}
           >
-            <CraftIcon category="currency" id={cur.id} fallback={cur.icon} size="sm" />
-            <span className="font-semibold">{currencies[cur.id]}</span>
-          </span>
+            <div className={`text-xs flex items-center gap-1 cursor-default ${currencies[cur.id] > 0 ? 'text-gray-300' : 'text-gray-600 opacity-40'}`}>
+              <CraftIcon category="currency" id={cur.id} fallback={cur.icon} size="sm" />
+              <span className="font-semibold">{currencies[cur.id]}</span>
+              <span className="text-[10px] text-gray-500 hidden sm:inline">{cur.name.replace(' Shard', '').replace('Greater ', 'G.').replace('Perfect ', 'P.')}</span>
+            </div>
+            {/* Tooltip: hover on desktop, tap on mobile */}
+            <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-1 w-48 bg-gray-900 border border-gray-600 rounded-lg p-2 shadow-xl z-50 pointer-events-none text-left
+              ${isMobile ? (currencyTip === cur.id ? 'block' : 'hidden') : 'hidden group-hover:block'}`}>
+              <div className="text-xs font-bold text-white">{cur.name}</div>
+              <div className="text-[11px] text-gray-400 mt-0.5">{cur.description}</div>
+            </div>
+          </div>
         ))}
       </div>
 
