@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef, useLayoutEffect, useMemo } from 'react';
 import { useGameStore, SELL_GOLD } from '../../store/gameStore';
 import { Item, Affix, GearSlot, CurrencyType, Rarity, StatKey, ArmorType } from '../../types';
-import { CURRENCY_DEFS, BAG_UPGRADE_DEFS, getBagDef, calcBagCapacity } from '../../data/items';
+import { CURRENCY_DEFS, calcBagCapacity } from '../../data/items';
 import { formatAffix, getBestTierForILvl, isUpgradeOver, getComparisonTarget, calcItemStatContribution } from '../../engine/items';
 import { formatCorruptionAffix } from '../../data/corruptionAffixes';
 import { slotLabel, DROPPABLE_SLOTS } from '../slotConfig';
 import { ItemIcon, SlotIcon, getSlotEmoji } from '../itemIcon';
-import { CraftIcon, resolveMaterialMeta } from '../craftIcon';
+import { CraftIcon } from '../craftIcon';
 import { useIsMobile } from '../hooks/useIsMobile';
 
 const SLOT_ORDER: GearSlot[] = DROPPABLE_SLOTS;
@@ -126,10 +126,9 @@ const AUTO_SALVAGE_OPTIONS: { value: Rarity; label: string }[] = [
 
 export default function InventoryScreen() {
   const {
-    character, inventory, materials, currencies, gold,
-    bagSlots, bagStash,
+    character, inventory, currencies, gold,
+    bagSlots,
     equipItem, unequipSlot, disenchantItem, sellItem, craft,
-    equipBag, sellBag, salvageBag, buyBag,
     autoSalvageMinRarity, setAutoSalvageRarity,
     autoDisposalAction, setAutoDisposalAction,
     tutorialStep,
@@ -137,11 +136,10 @@ export default function InventoryScreen() {
   const isMobile = useIsMobile();
   const inventoryCapacity = calcBagCapacity(bagSlots);
   const detailRef = useRef<HTMLDivElement>(null);
-  const [materialsOpen, setMaterialsOpen] = useState(true);
-  const [bagSlotsOpen, setBagSlotsOpen] = useState(true);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [selectedCurrency, setSelectedCurrency] = useState<CurrencyType | null>(null);
   const [filter, setFilter] = useState<GearSlot | 'all'>('all');
+  const [rarityFilter, setRarityFilter] = useState<Rarity | 'all'>('all');
   const [sort, setSort] = useState<'rarity' | 'ilvl'>('ilvl');
   const [disenchantMsg, setDisenchantMsg] = useState<string | null>(null);
   const [craftMsg, setCraftMsg] = useState<string | null>(null);
@@ -204,6 +202,7 @@ export default function InventoryScreen() {
 
   const filteredInventory = inventory
     .filter((i) => filter === 'all' || i.slot === filter)
+    .filter((i) => rarityFilter === 'all' || i.rarity === rarityFilter)
     .sort((a, b) => {
       if (sort === 'rarity') {
         return RARITY_ORDER[b.rarity] - RARITY_ORDER[a.rarity];
@@ -299,6 +298,19 @@ export default function InventoryScreen() {
       count++;
     }
     showFeedback('disenchant', `Disenchanted ${count} items — ${formatReward(totalCurr, totalMats)}`);
+    setSelectedItem(null);
+    setSelectedCurrency(null);
+  };
+
+  const handleSellAll = () => {
+    if (!confirm(`Sell all ${filteredInventory.length} items? This cannot be undone!`)) return;
+    let totalGold = 0;
+    let count = 0;
+    for (const item of [...filteredInventory]) {
+      const g = sellItem(item.id);
+      if (g !== null) { totalGold += g; count++; }
+    }
+    showFeedback('disenchant', `Sold ${count} items for ${totalGold}g`);
     setSelectedItem(null);
     setSelectedCurrency(null);
   };
@@ -532,22 +544,19 @@ export default function InventoryScreen() {
     );
   };
 
-  const renderInventoryColumn = () => (
-    <div className="space-y-3">
-      {/* Equipped Gear */}
-      <div className="bg-gray-800 rounded-lg">
-        <button
-          onClick={() => setEquippedOpen(!equippedOpen)}
-          className="w-full flex items-center justify-between px-3 py-2 text-sm font-bold text-gray-300 hover:bg-gray-700 transition-colors rounded-t-lg"
-        >
-          <span>⚔️ Equipped Gear</span>
-          <span className="text-xs text-gray-500">{equippedOpen ? '▲' : '▼'}</span>
-        </button>
-
-        {equippedOpen && (
-          <div className="px-2 pb-2">
-            {isMobile ? (
-              /* Mobile: horizontal scroll strip of 16 compact slot tiles */
+  const renderEquippedGear = () => (
+    <div className="bg-gray-800 rounded-lg">
+      {isMobile ? (
+        <>
+          <button
+            onClick={() => setEquippedOpen(!equippedOpen)}
+            className="w-full flex items-center justify-between px-3 py-2 text-sm font-bold text-gray-300 hover:bg-gray-700 transition-colors rounded-t-lg"
+          >
+            <span>Equipped Gear</span>
+            <span className="text-xs text-gray-500">{equippedOpen ? '\u25B2' : '\u25BC'}</span>
+          </button>
+          {equippedOpen && (
+            <div className="px-2 pb-2">
               <div className="flex gap-1 overflow-x-auto pb-1">
                 {ALL_GEAR_SLOTS.map((s) => {
                   const item = character.equipment[s] ?? null;
@@ -565,59 +574,55 @@ export default function InventoryScreen() {
                   );
                 })}
               </div>
-            ) : (
-              /* Desktop: paper doll layout */
-              <>
-                <div className="flex gap-1.5">
-                  <div className="flex-1 min-w-0 flex flex-col gap-1">
-                    {(['helmet', 'neck', 'shoulders', 'cloak', 'chest', 'bracers'] as GearSlot[]).map((s) => (
-                      <EquipSlotCard key={s} slot={s} item={character.equipment[s] ?? null}
-                        selectedItemId={selectedItem?.id} selectedCurrency={selectedCurrency}
-                        onSelect={handlePaperDollSelect} onHover={showTooltip} onLeave={hideTooltip} isMobile={isMobile} />
-                    ))}
-                  </div>
-                  <div className="flex-1 min-w-0 flex flex-col gap-1">
-                    {(['gloves', 'belt', 'pants', 'boots', 'ring1', 'ring2'] as GearSlot[]).map((s) => (
-                      <EquipSlotCard key={s} slot={s} item={character.equipment[s] ?? null}
-                        selectedItemId={selectedItem?.id} selectedCurrency={selectedCurrency}
-                        onSelect={handlePaperDollSelect} onHover={showTooltip} onLeave={hideTooltip} isMobile={isMobile} />
-                    ))}
-                  </div>
-                </div>
-                <div className="grid grid-cols-4 gap-1 mt-1.5">
-                  {(['mainhand', 'offhand', 'trinket1', 'trinket2'] as GearSlot[]).map((s) => (
-                    <EquipSlotCard key={s} slot={s} item={character.equipment[s] ?? null}
-                      selectedItemId={selectedItem?.id} selectedCurrency={selectedCurrency}
-                      onSelect={handlePaperDollSelect} onHover={showTooltip} onLeave={hideTooltip} isMobile={isMobile} />
-                  ))}
-                </div>
-              </>
-            )}
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="p-2 space-y-1.5">
+          <div className="text-sm font-bold text-gray-300 px-1">Equipped Gear</div>
+          <div className="flex gap-1.5">
+            <div className="flex-1 min-w-0 flex flex-col gap-1">
+              {(['helmet', 'neck', 'shoulders', 'cloak', 'chest', 'bracers'] as GearSlot[]).map((s) => (
+                <EquipSlotCard key={s} slot={s} item={character.equipment[s] ?? null}
+                  selectedItemId={selectedItem?.id} selectedCurrency={selectedCurrency}
+                  onSelect={handlePaperDollSelect} onHover={showTooltip} onLeave={hideTooltip} isMobile={isMobile} />
+              ))}
+            </div>
+            <div className="flex-1 min-w-0 flex flex-col gap-1">
+              {(['gloves', 'belt', 'pants', 'boots', 'ring1', 'ring2'] as GearSlot[]).map((s) => (
+                <EquipSlotCard key={s} slot={s} item={character.equipment[s] ?? null}
+                  selectedItemId={selectedItem?.id} selectedCurrency={selectedCurrency}
+                  onSelect={handlePaperDollSelect} onHover={showTooltip} onLeave={hideTooltip} isMobile={isMobile} />
+              ))}
+            </div>
           </div>
-        )}
-      </div>
+          <div className="grid grid-cols-4 gap-1">
+            {(['mainhand', 'offhand', 'trinket1', 'trinket2'] as GearSlot[]).map((s) => (
+              <EquipSlotCard key={s} slot={s} item={character.equipment[s] ?? null}
+                selectedItemId={selectedItem?.id} selectedCurrency={selectedCurrency}
+                onSelect={handlePaperDollSelect} onHover={showTooltip} onLeave={hideTooltip} isMobile={isMobile} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
-      {/* Bag Slots (collapsible) */}
-      <div className="bg-gray-800 rounded-lg">
-        <button
-          onClick={() => setBagSlotsOpen(!bagSlotsOpen)}
-          className="w-full flex items-center justify-between px-3 py-2 text-sm font-bold text-gray-300 hover:bg-gray-700 transition-colors rounded-t-lg"
-        >
-          <span>{'\u{1F392}'} Bag Slots</span>
-          <span className="text-xs text-gray-500">{bagSlotsOpen ? '\u25B2' : '\u25BC'}</span>
-        </button>
-        {bagSlotsOpen && (
-          <BagUpgradeSection
-            bagSlots={bagSlots}
-            bagStash={bagStash}
-            gold={gold}
-            inventory={inventory}
-            equipBag={equipBag}
-            sellBag={sellBag}
-            salvageBag={salvageBag}
-            buyBag={buyBag}
-          />
-        )}
+  const renderLootColumn = () => (
+    <div className="space-y-3">
+      {/* Currency Summary Strip */}
+      <div className="flex flex-wrap gap-2 bg-gray-800 rounded-lg px-3 py-2 items-center">
+        <span className="text-xs font-semibold text-yellow-400" title="Gold">{'\uD83D\uDCB0'} {gold}g</span>
+        {CURRENCY_DEFS.map((cur) => (
+          <span
+            key={cur.id}
+            className={`text-xs flex items-center gap-1 ${currencies[cur.id] > 0 ? 'text-gray-300' : 'text-gray-600 opacity-40'}`}
+            title={`${cur.name}: ${cur.description}`}
+          >
+            <CraftIcon category="currency" id={cur.id} fallback={cur.icon} size="sm" />
+            <span className="font-semibold">{currencies[cur.id]}</span>
+          </span>
+        ))}
       </div>
 
       {/* Inventory Header + Filters */}
@@ -627,12 +632,20 @@ export default function InventoryScreen() {
             {'\u{1F392}'} Bags ({inventory.length}/{inventoryCapacity})
           </h2>
           {filteredInventory.length > 0 && (
-            <button
-              onClick={handleDisenchantAll}
-              className="px-2 py-0.5 rounded text-xs bg-red-900 hover:bg-red-800 text-red-300 font-semibold"
-            >
-              Disenchant All ({filteredInventory.length})
-            </button>
+            <div className="flex gap-1">
+              <button
+                onClick={handleSellAll}
+                className="px-2 py-0.5 rounded text-xs bg-yellow-900 hover:bg-yellow-800 text-yellow-300 font-semibold"
+              >
+                Sell All ({filteredInventory.length})
+              </button>
+              <button
+                onClick={handleDisenchantAll}
+                className="px-2 py-0.5 rounded text-xs bg-red-900 hover:bg-red-800 text-red-300 font-semibold"
+              >
+                Disenchant All ({filteredInventory.length})
+              </button>
+            </div>
           )}
         </div>
         <div className="flex items-center gap-2 mb-1">
@@ -681,30 +694,37 @@ export default function InventoryScreen() {
             Bags full — gear drops from zones will be auto-salvaged into materials.
           </div>
         )}
-        <div className="flex gap-1 flex-wrap">
-          {(['all', ...SLOT_ORDER] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-2 py-0.5 rounded text-xs ${
-                filter === f ? 'bg-yellow-600 text-black' : 'bg-gray-800 text-gray-400'
-              }`}
-            >
-              {f === 'all' ? 'All' : `${getSlotEmoji(f)} ${slotLabel(f)}`}
-            </button>
-          ))}
-          <div className="flex-1" />
-          {(['rarity', 'ilvl'] as const).map((s) => (
-            <button
-              key={s}
-              onClick={() => setSort(s)}
-              className={`px-2 py-0.5 rounded text-xs ${
-                sort === s ? 'bg-gray-600 text-white' : 'bg-gray-800 text-gray-500'
-              }`}
-            >
-              {s}
-            </button>
-          ))}
+        <div className="flex gap-2 flex-wrap">
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value as GearSlot | 'all')}
+            className="text-xs bg-gray-800 text-gray-300 border border-gray-600 rounded px-2 py-1"
+          >
+            <option value="all">All Slots</option>
+            {SLOT_ORDER.map((s) => (
+              <option key={s} value={s}>{getSlotEmoji(s)} {slotLabel(s)}</option>
+            ))}
+          </select>
+          <select
+            value={rarityFilter}
+            onChange={(e) => setRarityFilter(e.target.value as Rarity | 'all')}
+            className="text-xs bg-gray-800 text-gray-300 border border-gray-600 rounded px-2 py-1"
+          >
+            <option value="all">All Rarities</option>
+            <option value="legendary">Legendary</option>
+            <option value="epic">Epic</option>
+            <option value="rare">Rare</option>
+            <option value="uncommon">Uncommon</option>
+            <option value="common">Common</option>
+          </select>
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as 'rarity' | 'ilvl')}
+            className="text-xs bg-gray-800 text-gray-300 border border-gray-600 rounded px-2 py-1"
+          >
+            <option value="ilvl">Sort: iLvl</option>
+            <option value="rarity">Sort: Rarity</option>
+          </select>
         </div>
       </div>
 
@@ -792,61 +812,27 @@ export default function InventoryScreen() {
         ))}
       </div>
 
-      {/* Materials */}
-      {Object.keys(materials).length > 0 && (
-        <div className="bg-gray-800 rounded-lg overflow-hidden">
-          <button
-            onClick={() => setMaterialsOpen(!materialsOpen)}
-            className="w-full flex items-center justify-between px-3 py-2 text-sm font-bold text-gray-300 hover:bg-gray-700 transition-colors"
-          >
-            <span>{'\u{1FAA8}'} Materials</span>
-            <span className="text-xs text-gray-500">{materialsOpen ? '\u25B2' : '\u25BC'}</span>
-          </button>
-          {materialsOpen && (
-            <div className="grid grid-cols-5 sm:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-1.5 px-3 pb-3">
-              {Object.entries(materials).filter(([, v]) => v > 0).map(([key, val]) => {
-                const meta = resolveMaterialMeta(key);
-                const border = meta?.rarity ? RARITY_TILE_BORDER[meta.rarity] : 'border-gray-600';
-                const grad = meta?.rarity ? RARITY_GRADIENT[meta.rarity] : '';
-                return (
-                  <div key={key} className={`relative aspect-square rounded-lg border-2 flex flex-col items-center justify-center overflow-hidden ${meta?.rarity ? '' : 'bg-gray-900'} ${border}`}>
-                    {meta?.rarity && (
-                      <div className={`absolute inset-0 bg-gradient-to-t ${grad} to-transparent pointer-events-none`} />
-                    )}
-                    {meta
-                      ? <CraftIcon category={meta.category} id={key} fallback={meta.emoji} size="xl" className="relative z-10" />
-                      : <span className="text-3xl">{'\u{1FAA8}'}</span>}
-                    <span className="absolute top-0 right-0 bg-black/70 text-white text-[9px] font-bold px-1 rounded-bl z-10">{val}</span>
-                    <span className="relative z-10 text-[8px] text-gray-400 text-center leading-tight truncate w-full px-0.5 mt-auto">{meta?.name ?? key.replace(/_/g, ' ')}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+      {/* Inline detail panel below grid (desktop only) */}
+      {!isMobile && selectedItem && renderDetailPanel()}
     </div>
   );
 
   return (
     <div className="max-w-4xl xl:max-w-7xl mx-auto overflow-x-hidden">
-      <div className="hidden lg:grid lg:grid-cols-[1fr_2fr] lg:gap-4">
-        <div className="lg:sticky lg:top-16 lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto space-y-3">
-          {selectedItem ? renderDetailPanel() : (
-            <div className="bg-gray-900 rounded-lg border border-gray-800 border-dashed p-6 text-center text-gray-500 text-sm">
-              Select an item to see details
-            </div>
-          )}
-          <RarityGuide />
+      {/* Desktop: two-column layout */}
+      <div className="hidden lg:grid lg:grid-cols-[320px_1fr] lg:gap-4">
+        {/* Left: equipped gear (sticky) */}
+        <div className="lg:sticky lg:top-16 lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
+          {renderEquippedGear()}
         </div>
-        {renderInventoryColumn()}
+        {/* Right: loot grid + inline detail */}
+        {renderLootColumn()}
       </div>
 
+      {/* Mobile / small screen: stacked */}
       <div className="lg:hidden space-y-3">
-        {renderInventoryColumn()}
-        {/* Non-mobile small screens: inline detail */}
-        {!isMobile && selectedItem && renderDetailPanel()}
-        <RarityGuide />
+        {renderEquippedGear()}
+        {renderLootColumn()}
       </div>
 
       {/* Mobile bottom sheet overlay */}
@@ -975,176 +961,6 @@ export default function InventoryScreen() {
   );
 }
 
-const BAG_TIER_BORDER: Record<number, string> = {
-  1: 'border-gray-600',
-  2: 'border-green-600',
-  3: 'border-blue-600',
-  4: 'border-purple-600',
-  5: 'border-orange-600',
-};
-
-const BAG_TIER_TEXT: Record<number, string> = {
-  1: 'text-gray-400',
-  2: 'text-green-400',
-  3: 'text-blue-400',
-  4: 'text-purple-400',
-  5: 'text-orange-400',
-};
-
-function BagUpgradeSection({
-  bagSlots, bagStash, gold, inventory, equipBag, sellBag, salvageBag, buyBag,
-}: {
-  bagSlots: string[];
-  bagStash: Record<string, number>;
-  gold: number;
-  inventory: Item[];
-  equipBag: (bagDefId: string, slotIndex: number) => { replacedId: string; capacityDelta: number } | null;
-  sellBag: (bagDefId: string) => boolean;
-  salvageBag: (bagDefId: string) => boolean;
-  buyBag: (bagDefId: string) => boolean;
-}) {
-  const [bagFeedback, setBagFeedback] = useState<string | null>(null);
-  const totalCapacity = calcBagCapacity(bagSlots);
-  const hasStash = Object.values(bagStash).some(v => v > 0);
-
-  // Find lowest-tier slot index for auto-equip
-  const lowestSlotIndex = bagSlots.reduce((bestIdx, id, idx) => {
-    return getBagDef(id).tier < getBagDef(bagSlots[bestIdx]).tier ? idx : bestIdx;
-  }, 0);
-  const lowestSlotTier = getBagDef(bagSlots[lowestSlotIndex]).tier;
-
-  // Vendor only sells T1-T2 bags (higher tiers from drops/crafting only)
-  const VENDOR_MAX_TIER = 2;
-  const vendorBags = BAG_UPGRADE_DEFS.filter(b => b.tier <= VENDOR_MAX_TIER);
-
-  const handleEquipFromStash = (bagDefId: string) => {
-    const result = equipBag(bagDefId, lowestSlotIndex);
-    if (result) {
-      const newName = getBagDef(bagDefId).name;
-      const oldName = getBagDef(result.replacedId).name;
-      const sign = result.capacityDelta >= 0 ? '+' : '';
-      setBagFeedback(`Replaced ${oldName} with ${newName} (${sign}${result.capacityDelta} slots)`);
-      setTimeout(() => setBagFeedback(null), 3000);
-    }
-  };
-
-  return (
-    <div className="px-3 pb-3 space-y-2">
-      <div className="flex items-center justify-between">
-        <div className="text-xs text-gray-500">
-          Vendor sells T1-T2 bags. Better bags drop from zones or crafting.
-        </div>
-        <span className="text-xs text-gray-400 shrink-0 ml-2">
-          Total: <span className="text-white font-semibold">{totalCapacity}</span> slots
-        </span>
-      </div>
-
-      {/* 5 bag slot cards */}
-      <div className="grid grid-cols-5 gap-1.5">
-        {bagSlots.map((bagId, idx) => {
-          const def = getBagDef(bagId);
-          const isWeakest = idx === lowestSlotIndex && hasStash;
-          return (
-            <div
-              key={idx}
-              className={`
-                min-w-0 rounded-lg border-2 p-1.5 text-center
-                ${BAG_TIER_BORDER[def.tier]}
-                ${isWeakest ? 'ring-1 ring-yellow-400/50 bg-gray-900' : 'bg-gray-900/60'}
-              `}
-            >
-              <div className="text-lg">{'\u{1F392}'}</div>
-              <div className={`text-xs font-semibold truncate ${BAG_TIER_TEXT[def.tier]}`}>{def.name}</div>
-              <div className="text-xs text-gray-500">{def.capacity} slots</div>
-              {isWeakest && <div className="text-xs text-yellow-400 mt-0.5">weakest</div>}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Feedback toast */}
-      {bagFeedback && (
-        <div className="text-xs text-green-300 bg-green-950/50 rounded px-2 py-1">
-          {bagFeedback}
-        </div>
-      )}
-
-      {/* Bag Stash */}
-      {hasStash && (
-        <div className="space-y-1">
-          <div className="text-xs text-gray-500">Bag Stash:</div>
-          {Object.entries(bagStash).filter(([, v]) => v > 0).map(([id, count]) => {
-            const def = getBagDef(id);
-            const canEquip = def.tier > lowestSlotTier || def.capacity > getBagDef(bagSlots[lowestSlotIndex]).capacity;
-            const wouldOverflow = totalCapacity - getBagDef(bagSlots[lowestSlotIndex]).capacity + def.capacity < inventory.length;
-            return (
-              <div key={id} className="flex items-center justify-between bg-gray-900 rounded px-2 py-1.5">
-                <div className="min-w-0">
-                  <span className={`text-xs font-semibold ${BAG_TIER_TEXT[def.tier]}`}>{def.name}</span>
-                  <span className="text-xs text-gray-500 ml-1">x{count}</span>
-                  <div className="text-xs text-gray-400">{def.capacity} slots • T{def.tier}</div>
-                </div>
-                <div className="flex gap-1 flex-shrink-0">
-                  <button
-                    onClick={() => handleEquipFromStash(id)}
-                    disabled={!canEquip || wouldOverflow}
-                    className={`px-2 py-1 text-xs rounded font-semibold ${
-                      canEquip && !wouldOverflow
-                        ? 'bg-green-700 hover:bg-green-600 text-white'
-                        : 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                    }`}
-                    title={wouldOverflow ? 'Would overflow inventory' : !canEquip ? 'No weaker slot to replace' : 'Equip to weakest slot'}
-                  >
-                    Equip
-                  </button>
-                  <button
-                    onClick={() => sellBag(id)}
-                    className="px-2 py-1 text-xs rounded font-semibold bg-yellow-800 hover:bg-yellow-700 text-yellow-200"
-                  >
-                    {def.sellValue}g
-                  </button>
-                  <button
-                    onClick={() => salvageBag(id)}
-                    className="px-2 py-1 text-xs rounded font-semibold bg-purple-900 hover:bg-purple-800 text-purple-300"
-                    title={`Salvage for ${def.salvageValue} essence`}
-                  >
-                    Salvage
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Vendor (T1-T2 only) */}
-      {vendorBags.length > 0 && (
-        <div className="space-y-1">
-          <div className="text-xs text-gray-500">Vendor:</div>
-          {vendorBags.map(bag => (
-            <div key={bag.id} className="flex items-center justify-between bg-gray-900 rounded px-2 py-1.5">
-              <div>
-                <span className={`text-xs font-semibold ${BAG_TIER_TEXT[bag.tier]}`}>{bag.name}</span>
-                <div className="text-xs text-gray-400">{bag.capacity} slots • T{bag.tier}</div>
-              </div>
-              <button
-                onClick={() => buyBag(bag.id)}
-                disabled={gold < bag.goldCost}
-                className={`px-2 py-1 text-xs rounded font-semibold ${
-                  gold >= bag.goldCost
-                    ? 'bg-yellow-700 hover:bg-yellow-600 text-white'
-                    : 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                {bag.goldCost}g
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 const STAT_LABELS: Record<StatKey, string> = {
   flatPhysDamage: 'Phys Damage',
@@ -1223,57 +1039,6 @@ function ComparisonPanel({ selected, equipped }: { selected: Item; equipped: Ite
   );
 }
 
-function RarityGuide() {
-  return (
-    <div className="bg-gray-900 rounded-lg border border-gray-700 p-3 space-y-3">
-      <div className="text-xs font-bold text-gray-300">Rarity Guide</div>
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-gray-500 border-b border-gray-700">
-            <th className="text-left py-1 pr-2">Rarity</th>
-            <th className="text-left py-1">Determined by best affix tier</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr><td className="py-0.5 text-orange-400 font-semibold">Legendary</td><td className="text-gray-400">Any T1 affix OR 2+ T2 affixes</td></tr>
-          <tr><td className="py-0.5 text-purple-400 font-semibold">Epic</td><td className="text-gray-400">Any T2 affix (but not T1)</td></tr>
-          <tr><td className="py-0.5 text-yellow-400 font-semibold">Rare</td><td className="text-gray-400">Best affix is T3</td></tr>
-          <tr><td className="py-0.5 text-blue-400 font-semibold">Uncommon</td><td className="text-gray-400">Best affix is T4-T6</td></tr>
-          <tr><td className="py-0.5 text-green-400 font-semibold">Common</td><td className="text-gray-400">All affixes T7+</td></tr>
-        </tbody>
-      </table>
-
-      <div className="border-t border-gray-700 pt-2">
-        <div className="text-xs font-bold text-gray-300 mb-1">Item Level & Tier Gating</div>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-gray-500 border-b border-gray-700">
-              <th className="text-left py-1 pr-2">Zone Band</th>
-              <th className="text-left py-1 pr-2">iLvl</th>
-              <th className="text-left py-1">Best Tier</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td className="py-0.5 text-gray-400">Band 1</td><td className="text-gray-400">1-10</td><td className="text-green-400">T7</td></tr>
-            <tr><td className="py-0.5 text-gray-400">Band 2</td><td className="text-gray-400">11-20</td><td className="text-blue-400">T5</td></tr>
-            <tr><td className="py-0.5 text-gray-400">Band 3</td><td className="text-gray-400">21-30</td><td className="text-blue-400">T4</td></tr>
-            <tr><td className="py-0.5 text-gray-400">Band 4</td><td className="text-gray-400">31-40</td><td className="text-yellow-400">T3</td></tr>
-            <tr><td className="py-0.5 text-gray-400">Band 5</td><td className="text-gray-400">41-50</td><td className="text-purple-400">T2</td></tr>
-            <tr><td className="py-0.5 text-gray-400">Band 6</td><td className="text-gray-400">51-60</td><td className="text-orange-400">T1</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div className="text-xs text-gray-500 space-y-0.5">
-        <div>Items roll 2-6 affixes randomly. Rarity is based on affix quality, not count.</div>
-        <div>A 2-affix item with a T1 roll is still Legendary — great crafting base!</div>
-        <div><span className="text-yellow-500">★</span> marks affixes at the best possible tier for the item's level.</div>
-        <div>Higher zone bands drop higher iLvl gear with access to better tiers.</div>
-        <div>Crafting (including Exalt) respects iLvl — you need Band 6 bases for T1.</div>
-      </div>
-    </div>
-  );
-}
 
 function EquipSlotCard({
   slot, item, selectedItemId, selectedCurrency, onSelect, onHover, onLeave, isMobile,
