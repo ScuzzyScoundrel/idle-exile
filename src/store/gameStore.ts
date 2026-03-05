@@ -2197,6 +2197,7 @@ export const useGameStore = create<GameState & GameActions>()(
             const defStats = applyAbilityResists(bossStats, abilEff);
             let playerHp = state.currentHp;
             let bossAttackResult: CombatTickResult['bossAttack'] = null;
+            let helperBleedDmg = 0;
 
             // Check if boss attack is due
             const helperEnemyMods = calcEnemyDebuffMods(state.activeDebuffs);
@@ -2204,7 +2205,7 @@ export const useGameStore = create<GameState & GameActions>()(
             let helperBossHp = bs.bossCurrentHp;
             if (now >= nextAttack) {
               // Bleed trigger: enemy attacked (hit or miss — boss still swung)
-              const helperBleedDmg = calcBleedTriggerDamage(state.activeDebuffs, 1, bossStats.incDoTDamage ?? 0);
+              helperBleedDmg = calcBleedTriggerDamage(state.activeDebuffs, 1, bossStats.incDoTDamage ?? 0);
               if (helperBleedDmg > 0) helperBossHp -= helperBleedDmg;
 
               // Miss chance from debuffs (e.g. Blinded)
@@ -2247,10 +2248,10 @@ export const useGameStore = create<GameState & GameActions>()(
 
             if (playerHp <= 0) {
               set({ currentHp: 0, currentEs: 0, bossState: { ...bs, bossNextAttackAt: nextAttack, bossCurrentHp: helperBossHp } });
-              return { ...noResult, bossOutcome: 'defeat', bossAttack: bossAttackResult };
+              return { ...noResult, bossOutcome: 'defeat', bossAttack: bossAttackResult, bleedTriggerDamage: helperBleedDmg };
             }
             set({ currentHp: playerHp, bossState: { ...bs, bossNextAttackAt: nextAttack, bossCurrentHp: helperBossHp } });
-            return { ...noResult, bossOutcome: 'ongoing', bossAttack: bossAttackResult };
+            return { ...noResult, bossOutcome: 'ongoing', bossAttack: bossAttackResult, bleedTriggerDamage: helperBleedDmg };
           }
           return noResult;
         };
@@ -2261,12 +2262,13 @@ export const useGameStore = create<GameState & GameActions>()(
           let playerHp = state.currentHp;
           let zoneAttackResult: CombatTickResult['zoneAttack'] = null;
           let nextAttackAt = state.zoneNextAttackAt;
+          let helperBleedDmg = 0;
 
           if (nextAttackAt > 0 && now >= nextAttackAt) {
             const helperEnemyMods = calcEnemyDebuffMods(state.activeDebuffs);
 
             // Bleed trigger: zone mob attacked (hit or miss — mob still swung)
-            const helperBleedDmg = calcBleedTriggerDamage(state.activeDebuffs, 1, resolveStats(state.character).incDoTDamage);
+            helperBleedDmg = calcBleedTriggerDamage(state.activeDebuffs, 1, resolveStats(state.character).incDoTDamage);
             if (helperBleedDmg > 0) {
               set({ currentMobHp: Math.max(0, state.currentMobHp - helperBleedDmg) });
             }
@@ -2322,11 +2324,11 @@ export const useGameStore = create<GameState & GameActions>()(
 
             if (playerHp <= 0) {
               set({ currentHp: 0, currentEs: 0, zoneNextAttackAt: nextAttackAt, combatPhase: 'zone_defeat' as CombatPhase, combatPhaseStartedAt: Date.now() });
-              return { ...noResult, zoneAttack: zoneAttackResult, zoneDeath: true };
+              return { ...noResult, zoneAttack: zoneAttackResult, zoneDeath: true, bleedTriggerDamage: helperBleedDmg };
             }
             set({ currentHp: playerHp, zoneNextAttackAt: nextAttackAt });
           }
-          return { ...noResult, zoneAttack: zoneAttackResult };
+          return { ...noResult, zoneAttack: zoneAttackResult, bleedTriggerDamage: helperBleedDmg };
         };
 
         // GCD check: can we fire any active skill yet?

@@ -69,7 +69,7 @@ export default function CombatPanel() {
   const floaterIdRef = useRef(0);
   const lastFiredTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const [combatLog, setCombatLog] = useState<Array<{
-    id: number; type: 'skill' | 'dot' | 'bleed' | 'shatter';
+    id: number; type: 'skill' | 'dot' | 'bleed' | 'shatter' | 'enemy';
     label: string; damage: number; isCrit?: boolean; isHit?: boolean;
   }>>([]);
   const logIdRef = useRef(0);
@@ -121,13 +121,13 @@ export default function CombatPanel() {
             if (combatResult.bleedTriggerDamage && combatResult.bleedTriggerDamage > 0) {
               setCombatLog(prev => [...prev, {
                 id: logIdRef.current++, type: 'bleed' as const,
-                label: 'Bleed', damage: combatResult.bleedTriggerDamage!,
+                label: 'Bleed trigger', damage: combatResult.bleedTriggerDamage!,
               }].slice(-20));
             }
             if (combatResult.shatterDamage && combatResult.shatterDamage > 0) {
               setCombatLog(prev => [...prev, {
                 id: logIdRef.current++, type: 'shatter' as const,
-                label: 'Shatter', damage: combatResult.shatterDamage!,
+                label: 'Shatter → next', damage: combatResult.shatterDamage!,
               }].slice(-20));
             }
           }
@@ -167,6 +167,18 @@ export default function CombatPanel() {
               isDodged: za.isDodged,
               isBlocked: za.isBlocked,
             }].slice(-8));
+            if (!za.isDodged) {
+              setCombatLog(prev => [...prev, {
+                id: logIdRef.current++, type: 'enemy' as const,
+                label: 'Mob swing', damage: za.damage,
+              }].slice(-20));
+            }
+          }
+          if (!combatResult.skillFired && combatResult.bleedTriggerDamage && combatResult.bleedTriggerDamage > 0) {
+            setCombatLog(prev => [...prev, {
+              id: logIdRef.current++, type: 'bleed' as const,
+              label: 'Bleed trigger', damage: combatResult.bleedTriggerDamage!,
+            }].slice(-20));
           }
           if (combatResult.zoneDeath) {
             setFloaters([]);
@@ -205,7 +217,7 @@ export default function CombatPanel() {
           if (bossResult.bleedTriggerDamage && bossResult.bleedTriggerDamage > 0) {
             setCombatLog(prev => [...prev, {
               id: logIdRef.current++, type: 'bleed' as const,
-              label: 'Bleed', damage: bossResult.bleedTriggerDamage!,
+              label: 'Bleed trigger', damage: bossResult.bleedTriggerDamage!,
             }].slice(-20));
           }
         }
@@ -221,6 +233,18 @@ export default function CombatPanel() {
             isBlocked: ba.isBlocked,
             isBossCrit: ba.isCrit,
           }].slice(-8));
+          if (!ba.isDodged) {
+            setCombatLog(prev => [...prev, {
+              id: logIdRef.current++, type: 'enemy' as const,
+              label: 'Boss swing', damage: ba.damage,
+            }].slice(-20));
+          }
+        }
+        if (!bossResult.skillFired && bossResult.bleedTriggerDamage && bossResult.bleedTriggerDamage > 0) {
+          setCombatLog(prev => [...prev, {
+            id: logIdRef.current++, type: 'bleed' as const,
+            label: 'Bleed trigger', damage: bossResult.bleedTriggerDamage!,
+          }].slice(-20));
         }
         if (bossResult.bossOutcome === 'victory') {
           const bState = useGameStore.getState().bossState;
@@ -449,6 +473,7 @@ export default function CombatPanel() {
                   <span className={
                     entry.type === 'dot' ? 'text-green-400' :
                     entry.type === 'bleed' ? 'text-red-400' :
+                    entry.type === 'enemy' ? 'text-orange-400' :
                     'text-cyan-300'
                   }>{entry.label}</span>
                   {' '}<span className="text-gray-300">{Math.round(entry.damage)}</span>
