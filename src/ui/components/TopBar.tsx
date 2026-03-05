@@ -24,8 +24,8 @@ export default function TopBar() {
 
         {/* Gold */}
         <div className="flex items-center gap-1 text-xs">
-          <span className="text-yellow-400">{gold}</span>
-          <span className="text-yellow-600">g</span>
+          <span className="text-theme-text-accent theme-transition">{gold}</span>
+          <span className="text-theme-text-accent/60 theme-transition">g</span>
         </div>
       </div>
 

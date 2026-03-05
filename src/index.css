@@ -100,6 +100,16 @@ body {
   50%      { opacity: 0.85; }
 }
 
+/* ── Zone entry flash ── */
+.zone-entry-flash {
+  animation: zone-flash 0.5s ease-out forwards;
+  background-color: rgb(var(--theme-accent) / 0.15);
+}
+@keyframes zone-flash {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 /* ── Particle keyframes (transform + opacity only → GPU compositor) ── */
 
 /* Band 1 Greenlands: gentle leaf drift */
