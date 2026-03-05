@@ -1,10 +1,31 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-04 (Sprint 2: Combat Log & Debuff UX)
+> Last updated: 2026-03-05 (Damage Bucket Fix — Flat Phys Conversion + Item Data Cleanup)
 
 ## Current Phase
-**Sprint: Debuff Overhaul — Sprint 2 (Combat Log & Debuff UX)** — COMPLETE.
+**Damage Bucket Fix — Flat Phys Conversion + Item Data Cleanup** — COMPLETE.
+
+- **Purpose**: Fix critical balance bug where `flatPhysDamage` bypassed skill conversion splits and was double-counted on all weapons/accessories.
+- **Two bugs fixed**:
+  - **Conversion bypass**: In `resolveDamageBuckets()`, flat phys was added to the physical bucket AFTER conversion (Step 3), so Thunder Crash (55% phys→lightning) dealt ~80% physical. Fix: moved `flatPhysDamage` into `physBase` BEFORE conversion (Step 1) for attack skills. Elemental flat affixes (fire/cold/lightning/chaos) stay in Step 3 as intended.
+  - **Double-counting**: Every weapon had both `baseDamageMin/Max` (feeds `weaponAvgDmg`) AND `baseStats.flatPhysDamage` (same value). Weapon damage entered `physBase` twice. Fix: removed `flatPhysDamage` from ALL base item `baseStats` — weapons, quivers, amulets, trinkets. Weapon damage now comes solely from `baseDamageMin/Max`. Flat phys is only available through affixes (rolled on items).
+- **Save migration v42**: Strips `flatPhysDamage` from `baseStats` on all existing equipped and inventory items on load.
+- **Modified files**: `src/engine/damageBuckets.ts`, `src/data/items.ts`, `src/store/gameStore.ts`
+- **Save version**: v41 → v42
+- **Next**: Tune affix scaling if damage numbers are still off after fix. Then Skill Tree Overhaul Phase 0 engine implementation.
+
+**Previous: Skill Tree Overhaul — v3.1 Documentation** — COMPLETE.
+
+- **Purpose**: Rewrite talent tree design docs to align with v3.1 framework. Establish reusable templates for all future weapons.
+- **Changes**:
+  - **`docs/weapon-designs/dagger.md`**: Full rewrite — v3.1 tree structure (7 tiers, 19-capacity branches, non-uniform gates), behavior nodes (maxRank:2, conditional mechanics), proc-forward shared notables (Blade Sense, Exploit Weakness, Envenom, Deep Wounds, Shadow Guard, Ghost Step), DEATHBLOW v3.2 redesign (25% HP execute-only, cast priority, 500% weapon damage), T5 keystone choices per branch, behavior template selections for all 7 skills, build path examples, 3-mechanic rule validation, validation checklist. Serves as template for all future weapon docs.
+  - **`docs/SKILL_TREE_OVERHAUL.md`**: Full rewrite — v3.1 architecture (node types: behavior/notable/keystoneChoice/keystone), design philosophy (behavior-first fillers, proc-forward notables, T6→T7 tension, buff branch ownership, 3-mechanic rule), comprehensive engine changes tracker (P0: 13 items for any tree, P1: 9 items for dagger, P2: 11 items deferred), updated Phase 0 + Phase 1 specs with v3.1 types and mechanics.
+  - **Key design decisions**: Lethality passive removed (effects redistributed), Stealth→Assassination branch, Flurry→Shadow Dance branch, DEATHBLOW changed from instant-kill to 500% execute damage at 25% HP threshold
+- **Modified files**: `docs/weapon-designs/dagger.md`, `docs/SKILL_TREE_OVERHAUL.md`
+- **Save version**: v41 (unchanged, docs only)
+
+**Previous: Sprint: Debuff Overhaul — Sprint 2 (Combat Log & Debuff UX)** — COMPLETE.
 
 - **Purpose**: Surface debuff damage in the combat log so players can see their debuffs working. Add tooltips to debuff badges.
 - **Changes**:

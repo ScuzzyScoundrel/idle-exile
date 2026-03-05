@@ -95,6 +95,7 @@ export function resolveDamageBuckets(
   // Weapon/spell power scaling
   if (isAttack) {
     physBase += weaponAvgDmg * skill.weaponDamagePercent;
+    physBase += stats.flatPhysDamage; // flat phys routes through conversion
   }
   if (isSpell) {
     physBase += (weaponSpellPower + stats.spellPower) * skill.spellPowerRatio;
@@ -129,7 +130,6 @@ export function resolveDamageBuckets(
   // ── Step 3: Add flat damage to buckets ──
   // ALL flat affixes contribute regardless of skill tags
   if (isAttack) {
-    buckets.physical += stats.flatPhysDamage;
     buckets.fire += stats.flatAtkFireDamage;
     buckets.cold += stats.flatAtkColdDamage;
     buckets.lightning += stats.flatAtkLightningDamage;
@@ -257,8 +257,7 @@ export function resolveAilmentChances(
 
 function hasAnyFlatDamage(stats: ResolvedStats, isAttack: boolean, isSpell: boolean): boolean {
   if (isAttack) {
-    return stats.flatPhysDamage > 0
-      || stats.flatAtkFireDamage > 0
+    return stats.flatAtkFireDamage > 0
       || stats.flatAtkColdDamage > 0
       || stats.flatAtkLightningDamage > 0
       || stats.flatAtkChaosDamage > 0;

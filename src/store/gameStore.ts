@@ -3780,7 +3780,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 41,
+      version: 42,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -4471,6 +4471,19 @@ export const useGameStore = create<GameState & GameActions>()(
             else if (count >= 25) claimed[zoneId] = 25;
           }
           raw.zoneMasteryClaimed = claimed;
+        }
+
+        if (version < 42) {
+          // v42: Remove legacy flatPhysDamage from item baseStats
+          // Weapon damage now comes solely from baseDamageMin/Max; flat phys only from affixes
+          const stripFlatPhys = (item: Record<string, unknown>) => {
+            const bs = item.baseStats as Record<string, unknown> | undefined;
+            if (bs && 'flatPhysDamage' in bs) delete bs.flatPhysDamage;
+          };
+          const equip = ((raw.character as Record<string, unknown>)?.equipment ?? {}) as Record<string, Record<string, unknown>>;
+          for (const item of Object.values(equip)) { if (item) stripFlatPhys(item); }
+          const inv = (raw.inventory ?? []) as Record<string, unknown>[];
+          for (const item of inv) stripFlatPhys(item);
         }
 
         if (version < 41) {

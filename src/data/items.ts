@@ -3,91 +3,91 @@ import type { ItemBaseDef, CurrencyDef, BagUpgradeDef } from '../types';
 export const ITEM_BASE_DEFS: ItemBaseDef[] = [
   // ============================================================
   // MAINHAND — 14 weapon types × 6 bands (84 bases)
-  // Attack weapons: baseStats.flatPhysDamage = avg, baseDamageMin/Max
-  // Spell weapons: baseStats.spellPower = avg, baseSpellPower
-  // Hybrid: both flatPhysDamage and spellPower
+  // Attack weapons: baseDamageMin/Max (weapon damage comes from damage range only)
+  // Spell weapons: baseStats.spellPower, baseSpellPower
+  // Hybrid: spellPower + baseDamageMin/Max
   // ============================================================
 
   // ==================== Swords (1H Attack, balanced) ====================
-  { id: 'rusty_shortsword', name: 'Rusty Shortsword', slot: 'mainhand', weaponType: 'sword', baseStats: { flatPhysDamage: 5 }, baseDamageMin: 4, baseDamageMax: 8, iLvl: 1 },
-  { id: 'iron_sword',        name: 'Iron Sword',        slot: 'mainhand', weaponType: 'sword', baseStats: { flatPhysDamage: 15 }, baseDamageMin: 10, baseDamageMax: 20, iLvl: 1 },
-  { id: 'steel_blade',       name: 'Steel Blade',       slot: 'mainhand', weaponType: 'sword', baseStats: { flatPhysDamage: 25 }, baseDamageMin: 18, baseDamageMax: 32, iLvl: 10 },
-  { id: 'obsidian_edge',     name: 'Obsidian Edge',     slot: 'mainhand', weaponType: 'sword', baseStats: { flatPhysDamage: 40 }, baseDamageMin: 30, baseDamageMax: 50, iLvl: 20 },
-  { id: 'mithril_blade',     name: 'Mithril Blade',     slot: 'mainhand', weaponType: 'sword', baseStats: { flatPhysDamage: 55 }, baseDamageMin: 42, baseDamageMax: 68, iLvl: 30 },
-  { id: 'void_cleaver',      name: 'Void Cleaver',      slot: 'mainhand', weaponType: 'sword', baseStats: { flatPhysDamage: 80 }, baseDamageMin: 62, baseDamageMax: 98, iLvl: 45 },
-  { id: 'starforged_blade',  name: 'Starforged Blade',  slot: 'mainhand', weaponType: 'sword', baseStats: { flatPhysDamage: 110 }, baseDamageMin: 86, baseDamageMax: 134, iLvl: 60 },
+  { id: 'rusty_shortsword', name: 'Rusty Shortsword', slot: 'mainhand', weaponType: 'sword', baseStats: {}, baseDamageMin: 4, baseDamageMax: 8, iLvl: 1 },
+  { id: 'iron_sword',        name: 'Iron Sword',        slot: 'mainhand', weaponType: 'sword', baseStats: {}, baseDamageMin: 10, baseDamageMax: 20, iLvl: 1 },
+  { id: 'steel_blade',       name: 'Steel Blade',       slot: 'mainhand', weaponType: 'sword', baseStats: {}, baseDamageMin: 18, baseDamageMax: 32, iLvl: 10 },
+  { id: 'obsidian_edge',     name: 'Obsidian Edge',     slot: 'mainhand', weaponType: 'sword', baseStats: {}, baseDamageMin: 30, baseDamageMax: 50, iLvl: 20 },
+  { id: 'mithril_blade',     name: 'Mithril Blade',     slot: 'mainhand', weaponType: 'sword', baseStats: {}, baseDamageMin: 42, baseDamageMax: 68, iLvl: 30 },
+  { id: 'void_cleaver',      name: 'Void Cleaver',      slot: 'mainhand', weaponType: 'sword', baseStats: {}, baseDamageMin: 62, baseDamageMax: 98, iLvl: 45 },
+  { id: 'starforged_blade',  name: 'Starforged Blade',  slot: 'mainhand', weaponType: 'sword', baseStats: {}, baseDamageMin: 86, baseDamageMax: 134, iLvl: 60 },
 
   // ==================== Axes (1H Attack, high damage slow) ====================
-  { id: 'rusty_hatchet',     name: 'Rusty Hatchet',     slot: 'mainhand', weaponType: 'axe', baseStats: { flatPhysDamage: 18 }, baseDamageMin: 12, baseDamageMax: 24, iLvl: 1 },
-  { id: 'iron_battleaxe',    name: 'Iron Battleaxe',    slot: 'mainhand', weaponType: 'axe', baseStats: { flatPhysDamage: 30 }, baseDamageMin: 22, baseDamageMax: 38, iLvl: 10 },
-  { id: 'obsidian_cleaver',  name: 'Obsidian Cleaver',  slot: 'mainhand', weaponType: 'axe', baseStats: { flatPhysDamage: 48 }, baseDamageMin: 36, baseDamageMax: 60, iLvl: 20 },
-  { id: 'mithril_waraxe',    name: 'Mithril Waraxe',    slot: 'mainhand', weaponType: 'axe', baseStats: { flatPhysDamage: 66 }, baseDamageMin: 50, baseDamageMax: 82, iLvl: 30 },
-  { id: 'void_reaver',       name: 'Void Reaver',       slot: 'mainhand', weaponType: 'axe', baseStats: { flatPhysDamage: 96 }, baseDamageMin: 74, baseDamageMax: 118, iLvl: 45 },
-  { id: 'starforged_axe',    name: 'Starforged Axe',    slot: 'mainhand', weaponType: 'axe', baseStats: { flatPhysDamage: 132 }, baseDamageMin: 102, baseDamageMax: 162, iLvl: 60 },
+  { id: 'rusty_hatchet',     name: 'Rusty Hatchet',     slot: 'mainhand', weaponType: 'axe', baseStats: {}, baseDamageMin: 12, baseDamageMax: 24, iLvl: 1 },
+  { id: 'iron_battleaxe',    name: 'Iron Battleaxe',    slot: 'mainhand', weaponType: 'axe', baseStats: {}, baseDamageMin: 22, baseDamageMax: 38, iLvl: 10 },
+  { id: 'obsidian_cleaver',  name: 'Obsidian Cleaver',  slot: 'mainhand', weaponType: 'axe', baseStats: {}, baseDamageMin: 36, baseDamageMax: 60, iLvl: 20 },
+  { id: 'mithril_waraxe',    name: 'Mithril Waraxe',    slot: 'mainhand', weaponType: 'axe', baseStats: {}, baseDamageMin: 50, baseDamageMax: 82, iLvl: 30 },
+  { id: 'void_reaver',       name: 'Void Reaver',       slot: 'mainhand', weaponType: 'axe', baseStats: {}, baseDamageMin: 74, baseDamageMax: 118, iLvl: 45 },
+  { id: 'starforged_axe',    name: 'Starforged Axe',    slot: 'mainhand', weaponType: 'axe', baseStats: {}, baseDamageMin: 102, baseDamageMax: 162, iLvl: 60 },
 
   // ==================== Maces (1H Attack, tanky) ====================
-  { id: 'crude_club',        name: 'Crude Club',        slot: 'mainhand', weaponType: 'mace', baseStats: { flatPhysDamage: 13, armor: 3 }, baseDamageMin: 8, baseDamageMax: 18, iLvl: 1 },
-  { id: 'iron_mace',         name: 'Iron Mace',         slot: 'mainhand', weaponType: 'mace', baseStats: { flatPhysDamage: 22, armor: 6 }, baseDamageMin: 15, baseDamageMax: 29, iLvl: 10 },
-  { id: 'obsidian_hammer',   name: 'Obsidian Hammer',   slot: 'mainhand', weaponType: 'mace', baseStats: { flatPhysDamage: 35, armor: 11 }, baseDamageMin: 25, baseDamageMax: 45, iLvl: 20 },
-  { id: 'mithril_mace',      name: 'Mithril Mace',      slot: 'mainhand', weaponType: 'mace', baseStats: { flatPhysDamage: 48, armor: 16 }, baseDamageMin: 35, baseDamageMax: 61, iLvl: 30 },
-  { id: 'void_maul_1h',      name: 'Void Crusher',      slot: 'mainhand', weaponType: 'mace', baseStats: { flatPhysDamage: 70, armor: 22 }, baseDamageMin: 52, baseDamageMax: 88, iLvl: 45 },
-  { id: 'starforged_mace',   name: 'Starforged Mace',   slot: 'mainhand', weaponType: 'mace', baseStats: { flatPhysDamage: 96, armor: 30 }, baseDamageMin: 72, baseDamageMax: 120, iLvl: 60 },
+  { id: 'crude_club',        name: 'Crude Club',        slot: 'mainhand', weaponType: 'mace', baseStats: { armor: 3 }, baseDamageMin: 8, baseDamageMax: 18, iLvl: 1 },
+  { id: 'iron_mace',         name: 'Iron Mace',         slot: 'mainhand', weaponType: 'mace', baseStats: { armor: 6 }, baseDamageMin: 15, baseDamageMax: 29, iLvl: 10 },
+  { id: 'obsidian_hammer',   name: 'Obsidian Hammer',   slot: 'mainhand', weaponType: 'mace', baseStats: { armor: 11 }, baseDamageMin: 25, baseDamageMax: 45, iLvl: 20 },
+  { id: 'mithril_mace',      name: 'Mithril Mace',      slot: 'mainhand', weaponType: 'mace', baseStats: { armor: 16 }, baseDamageMin: 35, baseDamageMax: 61, iLvl: 30 },
+  { id: 'void_maul_1h',      name: 'Void Crusher',      slot: 'mainhand', weaponType: 'mace', baseStats: { armor: 22 }, baseDamageMin: 52, baseDamageMax: 88, iLvl: 45 },
+  { id: 'starforged_mace',   name: 'Starforged Mace',   slot: 'mainhand', weaponType: 'mace', baseStats: { armor: 30 }, baseDamageMin: 72, baseDamageMax: 120, iLvl: 60 },
 
   // ==================== Greatswords (2H Attack) ====================
-  { id: 'iron_greatsword',      name: 'Iron Greatsword',      slot: 'mainhand', weaponType: 'greatsword', baseStats: { flatPhysDamage: 24 }, baseDamageMin: 16, baseDamageMax: 32, iLvl: 1 },
-  { id: 'steel_greatsword',     name: 'Steel Greatsword',     slot: 'mainhand', weaponType: 'greatsword', baseStats: { flatPhysDamage: 42 }, baseDamageMin: 30, baseDamageMax: 54, iLvl: 10 },
-  { id: 'obsidian_greatsword',  name: 'Obsidian Greatsword',  slot: 'mainhand', weaponType: 'greatsword', baseStats: { flatPhysDamage: 66 }, baseDamageMin: 48, baseDamageMax: 84, iLvl: 20 },
-  { id: 'mithril_greatsword',   name: 'Mithril Greatsword',   slot: 'mainhand', weaponType: 'greatsword', baseStats: { flatPhysDamage: 90 }, baseDamageMin: 66, baseDamageMax: 114, iLvl: 30 },
-  { id: 'void_greatsword',      name: 'Void Greatsword',      slot: 'mainhand', weaponType: 'greatsword', baseStats: { flatPhysDamage: 130 }, baseDamageMin: 96, baseDamageMax: 164, iLvl: 45 },
-  { id: 'starforged_greatsword', name: 'Starforged Greatsword', slot: 'mainhand', weaponType: 'greatsword', baseStats: { flatPhysDamage: 180 }, baseDamageMin: 134, baseDamageMax: 226, iLvl: 60 },
+  { id: 'iron_greatsword',      name: 'Iron Greatsword',      slot: 'mainhand', weaponType: 'greatsword', baseStats: {}, baseDamageMin: 16, baseDamageMax: 32, iLvl: 1 },
+  { id: 'steel_greatsword',     name: 'Steel Greatsword',     slot: 'mainhand', weaponType: 'greatsword', baseStats: {}, baseDamageMin: 30, baseDamageMax: 54, iLvl: 10 },
+  { id: 'obsidian_greatsword',  name: 'Obsidian Greatsword',  slot: 'mainhand', weaponType: 'greatsword', baseStats: {}, baseDamageMin: 48, baseDamageMax: 84, iLvl: 20 },
+  { id: 'mithril_greatsword',   name: 'Mithril Greatsword',   slot: 'mainhand', weaponType: 'greatsword', baseStats: {}, baseDamageMin: 66, baseDamageMax: 114, iLvl: 30 },
+  { id: 'void_greatsword',      name: 'Void Greatsword',      slot: 'mainhand', weaponType: 'greatsword', baseStats: {}, baseDamageMin: 96, baseDamageMax: 164, iLvl: 45 },
+  { id: 'starforged_greatsword', name: 'Starforged Greatsword', slot: 'mainhand', weaponType: 'greatsword', baseStats: {}, baseDamageMin: 134, baseDamageMax: 226, iLvl: 60 },
 
   // ==================== Greataxes (2H Attack) ====================
-  { id: 'iron_greataxe',      name: 'Iron Greataxe',      slot: 'mainhand', weaponType: 'greataxe', baseStats: { flatPhysDamage: 28 }, baseDamageMin: 18, baseDamageMax: 38, iLvl: 1 },
-  { id: 'steel_greataxe',     name: 'Steel Greataxe',     slot: 'mainhand', weaponType: 'greataxe', baseStats: { flatPhysDamage: 48 }, baseDamageMin: 32, baseDamageMax: 64, iLvl: 10 },
-  { id: 'obsidian_greataxe',  name: 'Obsidian Greataxe',  slot: 'mainhand', weaponType: 'greataxe', baseStats: { flatPhysDamage: 76 }, baseDamageMin: 52, baseDamageMax: 100, iLvl: 20 },
-  { id: 'mithril_greataxe',   name: 'Mithril Greataxe',   slot: 'mainhand', weaponType: 'greataxe', baseStats: { flatPhysDamage: 104 }, baseDamageMin: 72, baseDamageMax: 136, iLvl: 30 },
-  { id: 'void_greataxe',      name: 'Void Greataxe',      slot: 'mainhand', weaponType: 'greataxe', baseStats: { flatPhysDamage: 150 }, baseDamageMin: 106, baseDamageMax: 194, iLvl: 45 },
-  { id: 'starforged_greataxe', name: 'Starforged Greataxe', slot: 'mainhand', weaponType: 'greataxe', baseStats: { flatPhysDamage: 206 }, baseDamageMin: 146, baseDamageMax: 266, iLvl: 60 },
+  { id: 'iron_greataxe',      name: 'Iron Greataxe',      slot: 'mainhand', weaponType: 'greataxe', baseStats: {}, baseDamageMin: 18, baseDamageMax: 38, iLvl: 1 },
+  { id: 'steel_greataxe',     name: 'Steel Greataxe',     slot: 'mainhand', weaponType: 'greataxe', baseStats: {}, baseDamageMin: 32, baseDamageMax: 64, iLvl: 10 },
+  { id: 'obsidian_greataxe',  name: 'Obsidian Greataxe',  slot: 'mainhand', weaponType: 'greataxe', baseStats: {}, baseDamageMin: 52, baseDamageMax: 100, iLvl: 20 },
+  { id: 'mithril_greataxe',   name: 'Mithril Greataxe',   slot: 'mainhand', weaponType: 'greataxe', baseStats: {}, baseDamageMin: 72, baseDamageMax: 136, iLvl: 30 },
+  { id: 'void_greataxe',      name: 'Void Greataxe',      slot: 'mainhand', weaponType: 'greataxe', baseStats: {}, baseDamageMin: 106, baseDamageMax: 194, iLvl: 45 },
+  { id: 'starforged_greataxe', name: 'Starforged Greataxe', slot: 'mainhand', weaponType: 'greataxe', baseStats: {}, baseDamageMin: 146, baseDamageMax: 266, iLvl: 60 },
 
   // ==================== Mauls (2H Attack, slowest/hardest) ====================
-  { id: 'iron_maul',       name: 'Iron Maul',       slot: 'mainhand', weaponType: 'maul', baseStats: { flatPhysDamage: 32 }, baseDamageMin: 20, baseDamageMax: 44, iLvl: 1 },
-  { id: 'steel_maul',      name: 'Steel Maul',      slot: 'mainhand', weaponType: 'maul', baseStats: { flatPhysDamage: 54 }, baseDamageMin: 36, baseDamageMax: 72, iLvl: 10 },
-  { id: 'obsidian_maul',   name: 'Obsidian Maul',   slot: 'mainhand', weaponType: 'maul', baseStats: { flatPhysDamage: 86 }, baseDamageMin: 58, baseDamageMax: 114, iLvl: 20 },
-  { id: 'mithril_maul',    name: 'Mithril Maul',    slot: 'mainhand', weaponType: 'maul', baseStats: { flatPhysDamage: 118 }, baseDamageMin: 80, baseDamageMax: 156, iLvl: 30 },
-  { id: 'void_maul',       name: 'Void Maul',       slot: 'mainhand', weaponType: 'maul', baseStats: { flatPhysDamage: 170 }, baseDamageMin: 116, baseDamageMax: 224, iLvl: 45 },
-  { id: 'starforged_maul',  name: 'Starforged Maul',  slot: 'mainhand', weaponType: 'maul', baseStats: { flatPhysDamage: 234 }, baseDamageMin: 160, baseDamageMax: 308, iLvl: 60 },
+  { id: 'iron_maul',       name: 'Iron Maul',       slot: 'mainhand', weaponType: 'maul', baseStats: {}, baseDamageMin: 20, baseDamageMax: 44, iLvl: 1 },
+  { id: 'steel_maul',      name: 'Steel Maul',      slot: 'mainhand', weaponType: 'maul', baseStats: {}, baseDamageMin: 36, baseDamageMax: 72, iLvl: 10 },
+  { id: 'obsidian_maul',   name: 'Obsidian Maul',   slot: 'mainhand', weaponType: 'maul', baseStats: {}, baseDamageMin: 58, baseDamageMax: 114, iLvl: 20 },
+  { id: 'mithril_maul',    name: 'Mithril Maul',    slot: 'mainhand', weaponType: 'maul', baseStats: {}, baseDamageMin: 80, baseDamageMax: 156, iLvl: 30 },
+  { id: 'void_maul',       name: 'Void Maul',       slot: 'mainhand', weaponType: 'maul', baseStats: {}, baseDamageMin: 116, baseDamageMax: 224, iLvl: 45 },
+  { id: 'starforged_maul',  name: 'Starforged Maul',  slot: 'mainhand', weaponType: 'maul', baseStats: {}, baseDamageMin: 160, baseDamageMax: 308, iLvl: 60 },
 
   // ==================== Bows (2H Attack, ranged) ====================
-  { id: 'shortbow',         name: 'Shortbow',         slot: 'mainhand', weaponType: 'bow', baseStats: { flatPhysDamage: 14 }, baseDamageMin: 9, baseDamageMax: 19, iLvl: 1 },
-  { id: 'recurve_bow',      name: 'Recurve Bow',      slot: 'mainhand', weaponType: 'bow', baseStats: { flatPhysDamage: 23 }, baseDamageMin: 16, baseDamageMax: 30, iLvl: 10 },
-  { id: 'obsidian_longbow',  name: 'Obsidian Longbow',  slot: 'mainhand', weaponType: 'bow', baseStats: { flatPhysDamage: 37 }, baseDamageMin: 26, baseDamageMax: 48, iLvl: 20 },
-  { id: 'mithril_bow',      name: 'Mithril Bow',      slot: 'mainhand', weaponType: 'bow', baseStats: { flatPhysDamage: 51 }, baseDamageMin: 36, baseDamageMax: 66, iLvl: 30 },
-  { id: 'void_bow',         name: 'Void Bow',         slot: 'mainhand', weaponType: 'bow', baseStats: { flatPhysDamage: 74 }, baseDamageMin: 54, baseDamageMax: 94, iLvl: 45 },
-  { id: 'starforged_bow',   name: 'Starforged Bow',   slot: 'mainhand', weaponType: 'bow', baseStats: { flatPhysDamage: 102 }, baseDamageMin: 74, baseDamageMax: 130, iLvl: 60 },
+  { id: 'shortbow',         name: 'Shortbow',         slot: 'mainhand', weaponType: 'bow', baseStats: {}, baseDamageMin: 9, baseDamageMax: 19, iLvl: 1 },
+  { id: 'recurve_bow',      name: 'Recurve Bow',      slot: 'mainhand', weaponType: 'bow', baseStats: {}, baseDamageMin: 16, baseDamageMax: 30, iLvl: 10 },
+  { id: 'obsidian_longbow',  name: 'Obsidian Longbow',  slot: 'mainhand', weaponType: 'bow', baseStats: {}, baseDamageMin: 26, baseDamageMax: 48, iLvl: 20 },
+  { id: 'mithril_bow',      name: 'Mithril Bow',      slot: 'mainhand', weaponType: 'bow', baseStats: {}, baseDamageMin: 36, baseDamageMax: 66, iLvl: 30 },
+  { id: 'void_bow',         name: 'Void Bow',         slot: 'mainhand', weaponType: 'bow', baseStats: {}, baseDamageMin: 54, baseDamageMax: 94, iLvl: 45 },
+  { id: 'starforged_bow',   name: 'Starforged Bow',   slot: 'mainhand', weaponType: 'bow', baseStats: {}, baseDamageMin: 74, baseDamageMax: 130, iLvl: 60 },
 
   // ==================== Crossbows (2H Attack, burst) ====================
-  { id: 'hand_crossbow',       name: 'Hand Crossbow',       slot: 'mainhand', weaponType: 'crossbow', baseStats: { flatPhysDamage: 20 }, baseDamageMin: 14, baseDamageMax: 26, iLvl: 1 },
-  { id: 'iron_crossbow',       name: 'Iron Crossbow',       slot: 'mainhand', weaponType: 'crossbow', baseStats: { flatPhysDamage: 33 }, baseDamageMin: 24, baseDamageMax: 42, iLvl: 10 },
-  { id: 'obsidian_arbalest',   name: 'Obsidian Arbalest',   slot: 'mainhand', weaponType: 'crossbow', baseStats: { flatPhysDamage: 53 }, baseDamageMin: 38, baseDamageMax: 68, iLvl: 20 },
-  { id: 'mithril_crossbow',    name: 'Mithril Crossbow',    slot: 'mainhand', weaponType: 'crossbow', baseStats: { flatPhysDamage: 73 }, baseDamageMin: 52, baseDamageMax: 94, iLvl: 30 },
-  { id: 'void_crossbow',       name: 'Void Crossbow',       slot: 'mainhand', weaponType: 'crossbow', baseStats: { flatPhysDamage: 106 }, baseDamageMin: 76, baseDamageMax: 136, iLvl: 45 },
-  { id: 'starforged_crossbow',  name: 'Starforged Crossbow',  slot: 'mainhand', weaponType: 'crossbow', baseStats: { flatPhysDamage: 146 }, baseDamageMin: 106, baseDamageMax: 186, iLvl: 60 },
+  { id: 'hand_crossbow',       name: 'Hand Crossbow',       slot: 'mainhand', weaponType: 'crossbow', baseStats: {}, baseDamageMin: 14, baseDamageMax: 26, iLvl: 1 },
+  { id: 'iron_crossbow',       name: 'Iron Crossbow',       slot: 'mainhand', weaponType: 'crossbow', baseStats: {}, baseDamageMin: 24, baseDamageMax: 42, iLvl: 10 },
+  { id: 'obsidian_arbalest',   name: 'Obsidian Arbalest',   slot: 'mainhand', weaponType: 'crossbow', baseStats: {}, baseDamageMin: 38, baseDamageMax: 68, iLvl: 20 },
+  { id: 'mithril_crossbow',    name: 'Mithril Crossbow',    slot: 'mainhand', weaponType: 'crossbow', baseStats: {}, baseDamageMin: 52, baseDamageMax: 94, iLvl: 30 },
+  { id: 'void_crossbow',       name: 'Void Crossbow',       slot: 'mainhand', weaponType: 'crossbow', baseStats: {}, baseDamageMin: 76, baseDamageMax: 136, iLvl: 45 },
+  { id: 'starforged_crossbow',  name: 'Starforged Crossbow',  slot: 'mainhand', weaponType: 'crossbow', baseStats: {}, baseDamageMin: 106, baseDamageMax: 186, iLvl: 60 },
 
   // ==================== Daggers (1H Hybrid, fast + crit) ====================
-  { id: 'crude_dagger',       name: 'Crude Dagger',       slot: 'mainhand', weaponType: 'dagger', baseStats: { flatPhysDamage: 8, spellPower: 4, critChance: 3 }, baseDamageMin: 5, baseDamageMax: 11, baseSpellPower: 4, iLvl: 1 },
-  { id: 'steel_stiletto',     name: 'Steel Stiletto',     slot: 'mainhand', weaponType: 'dagger', baseStats: { flatPhysDamage: 14, spellPower: 7, critChance: 5 }, baseDamageMin: 9, baseDamageMax: 19, baseSpellPower: 7, iLvl: 10 },
-  { id: 'obsidian_kris',      name: 'Obsidian Kris',      slot: 'mainhand', weaponType: 'dagger', baseStats: { flatPhysDamage: 22, spellPower: 11, critChance: 8 }, baseDamageMin: 15, baseDamageMax: 29, baseSpellPower: 11, iLvl: 20 },
-  { id: 'mithril_dirk',       name: 'Mithril Dirk',       slot: 'mainhand', weaponType: 'dagger', baseStats: { flatPhysDamage: 30, spellPower: 15, critChance: 10 }, baseDamageMin: 20, baseDamageMax: 40, baseSpellPower: 15, iLvl: 30 },
-  { id: 'void_fang',          name: 'Void Fang',          slot: 'mainhand', weaponType: 'dagger', baseStats: { flatPhysDamage: 44, spellPower: 22, critChance: 13 }, baseDamageMin: 30, baseDamageMax: 58, baseSpellPower: 22, iLvl: 45 },
-  { id: 'starforged_dagger',  name: 'Starforged Dagger',  slot: 'mainhand', weaponType: 'dagger', baseStats: { flatPhysDamage: 60, spellPower: 30, critChance: 16 }, baseDamageMin: 42, baseDamageMax: 78, baseSpellPower: 30, iLvl: 60 },
+  { id: 'crude_dagger',       name: 'Crude Dagger',       slot: 'mainhand', weaponType: 'dagger', baseStats: { spellPower: 4, critChance: 3 }, baseDamageMin: 5, baseDamageMax: 11, baseSpellPower: 4, iLvl: 1 },
+  { id: 'steel_stiletto',     name: 'Steel Stiletto',     slot: 'mainhand', weaponType: 'dagger', baseStats: { spellPower: 7, critChance: 5 }, baseDamageMin: 9, baseDamageMax: 19, baseSpellPower: 7, iLvl: 10 },
+  { id: 'obsidian_kris',      name: 'Obsidian Kris',      slot: 'mainhand', weaponType: 'dagger', baseStats: { spellPower: 11, critChance: 8 }, baseDamageMin: 15, baseDamageMax: 29, baseSpellPower: 11, iLvl: 20 },
+  { id: 'mithril_dirk',       name: 'Mithril Dirk',       slot: 'mainhand', weaponType: 'dagger', baseStats: { spellPower: 15, critChance: 10 }, baseDamageMin: 20, baseDamageMax: 40, baseSpellPower: 15, iLvl: 30 },
+  { id: 'void_fang',          name: 'Void Fang',          slot: 'mainhand', weaponType: 'dagger', baseStats: { spellPower: 22, critChance: 13 }, baseDamageMin: 30, baseDamageMax: 58, baseSpellPower: 22, iLvl: 45 },
+  { id: 'starforged_dagger',  name: 'Starforged Dagger',  slot: 'mainhand', weaponType: 'dagger', baseStats: { spellPower: 30, critChance: 16 }, baseDamageMin: 42, baseDamageMax: 78, baseSpellPower: 30, iLvl: 60 },
 
   // ==================== Scepters (1H Hybrid) ====================
-  { id: 'copper_scepter',     name: 'Copper Scepter',     slot: 'mainhand', weaponType: 'scepter', baseStats: { flatPhysDamage: 10, spellPower: 10 }, baseDamageMin: 7, baseDamageMax: 13, baseSpellPower: 10, iLvl: 1 },
-  { id: 'iron_scepter',       name: 'Iron Scepter',       slot: 'mainhand', weaponType: 'scepter', baseStats: { flatPhysDamage: 18, spellPower: 18 }, baseDamageMin: 12, baseDamageMax: 24, baseSpellPower: 18, iLvl: 10 },
-  { id: 'obsidian_scepter',   name: 'Obsidian Scepter',   slot: 'mainhand', weaponType: 'scepter', baseStats: { flatPhysDamage: 28, spellPower: 28 }, baseDamageMin: 20, baseDamageMax: 36, baseSpellPower: 28, iLvl: 20 },
-  { id: 'mithril_scepter',    name: 'Mithril Scepter',    slot: 'mainhand', weaponType: 'scepter', baseStats: { flatPhysDamage: 38, spellPower: 38 }, baseDamageMin: 27, baseDamageMax: 49, baseSpellPower: 38, iLvl: 30 },
-  { id: 'void_scepter',       name: 'Void Scepter',       slot: 'mainhand', weaponType: 'scepter', baseStats: { flatPhysDamage: 56, spellPower: 56 }, baseDamageMin: 40, baseDamageMax: 72, baseSpellPower: 56, iLvl: 45 },
-  { id: 'starforged_scepter', name: 'Starforged Scepter', slot: 'mainhand', weaponType: 'scepter', baseStats: { flatPhysDamage: 76, spellPower: 76 }, baseDamageMin: 56, baseDamageMax: 96, baseSpellPower: 76, iLvl: 60 },
+  { id: 'copper_scepter',     name: 'Copper Scepter',     slot: 'mainhand', weaponType: 'scepter', baseStats: { spellPower: 10 }, baseDamageMin: 7, baseDamageMax: 13, baseSpellPower: 10, iLvl: 1 },
+  { id: 'iron_scepter',       name: 'Iron Scepter',       slot: 'mainhand', weaponType: 'scepter', baseStats: { spellPower: 18 }, baseDamageMin: 12, baseDamageMax: 24, baseSpellPower: 18, iLvl: 10 },
+  { id: 'obsidian_scepter',   name: 'Obsidian Scepter',   slot: 'mainhand', weaponType: 'scepter', baseStats: { spellPower: 28 }, baseDamageMin: 20, baseDamageMax: 36, baseSpellPower: 28, iLvl: 20 },
+  { id: 'mithril_scepter',    name: 'Mithril Scepter',    slot: 'mainhand', weaponType: 'scepter', baseStats: { spellPower: 38 }, baseDamageMin: 27, baseDamageMax: 49, baseSpellPower: 38, iLvl: 30 },
+  { id: 'void_scepter',       name: 'Void Scepter',       slot: 'mainhand', weaponType: 'scepter', baseStats: { spellPower: 56 }, baseDamageMin: 40, baseDamageMax: 72, baseSpellPower: 56, iLvl: 45 },
+  { id: 'starforged_scepter', name: 'Starforged Scepter', slot: 'mainhand', weaponType: 'scepter', baseStats: { spellPower: 76 }, baseDamageMin: 56, baseDamageMax: 96, baseSpellPower: 76, iLvl: 60 },
 
   // ==================== Wands (1H Spell) ====================
   { id: 'twig_wand',        name: 'Twig Wand',        slot: 'mainhand', weaponType: 'wand', baseStats: { spellPower: 12 }, baseSpellPower: 12, iLvl: 1 },
@@ -143,17 +143,17 @@ export const ITEM_BASE_DEFS: ItemBaseDef[] = [
   { id: 'astral_codex',      name: 'Astral Codex',      slot: 'offhand', offhandType: 'focus', baseStats: { spellPower: 54, maxLife: 36 }, baseSpellPower: 54, iLvl: 50 },
   { id: 'starforged_focus',  name: 'Starforged Focus',  slot: 'offhand', offhandType: 'focus', baseStats: { spellPower: 70, maxLife: 46 }, baseSpellPower: 70, iLvl: 60 },
 
-  // -- Quivers (flatPhysDamage + life) --
-  { id: 'leather_quiver',    name: 'Leather Quiver',    slot: 'offhand', offhandType: 'quiver', baseStats: { flatPhysDamage: 3, maxLife: 5 }, iLvl: 1 },
-  { id: 'studded_quiver',    name: 'Studded Quiver',    slot: 'offhand', offhandType: 'quiver', baseStats: { flatPhysDamage: 6, maxLife: 10 }, iLvl: 10 },
-  { id: 'runed_quiver',      name: 'Runed Quiver',      slot: 'offhand', offhandType: 'quiver', baseStats: { flatPhysDamage: 10, maxLife: 15 }, iLvl: 20 },
-  { id: 'mithril_quiver',    name: 'Mithril Quiver',    slot: 'offhand', offhandType: 'quiver', baseStats: { flatPhysDamage: 14, maxLife: 20 }, iLvl: 30 },
-  { id: 'void_quiver',       name: 'Void Quiver',       slot: 'offhand', offhandType: 'quiver', baseStats: { flatPhysDamage: 20, maxLife: 28 }, iLvl: 40 },
-  { id: 'astral_quiver',     name: 'Astral Quiver',     slot: 'offhand', offhandType: 'quiver', baseStats: { flatPhysDamage: 28, maxLife: 36 }, iLvl: 50 },
-  { id: 'starforged_quiver', name: 'Starforged Quiver', slot: 'offhand', offhandType: 'quiver', baseStats: { flatPhysDamage: 38, maxLife: 46 }, iLvl: 60 },
+  // -- Quivers (life) --
+  { id: 'leather_quiver',    name: 'Leather Quiver',    slot: 'offhand', offhandType: 'quiver', baseStats: { maxLife: 5 }, iLvl: 1 },
+  { id: 'studded_quiver',    name: 'Studded Quiver',    slot: 'offhand', offhandType: 'quiver', baseStats: { maxLife: 10 }, iLvl: 10 },
+  { id: 'runed_quiver',      name: 'Runed Quiver',      slot: 'offhand', offhandType: 'quiver', baseStats: { maxLife: 15 }, iLvl: 20 },
+  { id: 'mithril_quiver',    name: 'Mithril Quiver',    slot: 'offhand', offhandType: 'quiver', baseStats: { maxLife: 20 }, iLvl: 30 },
+  { id: 'void_quiver',       name: 'Void Quiver',       slot: 'offhand', offhandType: 'quiver', baseStats: { maxLife: 28 }, iLvl: 40 },
+  { id: 'astral_quiver',     name: 'Astral Quiver',     slot: 'offhand', offhandType: 'quiver', baseStats: { maxLife: 36 }, iLvl: 50 },
+  { id: 'starforged_quiver', name: 'Starforged Quiver', slot: 'offhand', offhandType: 'quiver', baseStats: { maxLife: 46 }, iLvl: 60 },
 
   // ============================================================
-  // ARMOR — stat key migration: life → maxLife, dodgeChance → evasion (×10), critDamage → critMultiplier, damage → flatPhysDamage
+  // ARMOR — stat key migration: life → maxLife, dodgeChance → evasion (×10), critDamage → critMultiplier
   // All IDs preserved for crafting recipe compatibility.
   // ============================================================
 
@@ -185,12 +185,12 @@ export const ITEM_BASE_DEFS: ItemBaseDef[] = [
 
   // ==================== Neck ====================
   { id: 'bone_charm', name: 'Bone Charm', slot: 'neck', baseStats: { maxLife: 8 }, iLvl: 1 },
-  { id: 'jade_amulet', name: 'Jade Amulet', slot: 'neck', baseStats: { maxLife: 15, flatPhysDamage: 3 }, iLvl: 10 },
+  { id: 'jade_amulet', name: 'Jade Amulet', slot: 'neck', baseStats: { maxLife: 15 }, iLvl: 10 },
   { id: 'onyx_pendant', name: 'Onyx Pendant', slot: 'neck', baseStats: { maxLife: 22, critChance: 3 }, iLvl: 20 },
-  { id: 'ruby_amulet', name: 'Ruby Amulet', slot: 'neck', baseStats: { maxLife: 30, flatPhysDamage: 5 }, iLvl: 30 },
+  { id: 'ruby_amulet', name: 'Ruby Amulet', slot: 'neck', baseStats: { maxLife: 30 }, iLvl: 30 },
   { id: 'void_pendant', name: 'Void Pendant', slot: 'neck', baseStats: { maxLife: 40, critChance: 5 }, iLvl: 40 },
   { id: 'astral_choker', name: 'Astral Choker', slot: 'neck', baseStats: { maxLife: 52, critMultiplier: 15 }, iLvl: 50 },
-  { id: 'starforged_amulet', name: 'Starforged Amulet', slot: 'neck', baseStats: { maxLife: 65, flatPhysDamage: 10, critChance: 5 }, iLvl: 60 },
+  { id: 'starforged_amulet', name: 'Starforged Amulet', slot: 'neck', baseStats: { maxLife: 65, critChance: 5 }, iLvl: 60 },
 
   // ==================== Shoulders ====================
   // -- Plate --
@@ -359,13 +359,13 @@ export const ITEM_BASE_DEFS: ItemBaseDef[] = [
   { id: 'starforged_signet', name: 'Starforged Signet', slot: 'ring1', baseStats: { maxLife: 45, critMultiplier: 25 }, iLvl: 60 },
 
   // ==================== Trinkets ====================
-  { id: 'cracked_gem', name: 'Cracked Gem', slot: 'trinket1', baseStats: { flatPhysDamage: 3 }, iLvl: 1 },
-  { id: 'polished_stone', name: 'Polished Stone', slot: 'trinket1', baseStats: { flatPhysDamage: 5, critChance: 2 }, iLvl: 10 },
-  { id: 'prismatic_shard', name: 'Prismatic Shard', slot: 'trinket1', baseStats: { flatPhysDamage: 8, critMultiplier: 15 }, iLvl: 20 },
-  { id: 'infused_crystal', name: 'Infused Crystal', slot: 'trinket1', baseStats: { flatPhysDamage: 12, critChance: 4 }, iLvl: 30 },
-  { id: 'void_shard', name: 'Void Shard', slot: 'trinket1', baseStats: { flatPhysDamage: 18, critMultiplier: 20 }, iLvl: 40 },
-  { id: 'astral_prism', name: 'Astral Prism', slot: 'trinket1', baseStats: { flatPhysDamage: 25, critChance: 6 }, iLvl: 50 },
-  { id: 'starforged_gem', name: 'Starforged Gem', slot: 'trinket1', baseStats: { flatPhysDamage: 35, critMultiplier: 30 }, iLvl: 60 },
+  { id: 'cracked_gem', name: 'Cracked Gem', slot: 'trinket1', baseStats: { critChance: 1 }, iLvl: 1 },
+  { id: 'polished_stone', name: 'Polished Stone', slot: 'trinket1', baseStats: { critChance: 2 }, iLvl: 10 },
+  { id: 'prismatic_shard', name: 'Prismatic Shard', slot: 'trinket1', baseStats: { critMultiplier: 15 }, iLvl: 20 },
+  { id: 'infused_crystal', name: 'Infused Crystal', slot: 'trinket1', baseStats: { critChance: 4 }, iLvl: 30 },
+  { id: 'void_shard', name: 'Void Shard', slot: 'trinket1', baseStats: { critMultiplier: 20 }, iLvl: 40 },
+  { id: 'astral_prism', name: 'Astral Prism', slot: 'trinket1', baseStats: { critChance: 6 }, iLvl: 50 },
+  { id: 'starforged_gem', name: 'Starforged Gem', slot: 'trinket1', baseStats: { critMultiplier: 30 }, iLvl: 60 },
 ];
 
 export const BAG_UPGRADE_DEFS: BagUpgradeDef[] = [
