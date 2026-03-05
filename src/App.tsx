@@ -100,11 +100,9 @@ function App() {
   const vignetteClass = band > 0 ? `vignette-band-${band}` : 'vignette-none';
 
   return (
-    <div className={`min-h-screen text-gray-100 theme-transition ${band > 0 ? 'bg-theme-bg-tint' : 'bg-gray-950'}`}>
+    <div className="min-h-screen bg-gray-950 text-gray-100">
       {/* Zone vignette overlay */}
       <div className={`fixed inset-0 pointer-events-none z-30 vignette-overlay ${vignetteClass}`} />
-      {/* Zone entry flash */}
-      {band > 0 && <div key={band} className="fixed inset-0 pointer-events-none z-40 zone-entry-flash" />}
       {/* Ambient floating particles */}
       {band > 0 && <AmbientParticles band={band} />}
 

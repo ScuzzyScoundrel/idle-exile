@@ -125,7 +125,7 @@ export default function CombatStatusBar() {
         <div className="flex items-center gap-1.5 min-w-0 flex-1">
           <span className="text-gray-400 shrink-0">HP</span>
           <div className="flex-1 flex flex-col gap-0.5">
-            <div className="h-2.5 bg-gray-700 rounded-full overflow-hidden shadow-[0_0_6px_1px] shadow-theme-accent/15 theme-transition">
+            <div className="h-2.5 bg-gray-700 rounded-full overflow-hidden">
               <div className={`h-full ${hpColor} rounded-full transition-all duration-150`}
                    style={{ width: `${hpPct}%` }} />
             </div>
