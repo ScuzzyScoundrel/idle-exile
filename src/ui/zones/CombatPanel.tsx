@@ -454,35 +454,51 @@ export default function CombatPanel() {
         </div>
       )}
 
-      {/* Combat log */}
-      {idleMode === 'combat' && combatLog.length > 0 && (
-        <div className="max-h-40 overflow-y-auto text-[11px] space-y-0.5 bg-gray-900/50 rounded px-2 py-1 font-mono">
-          {combatLog.slice(-12).reverse().map(entry => (
-            <div key={entry.id} className="text-gray-400">
-              {entry.type === 'skill' ? (
-                <>
-                  <span className="text-gray-500">{entry.label}</span>
-                  {entry.isHit
-                    ? <> <span className={entry.isCrit ? 'text-yellow-300 font-bold' : 'text-white'}>{Math.round(entry.damage)}</span>
-                        {entry.isCrit && <span className="text-yellow-400 ml-1">CRIT</span>}</>
-                    : <span className="text-red-400 ml-1">MISS</span>
-                  }
-                </>
-              ) : (
-                <>
-                  <span className={
-                    entry.type === 'dot' ? 'text-green-400' :
-                    entry.type === 'bleed' ? 'text-red-400' :
-                    entry.type === 'enemy' ? 'text-orange-400' :
-                    'text-cyan-300'
-                  }>{entry.label}</span>
-                  {' '}<span className="text-gray-300">{Math.round(entry.damage)}</span>
-                </>
-              )}
+      {/* Combat log — two columns: outgoing | incoming */}
+      {idleMode === 'combat' && combatLog.length > 0 && (() => {
+        const outgoing = combatLog.filter(e => e.type !== 'enemy').slice(-8).reverse();
+        const incoming = combatLog.filter(e => e.type === 'enemy').slice(-8).reverse();
+        return (
+          <div className="grid grid-cols-2 gap-1 text-[11px] bg-gray-900/50 rounded px-2 py-1 font-mono max-h-40 overflow-y-auto">
+            {/* Left: your damage */}
+            <div className="space-y-0.5 border-r border-gray-700/50 pr-1">
+              <div className="text-gray-600 text-[10px]">Your damage</div>
+              {outgoing.map(entry => (
+                <div key={entry.id} className="text-gray-400">
+                  {entry.type === 'skill' ? (
+                    <>
+                      <span className="text-gray-500">{entry.label}</span>
+                      {entry.isHit
+                        ? <> <span className={entry.isCrit ? 'text-yellow-300 font-bold' : 'text-white'}>{Math.round(entry.damage)}</span>
+                            {entry.isCrit && <span className="text-yellow-400 ml-1">CRIT</span>}</>
+                        : <span className="text-red-400 ml-1">MISS</span>
+                      }
+                    </>
+                  ) : (
+                    <>
+                      <span className={
+                        entry.type === 'dot' ? 'text-green-400' :
+                        entry.type === 'bleed' ? 'text-red-400' :
+                        'text-cyan-300'
+                      }>{entry.label}</span>
+                      {' '}<span className="text-gray-300">{Math.round(entry.damage)}</span>
+                    </>
+                  )}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
+            {/* Right: incoming */}
+            <div className="space-y-0.5 pl-1">
+              <div className="text-gray-600 text-[10px]">Incoming</div>
+              {incoming.map(entry => (
+                <div key={entry.id} className="text-orange-400">
+                  {entry.label} <span className="text-gray-300">{Math.round(entry.damage)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Skill Bar + Picker (combat mode only) */}
       {idleMode === 'combat' && (combatPhase === 'clearing' || combatPhase === 'boss_fight') && (
