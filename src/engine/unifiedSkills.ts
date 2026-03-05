@@ -15,6 +15,7 @@ import { calcHitChance } from './character';
 import { getUnifiedSkillDef, getAbilityDef, getSkillsForWeapon } from '../data/unifiedSkills';
 import { POWER_DIVISOR, SKILL_MAX_LEVEL, BASE_GCD, GCD_FLOOR } from '../data/balance';
 import { resolveSkillGraphModifiers, type ResolvedSkillModifier } from './skillGraph';
+import { resolveTalentModifiers } from './talentTree';
 import { resolveDamageBuckets } from './damageBuckets';
 
 // ─── Constants ───
@@ -98,6 +99,11 @@ export function getSkillGraphModifier(
   skill: SkillDef,
   progress: SkillProgress | undefined,
 ): ResolvedSkillModifier | null {
+  // Talent tree path (v3.2): takes priority over old compact graph
+  if (skill.talentTree && progress?.allocatedRanks) {
+    return resolveTalentModifiers(skill.talentTree, progress.allocatedRanks);
+  }
+  // Old compact graph path (unchanged)
   if (!skill.skillGraph || !progress) return null;
   return resolveSkillGraphModifiers(skill.skillGraph, progress.allocatedNodes);
 }
@@ -511,9 +517,19 @@ export function aggregateGraphGlobalEffects(
   for (const slot of skillBar) {
     if (!slot) continue;
     const def = getUnifiedSkillDef(slot.skillId);
-    if (!def?.skillGraph) continue;
+    if (!def) continue;
     const progress = skillProgress[slot.skillId];
-    if (!progress || progress.allocatedNodes.length === 0) continue;
+    if (!progress) continue;
+
+    // Talent tree path (v3.2): takes priority over old compact graph
+    if (def.talentTree && progress.allocatedRanks) {
+      const mod = resolveTalentModifiers(def.talentTree, progress.allocatedRanks);
+      result = mergeEffect(result, mod.globalEffect);
+      continue;
+    }
+
+    // Old compact graph path (unchanged)
+    if (!def.skillGraph || progress.allocatedNodes.length === 0) continue;
     const mod = resolveSkillGraphModifiers(def.skillGraph, progress.allocatedNodes);
     result = mergeEffect(result, mod.globalEffect);
   }
@@ -817,13 +833,21 @@ export function rollSkillCast(
   if (hasCannotCrit) effectiveCritChance = 0;
   if (hasAlwaysCrit) effectiveCritChance = 100;
 
+  // Talent tree: critChanceCap clamps effective crit chance
+  if (graphMod?.critChanceCap && graphMod.critChanceCap > 0) {
+    effectiveCritChance = Math.min(effectiveCritChance, graphMod.critChanceCap * 100);
+  }
+
   const critChance = Math.min(effectiveCritChance, 100) / 100;
   const isCrit = Math.random() < critChance;
   const critDmgMult = (stats.critMultiplier + (graphMod?.incCritMultiplier ?? 0)) / 100;
 
+  // Talent tree: critsDoNoBonusDamage — crits still trigger procs but no bonus damage
+  const effectiveCritMult = (isCrit && graphMod?.critsDoNoBonusDamage) ? 1 : (isCrit ? critDmgMult : 1);
+
   // Damage with +/-10% variance
   const variance = 0.9 + Math.random() * 0.2;
-  const scaleMult = variance * (isCrit ? critDmgMult : 1) * damageMult;
+  const scaleMult = variance * effectiveCritMult * damageMult;
   const damage = dmgResult.total * scaleMult;
 
   // Scale each bucket by the same multiplier

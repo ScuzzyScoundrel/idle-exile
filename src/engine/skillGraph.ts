@@ -50,6 +50,12 @@ export interface ResolvedSkillModifier {
   reducedMaxLife: number;
   increasedDamageTaken: number;
   berserk: { damageBonus: number; damageTakenIncrease: number; lifeThreshold: number } | null;
+
+  // Talent tree: dagger-specific
+  critsDoNoBonusDamage: boolean;
+  critChanceCap: number;        // 0 = no cap
+  executeOnly: { hpThreshold: number; bonusDamage: number } | null;
+  castPriority: 'execute' | 'normal' | null;
 }
 
 /** Empty modifier (identity). */
@@ -95,6 +101,11 @@ export const EMPTY_GRAPH_MOD: ResolvedSkillModifier = {
   reducedMaxLife: 0,
   increasedDamageTaken: 0,
   berserk: null,
+  // Talent tree defaults
+  critsDoNoBonusDamage: false,
+  critChanceCap: 0,
+  executeOnly: null,
+  castPriority: null,
 };
 
 /**
@@ -220,6 +231,12 @@ export function resolveSkillGraphModifiers(
     if (m.fortifyOnHit) result.fortifyOnHit = m.fortifyOnHit;
     if (m.rampingDamage) result.rampingDamage = m.rampingDamage;
     if (m.berserk) result.berserk = m.berserk;
+
+    // Talent tree: dagger-specific
+    if (m.critsDoNoBonusDamage) result.critsDoNoBonusDamage = true;  // boolean OR
+    if (m.critChanceCap) result.critChanceCap = Math.max(result.critChanceCap, m.critChanceCap);  // max-wins
+    if (m.executeOnly) result.executeOnly = m.executeOnly;  // last-wins
+    if (m.castPriority) result.castPriority = m.castPriority;  // last-wins
   }
 
   result.abilityEffect = abilEffect;

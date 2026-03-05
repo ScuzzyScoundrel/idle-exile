@@ -25,6 +25,7 @@ import {
   ActiveDebuff,
   TriggerCondition,
   CraftLogEntry,
+  AbilityEffect,
 } from '../types';
 import { createCharacter, resolveStats, addXp, getWeaponDamageInfo, calcXpToNext } from '../engine/character';
 import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, simulateCombatClear, createBossEncounter, generateBossLoot, applyAbilityResists, calcHazardPenalty, rollZoneAttack, calcLevelDamageMult, calcOutgoingDamageMult, calcZoneAccuracy, getClaimableMilestones, getMasteryBonus } from '../engine/zones';
@@ -58,7 +59,8 @@ import {
 import { getDefaultSkillForWeapon } from '../engine/unifiedSkills';
 import { getSkillDef } from '../data/unifiedSkills';
 import { aggregateSkillBarEffects, aggregateGraphGlobalEffects, getPrimaryDamageSkill, getNextRotationSkill, getSkillEffectiveDuration, getSkillEffectiveCooldown, mergeEffect, getSkillGraphModifier, aggregateTempBuffEffects } from '../engine/unifiedSkills';
-import { aggregateClassTalentEffect, canAllocateTalentNode, allocateTalentNode as allocateTalentNodeEngine, respecTalents as respecTalentsEngine, getTalentRespecCost } from '../engine/classTalents';
+// classTalents import removed (Skill Tree Overhaul Phase 0)
+import { canAllocateTalentRank, allocateTalentRank, respecTalentRanks, getTalentRespecCost } from '../engine/talentTree';
 import { getUnifiedSkillDef, ABILITY_ID_MIGRATION } from '../data/unifiedSkills';
 import { canAllocateGraphNode, allocateGraphNode, respecGraphNodes, getGraphRespecCost } from '../engine/skillGraph';
 import { getDebuffDef } from '../data/debuffs';
@@ -273,7 +275,7 @@ function getFullEffect(
     now,
     offlineMode,
   );
-  const talentEffect = aggregateClassTalentEffect(state.character.class, state.talentAllocations);
+  const talentEffect: AbilityEffect = {};
   const graphGlobalEffect = aggregateGraphGlobalEffects(
     overrides?.skillBar ?? state.skillBar,
     overrides?.skillProgress ?? state.skillProgress,
@@ -525,6 +527,7 @@ function createInitialState(): GameState {
     skillCharges: {},
     rampingStacks: 0, rampingLastHitAt: 0,
     fortifyStacks: 0, fortifyExpiresAt: 0, fortifyDRPerStack: 0,
+    lastHitMobTypeId: null, freeCastUntil: {}, lastProcTriggerAt: {},
     lastClearResult: null,
     lastSkillActivation: 0,
     currentMobHp: 0,
@@ -1802,8 +1805,21 @@ export const useGameStore = create<GameState & GameActions>()(
 
       allocateAbilityNode: (abilityId: string, nodeId: string) => {
         set((state) => {
-          // Check if this is a graph tree skill (uses skillProgress, not abilityProgress)
           const unifiedDef = getUnifiedSkillDef(abilityId);
+
+          // Talent tree path (v3.2): takes priority
+          if (unifiedDef?.talentTree) {
+            const progress = state.skillProgress[abilityId];
+            if (!progress) return state;
+            const ranks = progress.allocatedRanks ?? {};
+            if (!canAllocateTalentRank(unifiedDef.talentTree, ranks, nodeId, progress.level))
+              return state;
+            const newProgress = { ...state.skillProgress };
+            newProgress[abilityId] = { ...progress, allocatedRanks: allocateTalentRank(ranks, nodeId) };
+            return { skillProgress: newProgress };
+          }
+
+          // Old compact graph path (unchanged)
           if (unifiedDef?.skillGraph) {
             const progress = state.skillProgress[abilityId];
             if (!progress) return state;
@@ -1827,8 +1843,21 @@ export const useGameStore = create<GameState & GameActions>()(
 
       respecAbility: (abilityId: string) => {
         set((state) => {
-          // Check if this is a graph tree skill
           const unifiedDef = getUnifiedSkillDef(abilityId);
+
+          // Talent tree path (v3.2): takes priority
+          if (unifiedDef?.talentTree) {
+            const progress = state.skillProgress[abilityId];
+            if (!progress?.allocatedRanks || Object.keys(progress.allocatedRanks).length === 0)
+              return state;
+            const cost = getTalentRespecCost(progress.level);
+            if (state.gold < cost) return state;
+            const newProgress = { ...state.skillProgress };
+            newProgress[abilityId] = { ...progress, allocatedRanks: respecTalentRanks() };
+            return { skillProgress: newProgress, gold: state.gold - cost };
+          }
+
+          // Old compact graph path (unchanged)
           if (unifiedDef?.skillGraph) {
             const progress = state.skillProgress[abilityId];
             if (!progress || progress.allocatedNodes.length === 0) return state;
@@ -1851,21 +1880,15 @@ export const useGameStore = create<GameState & GameActions>()(
       },
 
       // Class talent tree
-      allocateTalentNode: (nodeId: string) => {
+      allocateTalentNode: (_nodeId: string) => {
         set((state) => {
-          if (!canAllocateTalentNode(state.character.class, state.talentAllocations, nodeId, state.character.level)) {
-            return state;
-          }
-          return { talentAllocations: allocateTalentNodeEngine(state.talentAllocations, nodeId) };
+          return state; // Class talent trees disabled (Skill Tree Overhaul Phase 0)
         });
       },
 
       respecTalents: () => {
         set((state) => {
-          if (state.talentAllocations.length === 0) return state;
-          const cost = getTalentRespecCost(state.character.level);
-          if (state.gold < cost) return state;
-          return { talentAllocations: respecTalentsEngine(), gold: state.gold - cost };
+          return state; // Class talent trees disabled (Skill Tree Overhaul Phase 0)
         });
       },
 
@@ -2434,6 +2457,7 @@ export const useGameStore = create<GameState & GameActions>()(
             activeDebuffs: state.activeDebuffs,
             lastBlockAt: state.lastBlockAt, lastDodgeAt: state.lastDodgeAt,
             lastOverkillDamage: state.lastOverkillDamage, now,
+            activeTempBuffIds: activeTempBuffs.map(b => b.id),
           };
           const preRoll = evaluateConditionalMods(graphMod.conditionalMods, condCtx, 'pre-roll');
           if (preRoll.incCritChance) effectiveStats.critChance += preRoll.incCritChance;
@@ -2470,6 +2494,7 @@ export const useGameStore = create<GameState & GameActions>()(
             activeDebuffs: state.activeDebuffs,
             lastBlockAt: state.lastBlockAt, lastDodgeAt: state.lastDodgeAt,
             lastOverkillDamage: state.lastOverkillDamage, now,
+            activeTempBuffIds: activeTempBuffs.map(b => b.id),
           };
           const postRoll = evaluateConditionalMods(graphMod.conditionalMods, postCtx, 'post-roll');
           if (postRoll.incDamage || postRoll.flatDamage || postRoll.damageMult !== 1) {
@@ -2698,6 +2723,7 @@ export const useGameStore = create<GameState & GameActions>()(
         let procDamage = 0;
         let procHeal = 0;
         let procCooldownResets: string[] = [];
+        let newLastProcTriggerAt = { ...state.lastProcTriggerAt };
         if (graphMod?.skillProcs?.length) {
           const procCtx: ProcContext = {
             isHit: roll.isHit, isCrit: roll.isCrit,
@@ -2705,6 +2731,7 @@ export const useGameStore = create<GameState & GameActions>()(
             stats: effectiveStats,
             weaponAvgDmg: avgDamage, weaponSpellPower: spellPower,
             damageMult, now,
+            lastProcTriggerAt: newLastProcTriggerAt,
           };
 
           const triggers: TriggerCondition[] = [];
@@ -2716,6 +2743,7 @@ export const useGameStore = create<GameState & GameActions>()(
             procDamage += pr.bonusDamage;
             procHeal += pr.healAmount;
             procCooldownResets.push(...pr.cooldownResets);
+            Object.assign(newLastProcTriggerAt, pr.procTriggeredAt);
 
             // Merge proc temp buffs (stack or add)
             for (const buff of pr.newTempBuffs) {
@@ -2824,7 +2852,9 @@ export const useGameStore = create<GameState & GameActions>()(
         }
 
         // ── Ephemeral state tracking ──
-        const newConsecutiveHits = roll.isHit ? state.consecutiveHits + 1 : 0;
+        // Same-target consecutive hit tracking: reset if mob type changed
+        const mobTypeChanged = state.currentMobTypeId !== state.lastHitMobTypeId && state.lastHitMobTypeId !== null;
+        const newConsecutiveHits = roll.isHit ? (mobTypeChanged ? 1 : state.consecutiveHits + 1) : 0;
         const newLastCritAt = roll.isCrit ? now : state.lastCritAt;
         const newLastSkillsCast = [...state.lastSkillsCast.slice(-3), skill.id];
         let newKillStreak = state.killStreak;
@@ -2927,9 +2957,11 @@ export const useGameStore = create<GameState & GameActions>()(
                 stats: effectiveStats,
                 weaponAvgDmg: avgDamage, weaponSpellPower: spellPower,
                 damageMult, now,
+                lastProcTriggerAt: newLastProcTriggerAt,
               };
               for (const trigger of defenseTriggers) {
                 const pr = evaluateProcs(graphMod.skillProcs, trigger, defProcCtx);
+                Object.assign(newLastProcTriggerAt, pr.procTriggeredAt);
                 // Apply defensive proc damage directly to boss (onHit/onCrit proc damage was already applied)
                 if (pr.bonusDamage > 0) {
                   newBossHp -= pr.bonusDamage;
@@ -2999,6 +3031,8 @@ export const useGameStore = create<GameState & GameActions>()(
             lastDodgeAt: newLastDodgeAt,
             rampingStacks: newRampingStacks, rampingLastHitAt: newRampingLastHitAt,
             fortifyStacks: newFortifyStacks, fortifyExpiresAt: newFortifyExpiresAt, fortifyDRPerStack: newFortifyDRPerStack,
+            lastHitMobTypeId: state.currentMobTypeId,
+            lastProcTriggerAt: newLastProcTriggerAt,
           };
 
           const updatedBoss = { ...bs, bossCurrentHp: newBossHp, bossNextAttackAt: nextAttack };
@@ -3127,8 +3161,10 @@ export const useGameStore = create<GameState & GameActions>()(
               stats: effectiveStats,
               weaponAvgDmg: avgDamage, weaponSpellPower: spellPower,
               damageMult, now,
+              lastProcTriggerAt: newLastProcTriggerAt,
             };
             const killPr = evaluateProcs(graphMod.skillProcs, 'onKill', killProcCtx);
+            Object.assign(newLastProcTriggerAt, killPr.procTriggeredAt);
             procDamage += killPr.bonusDamage;
             procHeal += killPr.healAmount;
             for (const buff of killPr.newTempBuffs) {
@@ -3261,9 +3297,11 @@ export const useGameStore = create<GameState & GameActions>()(
               stats: effectiveStats,
               weaponAvgDmg: avgDamage, weaponSpellPower: spellPower,
               damageMult, now,
+              lastProcTriggerAt: newLastProcTriggerAt,
             };
             for (const trigger of defenseTriggers) {
               const pr = evaluateProcs(graphMod.skillProcs, trigger, defProcCtx);
+              Object.assign(newLastProcTriggerAt, pr.procTriggeredAt);
               // Apply defensive proc damage directly to mob (onHit/onCrit proc damage was already applied)
               if (pr.bonusDamage > 0) {
                 currentMobHp -= pr.bonusDamage;
@@ -3310,6 +3348,8 @@ export const useGameStore = create<GameState & GameActions>()(
           lastDodgeAt: newLastDodgeAt,
           rampingStacks: newRampingStacks, rampingLastHitAt: newRampingLastHitAt,
           fortifyStacks: newFortifyStacks, fortifyExpiresAt: newFortifyExpiresAt, fortifyDRPerStack: newFortifyDRPerStack,
+          lastHitMobTypeId: state.currentMobTypeId,
+          lastProcTriggerAt: newLastProcTriggerAt,
         };
 
         // ES recharge per tick
@@ -3780,7 +3820,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 42,
+      version: 43,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -3799,6 +3839,11 @@ export const useGameStore = create<GameState & GameActions>()(
           state.bossState = null;
           state.combatPhaseStartedAt = null;
           state.lastClearResult = null;
+
+          // Reset talent tree ephemeral state
+          state.lastHitMobTypeId = null;
+          state.freeCastUntil = {};
+          state.lastProcTriggerAt = {};
 
           // Check daily quest reset on rehydrate
           // (Must use useGameStore.getState() because state here is the raw object,
@@ -4471,6 +4516,24 @@ export const useGameStore = create<GameState & GameActions>()(
             else if (count >= 25) claimed[zoneId] = 25;
           }
           raw.zoneMasteryClaimed = claimed;
+        }
+
+        if (version < 43) {
+          // v43: Skill Tree Overhaul — initialize talent tree allocations
+          // Reset talentAllocations (class talent tree disabled)
+          raw.talentAllocations = [];
+          // Add allocatedRanks to all skill progress entries
+          const sp = (raw.skillProgress ?? {}) as Record<string, Record<string, unknown>>;
+          for (const sid of Object.keys(sp)) {
+            sp[sid] = { ...sp[sid], allocatedRanks: {} };
+          }
+          // Remove dagger_lethality from skill bar (skill removed)
+          const bar = (raw.skillBar ?? []) as (Record<string, unknown> | null)[];
+          for (let i = 0; i < bar.length; i++) {
+            if (bar[i] && (bar[i] as Record<string, unknown>).skillId === 'dagger_lethality') {
+              bar[i] = null;
+            }
+          }
         }
 
         if (version < 42) {

@@ -10,6 +10,7 @@ import { ABILITY_ID_MIGRATION } from '../../data/unifiedSkills';
 import { ABILITY_SLOT_UNLOCKS } from '../../types';
 import type { SkillDef, SkillKind, SkillProgress, AbilityProgress } from '../../types';
 import SkillGraphView from './SkillGraphView';
+import TalentTreeView from './TalentTreeView';
 
 const TAG_COLORS: Record<string, string> = {
   Attack: 'bg-red-900/60 text-red-300',
@@ -62,6 +63,7 @@ export default function SkillPanel() {
   const [kindFilter, setKindFilter] = useState<KindFilter>('all');
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [expandedSkill, setExpandedSkill] = useState<string | null>(null);
+  const [expandedTalent, setExpandedTalent] = useState<string | null>(null);
 
   const weaponType = getEquippedWeaponType(character.equipment);
 
@@ -289,6 +291,18 @@ export default function SkillPanel() {
                               {isExpanded ? 'Close' : 'Tree'}
                             </button>
                           )}
+                          {skill.talentTree && (
+                            <button
+                              onClick={() => setExpandedTalent(expandedTalent === skill.id ? null : skill.id)}
+                              className={`text-xs px-2 py-0.5 rounded ${
+                                expandedTalent === skill.id
+                                  ? 'bg-amber-800 text-amber-200'
+                                  : 'bg-amber-900 hover:bg-amber-800 text-amber-300'
+                              }`}
+                            >
+                              {expandedTalent === skill.id ? 'Close' : 'Talent'}
+                            </button>
+                          )}
                         </>
                       ) : (
                         <button
@@ -326,6 +340,11 @@ export default function SkillPanel() {
                         Points: {progress.level - progress.allocatedNodes.length} available / {progress.level} total
                       </div>
                     )}
+                    {skill.talentTree && progress.allocatedRanks && (
+                      <div className="text-xs text-amber-500/70 mt-0.5">
+                        Talent: {Object.values(progress.allocatedRanks).reduce((a, b) => a + b, 0)} / {progress.level} points
+                      </div>
+                    )}
                   </div>
                 );
               })()}
@@ -359,6 +378,17 @@ export default function SkillPanel() {
                     const oldId = REVERSE_MIGRATION[skill.id] ?? skill.id;
                     respecAbility(oldId);
                   }}
+                />
+              )}
+
+              {/* Talent Tree — expanded view */}
+              {isEquipped && expandedTalent === skill.id && skill.talentTree && (
+                <TalentTreeView
+                  skill={skill}
+                  progress={skillProgress[skill.id]}
+                  gold={gold}
+                  onAllocate={(nodeId) => allocateAbilityNode(skill.id, nodeId)}
+                  onRespec={() => respecAbility(skill.id)}
                 />
               )}
             </div>

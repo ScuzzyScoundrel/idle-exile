@@ -1,10 +1,57 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-05 (Damage Bucket Fix — Flat Phys Conversion + Item Data Cleanup)
+> Last updated: 2026-03-05 (Skill Tree Overhaul — Sprint 1 Engine Foundation complete)
 
 ## Current Phase
-**Damage Bucket Fix — Flat Phys Conversion + Item Data Cleanup** — COMPLETE.
+**Skill Tree Overhaul — Sprint 2: Dagger Data** — NOT STARTED.
+
+- **Purpose**: Author all 7 dagger skill talent trees using a builder pattern. 147 behavior nodes + shared notables + T5-T7 keystones.
+- **Plan**: See `docs/SPRINT_2_PLAN.md` for the 8-step micro-sprint breakdown.
+- **Full plan**: See `docs/TALENT_TREE_IMPLEMENTATION.md` for the 3-sprint overview.
+- **Data source**: `docs/weapon-designs/dagger.md` (Sections 5-8)
+- **New files**: `talentTreeBuilder.ts`, `dagger_talents.ts`, `talentTrees.ts` (all in `src/data/skillGraphs/`)
+- **Modified files**: `src/data/unifiedSkills.ts` (wire `talentTree: ALL_TALENT_TREES[s.id]` at line ~2487)
+- **Save version**: v43 (unchanged — data-only, no migration needed)
+
+**Previous: Skill Tree Overhaul — Sprint 1: Engine Foundation** — COMPLETE.
+
+- **Purpose**: Build all engine infrastructure for per-skill talent trees. Phase 0 cleanup (disable class talent trees, remove dagger_lethality). No data authoring yet.
+- **Engine changes**:
+  - **`src/engine/talentTree.ts`** (NEW): `canAllocateTalentRank()`, `resolveTalentModifiers()`, allocation/respec logic. Pure TS, no React. Enforces tier gates `[0,2,4,7,10,11,12]`, exclusiveWith for T5 choices, maxRank per node.
+  - **`src/types/index.ts`**: `TalentNode`, `TalentBranch`, `TalentTree` interfaces. `TalentNodeType = 'behavior' | 'notable' | 'keystoneChoice' | 'keystone'`. `SkillDef.talentTree?: TalentTree`. `SkillProgress.allocatedRanks: Record<string, number>`.
+  - **`src/data/balance.ts`**: `SKILL_MAX_LEVEL = 30`, `TALENT_TIER_GATES = [0,2,4,7,10,11,12]`.
+  - **`src/engine/unifiedSkills.ts`**: `getSkillGraphModifier()` (line ~102) and `aggregateGraphGlobalEffects()` (line ~524) check `talentTree` first, falling back to `skillGraph`.
+  - **`src/store/gameStore.ts`**: `allocateAbilityNode` and `respecAbility` branch into talent tree paths. Save migration v43.
+  - **`src/engine/combatHelpers.ts`**: P1 mechanics (`whileBuffActive`, ICD, `executeOnly`, etc.) ready for talent node modifiers.
+- **Phase 0 cleanup**:
+  - Class talent trees disabled (allocate/respec return early with comment)
+  - `classTalents` import removed from gameStore
+  - Save migration v43: resets `talentAllocations`, removes `dagger_lethality` from skill bar
+- **Modified files**: `src/engine/talentTree.ts` (new), `src/types/index.ts`, `src/data/balance.ts`, `src/engine/unifiedSkills.ts`, `src/store/gameStore.ts`, `src/engine/combatHelpers.ts`
+- **New docs**: `docs/TALENT_TREE_IMPLEMENTATION.md`, `docs/SPRINT_2_PLAN.md`
+- **Save version**: v42 → v43
+- **Next**: Sprint 2 — Dagger Data (see `docs/SPRINT_2_PLAN.md`)
+
+**Previous: Dagger Doc Review — Feedback Implementation** — COMPLETE.
+
+- **Purpose**: Implement all feedback from `docs/dagger-review-feedback.md` and merge unique content from `docs/dagger-schema-v3.1.md` into `docs/weapon-designs/dagger.md`. Resolves 3 blockers, 3 important issues, and 2 minor issues.
+- **Changes**:
+  - **Gate progression fix** (BLOCKER): Old `[0,2,5,8,11,12,13]` → new `[0,2,4,7,10,11,12]` across all 3 docs. New gates enforce minimum investment thresholds, not tier exhaustion. Enables real pathing choices (can skip T2 notable and still reach T3). Minimum T7 drops from 14→13 pts.
+  - **Section 8 full expansion** (BLOCKER): Expanded all 3 branch tables from generic template descriptions to full per-skill behavior node specs for all 7 skills × 3 branches (~126 named nodes with rank 2 differentiation). Venomcraft T1b differentiated per skill (Issue 3): Blade Flurry extends poison duration, Frost Fan spreads stacks, Lightning Lunge applies Corroded. Shadow Dance T1a/T1b differentiated for movement skills (Issue 4): Lightning Lunge gets evasion-on-lunge + dodge-reduces-CD, Shadow Step cast counts as dodge.
+  - **Counter Stance revision** (IMPORTANT): 75% wpn dmg (225% below 40% HP), Ghost Step heal REMOVED, +10% damage taken. Added balance note for pre-conversion estimates.
+  - **DEATHBLOW engine notes** (BLOCKER): Assassinate must be equipped for auto-fire. Auto-fire treats as normal Assassinate cast (own tree modifiers apply). UI warning recommended. antiSynergy note for non-Assassination tree investment.
+  - **Build examples recalculated**: All 4 builds verified at 30 total points with new gates. Build 1 adjusted to 13/11/6 (freed point reaches T5 Toxic Mastery). Build 3 gains T5 access in all branches at 10/10/10. Build 4 cleaned up (removed failed math attempts).
+  - **Schema merge**: Added Generation Instructions (Section 13) and v2→v3→v3.1→v3.2 changelog to dagger.md header.
+  - **Save version fix**: All v42 references in SKILL_TREE_OVERHAUL.md → v43 (v42 taken by Damage Bucket Fix).
+  - **Schema sync**: Fixed old DEATHBLOW (35% instant kill → 25% execute 500% wpn dmg) and gate values in dagger-schema-v3.1.md.
+  - **Doc consolidation**: Deleted `docs/dagger-schema-v3.1.md` (all unique content merged into dagger.md + SKILL_TREE_OVERHAUL.md). Deleted `docs/dagger-review-feedback.md` (all issues resolved). Two-file system: SKILL_TREE_OVERHAUL.md (architecture + principles) + weapon-designs/dagger.md (implementation template).
+- **Modified files**: `docs/weapon-designs/dagger.md`, `docs/SKILL_TREE_OVERHAUL.md`, `docs/PROJECT_STATUS.md`
+- **Deleted files**: `docs/dagger-schema-v3.1.md`, `docs/dagger-review-feedback.md`
+- **Save version**: v42 (unchanged, docs only)
+- **Next**: Skill Tree Overhaul Phase 0 engine implementation (disable class talent trees).
+
+**Previous: Damage Bucket Fix — Flat Phys Conversion + Item Data Cleanup** — COMPLETE.
 
 - **Purpose**: Fix critical balance bug where `flatPhysDamage` bypassed skill conversion splits and was double-counted on all weapons/accessories.
 - **Two bugs fixed**:

@@ -674,11 +674,13 @@ export type TriggerCondition =
   | 'onCrit' | 'onKill' | 'onBlock' | 'onDodge' | 'onHit'
   | 'onDebuffApplied' | 'whileLowHp' | 'whileFullHp'
   | 'whileDebuffActive' | 'afterConsecutiveHits'
-  | 'onBossPhase' | 'onFirstHit' | 'onOverkill';
+  | 'onBossPhase' | 'onFirstHit' | 'onOverkill'
+  | 'whileBuffActive' | 'consumeBuff';
 
 export interface ConditionalModifier {
   condition: TriggerCondition;
   threshold?: number;
+  buffId?: string;              // for whileBuffActive / consumeBuff
   modifier: SkillModifier;
 }
 
@@ -693,6 +695,7 @@ export interface SkillProcEffect {
   applyDebuff?: { debuffId: string; stacks: number; duration: number };
   instantDamage?: { flatDamage: number; element: DamageElement; scaleStat?: string; scaleRatio?: number };
   healPercent?: number;
+  internalCooldown?: number;    // seconds — prevents re-triggering within window
 }
 
 export interface DebuffInteraction {
@@ -783,6 +786,12 @@ export interface SkillModifier {
   reducedMaxLife?: number;        // % reduction to max life
   increasedDamageTaken?: number;  // % more damage taken
   berserk?: { damageBonus: number; damageTakenIncrease: number; lifeThreshold: number };
+
+  // --- Talent tree: Dagger-specific ---
+  critsDoNoBonusDamage?: boolean;       // crits still trigger procs, but no bonus damage
+  critChanceCap?: number;               // clamp effective crit chance (0-1)
+  executeOnly?: { hpThreshold: number; bonusDamage: number };  // skip if mob HP > threshold
+  castPriority?: 'execute' | 'normal';  // execute = queue jump in rotation
 }
 
 export interface SkillGraphNode {
@@ -799,6 +808,43 @@ export interface SkillGraph {
   skillId: string;
   nodes: SkillGraphNode[];
   maxPoints: number;            // 20
+}
+
+// --- Talent Tree (Skill Tree Overhaul v3.2) ---
+
+export type TalentNodeType = 'behavior' | 'notable' | 'keystoneChoice' | 'keystone';
+
+export interface TalentNode {
+  id: string;
+  name: string;
+  description: string;
+  nodeType: TalentNodeType;
+  maxRank: number;              // 1 or 2
+  tier: number;                 // 1-7
+  branchIndex: number;          // 0-2
+  position: number;             // 0-2 within tier
+  modifier: SkillModifier;
+  perRankModifiers?: Record<number, SkillModifier>;
+  exclusiveWith?: string[];     // T5 mutual exclusion
+  requiresNodeId?: string;
+  shared?: boolean;
+  procPattern?: string;
+  tensionWith?: string;
+  antiSynergy?: string[];
+  synergy?: string[];
+}
+
+export interface TalentBranch {
+  id: string;
+  name: string;
+  description: string;
+  nodes: TalentNode[];          // ~10 nodes per branch
+}
+
+export interface TalentTree {
+  skillId: string;
+  branches: [TalentBranch, TalentBranch, TalentBranch];
+  maxPoints: number;            // 30
 }
 
 export interface DebuffDef {
@@ -899,6 +945,7 @@ export interface SkillDef {
   effect?: AbilityEffect;
   skillTree?: AbilitySkillTree;
   skillGraph?: SkillGraph;
+  talentTree?: TalentTree;
 }
 
 export interface EquippedSkill {
@@ -911,6 +958,7 @@ export interface SkillProgress {
   xp: number;
   level: number;
   allocatedNodes: string[];
+  allocatedRanks?: Record<string, number>;  // talent tree node ranks
 }
 
 export interface SkillTimerState {
@@ -1045,6 +1093,11 @@ export interface GameState {
   fortifyStacks: number;
   fortifyExpiresAt: number;
   fortifyDRPerStack: number;  // copied from graphMod on hit, avoids graphMod lookup at damage sites
+
+  // Talent tree: ephemeral combat state (not persisted, reset on rehydrate)
+  lastHitMobTypeId: string | null;                    // for same-target consecutive hit tracking
+  freeCastUntil: Record<string, number>;              // skillId → timestamp: free cast (no CD) until
+  lastProcTriggerAt: Record<string, number>;          // procId → timestamp: internal cooldown tracking
 
   // Per-clear combat sim result (v25 — ephemeral, not persisted)
   lastClearResult: CombatClearResult | null;

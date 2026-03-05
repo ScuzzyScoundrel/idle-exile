@@ -27,6 +27,7 @@ export interface ConditionContext {
   lastDodgeAt: number;
   lastOverkillDamage: number;
   now: number;
+  activeTempBuffIds?: string[];   // for whileBuffActive condition
 }
 
 export function evaluateCondition(
@@ -54,6 +55,8 @@ export function evaluateCondition(
     case 'onBossPhase': return ctx.phase === 'boss_fight';
     case 'onFirstHit': return ctx.consecutiveHits === 0 && ctx.isHit;
     case 'onOverkill': return ctx.lastOverkillDamage > 0;
+    case 'whileBuffActive': return false; // evaluated in evaluateConditionalMods with buffId check
+    case 'consumeBuff': return false;     // evaluated separately when buff is consumed
     default: return false;
   }
 }
@@ -71,7 +74,7 @@ export interface ConditionalModResult {
 
 const PRE_ROLL_CONDITIONS: Set<TriggerCondition> = new Set([
   'whileLowHp', 'whileFullHp', 'whileDebuffActive',
-  'afterConsecutiveHits', 'onBossPhase',
+  'afterConsecutiveHits', 'onBossPhase', 'whileBuffActive',
 ]);
 
 export function evaluateConditionalMods(
@@ -87,7 +90,13 @@ export function evaluateConditionalMods(
     const isPre = PRE_ROLL_CONDITIONS.has(cm.condition);
     if (timing === 'pre-roll' && !isPre) continue;
     if (timing === 'post-roll' && isPre) continue;
-    if (!evaluateCondition(cm.condition, cm.threshold, ctx)) continue;
+
+    // Special handling for whileBuffActive: check buffId against active buffs
+    if (cm.condition === 'whileBuffActive') {
+      if (!cm.buffId || !ctx.activeTempBuffIds?.includes(cm.buffId)) continue;
+    } else {
+      if (!evaluateCondition(cm.condition, cm.threshold, ctx)) continue;
+    }
     const m = cm.modifier;
     if (m.incDamage) result.incDamage += m.incDamage;
     if (m.flatDamage) result.flatDamage += m.flatDamage;
@@ -111,6 +120,7 @@ export interface ProcContext {
   weaponSpellPower: number;
   damageMult: number;
   now: number;
+  lastProcTriggerAt?: Record<string, number>;  // for ICD tracking
 }
 
 export interface ProcResult {
@@ -119,6 +129,7 @@ export interface ProcResult {
   newTempBuffs: TempBuff[];
   newDebuffs: { debuffId: string; stacks: number; duration: number; skillId: string }[];
   cooldownResets: string[];
+  procTriggeredAt: Record<string, number>;     // procId → timestamp for ICD tracking
 }
 
 export function evaluateProcs(
@@ -129,10 +140,21 @@ export function evaluateProcs(
   const result: ProcResult = {
     bonusDamage: 0, healAmount: 0,
     newTempBuffs: [], newDebuffs: [], cooldownResets: [],
+    procTriggeredAt: {},
   };
   for (const proc of procs) {
     if (proc.trigger !== trigger) continue;
+
+    // Internal cooldown check: skip if proc was triggered too recently
+    if (proc.internalCooldown && ctx.lastProcTriggerAt) {
+      const lastTrigger = ctx.lastProcTriggerAt[proc.id] ?? 0;
+      if (ctx.now - lastTrigger < proc.internalCooldown * 1000) continue;
+    }
+
     if (Math.random() >= proc.chance) continue;
+
+    // Track when this proc triggered (for ICD)
+    result.procTriggeredAt[proc.id] = ctx.now;
 
     if (proc.instantDamage) {
       let dmg = proc.instantDamage.flatDamage;
@@ -184,7 +206,9 @@ export function evaluateProcs(
       });
     }
     if (proc.resetCooldown) {
-      result.cooldownResets.push(proc.resetCooldown);
+      // 'self' resolves to the skill that triggered the proc
+      const resetTarget = proc.resetCooldown === 'self' ? ctx.skillId : proc.resetCooldown;
+      result.cooldownResets.push(resetTarget);
     }
   }
   return result;

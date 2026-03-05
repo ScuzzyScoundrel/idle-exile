@@ -6,6 +6,7 @@
 
 import type { SkillDef, SkillKind, WeaponType, ActiveSkillDef, AbilityDef } from '../types';
 import { ALL_SKILL_GRAPHS } from './skillGraphs/index';
+import { ALL_TALENT_TREES } from './skillGraphs/talentTrees';
 
 // ============================================================
 // ACTIVE SKILL DEFINITIONS (93 skills, 10E elemental diversity + 10P weapon coverage)
@@ -2485,6 +2486,7 @@ const convertedActiveSkills: SkillDef[] = ACTIVE_SKILL_DEFS.map(s => ({
   dotDamagePercent: s.dotDamagePercent,
   // Wire graph tree for all weapons
   skillGraph: ALL_SKILL_GRAPHS[s.id],
+  talentTree: ALL_TALENT_TREES[s.id],
 }));
 
 // Convert AbilityDefs -> SkillDefs (keep original kind)

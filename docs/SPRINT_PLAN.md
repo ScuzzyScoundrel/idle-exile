@@ -1,7 +1,7 @@
 # Idle Exile — Sprint Plan & Roadmap
 
 > **Full development roadmap.** Read `PROJECT_STATUS.md` first for current state.
-> Last updated: 2026-03-04 (Post-Sprint: Crafting Overhaul)
+> Last updated: 2026-03-05 (Skill Tree Overhaul — Sprint 1 complete)
 
 ## Micro-Sprint Workflow
 
@@ -73,6 +73,11 @@ Each conversation = one micro-sprint (3-5 focused changes):
 | **CL Synergy** | **CL Skill Tree Redesign: 51→15 nodes, 3 cross-skill synergy branches, onDodge/onBlock procs** |
 | **Zone Progression** | **Zone unlock chain (boss kill gate), mastery milestones (3 tiers), void invasions (corrupted items, invasion mobs)** |
 | **Crafting Overhaul** | **Pattern-based crafting (35 patterns, zone/boss/invasion drops), milestone rework (+charges), PatternPanel UI, v40 migration** |
+| **Debuff Overhaul S1** | **Snapshot debuffs (bleed/poison/burn), shocked +crit, chilled shatter, incDoTDamage bug fix, v41** |
+| **Debuff Overhaul S2** | **Combat log (dot/bleed/shatter entries), debuff badge tooltips, color-coded rendering** |
+| **Skill Tree Overhaul Docs** | **Dagger v3.2 design doc, SKILL_TREE_OVERHAUL.md architecture, dagger-review-feedback integration** |
+| **Damage Bucket Fix** | **flatPhysDamage conversion bypass + double-counting fix, v42** |
+| **Skill Tree Sprint 1** | **talentTree.ts engine, TalentNode/Branch/Tree types, Phase 0 (class trees disabled, lethality removed), v43** |
 
 See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
 
@@ -540,7 +545,7 @@ These items from the original GDD and evolution doc haven't been placed into a s
 
 | Feature | Source | Dependencies / Notes |
 |---------|--------|---------------------|
-| **Talent tree** (30-50 nodes per class) | GDD Section 3 | Needs class system (done). Major feature, likely its own sprint. |
+| **~~Talent tree~~** | ~~GDD Section 3~~ | **IN PROGRESS** — Sprint 1 done, Sprint 2 next. See `docs/TALENT_TREE_IMPLEMENTATION.md`. |
 | **Full ability population** (50+ abilities, 10 per weapon type) | Sprint 7C-B plan | Current: 24 abilities (3 per weapon). Need ~56 more. |
 | **Specialization system** (one per character) | GDD | Needs talent tree first |
 | **Socket crafting logic** | GDD | Socket Shard currency defined but unused |

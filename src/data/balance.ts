@@ -352,7 +352,10 @@ export const BASE_GCD = 1.0;
 export const GCD_FLOOR = 0.4;
 
 /** Maximum skill level (applies to all skill kinds). */
-export const SKILL_MAX_LEVEL = 20;
+export const SKILL_MAX_LEVEL = 30;
+
+/** Talent tree tier gate thresholds — points-in-branch required to unlock each tier (index = tier-1). */
+export const TALENT_TIER_GATES = [0, 2, 4, 7, 10, 11, 12] as const;
 
 /** Real-time combat tick interval (ms). Documents engine tick rate. */
 export const COMBAT_TICK_INTERVAL = 250;
