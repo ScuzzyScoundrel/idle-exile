@@ -22,7 +22,7 @@ export default function NavBar({ activeTab, onTabChange, tutorialStep = 0 }: Nav
   const pulseTabId = PULSE_MAP[tutorialStep];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 z-50">
+    <nav className="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-theme-accent-muted/30 z-50 theme-transition">
       <div className="flex justify-around max-w-4xl xl:max-w-7xl mx-auto">
         {TABS.map((tab) => {
           const shouldPulse = tab.id === pulseTabId && activeTab !== tab.id;
@@ -32,7 +32,7 @@ export default function NavBar({ activeTab, onTabChange, tutorialStep = 0 }: Nav
               onClick={() => onTabChange(tab.id)}
               className={`
                 flex flex-col items-center py-2 px-4 text-xs transition-colors
-                ${activeTab === tab.id ? 'text-yellow-400' : 'text-gray-500 hover:text-gray-300'}
+                ${activeTab === tab.id ? 'text-theme-text-accent' : 'text-gray-500 hover:text-gray-300'}
                 ${shouldPulse ? 'ring-2 ring-yellow-400 rounded-lg animate-pulse' : ''}
               `}
             >

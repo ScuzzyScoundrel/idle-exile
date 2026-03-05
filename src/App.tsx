@@ -11,6 +11,8 @@ import CraftingScreen from './ui/screens/CraftingScreen';
 import CombatStatusBar from './ui/components/CombatStatusBar';
 import { useGameStore } from './store/gameStore';
 import { useTabGuard } from './ui/hooks/useTabGuard';
+import { useZoneTheme } from './ui/hooks/useZoneTheme';
+import AmbientParticles from './ui/components/AmbientParticles';
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null; retries: number }> {
   state: { error: Error | null; retries: number } = { error: null, retries: 0 };
@@ -56,6 +58,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 
 function App() {
   const tabBlocked = useTabGuard();
+  const band = useZoneTheme();
   const tutorialStep = useGameStore((s) => s.tutorialStep);
   const offlineProgress = useGameStore((s) => s.offlineProgress);
   const classSelected = useGameStore((s) => s.classSelected);
@@ -94,8 +97,15 @@ function App() {
     return <ClassPicker />;
   }
 
+  const vignetteClass = band > 0 ? `vignette-band-${band}` : 'vignette-none';
+
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
+      {/* Zone vignette overlay */}
+      <div className={`fixed inset-0 pointer-events-none z-30 vignette-overlay ${vignetteClass}`} />
+      {/* Ambient floating particles */}
+      {band > 0 && <AmbientParticles band={band} />}
+
       <TopBar />
       <CombatStatusBar />
 

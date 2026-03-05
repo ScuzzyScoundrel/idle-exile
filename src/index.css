@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Zone theme CSS variables (default = idle/yellow) ── */
+:root {
+  --theme-accent: 250 204 21;         /* yellow-400 */
+  --theme-accent-muted: 55 65 81;     /* gray-700 */
+  --theme-bg-tint: 3 7 18;            /* gray-950 */
+  --theme-progress: 168 85 247;       /* purple-500 */
+  --theme-text-accent: 250 204 21;    /* yellow-400 */
+}
+
 html {
   font-size: 18px;
 }
@@ -67,4 +76,83 @@ body {
 @keyframes invasion-glow {
   0%, 100% { box-shadow: 0 0 6px 2px rgba(168, 85, 247, 0.2); }
   50%      { box-shadow: 0 0 14px 4px rgba(168, 85, 247, 0.4); }
+}
+
+/* ── Zone theming: smooth transition on themed elements ── */
+.theme-transition {
+  transition: border-color 0.6s ease, background-color 0.6s ease, color 0.6s ease;
+}
+
+/* ── Vignette overlay ── */
+.vignette-overlay {
+  transition: box-shadow 1s ease, opacity 1s ease;
+}
+.vignette-none    { box-shadow: inset 0 0 0 0 transparent; }
+.vignette-band-1  { box-shadow: inset 0 0 120px 40px rgba(5, 46, 22, 0.3); }
+.vignette-band-2  { box-shadow: inset 0 0 120px 40px rgba(8, 47, 73, 0.3); }
+.vignette-band-3  { box-shadow: inset 0 0 120px 40px rgba(69, 10, 10, 0.35); animation: vignette-breathe 4s ease-in-out infinite; }
+.vignette-band-4  { box-shadow: inset 0 0 120px 40px rgba(15, 3, 30, 0.4); animation: vignette-breathe 8s ease-in-out infinite; }
+.vignette-band-5  { box-shadow: inset 0 0 120px 40px rgba(30, 27, 75, 0.35); }
+.vignette-band-6  { box-shadow: inset 0 0 120px 40px rgba(0, 0, 0, 0.5); animation: vignette-breathe 12s ease-in-out infinite; }
+
+@keyframes vignette-breathe {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.85; }
+}
+
+/* ── Particle keyframes (transform + opacity only → GPU compositor) ── */
+
+/* Band 1 Greenlands: gentle leaf drift */
+@keyframes particle-leaf {
+  0%   { transform: translate(0, -10%) rotate(0deg); opacity: 0; }
+  10%  { opacity: 0.25; }
+  90%  { opacity: 0.2; }
+  100% { transform: translate(30px, 110vh) rotate(360deg); opacity: 0; }
+}
+
+/* Band 2 Frontier: slow dust/snow drift */
+@keyframes particle-dust {
+  0%   { transform: translate(0, -5%) rotate(0deg); opacity: 0; }
+  10%  { opacity: 0.2; }
+  90%  { opacity: 0.15; }
+  100% { transform: translate(20px, 110vh) rotate(180deg); opacity: 0; }
+}
+
+/* Band 3 Contested: embers rising */
+@keyframes particle-ember {
+  0%   { transform: translate(0, 110vh) scale(1); opacity: 0; }
+  10%  { opacity: 0.3; }
+  50%  { opacity: 0.15; }
+  70%  { opacity: 0.3; }
+  90%  { opacity: 0.1; }
+  100% { transform: translate(-15px, -10%) scale(0.5); opacity: 0; }
+}
+
+/* Band 4 Dark Reaches: slow void wisp diagonal */
+@keyframes particle-wisp {
+  0%   { transform: translate(0, 0) scale(1); opacity: 0; }
+  15%  { opacity: 0.2; }
+  50%  { opacity: 0.08; }
+  85%  { opacity: 0.2; }
+  100% { transform: translate(60px, 80vh) scale(0.7); opacity: 0; }
+}
+
+/* Band 5 Shattered Realm: erratic lightning sparks */
+@keyframes particle-spark {
+  0%   { transform: translate(0, 0) scale(1); opacity: 0; }
+  5%   { opacity: 0.3; }
+  15%  { transform: translate(8px, -12px) scale(1.2); opacity: 0.05; }
+  30%  { transform: translate(-5px, 6px) scale(0.8); opacity: 0.3; }
+  50%  { transform: translate(12px, -8px) scale(1.1); opacity: 0.05; }
+  70%  { transform: translate(-8px, 10px) scale(0.9); opacity: 0.25; }
+  85%  { transform: translate(4px, -4px) scale(1); opacity: 0.05; }
+  100% { transform: translate(0, 0) scale(0.6); opacity: 0; }
+}
+
+/* Band 6 Endlands: glacially slow falling ash */
+@keyframes particle-ash {
+  0%   { transform: translate(0, -5%) rotate(0deg); opacity: 0; }
+  10%  { opacity: 0.15; }
+  90%  { opacity: 0.1; }
+  100% { transform: translate(10px, 110vh) rotate(90deg); opacity: 0; }
 }
