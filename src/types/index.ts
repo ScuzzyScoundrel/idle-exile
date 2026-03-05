@@ -23,6 +23,7 @@ export type AffixCategory =
   | 'inc_fire_damage'
   | 'inc_cold_damage'
   | 'inc_lightning_damage'
+  | 'inc_chaos_damage'
   | 'inc_melee_damage'
   | 'inc_projectile_damage'
   | 'inc_aoe_damage'
@@ -169,6 +170,7 @@ export type StatKey =
   | 'incFireDamage'
   | 'incColdDamage'
   | 'incLightningDamage'
+  | 'incChaosDamage'
   // Delivery
   | 'incMeleeDamage'
   | 'incProjectileDamage'
@@ -645,6 +647,27 @@ export interface OwnedPattern {
 export type DamageElement = 'Physical' | 'Fire' | 'Cold' | 'Lightning' | 'Chaos';
 export type SkillModifierFlag = 'pierce' | 'fork' | 'alwaysCrit' | 'cannotCrit' | 'lifeLeech' | 'ignoreResists';
 
+// --- Damage Type System (Buckets + Conversion) ---
+
+export type DamageType = 'physical' | 'cold' | 'lightning' | 'fire' | 'chaos';
+export type AilmentType = 'bleed' | 'chill' | 'shock' | 'burn' | 'poison';
+
+export interface DamageBucket {
+  type: DamageType;
+  amount: number;
+}
+
+export interface ConversionSpec {
+  from: 'physical';
+  to: DamageType;
+  percent: number;  // 0-100
+}
+
+export interface DamageResult {
+  total: number;
+  buckets: DamageBucket[];
+}
+
 // --- Skill Tree Phase 1: Expanded Modifier Types ---
 
 export type TriggerCondition =
@@ -845,6 +868,7 @@ export interface ActiveSkillDef {
   hitCount?: number;            // hits per use (default 1)
   dotDuration?: number;         // DoT seconds
   dotDamagePercent?: number;    // % of hit applied as DoT per second (0.3 = 30%)
+  baseConversion?: ConversionSpec;  // elemental conversion of physical base damage
 }
 
 // --- Unified Skills (10F) ---
@@ -869,6 +893,7 @@ export interface SkillDef {
   hitCount?: number;
   dotDuration?: number;
   dotDamagePercent?: number;
+  baseConversion?: ConversionSpec;  // elemental conversion of physical base damage
   // Buff/utility fields (non-active kinds)
   duration?: number;
   effect?: AbilityEffect;

@@ -58,6 +58,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 5,
     levelRequired: 8,
     icon: '\u2744\uFE0F',
+    baseConversion: { from: 'physical', to: 'cold', percent: 55 },
   },
   {
     id: 'sword_flame_slash',
@@ -72,6 +73,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 6,
     levelRequired: 6,
     icon: '\uD83D\uDD25',
+    baseConversion: { from: 'physical', to: 'fire', percent: 55 },
   },
   {
     id: 'sword_blade_ward',
@@ -86,6 +88,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 5,
     levelRequired: 10,
     icon: '\u26A1',
+    baseConversion: { from: 'physical', to: 'lightning', percent: 55 },
   },
   {
     id: 'sword_mortal_strike',
@@ -115,6 +118,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 6,
     levelRequired: 12,
     icon: '\u2744\uFE0F',
+    baseConversion: { from: 'physical', to: 'cold', percent: 55 },
   },
 
   // ────────────────────────────────────────────
@@ -161,6 +165,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 5,
     levelRequired: 8,
     icon: '\u26A1',
+    baseConversion: { from: 'physical', to: 'lightning', percent: 55 },
   },
   {
     id: 'axe_searing_axe',
@@ -175,6 +180,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 6,
     levelRequired: 6,
     icon: '\uD83D\uDD25',
+    baseConversion: { from: 'physical', to: 'fire', percent: 55 },
   },
   {
     id: 'axe_rend',
@@ -222,6 +228,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     icon: '\u2744\uFE0F',
     dotDuration: 4,
     dotDamagePercent: 0.3,
+    baseConversion: { from: 'physical', to: 'cold', percent: 55 },
   },
 
   // ────────────────────────────────────────────
@@ -268,6 +275,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 5,
     levelRequired: 8,
     icon: '\u26A1',
+    baseConversion: { from: 'physical', to: 'lightning', percent: 55 },
   },
   {
     id: 'mace_glacial_hammer',
@@ -282,6 +290,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 6,
     levelRequired: 6,
     icon: '\u2744\uFE0F',
+    baseConversion: { from: 'physical', to: 'cold', percent: 55 },
   },
   {
     id: 'mace_concussive_blow',
@@ -296,6 +305,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 5,
     levelRequired: 10,
     icon: '\uD83D\uDD25',
+    baseConversion: { from: 'physical', to: 'fire', percent: 55 },
   },
   {
     id: 'mace_pulverise',
@@ -357,6 +367,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 5,
     levelRequired: 8,
     icon: '\u2744\uFE0F',
+    baseConversion: { from: 'physical', to: 'cold', percent: 65 },
   },
   {
     id: 'dagger_viper_strike',
@@ -373,6 +384,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     icon: '\uD83D\uDC0D',
     dotDuration: 5,
     dotDamagePercent: 0.25,
+    baseConversion: { from: 'physical', to: 'chaos', percent: 45 },
   },
   {
     id: 'dagger_smoke_screen',
@@ -387,6 +399,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 5,
     levelRequired: 10,
     icon: '\uD83D\uDC7E',
+    baseConversion: { from: 'physical', to: 'chaos', percent: 45 },
   },
   {
     id: 'dagger_assassinate',
@@ -416,6 +429,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 4,
     levelRequired: 12,
     icon: '\u26A1',
+    baseConversion: { from: 'physical', to: 'lightning', percent: 60 },
   },
 
   // ────────────────────────────────────────────
@@ -448,6 +462,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 4,
     levelRequired: 4,
     icon: '\u26A1',
+    baseConversion: { from: 'physical', to: 'lightning', percent: 90 },
   },
   {
     id: 'staff_fireball',
@@ -462,6 +477,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 5,
     levelRequired: 8,
     icon: '\uD83D\uDD25',
+    baseConversion: { from: 'physical', to: 'fire', percent: 90 },
   },
   {
     id: 'staff_ice_shard',
@@ -476,6 +492,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 4,
     levelRequired: 6,
     icon: '\u2744\uFE0F',
+    baseConversion: { from: 'physical', to: 'cold', percent: 90 },
   },
   {
     id: 'staff_arcane_shield',
@@ -504,6 +521,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 12,
     levelRequired: 14,
     icon: '\u2604\uFE0F',
+    baseConversion: { from: 'physical', to: 'fire', percent: 90 },
   },
 
   // ────────────────────────────────────────────
@@ -537,6 +555,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     levelRequired: 4,
     icon: '\u26A1',
     hitCount: 2,
+    baseConversion: { from: 'physical', to: 'lightning', percent: 90 },
   },
   {
     id: 'wand_frostbolt',
@@ -551,6 +570,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 5,
     levelRequired: 8,
     icon: '\u2744\uFE0F',
+    baseConversion: { from: 'physical', to: 'cold', percent: 90 },
   },
   {
     id: 'wand_searing_ray',
@@ -565,6 +585,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 6,
     levelRequired: 6,
     icon: '\uD83D\uDD25',
+    baseConversion: { from: 'physical', to: 'fire', percent: 90 },
   },
   {
     id: 'wand_essence_drain',
@@ -581,6 +602,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     icon: '\uD83D\uDC9C',
     dotDuration: 4,
     dotDamagePercent: 0.35,
+    baseConversion: { from: 'physical', to: 'chaos', percent: 90 },
   },
   {
     id: 'wand_void_blast',
@@ -595,6 +617,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 10,
     levelRequired: 14,
     icon: '\uD83C\uDF0C',
+    baseConversion: { from: 'physical', to: 'chaos', percent: 90 },
   },
 
   // ────────────────────────────────────────────
@@ -641,6 +664,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 5,
     levelRequired: 8,
     icon: '\u2744\uFE0F',
+    baseConversion: { from: 'physical', to: 'cold', percent: 65 },
   },
   {
     id: 'bow_burning_arrow',
@@ -655,6 +679,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 5,
     levelRequired: 6,
     icon: '\uD83D\uDD25',
+    baseConversion: { from: 'physical', to: 'fire', percent: 65 },
   },
   {
     id: 'bow_smoke_arrow',
@@ -669,6 +694,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 5,
     levelRequired: 10,
     icon: '\u26A1',
+    baseConversion: { from: 'physical', to: 'lightning', percent: 65 },
   },
   {
     id: 'bow_snipe',
@@ -730,6 +756,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 5,
     levelRequired: 8,
     icon: '\uD83D\uDCA5',
+    baseConversion: { from: 'physical', to: 'fire', percent: 65 },
   },
   {
     id: 'crossbow_frost_bolt',
@@ -744,6 +771,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 5,
     levelRequired: 6,
     icon: '\u2744\uFE0F',
+    baseConversion: { from: 'physical', to: 'cold', percent: 65 },
   },
   {
     id: 'crossbow_net_shot',
@@ -758,6 +786,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 5,
     levelRequired: 10,
     icon: '\u26A1',
+    baseConversion: { from: 'physical', to: 'lightning', percent: 65 },
   },
   {
     id: 'crossbow_siege_shot',
@@ -819,6 +848,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 5,
     levelRequired: 6,
     icon: '\uD83D\uDD25',
+    baseConversion: { from: 'physical', to: 'fire', percent: 55 },
   },
   {
     id: 'greatsword_frost_wave',
@@ -833,6 +863,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 5,
     levelRequired: 8,
     icon: '\u2744\uFE0F',
+    baseConversion: { from: 'physical', to: 'cold', percent: 55 },
   },
   {
     id: 'greatsword_thunder_crash',
@@ -847,6 +878,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 6,
     levelRequired: 10,
     icon: '\u26A1',
+    baseConversion: { from: 'physical', to: 'lightning', percent: 55 },
   },
   {
     id: 'greatsword_bleeding_edge',
@@ -924,6 +956,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 5,
     levelRequired: 6,
     icon: '\uD83D\uDD25',
+    baseConversion: { from: 'physical', to: 'fire', percent: 55 },
   },
   {
     id: 'greataxe_glacial_rend',
@@ -940,6 +973,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     icon: '\u2744\uFE0F',
     dotDuration: 4,
     dotDamagePercent: 0.3,
+    baseConversion: { from: 'physical', to: 'cold', percent: 55 },
   },
   {
     id: 'greataxe_shock_split',
@@ -954,6 +988,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 6,
     levelRequired: 10,
     icon: '\u26A1',
+    baseConversion: { from: 'physical', to: 'lightning', percent: 55 },
   },
   {
     id: 'greataxe_hemorrhage',
@@ -1031,6 +1066,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 5,
     levelRequired: 6,
     icon: '\uD83D\uDD25',
+    baseConversion: { from: 'physical', to: 'fire', percent: 55 },
   },
   {
     id: 'maul_permafrost',
@@ -1045,6 +1081,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 5,
     levelRequired: 8,
     icon: '\u2744\uFE0F',
+    baseConversion: { from: 'physical', to: 'cold', percent: 55 },
   },
   {
     id: 'maul_thunder_slam',
@@ -1059,6 +1096,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 6,
     levelRequired: 10,
     icon: '\u26A1',
+    baseConversion: { from: 'physical', to: 'lightning', percent: 55 },
   },
   {
     id: 'maul_seismic_wave',
@@ -1122,6 +1160,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     levelRequired: 4,
     icon: '\u26A1',
     hitCount: 2,
+    baseConversion: { from: 'physical', to: 'lightning', percent: 55 },
   },
   {
     id: 'scepter_flame_brand',
@@ -1136,6 +1175,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 5,
     levelRequired: 6,
     icon: '\uD83D\uDD25',
+    baseConversion: { from: 'physical', to: 'fire', percent: 90 },
   },
   {
     id: 'scepter_frost_judgment',
@@ -1150,6 +1190,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 5,
     levelRequired: 8,
     icon: '\u2744\uFE0F',
+    baseConversion: { from: 'physical', to: 'cold', percent: 90 },
   },
   {
     id: 'scepter_divine_bolt',
@@ -1164,6 +1205,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 5,
     levelRequired: 10,
     icon: '\u2728',
+    baseConversion: { from: 'physical', to: 'lightning', percent: 90 },
   },
   {
     id: 'scepter_chaos_curse',
@@ -1180,6 +1222,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     icon: '\uD83D\uDC9C',
     dotDuration: 5,
     dotDamagePercent: 0.3,
+    baseConversion: { from: 'physical', to: 'chaos', percent: 90 },
   },
   {
     id: 'scepter_wrath',
@@ -1194,6 +1237,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 8,
     levelRequired: 14,
     icon: '\uD83D\uDD31',
+    baseConversion: { from: 'physical', to: 'lightning', percent: 55 },
   },
 
   // ────────────────────────────────────────────
@@ -1241,6 +1285,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 5,
     levelRequired: 6,
     icon: '\uD83D\uDD25',
+    baseConversion: { from: 'physical', to: 'fire', percent: 90 },
   },
   {
     id: 'gauntlet_frost_grip',
@@ -1255,6 +1300,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 5,
     levelRequired: 8,
     icon: '\u2744\uFE0F',
+    baseConversion: { from: 'physical', to: 'cold', percent: 90 },
   },
   {
     id: 'gauntlet_shock_pulse',
@@ -1269,6 +1315,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 5,
     levelRequired: 10,
     icon: '\u26A1',
+    baseConversion: { from: 'physical', to: 'lightning', percent: 90 },
   },
   {
     id: 'gauntlet_void_grasp',
@@ -1285,6 +1332,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     icon: '\uD83D\uDC7E',
     dotDuration: 4,
     dotDamagePercent: 0.3,
+    baseConversion: { from: 'physical', to: 'chaos', percent: 90 },
   },
   {
     id: 'gauntlet_elemental_burst',
@@ -1299,6 +1347,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 10,
     levelRequired: 14,
     icon: '\uD83D\uDCA5',
+    baseConversion: { from: 'physical', to: 'fire', percent: 90 },
   },
 
   // ────────────────────────────────────────────
@@ -1346,6 +1395,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 5,
     levelRequired: 6,
     icon: '\uD83D\uDD25',
+    baseConversion: { from: 'physical', to: 'fire', percent: 90 },
   },
   {
     id: 'tome_glacial_tome',
@@ -1360,6 +1410,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 5,
     levelRequired: 8,
     icon: '\u2744\uFE0F',
+    baseConversion: { from: 'physical', to: 'cold', percent: 90 },
   },
   {
     id: 'tome_thunderscript',
@@ -1374,6 +1425,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 5,
     levelRequired: 10,
     icon: '\u26A1',
+    baseConversion: { from: 'physical', to: 'lightning', percent: 90 },
   },
   {
     id: 'tome_curse_of_decay',
@@ -1390,6 +1442,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     icon: '\uD83D\uDC9C',
     dotDuration: 5,
     dotDamagePercent: 0.35,
+    baseConversion: { from: 'physical', to: 'chaos', percent: 90 },
   },
   {
     id: 'tome_apocalypse',
@@ -1404,6 +1457,7 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
     cooldown: 12,
     levelRequired: 14,
     icon: '\u2604\uFE0F',
+    baseConversion: { from: 'physical', to: 'fire', percent: 90 },
   },
 ];
 

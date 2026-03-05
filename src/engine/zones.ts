@@ -228,7 +228,7 @@ export function simulateCombatClear(
   abilityDamageMult: number,
   abilityAttackSpeedMult: number,
 ): CombatClearResult {
-  const baseDmgPerCast = calcSkillDamagePerCast(skill, stats, weaponAvgDmg, weaponSpellPower) * abilityDamageMult;
+  const baseDmgPerCast = calcSkillDamagePerCast(skill, stats, weaponAvgDmg, weaponSpellPower).total * abilityDamageMult;
   if (baseDmgPerCast <= 0) {
     return { clearTime: 999, totalCasts: 0, hits: 0, crits: 0, misses: 0, totalDamage: 0, dotDamage: 0 };
   }

@@ -993,6 +993,7 @@ const STAT_LABELS: Record<StatKey, string> = {
   incFireDamage: '% Fire',
   incColdDamage: '% Cold',
   incLightningDamage: '% Lightning',
+  incChaosDamage: '% Chaos',
   incMeleeDamage: '% Melee',
   incProjectileDamage: '% Projectile',
   incAoEDamage: '% AoE',

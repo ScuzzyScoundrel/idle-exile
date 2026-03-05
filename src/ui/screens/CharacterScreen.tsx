@@ -409,6 +409,7 @@ const STAT_LABELS: Partial<Record<StatKey, string>> = {
   incFireDamage: '% Fire',
   incColdDamage: '% Cold',
   incLightningDamage: '% Lightning',
+  incChaosDamage: '% Chaos',
   critChance: 'Crit Chance',
   critMultiplier: 'Crit Multi',
   abilityHaste: 'Ability Haste',

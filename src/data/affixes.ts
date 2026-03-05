@@ -159,7 +159,7 @@ export const AFFIX_DEFS: AffixDef[] = [
   {
     id: 'inc_elemental_damage', name: 'Ruinous', category: 'inc_elemental_damage',
     slot: 'prefix', stat: 'incElementalDamage',
-    allowedSlots: ['all_weapons', 'amulets'],
+    allowedSlots: ['all_weapons', 'amulets', 'belt'],
     tiers: buildTiers(2, 3, 3, 5, 5, 8, 8, 12, 12, 18, 16, 25),
     weight: 70, displayTemplate: '+{value}% Elemental Damage',
   },
@@ -183,6 +183,13 @@ export const AFFIX_DEFS: AffixDef[] = [
     allowedSlots: ['all_weapons', 'rings', 'amulets'],
     tiers: buildTiers(3, 5, 5, 8, 8, 14, 14, 22, 20, 30, 28, 40),
     weight: 60, displayTemplate: '+{value}% Lightning Damage',
+  },
+  {
+    id: 'inc_chaos_damage', name: 'Corrupting', category: 'inc_chaos_damage',
+    slot: 'prefix', stat: 'incChaosDamage',
+    allowedSlots: ['all_weapons', 'rings'],
+    tiers: buildTiers(3, 5, 5, 8, 8, 14, 14, 22, 20, 30, 28, 40),
+    weight: 50, displayTemplate: '+{value}% Chaos Damage',
   },
 
   // ================================================================

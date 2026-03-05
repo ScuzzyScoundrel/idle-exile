@@ -167,8 +167,17 @@ export function resolveSkillGraphModifiers(
       };
     }
 
-    // Conversion: last-wins
-    if (m.convertElement) result.convertElement = m.convertElement;
+    // Conversion: same-target additive (capped at 100%), different-target overrides
+    if (m.convertElement) {
+      if (result.convertElement && result.convertElement.to === m.convertElement.to) {
+        result.convertElement = {
+          ...result.convertElement,
+          percent: Math.min(result.convertElement.percent + m.convertElement.percent, 100),
+        };
+      } else {
+        result.convertElement = m.convertElement;
+      }
+    }
     if (m.convertToAoE) result.convertToAoE = true;
 
     // Collect debuffs and procs

@@ -8,13 +8,14 @@ import type {
   SkillDef, SkillProgress, SkillTimerState, EquippedSkill,
   AbilityEffect, AbilityProgress, AbilityDef, AbilityTimerState, EquippedAbility,
   ResolvedStats, ScalingFormula, SkillTreeNode, WeaponType, ZoneDef, ActiveSkillDef,
-  DamageTag, TempBuff,
+  TempBuff, DamageResult, DamageBucket,
 } from '../types';
 import { ABILITY_SLOT_UNLOCKS } from '../types';
 import { calcHitChance } from './character';
 import { getUnifiedSkillDef, getAbilityDef, getSkillsForWeapon } from '../data/unifiedSkills';
 import { POWER_DIVISOR, SKILL_MAX_LEVEL, BASE_GCD, GCD_FLOOR } from '../data/balance';
 import { resolveSkillGraphModifiers, type ResolvedSkillModifier } from './skillGraph';
+import { resolveDamageBuckets } from './damageBuckets';
 
 // ─── Constants ───
 
@@ -661,80 +662,8 @@ export function calcSkillDamagePerCast(
   weaponAvgDmg: number,
   weaponSpellPower: number,
   graphMod?: ResolvedSkillModifier,
-): number {
-  const isAttack = skill.tags.includes('Attack');
-  const isSpell = skill.tags.includes('Spell');
-
-  // Effective tags: if graph converts element, swap tags for stat-matching
-  let tags: readonly DamageTag[] = skill.tags;
-  if (graphMod?.convertElement) {
-    const conv = graphMod.convertElement;
-    if (conv.percent >= 100) {
-      // Full conversion: replace source element tag with target
-      tags = skill.tags.map(t => t === conv.from ? conv.to : t) as DamageTag[];
-    }
-  }
-
-  // If graph adds AoE conversion, add AoE tag
-  if (graphMod?.convertToAoE && !tags.includes('AoE')) {
-    tags = [...tags, 'AoE' as DamageTag];
-  }
-
-  // --- Step 1: Base damage ---
-  let baseDmg = skill.baseDamage;
-
-  // Graph flat damage bonus
-  if (graphMod?.flatDamage) baseDmg += graphMod.flatDamage;
-
-  // Damage-from-stat scaling (flat, benefits from %increased downstream)
-  if (graphMod?.damageFromArmor) baseDmg += stats.armor * (graphMod.damageFromArmor / 100);
-  if (graphMod?.damageFromEvasion) baseDmg += stats.evasion * (graphMod.damageFromEvasion / 100);
-  if (graphMod?.damageFromMaxLife) baseDmg += stats.maxLife * (graphMod.damageFromMaxLife / 100);
-
-  if (isAttack) {
-    baseDmg += weaponAvgDmg * skill.weaponDamagePercent;
-    if (tags.includes('Physical')) baseDmg += stats.flatPhysDamage;
-    if (tags.includes('Fire')) baseDmg += stats.flatAtkFireDamage;
-    if (tags.includes('Cold')) baseDmg += stats.flatAtkColdDamage;
-    if (tags.includes('Lightning')) baseDmg += stats.flatAtkLightningDamage;
-    if (tags.includes('Chaos')) baseDmg += stats.flatAtkChaosDamage;
-  }
-
-  if (isSpell) {
-    baseDmg += (weaponSpellPower + stats.spellPower) * skill.spellPowerRatio;
-    if (tags.includes('Fire')) baseDmg += stats.flatSpellFireDamage;
-    if (tags.includes('Cold')) baseDmg += stats.flatSpellColdDamage;
-    if (tags.includes('Lightning')) baseDmg += stats.flatSpellLightningDamage;
-    if (tags.includes('Chaos')) baseDmg += stats.flatSpellChaosDamage;
-  }
-
-  if (baseDmg <= 0) return 0;
-
-  // --- Step 2: %increased (all ADDITIVE) ---
-  let totalInc = 0;
-  if (isAttack) totalInc += stats.incAttackDamage;
-  if (isSpell) totalInc += stats.incSpellDamage;
-  if (tags.includes('Physical')) totalInc += stats.incPhysDamage;
-  if (tags.includes('Fire')) totalInc += stats.incFireDamage + stats.incElementalDamage;
-  if (tags.includes('Cold')) totalInc += stats.incColdDamage + stats.incElementalDamage;
-  if (tags.includes('Lightning')) totalInc += stats.incLightningDamage + stats.incElementalDamage;
-  // Delivery tag scaling
-  if (tags.includes('Melee'))      totalInc += stats.incMeleeDamage;
-  if (tags.includes('Projectile')) totalInc += stats.incProjectileDamage;
-  if (tags.includes('AoE'))        totalInc += stats.incAoEDamage;
-  if (tags.includes('DoT'))        totalInc += stats.incDoTDamage;
-  if (tags.includes('Channel'))    totalInc += stats.incChannelDamage;
-
-  // Graph %increased damage bonus
-  if (graphMod?.incDamage) totalInc += graphMod.incDamage;
-
-  const incMult = 1 + totalInc / 100;
-
-  // --- Hit count (base + graph extra hits + bounce mechanics) ---
-  const bounceHits = (graphMod?.chainCount ?? 0) + (graphMod?.pierceCount ?? 0) + (graphMod?.forkCount ?? 0);
-  const hitCount = (skill.hitCount ?? 1) + (graphMod?.extraHits ?? 0) + bounceHits;
-
-  return baseDmg * incMult * hitCount;
+): DamageResult {
+  return resolveDamageBuckets(skill, stats, weaponAvgDmg, weaponSpellPower, graphMod);
 }
 
 /**
@@ -757,7 +686,8 @@ export function calcSkillDps(
   graphMod?: ResolvedSkillModifier,
   atkSpeedMult: number = 1.0,
 ): number {
-  const dmgPerCast = calcSkillDamagePerCast(skill, stats, weaponAvgDmg, weaponSpellPower, graphMod);
+  const dmgResult = calcSkillDamagePerCast(skill, stats, weaponAvgDmg, weaponSpellPower, graphMod);
+  const dmgPerCast = dmgResult.total;
   if (dmgPerCast <= 0) return 0;
 
   // --- Hit chance (both attacks and spells use accuracy) ---
@@ -871,8 +801,9 @@ export function rollSkillCast(
   weaponSpellPower: number,
   damageMult: number,
   graphMod?: ResolvedSkillModifier,
-): { damage: number; isCrit: boolean; isHit: boolean; graphMod?: ResolvedSkillModifier } {
-  const baseDmgPerCast = calcSkillDamagePerCast(skill, stats, weaponAvgDmg, weaponSpellPower, graphMod) * damageMult;
+): { damage: number; isCrit: boolean; isHit: boolean; graphMod?: ResolvedSkillModifier; buckets?: DamageBucket[] } {
+  const dmgResult = calcSkillDamagePerCast(skill, stats, weaponAvgDmg, weaponSpellPower, graphMod);
+  const baseDmgPerCast = dmgResult.total * damageMult;
   if (baseDmgPerCast <= 0) return { damage: 0, isCrit: false, isHit: false };
 
   // Hit chance: both attacks and spells use accuracy formula
@@ -892,9 +823,16 @@ export function rollSkillCast(
 
   // Damage with +/-10% variance
   const variance = 0.9 + Math.random() * 0.2;
-  const damage = baseDmgPerCast * variance * (isCrit ? critDmgMult : 1);
+  const scaleMult = variance * (isCrit ? critDmgMult : 1) * damageMult;
+  const damage = dmgResult.total * scaleMult;
 
-  return { damage, isCrit, isHit: true, graphMod };
+  // Scale each bucket by the same multiplier
+  const scaledBuckets: DamageBucket[] = dmgResult.buckets.map(b => ({
+    type: b.type,
+    amount: b.amount * scaleMult,
+  }));
+
+  return { damage, isCrit, isHit: true, graphMod, buckets: scaledBuckets };
 }
 
 // ─── Unified Wrappers ───
@@ -926,7 +864,7 @@ export function calcUnifiedDamagePerCast(
   weaponSpellPower: number,
 ): number {
   if (skill.kind !== 'active') return 0;
-  return calcSkillDamagePerCast(skill, stats, weaponAvgDmg, weaponSpellPower);
+  return calcSkillDamagePerCast(skill, stats, weaponAvgDmg, weaponSpellPower).total;
 }
 
 /**

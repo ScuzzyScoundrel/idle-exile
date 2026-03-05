@@ -134,6 +134,7 @@ export const BASE_STATS: ResolvedStats = {
   incFireDamage: 0,
   incColdDamage: 0,
   incLightningDamage: 0,
+  incChaosDamage: 0,
   // Delivery
   incMeleeDamage: 0,
   incProjectileDamage: 0,
