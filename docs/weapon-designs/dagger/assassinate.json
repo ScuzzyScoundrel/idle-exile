@@ -1,0 +1,1063 @@
+{
+  "skillId": "dagger_assassinate",
+  "skillName": "Assassinate",
+  "archetypes": ["single-hit", "long-cd", "big-hit"],
+  "branches": [
+    {
+      "branchIndex": 0,
+      "branchName": "Assassination",
+      "mechanicCheck": {
+        "mechanics": [
+          "Execution Momentum stacks (T2 notable -- Marked for Death escalating proc -> crit payoff per full-CD cast)",
+          "Vulnerable exploitation (T4 notable -- Fatal Opening gated proc -> massive single-hit amplifier on Vulnerable targets)",
+          "Overkill Mark (T6 notable -- Guillotine Mark catastrophic proc -> execute mark with deferred explosion)"
+        ],
+        "nonTracked": [
+          "+X vs below HP% -- passive conditional, no stack tracking needed",
+          "Cooldown investment bonus -- calculated from remaining CD, not tracked as stacks"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "nodes": [
+        {
+          "id": "as_0_1_0",
+          "name": "Finishing Blow",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "+15% crit chance vs enemies below 50% HP.",
+          "rank2": "Threshold increases to below 60% HP.",
+          "modifier": {
+            "condition": "whileEnemyBelowHpPercent",
+            "conditionParam": { "hpThreshold": 50 },
+            "effect": { "incCritChance": 15 },
+            "perRank": {
+              "1": { "hpThreshold": 50, "incCritChance": 15 },
+              "2": { "hpThreshold": 60, "incCritChance": 15 }
+            }
+          },
+          "designNotes": "HP_THRESHOLD_CONDITIONAL. Assassinate's execute fantasy starts at T1. Below-50% is generous enough to matter in most fights."
+        },
+        {
+          "id": "as_0_1_1",
+          "name": "Patient Predator",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "+10% crit chance per second of cast time (max +20%).",
+          "rank2": "Also grants +15% crit mult per second of cast time.",
+          "modifier": {
+            "condition": "castTimeScaling",
+            "conditionParam": { "perSecond": true, "maxSeconds": 2 },
+            "effect": { "incCritChance": 10 },
+            "perRank": {
+              "1": { "incCritChancePerSec": 10, "maxBonus": 20 },
+              "2": { "incCritChancePerSec": 10, "maxBonus": 20, "incCritMultPerSec": 15 }
+            }
+          },
+          "designNotes": "CAST_TIME_EMPOWERED. Assassinate's 1.4s cast becomes a feature, not a bug. Rewards the long windup with crit scaling. At 1.4s that's +14% crit chance base."
+        },
+        {
+          "id": "as_0_2_0",
+          "name": "Marked for Death",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "escalating",
+          "description": "Each Assassinate cast that waited its full 8s cooldown grants an Execution Momentum stack (max 3). Each stack grants +20% crit mult. At 3 stacks: next Assassinate is a guaranteed crit and consumes all stacks.",
+          "statsRider": "+10% crit chance.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onCast",
+                "chance": 1.0,
+                "conditionParam": { "fullCooldownElapsed": true },
+                "applyBuff": {
+                  "buffId": "executionMomentum",
+                  "effect": { "incCritMultiplier": 20 },
+                  "maxStacks": 3,
+                  "duration": 30,
+                  "atMax": { "guaranteedCrit": true, "consumeAllStacks": true }
+                }
+              }
+            ],
+            "stats": { "incCritChance": 10 }
+          },
+          "designNotes": "Escalating proc tuned for Assassinate's 8s CD. Patient play: 3 full-CD casts = 24s of patience rewarded with a guaranteed crit carrying +60% crit mult. The long cycle time is the point -- every cast of Assassinate should feel like it matters."
+        },
+        {
+          "id": "as_0_2_1",
+          "name": "Executioner's Focus",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "After Assassinate crits, gain +12% crit mult for 4s.",
+          "rank2": "Duration extends to 6s and stacks 2x.",
+          "modifier": {
+            "condition": "onCrit",
+            "conditionParam": { "skillId": "dagger_assassinate" },
+            "effect": { "incCritMultiplier": 12, "duration": 4 },
+            "perRank": {
+              "1": { "incCritMultiplier": 12, "duration": 4, "maxStacks": 1 },
+              "2": { "incCritMultiplier": 12, "duration": 6, "maxStacks": 2 }
+            }
+          },
+          "designNotes": "Crit mult stacking after Assassinate crits. R2's 6s duration and 2x stacking means this can persist across multiple casts if kills come quickly."
+        },
+        {
+          "id": "as_0_3_0",
+          "name": "Charged Execution",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "+5% damage per second Assassinate is on cooldown (max +40%).",
+          "rank2": "Max increases to +60%.",
+          "modifier": {
+            "condition": "whileOnCooldown",
+            "conditionParam": { "skillId": "dagger_assassinate", "perSecond": true },
+            "effect": { "incDamage": 5 },
+            "perRank": {
+              "1": { "incDamagePerSec": 5, "maxBonus": 40 },
+              "2": { "incDamagePerSec": 5, "maxBonus": 60 }
+            }
+          },
+          "designNotes": "COOLDOWN_INVESTMENT. The 8s CD becomes a damage ramp. At full CD (8s): +40% damage R1, +60% R2. Rewards NOT reducing cooldown -- tensions with Death's Opportunity."
+        },
+        {
+          "id": "as_0_3_1",
+          "name": "Death's Opportunity",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On kill, reduce Assassinate cooldown by 2s.",
+          "rank2": "If kill was on a Vulnerable target, reset cooldown entirely.",
+          "modifier": {
+            "condition": "onKill",
+            "effect": { "reduceCooldown": { "skillId": "dagger_assassinate", "amount": 2 } },
+            "perRank": {
+              "1": { "reduceCooldown": 2 },
+              "2": { "reduceCooldown": 2, "ifDebuffActive": { "debuffId": "vulnerable", "resetCooldown": true } }
+            }
+          },
+          "designNotes": "Kill momentum for Assassinate. R2's full reset on Vulnerable kill is extremely powerful -- chain Assassinates on Vulnerable targets. Tensions with Charged Execution (CD investment wants long CD; this wants short CD)."
+        },
+        {
+          "id": "as_0_3_2",
+          "name": "Mercy Threshold",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "+25% damage vs enemies below 40% HP.",
+          "rank2": "Threshold increases to below 50% HP.",
+          "modifier": {
+            "condition": "whileEnemyBelowHpPercent",
+            "conditionParam": { "hpThreshold": 40 },
+            "effect": { "incDamage": 25 },
+            "perRank": {
+              "1": { "hpThreshold": 40, "incDamage": 25 },
+              "2": { "hpThreshold": 50, "incDamage": 25 }
+            }
+          },
+          "designNotes": "HP_THRESHOLD_CONDITIONAL. Stacks with Finishing Blow's crit chance threshold. Below 50% HP: +15% crit chance AND +25% damage (R2 both). Pure execute amplification."
+        },
+        {
+          "id": "as_0_4_0",
+          "name": "Fatal Opening",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "Assassinate vs Vulnerable targets deals +50% damage. If Assassinate crits a Vulnerable target: apply Condemned (8s) -- target takes +30% damage from all sources. Condemned is consumed on the next Assassinate hit.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onHit",
+                "chance": 1.0,
+                "conditionParam": { "whileDebuffActive": "vulnerable" },
+                "effect": { "incDamage": 50 }
+              },
+              {
+                "trigger": "onCrit",
+                "chance": 1.0,
+                "conditionParam": { "whileDebuffActive": "vulnerable" },
+                "applyDebuff": {
+                  "debuffId": "condemned",
+                  "stacks": 1,
+                  "duration": 8,
+                  "effect": { "damageTakenIncrease": 30 },
+                  "consumeOnHit": { "skillId": "dagger_assassinate" }
+                }
+              }
+            ]
+          },
+          "designNotes": "Gated by Vulnerable. Assassinate's 8s CD means Condemned lasts exactly until the next Assassinate -- the 8s duration matches the CD perfectly. First Assassinate crits Vulnerable -> applies Condemned -> second Assassinate hits Condemned target for +30% amplified damage. The one-two punch fantasy."
+        },
+        {
+          "id": "as_0_4_1",
+          "name": "Predator's Judgment",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "While in Predator state: Assassinate casts 20% faster.",
+          "rank2": "Also increases Assassinate's weapon% by +0.3.",
+          "modifier": {
+            "condition": "whileBuffActive",
+            "conditionParam": { "buffId": "predator" },
+            "effect": { "incCastSpeed": 20 },
+            "perRank": {
+              "1": { "incCastSpeed": 20 },
+              "2": { "incCastSpeed": 20, "incWeaponPercent": 0.3 }
+            }
+          },
+          "designNotes": "Predator state from Stab's Blade Sense feeds into Assassinate. Cross-skill synergy: Stab builds Predator -> Assassinate benefits. The +0.3 weapon% on a 2.2 base is significant (+13.6% more base damage)."
+        },
+        {
+          "id": "as_0_5_0",
+          "name": "Inevitable End",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Assassinate's crit mult is increased by +8% for each second it was on cooldown before casting (max +64% at full 8s CD). Crits with Assassinate extend all active debuff durations on the target by 2s. Your Assassinate cooldown cannot be reduced below 6s.",
+          "modifier": {
+            "cooldownCritScaling": {
+              "incCritMultPerSecond": 8,
+              "maxSeconds": 8,
+              "maxBonus": 64
+            },
+            "procs": [
+              {
+                "trigger": "onCrit",
+                "chance": 1.0,
+                "conditionParam": { "skillId": "dagger_assassinate" },
+                "effect": { "extendDebuffDurations": 2 }
+              }
+            ],
+            "cooldownFloor": { "skillId": "dagger_assassinate", "minimum": 6 }
+          },
+          "exclusiveWith": ["as_0_5_1"],
+          "designNotes": "Consistent choice tuned to Assassinate's 8s CD. Reliable +64% crit mult at full CD investment. CD floor of 6s prevents gaming the system with CDR -- you MUST wait. Debuff extension feeds into Condemned (T4) and cross-skill Vulnerable. Pairs with Charged Execution's CD investment theme."
+        },
+        {
+          "id": "as_0_5_1",
+          "name": "Chain Executioner",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "On kill with Assassinate: cooldown resets instantly and next Assassinate within 3s deals +40% damage. Chains up to 3 times per reset sequence. If the chain breaks (no kill within 3s): Assassinate is disabled for 4s beyond its normal cooldown. -15% Assassinate damage when not in a chain.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onKill",
+                "chance": 1.0,
+                "conditionParam": { "skillId": "dagger_assassinate" },
+                "resetCooldown": "dagger_assassinate",
+                "applyBuff": {
+                  "buffId": "executionChain",
+                  "effect": { "incDamage": 40 },
+                  "duration": 3,
+                  "maxChains": 3
+                }
+              }
+            ],
+            "chainBreakPenalty": {
+              "disableSkill": { "skillId": "dagger_assassinate", "extraCooldown": 4 }
+            },
+            "incDamage": -15
+          },
+          "exclusiveWith": ["as_0_5_0"],
+          "designNotes": "Risky kill-chain. Kill -> instant reset -> +40% -> kill -> reset -> +80% -> kill -> reset -> +120%. Three Assassinates in rapid succession is the dream. But if you fail to kill, you're locked out for 12s total (8s CD + 4s penalty). The -15% base damage outside chains makes it feel bad in single-target. Massive ceiling in chain-able content, terrible floor in boss fights."
+        },
+        {
+          "id": "as_0_6_0",
+          "name": "Guillotine Mark",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "catastrophic",
+          "description": "On crit with Assassinate: 25% chance to apply Guillotine Mark (12s). Marked enemies that drop below 20% HP are instantly executed -- dealt 500% weapon damage as a finishing blow. If the execution kills, deal 50% of overkill damage to the next enemy.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onCrit",
+                "chance": 0.25,
+                "conditionParam": { "skillId": "dagger_assassinate" },
+                "applyDebuff": {
+                  "debuffId": "guillotineMark",
+                  "stacks": 1,
+                  "duration": 12
+                }
+              }
+            ],
+            "debuffInteraction": {
+              "executeThreshold": {
+                "debuffId": "guillotineMark",
+                "hpThreshold": 20,
+                "executeDamage": { "scaleStat": "weaponDamage", "scaleRatio": 5.00 },
+                "overkillSpread": { "percent": 50 }
+              }
+            }
+          },
+          "designNotes": "Catastrophic proc -- 25% is generous because Assassinate only crits every 8s. The 12s duration spans at least one full CD cycle. 500% weapon damage execute at 20% HP is Assassinate's ultimate fantasy: mark the target, then watch it cross the threshold and die spectacularly. Overkill spread adds chain potential."
+        },
+        {
+          "id": "as_0_7_0",
+          "name": "FINAL JUDGMENT",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Assassinate can only be cast when the target is below 35% HP. Assassinate's weapon% is doubled (2.2 -> 4.4). Assassinate's cooldown is reduced to 4s. Guillotine Mark is applied automatically to any enemy you hit that is above 35% HP (no proc chance). Assassinate's cast time increased by +0.4s (1.4s -> 1.8s).",
+          "modifier": {
+            "executeOnly": { "hpThreshold": 35 },
+            "weaponPercentMultiplier": 2.0,
+            "cooldownOverride": 4,
+            "autoApplyDebuff": {
+              "debuffId": "guillotineMark",
+              "condition": "aboveHpPercent",
+              "hpThreshold": 35,
+              "duration": 12
+            },
+            "castTimeIncrease": 0.4
+          },
+          "tensionWith": "as_0_6_0",
+          "tensionDescription": "T6 makes Guillotine Mark a rare (25%) crit proc with a dramatic execute at 20% HP. T7 makes Guillotine Mark automatic (guaranteed on any hit above 35%) but restricts Assassinate to below 35% HP. The tension: T6's Mark was precious because it was rare. T7 makes it free but raises the execute threshold to 35% while gating Assassinate behind it. You become a pure executioner -- other skills whittle targets down, Assassinate delivers the killing blow with doubled weapon%.",
+          "antiSynergy": ["as_0_3_0"],
+          "antiSynergyNotes": "Charged Execution (T3a) -- CD investment scaling is halved because cooldown drops from 8s to 4s (max +20% instead of +40%).",
+          "synergy": ["as_0_3_1", "as_0_1_0"],
+          "synergyNotes": "Death's Opportunity (T3b) -- kill-based CD reduction is even more powerful with a 4s base CD. Finishing Blow (T1a) -- always active since Assassinate can only target below 35% HP."
+        }
+      ]
+    },
+    {
+      "branchIndex": 1,
+      "branchName": "Venomcraft",
+      "mechanicCheck": {
+        "mechanics": [
+          "Poison snapshot amplification (T2 notable -- Virulent Impact gated proc -> bonus poison damage at stack threshold)",
+          "Venom Apex state (T4 notable -- state-shift at high stacks -> empowered Assassinate window)",
+          "Plague Eruption spread (T6 notable -- gated kill-spread tuned for overkill)"
+        ],
+        "nonTracked": [
+          "Poison stacks from T1a -- applied by existing engine, count tracked by stack system",
+          "Weapon% snapshot bonus -- calculated once on application, not tracked"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "nodes": [
+        {
+          "id": "as_1_1_0",
+          "name": "Toxic Execution",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Assassinate applies 3 poison stacks on hit.",
+          "rank2": "Applies 5 stacks.",
+          "modifier": {
+            "condition": "onHit",
+            "conditionParam": { "skillId": "dagger_assassinate" },
+            "effect": { "applyDebuff": { "debuffId": "poisoned", "stacks": 3 } },
+            "perRank": {
+              "1": { "stacks": 3 },
+              "2": { "stacks": 5 }
+            }
+          },
+          "designNotes": "Assassinate's single hit delivers a massive poison payload. 3-5 stacks in one hit vs Stab's 1 per hit -- fewer opportunities but bigger impact per cast. Matches the big-hit archetype."
+        },
+        {
+          "id": "as_1_1_1",
+          "name": "Venom Amplifier",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "+15% damage vs poisoned enemies.",
+          "rank2": "+25% and +5% per poison stack (max +25% extra).",
+          "modifier": {
+            "condition": "whileDebuffActive",
+            "conditionParam": { "debuffId": "poisoned" },
+            "effect": { "incDamage": 15 },
+            "perRank": {
+              "1": { "incDamage": 15 },
+              "2": { "incDamage": 25, "incDamagePerStack": 5, "maxStackBonus": 25 }
+            }
+          },
+          "designNotes": "Damage vs poisoned. R2's per-stack scaling rewards maintaining deep stacks between Assassinate's 8s CD. At 5 stacks: +25% base +25% stack bonus = +50% total. Enormous payoff for poison investment."
+        },
+        {
+          "id": "as_1_2_0",
+          "name": "Virulent Impact",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "Assassinate's high weapon% (2.2) increases poison snapshot damage by +30%. When Assassinate hits a target with 5+ poison stacks: 40% chance to trigger Venom Eruption -- deal 80% of total active poison DoT as instant chaos damage.",
+          "statsRider": "+15% poison damage.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onHit",
+                "chance": 1.0,
+                "conditionParam": { "skillId": "dagger_assassinate" },
+                "effect": { "poisonSnapshotBonus": 30 }
+              },
+              {
+                "trigger": "onHit",
+                "chance": 0.40,
+                "conditionParam": { "skillId": "dagger_assassinate", "debuffId": "poisoned", "threshold": 5 },
+                "effect": { "venomEruption": { "percentOfActiveDoT": 80 } }
+              }
+            ],
+            "stats": { "incPoisonDamage": 15 }
+          },
+          "designNotes": "Gated proc on 5+ poison stacks. Assassinate's massive weapon% makes the snapshot bonus powerful -- each poison stack from Assassinate inherits 2.2x weapon damage base. The 40% Venom Eruption chance is generous because Assassinate only hits once per 8s. Other skills build stacks, Assassinate detonates them."
+        },
+        {
+          "id": "as_1_2_1",
+          "name": "Envenom Strike",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Assassinate's high weapon% increases poison snapshot by +15%.",
+          "rank2": "+25% snapshot bonus.",
+          "modifier": {
+            "condition": "onHit",
+            "conditionParam": { "skillId": "dagger_assassinate" },
+            "effect": { "poisonSnapshotBonus": 15 },
+            "perRank": {
+              "1": { "poisonSnapshotBonus": 15 },
+              "2": { "poisonSnapshotBonus": 25 }
+            }
+          },
+          "designNotes": "Additional snapshot scaling for Assassinate's poison. Stacks additively with Virulent Impact's +30%. At R2 + T2 notable: +55% total snapshot bonus. Assassinate's poison ticks hit like trucks."
+        },
+        {
+          "id": "as_1_3_0",
+          "name": "Toxic Concentration",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "At 5+ stacks, Assassinate deals +20% damage.",
+          "rank2": "Threshold drops to 3 stacks.",
+          "modifier": {
+            "condition": "whileDebuffActive",
+            "conditionParam": { "debuffId": "poisoned", "threshold": 5 },
+            "effect": { "incDamage": 20 },
+            "perRank": {
+              "1": { "threshold": 5, "incDamage": 20 },
+              "2": { "threshold": 3, "incDamage": 20 }
+            }
+          },
+          "designNotes": "Stack threshold conditional. Maintains stacks between Assassinate's 8s CD using other skills (Stab, Viper Strike). R2's threshold of 3 is easily maintained even with stack decay."
+        },
+        {
+          "id": "as_1_3_1",
+          "name": "Plague Finisher",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On kill with Assassinate, spread all debuffs to next enemy.",
+          "rank2": "Spread debuffs have duration refreshed.",
+          "modifier": {
+            "condition": "onKill",
+            "conditionParam": { "skillId": "dagger_assassinate" },
+            "effect": { "spreadAllDebuffs": true },
+            "perRank": {
+              "1": { "spreadAllDebuffs": true },
+              "2": { "spreadAllDebuffs": true, "refreshDuration": true }
+            }
+          },
+          "designNotes": "Kill-gated spread specific to Assassinate. Assassinate's big hit means kills are likely -- when it kills, debuffs transfer forward. R2's duration refresh means poison keeps full potency on the next target."
+        },
+        {
+          "id": "as_1_3_2",
+          "name": "Toxic Overload",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "At 8+ stacks, Assassinate consumes all stacks for +5% damage per stack.",
+          "rank2": "+8% per stack consumed.",
+          "modifier": {
+            "condition": "onHit",
+            "conditionParam": { "skillId": "dagger_assassinate", "debuffId": "poisoned", "threshold": 8 },
+            "effect": { "consumeAllStacks": true, "incDamagePerStack": 5 },
+            "perRank": {
+              "1": { "incDamagePerStack": 5 },
+              "2": { "incDamagePerStack": 8 }
+            }
+          },
+          "designNotes": "Stack consumption burst. At 10 stacks R2: +80% damage on that Assassinate hit. Massive single-hit amplifier but resets all stacks. Tensions with Venom Amplifier (wants stacks to persist) and Toxic Concentration (wants threshold maintained)."
+        },
+        {
+          "id": "as_1_4_0",
+          "name": "Venom Apex",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "state-shift",
+          "description": "When Assassinate hits a target with 8+ poison stacks: enter Venom Apex (6s) -- your next Assassinate within the window has +50% weapon% (2.2 -> 3.3) and applies double poison stacks. Venom Apex has a 16s internal cooldown (2x Assassinate's CD).",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onHit",
+                "chance": 1.0,
+                "conditionParam": { "skillId": "dagger_assassinate", "debuffId": "poisoned", "threshold": 8 },
+                "applyBuff": {
+                  "buffId": "venomApex",
+                  "effect": { "incWeaponPercent": 1.1, "doublePoisonStacks": true },
+                  "duration": 6
+                },
+                "internalCooldown": 16
+              }
+            ]
+          },
+          "designNotes": "State-shift tuned to Assassinate's rhythm. 8+ stacks gates the proc (other skills build stacks between Assassinate CDs). The 6s window overlaps with the next Assassinate cast (8s CD - 6s = must cast within 6s). The 16s ICD means every other Assassinate cycle can trigger Apex. Low frequency, massive payoff -- fits the big-hit archetype perfectly."
+        },
+        {
+          "id": "as_1_4_1",
+          "name": "Venomous Judgment",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "During Venom Frenzy: Assassinate cooldown reduced by 2s.",
+          "rank2": "Also increases weapon% by +0.2 during Frenzy.",
+          "modifier": {
+            "condition": "whileBuffActive",
+            "conditionParam": { "buffId": "venomFrenzy" },
+            "effect": { "reduceCooldown": { "skillId": "dagger_assassinate", "amount": 2 } },
+            "perRank": {
+              "1": { "reduceCooldown": 2 },
+              "2": { "reduceCooldown": 2, "incWeaponPercent": 0.2 }
+            }
+          },
+          "designNotes": "Cross-skill synergy: Stab's Venom Frenzy (Deep Wounds T4) feeds into Assassinate. During the 5s Frenzy window, Assassinate's CD drops from 8s to 6s. R2's weapon% bonus (2.2 -> 2.4) increases both hit damage and poison snapshot."
+        },
+        {
+          "id": "as_1_5_0",
+          "name": "Sovereign Venom",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Assassinate's poison stacks deal +15% more damage per stack (multiplicative). Poison applied by Assassinate has +50% duration. Assassinate can only apply poison once per cast (no multi-application from other sources during the hit).",
+          "modifier": {
+            "debuffInteraction": {
+              "debuffEffectBonus": 15,
+              "perStack": true,
+              "debuffDurationBonus": 50,
+              "appliesTo": { "skillId": "dagger_assassinate" }
+            },
+            "poisonCapPerCast": { "skillId": "dagger_assassinate", "maxApplications": 1 }
+          },
+          "exclusiveWith": ["as_1_5_1"],
+          "designNotes": "Consistent poison scaling. Each stack from Assassinate deals +15% more -- at 5 stacks that's +75% multiplicative poison damage. +50% duration means stacks from Assassinate outlast the 8s CD, maintaining threshold for the next cast. The single-application cap prevents stack explosion abuse but each application is devastating. Reliable, scaling, predictable."
+        },
+        {
+          "id": "as_1_5_1",
+          "name": "Cataclysmic Toxin",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "Assassinate consumes ALL poison stacks on hit and converts them to a single massive poison DoT dealing 200% of consumed stacks' remaining damage over 3s. If 10+ stacks consumed: also deal 100% of the DoT total as instant chaos damage. You cannot apply new poison for 4s after consumption.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onHit",
+                "chance": 1.0,
+                "conditionParam": { "skillId": "dagger_assassinate" },
+                "effect": {
+                  "consumeAllStacks": { "debuffId": "poisoned" },
+                  "convertToSuperDoT": {
+                    "damageMultiplier": 2.0,
+                    "duration": 3
+                  }
+                }
+              },
+              {
+                "trigger": "onHit",
+                "chance": 1.0,
+                "conditionParam": { "skillId": "dagger_assassinate", "debuffId": "poisoned", "threshold": 10 },
+                "effect": {
+                  "instantDamage": { "percentOfConvertedDoT": 100 }
+                }
+              }
+            ],
+            "poisonLockout": { "duration": 4 }
+          },
+          "exclusiveWith": ["as_1_5_0"],
+          "designNotes": "Risky detonation. All stacks consumed for one massive DoT + potential instant burst at 10+ stacks. The 4s poison lockout means your team can't reapply stacks immediately -- you're committed to the detonation window. At 10 stacks with high snapshot: enormous burst. At 3 stacks: mediocre. Feast/famine that rewards perfect setup. The 3s super-DoT duration fits within Assassinate's 8s CD window."
+        },
+        {
+          "id": "as_1_6_0",
+          "name": "Plague Eruption",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "On kill with Assassinate while target has 5+ poison stacks: trigger Plague Eruption -- deal 60% of target's total active poison damage as AoE chaos damage to the next enemy, and apply half the dead target's poison stacks to them. Eruption has no internal cooldown.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onKill",
+                "chance": 1.0,
+                "conditionParam": { "skillId": "dagger_assassinate", "debuffId": "poisoned", "threshold": 5 },
+                "effect": {
+                  "plagueEruption": {
+                    "aoeDamage": { "percentOfActivePoison": 60 },
+                    "spreadStacks": { "debuffId": "poisoned", "percent": 50 }
+                  }
+                }
+              }
+            ]
+          },
+          "designNotes": "Gated by kill + 5 poison stacks. Assassinate's big hit frequently kills, and Venomcraft branch ensures high stack counts. The eruption carries poison forward -- half stacks on next enemy gives a head start for the next Assassinate cycle. No ICD because Assassinate's 8s CD naturally limits frequency."
+        },
+        {
+          "id": "as_1_7_0",
+          "name": "SOVEREIGN BLIGHT",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Assassinate applies a single Sovereign Blight stack instead of normal poison. Sovereign Blight deals 5x normal poison damage per tick and has unlimited duration, but you can only have ONE Sovereign Blight active across all enemies. Hitting a new target with Assassinate transfers the Blight. Sovereign Blight stacks are capped at 1 (not stackable). -20% Assassinate base damage.",
+          "modifier": {
+            "replaceDebuff": {
+              "original": "poisoned",
+              "replacement": {
+                "debuffId": "sovereignBlight",
+                "damageMultiplier": 5.0,
+                "duration": "infinite",
+                "maxInstances": 1,
+                "transferOnNewTarget": true,
+                "maxStacks": 1
+              }
+            },
+            "incDamage": -20
+          },
+          "tensionWith": "as_1_6_0",
+          "tensionDescription": "T6 rewards killing poisoned targets to spread stacks to multiple enemies -- it wants MANY stacks on MANY targets. T7 restricts you to ONE devastating blight on ONE target at a time. Plague Eruption still triggers on kill, but only transfers a single Sovereign Blight stack (not half of many). The spread becomes a transfer mechanism rather than a multiplication engine. Depth vs breadth.",
+          "antiSynergy": ["as_1_3_2", "as_1_1_0"],
+          "antiSynergyNotes": "Toxic Overload (T3c) -- consuming stacks is meaningless with max 1 stack. Toxic Execution (T1a) -- multi-stack application reduced to 1 Sovereign Blight stack regardless of amount.",
+          "synergy": ["as_1_2_1", "as_1_2_0"],
+          "synergyNotes": "Envenom Strike (T2b) + Virulent Impact (T2) -- snapshot bonuses apply to Sovereign Blight's 5x damage multiplier. The single stack hits incredibly hard with enhanced snapshots."
+        }
+      ]
+    },
+    {
+      "branchIndex": 2,
+      "branchName": "Shadow Dance",
+      "mechanicCheck": {
+        "mechanics": [
+          "Cooldown Dodge stacks (T2 notable -- Coiled Patience dodge-during-CD accumulation -> empowered defense)",
+          "Assassin's Shroud state (T4 notable -- state-shift from dodge accumulation during CD -> Shadow Form variant)",
+          "Vengeful Counter (T6 notable -- cooldown-synced counter-attack on dodge during Assassinate's window)"
+        ],
+        "nonTracked": [
+          "Fortify stacks -- applied by Fortified Execution, tracked by existing Fortify system",
+          "Life on hit -- flat recovery, no tracking needed"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "nodes": [
+        {
+          "id": "as_2_1_0",
+          "name": "Calculated Strike",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "+4 life on hit with Assassinate.",
+          "rank2": "Life on hit doubles vs enemies below 50% HP.",
+          "modifier": {
+            "condition": "onHit",
+            "conditionParam": { "skillId": "dagger_assassinate" },
+            "effect": { "lifeOnHit": 4 },
+            "perRank": {
+              "1": { "lifeOnHit": 4 },
+              "2": { "lifeOnHit": 4, "doubleBelowHpPercent": 50 }
+            }
+          },
+          "designNotes": "Sustain per Assassinate hit. +4 is small but Assassinate's massive damage means R2's double below 50% HP (+8 life on hit) coincides with execute territory where you need it most."
+        },
+        {
+          "id": "as_2_1_1",
+          "name": "Fortified Execution",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On Assassinate hit: gain +2 Fortify stacks (5s).",
+          "rank2": "+3 stacks and Fortify duration +2s.",
+          "modifier": {
+            "condition": "onHit",
+            "conditionParam": { "skillId": "dagger_assassinate" },
+            "effect": { "fortifyOnHit": { "stacks": 2, "duration": 5 } },
+            "perRank": {
+              "1": { "stacks": 2, "duration": 5 },
+              "2": { "stacks": 3, "duration": 7 }
+            }
+          },
+          "designNotes": "Defensive payoff per Assassinate cast. +2-3 Fortify stacks is significant from a single hit. R2's 7s duration exceeds Assassinate's 8s CD -- barely, encouraging precise timing to maintain Fortify uptime."
+        },
+        {
+          "id": "as_2_2_0",
+          "name": "Coiled Patience",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "cooldown",
+          "description": "Each dodge during Assassinate's cooldown grants a Coiled Patience stack (max 4). Each stack grants +5% damage reduction. When Assassinate comes off cooldown: consume all stacks and gain +10% Assassinate damage per stack consumed for the next cast (max +40%).",
+          "statsRider": "+5% evasion.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "conditionParam": { "whileOnCooldown": "dagger_assassinate" },
+                "applyBuff": {
+                  "buffId": "coiledPatience",
+                  "effect": { "damageReduction": 5 },
+                  "maxStacks": 4,
+                  "duration": 12
+                }
+              }
+            ],
+            "onCooldownExpiry": {
+              "skillId": "dagger_assassinate",
+              "consumeStacks": "coiledPatience",
+              "perStackBonus": { "incDamage": 10, "maxBonus": 40 }
+            },
+            "stats": { "incEvasion": 5 }
+          },
+          "designNotes": "Cooldown proc tuned to Assassinate's 8s CD. During the long wait, dodges build defense (5% DR per stack) AND offense (consumed for +10% damage per stack). 8s CD = many dodge opportunities. At 4 stacks: +20% DR while waiting, then +40% damage on the Assassinate cast. The CD window becomes productive rather than dead time."
+        },
+        {
+          "id": "as_2_2_1",
+          "name": "Patient Counter",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On dodge: gain +10% Assassinate damage for 4s (stacks 2x).",
+          "rank2": "Stacks 3x.",
+          "modifier": {
+            "condition": "onDodge",
+            "effect": { "incDamage": 10, "duration": 4, "appliesToSkill": "dagger_assassinate" },
+            "perRank": {
+              "1": { "incDamage": 10, "maxStacks": 2 },
+              "2": { "incDamage": 10, "maxStacks": 3 }
+            }
+          },
+          "designNotes": "Dodge-to-offense conversion. R2 at 3 stacks: +30% Assassinate damage from dodging. 4s duration means you need dodges close to Assassinate's cast window. Synergizes with Coiled Patience but is simpler and independent of CD state."
+        },
+        {
+          "id": "as_2_3_0",
+          "name": "Executioner's Counter",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On dodge: deal 40% weapon damage as counter (+100% vs below 25% HP).",
+          "rank2": "Threshold increases to below 30% HP.",
+          "modifier": {
+            "condition": "onDodge",
+            "effect": { "instantDamage": { "scaleStat": "weaponDamage", "scaleRatio": 0.40 } },
+            "conditionalMods": [
+              {
+                "condition": "whileEnemyBelowHpPercent",
+                "modifier": { "scaleRatio": 0.80 }
+              }
+            ],
+            "perRank": {
+              "1": { "scaleRatio": 0.40, "executeThreshold": 25, "executeScaleRatio": 0.80 },
+              "2": { "scaleRatio": 0.40, "executeThreshold": 30, "executeScaleRatio": 0.80 }
+            }
+          },
+          "designNotes": "Dodge counter with execute scaling. The +100% vs low HP mirrors Assassinate's execute identity. During the 8s CD, dodge counters chip away at health. R2's 30% threshold aligns with the execute fantasy."
+        },
+        {
+          "id": "as_2_3_1",
+          "name": "Death's Reprieve",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On dodge: heal 4% max HP and +10% DR for 2s.",
+          "rank2": "Heal 6% and also reduce Assassinate cooldown by 1s.",
+          "modifier": {
+            "condition": "onDodge",
+            "effect": { "healPercent": 4, "damageReduction": 10, "drDuration": 2 },
+            "perRank": {
+              "1": { "healPercent": 4, "damageReduction": 10 },
+              "2": { "healPercent": 6, "damageReduction": 10, "reduceCooldown": { "skillId": "dagger_assassinate", "amount": 1 } }
+            }
+          },
+          "designNotes": "Dodge sustain + defense. R2 bridges into offense by reducing Assassinate's CD on dodge. Each dodge during the 8s CD heals and brings Assassinate closer. Dual-purpose dodge reward."
+        },
+        {
+          "id": "as_2_3_2",
+          "name": "Shadow Execution",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On dodge: reduce Assassinate cooldown by 1s.",
+          "rank2": "Reduce by 1.5s.",
+          "modifier": {
+            "condition": "onDodge",
+            "effect": { "reduceCooldown": { "skillId": "dagger_assassinate", "amount": 1 } },
+            "perRank": {
+              "1": { "amount": 1.0 },
+              "2": { "amount": 1.5 }
+            }
+          },
+          "designNotes": "Pure CDR on dodge. At R2, 5-6 dodges during the 8s CD window can nearly reset Assassinate. High evasion builds can cast Assassinate much more frequently. Direct competition with Charged Execution (T3a in Assassination branch) which wants long CDs."
+        },
+        {
+          "id": "as_2_4_0",
+          "name": "Assassin's Shroud",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "state-shift",
+          "description": "Track dodges during Assassinate's cooldown. At 4 dodges during a single CD cycle: enter Assassin's Shroud (5s) -- +25% damage reduction, next Assassinate has +30% weapon% (2.2 -> 2.86), and Assassinate's cast time is reduced by 30%. Assassin's Shroud has a 20s internal cooldown.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "conditionParam": { "whileOnCooldown": "dagger_assassinate", "dodgesRequired": 4 },
+                "applyBuff": {
+                  "buffId": "assassinsShroud",
+                  "effect": {
+                    "damageReduction": 25,
+                    "incWeaponPercent": { "skillId": "dagger_assassinate", "bonus": 0.66 },
+                    "reduceCastTime": { "skillId": "dagger_assassinate", "percent": 30 }
+                  },
+                  "duration": 5
+                },
+                "internalCooldown": 20
+              }
+            ]
+          },
+          "designNotes": "State-shift from dodge accumulation during Assassinate's CD. 4 dodges in an 8s window is achievable with decent evasion. The Shroud rewards defensive play with offensive power: +30% weapon%, faster cast, and DR. The 5s duration overlaps Assassinate's next available cast. The 20s ICD means roughly every 2-3 CD cycles. Defense creates offense -- the Shadow Dance identity."
+        },
+        {
+          "id": "as_2_4_1",
+          "name": "Shadow Executioner",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "During Shadow Form: Assassinate cast time reduced by 20%.",
+          "rank2": "Also increases weapon% by +0.3.",
+          "modifier": {
+            "condition": "whileBuffActive",
+            "conditionParam": { "buffId": "shadowForm" },
+            "effect": { "reduceCastTime": { "skillId": "dagger_assassinate", "percent": 20 } },
+            "perRank": {
+              "1": { "reduceCastTimePercent": 20 },
+              "2": { "reduceCastTimePercent": 20, "incWeaponPercent": 0.3 }
+            }
+          },
+          "designNotes": "Shadow Form (from Stab's Ghost Step) empowers Assassinate. Cross-skill synergy: Stab builds Shadow Form through dodges -> Assassinate benefits with faster, harder hits. R2's +0.3 weapon% on 2.2 base is +13.6% more damage."
+        },
+        {
+          "id": "as_2_5_0",
+          "name": "Patience of Shadows",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Each dodge heals 3% max HP. While Assassinate is on cooldown: +15% evasion and +10% damage reduction. When Assassinate comes off cooldown: gain a shield equal to 15% max HP for 4s. Your dodge chance cannot exceed 60%.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "effect": { "healPercent": 3 }
+              }
+            ],
+            "conditionalMods": [
+              {
+                "condition": "whileOnCooldown",
+                "conditionParam": { "skillId": "dagger_assassinate" },
+                "modifier": { "incEvasion": 15, "damageReduction": 10 }
+              }
+            ],
+            "onCooldownExpiry": {
+              "skillId": "dagger_assassinate",
+              "applyShield": { "percentMaxHp": 15, "duration": 4 }
+            },
+            "evasionCap": 60
+          },
+          "exclusiveWith": ["as_2_5_1"],
+          "designNotes": "Consistent sustain tuned to Assassinate's rhythm. The 8s CD window becomes a defensive fortress: +15% evasion, +10% DR, 3% heal per dodge. When Assassinate comes off CD: a shield protects during the 1.4s cast. The 60% evasion cap prevents runaway dodge stacking but ensures reliable defense. Predictable, safe, rhythmic."
+        },
+        {
+          "id": "as_2_5_1",
+          "name": "Umbral Assault",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "Each dodge during Assassinate's cooldown stores a Shadow Charge (max 6). When Assassinate is cast: consume all Shadow Charges to add +12% weapon% per charge to that Assassinate (max +72% weapon%). While carrying 4+ Shadow Charges: take +15% increased damage. Dodge healing from all sources reduced by 50%.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "conditionParam": { "whileOnCooldown": "dagger_assassinate" },
+                "applyBuff": {
+                  "buffId": "shadowCharge",
+                  "maxStacks": 6,
+                  "duration": 12
+                }
+              }
+            ],
+            "onCast": {
+              "skillId": "dagger_assassinate",
+              "consumeStacks": "shadowCharge",
+              "perStackBonus": { "incWeaponPercent": 0.264 }
+            },
+            "conditionalMods": [
+              {
+                "condition": "whileBuffActive",
+                "conditionParam": { "buffId": "shadowCharge", "threshold": 4 },
+                "modifier": { "increasedDamageTaken": 15 }
+              }
+            ],
+            "dodgeHealReduction": 50
+          },
+          "exclusiveWith": ["as_2_5_0"],
+          "designNotes": "Risky offense-from-defense. Dodges become damage charges instead of safety. At 6 charges: +72% weapon% added to Assassinate (2.2 -> 3.78 effective weapon%). But 4+ charges makes you take +15% more damage, and dodge healing is halved. You're trading safety for the biggest single hit possible. The 12s duration on charges means you lose them if you don't cast Assassinate in time. High ceiling, dangerous floor."
+        },
+        {
+          "id": "as_2_6_0",
+          "name": "Vengeful Counter",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "cooldown",
+          "description": "On dodge while Assassinate is on cooldown: deal 60% weapon damage as a counter-attack. If Assassinate has less than 3s remaining on its cooldown: counter deals 150% weapon damage instead and reduces remaining cooldown by 1s.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "conditionParam": { "whileOnCooldown": "dagger_assassinate" },
+                "effect": { "instantDamage": { "scaleStat": "weaponDamage", "scaleRatio": 0.60 } }
+              },
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "conditionParam": { "whileOnCooldown": "dagger_assassinate", "remainingCooldown": { "lessThan": 3 } },
+                "effect": {
+                  "instantDamage": { "scaleStat": "weaponDamage", "scaleRatio": 1.50 },
+                  "reduceCooldown": { "skillId": "dagger_assassinate", "amount": 1 }
+                }
+              }
+            ]
+          },
+          "designNotes": "Cooldown-synced counter. During Assassinate's 8s CD, dodges deal 60% weapon as counters. In the last 3s: counters deal 150% and accelerate Assassinate's return. This creates a rhythm: early CD = small counters, late CD = empowered counters leading into the big Assassinate hit. The CD reduction at end-of-cycle makes the transition from defense to offense smooth."
+        },
+        {
+          "id": "as_2_7_0",
+          "name": "PHANTOM EXECUTIONER",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Assassinate's cast time is removed (instant cast). Assassinate can ONLY be cast within 1.5s after a successful dodge. Each dodge counter from Vengeful Counter that hits adds +15% weapon% to the next Assassinate (max +60% from 4 counters). You no longer gain Fortify stacks from any source. -20% max HP.",
+          "modifier": {
+            "castTimeOverride": { "skillId": "dagger_assassinate", "castTime": 0 },
+            "castRestriction": { "skillId": "dagger_assassinate", "requireDodge": true, "windowAfterDodge": 1.5 },
+            "counterDamageStacking": {
+              "source": "vengefulCounter",
+              "perCounterBonus": { "incWeaponPercent": 0.33 },
+              "maxStacks": 4,
+              "maxBonus": 0.60
+            },
+            "removeFortify": true,
+            "reducedMaxHp": 20
+          },
+          "tensionWith": "as_2_6_0",
+          "tensionDescription": "T6 gives reliable dodge counters during Assassinate's CD, with empowered counters in the last 3s. T7 removes Assassinate's cast time but restricts it to post-dodge windows only. Vengeful Counter becomes the setup: dodge -> counter -> instant Assassinate. The tension: T6's counters were supplemental damage during downtime. T7 makes them the trigger mechanism for Assassinate itself. You lose Fortify and max HP, becoming a glass cannon who must dodge to attack. No dodge = no Assassinate.",
+          "antiSynergy": ["as_2_1_1"],
+          "antiSynergyNotes": "Fortified Execution (T1b) -- Fortify stacks are completely disabled, making this node dead.",
+          "synergy": ["as_2_3_0", "as_2_3_2"],
+          "synergyNotes": "Executioner's Counter (T3a) -- dodge counters deal execute damage, feeding into the dodge-centric playstyle. Shadow Execution (T3c) -- CDR on dodge accelerates Assassinate availability for the next dodge window."
+        }
+      ]
+    }
+  ]
+}

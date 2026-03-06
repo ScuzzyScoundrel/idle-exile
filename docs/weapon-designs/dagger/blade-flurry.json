@@ -1,0 +1,1037 @@
+{
+  "skillId": "dagger_blade_flurry",
+  "skillName": "Blade Flurry",
+  "archetypes": ["multi-hit", "combo"],
+  "branches": [
+    {
+      "branchIndex": 0,
+      "branchName": "Assassination",
+      "mechanicCheck": {
+        "mechanics": [
+          "Per-hit crit ramp (T1 behavior -- each hit in cast escalates crit chance)",
+          "Storm State (T2 notable -- Cascade Instinct escalating proc -> crit mult window from multi-hit rhythm)",
+          "Crimson Barrage (T6 notable -- catastrophic proc -> all hits in next cast guaranteed crits)"
+        ],
+        "nonTracked": [
+          "+X vs Vulnerable -- applied by Lethal Threshold, not tracked independently",
+          "Combo state crit bonus -- fire-and-forget buff from Blade Dance, no stacking"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "nodes": [
+        {
+          "id": "bf_0_1_0",
+          "name": "Accelerating Cuts",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Each hit in cast grants +4% crit chance on the next hit within the same cast.",
+          "rank2": "+6% per hit.",
+          "modifier": {
+            "condition": "onHitInCast",
+            "effect": { "incCritChance": 4, "scope": "nextHitInCast" },
+            "perRank": {
+              "1": { "incCritChance": 4 },
+              "2": { "incCritChance": 6 }
+            }
+          },
+          "designNotes": "PER_HIT_RAMP template. Each of BF's 3 hits ramps crit for the next. Hit 1 -> +0%, hit 2 -> +4%, hit 3 -> +8%. R2 makes hit 3 reach +12%."
+        },
+        {
+          "id": "bf_0_1_1",
+          "name": "Blade Dance",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Casting within 2s of last Blade Flurry enters Combo: +15% crit chance for the cast.",
+          "rank2": "Combo also grants +10% crit mult.",
+          "modifier": {
+            "condition": "onCast",
+            "conditionParam": { "withinWindowOf": "dagger_blade_flurry", "window": 2 },
+            "effect": { "incCritChance": 15, "scope": "thisCast" },
+            "perRank": {
+              "1": { "incCritChance": 15 },
+              "2": { "incCritChance": 15, "incCritMultiplier": 10 }
+            }
+          },
+          "designNotes": "COMBO_STATE template. Rewards back-to-back BF casts. The 4s CD vs 2s combo window means you need CDR or free casts to maintain combo -- creates a build goal."
+        },
+        {
+          "id": "bf_0_2_0",
+          "name": "Cascade Instinct",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "escalating",
+          "description": "When a Blade Flurry cast lands all 3 hits: 20% chance to enter Storm state (+40% crit mult for 4s). Chance increases by +15% per consecutive full-hit cast (max 65%). Resets if any cast lands fewer than 3 hits.",
+          "statsRider": "+8% crit chance.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onCastComplete",
+                "chance": 0.20,
+                "conditionParam": { "allHitsLanded": true, "perConsecutiveFullCast": 0.15, "maxChance": 0.65 },
+                "applyBuff": {
+                  "buffId": "stormState",
+                  "effect": { "incCritMultiplier": 40 },
+                  "duration": 4
+                }
+              }
+            ],
+            "stats": { "incCritChance": 8 }
+          },
+          "designNotes": "Escalating proc tuned to BF's multi-hit identity. Unlike Stab's Blade Sense (same-target consecutive hits), this tracks consecutive FULL CASTS -- did you land all 3 hits each time? Base 20% is higher than Stab's 10% because BF has fewer cast opportunities (4s CD vs 3s). Escalates to 65% with perfect play."
+        },
+        {
+          "id": "bf_0_2_1",
+          "name": "Precision Cuts",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Each landed hit in cast grants +4% crit mult for 3s (stacks per hit).",
+          "rank2": "Stacks persist until next non-Blade Flurry skill cast.",
+          "modifier": {
+            "condition": "onHitInCast",
+            "effect": { "incCritMultiplier": 4, "duration": 3, "stacksPerHit": true },
+            "perRank": {
+              "1": { "duration": 3 },
+              "2": { "persistUntil": "nonBFCast" }
+            }
+          },
+          "designNotes": "Per-hit crit mult stacking. 3 hits = +12% crit mult. R2 qualitative change: stacks persist across casts if you keep using BF, creating a 'stay in BF' incentive."
+        },
+        {
+          "id": "bf_0_3_0",
+          "name": "Full Flurry",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "If cast lands 3+ hits, final hit applies Vulnerable (1s).",
+          "rank2": "Final hit also deals +25% damage.",
+          "modifier": {
+            "condition": "onCastComplete",
+            "conditionParam": { "hitsLanded": 3 },
+            "effect": { "onFinalHit": { "applyDebuff": { "debuffId": "vulnerable", "duration": 1 } } },
+            "perRank": {
+              "1": { "applyDebuff": true },
+              "2": { "applyDebuff": true, "finalHitDamage": 25 }
+            }
+          },
+          "designNotes": "HIT_COUNT_THRESHOLD template. Landing all 3 hits rewards with Vulnerable application. Bridges into T4 Lethal Threshold's Vulnerable exploitation."
+        },
+        {
+          "id": "bf_0_3_1",
+          "name": "Whirlwind Combo",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Rapid combo (cast within 1.5s of previous BF) adds +1 bonus hit to next cast.",
+          "rank2": "Bonus hit deals 80% wpn dmg (up from 40%).",
+          "modifier": {
+            "condition": "onCast",
+            "conditionParam": { "withinWindowOf": "dagger_blade_flurry", "window": 1.5 },
+            "effect": { "bonusHits": 1, "bonusHitDamage": 0.40 },
+            "perRank": {
+              "1": { "bonusHitDamage": 0.40 },
+              "2": { "bonusHitDamage": 0.80 }
+            }
+          },
+          "designNotes": "COMBO_STATE variant. Tight 1.5s window (tighter than Blade Dance's 2s) for a more aggressive combo payoff. Bonus hit means more Accelerating Cuts ramps, more Precision Cuts stacks."
+        },
+        {
+          "id": "bf_0_3_2",
+          "name": "Escalating Cuts",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Each hit in cast increases damage by +8%.",
+          "rank2": "Damage bonus carries over to next cast for 3s.",
+          "modifier": {
+            "condition": "onHitInCast",
+            "effect": { "incDamage": 8, "scope": "nextHitInCast" },
+            "perRank": {
+              "1": { "incDamage": 8, "scope": "nextHitInCast" },
+              "2": { "incDamage": 8, "carryOver": true, "carryOverDuration": 3 }
+            }
+          },
+          "designNotes": "PER_HIT_RAMP for damage. Hit 1 -> +0%, hit 2 -> +8%, hit 3 -> +16%. R2 qualitative change: the +16% carries into next cast, so consecutive BF casts start with a damage floor."
+        },
+        {
+          "id": "bf_0_4_0",
+          "name": "Lethal Threshold",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "If all 3 hits in a cast crit: apply Vulnerable (3s) and deal +20% bonus damage on the final hit. While Vulnerable is active: each hit in Blade Flurry casts has +5% crit chance (stacks per hit within cast).",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onCastComplete",
+                "chance": 1.0,
+                "conditionParam": { "allHitsCrit": true },
+                "applyDebuff": { "debuffId": "vulnerable", "stacks": 1, "duration": 3 },
+                "effect": { "finalHitBonus": 20 }
+              }
+            ],
+            "conditionalMods": [
+              {
+                "condition": "whileDebuffActive",
+                "conditionParam": { "debuffId": "vulnerable" },
+                "modifier": { "perHitInCast": { "incCritChance": 5 } }
+              }
+            ]
+          },
+          "designNotes": "Gated proc -- the gate is ALL 3 HITS must crit, not just one. This is BF-specific because multi-hit means multiple crit checks per cast. With Accelerating Cuts ramping crit per hit, landing 3 crits is achievable but not trivial. Creates crit cascade -> Vulnerable -> per-hit crit bonus -> more cascades loop. Unlike Stab's Exploit Weakness (any crit applies Vulnerable), this demands a full crit sweep."
+        },
+        {
+          "id": "bf_0_4_1",
+          "name": "Predator's Flurry",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "While in Predator state (from other sources): Blade Flurry gains +1 extra hit per cast.",
+          "rank2": "Extra hit has +20% crit chance.",
+          "modifier": {
+            "condition": "whileBuffActive",
+            "conditionParam": { "buffId": "predator" },
+            "effect": { "bonusHits": 1 },
+            "perRank": {
+              "1": { "bonusHits": 1 },
+              "2": { "bonusHits": 1, "bonusHitCritChance": 20 }
+            }
+          },
+          "designNotes": "Predator state payoff for BF. Extra hit means more ramp stacks from Accelerating Cuts, more Precision Cuts stacks, and higher chance of landing the all-crit gate for Lethal Threshold."
+        },
+        {
+          "id": "bf_0_5_0",
+          "name": "Flurry of Steel",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Each crit within a Blade Flurry cast grants +15% crit mult for the remainder of the cast and 4s after. At 3+ crits in a single cast: next BF cast within 4s gains +1 bonus hit. Crit mult from all sources capped at +150%.",
+          "modifier": {
+            "perCritInCast": {
+              "incCritMultiplier": 15,
+              "duration": 4,
+              "scope": "remainderOfCastAndAfter"
+            },
+            "procs": [
+              {
+                "trigger": "onCastComplete",
+                "chance": 1.0,
+                "conditionParam": { "critsInCast": 3 },
+                "effect": { "nextCastBonusHits": 1, "window": 4 }
+              }
+            ],
+            "critMultCap": 150
+          },
+          "exclusiveWith": ["bf_0_5_1"],
+          "designNotes": "Consistent choice. Crit mult builds within each cast (hit 1 crits -> hit 2 has +15% mult -> hit 2 crits -> hit 3 has +30% mult). Reliable multi-hit crit cascade. The +150% crit mult cap prevents runaway but the floor is high. Bonus hit at 3 crits is achievable with Accelerating Cuts feeding crit chance. Tuned to BF's 3-hit rhythm -- Stab's Precision Killer gives free casts, this gives crit mult escalation within casts."
+        },
+        {
+          "id": "bf_0_5_1",
+          "name": "Cascade Killer",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "On kill with Blade Flurry: next cast gains +2 bonus hits and +30% damage, but each hit has -10% crit chance. If next cast does NOT kill, lose all combo state and deal -20% damage for 3s.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onKill",
+                "chance": 1.0,
+                "conditionParam": { "skillId": "dagger_blade_flurry" },
+                "applyBuff": {
+                  "buffId": "cascadeKiller",
+                  "effect": { "bonusHits": 2, "incDamage": 30, "incCritChance": -10 },
+                  "duration": 6,
+                  "consumeOnCast": true
+                }
+              }
+            ],
+            "failurePenalty": {
+              "condition": "castWithoutKill",
+              "effect": { "removeComboState": true, "incDamage": -20, "duration": 3 }
+            }
+          },
+          "exclusiveWith": ["bf_0_5_0"],
+          "designNotes": "Risky choice. Kill chains turn BF into a 5-hit blender (+2 bonus hits) but you MUST keep killing or suffer a heavy damage penalty. The -10% crit chance per hit tensions with Accelerating Cuts and Lethal Threshold's all-crit gate. Unlike Stab's Opportunist (simple first-blood bonus), this demands continuous kill momentum through BF's multi-hit pattern."
+        },
+        {
+          "id": "bf_0_6_0",
+          "name": "Crimson Barrage",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "catastrophic",
+          "description": "When a Blade Flurry cast lands 3+ crits: 12% chance to trigger Crimson Barrage -- next cast's hits are ALL guaranteed crits and each deals +40% damage. Consumes on cast.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onCastComplete",
+                "chance": 0.12,
+                "conditionParam": { "critsInCast": 3 },
+                "applyBuff": {
+                  "buffId": "crimsonBarrage",
+                  "effect": { "guaranteedCrit": true, "incDamage": 40 },
+                  "duration": 8,
+                  "consumeOnCast": true,
+                  "scope": "nextBFCast"
+                }
+              }
+            ]
+          },
+          "designNotes": "Catastrophic proc specific to BF's multi-hit crit pattern. The GATE is 3+ crits in a single cast -- only possible with multi-hit skills. 12% feels low but a guaranteed-crit full BF cast with +40% damage per hit is devastating (3+ hits all critting at +40%). Unlike Stab's Death Mark (single big hit amplifier), this amplifies an ENTIRE CAST. The proc rewards the full Accelerating Cuts -> Lethal Threshold crit pipeline."
+        },
+        {
+          "id": "bf_0_7_0",
+          "name": "TEMPEST OF BLADES",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Blade Flurry gains +2 bonus hits permanently (5 base). Each hit in cast deals -15% damage (multiplicative). Crits no longer grant bonus crit mult from any source -- crits ONLY count toward Crimson Barrage proc checks. Crimson Barrage proc chance increases to 25% and triggers on 4+ crits in a single cast.",
+          "modifier": {
+            "permanentBonusHits": 2,
+            "perHitDamageReduction": -15,
+            "critsGrantNoCritMult": true,
+            "overrideProc": {
+              "target": "crimsonBarrage",
+              "chance": 0.25,
+              "conditionParam": { "critsInCast": 4 }
+            }
+          },
+          "tensionWith": "bf_0_6_0",
+          "tensionDescription": "T6 rewards landing 3+ crits in a cast with a catastrophic guaranteed-crit next cast. T7 gives you more hits (5 base) but REMOVES crit mult -- crits become purely a Crimson Barrage delivery mechanism, not a damage source. Each individual hit is weaker (-15% each), but more hits = more chances to reach the 4-crit threshold. The identity shift: you're not a precision assassin landing 3 perfect crits -- you're a whirlwind throwing 5+ hits hoping enough crit to trigger the next Barrage.",
+          "antiSynergy": ["bf_0_2_0", "bf_0_2_1"],
+          "antiSynergyNotes": "Cascade Instinct (T2) -- Storm state's +40% crit mult is worthless when crits grant no crit mult. Precision Cuts (T2b) -- crit mult stacking has no value.",
+          "synergy": ["bf_0_1_0", "bf_0_4_0", "bf_0_5_0"],
+          "synergyNotes": "Accelerating Cuts (T1a) -- more hits means more crit chance ramp to reach 4-crit threshold. Lethal Threshold (T4) -- all-crit gate is harder with 5 hits but Vulnerable's per-hit crit bonus helps. Flurry of Steel (T5A) -- bonus hit at 3 crits feeds perfectly into the 4-crit Barrage check.",
+          "engineNotes": "Base hit count override needed. Per-hit damage reduction is multiplicative with other damage mods. Crit mult suppression must be a global flag checked in damage calc."
+        }
+      ]
+    },
+    {
+      "branchIndex": 1,
+      "branchName": "Venomcraft",
+      "mechanicCheck": {
+        "mechanics": [
+          "Poison stacks per hit (T1 behavior -- each BF hit applies poison, multi-hit = fast stacking)",
+          "Venom Surge state (T4 notable -- Toxic Crescendo state-shift at threshold from BF-specific multi-hit delivery)",
+          "Plague Cascade (T6 notable -- gated on-kill spread that spreads per-hit-applied stacks)"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "nodes": [
+        {
+          "id": "bf_1_1_0",
+          "name": "Toxic Flurry",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Each hit in cast applies 1 poison stack.",
+          "rank2": "If all 3 hits land on poisoned target, apply +2 bonus stacks.",
+          "modifier": {
+            "condition": "onHitInCast",
+            "effect": { "applyDebuff": { "debuffId": "poisoned", "stacks": 1 } },
+            "perRank": {
+              "1": { "stacks": 1 },
+              "2": { "stacks": 1, "allHitsBonus": { "conditionParam": { "targetHasDebuff": "poisoned", "hitsLanded": 3 }, "bonusStacks": 2 } }
+            }
+          },
+          "designNotes": "Per-hit poison application tuned for BF. 3 hits = 3 stacks per cast baseline. R2 rewards landing all 3 on an already-poisoned target with +2 bonus (5 total). Unlike Stab's 1-per-hit, BF applies 3x per cast."
+        },
+        {
+          "id": "bf_1_1_1",
+          "name": "Corroding Cuts",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Each hit vs poisoned enemy extends poison duration by 0.5s.",
+          "rank2": "Extends by +0.3s per additional hit beyond the first (0.5s, 0.8s, 1.1s for 3 hits).",
+          "modifier": {
+            "condition": "onHitInCast",
+            "conditionParam": { "targetHasDebuff": "poisoned" },
+            "effect": { "extendDebuffDuration": { "debuffId": "poisoned", "amount": 0.5 } },
+            "perRank": {
+              "1": { "amount": 0.5 },
+              "2": { "amount": 0.5, "perAdditionalHit": 0.3 }
+            }
+          },
+          "designNotes": "Duration extension per hit. BF's 3 hits extend by 1.5s total at R1 (3x 0.5s). R2 makes each subsequent hit extend more -- hit 1: 0.5s, hit 2: 0.8s, hit 3: 1.1s = 2.4s total. Keeps poison above thresholds for longer."
+        },
+        {
+          "id": "bf_1_2_0",
+          "name": "Venomous Cascade",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "Guaranteed: each BF hit on a poisoned target has +3% chance to apply double poison stacks (base 3%, increases by +3% per existing stack on target, max 18%). When any single BF cast applies 5+ total poison stacks: deal 40% of current poison DoT as instant damage.",
+          "statsRider": "+10% poison damage.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onHitInCast",
+                "chance": 0.03,
+                "conditionParam": { "targetHasDebuff": "poisoned", "perStack": 0.03, "maxChance": 0.18 },
+                "effect": { "doubleStacks": true }
+              },
+              {
+                "trigger": "onCastComplete",
+                "chance": 1.0,
+                "conditionParam": { "poisonStacksAppliedInCast": 5 },
+                "effect": { "toxicBurst": { "percentOfCurrentDoT": 40 } }
+              }
+            ],
+            "stats": { "incPoisonDamage": 10 }
+          },
+          "designNotes": "Gated proc tuned to BF's multi-hit delivery. The gate is 5+ stacks applied in a SINGLE CAST -- only multi-hit skills can reliably reach this. With Toxic Flurry R2 (5 stacks on poisoned targets), this fires on every full cast against poisoned enemies. Unlike Stab's Envenom (3+ existing stacks), this gates on stacks-applied-per-cast, rewarding BF's burst poison application."
+        },
+        {
+          "id": "bf_1_2_1",
+          "name": "Accelerating Toxin",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Cast speed +3% per poison stack on target (max +15%).",
+          "rank2": "Max increases to +25%.",
+          "modifier": {
+            "condition": "onCast",
+            "conditionParam": { "targetHasDebuff": "poisoned" },
+            "effect": { "incCastSpeed": 3, "perStack": true, "maxBonus": 15 },
+            "perRank": {
+              "1": { "maxBonus": 15 },
+              "2": { "maxBonus": 25 }
+            }
+          },
+          "designNotes": "Cast speed scaling per poison stack. BF's 0.9s cast time is reduced significantly at high stacks. Faster casts = more poison application = more stacks = faster casts. Positive feedback loop."
+        },
+        {
+          "id": "bf_1_3_0",
+          "name": "Overwhelming Venom",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "At 5+ stacks, final hit in cast applies Weakened (2s).",
+          "rank2": "Threshold drops to 3 stacks.",
+          "modifier": {
+            "condition": "onCastComplete",
+            "conditionParam": { "debuffId": "poisoned", "threshold": 5 },
+            "effect": { "onFinalHit": { "applyDebuff": { "debuffId": "weakened", "duration": 2 } } },
+            "perRank": {
+              "1": { "threshold": 5 },
+              "2": { "threshold": 3 }
+            }
+          },
+          "designNotes": "Stack threshold for debuff application. BF reaches 5 stacks in 1-2 casts with Toxic Flurry, making this reliable. R2 at 3 stacks means first full cast on poisoned target triggers Weakened."
+        },
+        {
+          "id": "bf_1_3_1",
+          "name": "Hemorrhagic Poison",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On kill, spread 2 poison stacks to next enemy.",
+          "rank2": "Spread 4 stacks.",
+          "modifier": {
+            "condition": "onKill",
+            "effect": { "spreadDebuffStacks": { "debuffId": "poisoned", "stacks": 2 } },
+            "perRank": {
+              "1": { "stacks": 2 },
+              "2": { "stacks": 4 }
+            }
+          },
+          "designNotes": "Kill-chain poison spread. BF builds stacks fast (3+ per cast), so kills come with high stack counts. R2 spreading 4 stacks gives next target a head start for threshold effects."
+        },
+        {
+          "id": "bf_1_3_2",
+          "name": "Chain Reaction",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "At 8+ stacks, next Blade Flurry gains +1 extra hit.",
+          "rank2": "Threshold drops to 6 stacks.",
+          "modifier": {
+            "condition": "onCast",
+            "conditionParam": { "debuffId": "poisoned", "threshold": 8, "onTarget": true },
+            "effect": { "bonusHits": 1 },
+            "perRank": {
+              "1": { "threshold": 8 },
+              "2": { "threshold": 6 }
+            }
+          },
+          "designNotes": "Poison threshold grants bonus hit. More hits = more poison stacks = more hits. BF-specific because extra hits multiply Toxic Flurry's per-hit application. R2 at 6 stacks is reachable in 2 casts."
+        },
+        {
+          "id": "bf_1_4_0",
+          "name": "Toxic Crescendo",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "state-shift",
+          "description": "When a single Blade Flurry cast applies 4+ poison stacks: enter Venom Surge (5s) -- all BF hits apply +1 extra poison stack and poison damage +25%. Venom Surge has a 15s internal cooldown.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onCastComplete",
+                "chance": 1.0,
+                "conditionParam": { "poisonStacksAppliedInCast": 4 },
+                "applyBuff": {
+                  "buffId": "venomSurge",
+                  "effect": { "bonusPoisonStacks": 1, "incPoisonDamage": 25 },
+                  "duration": 5
+                },
+                "internalCooldown": 15
+              }
+            ]
+          },
+          "designNotes": "State-shift gated on stacks-applied-per-cast -- BF-specific because only multi-hit skills can apply 4+ stacks in one cast. With Toxic Flurry R2 applying 5 stacks on poisoned targets, this triggers reliably. Unlike Stab's Deep Wounds (8+ existing stacks), this gates on APPLICATION RATE, rewarding BF's burst stacking. Venom Surge window turbocharges the positive feedback loop.",
+          "engineNotes": "Needs per-cast poison stack counter and ICD system. Buff applies after cast completes."
+        },
+        {
+          "id": "bf_1_4_1",
+          "name": "Venom Whirlwind",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "During Venom Frenzy (from other sources): Blade Flurry hits +1 additional time per cast.",
+          "rank2": "Each extra hit applies +1 poison stack.",
+          "modifier": {
+            "condition": "whileBuffActive",
+            "conditionParam": { "buffId": "venomFrenzy" },
+            "effect": { "bonusHits": 1 },
+            "perRank": {
+              "1": { "bonusHits": 1 },
+              "2": { "bonusHits": 1, "bonusPoisonStacks": 1 }
+            }
+          },
+          "designNotes": "Venom Frenzy payoff for BF. Extra hit during the window means 4+ hits per cast, each applying poison. R2 adds extra poison per bonus hit for exponential stacking during the window."
+        },
+        {
+          "id": "bf_1_5_0",
+          "name": "Festering Barrage",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Each hit in a Blade Flurry cast deals +5% more damage per poison stack on target (multiplicative). Poison stacks applied by BF last +2s. Maximum poison damage bonus per hit capped at +50%.",
+          "modifier": {
+            "perHitInCast": {
+              "incDamage": 5,
+              "perPoisonStack": true,
+              "cap": 50
+            },
+            "debuffDurationBonus": { "debuffId": "poisoned", "amount": 2, "sourceOnly": "dagger_blade_flurry" }
+          },
+          "exclusiveWith": ["bf_1_5_1"],
+          "designNotes": "Consistent choice. Per-hit damage scaling per poison stack rewards high stacks + multi-hit pattern. At 10 stacks, each of BF's 3 hits deals +50% (capped). Duration extension keeps stacks alive for sustained damage. Reliable ceiling. Tuned to BF's multi-hit identity -- Stab's Toxic Mastery is per-stack DoT scaling, this is per-hit-per-stack hit damage."
+        },
+        {
+          "id": "bf_1_5_1",
+          "name": "Venomous Detonation",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "When a Blade Flurry cast applies 5+ poison stacks in one cast: 30% chance to detonate ALL existing stacks for instant damage. Detonation resets stacks to 0. Detonation damage = 150% of total remaining poison DoT.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onCastComplete",
+                "chance": 0.30,
+                "conditionParam": { "poisonStacksAppliedInCast": 5 },
+                "effect": { "detonateStacks": { "debuffId": "poisoned", "consumeAll": true, "damageMultiplier": 1.50 } }
+              }
+            ]
+          },
+          "exclusiveWith": ["bf_1_5_0"],
+          "designNotes": "Risky choice. Massive burst when detonation fires (150% of ALL remaining poison DoT), but resets stacks to 0. The gate (5+ stacks applied in one cast) is BF-specific -- only multi-hit skills can trigger this reliably. Feast/famine: you build stacks, detonate, rebuild. Tensions with Festering Barrage's steady per-stack scaling. Unlike Stab's Volatile Toxins (10+ existing stacks, 20% per hit), this gates on APPLICATION RATE."
+        },
+        {
+          "id": "bf_1_6_0",
+          "name": "Plague Cascade",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "On kill with Blade Flurry: spread poison stacks equal to the number of hits in the killing cast to the next enemy. Spread stacks retain remaining duration. If the kill cast had 4+ hits: also spread all other active debuffs.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onKill",
+                "chance": 1.0,
+                "conditionParam": { "skillId": "dagger_blade_flurry" },
+                "effect": {
+                  "spreadDebuffStacks": {
+                    "debuffId": "poisoned",
+                    "stackCount": "hitsInKillingCast",
+                    "retainDuration": true
+                  }
+                }
+              },
+              {
+                "trigger": "onKill",
+                "chance": 1.0,
+                "conditionParam": { "skillId": "dagger_blade_flurry", "hitsInCast": 4 },
+                "effect": { "spreadAllDebuffs": true, "retainDuration": true }
+              }
+            ]
+          },
+          "designNotes": "Kill-gated spread specific to BF's hit count. Stacks spread = hits in the killing cast, so 3-hit BF spreads 3 stacks, 4-hit (with bonus hits from Chain Reaction/Venom Whirlwind) spreads 4+. The 4+ hit gate for full debuff spread rewards investing in bonus hit sources. Unlike Stab's Pandemic (spread all debuffs on any kill), this scales with BF's hit count and only spreads ALL debuffs at 4+ hits."
+        },
+        {
+          "id": "bf_1_7_0",
+          "name": "PLAGUE FLURRY",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Blade Flurry can ONLY deal damage through poison -- all direct hit damage is converted to poison stacks (1 stack per 10% weapon damage dealt). BF gains +2 bonus hits. Poison stacks from BF deal +50% more DoT damage. -25% cast speed.",
+          "modifier": {
+            "convertHitToPoison": { "ratio": "1stackPer10pctWpnDmg" },
+            "permanentBonusHits": 2,
+            "incPoisonDamage": 50,
+            "incCastSpeed": -25
+          },
+          "tensionWith": "bf_1_6_0",
+          "tensionDescription": "T6 spreads poison stacks equal to hits-in-cast on kill, rewarding high hit counts and diverse debuff spread. T7 gives +2 bonus hits AND converts all hit damage to poison stacks, meaning MORE stacks to spread but ZERO direct damage -- you can't kill enemies with hits, only with poison ticking. The tension: T6 needs KILLS to spread, but T7 makes kills slower (no direct damage, -25% cast speed). You spread enormous poison stacks but must wait for DoT to kill before the cascade begins.",
+          "antiSynergy": ["bf_1_6_0"],
+          "antiSynergyNotes": "Plague Cascade (T6) -- needs kills to trigger spread, but T7 removes direct damage making kills slower. Must wait for poison DoT to finish targets.",
+          "synergy": ["bf_1_4_0", "bf_1_3_2"],
+          "synergyNotes": "Toxic Crescendo (T4) -- Venom Surge's +1 stack per hit is amplified by T7's extra hits and per-hit poison conversion. Chain Reaction (T3c) -- bonus hit at poison threshold feeds into T7's hit-to-stack conversion, creating more stacks per cast.",
+          "engineNotes": "Hit-to-poison conversion needs new damage pipeline path. Direct damage must be zeroed and converted to poison stack count based on weapon damage percentage. Cast speed reduction is multiplicative."
+        }
+      ]
+    },
+    {
+      "branchIndex": 2,
+      "branchName": "Shadow Dance",
+      "mechanicCheck": {
+        "mechanics": [
+          "Fortify stacks from multi-hit (T1 behavior -- each BF hit grants small heal/DR, multi-hit = triple value)",
+          "Phantom Edge state (T4 notable -- Flickering Counter state-shift on dodge during/after BF cast)",
+          "Ghost Barrage counter (T6 notable -- cooldown-based multi-hit counter-attack on dodge)"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "nodes": [
+        {
+          "id": "bf_2_1_0",
+          "name": "Guarded Flurry",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "+1 life on hit per hit in cast (3 hits = 3 heals).",
+          "rank2": "Also gain +2% DR for 2s per hit landed.",
+          "modifier": {
+            "condition": "onHitInCast",
+            "effect": { "lifeOnHit": 1 },
+            "perRank": {
+              "1": { "lifeOnHit": 1 },
+              "2": { "lifeOnHit": 1, "incDamageReduction": 2, "drDuration": 2 }
+            }
+          },
+          "designNotes": "Per-hit sustain tuned for BF. 3 hits = 3 heals per cast. Lower per-hit value than Stab's Defensive Instinct (1 vs 2) because BF heals 3x per cast. R2 adds stacking DR -- 3 hits = +6% DR for 2s."
+        },
+        {
+          "id": "bf_2_1_1",
+          "name": "Momentum Leech",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Each hit vs Blinded enemy grants +5% evasion for 2s.",
+          "rank2": "Also grants +3% damage per Blinded hit.",
+          "modifier": {
+            "condition": "onHitInCast",
+            "conditionParam": { "targetHasDebuff": "blinded" },
+            "effect": { "incEvasion": 5, "evasionDuration": 2 },
+            "perRank": {
+              "1": { "incEvasion": 5 },
+              "2": { "incEvasion": 5, "incDamage": 3 }
+            }
+          },
+          "designNotes": "Evasion stacking vs Blinded. BF's 3 hits = +15% evasion at R1 vs Blinded. R2 adds +9% damage (3 hits x 3%). Multi-hit multiplies the value of each condition check."
+        },
+        {
+          "id": "bf_2_2_0",
+          "name": "Flickering Guard",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "cooldown",
+          "description": "After completing a Blade Flurry cast: gain a Flicker Charge (3s). If you dodge while holding a Flicker Charge: consume it to reduce BF cooldown by 2s and gain +1 Fortify stack (5s, 3% DR). Flicker Charge has a 5s internal cooldown.",
+          "statsRider": "+5 all resist.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onCastComplete",
+                "chance": 1.0,
+                "conditionParam": { "skillId": "dagger_blade_flurry" },
+                "applyBuff": {
+                  "buffId": "flickerCharge",
+                  "duration": 3,
+                  "consumeOnDodge": true
+                },
+                "internalCooldown": 5
+              },
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "conditionParam": { "hasCharge": "flickerCharge" },
+                "consumeCharge": "flickerCharge",
+                "reduceCooldown": { "skillId": "dagger_blade_flurry", "amount": 2 },
+                "fortifyOnTrigger": { "stacks": 1, "duration": 5, "damageReduction": 3 }
+              }
+            ],
+            "stats": { "resistBonus": 5 }
+          },
+          "designNotes": "Cooldown proc tuned to BF's cast-then-dodge rhythm. Unlike Stab's Shadow Guard (fortify on hit + dodge resets skill CD), this creates a two-step sequence: cast BF -> get Flicker Charge -> dodge within 3s -> get CDR + Fortify. The 2s CDR is significant for BF's 4s CD (50% reduction). The 5s ICD prevents infinite loops. Rewards weaving BF casts between dodge opportunities.",
+          "engineNotes": "Needs charge system (flickerCharge buff with consumeOnDodge flag) and ICD. Charge consumption triggers CDR + Fortify."
+        },
+        {
+          "id": "bf_2_2_1",
+          "name": "Blade Shield",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On dodge within 3s of Blade Flurry: next cast gains +1 extra hit.",
+          "rank2": "Extra hit also deals +20% damage.",
+          "modifier": {
+            "condition": "onDodge",
+            "conditionParam": { "withinWindowOf": "dagger_blade_flurry", "window": 3 },
+            "effect": { "nextCastBonusHits": { "skillId": "dagger_blade_flurry", "bonusHits": 1 } },
+            "perRank": {
+              "1": { "bonusHits": 1 },
+              "2": { "bonusHits": 1, "bonusHitDamage": 20 }
+            }
+          },
+          "designNotes": "Dodge-combat rhythm for BF. Cast BF -> dodge within 3s -> next BF has 4 hits. More hits = more Guarded Flurry heals, more Momentum Leech evasion. R2 makes the bonus hit meaningful damage."
+        },
+        {
+          "id": "bf_2_3_0",
+          "name": "Whirling Counter",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On dodge: deal 25% weapon damage per recent BF hit (max 75%, based on hits landed in last 4s).",
+          "rank2": "Each counter hit has 15% chance to Blind.",
+          "modifier": {
+            "condition": "onDodge",
+            "effect": {
+              "instantDamage": {
+                "scaleStat": "weaponDamage",
+                "scaleRatio": 0.25,
+                "perRecentHit": true,
+                "hitWindow": 4,
+                "maxRatio": 0.75
+              }
+            },
+            "perRank": {
+              "1": { "perHitRatio": 0.25, "maxRatio": 0.75 },
+              "2": { "perHitRatio": 0.25, "maxRatio": 0.75, "blindChance": 0.15 }
+            }
+          },
+          "designNotes": "BF-specific dodge counter. Damage scales with recent BF hits -- 3 recent hits = 75% weapon damage counter. Unlike Stab's Counter Stab (flat 30%), this rewards recent BF activity. R2 adds Blind application on the counter."
+        },
+        {
+          "id": "bf_2_3_1",
+          "name": "Defensive Rhythm",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On dodge: gain +1 Fortify stack and +10% DR for 2s.",
+          "rank2": "Fortify lasts +3s longer.",
+          "modifier": {
+            "condition": "onDodge",
+            "effect": {
+              "fortifyStacks": 1,
+              "incDamageReduction": 10,
+              "drDuration": 2
+            },
+            "perRank": {
+              "1": { "fortifyDuration": 5 },
+              "2": { "fortifyDuration": 8 }
+            }
+          },
+          "designNotes": "Dodge-defense stacking. Fortify from dodges complements Guarded Flurry's per-hit DR. R2 extends Fortify duration so stacks persist across BF's 4s CD."
+        },
+        {
+          "id": "bf_2_3_2",
+          "name": "Rapid Recovery",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On dodge: reduce Blade Flurry cooldown by 0.8s.",
+          "rank2": "Reduce by 1.2s.",
+          "modifier": {
+            "condition": "onDodge",
+            "effect": { "reduceCooldown": { "skillId": "dagger_blade_flurry", "amount": 0.8 } },
+            "perRank": {
+              "1": { "amount": 0.8 },
+              "2": { "amount": 1.2 }
+            }
+          },
+          "designNotes": "CD reduction on dodge for BF. With BF's 4s CD, R2 dodge gives 30% CDR. Stacks with Flickering Guard's 2s CDR on charged dodge. Two dodges at R2 = 2.4s off a 4s CD."
+        },
+        {
+          "id": "bf_2_4_0",
+          "name": "Flickering Counter",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "state-shift",
+          "description": "On dodge within 3s of a Blade Flurry cast: enter Phantom Edge (4s) -- next BF cast gains +1 bonus hit, all hits apply Blind (1s), and +15% evasion. If you dodge again during Phantom Edge: extend duration by 2s (once). Phantom Edge has a 12s internal cooldown.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "conditionParam": { "withinWindowOf": "dagger_blade_flurry", "window": 3 },
+                "applyBuff": {
+                  "buffId": "phantomEdge",
+                  "effect": {
+                    "bonusHits": 1,
+                    "applyDebuffOnHit": { "debuffId": "blinded", "duration": 1 },
+                    "incEvasion": 15
+                  },
+                  "duration": 4,
+                  "extensionOnDodge": { "amount": 2, "maxExtensions": 1 }
+                },
+                "internalCooldown": 12
+              }
+            ]
+          },
+          "designNotes": "State-shift triggered by dodge within BF's cast window. Unlike Stab's Ghost Step (3 dodges in 6s), this is a BF-specific dodge timing -- you must cast BF first, THEN dodge. Creates a clear BF -> dodge -> empowered BF loop. Phantom Edge rewards the multi-hit pattern (bonus hit + Blind on all hits). The dodge-extension mechanic lets skilled players maintain the state longer.",
+          "engineNotes": "Needs withinWindowOf check (time since last BF cast complete), ICD, and dodge-extension counter (maxExtensions: 1)."
+        },
+        {
+          "id": "bf_2_4_1",
+          "name": "Shadow Flurry",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "During Shadow Form (from other sources): Blade Flurry cast speed +25%.",
+          "rank2": "All hits during Shadow Form have +10% crit chance.",
+          "modifier": {
+            "condition": "whileBuffActive",
+            "conditionParam": { "buffId": "shadowForm" },
+            "perRank": {
+              "1": { "incCastSpeed": 25 },
+              "2": { "incCastSpeed": 25, "incCritChance": 10 }
+            }
+          },
+          "designNotes": "Shadow Form payoff for BF. 25% faster cast speed on a 0.9s cast is significant -- more BF casts during the 4s Shadow Form window. R2 adds crit chance on all hits, synergizing with multi-hit crit checks."
+        },
+        {
+          "id": "bf_2_5_0",
+          "name": "Mirage Flurry",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "On dodge: heal 2% max HP per BF hit landed in the last 4s (max 6%). While Phantom Edge is active: +5% evasion per hit in cast (stacks, lasts until Phantom Edge expires). +5 all resist passive.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "healPercent": 2,
+                "conditionParam": { "perRecentHit": true, "hitWindow": 4, "maxHeal": 6 }
+              }
+            ],
+            "conditionalMods": [
+              {
+                "condition": "whileBuffActive",
+                "conditionParam": { "buffId": "phantomEdge" },
+                "modifier": { "perHitInCast": { "incEvasion": 5 } }
+              }
+            ],
+            "stats": { "resistBonus": 5 }
+          },
+          "exclusiveWith": ["bf_2_5_1"],
+          "designNotes": "Consistent choice. Heal-on-dodge scales with recent BF hits (3 hits = 6% max HP heal per dodge). Evasion stacking during Phantom Edge rewards the BF -> dodge -> BF loop. Reliable sustain ceiling tied to BF's multi-hit activity. Unlike Stab's Evasive Recovery (flat 3% heal), this scales with BF's hit count."
+        },
+        {
+          "id": "bf_2_5_1",
+          "name": "Phantom Blitz",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "On dodge: deal 20% weapon damage per BF hit landed in last 4s as counter-attack (max 100% at 5 hits). Below 35% HP: counter damage doubled. Flickering Counter's dodge heal from Phantom Edge is REMOVED. +10% damage taken.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "instantDamage": {
+                  "scaleStat": "weaponDamage",
+                  "scaleRatio": 0.20,
+                  "perRecentHit": true,
+                  "hitWindow": 4,
+                  "maxRatio": 1.00
+                }
+              },
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "conditionParam": { "belowHpPercent": 35 },
+                "instantDamage": {
+                  "scaleStat": "weaponDamage",
+                  "scaleRatio": 0.40,
+                  "perRecentHit": true,
+                  "hitWindow": 4,
+                  "maxRatio": 2.00
+                }
+              }
+            ],
+            "removeEffect": { "nodeId": "bf_2_4_0", "effectType": "evasionBonus" },
+            "increasedDamageTaken": 10
+          },
+          "exclusiveWith": ["bf_2_5_0"],
+          "designNotes": "Risky choice. Dodge counter scales with recent BF hits -- 3 recent hits = 60% wpn dmg counter, 5 hits (with bonus hits) = 100%. Below 35% HP doubles to 200%. Removes Phantom Edge's evasion bonus and adds +10% damage taken. More recent BF hits = bigger counters, but you're squishier. Unlike Stab's Counter Stance (flat 75%/225%), this scales dynamically with BF activity.",
+          "engineNotes": "Counter damage resolves through damage bucket. Per-recent-hit tracking uses same window as Whirling Counter."
+        },
+        {
+          "id": "bf_2_6_0",
+          "name": "Ghost Barrage",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "cooldown",
+          "description": "On dodge: unleash a phantom Blade Flurry -- deal 30% weapon damage per BF hit landed in last 4s (max 3 phantom hits at 90% total). If phantom barrage lands 3 hits, reset BF cooldown. Ghost Barrage has a 6s internal cooldown.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "instantDamage": {
+                  "scaleStat": "weaponDamage",
+                  "scaleRatio": 0.30,
+                  "perRecentHit": true,
+                  "hitWindow": 4,
+                  "maxHits": 3
+                },
+                "internalCooldown": 6
+              },
+              {
+                "trigger": "onGhostBarrageComplete",
+                "chance": 1.0,
+                "conditionParam": { "phantomHitsLanded": 3 },
+                "resetCooldown": { "skillId": "dagger_blade_flurry" }
+              }
+            ]
+          },
+          "designNotes": "Cooldown proc specific to BF's multi-hit pattern. The phantom barrage MIRRORS BF's multi-hit identity -- it's not a single counter, it's a 3-hit counter-attack. Number of phantom hits = recent BF hits (max 3). Landing all 3 phantom hits resets BF CD, creating a BF -> dodge -> phantom barrage -> free BF loop. The 6s ICD prevents infinite loops. Unlike Stab's Phantom Stride (single 75% counter with CD reset on kill), this is a multi-hit counter that resets on HIT COUNT, not kills."
+        },
+        {
+          "id": "bf_2_7_0",
+          "name": "SPECTRAL TEMPEST",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Ghost Barrage becomes a full phantom Blade Flurry: always 3 phantom hits at 60% weapon damage each (180% total). Ghost Barrage no longer resets BF cooldown. Instead, each phantom hit has 25% chance to trigger another dodge check (can proc additional Ghost Barrages if off ICD). On dodge: you no longer gain Fortify from any source. -10% max life. Ghost Barrage ICD reduced to 4s.",
+          "modifier": {
+            "overrideProc": {
+              "target": "ghostBarrage",
+              "phantomHits": 3,
+              "scaleRatio": 0.60,
+              "removeCDReset": true,
+              "perPhantomHit": { "dodgeCheckChance": 0.25 },
+              "internalCooldown": 4
+            },
+            "removeEffect": { "type": "fortifyOnDodge", "global": true },
+            "reducedMaxLife": 10
+          },
+          "tensionWith": "bf_2_6_0",
+          "tensionDescription": "T6 gives a conditional phantom barrage (phantom hits = recent BF hits) that resets BF cooldown at max hits. T7 removes the CD reset and Fortify but makes Ghost Barrage always fire at full power (3 hits, 60% each = 180%) and each phantom hit can trigger additional dodge checks, potentially chaining into more Ghost Barrages. The identity shift: T6 player weaves BF -> dodge -> phantom -> free BF (offensive rhythm with CD management). T7 player dodges to trigger phantom barrages that trigger more dodges that trigger more barrages (autonomous barrage cascade). You lose Fortify and BF CD resets, but gain a self-sustaining phantom hit engine.",
+          "antiSynergy": ["bf_2_2_0", "bf_2_3_1"],
+          "antiSynergyNotes": "Flickering Guard (T2) -- Fortify on dodge is removed. Defensive Rhythm (T3b) -- Fortify on dodge is removed.",
+          "synergy": ["bf_2_3_2", "bf_2_5_1"],
+          "synergyNotes": "Rapid Recovery (T3c) -- CDR on dodge still works, and phantom-hit dodge checks can trigger additional CDR. Phantom Blitz (T5B) -- dodge counters from phantom-hit dodge checks layer additional damage on top of Ghost Barrages.",
+          "engineNotes": "Phantom hit dodge checks need recursion guard (max chain depth or ICD prevents infinite loops). Fortify removal is a global flag on dodge events. Per-phantom-hit dodge check is a new proc trigger type."
+        }
+      ]
+    }
+  ]
+}

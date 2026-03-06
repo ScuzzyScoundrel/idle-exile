@@ -1,0 +1,945 @@
+{
+  "skillId": "dagger_stab",
+  "skillName": "Stab",
+  "archetypes": ["single-hit", "fast-cd"],
+  "branches": [
+    {
+      "branchIndex": 0,
+      "branchName": "Assassination",
+      "mechanicCheck": {
+        "mechanics": [
+          "Puncture stacks (T1 behavior -- stack builder -> guaranteed crit)",
+          "Predator state (T2 notable -- Blade Sense escalating proc -> crit mult window)",
+          "Death Mark (T6 notable -- catastrophic proc -> +100% damage amplifier)"
+        ],
+        "nonTracked": [
+          "+X vs Vulnerable -- applied by Exploit Weakness, not tracked independently",
+          "Free Stab on kill -- fire-and-forget, no tracking needed"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "nodes": [
+        {
+          "id": "st_0_1_0",
+          "name": "Puncture",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Each Stab hit adds a Puncture stack (max 3). At 3 stacks: next Stab is a guaranteed crit. Resets on stack use.",
+          "rank2": "Max stacks reduced to 2 (faster cycle, less setup).",
+          "modifier": {
+            "condition": "onHit",
+            "effect": { "addStack": "puncture", "maxStacks": 3, "atMax": { "guaranteedCrit": true } },
+            "perRank": {
+              "1": { "maxStacks": 3 },
+              "2": { "maxStacks": 2 }
+            }
+          },
+          "designNotes": "STACK_BUILDER template. Rewards patient stacking with guaranteed crit payoff."
+        },
+        {
+          "id": "st_0_1_1",
+          "name": "Tunnel Vision",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "+5% crit chance per consecutive Stab hit on same target (max 4 stacks). Resets on target switch or using another skill.",
+          "rank2": "Bonus increases to +7% per hit.",
+          "modifier": {
+            "condition": "afterConsecutiveHits",
+            "conditionParam": { "sameTarget": true },
+            "effect": { "incCritChance": 5, "maxStacks": 4 },
+            "perRank": {
+              "1": { "incCritChance": 5 },
+              "2": { "incCritChance": 7 }
+            }
+          },
+          "designNotes": "CONSECUTIVE_TARGET template. Rewards focused targeting."
+        },
+        {
+          "id": "st_0_2_0",
+          "name": "Blade Sense",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "escalating",
+          "description": "10% chance on hit to enter Predator state: +50% crit mult for 3s. Chance increases by 4% per consecutive hit on same target (max 30%). Resets on target switch.",
+          "statsRider": "+10% crit chance.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onHit",
+                "chance": 0.10,
+                "conditionParam": { "sameTarget": true, "perStack": 0.04, "maxChance": 0.30 },
+                "applyBuff": {
+                  "buffId": "predator",
+                  "effect": { "incCritMultiplier": 50 },
+                  "duration": 3
+                }
+              }
+            ],
+            "stats": { "incCritChance": 10 }
+          },
+          "designNotes": "Escalating proc rewards Stab's fast consecutive hits on same target. Low base (10%) but builds to 30% with focused targeting."
+        },
+        {
+          "id": "st_0_2_1",
+          "name": "Honed Instincts",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "After any crit: +8% crit mult for 2s (stacks up to 2x).",
+          "rank2": "Window extends to 3s, stacks up to 3x.",
+          "modifier": {
+            "condition": "onCrit",
+            "effect": { "incCritMultiplier": 8, "duration": 2, "maxStacks": 2 },
+            "perRank": {
+              "1": { "duration": 2, "maxStacks": 2 },
+              "2": { "duration": 3, "maxStacks": 3 }
+            }
+          },
+          "designNotes": "Crit-begets-crit-damage loop. Stab's fast CD means frequent crit checks."
+        },
+        {
+          "id": "st_0_3_0",
+          "name": "Backstab Setup",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "+12% crit chance vs Vulnerable enemies.",
+          "rank2": "+18% crit chance vs Vulnerable.",
+          "modifier": {
+            "condition": "whileDebuffActive",
+            "conditionParam": { "debuffId": "vulnerable" },
+            "perRank": {
+              "1": { "incCritChance": 12 },
+              "2": { "incCritChance": 18 }
+            }
+          },
+          "designNotes": "Bridge between T2 Blade Sense crit building and T4 Exploit Weakness Vulnerable application."
+        },
+        {
+          "id": "st_0_3_1",
+          "name": "Relentless Pursuit",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On kill: next Stab cast within 3s costs no cooldown (free cast).",
+          "rank2": "Window extends to 5s.",
+          "modifier": {
+            "condition": "onKill",
+            "effect": { "freeCastWindow": 3 },
+            "perRank": {
+              "1": { "freeCastWindow": 3 },
+              "2": { "freeCastWindow": 5 }
+            }
+          },
+          "designNotes": "Kill momentum for fast clearing. Stab's 3s CD means this is significant."
+        },
+        {
+          "id": "st_0_3_2",
+          "name": "Lethal Rhythm",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Every 3rd consecutive Stab hit on same target: +30% damage on that hit.",
+          "rank2": "Threshold drops to every 2nd hit.",
+          "modifier": {
+            "condition": "afterConsecutiveHits",
+            "conditionParam": { "sameTarget": true },
+            "perRank": {
+              "1": { "everyNthHit": 3, "incDamage": 30 },
+              "2": { "everyNthHit": 2, "incDamage": 30 }
+            }
+          },
+          "designNotes": "LETHAL_RHYTHM template. Synergizes with Tunnel Vision's consecutive-target tracking."
+        },
+        {
+          "id": "st_0_4_0",
+          "name": "Exploit Weakness",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "Crits apply Vulnerable (2s). Guaranteed -- no proc chance. While Vulnerable is active on target: +15% crit chance vs that target.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onCrit",
+                "chance": 1.0,
+                "applyDebuff": { "debuffId": "vulnerable", "stacks": 1, "duration": 2 }
+              }
+            ],
+            "conditionalMods": [
+              {
+                "condition": "whileDebuffActive",
+                "conditionParam": { "debuffId": "vulnerable" },
+                "modifier": { "incCritChance": 15 }
+              }
+            ]
+          },
+          "designNotes": "Gated proc -- crits are the gate. Stab's fast CD + Puncture guaranteed crits make this reliable. Creates crit -> Vulnerable -> more crits loop."
+        },
+        {
+          "id": "st_0_4_1",
+          "name": "Predator's Mark",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "While in Predator state (from Blade Sense): Stab has 20% chance to strike twice. Second strike deals 60% weapon damage.",
+          "rank2": "Proc chance increases to 35%.",
+          "modifier": {
+            "condition": "whileBuffActive",
+            "conditionParam": { "buffId": "predator" },
+            "effect": { "doubleStrike": true, "secondStrikeDamage": 0.60 },
+            "perRank": {
+              "1": { "chance": 0.20 },
+              "2": { "chance": 0.35 }
+            }
+          },
+          "designNotes": "Predator state payoff beyond crit mult. Double strikes mean more Mark application chances at T6+."
+        },
+        {
+          "id": "st_0_5_0",
+          "name": "Precision Killer",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Crits on Vulnerable targets have 30% chance to cast a free Stab instantly. Your crit chance cannot exceed 60% (cap -- reliability ceiling).",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onCrit",
+                "chance": 0.30,
+                "conditionParam": { "whileDebuffActive": "vulnerable" },
+                "castSkill": "dagger_stab"
+              }
+            ],
+            "critChanceCap": 60
+          },
+          "exclusiveWith": ["st_0_5_1"],
+          "designNotes": "Consistent choice. Crit cap prevents runaway but guarantees steady free Stabs. Pairs well with Puncture's guaranteed crit cycle."
+        },
+        {
+          "id": "st_0_5_1",
+          "name": "Opportunist",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "On kill: immediately apply First Blood state to next enemy (next hit on that enemy deals +60% damage). This effect chains on each kill. You deal -15% damage to targets you've already hit 3+ times (anti-camp).",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onKill",
+                "chance": 1.0,
+                "applyBuff": { "buffId": "firstBlood", "effect": { "incDamage": 60 }, "duration": 10 }
+              }
+            ],
+            "conditionalMods": [
+              {
+                "condition": "afterConsecutiveHits",
+                "conditionParam": { "sameTarget": true, "threshold": 3 },
+                "modifier": { "incDamage": -15 }
+              }
+            ]
+          },
+          "exclusiveWith": ["st_0_5_0"],
+          "designNotes": "Risky choice. Kill chains reward fast clearing but anti-camp punishes boss fights. Tensions with Tunnel Vision / Puncture (consecutive-hit focused)."
+        },
+        {
+          "id": "st_0_6_0",
+          "name": "Death Mark",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "catastrophic",
+          "description": "On crit: 15% chance to apply Death Mark (10s). Marked enemies: next direct hit against them deals +100% damage and removes the Mark.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onCrit",
+                "chance": 0.15,
+                "applyDebuff": {
+                  "debuffId": "deathMark",
+                  "stacks": 1,
+                  "duration": 10
+                }
+              }
+            ],
+            "debuffInteraction": {
+              "bonusDamageVsDebuffed": {
+                "debuffId": "deathMark",
+                "incDamage": 100,
+                "consumeOnHit": true
+              }
+            }
+          },
+          "designNotes": "Catastrophic proc -- 15% feels low but +100% payoff is massive. Stab's fast CD means many crit checks per minute. The Mark lingers 10s giving time for a big hit (or Assassinate)."
+        },
+        {
+          "id": "st_0_7_0",
+          "name": "DEATHBLOW",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Assassinate transforms into an execute-only finisher: 500% weapon damage to enemies below 25% HP. Assassinate has highest cast priority -- fires immediately when target enters execute range. Assassinate CANNOT be used on targets above 25% HP. Your crits no longer deal bonus damage -- crits ONLY trigger Death Mark application. -20% base Stab damage.",
+          "modifier": {
+            "executeOnly": { "hpThreshold": 25, "bonusDamage": 500 },
+            "castPriority": "execute",
+            "critsDoNoBonusDamage": true,
+            "incDamage": -20
+          },
+          "tensionWith": "st_0_6_0",
+          "tensionDescription": "T6 makes Death Mark a +100% damage amplifier on next hit. T7 removes crit damage and transforms Assassinate into a pure execute finisher. Crits become a Mark delivery system, and Assassinate becomes the payoff. Kill pipeline: Stab -> crit -> Mark -> wait for 25% -> Assassinate fires automatically for massive execute damage on a Marked target.",
+          "antiSynergy": ["st_0_2_0"],
+          "antiSynergyNotes": "Blade Sense (T2) -- crit mult bonus has no value when crits don't deal bonus damage.",
+          "synergy": ["st_0_4_0", "st_0_4_1", "st_0_5_0"],
+          "synergyNotes": "Exploit Weakness (T4) -- crits on Vulnerable = reliable Mark delivery. Predator's Mark (T4b) -- double strikes = more Mark application chances. Precision Killer (T5A) -- free Stabs = more crits = more Marks.",
+          "engineNotes": "Assassinate MUST be equipped for auto-fire. UI warning recommended if DEATHBLOW active and Assassinate not slotted."
+        }
+      ]
+    },
+    {
+      "branchIndex": 1,
+      "branchName": "Venomcraft",
+      "mechanicCheck": {
+        "mechanics": [
+          "Poison stacks (T1 behavior + Envenom -- stack count matters for thresholds)",
+          "Venom Frenzy state (T4 notable -- Deep Wounds state-shift at 8+ stacks)",
+          "Debuff spread (T6 notable -- Pandemic on-kill spread)"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "nodes": [
+        {
+          "id": "st_1_1_0",
+          "name": "Envenomed Blade",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Each Stab applies 1 poison stack.",
+          "rank2": "Every 3rd consecutive Stab applies 2 stacks.",
+          "modifier": {
+            "condition": "onHit",
+            "effect": { "applyDebuff": { "debuffId": "poisoned", "stacks": 1 } },
+            "perRank": {
+              "1": { "stacks": 1 },
+              "2": { "stacks": 1, "everyNthHit": 3, "bonusStacks": 1 }
+            }
+          },
+          "designNotes": "Basic poison application. R2 synergizes with Stab's fast consecutive hitting."
+        },
+        {
+          "id": "st_1_1_1",
+          "name": "Toxic Strikes",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "+10% damage vs poisoned enemies.",
+          "rank2": "+15% and hits vs poisoned have +5% crit chance.",
+          "modifier": {
+            "condition": "whileDebuffActive",
+            "conditionParam": { "debuffId": "poisoned" },
+            "perRank": {
+              "1": { "incDamage": 10 },
+              "2": { "incDamage": 15, "incCritChance": 5 }
+            }
+          },
+          "designNotes": "Conditional damage vs poisoned. R2 bridges into Assassination synergy."
+        },
+        {
+          "id": "st_1_2_0",
+          "name": "Envenom",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "Guaranteed Poison on hit (3s). On application: if target already has 3+ poison stacks, 25% chance to trigger Toxic Burst -- deal 50% of current poison DoT as instant damage.",
+          "statsRider": "+10% poison duration.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onHit",
+                "chance": 1.0,
+                "applyDebuff": { "debuffId": "poisoned", "stacks": 1, "duration": 3 }
+              },
+              {
+                "trigger": "onHit",
+                "chance": 0.25,
+                "conditionParam": { "debuffId": "poisoned", "threshold": 3 },
+                "effect": { "toxicBurst": { "percentOfCurrentDoT": 50 } }
+              }
+            ],
+            "stats": { "debuffDurationBonus": 10 }
+          },
+          "designNotes": "Gated proc -- 3+ poison stacks gates the Toxic Burst. Stab's fast CD builds stacks quickly, making the 25% burst trigger reliably.",
+          "engineNotes": "Toxic Burst needs per-debuff stack threshold -- new conditional: { debuffId: 'poisoned', threshold: 3 } (~10 lines)."
+        },
+        {
+          "id": "st_1_2_1",
+          "name": "Lingering Venom",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Poison from Stab lasts +1s.",
+          "rank2": "+2s and 10% chance to spread to adjacent targets on tick.",
+          "modifier": {
+            "condition": "onHit",
+            "effect": { "debuffDurationBonus": 1 },
+            "perRank": {
+              "1": { "debuffDurationBonus": 1 },
+              "2": { "debuffDurationBonus": 2, "spreadChanceOnTick": 0.10 }
+            }
+          },
+          "designNotes": "Duration extension keeps poison above threshold longer. R2 adds minor spread for multi-target."
+        },
+        {
+          "id": "st_1_3_0",
+          "name": "Virulent Threshold",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "At 5+ poison stacks, Stab deals +20% damage.",
+          "rank2": "Threshold drops to 3 stacks.",
+          "modifier": {
+            "condition": "whileDebuffActive",
+            "conditionParam": { "debuffId": "poisoned", "threshold": 5 },
+            "perRank": {
+              "1": { "threshold": 5, "incDamage": 20 },
+              "2": { "threshold": 3, "incDamage": 20 }
+            }
+          },
+          "designNotes": "Stack threshold conditional. R2 lowers bar significantly -- rewards Stab's fast stacking."
+        },
+        {
+          "id": "st_1_3_1",
+          "name": "Toxic Transfer",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On kill, transfer 50% of target's poison stacks to next enemy.",
+          "rank2": "Transfer 100% of stacks.",
+          "modifier": {
+            "condition": "onKill",
+            "effect": { "transferDebuffStacks": { "debuffId": "poisoned", "percent": 50 } },
+            "perRank": {
+              "1": { "percent": 50 },
+              "2": { "percent": 100 }
+            }
+          },
+          "designNotes": "Kill momentum for poison builds. Bridges single-target stacking to multi-target flow."
+        },
+        {
+          "id": "st_1_3_2",
+          "name": "Venom Burst",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "At 8+ stacks, consume 4 to deal 60% of total poison DoT as instant damage.",
+          "rank2": "Consume 3 stacks instead.",
+          "modifier": {
+            "condition": "onHit",
+            "conditionParam": { "debuffId": "poisoned", "threshold": 8 },
+            "effect": { "consumeStacks": 4, "instantDamagePercent": 60 },
+            "perRank": {
+              "1": { "consumeStacks": 4 },
+              "2": { "consumeStacks": 3 }
+            }
+          },
+          "designNotes": "Active stack management -- consume stacks for burst, then rebuild. R2 makes cycle faster."
+        },
+        {
+          "id": "st_1_4_0",
+          "name": "Deep Wounds",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "state-shift",
+          "description": "Poison stacks deal +25% more damage. When target reaches 8+ poison stacks: enter Venom Frenzy (5s) -- +30% cast speed, all hits apply +1 extra poison stack. Venom Frenzy has a 20s internal cooldown.",
+          "modifier": {
+            "debuffInteraction": { "debuffEffectBonus": 25 },
+            "procs": [
+              {
+                "trigger": "onHit",
+                "chance": 1.0,
+                "conditionParam": { "debuffId": "poisoned", "threshold": 8 },
+                "applyBuff": {
+                  "buffId": "venomFrenzy",
+                  "effect": { "incCastSpeed": 30, "bonusPoisonStacks": 1 },
+                  "duration": 5
+                },
+                "internalCooldown": 20
+              }
+            ]
+          },
+          "designNotes": "State-shift at 8+ stacks. Stab's fast CD reaches 8 stacks in ~6-8 casts. Venom Frenzy window turbocharges poison application.",
+          "engineNotes": "Needs ICD system (lastProcTriggerAt + internalCooldown on proc), per-debuff stack threshold, and state-shift buff application."
+        },
+        {
+          "id": "st_1_4_1",
+          "name": "Frenzy Strikes",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "During Venom Frenzy: Stab has +20% attack speed.",
+          "rank2": "Also applies +1 extra poison stack per hit.",
+          "modifier": {
+            "condition": "whileBuffActive",
+            "conditionParam": { "buffId": "venomFrenzy" },
+            "perRank": {
+              "1": { "incAttackSpeed": 20 },
+              "2": { "incAttackSpeed": 20, "bonusPoisonStacks": 1 }
+            }
+          },
+          "designNotes": "Venom Frenzy payoff specific to Stab. Fast attacks + bonus stacks during the window."
+        },
+        {
+          "id": "st_1_5_0",
+          "name": "Toxic Mastery",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Poison stacks deal +10% more damage per stack (multiplicative with Deep Wounds). Poison duration +25%.",
+          "modifier": {
+            "debuffInteraction": { "debuffEffectBonus": 10, "perStack": true, "debuffDurationBonus": 25 }
+          },
+          "exclusiveWith": ["st_1_5_1"],
+          "designNotes": "Consistent choice. Per-stack scaling rewards building high stacks. Duration extension keeps stacks alive. Reliable damage ceiling."
+        },
+        {
+          "id": "st_1_5_1",
+          "name": "Volatile Toxins",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "At 10+ poison stacks, 20% chance per hit to detonate ALL stacks for instant damage. Resets stacks to 0.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onHit",
+                "chance": 0.20,
+                "conditionParam": { "debuffId": "poisoned", "threshold": 10 },
+                "effect": { "detonateStacks": { "debuffId": "poisoned", "consumeAll": true } }
+              }
+            ]
+          },
+          "exclusiveWith": ["st_1_5_0"],
+          "designNotes": "Risky choice. Massive burst when detonation fires, but resets all stacks. Feast/famine cycle. Tensions with Toxic Mastery's steady scaling."
+        },
+        {
+          "id": "st_1_6_0",
+          "name": "Pandemic",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "On kill: spread all debuffs to next enemy. Spread debuffs retain remaining duration.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onKill",
+                "chance": 1.0,
+                "effect": { "spreadAllDebuffs": true, "retainDuration": true }
+              }
+            ]
+          },
+          "designNotes": "Kill-gated spread. Stab kills fast (low CD), so Pandemic triggers frequently. Rewards clearing poisoned targets efficiently."
+        },
+        {
+          "id": "st_1_7_0",
+          "name": "PLAGUE LORD",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "All debuff types you apply share a single slot -- you can only have ONE debuff type active on an enemy at a time. New debuff types replace the old one. BUT: your single active debuff deals 3x damage/effect and has unlimited stacks. -15% base damage.",
+          "modifier": {
+            "singleDebuffSlot": true,
+            "debuffInteraction": { "debuffEffectMultiplier": 3, "removeStackCap": true },
+            "incDamage": -15
+          },
+          "tensionWith": "st_1_6_0",
+          "tensionDescription": "T6 rewards spreading MANY debuff types on kill. T7 restricts you to ONE type but makes it devastating. Breadth vs depth. Pandemic's spread is weaker (only 1 type to spread) but the single type's damage is enormous.",
+          "antiSynergy": ["st_1_6_0"],
+          "antiSynergyNotes": "Pandemic (T6) -- spread is weaker with only 1 debuff type.",
+          "synergy": ["st_1_4_0"],
+          "synergyNotes": "Deep Wounds (T4) -- poison scaling becomes enormous with unlimited stacks and 3x effect."
+        }
+      ]
+    },
+    {
+      "branchIndex": 2,
+      "branchName": "Shadow Dance",
+      "mechanicCheck": {
+        "mechanics": [
+          "Fortify stacks (T2 notable -- Shadow Guard fortify on hit)",
+          "Shadow Form state (T4 notable -- Ghost Step state-shift on 3 dodges)",
+          "Dodge counter (T6 notable -- Phantom Stride counter-attack on dodge)"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "nodes": [
+        {
+          "id": "st_2_1_0",
+          "name": "Defensive Instinct",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "+2 life on hit with Stab.",
+          "rank2": "Also gain +3% evasion for 2s after each hit.",
+          "modifier": {
+            "condition": "onHit",
+            "effect": { "lifeOnHit": 2 },
+            "perRank": {
+              "1": { "lifeOnHit": 2 },
+              "2": { "lifeOnHit": 2, "incEvasion": 3, "evasionDuration": 2 }
+            }
+          },
+          "designNotes": "Basic sustain. Stab's fast CD means frequent small heals."
+        },
+        {
+          "id": "st_2_1_1",
+          "name": "Combat Leech",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "3% of Stab damage leeched as life.",
+          "rank2": "Leech increases to 5% and persists 1s after cast.",
+          "modifier": {
+            "condition": "onHit",
+            "effect": { "lifeLeechPercent": 3 },
+            "perRank": {
+              "1": { "lifeLeechPercent": 3 },
+              "2": { "lifeLeechPercent": 5, "leechPersistence": 1 }
+            }
+          },
+          "designNotes": "Percentage-based sustain scales with damage. R2 adds persistence for smoother healing."
+        },
+        {
+          "id": "st_2_2_0",
+          "name": "Shadow Guard",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "cooldown",
+          "description": "Fortify on hit (1 stack, 5s, 3% DR). On dodge: 35% chance to reset this skill's cooldown instantly.",
+          "statsRider": "+5 all resist.",
+          "modifier": {
+            "fortifyOnHit": { "stacks": 1, "duration": 5, "damageReduction": 3 },
+            "procs": [
+              {
+                "trigger": "onDodge",
+                "chance": 0.35,
+                "resetCooldown": "self"
+              }
+            ],
+            "stats": { "resistBonus": 5 }
+          },
+          "designNotes": "Cooldown proc -- dodge resets Stab CD. Stab's already-short 3s CD becomes even shorter. Fortify provides baseline defense.",
+          "engineNotes": "resetCooldown: 'self' needs resolution to current skill ID (~5 lines)."
+        },
+        {
+          "id": "st_2_2_1",
+          "name": "Reactive Footwork",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On dodge within 3s of Stab: next Stab costs no cooldown.",
+          "rank2": "Free Stab also deals +15% damage.",
+          "modifier": {
+            "condition": "onDodge",
+            "conditionParam": { "withinWindowOf": "dagger_stab", "window": 3 },
+            "effect": { "freeCast": "dagger_stab" },
+            "perRank": {
+              "1": { "freeCast": true },
+              "2": { "freeCast": true, "incDamage": 15 }
+            }
+          },
+          "designNotes": "Dodge-combat rhythm. Stab -> dodge -> free Stab. R2 rewards the rhythm with bonus damage."
+        },
+        {
+          "id": "st_2_3_0",
+          "name": "Counter Stab",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On dodge: deal 30% weapon damage as counter-attack.",
+          "rank2": "Counter has +20% crit chance.",
+          "modifier": {
+            "condition": "onDodge",
+            "effect": { "instantDamage": { "scaleStat": "weaponDamage", "scaleRatio": 0.30 } },
+            "perRank": {
+              "1": { "scaleRatio": 0.30 },
+              "2": { "scaleRatio": 0.30, "incCritChance": 20 }
+            }
+          },
+          "designNotes": "Basic dodge counter. Small damage but reliable. R2 adds offensive value."
+        },
+        {
+          "id": "st_2_3_1",
+          "name": "Second Wind",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On dodge: heal 2% max HP.",
+          "rank2": "Also gain +10% evasion for 3s.",
+          "modifier": {
+            "condition": "onDodge",
+            "effect": { "healPercent": 2 },
+            "perRank": {
+              "1": { "healPercent": 2 },
+              "2": { "healPercent": 2, "incEvasion": 10, "evasionDuration": 3 }
+            }
+          },
+          "designNotes": "Dodge sustain. R2 adds evasion snowball -- dodge -> evasion -> more dodges."
+        },
+        {
+          "id": "st_2_3_2",
+          "name": "Combat Flow",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On dodge: reduce Stab cooldown by 0.5s.",
+          "rank2": "Reduce by 1s.",
+          "modifier": {
+            "condition": "onDodge",
+            "effect": { "reduceCooldown": { "skillId": "dagger_stab", "amount": 0.5 } },
+            "perRank": {
+              "1": { "amount": 0.5 },
+              "2": { "amount": 1.0 }
+            }
+          },
+          "designNotes": "CD reduction on dodge. With Stab's 3s CD, a single R2 dodge gives 33% CDR. Synergizes with Shadow Guard's CD reset."
+        },
+        {
+          "id": "st_2_4_0",
+          "name": "Ghost Step",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "state-shift",
+          "description": "On dodge: heal 5% max HP. On 3 dodges within 6s: enter Shadow Form (4s) -- take 30% reduced damage, all hits apply Blind (1s). Shadow Form has a 15s internal cooldown.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "healPercent": 5
+              },
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "conditionParam": { "dodgesInWindow": 3, "windowDuration": 6 },
+                "applyBuff": {
+                  "buffId": "shadowForm",
+                  "effect": { "damageReduction": 30, "applyDebuffOnHit": { "debuffId": "blinded", "duration": 1 } },
+                  "duration": 4
+                },
+                "internalCooldown": 15
+              }
+            ]
+          },
+          "designNotes": "State-shift on 3 dodges in 6s. Stab's fast rhythm means frequent combat = frequent dodge opportunities. Shadow Form is the defensive power spike.",
+          "engineNotes": "Needs dodge-within-window counting (consecutiveDodges counter + lastDodgeWindowStart) and ICD system."
+        },
+        {
+          "id": "st_2_4_1",
+          "name": "Shadow Strikes",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "During Shadow Form: Stab hits apply Blind (1s).",
+          "rank2": "Also grant +1 Fortify stack per hit.",
+          "modifier": {
+            "condition": "whileBuffActive",
+            "conditionParam": { "buffId": "shadowForm" },
+            "perRank": {
+              "1": { "applyDebuffOnHit": { "debuffId": "blinded", "duration": 1 } },
+              "2": { "applyDebuffOnHit": { "debuffId": "blinded", "duration": 1 }, "fortifyOnHit": 1 }
+            }
+          },
+          "designNotes": "Shadow Form payoff specific to Stab. Fast hits during the 4s window stack Blind and Fortify."
+        },
+        {
+          "id": "st_2_5_0",
+          "name": "Evasive Recovery",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "On dodge: heal 3% max HP + gain +10% evasion-to-damage for 3s. +5 all resist passive.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "healPercent": 3,
+                "applyBuff": { "effect": { "damageFromEvasion": 10 }, "duration": 3 }
+              }
+            ],
+            "stats": { "resistBonus": 5 }
+          },
+          "exclusiveWith": ["st_2_5_1"],
+          "designNotes": "Consistent choice. Reliable heal + evasion-to-damage conversion. Steady sustain ceiling."
+        },
+        {
+          "id": "st_2_5_1",
+          "name": "Counter Stance",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "On dodge: deal 75% weapon damage counter-attack. Below 40% HP: counter deals 225% instead. Ghost Step's dodge heal REMOVED. +10% damage taken.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "instantDamage": { "scaleStat": "weaponDamage", "scaleRatio": 0.75 }
+              },
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "conditionParam": { "belowHpPercent": 40 },
+                "instantDamage": { "scaleStat": "weaponDamage", "scaleRatio": 2.25 }
+              }
+            ],
+            "removeEffect": { "nodeId": "st_2_4_0", "effectType": "healPercent" },
+            "increasedDamageTaken": 10
+          },
+          "exclusiveWith": ["st_2_5_0"],
+          "designNotes": "Risky choice. Removes Ghost Step heal, adds damage taken, but dodge counters hit hard. Below 40% HP becomes a massive damage window. Feast/famine.",
+          "engineNotes": "Counter-attack resolves through damage bucket system. Pure physical (0% conversion). Values (75%/225%) are pre-conversion estimates."
+        },
+        {
+          "id": "st_2_6_0",
+          "name": "Phantom Stride",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "cooldown",
+          "description": "On dodge: deal 75% weapon damage as counter-attack. If counter kills, reset this skill's cooldown.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "instantDamage": { "scaleStat": "weaponDamage", "scaleRatio": 0.75 }
+              },
+              {
+                "trigger": "onDodgeKill",
+                "chance": 1.0,
+                "resetCooldown": "self"
+              }
+            ]
+          },
+          "designNotes": "Cooldown proc -- dodge counter with CD reset on kill. Stab's short CD means the reset is less impactful than for long-CD skills, but the free counter damage is substantial."
+        },
+        {
+          "id": "st_2_7_0",
+          "name": "SHADOW SOVEREIGN",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Counter-attacks from Phantom Stride deal 200% weapon damage. On dodge: you no longer heal (Ghost Step's heal is removed). All dodge-triggered proc chances are doubled. -10% max life.",
+          "modifier": {
+            "overrideProc": {
+              "target": "phantomStride",
+              "instantDamage": { "scaleStat": "weaponDamage", "scaleRatio": 2.00 }
+            },
+            "removeEffect": { "nodeId": "st_2_4_0", "effectType": "healPercent" },
+            "dodgeProcChanceMultiplier": 2.0,
+            "reducedMaxLife": 10
+          },
+          "tensionWith": "st_2_6_0",
+          "tensionDescription": "T6 gives a balanced dodge counter with CD reset on kill. T7 removes the defensive heal and converts dodges into pure offense. You're no longer dodging to survive -- you're dodging to kill.",
+          "antiSynergy": ["st_2_4_0"],
+          "antiSynergyNotes": "Ghost Step (T4) -- heal is explicitly removed.",
+          "synergy": ["st_2_2_0"],
+          "synergyNotes": "Shadow Guard (T2) -- CD reset chance (35% -> 70% effective chance with doubled proc chances)."
+        }
+      ]
+    }
+  ]
+}

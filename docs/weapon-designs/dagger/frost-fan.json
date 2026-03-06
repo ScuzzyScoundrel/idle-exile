@@ -1,0 +1,1032 @@
+{
+  "skillId": "dagger_fan_of_knives",
+  "skillName": "Frost Fan",
+  "archetypes": ["aoe", "projectile", "cold"],
+  "branches": [
+    {
+      "branchIndex": 0,
+      "branchName": "Assassination",
+      "mechanicCheck": {
+        "mechanics": [
+          "Target-count crit scaling (T1 behavior -- per-target crit chance ramp)",
+          "Glacial Focus state (T2 notable -- escalating proc from multi-target hits -> crit mult window)",
+          "Shatter Mark (T6 notable -- catastrophic proc -> AoE crit explosion on marked target)"
+        ],
+        "nonTracked": [
+          "+X vs Vulnerable -- applied by Rime Exploit, not tracked independently",
+          "Pierce crit bonuses -- fire-and-forget conditional, no tracking needed"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "nodes": [
+        {
+          "id": "ff_0_1_0",
+          "name": "Spreading Chill",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "+4% crit chance per target hit in one Frost Fan cast (max +20%).",
+          "rank2": "+6% per target hit.",
+          "modifier": {
+            "condition": "onCast",
+            "conditionParam": { "perTargetHit": true },
+            "effect": { "incCritChance": 4, "maxBonus": 20 },
+            "perRank": {
+              "1": { "incCritChance": 4 },
+              "2": { "incCritChance": 6 }
+            }
+          },
+          "designNotes": "TARGET_COUNT_SCALING template. Rewards Frost Fan's AoE hitting many targets. Crit chance scales with pack density."
+        },
+        {
+          "id": "ff_0_1_1",
+          "name": "Piercing Toxin",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "After piercing 2+ targets, final target takes a +25% crit chance hit.",
+          "rank2": "Threshold drops to 1 pierce.",
+          "modifier": {
+            "condition": "onPierce",
+            "conditionParam": { "pierceThreshold": 2 },
+            "effect": { "finalTargetCritChance": 25 },
+            "perRank": {
+              "1": { "pierceThreshold": 2 },
+              "2": { "pierceThreshold": 1 }
+            }
+          },
+          "designNotes": "PIERCE_CHAIN_PROC template. Rewards Frost Fan's projectile pierce mechanic. Final target gets a high-crit hit."
+        },
+        {
+          "id": "ff_0_2_0",
+          "name": "Glacial Focus",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "escalating",
+          "description": "Each Frost Fan cast that hits 3+ targets grants a Frost Intensity stack (max 5, lasts 6s, refreshes on new stack). At 5 stacks: enter Glacial Focus (4s) -- +60% crit mult and Frost Fan projectiles gain +1 pierce. Stacks reset on entering Glacial Focus.",
+          "statsRider": "+8% crit chance.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onCast",
+                "chance": 1.0,
+                "conditionParam": { "targetsHit": 3 },
+                "effect": { "addStack": "frostIntensity", "maxStacks": 5, "duration": 6, "refreshOnStack": true },
+                "atMaxStacks": {
+                  "applyBuff": {
+                    "buffId": "glacialFocus",
+                    "effect": { "incCritMultiplier": 60, "bonusPierce": 1 },
+                    "duration": 4
+                  },
+                  "resetStacks": true
+                }
+              }
+            ],
+            "stats": { "incCritChance": 8 }
+          },
+          "designNotes": "Escalating proc tuned to FF's AoE rhythm. Unlike Stab's Blade Sense (consecutive same-target), this rewards consistently hitting packs. 5 casts hitting 3+ targets triggers the payoff -- with FF's 5s CD, that's ~25s of building in dense packs, or faster if CDR is present. Glacial Focus's +1 pierce during the window feeds back into Piercing Toxin (T1b) and Shatter Point (T3a)."
+        },
+        {
+          "id": "ff_0_2_1",
+          "name": "Frozen Focus",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "+8% crit mult vs Chilled enemies.",
+          "rank2": "+12% and crits vs Chilled extend Chill by 1s.",
+          "modifier": {
+            "condition": "whileDebuffActive",
+            "conditionParam": { "debuffId": "chilled" },
+            "perRank": {
+              "1": { "incCritMultiplier": 8 },
+              "2": { "incCritMultiplier": 12, "onCrit": { "extendDebuff": { "debuffId": "chilled", "duration": 1 } } }
+            }
+          },
+          "designNotes": "Chill-conditional crit mult. FF naturally applies Chill via Cold tag, so this is near-permanent uptime in practice. R2 creates a crit -> Chill extension loop."
+        },
+        {
+          "id": "ff_0_3_0",
+          "name": "Shatter Point",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Pierce count of 3+ guarantees crit on final target.",
+          "rank2": "Pierce count of 2+ instead.",
+          "modifier": {
+            "condition": "onPierce",
+            "conditionParam": { "pierceCount": 3 },
+            "effect": { "finalTargetGuaranteedCrit": true },
+            "perRank": {
+              "1": { "pierceCount": 3 },
+              "2": { "pierceCount": 2 }
+            }
+          },
+          "designNotes": "Pierce-gated guaranteed crit. Rewards dense packs where projectiles pierce through many targets. R2 lowers bar significantly -- with Glacial Focus's +1 pierce, even moderate density triggers this."
+        },
+        {
+          "id": "ff_0_3_1",
+          "name": "Crossfire",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Enemies hit by 2+ projectiles in same Frost Fan cast: guaranteed crit.",
+          "rank2": "Also deal +20% damage on double-hit.",
+          "modifier": {
+            "condition": "onHit",
+            "conditionParam": { "projectileOverlap": 2 },
+            "effect": { "guaranteedCrit": true },
+            "perRank": {
+              "1": { "guaranteedCrit": true },
+              "2": { "guaranteedCrit": true, "incDamage": 20 }
+            }
+          },
+          "designNotes": "AOE_OVERLAP template. Rewards positioning where multiple FF projectiles converge on same target. Different path to crits than Shatter Point's pierce path."
+        },
+        {
+          "id": "ff_0_3_2",
+          "name": "Blizzard Barrage",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "+5% damage per enemy hit by Frost Fan in one cast.",
+          "rank2": "+8% per enemy and Chilled enemies count as 2 targets for this bonus.",
+          "modifier": {
+            "condition": "onCast",
+            "conditionParam": { "perTargetHit": true },
+            "effect": { "incDamage": 5 },
+            "perRank": {
+              "1": { "incDamage": 5 },
+              "2": { "incDamage": 8, "chilledCountDouble": true }
+            }
+          },
+          "designNotes": "TARGET_COUNT_SCALING for damage instead of crit. R2 synergizes with FF's Cold tag -- Chilled enemies double-count, rewarding sustained Chill application."
+        },
+        {
+          "id": "ff_0_4_0",
+          "name": "Rime Exploit",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "Crits apply Vulnerable (2s). When Frost Fan hits 3+ Vulnerable targets in one cast: all Vulnerable targets take +20% damage from that cast and Vulnerable duration is refreshed.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onCrit",
+                "chance": 1.0,
+                "applyDebuff": { "debuffId": "vulnerable", "stacks": 1, "duration": 2 }
+              }
+            ],
+            "conditionalMods": [
+              {
+                "condition": "onCast",
+                "conditionParam": { "vulnerableTargetsHit": 3 },
+                "modifier": { "incDamage": 20, "refreshDebuff": { "debuffId": "vulnerable" } }
+              }
+            ]
+          },
+          "designNotes": "Gated proc tuned to FF's AoE pattern. Unlike Stab's Exploit Weakness (single-target crit -> Vulnerable loop), Rime Exploit rewards hitting MANY Vulnerable targets simultaneously. The 3-target gate leverages FF's natural multi-target delivery. First cast crits apply Vulnerable, second cast hitting 3+ Vulnerable targets gets the damage bonus and refreshes the debuff -- creating an AoE Vulnerable maintenance loop."
+        },
+        {
+          "id": "ff_0_4_1",
+          "name": "Predator's Frost",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "While in Predator state: Frost Fan gains +1 pierce.",
+          "rank2": "Pierced targets also gain Vulnerable (1s).",
+          "modifier": {
+            "condition": "whileBuffActive",
+            "conditionParam": { "buffId": "predator" },
+            "perRank": {
+              "1": { "bonusPierce": 1 },
+              "2": { "bonusPierce": 1, "onPierce": { "applyDebuff": { "debuffId": "vulnerable", "duration": 1 } } }
+            }
+          },
+          "designNotes": "Predator state payoff for FF. Pierce count increases feed Shatter Point (T3a) and Spreading Chill (T1a). R2 spreads Vulnerable through pierce -- connecting to Rime Exploit's Vulnerable-count gate."
+        },
+        {
+          "id": "ff_0_5_0",
+          "name": "Glacial Precision",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Frost Fan crits on Chilled targets have 25% chance to fire a bonus projectile that pierces all targets (deals 50% damage). Your crit chance cannot exceed 55% (cap -- reliability ceiling).",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onCrit",
+                "chance": 0.25,
+                "conditionParam": { "whileDebuffActive": "chilled" },
+                "effect": { "bonusProjectile": { "pierceAll": true, "damagePercent": 50 } }
+              }
+            ],
+            "critChanceCap": 55
+          },
+          "exclusiveWith": ["ff_0_5_1"],
+          "designNotes": "Consistent choice tuned to FF's AoE/pierce rhythm. Crit cap prevents runaway but steady bonus projectiles add reliable AoE coverage. Each bonus projectile can trigger Spreading Chill, Shatter Point, and Crossfire -- multiplicative with pack density. Lower crit cap than Stab's Precision Killer (55% vs 60%) because FF hits many targets per cast, so each crit check is more valuable."
+        },
+        {
+          "id": "ff_0_5_1",
+          "name": "Frozen Carnage",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "On kill: next Frost Fan cast within 4s fires double projectiles (all projectiles, not just bonus). Frost Fan deals -20% damage to targets it has already hit this combat (anti-repeat penalty, stacks up to 3x).",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onKill",
+                "chance": 1.0,
+                "applyBuff": { "buffId": "frozenCarnage", "effect": { "doubleProjectiles": true }, "duration": 4 }
+              }
+            ],
+            "conditionalMods": [
+              {
+                "condition": "onHit",
+                "conditionParam": { "sameTarget": true, "previouslyHit": true },
+                "modifier": { "incDamage": -20, "maxStacks": 3 }
+              }
+            ]
+          },
+          "exclusiveWith": ["ff_0_5_0"],
+          "designNotes": "Risky choice tuned to FF's AoE pattern. Kill chains double your projectile count for massive pack clearing, but anti-repeat penalty punishes hitting the same targets repeatedly. Tensions with boss fights where you can't avoid re-hitting. Unlike Stab's Opportunist (anti-camp on same target), this penalizes ANY re-hit -- a real cost for an AoE skill that naturally hits everything."
+        },
+        {
+          "id": "ff_0_6_0",
+          "name": "Shatter Mark",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "catastrophic",
+          "description": "On crit: 12% chance to apply Shatter Mark (8s). When a Shatter Marked enemy is killed, it explodes in a frost nova dealing 80% of the killing blow's damage as Cold to all enemies within AoE range. Explosion can crit.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onCrit",
+                "chance": 0.12,
+                "applyDebuff": {
+                  "debuffId": "shatterMark",
+                  "stacks": 1,
+                  "duration": 8
+                }
+              }
+            ],
+            "debuffInteraction": {
+              "onKillWhileDebuffed": {
+                "debuffId": "shatterMark",
+                "effect": {
+                  "frostNova": true,
+                  "damagePercent": 80,
+                  "damageType": "cold",
+                  "canCrit": true
+                }
+              }
+            }
+          },
+          "designNotes": "Catastrophic proc specific to FF's AoE identity. Unlike Stab's Death Mark (+100% damage on next hit to single target), Shatter Mark triggers on KILL and explodes outward -- rewarding FF's pack-clearing role. 12% proc chance is low but FF hits many targets per cast, so many crit checks per cast. The explosion can itself crit, potentially triggering more Shatter Marks in chain-reaction scenarios. 8s duration gives time for the kill."
+        },
+        {
+          "id": "ff_0_7_0",
+          "name": "AVALANCHE",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Shatter Mark explosions now chain -- if an explosion kills another Shatter Marked enemy, it also explodes (up to 3 chains). Frost Fan loses all pierce (projectiles stop on first target hit). Crits no longer deal bonus damage -- crits ONLY apply Shatter Mark. -15% base Frost Fan damage.",
+          "modifier": {
+            "shatterMarkChain": { "maxChains": 3 },
+            "removePierce": true,
+            "critsDoNoBonusDamage": true,
+            "incDamage": -15
+          },
+          "tensionWith": "ff_0_6_0",
+          "tensionDescription": "T6 makes Shatter Mark an on-kill explosion for AoE damage. T7 enables chain explosions but REMOVES ALL PIERCE and makes crits deal no bonus damage. FF goes from a piercing spread skill to a 'mark and detonate' playstyle. You hit single targets to apply marks, then kill one to start a chain reaction. The piercing AoE identity is sacrificed for catastrophic chain explosions.",
+          "antiSynergy": ["ff_0_2_0", "ff_0_1_1", "ff_0_3_0"],
+          "antiSynergyNotes": "Glacial Focus (T2) -- crit mult bonus has no value when crits don't deal bonus damage. Piercing Toxin (T1b) -- pierce is removed entirely. Shatter Point (T3a) -- pierce-count threshold can never trigger without pierce.",
+          "synergy": ["ff_0_4_0", "ff_0_1_0", "ff_0_5_1"],
+          "synergyNotes": "Rime Exploit (T4) -- crits still apply Vulnerable, feeding Shatter Mark application. Spreading Chill (T1a) -- target-count crit bonus still works (more targets hit = more mark chances even without pierce). Frozen Carnage (T5B) -- double projectiles on kill = more first-target hits = more mark application.",
+          "engineNotes": "Chain explosion needs recursive kill-check with depth limiter (maxChains: 3). Each explosion resolves damage independently. Pierce removal is a hard override on the skill's base pierce value."
+        }
+      ]
+    },
+    {
+      "branchIndex": 1,
+      "branchName": "Venomcraft",
+      "mechanicCheck": {
+        "mechanics": [
+          "AoE poison stacks (T1 behavior -- multi-target poison application via FF projectiles)",
+          "Miasma state (T4 notable -- state-shift when FF poisons 5+ targets in one cast)",
+          "Contagion spread (T6 notable -- gated debuff cascade on poisoned target kill)"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "nodes": [
+        {
+          "id": "ff_1_1_0",
+          "name": "Toxic Frost",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Each target hit by Frost Fan gains 1 poison stack.",
+          "rank2": "Targets hit by 2+ projectiles gain 2 stacks.",
+          "modifier": {
+            "condition": "onHit",
+            "effect": { "applyDebuff": { "debuffId": "poisoned", "stacks": 1 } },
+            "perRank": {
+              "1": { "stacks": 1 },
+              "2": { "stacks": 1, "onProjectileOverlap": { "threshold": 2, "stacks": 2 } }
+            }
+          },
+          "designNotes": "Basic poison application via FF's AoE. Unlike Stab's single-target Envenomed Blade, Toxic Frost poisons entire packs in one cast. R2 rewards projectile overlap -- enemies at convergence points get double stacks."
+        },
+        {
+          "id": "ff_1_1_1",
+          "name": "Plague Scatter",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "AoE hits vs poisoned enemies spread 1 poison stack to adjacent targets.",
+          "rank2": "Spreads 2 stacks and extends poison duration by 0.5s.",
+          "modifier": {
+            "condition": "onHit",
+            "conditionParam": { "debuffId": "poisoned", "skillTag": "aoe" },
+            "effect": { "spreadDebuff": { "debuffId": "poisoned", "stacks": 1, "range": "adjacent" } },
+            "perRank": {
+              "1": { "spreadStacks": 1 },
+              "2": { "spreadStacks": 2, "extendDuration": 0.5 }
+            }
+          },
+          "designNotes": "AoE poison spread. FF's wide projectile coverage means this can cascade poison to targets the projectiles missed. R2 extends duration -- keeping poison alive for threshold mechanics."
+        },
+        {
+          "id": "ff_1_2_0",
+          "name": "Blight Surge",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "Guaranteed poison on Frost Fan hit (3s). When Frost Fan poisons 4+ targets in one cast: 30% chance to trigger Blight Pulse -- all poisoned targets in range take instant damage equal to 40% of their current poison DoT.",
+          "statsRider": "+10% poison damage.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onHit",
+                "chance": 1.0,
+                "applyDebuff": { "debuffId": "poisoned", "stacks": 1, "duration": 3 }
+              },
+              {
+                "trigger": "onCast",
+                "chance": 0.30,
+                "conditionParam": { "targetsPoisoned": 4 },
+                "effect": { "blightPulse": { "percentOfCurrentDoT": 40, "affectsAll": true } }
+              }
+            ],
+            "stats": { "incPoisonDamage": 10 }
+          },
+          "designNotes": "Gated proc tuned to FF's AoE delivery. Unlike Stab's Envenom (3+ stacks on single target gates Toxic Burst), Blight Surge gates on TARGET COUNT poisoned in one cast. FF naturally hits many targets, so 4+ poisoned is achievable in packs. The Blight Pulse hits ALL poisoned targets, not just those hit by the cast -- rewarding Plague Scatter's adjacent spreading.",
+          "engineNotes": "Blight Pulse needs per-cast poisoned-target counting and AoE DoT snapshot resolution. ~15 lines new logic."
+        },
+        {
+          "id": "ff_1_2_1",
+          "name": "Festering Chill",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Poisoned enemies hit by Frost Fan are Chilled (2s).",
+          "rank2": "3s Chill and poison ticks deal +10% vs Chilled targets.",
+          "modifier": {
+            "condition": "onHit",
+            "conditionParam": { "debuffId": "poisoned" },
+            "effect": { "applyDebuff": { "debuffId": "chilled", "duration": 2 } },
+            "perRank": {
+              "1": { "chillDuration": 2 },
+              "2": { "chillDuration": 3, "poisonVsChilled": { "incDamage": 10 } }
+            }
+          },
+          "designNotes": "Cold + Poison interaction unique to FF. Bridges Venomcraft poison stacking with FF's Cold tag. R2 makes poison ticks deal more to Chilled targets -- a self-reinforcing loop since FF applies both."
+        },
+        {
+          "id": "ff_1_3_0",
+          "name": "Noxious Cloud",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "At 5+ poison stacks on a target, Frost Fan creates a poison zone on that target's location (3s, applies 1 poison stack/s to enemies in zone).",
+          "rank2": "Zone lasts 5s.",
+          "modifier": {
+            "condition": "onHit",
+            "conditionParam": { "debuffId": "poisoned", "threshold": 5 },
+            "effect": { "createZone": { "type": "poison", "duration": 3, "stacksPerSecond": 1 } },
+            "perRank": {
+              "1": { "zoneDuration": 3 },
+              "2": { "zoneDuration": 5 }
+            }
+          },
+          "designNotes": "Stack-threshold zone creation. FF's AoE can hit multiple targets at 5+ stacks, creating multiple poison zones. R2 extends zone duration for better area denial."
+        },
+        {
+          "id": "ff_1_3_1",
+          "name": "Pandemic Breeze",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On kill, spread all poison stacks from the killed target to all enemies hit by the same Frost Fan cast.",
+          "rank2": "Spread targets have poison duration refreshed.",
+          "modifier": {
+            "condition": "onKill",
+            "effect": { "spreadDebuffStacks": { "debuffId": "poisoned", "toTargets": "sameCastTargets" } },
+            "perRank": {
+              "1": { "spreadAll": true },
+              "2": { "spreadAll": true, "refreshDuration": true }
+            }
+          },
+          "designNotes": "Kill-spread specific to FF's AoE cast pattern. Unlike Stab's Toxic Transfer (single target -> next target), Pandemic Breeze spreads to ALL targets from the same cast. R2 refreshes duration, keeping stacks alive for threshold mechanics."
+        },
+        {
+          "id": "ff_1_3_2",
+          "name": "Toxic Detonation",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "At 8+ poison stacks, Frost Fan hit consumes 4 stacks and deals AoE burst damage (40% of consumed stacks' DoT damage) to nearby enemies.",
+          "rank2": "Consume 3 stacks and burst radius increases.",
+          "modifier": {
+            "condition": "onHit",
+            "conditionParam": { "debuffId": "poisoned", "threshold": 8 },
+            "effect": { "consumeStacks": 4, "aoeBurst": { "percentOfConsumedDoT": 40 } },
+            "perRank": {
+              "1": { "consumeStacks": 4 },
+              "2": { "consumeStacks": 3, "radiusIncrease": true }
+            }
+          },
+          "designNotes": "Stack consumption burst. FF can trigger this on multiple targets in one cast if several enemies are at 8+ stacks. R2 lowers consumption and widens radius -- synergizes with FF's AoE identity."
+        },
+        {
+          "id": "ff_1_4_0",
+          "name": "Miasma Cascade",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "state-shift",
+          "description": "Poison stacks deal +20% more damage. When a single Frost Fan cast poisons 5+ targets: enter Miasma (5s) -- all Frost Fan hits apply +2 extra poison stacks and poison ticks have 15% chance to spread to an adjacent unpoisoned target. Miasma has a 18s internal cooldown.",
+          "modifier": {
+            "debuffInteraction": { "debuffEffectBonus": 20 },
+            "procs": [
+              {
+                "trigger": "onCast",
+                "chance": 1.0,
+                "conditionParam": { "targetsPoisoned": 5 },
+                "applyBuff": {
+                  "buffId": "miasma",
+                  "effect": { "bonusPoisonStacks": 2, "poisonTickSpread": { "chance": 0.15, "range": "adjacent" } },
+                  "duration": 5
+                },
+                "internalCooldown": 18
+              }
+            ]
+          },
+          "designNotes": "State-shift tuned to FF's AoE poison delivery. Unlike Stab's Deep Wounds (8+ stacks on single target), Miasma Cascade gates on TARGET COUNT poisoned in one cast. FF naturally hits many targets, making the 5-target threshold achievable in packs. Miasma's bonus stacks + tick spread turbocharges pack poisoning during the 5s window.",
+          "engineNotes": "Needs per-cast poisoned-target counting (reuse from Blight Surge) and ICD system. Poison tick spread needs adjacency resolution. ~20 lines new logic."
+        },
+        {
+          "id": "ff_1_4_1",
+          "name": "Venom Gale",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "During Venom Frenzy: Frost Fan pierces +1 additional target.",
+          "rank2": "Pierced targets gain +1 extra poison stack.",
+          "modifier": {
+            "condition": "whileBuffActive",
+            "conditionParam": { "buffId": "venomFrenzy" },
+            "perRank": {
+              "1": { "bonusPierce": 1 },
+              "2": { "bonusPierce": 1, "onPierce": { "bonusPoisonStacks": 1 } }
+            }
+          },
+          "designNotes": "Venom Frenzy payoff for FF. Pierce increases FF's target coverage during the window. R2 adds poison stacks through pierce -- connecting projectile mechanics to poison building."
+        },
+        {
+          "id": "ff_1_5_0",
+          "name": "Creeping Frost",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Poison stacks from Frost Fan deal +8% more damage per target currently poisoned (multiplicative with Miasma Cascade). Frost Fan poison duration +30%. Max +40% bonus (5 poisoned targets).",
+          "modifier": {
+            "debuffInteraction": {
+              "debuffEffectBonus": 8,
+              "perPoisonedTarget": true,
+              "maxBonus": 40,
+              "debuffDurationBonus": 30
+            }
+          },
+          "exclusiveWith": ["ff_1_5_1"],
+          "designNotes": "Consistent choice tuned to FF's AoE poison pattern. Unlike Stab's Toxic Mastery (per-stack scaling on single target), Creeping Frost scales per POISONED TARGET -- rewarding FF's wide poison application. Duration extension keeps the target count high. Reliable damage ceiling that rewards maintaining poison on many targets simultaneously."
+        },
+        {
+          "id": "ff_1_5_1",
+          "name": "Plague Detonation",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "When 3+ poisoned enemies are within AoE range: 20% chance per Frost Fan cast to detonate ALL poison stacks on ALL nearby poisoned targets for instant damage. Resets all stacks to 0.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onCast",
+                "chance": 0.20,
+                "conditionParam": { "poisonedTargetsInRange": 3 },
+                "effect": { "massDetonate": { "debuffId": "poisoned", "consumeAll": true, "affectsAll": true } }
+              }
+            ]
+          },
+          "exclusiveWith": ["ff_1_5_0"],
+          "designNotes": "Risky choice tuned to FF's AoE pattern. Unlike Stab's Volatile Toxins (single-target detonation at 10+ stacks), Plague Detonation is a MASS detonation that consumes ALL stacks on ALL nearby poisoned targets. Enormous burst potential in dense packs, but resets everything. The 3-target proximity gate ensures it only fires in meaningful AoE scenarios. Feast/famine cycle on a pack-wide scale."
+        },
+        {
+          "id": "ff_1_6_0",
+          "name": "Contagion Burst",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "On kill of a poisoned target with 5+ stacks: all remaining poison stacks explode outward, applying half the dead target's stacks (rounded down) to all enemies within AoE range. Spread poison inherits remaining duration.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onKill",
+                "chance": 1.0,
+                "conditionParam": { "debuffId": "poisoned", "threshold": 5 },
+                "effect": {
+                  "explodeStacks": {
+                    "debuffId": "poisoned",
+                    "spreadPercent": 50,
+                    "range": "aoe",
+                    "inheritDuration": true
+                  }
+                }
+              }
+            ]
+          },
+          "designNotes": "Kill-gated poison cascade specific to FF's AoE role. Unlike Stab's Pandemic (spread ALL debuffs on kill), Contagion Burst is poison-specific with a 5-stack gate and spreads HALF stacks to AoE range. FF's wide coverage makes kills frequent, and the AoE spread feeds back into Creeping Frost's per-target scaling. The 5-stack gate rewards investing in poison application depth before killing."
+        },
+        {
+          "id": "ff_1_7_0",
+          "name": "FROSTBLIGHT",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Frost Fan's poison stacks are converted to Frostblight -- a single unified DoT that combines Cold and Chaos damage. Frostblight cannot spread to new targets (Contagion Burst spread is disabled). Frostblight stacks have no cap and deal 2.5x base poison damage. Frostblight ticks also Chill (1s). -20% Frost Fan projectile count.",
+          "modifier": {
+            "convertPoison": {
+              "newDebuffId": "frostblight",
+              "damageTypes": ["cold", "chaos"],
+              "damageMultiplier": 2.5,
+              "removeStackCap": true,
+              "onTick": { "applyDebuff": { "debuffId": "chilled", "duration": 1 } }
+            },
+            "disableSpread": true,
+            "reducedProjectileCount": 20
+          },
+          "tensionWith": "ff_1_6_0",
+          "tensionDescription": "T6 rewards killing poisoned targets to SPREAD poison across the pack -- breadth-first AoE poisoning. T7 converts poison to Frostblight with 2.5x damage but DISABLES all spread. Breadth vs depth. You can no longer cascade poison through kills, but the poison you DO apply is devastating. The reduced projectile count further narrows your coverage, forcing you to focus on fewer targets with much higher individual DoT.",
+          "antiSynergy": ["ff_1_6_0", "ff_1_1_1", "ff_1_3_1"],
+          "antiSynergyNotes": "Contagion Burst (T6) -- spread is explicitly disabled. Plague Scatter (T1b) -- spread to adjacent is disabled. Pandemic Breeze (T3b) -- on-kill spread is disabled.",
+          "synergy": ["ff_1_4_0", "ff_1_2_1"],
+          "synergyNotes": "Miasma Cascade (T4) -- bonus stacks during Miasma build Frostblight rapidly on fewer targets. Festering Chill (T2b) -- Frostblight ticks apply Chill, and Chill boosts poison tick damage, creating a self-reinforcing loop."
+        }
+      ]
+    },
+    {
+      "branchIndex": 2,
+      "branchName": "Shadow Dance",
+      "mechanicCheck": {
+        "mechanics": [
+          "Frost Fortify (T2 notable -- frost-themed fortify on Frost Fan hit with dodge CD interaction)",
+          "Mist Veil state (T4 notable -- state-shift on 3 dodges, empowers FF with AoE defense)",
+          "Frost Counter (T6 notable -- cooldown proc for AoE counter-attack on dodge)"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "nodes": [
+        {
+          "id": "ff_2_1_0",
+          "name": "Frost Ward",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "+3 life on hit with Frost Fan (applies per target hit).",
+          "rank2": "Also gain +5 all resist for 3s after casting Frost Fan.",
+          "modifier": {
+            "condition": "onHit",
+            "effect": { "lifeOnHit": 3 },
+            "perRank": {
+              "1": { "lifeOnHit": 3 },
+              "2": { "lifeOnHit": 3, "onCast": { "resistBonus": 5, "duration": 3 } }
+            }
+          },
+          "designNotes": "AoE sustain. Unlike Stab's +2 life on hit (single target), FF's per-target life on hit scales with pack density. Hitting 5 targets = 15 life per cast. R2 adds resist window timed to FF's cast."
+        },
+        {
+          "id": "ff_2_1_1",
+          "name": "Chilling Defense",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Enemies hit by Frost Fan deal -5% damage for 3s.",
+          "rank2": "-8% damage and -10% attack speed.",
+          "modifier": {
+            "condition": "onHit",
+            "effect": { "applyDebuff": { "debuffId": "weakened", "effect": { "reducedDamageDealt": 5 }, "duration": 3 } },
+            "perRank": {
+              "1": { "reducedDamageDealt": 5 },
+              "2": { "reducedDamageDealt": 8, "reducedAttackSpeed": 10 }
+            }
+          },
+          "designNotes": "AoE defensive debuff. FF hits many targets, so this weakens entire packs. R2 adds attack speed slow -- synergizes with Cold tag's chill fantasy."
+        },
+        {
+          "id": "ff_2_2_0",
+          "name": "Hailguard",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "cooldown",
+          "description": "Frost Fan hits grant Frost Fortify (1 stack per 2 targets hit, 5s duration, 3% DR per stack, max 3 stacks). On dodge: 30% chance to instantly reset Frost Fan's cooldown.",
+          "statsRider": "+5 cold resist.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onCast",
+                "chance": 1.0,
+                "effect": {
+                  "addStack": "frostFortify",
+                  "stacksPer": { "targetThreshold": 2 },
+                  "maxStacks": 3,
+                  "duration": 5,
+                  "perStack": { "damageReduction": 3 }
+                }
+              },
+              {
+                "trigger": "onDodge",
+                "chance": 0.30,
+                "resetCooldown": "dagger_fan_of_knives"
+              }
+            ],
+            "stats": { "coldResist": 5 }
+          },
+          "designNotes": "Cooldown proc tuned to FF's AoE rhythm. Unlike Stab's Shadow Guard (fortify on single hit + self CD reset), Hailguard grants fortify based on TARGET COUNT -- hitting 6 targets in one cast gives 3 stacks instantly. The dodge -> CD reset on FF (not self) is significant because FF has a longer 5s CD. Fortify stacks from AoE create a defense-through-offense loop.",
+          "engineNotes": "Frost Fortify stacking needs per-cast target counting divided by threshold (2). resetCooldown targets a specific skill ID, not 'self'. ~10 lines."
+        },
+        {
+          "id": "ff_2_2_1",
+          "name": "Evasive Scatter",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On dodge: gain +10% projectile speed and +1 pierce for Frost Fan for 3s.",
+          "rank2": "Also gain +15% Frost Fan damage on next cast.",
+          "modifier": {
+            "condition": "onDodge",
+            "effect": {
+              "applyBuff": {
+                "effect": { "incProjectileSpeed": 10, "bonusPierce": 1 },
+                "duration": 3,
+                "affectsSkill": "dagger_fan_of_knives"
+              }
+            },
+            "perRank": {
+              "1": { "incProjectileSpeed": 10, "bonusPierce": 1 },
+              "2": { "incProjectileSpeed": 10, "bonusPierce": 1, "nextCastBonus": { "incDamage": 15 } }
+            }
+          },
+          "designNotes": "Dodge-to-offense bridge specific to FF. Pierce bonus feeds into Shatter Point (Assassination T3a) and general coverage. R2 adds a damage bonus on next cast -- creating a dodge -> empowered FF rhythm."
+        },
+        {
+          "id": "ff_2_3_0",
+          "name": "Frozen Counter",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On dodge: fire a mini Frost Fan (50% damage, 1 projectile, no pierce).",
+          "rank2": "Counter fires 2 projectiles.",
+          "modifier": {
+            "condition": "onDodge",
+            "effect": { "castSkill": { "skillId": "dagger_fan_of_knives", "damagePercent": 50, "projectiles": 1, "pierce": 0 } },
+            "perRank": {
+              "1": { "projectiles": 1 },
+              "2": { "projectiles": 2 }
+            }
+          },
+          "designNotes": "Dodge counter-attack using FF itself. Unlike Stab's Counter Stab (generic weapon damage), Frozen Counter fires a mini version of the skill -- maintaining Cold tag and potentially triggering FF-specific effects like poison application (Venomcraft cross-branch) or Chill."
+        },
+        {
+          "id": "ff_2_3_1",
+          "name": "Ice Barrier",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On dodge: gain +15% cold resist and +5% DR for 3s.",
+          "rank2": "5s duration and heals 2% max HP.",
+          "modifier": {
+            "condition": "onDodge",
+            "effect": {
+              "applyBuff": {
+                "effect": { "coldResist": 15, "damageReduction": 5 },
+                "duration": 3
+              }
+            },
+            "perRank": {
+              "1": { "duration": 3 },
+              "2": { "duration": 5, "healPercent": 2 }
+            }
+          },
+          "designNotes": "Cold-themed dodge defense. Cold resist ties into FF's elemental identity. R2 adds heal and duration -- a sustain node that rewards dodge frequency."
+        },
+        {
+          "id": "ff_2_3_2",
+          "name": "Blizzard Step",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On dodge: reduce Frost Fan cooldown by 1s.",
+          "rank2": "Also increases next Frost Fan cast's target count by +1.",
+          "modifier": {
+            "condition": "onDodge",
+            "effect": { "reduceCooldown": { "skillId": "dagger_fan_of_knives", "amount": 1 } },
+            "perRank": {
+              "1": { "amount": 1 },
+              "2": { "amount": 1, "nextCastBonus": { "bonusTargetCount": 1 } }
+            }
+          },
+          "designNotes": "CDR on dodge specific to FF's 5s CD. Unlike Stab's Combat Flow (0.5s/1s CDR on 3s CD), 1s off FF's 5s CD is 20% per dodge. R2 adds target count -- feeding into Spreading Chill and Blizzard Barrage target-count scaling."
+        },
+        {
+          "id": "ff_2_4_0",
+          "name": "Mist Veil",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "state-shift",
+          "description": "On dodge: heal 4% max HP. On 3 dodges within 6s: enter Mist Veil (4s) -- take 25% reduced damage, Frost Fan gains +2 target count, and all Frost Fan hits Chill for 2s. Mist Veil has a 15s internal cooldown.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "healPercent": 4
+              },
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "conditionParam": { "dodgesInWindow": 3, "windowDuration": 6 },
+                "applyBuff": {
+                  "buffId": "mistVeil",
+                  "effect": {
+                    "damageReduction": 25,
+                    "skillBonus": {
+                      "skillId": "dagger_fan_of_knives",
+                      "bonusTargetCount": 2,
+                      "onHit": { "applyDebuff": { "debuffId": "chilled", "duration": 2 } }
+                    }
+                  },
+                  "duration": 4
+                },
+                "internalCooldown": 15
+              }
+            ]
+          },
+          "designNotes": "State-shift tuned to FF's AoE identity. Unlike Stab's Ghost Step (generic Shadow Form with DR + Blind), Mist Veil specifically enhances FF with target count and guaranteed Chill. The +2 target count during Mist Veil feeds all target-count-scaling nodes (Spreading Chill, Blizzard Barrage, Blight Surge). Chill application connects to Frozen Focus and Festering Chill cross-branch.",
+          "engineNotes": "Reuse dodge-within-window counting from Ghost Step. Skill-specific buff bonus needs per-skill modifier application. ~15 lines new logic."
+        },
+        {
+          "id": "ff_2_4_1",
+          "name": "Shadow Frost",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "During Shadow Form: Frost Fan hits guarantee Chill (2s).",
+          "rank2": "Chilled enemies take +15% more damage from Frost Fan.",
+          "modifier": {
+            "condition": "whileBuffActive",
+            "conditionParam": { "buffId": "shadowForm" },
+            "perRank": {
+              "1": { "onHit": { "guaranteedChill": true, "chillDuration": 2 } },
+              "2": { "onHit": { "guaranteedChill": true, "chillDuration": 2 }, "vsChilled": { "incDamage": 15 } }
+            }
+          },
+          "designNotes": "Shadow Form payoff for FF. Guaranteed Chill on all targets hit by FF during the window. R2 adds damage vs Chilled -- creating a Chill -> damage loop during Shadow Form."
+        },
+        {
+          "id": "ff_2_5_0",
+          "name": "Aurora Shield",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "On dodge: heal 3% max HP + Frost Fan's next cast gains +10% damage per Frost Fortify stack (from Hailguard). +5 all resist passive. Frost Fan hits during Mist Veil grant +1 Frost Fortify stack per 3 targets hit.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "healPercent": 3,
+                "applyBuff": {
+                  "effect": { "nextCastDamagePerFrostFortify": 10 },
+                  "duration": 5
+                }
+              }
+            ],
+            "conditionalMods": [
+              {
+                "condition": "whileBuffActive",
+                "conditionParam": { "buffId": "mistVeil" },
+                "modifier": {
+                  "onHit": { "addStack": "frostFortify", "per": { "targetThreshold": 3 } }
+                }
+              }
+            ],
+            "stats": { "resistBonus": 5 }
+          },
+          "exclusiveWith": ["ff_2_5_1"],
+          "designNotes": "Consistent choice tuned to FF's AoE defense loop. Dodge -> heal + Frost Fortify -> damage conversion creates steady sustain. During Mist Veil, FF's multi-target hits build extra Frost Fortify -- defense through AoE offense. Reliable ceiling that scales with pack density."
+        },
+        {
+          "id": "ff_2_5_1",
+          "name": "Frost Retaliation",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "On dodge: fire a full Frost Fan at 60% damage (uses current target count and pierce). Below 35% HP: counter Frost Fan deals 150% damage instead. Mist Veil's dodge heal is REMOVED. +10% damage taken.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "castSkill": { "skillId": "dagger_fan_of_knives", "damagePercent": 60 }
+              },
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "conditionParam": { "belowHpPercent": 35 },
+                "castSkill": { "skillId": "dagger_fan_of_knives", "damagePercent": 150 }
+              }
+            ],
+            "removeEffect": { "nodeId": "ff_2_4_0", "effectType": "healPercent" },
+            "increasedDamageTaken": 10
+          },
+          "exclusiveWith": ["ff_2_5_0"],
+          "designNotes": "Risky choice tuned to FF's AoE identity. Unlike Stab's Counter Stance (weapon damage counter), Frost Retaliation fires a FULL Frost Fan on dodge -- with all current target count and pierce. Below 35% HP, the counter becomes devastating AoE. Removes Mist Veil heal and adds damage taken -- you're dodging to attack, not to survive. In dense packs, each dodge becomes a full AoE volley.",
+          "engineNotes": "Counter Frost Fan resolves as a full skill cast with current modifiers (target count, pierce) applied. Below-HP conditional overrides damage percentage. ~10 lines."
+        },
+        {
+          "id": "ff_2_6_0",
+          "name": "Frost Riposte",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "cooldown",
+          "description": "On dodge: fire a piercing frost bolt that hits all enemies in a line for 70% weapon damage as Cold. Applies Chill (2s) to all targets hit. If the bolt hits 3+ targets, reset Frost Fan's cooldown.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "effect": {
+                  "frostBolt": {
+                    "pierceAll": true,
+                    "damagePercent": 70,
+                    "damageType": "cold",
+                    "applyDebuff": { "debuffId": "chilled", "duration": 2 }
+                  }
+                }
+              },
+              {
+                "trigger": "onDodgeProjectileHit",
+                "chance": 1.0,
+                "conditionParam": { "targetsHit": 3 },
+                "resetCooldown": "dagger_fan_of_knives"
+              }
+            ]
+          },
+          "designNotes": "Cooldown proc specific to FF's projectile/AoE identity. Unlike Stab's Phantom Stride (single-target counter with kill-gated CD reset), Frost Riposte fires a piercing frost bolt and gates CD reset on TARGET COUNT (3+). This ties defense to AoE pack density -- dodges in dense combat reset FF's 5s cooldown, creating a dodge -> riposte -> FF -> dodge loop. The bolt's Chill feeds into Frozen Focus and Mist Veil's Chill mechanics."
+        },
+        {
+          "id": "ff_2_7_0",
+          "name": "WINTER'S FURY",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Frost Riposte's bolt is replaced with a full 360-degree frost nova on dodge: deals 120% weapon damage as Cold to ALL nearby enemies. Nova always Chills (3s). On dodge: you no longer heal (Mist Veil's heal is removed). All dodge-triggered proc chances are doubled. -10% max HP.",
+          "modifier": {
+            "overrideProc": {
+              "target": "frostRiposte",
+              "effect": {
+                "frostNova": {
+                  "damagePercent": 120,
+                  "damageType": "cold",
+                  "applyDebuff": { "debuffId": "chilled", "duration": 3 },
+                  "aoe360": true
+                }
+              }
+            },
+            "removeEffect": { "nodeId": "ff_2_4_0", "effectType": "healPercent" },
+            "dodgeProcChanceMultiplier": 2.0,
+            "reducedMaxLife": 10
+          },
+          "tensionWith": "ff_2_6_0",
+          "tensionDescription": "T6 gives a directional frost bolt that rewards hitting 3+ targets in a line with FF cooldown reset. T7 replaces this with a 360-degree frost nova -- you no longer need to aim and it hits everything nearby, but you lose the directional counter's CD-reset-on-3-targets mechanic (nova doesn't count individual targets for reset). You also lose all dodge healing and take reduced max HP. Dodges become pure AoE offense -- every dodge is a frost nova, but you have no sustain from dodging.",
+          "antiSynergy": ["ff_2_4_0"],
+          "antiSynergyNotes": "Mist Veil (T4) -- dodge heal is explicitly removed. The 3-target CD reset from Frost Riposte is also removed since the nova replaces the bolt.",
+          "synergy": ["ff_2_2_0", "ff_2_5_1"],
+          "synergyNotes": "Hailguard (T2) -- CD reset chance (30% -> 60% effective with doubled proc chances). Frost Retaliation (T5B) -- dodge fires both a full Frost Fan AND a frost nova. Each dodge becomes a massive AoE event."
+        }
+      ]
+    }
+  ]
+}

@@ -5,7 +5,7 @@
 > and non-uniform tier gating.
 >
 > **Framework version:** v3.1
-> **First weapon:** Dagger (see `docs/weapon-designs/dagger.md` — also serves as template for all weapons)
+> **First weapon:** Dagger (see `docs/weapon-designs/dagger/` — per-skill JSON files + README, also serves as template for all weapons)
 
 ---
 
@@ -630,18 +630,18 @@ Each weapon is its own sprint. First weapon: **Dagger**.
 
 ### Dagger-Specific Notes
 
-- Implement from `docs/weapon-designs/dagger.md` (v3.1 aligned)
-- Full Stab/Assassination tree specced — others use template selections
+- Implement from `docs/weapon-designs/dagger/` (v4.0 — per-skill JSON files with unique notables/keystones)
+- All 7 skills fully specced: stab.json, blade-flurry.json, frost-fan.json, viper-strike.json, shadow-step.json, assassinate.json, lightning-lunge.json
+- 273 total nodes (39 per skill × 7 skills), all unique names validated
 - Remove `dagger_lethality` from skill definitions
 - Buff assignments: Stealth → Assassination, Flurry → Shadow Dance
-- Need full T5-T7 specs for remaining 6 skills before implementing those trees
 
 ### Execution Order
 
 ```
-DONE: Dagger design doc (docs/weapon-designs/dagger.md) — v3.1 aligned
-NEXT: Spec remaining 6 dagger skills' T5-T7 (iteratively, one per archetype first)
-THEN: Phase 0 (disable class trees)
+DONE: Dagger design doc (docs/weapon-designs/dagger/) — v4.0 per-skill JSON files
+DONE: All 7 dagger skills fully specced with unique notables/keystones (273 nodes)
+NEXT: Phase 0 (disable class trees)
 THEN: Phase 1 (engine infrastructure + P1 dagger mechanics)
 THEN: Phase 2 (implement dagger talent trees from design doc)
 THEN: Next weapon design docs (sword, axe, etc.)

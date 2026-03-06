@@ -1,0 +1,1008 @@
+{
+  "skillId": "dagger_viper_strike",
+  "skillName": "Viper Strike",
+  "archetypes": ["dot", "chaos", "melee"],
+  "branches": [
+    {
+      "branchIndex": 0,
+      "branchName": "Assassination",
+      "mechanicCheck": {
+        "mechanics": [
+          "Poison-crit feedback (T1 behavior -- DoT stacks enable crits, crits add stacks)",
+          "Viper's Focus state (T2 notable -- escalating proc from poison ticks -> crit window)",
+          "Cobra Mark (T6 notable -- catastrophic poison-threshold mark -> deferred burst)"
+        ],
+        "nonTracked": [
+          "+X vs Vulnerable -- applied by Fang of Vulnerability, not tracked independently",
+          "Extra poison stacks on crit -- fire-and-forget addition to existing stack tracking"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "nodes": [
+        {
+          "id": "vs_0_1_0",
+          "name": "Toxic Precision",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "+8% crit chance while target has 3+ poison stacks.",
+          "rank2": "Threshold drops to 2 stacks.",
+          "modifier": {
+            "condition": "whileDebuffActive",
+            "conditionParam": { "debuffId": "poisoned", "threshold": 3 },
+            "effect": { "incCritChance": 8 },
+            "perRank": {
+              "1": { "threshold": 3, "incCritChance": 8 },
+              "2": { "threshold": 2, "incCritChance": 8 }
+            }
+          },
+          "designNotes": "DOT_STATE_CONDITIONAL template. VS's natural DoT stacking gates crit access -- crits earned through poison investment, not raw stats. The crit-DoT hybrid identity starts here."
+        },
+        {
+          "id": "vs_0_1_1",
+          "name": "Venom Surge",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Each poison tick has 15% chance to grant +5% crit chance for 2s (stacks 3x).",
+          "rank2": "Stacks persist until next skill cast (not timed).",
+          "modifier": {
+            "condition": "onDoTTick",
+            "conditionParam": { "debuffId": "poisoned" },
+            "effect": { "incCritChance": 5, "duration": 2, "maxStacks": 3 },
+            "perRank": {
+              "1": { "chance": 0.15, "duration": 2, "maxStacks": 3 },
+              "2": { "chance": 0.15, "persistUntilCast": true, "maxStacks": 3 }
+            }
+          },
+          "designNotes": "DOT_TICK_PROC template. Poison ticks passively build crit chance -- the DoT does work between casts. R2 changes timing: stacks persist until you cast, meaning more poison ticks = bigger crit window on next strike. Unique to DoT skills."
+        },
+        {
+          "id": "vs_0_2_0",
+          "name": "Viper's Focus",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "escalating",
+          "description": "Each poison tick on any target has 8% chance to grant Serpent Clarity: +40% crit mult for 4s. Chance increases by +4% per active poison stack on target (max 48% at 10 stacks). Multiple ticks can refresh duration but not stack the buff.",
+          "statsRider": "+8% crit chance.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDoTTick",
+                "chance": 0.08,
+                "conditionParam": { "debuffId": "poisoned", "perStack": 0.04, "maxChance": 0.48 },
+                "applyBuff": {
+                  "buffId": "serpentClarity",
+                  "effect": { "incCritMultiplier": 40 },
+                  "duration": 4
+                }
+              }
+            ],
+            "stats": { "incCritChance": 8 }
+          },
+          "designNotes": "Escalating proc specific to VS's DoT rhythm. Unlike Stab's Blade Sense (escalates via consecutive hits), this escalates via poison stack depth -- more stacks = more ticks = higher proc chance per tick. A 5-stack poison has 28% chance per tick, and with 5s DoT duration that's ~5 tick checks. The crit mult window rewards timing your next VS cast during Serpent Clarity."
+        },
+        {
+          "id": "vs_0_2_1",
+          "name": "Critical Infection",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Crits vs poisoned enemies add +1 extra poison stack.",
+          "rank2": "Crits vs poisoned also apply Weakened (1s).",
+          "modifier": {
+            "condition": "onCrit",
+            "conditionParam": { "whileDebuffActive": "poisoned" },
+            "effect": { "addStack": "poisoned", "bonusStacks": 1 },
+            "perRank": {
+              "1": { "bonusStacks": 1 },
+              "2": { "bonusStacks": 1, "applyDebuff": { "debuffId": "weakened", "duration": 1 } }
+            }
+          },
+          "designNotes": "The crit-DoT feedback loop core. Crits add stacks -> more stacks enable more crits (via T1a/T1b) -> more crits add more stacks. R2 adds Weakened for debuff layering. This is the heart of VS Assassination's hybrid identity."
+        },
+        {
+          "id": "vs_0_3_0",
+          "name": "Lethal Dose",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "At 5+ poison stacks, crits deal +20% damage.",
+          "rank2": "Threshold drops to 3 stacks.",
+          "modifier": {
+            "condition": "onCrit",
+            "conditionParam": { "debuffId": "poisoned", "threshold": 5 },
+            "effect": { "incDamage": 20 },
+            "perRank": {
+              "1": { "threshold": 5, "incDamage": 20 },
+              "2": { "threshold": 3, "incDamage": 20 }
+            }
+          },
+          "designNotes": "DOT_STATE_CONDITIONAL. Poison stack threshold gates crit damage bonus. R2 dramatically lowers the bar, making the bonus active much earlier in the poison ramp. Bridges T2's crit-poison loop into T4's Vulnerable application."
+        },
+        {
+          "id": "vs_0_3_1",
+          "name": "Expiring Venom",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "When poison expires naturally, deal 40% of remaining DoT as burst damage.",
+          "rank2": "Burst also reapplies 2 poison stacks (restarts cycle).",
+          "modifier": {
+            "condition": "onDoTExpiry",
+            "conditionParam": { "debuffId": "poisoned" },
+            "effect": { "burstDamagePercent": 40 },
+            "perRank": {
+              "1": { "burstDamagePercent": 40 },
+              "2": { "burstDamagePercent": 40, "reapplyStacks": 2 }
+            }
+          },
+          "designNotes": "DOT_EXPIRY_BURST template. Rewards letting poison run its full course rather than reapplying early. R2 creates a self-sustaining cycle -- poison expires, bursts, reapplies, ticks again. Unique to DoT-heavy skills like VS."
+        },
+        {
+          "id": "vs_0_3_2",
+          "name": "Festering Wounds",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "+4% damage per active poison stack on target.",
+          "rank2": "Bonus also applies to DoT ticks.",
+          "modifier": {
+            "condition": "whileDebuffActive",
+            "conditionParam": { "debuffId": "poisoned" },
+            "effect": { "incDamagePerStack": 4 },
+            "perRank": {
+              "1": { "incDamagePerStack": 4, "appliesTo": "hits" },
+              "2": { "incDamagePerStack": 4, "appliesTo": "hitsAndDoT" }
+            }
+          },
+          "designNotes": "DOT_STATE_CONDITIONAL. Per-stack scaling rewards deep poison investment. R2 is the key change: making the bonus apply to DoT ticks creates multiplicative scaling with poison depth. At 8 stacks, that's +32% to both hits AND each tick."
+        },
+        {
+          "id": "vs_0_4_0",
+          "name": "Fang of Vulnerability",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "Crits while target has 5+ poison stacks apply Vulnerable (3s). Guaranteed -- no proc chance. While Vulnerable is active on a poisoned target: +20% crit chance vs that target.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onCrit",
+                "chance": 1.0,
+                "conditionParam": { "debuffId": "poisoned", "threshold": 5 },
+                "applyDebuff": { "debuffId": "vulnerable", "stacks": 1, "duration": 3 }
+              }
+            ],
+            "conditionalMods": [
+              {
+                "condition": "whileDebuffActive",
+                "conditionParam": { "debuffId": "vulnerable", "alsoRequired": "poisoned" },
+                "modifier": { "incCritChance": 20 }
+              }
+            ]
+          },
+          "designNotes": "Gated proc specific to VS's DoT delivery. Unlike Stab's Exploit Weakness (crits alone gate Vulnerable), VS requires BOTH a crit AND 5+ poison stacks. Harder to activate but stronger payoff (+20% vs Stab's +15%, 3s vs 2s). The poison threshold gate means VS earns Vulnerable through its DoT identity, not just crit chance. Longer Vulnerable duration (3s) accounts for VS's 5s CD vs Stab's 3s CD."
+        },
+        {
+          "id": "vs_0_4_1",
+          "name": "Predator's Venom",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "While in Serpent Clarity state (from Viper's Focus): poison ticks deal +30% damage.",
+          "rank2": "Serpent Clarity state also extends active poison durations by 1s.",
+          "modifier": {
+            "condition": "whileBuffActive",
+            "conditionParam": { "buffId": "serpentClarity" },
+            "perRank": {
+              "1": { "incDoTDamage": 30 },
+              "2": { "incDoTDamage": 30, "extendDoTDuration": 1 }
+            }
+          },
+          "designNotes": "Serpent Clarity payoff specific to VS's DoT. During the crit window, poison ticks hit harder. R2 extends durations, meaning more ticks during the window AND more chances to proc the next Serpent Clarity from Viper's Focus. Creates a self-reinforcing crit-DoT rhythm."
+        },
+        {
+          "id": "vs_0_5_0",
+          "name": "Serpent's Patience",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Each poison tick on a Vulnerable target has 20% chance to grant +1 free Viper Strike charge (instant cast, no CD). Max 1 stored charge. Poison ticks that don't proc the charge instead grant +3% crit mult (stacks up to 10x, resets on charge use). Crit chance capped at 55%.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDoTTick",
+                "chance": 0.20,
+                "conditionParam": { "whileDebuffActive": "vulnerable" },
+                "effect": { "grantCharge": "dagger_viper_strike", "maxCharges": 1 }
+              },
+              {
+                "trigger": "onDoTTick",
+                "chance": 1.0,
+                "conditionParam": { "whileDebuffActive": "vulnerable", "ifNoChargeGranted": true },
+                "effect": { "incCritMultiplier": 3, "maxStacks": 10, "resetOnChargeUse": true }
+              }
+            ],
+            "critChanceCap": 55
+          },
+          "exclusiveWith": ["vs_0_5_1"],
+          "designNotes": "Consistent choice tuned to VS's DoT rhythm. Free VS charges come from poison ticks on Vulnerable targets -- your DoT does the work between casts. The crit mult stacking on non-proc ticks means even 'misses' build value. Crit cap (55%) prevents runaway but poison ticks check frequently enough for reliable charge generation. The charge stores, so you control timing."
+        },
+        {
+          "id": "vs_0_5_1",
+          "name": "Cobra's Gambit",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "On kill while target has 5+ poison stacks: apply Cobra's Momentum to next enemy -- your next Viper Strike on that enemy is a guaranteed crit that applies double poison stacks. Chains on each kill. While no enemy has 5+ poison stacks, you deal -20% damage (cold streak penalty).",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onKill",
+                "chance": 1.0,
+                "conditionParam": { "debuffId": "poisoned", "threshold": 5 },
+                "applyBuff": {
+                  "buffId": "cobrasMomentum",
+                  "effect": { "guaranteedCrit": true, "doublePoisonStacks": true },
+                  "duration": 10
+                }
+              }
+            ],
+            "conditionalMods": [
+              {
+                "condition": "noDebuffAboveThreshold",
+                "conditionParam": { "debuffId": "poisoned", "threshold": 5 },
+                "modifier": { "incDamage": -20 }
+              }
+            ]
+          },
+          "exclusiveWith": ["vs_0_5_0"],
+          "designNotes": "Risky choice tuned to VS's DoT kill-chain rhythm. Kill chains reward clearing poisoned targets but the cold streak penalty (-20% when no enemy has 5+ stacks) means you're punished during ramp-up on fresh targets. Tensions with Serpent's Patience: consistent ticks vs explosive kill chains. The double-stacks on chained kills mean each new target starts with a massive poison load, enabling fast threshold access."
+        },
+        {
+          "id": "vs_0_6_0",
+          "name": "Cobra Mark",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "catastrophic",
+          "description": "When a target reaches 8+ poison stacks: 20% chance per tick to apply Cobra Mark (15s). Cobra Marked enemies: when their poison ticks deal a crit-empowered tick (during Serpent Clarity), the Mark detonates for 120% of total active poison DoT as instant chaos damage. Mark is consumed on detonation.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDoTTick",
+                "chance": 0.20,
+                "conditionParam": { "debuffId": "poisoned", "threshold": 8 },
+                "applyDebuff": {
+                  "debuffId": "cobraMark",
+                  "stacks": 1,
+                  "duration": 15
+                }
+              }
+            ],
+            "debuffInteraction": {
+              "detonateCondition": {
+                "debuffId": "cobraMark",
+                "trigger": "onDoTTickDuringSerpentClarity",
+                "effect": { "instantDamage": { "percentOfTotalDoT": 120, "damageType": "chaos" } },
+                "consumeOnDetonate": true
+              }
+            }
+          },
+          "designNotes": "Catastrophic proc specific to VS's poison/DoT pattern. Unlike Stab's Death Mark (crit applies mark, next hit detonates), Cobra Mark is applied by poison tick depth (8+ stacks) and detonated by crit-state poison ticks (Serpent Clarity). The entire cycle lives in VS's DoT ecosystem: stack poison -> tick applies mark -> earn Serpent Clarity -> crit-empowered tick detonates for 120% of total DoT. 15s duration is generous because the detonation condition (Serpent Clarity active during a tick) requires timing. The 120% payoff is enormous -- at 8+ stacks with Concentrated Toxin and Festering Wounds scaling, this is devastating."
+        },
+        {
+          "id": "vs_0_7_0",
+          "name": "SERPENT APOTHEOSIS",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Your Viper Strike hits deal no direct damage -- all hit damage is converted to bonus poison stacks (1 stack per 15% weapon damage, rounded down). Crits no longer deal bonus crit damage -- crits ONLY trigger Cobra Mark application (guaranteed, no threshold required) and grant Serpent Clarity. Poison ticks deal +50% more damage. -25% poison duration.",
+          "modifier": {
+            "convertHitToStacks": { "damagePerStack": 15, "roundDown": true },
+            "critsDoNoBonusDamage": true,
+            "critsGuaranteeMark": { "debuffId": "cobraMark", "noThreshold": true },
+            "critsGrantBuff": { "buffId": "serpentClarity" },
+            "incDoTDamage": 50,
+            "incDoTDuration": -25
+          },
+          "tensionWith": "vs_0_6_0",
+          "tensionDescription": "T6 gives Cobra Mark as a dramatic detonation moment gated behind 8+ poison stacks. T7 removes ALL direct hit damage and converts it to poison stacks -- you can no longer burst with hits. Crits become pure utility (Mark delivery + Serpent Clarity activation) rather than damage. The tension: T6's Cobra Mark detonation is your ONLY source of burst damage now, but it's easier to trigger (crits guarantee Mark, no 8-stack threshold). You trade the ability to deal hit damage for devastating DoT-only gameplay. The -25% poison duration means ticks come faster but windows are shorter -- you must maintain the crit-DoT rhythm or lose everything.",
+          "antiSynergy": ["vs_0_2_0"],
+          "antiSynergyNotes": "Viper's Focus (T2) -- crit mult bonus from Serpent Clarity has reduced value because crits deal no bonus damage. Serpent Clarity still matters for Cobra Mark detonation and Predator's Venom DoT bonus, but the crit mult itself is wasted.",
+          "synergy": ["vs_0_4_0", "vs_0_3_2", "vs_0_5_0"],
+          "synergyNotes": "Fang of Vulnerability (T4) -- crits on 5+ stacks apply Vulnerable, now easier since all damage goes to stacks. Festering Wounds (T3c R2) -- per-stack damage bonus applies to DoT ticks, which is now your only damage source. Serpent's Patience (T5A) -- free VS charges from DoT ticks generate more stacks since all hit damage converts to stacks.",
+          "engineNotes": "Hit-to-stack conversion needs new damage resolution path: calculate hit damage -> divide by 15% weapon damage -> floor -> apply that many poison stacks instead of dealing hit damage. Crits still resolve for proc purposes but deal 0 bonus damage."
+        }
+      ]
+    },
+    {
+      "branchIndex": 1,
+      "branchName": "Venomcraft",
+      "mechanicCheck": {
+        "mechanics": [
+          "Poison stacks (T1 behavior + Necrotic Infusion -- stack count matters for thresholds and per-stack scaling)",
+          "Venom Frenzy state (T4 notable -- Putrid Bloom state-shift at poison expiry burst)",
+          "Blight cascade (T6 notable -- Necrotic Cascade gated poison-to-debuff conversion at 10+ stacks)"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "nodes": [
+        {
+          "id": "vs_1_1_0",
+          "name": "Deep Injection",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Each Viper Strike applies +1 extra poison stack (total 2).",
+          "rank2": "+2 extra (total 3 per hit).",
+          "modifier": {
+            "condition": "onHit",
+            "effect": { "bonusPoisonStacks": 1 },
+            "perRank": {
+              "1": { "bonusPoisonStacks": 1 },
+              "2": { "bonusPoisonStacks": 2 }
+            }
+          },
+          "designNotes": "VS already applies 1 poison stack naturally (DoT: 5s, 25%). Deep Injection doubles that to 2 per hit, R2 triples to 3. For the DoT specialist, rapid stack accumulation is foundational. Stab's Envenomed Blade gives 1 stack (R2: every 3rd gives 2) -- VS starts faster and scales harder."
+        },
+        {
+          "id": "vs_1_1_1",
+          "name": "Concentrated Toxin",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Poison damage per tick increases by +3% per stack on target (multiplicative with other poison bonuses).",
+          "rank2": "+5% per stack.",
+          "modifier": {
+            "condition": "onDoTTick",
+            "conditionParam": { "debuffId": "poisoned" },
+            "effect": { "incDoTDamagePerStack": 3 },
+            "perRank": {
+              "1": { "incDoTDamagePerStack": 3 },
+              "2": { "incDoTDamagePerStack": 5 }
+            }
+          },
+          "designNotes": "Per-stack DoT scaling. At 8 stacks with R2, that's +40% to every tick. Multiplicative with Deep Wounds' +25%. This is VS's core damage scaling loop -- more stacks = each tick hits harder = faster kills = stack transfer on kill. Stab's Toxic Strikes gives flat +10% vs poisoned; VS gets exponential scaling because VS IS the poison skill."
+        },
+        {
+          "id": "vs_1_2_0",
+          "name": "Necrotic Infusion",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "Viper Strike's poison DoT snapshots 15% stronger (applied at cast time). When a poisoned target takes a poison tick while above 5 stacks: 30% chance that tick applies Corroded (2s, +15% DoT damage taken). Corroded cannot be applied more than once per 4s per target.",
+          "statsRider": "+15% poison duration.",
+          "modifier": {
+            "doTSnapshotBonus": 15,
+            "procs": [
+              {
+                "trigger": "onDoTTick",
+                "chance": 0.30,
+                "conditionParam": { "debuffId": "poisoned", "threshold": 5 },
+                "applyDebuff": { "debuffId": "corroded", "duration": 2, "effect": { "incDoTDamageTaken": 15 } },
+                "internalCooldown": 4
+              }
+            ],
+            "stats": { "debuffDurationBonus": 15 }
+          },
+          "designNotes": "Gated proc for VS's natural DoT delivery. Unlike Stab's Envenom (gated by 3+ stacks for instant burst), VS's T2 is gated by 5+ stacks for a debuff that amplifies FUTURE ticks. The snapshot bonus rewards the moment of casting -- each VS cast locks in stronger poison. Corroded's ICD (4s) prevents it from being permanent but aligns with VS's 5s CD: you get ~1 Corroded window per VS cast cycle. This is VS-specific because it operates entirely through the DoT system, never through hit damage."
+        },
+        {
+          "id": "vs_1_2_1",
+          "name": "Venomous Mastery",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Viper Strike's base DoT (25%) increases to 30%.",
+          "rank2": "35% and DoT ticks have 10% chance to apply +1 stack.",
+          "modifier": {
+            "condition": "onCast",
+            "effect": { "overrideDoTPercent": 30 },
+            "perRank": {
+              "1": { "overrideDoTPercent": 30 },
+              "2": { "overrideDoTPercent": 35, "tickProcChance": 0.10, "tickProcEffect": { "bonusPoisonStacks": 1 } }
+            }
+          },
+          "designNotes": "Direct DoT% increase. R2 is the meaningful change: DoT ticks can self-replicate stacks. Over a 5s duration with ~5 ticks, that's ~0.5 extra stacks per application on average. Compounds with Deep Injection's multi-stack application."
+        },
+        {
+          "id": "vs_1_3_0",
+          "name": "Virulent Cascade",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "At 5+ stacks, Viper Strike hits apply Weakened (1s).",
+          "rank2": "Also applies Cursed (1s).",
+          "modifier": {
+            "condition": "onHit",
+            "conditionParam": { "debuffId": "poisoned", "threshold": 5 },
+            "effect": { "applyDebuff": { "debuffId": "weakened", "duration": 1 } },
+            "perRank": {
+              "1": { "applyDebuff": [{ "debuffId": "weakened", "duration": 1 }] },
+              "2": { "applyDebuff": [{ "debuffId": "weakened", "duration": 1 }, { "debuffId": "cursed", "duration": 1 }] }
+            }
+          },
+          "designNotes": "Stack threshold gates debuff application. R2 adds debuff layering -- Weakened + Cursed makes targets take more damage from all sources. Bridges into T6's debuff cascade mechanics."
+        },
+        {
+          "id": "vs_1_3_1",
+          "name": "Toxic Inheritance",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On kill, transfer ALL poison stacks to next enemy with full duration.",
+          "rank2": "Transferred stacks deal +20% more damage.",
+          "modifier": {
+            "condition": "onKill",
+            "effect": { "transferDebuffStacks": { "debuffId": "poisoned", "percent": 100, "retainDuration": true } },
+            "perRank": {
+              "1": { "percent": 100 },
+              "2": { "percent": 100, "transferredDamageBonus": 20 }
+            }
+          },
+          "designNotes": "VS transfers ALL stacks (vs Stab's 50%/100%). The DoT specialist doesn't lose investment on kill. R2 makes transferred stacks deal more damage, rewarding the kill chain. Combined with Deep Injection's 3 stacks per hit, the next target starts with a massive inherited poison load plus VS's own application."
+        },
+        {
+          "id": "vs_1_3_2",
+          "name": "Venom Eruption",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "At 10+ stacks, consume 5 for 80% of total DoT as instant burst damage.",
+          "rank2": "Consume 4 and burst applies Vulnerable (2s).",
+          "modifier": {
+            "condition": "onHit",
+            "conditionParam": { "debuffId": "poisoned", "threshold": 10 },
+            "effect": { "consumeStacks": 5, "instantDamagePercent": 80 },
+            "perRank": {
+              "1": { "consumeStacks": 5, "instantDamagePercent": 80 },
+              "2": { "consumeStacks": 4, "instantDamagePercent": 80, "applyDebuff": { "debuffId": "vulnerable", "duration": 2 } }
+            }
+          },
+          "designNotes": "VS's eruption is bigger than Stab's Venom Burst (80% vs 60%) with a higher threshold (10 vs 8). The DoT specialist reaches 10 stacks faster (Deep Injection gives 3 per hit) and gets a bigger payoff. R2 adding Vulnerable bridges into Assassination cross-branch synergy."
+        },
+        {
+          "id": "vs_1_4_0",
+          "name": "Putrid Bloom",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "state-shift",
+          "description": "Poison ticks deal +20% more damage. When any poison stack expires naturally (runs full duration without being consumed): enter Venom Frenzy (5s) -- +25% cast speed, Viper Strike applies +2 extra stacks per hit, and DoT snapshot is +20% stronger. Venom Frenzy has a 15s internal cooldown.",
+          "modifier": {
+            "debuffInteraction": { "debuffEffectBonus": 20 },
+            "procs": [
+              {
+                "trigger": "onDoTExpiry",
+                "chance": 1.0,
+                "conditionParam": { "debuffId": "poisoned", "naturalExpiry": true },
+                "applyBuff": {
+                  "buffId": "venomFrenzy",
+                  "effect": { "incCastSpeed": 25, "bonusPoisonStacks": 2, "doTSnapshotBonus": 20 },
+                  "duration": 5
+                },
+                "internalCooldown": 15
+              }
+            ]
+          },
+          "designNotes": "State-shift unique to VS's DoT expiry mechanic. Unlike Stab's Deep Wounds (triggered by reaching 8+ stacks), VS's Putrid Bloom triggers when poison EXPIRES naturally. This is fundamentally different: Stab races to stack threshold, VS lets poison run its course. With VS's 5s DoT duration, the first natural expiry happens ~5s after first hit. Venom Frenzy's DoT snapshot bonus means VS casts during the window apply permanently stronger poison. The 15s ICD (vs Stab's 20s) reflects VS's longer cast cycle.",
+          "engineNotes": "Needs onDoTExpiry event with naturalExpiry flag (not consumed by Venom Eruption or other stack consumers). ICD tracks per-buff, not per-stack-expiry."
+        },
+        {
+          "id": "vs_1_4_1",
+          "name": "Venomous Frenzy",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "During Venom Frenzy: Viper Strike DoT% increases to 40%.",
+          "rank2": "DoT ticks have 20% chance to apply +1 extra stack.",
+          "modifier": {
+            "condition": "whileBuffActive",
+            "conditionParam": { "buffId": "venomFrenzy" },
+            "perRank": {
+              "1": { "overrideDoTPercent": 40 },
+              "2": { "overrideDoTPercent": 40, "tickProcChance": 0.20, "tickProcEffect": { "bonusPoisonStacks": 1 } }
+            }
+          },
+          "designNotes": "Venom Frenzy payoff specific to VS. During the 5s window, DoT% jumps to 40% (from base 25%). R2 adds self-replicating stacks during the frenzy -- poison ticks generate more poison. Combined with Putrid Bloom's +2 stacks per hit and cast speed bonus, the Frenzy window is a DoT avalanche."
+        },
+        {
+          "id": "vs_1_5_0",
+          "name": "Creeping Rot",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Poison stacks have no maximum cap. Each stack beyond 10 deals +2% more damage per tick (multiplicative). Poison duration +30%. DoT ticks can no longer be consumed by stack-consuming effects (Venom Eruption disabled).",
+          "modifier": {
+            "removeStackCap": true,
+            "debuffInteraction": { "beyondThresholdBonus": { "threshold": 10, "incDoTDamagePerStack": 2 } },
+            "debuffDurationBonus": 30,
+            "disableStackConsumption": true
+          },
+          "exclusiveWith": ["vs_1_5_1"],
+          "designNotes": "Consistent choice unique to VS. Unlimited stacks with scaling beyond 10 creates a patient, ever-growing threat. Duration +30% means more ticks per application. Disabling stack consumption (Venom Eruption) is a real tradeoff -- you lose burst for sustained ceiling. At 20 stacks, that's +20% per tick on top of Concentrated Toxin's per-stack scaling. The poison just keeps growing. This is THE definitive DoT fantasy -- inevitable, unstoppable decay."
+        },
+        {
+          "id": "vs_1_5_1",
+          "name": "Virulent Detonation",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "At 8+ poison stacks, each Viper Strike hit has 25% chance to detonate ALL stacks for instant chaos damage (100% of total remaining DoT). Detonation resets stacks to 0. After detonation: -30% poison application for 3s (toxin exhaustion).",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onHit",
+                "chance": 0.25,
+                "conditionParam": { "debuffId": "poisoned", "threshold": 8 },
+                "effect": { "detonateStacks": { "debuffId": "poisoned", "consumeAll": true, "damageType": "chaos", "percentOfTotalDoT": 100 } }
+              }
+            ],
+            "postDetonationPenalty": { "incPoisonApplication": -30, "duration": 3 }
+          },
+          "exclusiveWith": ["vs_1_5_0"],
+          "designNotes": "Risky choice unique to VS. Lower threshold than Stab's Volatile Toxins (8 vs 10) because VS should reach detonation faster, but the 3s toxin exhaustion penalty means rebuilding stacks is slower. Feast/famine cycle specific to DoT gameplay: build -> detonate -> suffer -> rebuild. 100% of total DoT as instant damage is massive at high stacks with Concentrated Toxin scaling. The chaos damage type synergizes with VS's tags."
+        },
+        {
+          "id": "vs_1_6_0",
+          "name": "Necrotic Cascade",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "When a target reaches 10+ poison stacks: the next poison tick converts 3 stacks into a Blight debuff (5s, deals 150% of the converted stacks' remaining DoT as accelerated chaos damage). Blight-affected enemies take +25% more poison damage. Conversion has 8s internal cooldown per target.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDoTTick",
+                "chance": 1.0,
+                "conditionParam": { "debuffId": "poisoned", "threshold": 10 },
+                "effect": {
+                  "convertStacks": {
+                    "sourceDebuff": "poisoned",
+                    "stacksConsumed": 3,
+                    "targetDebuff": "blight",
+                    "duration": 5,
+                    "damageMultiplier": 1.5,
+                    "damageType": "chaos"
+                  }
+                },
+                "internalCooldown": 8
+              }
+            ],
+            "debuffInteraction": {
+              "whileBlighted": { "incPoisonDamageTaken": 25 }
+            }
+          },
+          "designNotes": "Gated debuff interaction specific to VS's DoT-heavy nature. Unlike Stab's Pandemic (spread all debuffs on kill), VS converts poison stacks into a new debuff type -- Blight. The 10-stack gate ensures deep poison investment. Blight deals 150% of the converted DoT as accelerated damage AND makes remaining poison deal +25% more. The 8s ICD per target means ~1 conversion per VS cast cycle. This creates a DoT ecosystem: poison stacks build, some convert to Blight, Blight amplifies remaining poison, more VS casts add more stacks. VS-specific because it transforms stack depth into debuff diversity through DoT mechanics.",
+          "engineNotes": "Stack conversion needs: consume N stacks from debuff A, create debuff B with damage = consumed stacks' remaining DoT * multiplier. Blight is a new debuff type with its own tick rate (accelerated = 2x normal tick rate)."
+        },
+        {
+          "id": "vs_1_7_0",
+          "name": "NECROTIC SOVEREIGN",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "All poison damage you deal is converted to Blight damage (chaos DoT, same tick rate). You can no longer apply poison stacks -- all stack applications become Blight stacks instead. Blight stacks deal 2x damage per tick but have 50% shorter duration. Blight stacks cannot be transferred on kill. -15% base Viper Strike damage.",
+          "modifier": {
+            "convertAllPoison": { "toDebuff": "blight", "damageMultiplier": 2, "durationMultiplier": 0.5 },
+            "noStackTransfer": true,
+            "incDamage": -15
+          },
+          "tensionWith": "vs_1_6_0",
+          "tensionDescription": "T6 creates a beautiful ecosystem: poison stacks build, some convert to Blight at 10+, Blight amplifies remaining poison. T7 destroys that ecosystem by converting ALL poison to Blight. No more poison stacks means no more 10-stack threshold, no more Corroded from T2, no more Concentrated Toxin per-poison-stack scaling. BUT: Blight deals 2x damage per tick. You trade the complex poison-Blight interaction for raw single-debuff devastation. The 50% shorter duration means you must maintain constant application -- miss a cast and your DoT falls off. No stack transfer on kill means no Toxic Inheritance chains. Breadth and synergy vs raw tick damage.",
+          "antiSynergy": ["vs_1_1_1", "vs_1_2_0", "vs_1_3_1"],
+          "antiSynergyNotes": "Concentrated Toxin (T1b) -- per-poison-stack scaling doesn't apply to Blight stacks. Necrotic Infusion (T2) -- Corroded proc requires poisoned threshold, which can't be reached with Blight. Toxic Inheritance (T3b) -- stack transfer is explicitly disabled.",
+          "synergy": ["vs_1_1_0", "vs_1_4_0"],
+          "synergyNotes": "Deep Injection (T1a) -- extra stacks per hit still applies (as Blight stacks). Putrid Bloom (T4) -- Blight expiry triggers Venom Frenzy (any DoT expiry, not poison-specific), and 50% shorter duration means more frequent expiries = more Frenzy windows."
+        }
+      ]
+    },
+    {
+      "branchIndex": 2,
+      "branchName": "Shadow Dance",
+      "mechanicCheck": {
+        "mechanics": [
+          "Poison-defense link (T1 behavior -- poison stacks on target grant defensive bonuses)",
+          "Serpent Form state (T4 notable -- Coiling Serpent state-shift on dodge while poisoned target active)",
+          "Venomous counter (T6 notable -- Serpent's Reprisal cooldown counter-attack that applies poison)"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "nodes": [
+        {
+          "id": "vs_2_1_0",
+          "name": "Venomous Defense",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "+2 life on hit with Viper Strike.",
+          "rank2": "Life on hit increases by +1 per active poison stack on target (max +5).",
+          "modifier": {
+            "condition": "onHit",
+            "effect": { "lifeOnHit": 2 },
+            "perRank": {
+              "1": { "lifeOnHit": 2 },
+              "2": { "lifeOnHit": 2, "lifeOnHitPerStack": 1, "maxBonusFromStacks": 5, "stackSource": "poisoned" }
+            }
+          },
+          "designNotes": "Basic sustain with VS-specific scaling. R2 ties healing to poison depth -- at 5 stacks you heal 7 per hit, at 10 stacks you heal 7 (capped). The DoT-defense link starts here: your offensive poison investment directly improves your sustain."
+        },
+        {
+          "id": "vs_2_1_1",
+          "name": "Toxic Resilience",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "While target has 3+ poison stacks: gain +5% evasion.",
+          "rank2": "+8% evasion and +3% DR.",
+          "modifier": {
+            "condition": "whileDebuffActive",
+            "conditionParam": { "debuffId": "poisoned", "threshold": 3 },
+            "perRank": {
+              "1": { "incEvasion": 5 },
+              "2": { "incEvasion": 8, "damageReduction": 3 }
+            }
+          },
+          "designNotes": "Defense conditional on poison stacks. Unlike Stab's Combat Leech (percentage of damage), VS's defense comes from maintaining poison on the target. The more poisoned your enemy, the safer you are. R2 adds DR on top of evasion -- a meaningful qualitative change for VS's slower (5s CD) combat rhythm."
+        },
+        {
+          "id": "vs_2_2_0",
+          "name": "Coiling Ward",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "cooldown",
+          "description": "Each poison tick on any target has 10% chance to grant +1 Fortify stack (5s, 3% DR). On dodge while you have Fortify: reduce Viper Strike cooldown by 1s.",
+          "statsRider": "+5 all resist.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDoTTick",
+                "chance": 0.10,
+                "conditionParam": { "debuffId": "poisoned" },
+                "effect": { "addStack": "fortify", "duration": 5, "damageReduction": 3 }
+              },
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "conditionParam": { "whileBuffActive": "fortify" },
+                "effect": { "reduceCooldown": { "skillId": "dagger_viper_strike", "amount": 1 } }
+              }
+            ],
+            "stats": { "resistBonus": 5 }
+          },
+          "designNotes": "Cooldown proc specific to VS's DoT timing. Unlike Stab's Shadow Guard (fortify on hit, dodge resets CD), VS's Coiling Ward generates Fortify passively from poison ticks -- your DoT defends you between casts. The dodge -> CD reduction is VS-specific because VS has a 5s CD (vs Stab's 3s), making each 1s reduction more impactful (20% CDR per dodge). Poison ticks check for Fortify ~5 times per application, so with 2+ applications running, Fortify uptime is strong.",
+          "engineNotes": "Fortify generation from DoT ticks is a new trigger source. Needs onDoTTick event to check for proc."
+        },
+        {
+          "id": "vs_2_2_1",
+          "name": "Serpent's Dodge",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On dodge: next Viper Strike applies +2 bonus poison stacks.",
+          "rank2": "+3 stacks and DoT snapshot is +15% stronger.",
+          "modifier": {
+            "condition": "onDodge",
+            "effect": { "buffNextCast": { "skillId": "dagger_viper_strike", "bonusPoisonStacks": 2 } },
+            "perRank": {
+              "1": { "bonusPoisonStacks": 2 },
+              "2": { "bonusPoisonStacks": 3, "doTSnapshotBonus": 15 }
+            }
+          },
+          "designNotes": "Dodge-offense bridge specific to VS's DoT delivery. Dodging empowers your next VS cast with bonus stacks. R2 adds snapshot bonus -- the dodge-empowered VS cast applies permanently stronger poison. Unique timing rhythm: dodge -> empowered VS -> stronger DoT running -> dodge again."
+        },
+        {
+          "id": "vs_2_3_0",
+          "name": "Venomous Counter",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On dodge: deal 35% weapon damage as counter-attack that applies 1 poison stack.",
+          "rank2": "Applies 2 stacks.",
+          "modifier": {
+            "condition": "onDodge",
+            "effect": {
+              "instantDamage": { "scaleStat": "weaponDamage", "scaleRatio": 0.35 },
+              "applyDebuff": { "debuffId": "poisoned", "stacks": 1 }
+            },
+            "perRank": {
+              "1": { "scaleRatio": 0.35, "stacks": 1 },
+              "2": { "scaleRatio": 0.35, "stacks": 2 }
+            }
+          },
+          "designNotes": "VS-specific dodge counter. Unlike Stab's Counter Stab (30% weapon damage, no poison), VS's counter applies poison. This means dodges between VS casts contribute to stack building. R2 applies 2 stacks per dodge -- meaningful stack acceleration from defensive play."
+        },
+        {
+          "id": "vs_2_3_1",
+          "name": "Regenerative Toxin",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On dodge while target has 5+ poison stacks: heal 3% max HP.",
+          "rank2": "Threshold drops to 3 stacks.",
+          "modifier": {
+            "condition": "onDodge",
+            "conditionParam": { "debuffId": "poisoned", "threshold": 5 },
+            "effect": { "healPercent": 3 },
+            "perRank": {
+              "1": { "threshold": 5, "healPercent": 3 },
+              "2": { "threshold": 3, "healPercent": 3 }
+            }
+          },
+          "designNotes": "Dodge sustain gated by poison stacks. Your offensive DoT investment enables defensive healing. R2 lowers the bar significantly -- with Deep Injection providing 3 stacks per hit, you reach 3 stacks immediately. The defense-through-offense identity of VS Shadow Dance."
+        },
+        {
+          "id": "vs_2_3_2",
+          "name": "Serpent Flow",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On dodge: reduce Viper Strike cooldown by 0.5s.",
+          "rank2": "Also extends active poison durations by 0.5s.",
+          "modifier": {
+            "condition": "onDodge",
+            "effect": { "reduceCooldown": { "skillId": "dagger_viper_strike", "amount": 0.5 } },
+            "perRank": {
+              "1": { "reduceCooldownAmount": 0.5 },
+              "2": { "reduceCooldownAmount": 0.5, "extendDoTDuration": 0.5 }
+            }
+          },
+          "designNotes": "VS-specific CD reduction on dodge. With 5s CD, a single dodge gives 10% CDR. R2 adds DoT duration extension -- dodging keeps your poison alive longer. This is uniquely VS: no other skill cares about DoT duration on dodge. More ticks = more damage = more Fortify from T2 = more dodges."
+        },
+        {
+          "id": "vs_2_4_0",
+          "name": "Coiling Serpent",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "state-shift",
+          "description": "On dodge: heal 4% max HP. On dodge while any enemy has 5+ poison stacks: enter Serpent Form (5s) -- take 25% reduced damage, poison ticks on all targets grant +2% evasion (stacks up to 10x, duration refreshes on each tick). Serpent Form has a 15s internal cooldown.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "healPercent": 4
+              },
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "conditionParam": { "anyTargetDebuffAboveThreshold": { "debuffId": "poisoned", "threshold": 5 } },
+                "applyBuff": {
+                  "buffId": "serpentForm",
+                  "effect": {
+                    "damageReduction": 25,
+                    "onDoTTick": { "incEvasion": 2, "maxStacks": 10, "refreshOnTick": true }
+                  },
+                  "duration": 5
+                },
+                "internalCooldown": 15
+              }
+            ]
+          },
+          "designNotes": "State-shift unique to VS's DoT context. Unlike Stab's Ghost Step (3 dodges in 6s triggers Shadow Form), VS's Coiling Serpent triggers on a SINGLE dodge while poison stacks are high. The gate is DoT-based (5+ stacks), not dodge-count-based. Serpent Form's evasion stacking from poison ticks is uniquely VS: your running DoTs actively build your defense during the window. At 5 stacks with 5s duration, that's ~5 ticks = potentially 10% evasion stacking. The 5s duration (vs Shadow Form's 4s) accounts for VS's longer cast cycle.",
+          "engineNotes": "Needs: anyTargetDebuffAboveThreshold check (scan all active enemies for poisoned >= 5). Evasion stacking from DoT ticks during Serpent Form needs per-tick buff application with refresh."
+        },
+        {
+          "id": "vs_2_4_1",
+          "name": "Serpent's Shadow",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "During Serpent Form: Viper Strike DoT ticks apply Blind (0.5s).",
+          "rank2": "DoT ticks deal +20% more damage.",
+          "modifier": {
+            "condition": "whileBuffActive",
+            "conditionParam": { "buffId": "serpentForm" },
+            "perRank": {
+              "1": { "doTTickAppliesDebuff": { "debuffId": "blinded", "duration": 0.5 } },
+              "2": { "doTTickAppliesDebuff": { "debuffId": "blinded", "duration": 0.5 }, "incDoTDamage": 20 }
+            }
+          },
+          "designNotes": "Serpent Form payoff specific to VS. Poison ticks apply Blind during the defensive window -- your DoT does defensive work (Blind reduces enemy accuracy). R2 adds offensive value: DoT ticks deal +20% during the window. Fast attacks during Serpent Form aren't VS's thing -- instead, your existing DoTs become both offensive and defensive tools."
+        },
+        {
+          "id": "vs_2_5_0",
+          "name": "Shedding Scales",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "On dodge: heal 2% max HP + gain +1% evasion per active poison stack on all enemies (max +10%, 4s). Each poison tick during Shedding Scales buff extends its duration by 0.3s. +5 all resist passive.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "healPercent": 2,
+                "applyBuff": {
+                  "buffId": "sheddingScales",
+                  "effect": { "incEvasionPerPoisonStack": 1, "maxEvasionBonus": 10 },
+                  "duration": 4,
+                  "extendOnDoTTick": 0.3
+                }
+              }
+            ],
+            "stats": { "resistBonus": 5 }
+          },
+          "exclusiveWith": ["vs_2_5_1"],
+          "designNotes": "Consistent choice unique to VS. Evasion scales with total poison stacks across all enemies -- your DoT investment directly improves your defense. The duration extension from poison ticks means active DoTs keep the defensive buff alive. At 10 total poison stacks, that's +10% evasion that self-sustains through ticks. Reliable, steady defense that rewards maintaining poison on targets."
+        },
+        {
+          "id": "vs_2_5_1",
+          "name": "Venom Lash",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "On dodge: deal 60% weapon damage counter-attack that applies 2 poison stacks. If target has 5+ poison stacks: counter deals 180% instead and consumes 3 stacks. Coiling Serpent's dodge heal REMOVED. +10% damage taken.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "instantDamage": { "scaleStat": "weaponDamage", "scaleRatio": 0.60 },
+                "applyDebuff": { "debuffId": "poisoned", "stacks": 2 }
+              },
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "conditionParam": { "debuffId": "poisoned", "threshold": 5 },
+                "instantDamage": { "scaleStat": "weaponDamage", "scaleRatio": 1.80 },
+                "effect": { "consumeStacks": { "debuffId": "poisoned", "amount": 3 } }
+              }
+            ],
+            "removeEffect": { "nodeId": "vs_2_4_0", "effectType": "healPercent" },
+            "increasedDamageTaken": 10
+          },
+          "exclusiveWith": ["vs_2_5_0"],
+          "designNotes": "Risky choice unique to VS. Dodge counters apply poison (building stacks from defense) AND consume stacks at 5+ for triple damage. This creates a unique rhythm: dodge -> apply 2 stacks -> dodge -> apply 2 more -> at 5+, next dodge consumes 3 for massive damage -> back to building. Removes Coiling Serpent's heal and adds damage taken -- you're dodging to poison, not to survive. The stack consumption means you're constantly cycling between building and detonating through dodge counters. No other skill interacts with dodge-as-stack-management."
+        },
+        {
+          "id": "vs_2_6_0",
+          "name": "Serpent's Reprisal",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "cooldown",
+          "description": "On dodge: deal 70% weapon damage as counter-attack that applies 2 poison stacks with +25% DoT snapshot bonus. If counter brings target to 8+ total poison stacks, reset Viper Strike cooldown.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "instantDamage": { "scaleStat": "weaponDamage", "scaleRatio": 0.70 },
+                "applyDebuff": { "debuffId": "poisoned", "stacks": 2, "snapshotBonus": 25 }
+              },
+              {
+                "trigger": "onDodgeCounterReachesThreshold",
+                "chance": 1.0,
+                "conditionParam": { "debuffId": "poisoned", "threshold": 8 },
+                "resetCooldown": "dagger_viper_strike"
+              }
+            ]
+          },
+          "designNotes": "Cooldown proc specific to VS's DoT pattern. Unlike Stab's Phantom Stride (75% counter, CD reset on kill), VS's Serpent's Reprisal resets VS cooldown when the dodge counter pushes poison to 8+ stacks. This is deeply VS-specific: the CD reset is gated by STACK DEPTH, not kills. The counter applies stacks with a snapshot bonus, so the dodge-applied poison is stronger than normal application. At high stack counts, dodge counters maintain and extend poison while resetting VS for another cast. The 70% weapon damage (vs Stab's 75%) is slightly lower because VS's counter also applies potent poison stacks."
+        },
+        {
+          "id": "vs_2_7_0",
+          "name": "SERPENT'S SHED",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Counter-attacks from Serpent's Reprisal deal 150% weapon damage and apply 4 poison stacks (snapshot +50% stronger). On dodge: you no longer heal (Coiling Serpent's heal is removed). Instead, each dodge extends ALL active poison durations by 1s. All dodge-triggered proc chances are doubled. -10% max life. Poison stacks can no longer grant Fortify (Coiling Ward's tick-to-Fortify is removed).",
+          "modifier": {
+            "overrideProc": {
+              "target": "serpentsReprisal",
+              "instantDamage": { "scaleStat": "weaponDamage", "scaleRatio": 1.50 },
+              "applyDebuff": { "debuffId": "poisoned", "stacks": 4, "snapshotBonus": 50 }
+            },
+            "removeEffect": [
+              { "nodeId": "vs_2_4_0", "effectType": "healPercent" },
+              { "nodeId": "vs_2_2_0", "effectType": "fortifyFromDoTTick" }
+            ],
+            "onDodge": { "extendAllDoTDurations": 1 },
+            "dodgeProcChanceMultiplier": 2.0,
+            "reducedMaxLife": 10
+          },
+          "tensionWith": "vs_2_6_0",
+          "tensionDescription": "T6 gives a balanced dodge counter that applies strong poison and resets VS cooldown at 8+ stacks. T7 removes ALL defensive dodge healing AND Fortify generation from poison ticks, replacing them with dodge-as-DoT-extension. Every dodge now extends poison by 1s instead of healing you. Counter damage doubles (150%) and applies 4 stacks at +50% snapshot. You're no longer dodging to survive -- you're dodging to keep your poison alive forever. The tension: T6's counter is a balanced offensive-defensive tool. T7 strips all defense and makes dodges purely offensive DoT maintenance. Removing Fortify from Coiling Ward (T2) is especially painful because that was your passive defense from DoT ticks.",
+          "antiSynergy": ["vs_2_4_0", "vs_2_2_0"],
+          "antiSynergyNotes": "Coiling Serpent (T4) -- dodge heal is explicitly removed. Coiling Ward (T2) -- Fortify from poison ticks is explicitly removed. Both defensive pillars are gone.",
+          "synergy": ["vs_2_3_2", "vs_2_2_1"],
+          "synergyNotes": "Serpent Flow (T3c R2) -- dodge extends DoT duration by 0.5s, now ALSO gets the T7 +1s extension = +1.5s per dodge. Serpent's Dodge (T2b) -- dodge empowers next VS with +3 stacks, doubled proc chance from T7 means even more value from dodge-offensive synergies.",
+          "engineNotes": "DoT duration extension on dodge needs to iterate all active DoT instances on all enemies. Performance consideration for many active DoTs. removeEffect array needs to handle multiple node/effect removals."
+        }
+      ]
+    }
+  ]
+}

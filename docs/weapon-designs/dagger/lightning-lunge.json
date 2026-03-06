@@ -1,0 +1,1094 @@
+{
+  "skillId": "dagger_lightning_lunge",
+  "skillName": "Lightning Lunge",
+  "archetypes": ["chain", "lightning", "fast-cast"],
+  "branches": [
+    {
+      "branchIndex": 0,
+      "branchName": "Assassination",
+      "mechanicCheck": {
+        "mechanics": [
+          "Chain-ramp crit scaling (T1 behavior -- per-chain-jump crit chance accumulation)",
+          "Stormcaller state (T2 notable -- escalating proc from chain completions -> crit mult window)",
+          "Thunderous Mark (T6 notable -- catastrophic proc -> chain detonation on marked target)"
+        ],
+        "nonTracked": [
+          "+X vs Vulnerable -- applied by Storm Exploit, not tracked independently",
+          "Shock stack crit bonuses -- conditional off existing Shock tracking, no new mechanic"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "nodes": [
+        {
+          "id": "ll_0_1_0",
+          "name": "Voltaic Precision",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "+4% crit chance per chain jump (max +12%).",
+          "rank2": "Max increases to +16% (4 jumps).",
+          "modifier": {
+            "condition": "onChainJump",
+            "effect": { "incCritChance": 4, "maxBonus": 12 },
+            "perRank": {
+              "1": { "incCritChance": 4, "maxBonus": 12 },
+              "2": { "incCritChance": 4, "maxBonus": 16 }
+            }
+          },
+          "designNotes": "CHAIN_RAMP template. Each chain jump builds crit for the next. With 3 base chains: +12% at R1, +16% at R2 (needs 4th jump from other nodes). Rewards maximizing chain count."
+        },
+        {
+          "id": "ll_0_1_1",
+          "name": "Overload",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "+10% crit chance vs Shocked enemies.",
+          "rank2": "Also grants +8% crit mult vs Shocked.",
+          "modifier": {
+            "condition": "whileDebuffActive",
+            "conditionParam": { "debuffId": "shocked" },
+            "perRank": {
+              "1": { "incCritChance": 10 },
+              "2": { "incCritChance": 10, "incCritMultiplier": 8 }
+            }
+          },
+          "designNotes": "SHOCK_STATE_CONDITIONAL template. Rewards maintaining Shock on targets. LL's chain hits apply Shock via Storm's Edge (T2b), making this reliably active."
+        },
+        {
+          "id": "ll_0_2_0",
+          "name": "Stormcaller",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "escalating",
+          "description": "When Lightning Lunge completes a full chain (hits all available targets): 15% chance to enter Stormcaller state (+45% crit mult for 3s). Chance increases by +10% per Shock stack on the final chain target (max 55%). Resets if a cast fails to complete its full chain.",
+          "statsRider": "+8% crit chance.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onChainComplete",
+                "chance": 0.15,
+                "conditionParam": { "fullChain": true, "perShockStack": 0.10, "maxChance": 0.55 },
+                "applyBuff": {
+                  "buffId": "stormcaller",
+                  "effect": { "incCritMultiplier": 45 },
+                  "duration": 3
+                }
+              }
+            ],
+            "stats": { "incCritChance": 8 }
+          },
+          "designNotes": "Escalating proc tuned to LL's chain identity. Unlike Stab's Blade Sense (same-target consecutive hits), this rewards completing full chains and stacking Shock on the final target. Base 15% is moderate for LL's 4s CD. Shock stacking from Storm's Edge pushes proc chance toward 55% with investment. The 3s window is tight with 4s CD -- CDR or free casts needed to exploit it fully."
+        },
+        {
+          "id": "ll_0_2_1",
+          "name": "Storm's Edge",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Crits during chain apply Shocked (1 stack).",
+          "rank2": "Crits on already-Shocked targets add +1 extra Shock stack.",
+          "modifier": {
+            "condition": "onCrit",
+            "conditionParam": { "duringChain": true },
+            "effect": { "applyDebuff": { "debuffId": "shocked", "stacks": 1 } },
+            "perRank": {
+              "1": { "stacks": 1 },
+              "2": { "stacks": 1, "bonusStacksIfAlreadyShocked": 1 }
+            }
+          },
+          "designNotes": "Shock application through chain crits. R2 creates stacking acceleration on already-Shocked targets. Feeds Overload (T1b) and Stormcaller (T2) escalation."
+        },
+        {
+          "id": "ll_0_3_0",
+          "name": "Cascading Strikes",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Each chain jump increases damage by +10%.",
+          "rank2": "Final chain target takes +25% bonus.",
+          "modifier": {
+            "condition": "onChainJump",
+            "effect": { "incDamage": 10, "scope": "perJump" },
+            "perRank": {
+              "1": { "incDamage": 10 },
+              "2": { "incDamage": 10, "finalTargetBonus": 25 }
+            }
+          },
+          "designNotes": "CHAIN_RAMP damage template. 3 chains = +30% on last target. R2 final target bonus makes chain completion rewarding. Pairs with Voltaic Precision's crit ramp for escalating chain payoff."
+        },
+        {
+          "id": "ll_0_3_1",
+          "name": "Arc Return",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Max chain reached: return hit to first target at +40% damage.",
+          "rank2": "Return hit is a guaranteed crit.",
+          "modifier": {
+            "condition": "onChainComplete",
+            "effect": { "returnHit": { "target": "first", "incDamage": 40 } },
+            "perRank": {
+              "1": { "incDamage": 40 },
+              "2": { "incDamage": 40, "guaranteedCrit": true }
+            }
+          },
+          "designNotes": "CHAIN_RETURN template. The return hit doubles down on first target after chain completes. R2 guaranteed crit feeds Death Mark application and Shock stacking. Makes chain completion feel impactful."
+        },
+        {
+          "id": "ll_0_3_2",
+          "name": "Galvanic Surge",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "+6% damage per Shock stack on target.",
+          "rank2": "Also increases chain count by +1 at 3 Shock stacks.",
+          "modifier": {
+            "condition": "whileDebuffActive",
+            "conditionParam": { "debuffId": "shocked" },
+            "effect": { "incDamage": 6, "perStack": true },
+            "perRank": {
+              "1": { "incDamage": 6 },
+              "2": { "incDamage": 6, "bonusChainAtStacks": { "threshold": 3, "bonusChains": 1 } }
+            }
+          },
+          "designNotes": "SHOCK_STATE_CONDITIONAL damage scaling. Per-stack damage rewards deep Shock investment. R2's chain count bonus at 3 Shock stacks creates a feedback loop: more chains = more Shock = more chains."
+        },
+        {
+          "id": "ll_0_4_0",
+          "name": "Storm Exploit",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "Chain jumps to Vulnerable targets deal +25% damage and apply Shocked (1 stack). If the Vulnerable target already has 2+ Shock stacks: the chain jump is a guaranteed crit.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onChainJump",
+                "chance": 1.0,
+                "conditionParam": { "targetHasDebuff": "vulnerable" },
+                "effect": { "incDamage": 25, "applyDebuff": { "debuffId": "shocked", "stacks": 1 } }
+              }
+            ],
+            "conditionalMods": [
+              {
+                "condition": "whileDebuffActive",
+                "conditionParam": { "debuffId": "vulnerable", "additionalDebuff": "shocked", "additionalThreshold": 2 },
+                "modifier": { "guaranteedCrit": true }
+              }
+            ]
+          },
+          "designNotes": "Gated proc -- Vulnerable is the gate, Shock stacks are the escalator. Chain jumps to Vulnerable targets get bonus damage and Shock, and at 2+ Shock stacks they become guaranteed crits. Creates a Vulnerable -> Shock -> crit pipeline specific to LL's chain movement through enemy packs."
+        },
+        {
+          "id": "ll_0_4_1",
+          "name": "Predator's Current",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "While in Predator state: Lightning Lunge chains to +1 additional target.",
+          "rank2": "Chain jumps deal +15% damage.",
+          "modifier": {
+            "condition": "whileBuffActive",
+            "conditionParam": { "buffId": "predator" },
+            "perRank": {
+              "1": { "bonusChainTargets": 1 },
+              "2": { "bonusChainTargets": 1, "chainJumpDamageBonus": 15 }
+            }
+          },
+          "designNotes": "Predator state payoff for chain builds. Extra chain target during Predator means more ramp, more Shock stacking, more chain completion rewards."
+        },
+        {
+          "id": "ll_0_5_0",
+          "name": "Conducting Fury",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Each completed chain grants a Charge stack (max 5, 8s duration, refreshes on new chain). Per Charge: +6% crit chance and +8% crit mult. At 5 Charges: Lightning Lunge gains +1 chain and all chain crits apply +1 Shock stack. Your crit chance cannot exceed 65% (reliability ceiling).",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onChainComplete",
+                "chance": 1.0,
+                "applyBuff": {
+                  "buffId": "conductingCharge",
+                  "maxStacks": 5,
+                  "duration": 8,
+                  "perStack": { "incCritChance": 6, "incCritMultiplier": 8 }
+                }
+              }
+            ],
+            "conditionalMods": [
+              {
+                "condition": "whileBuffActive",
+                "conditionParam": { "buffId": "conductingCharge", "threshold": 5 },
+                "modifier": { "bonusChainTargets": 1, "bonusShockOnChainCrit": 1 }
+              }
+            ],
+            "critChanceCap": 65
+          },
+          "exclusiveWith": ["ll_0_5_1"],
+          "designNotes": "Consistent choice. Reliable chain-by-chain stacking toward a crit ceiling. The 65% crit cap prevents runaway but 5 Charges provides a strong, steady baseline. With 4s CD, reaching 5 Charges takes ~20s of chain completions -- rewards sustained play. Extra chain at 5 stacks feeds the chain-ramp loop."
+        },
+        {
+          "id": "ll_0_5_1",
+          "name": "Surge Overcharge",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "Lightning Lunge gains +2 bonus chains but chain damage decays 20% faster per jump. On a chain that hits 5+ targets: final target explodes for 150% weapon damage as lightning AoE. Chain jumps that crit have 30% chance to fork into 2 targets (each fork counts as a chain jump). -20% base Lightning Lunge damage.",
+          "modifier": {
+            "bonusChainTargets": 2,
+            "chainDecayRate": 1.20,
+            "procs": [
+              {
+                "trigger": "onChainComplete",
+                "conditionParam": { "chainTargetsHit": 5 },
+                "effect": { "finalTargetExplosion": { "scaleStat": "weaponDamage", "scaleRatio": 1.50, "damageType": "lightning", "aoe": true } }
+              },
+              {
+                "trigger": "onChainCrit",
+                "chance": 0.30,
+                "effect": { "chainFork": { "targets": 2 } }
+              }
+            ],
+            "incDamage": -20
+          },
+          "exclusiveWith": ["ll_0_5_0"],
+          "designNotes": "Risky choice. More chains with faster decay -- individual jumps hit softer but you reach the 5-target explosion threshold. Fork mechanic creates variance: sometimes chains explode outward, sometimes they fizzle. The -20% base damage hurts early chain targets but the 150% AoE explosion on 5+ makes it worthwhile in packs. Feast/famine against small groups."
+        },
+        {
+          "id": "ll_0_6_0",
+          "name": "Thunderous Mark",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "catastrophic",
+          "description": "On crit during chain: 12% chance to apply Thunderous Mark (8s). When a Marked target is hit by a chain jump: all Shock stacks on ALL chained enemies detonate, dealing 80% of total Shock damage as instant lightning AoE. Mark is consumed.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onChainCrit",
+                "chance": 0.12,
+                "applyDebuff": {
+                  "debuffId": "thunderousMark",
+                  "stacks": 1,
+                  "duration": 8
+                }
+              }
+            ],
+            "debuffInteraction": {
+              "onChainHitMarked": {
+                "debuffId": "thunderousMark",
+                "detonateDebuff": "shocked",
+                "detonateScope": "allChainedEnemies",
+                "instantDamagePercent": 80,
+                "damageType": "lightning",
+                "aoe": true,
+                "consumeOnHit": true
+              }
+            }
+          },
+          "designNotes": "Catastrophic proc -- 12% per chain crit is moderate but LL's multiple chain hits per cast (3+ crits possible per chain) give several chances. The payoff is dramatic: ALL Shock stacks across ALL chained targets detonate simultaneously. With deep Shock investment (Storm's Edge, Galvanic Surge), this creates a chain-wide lightning explosion. The 8s Mark window gives time to stack more Shock before detonation."
+        },
+        {
+          "id": "ll_0_7_0",
+          "name": "LIVING LIGHTNING",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Lightning Lunge no longer has a cooldown. Instead, each cast consumes 8% of current HP. Chain count reduced to 1 (only hits initial target + 1 chain). Each chain crit extends the chain by +1 target (no cap). Chains that fail to crit END the chain immediately. Shock stacks are consumed on hit for +15% damage per stack consumed. -25% base crit chance.",
+          "modifier": {
+            "removeCooldown": true,
+            "hpCostPerCast": 8,
+            "baseChainOverride": 1,
+            "chainExtendOnCrit": 1,
+            "chainEndOnNonCrit": true,
+            "consumeShockOnHit": { "incDamagePerStack": 15 },
+            "incCritChance": -25
+          },
+          "tensionWith": "ll_0_6_0",
+          "tensionDescription": "T6 rewards Shock ACCUMULATION -- stacking Shock across chain targets for a massive simultaneous detonation. T7 CONSUMES Shock stacks on hit for immediate damage, preventing accumulation. Thunderous Mark becomes harder to detonate (fewer stored Shock stacks) but the Mark still triggers on chain hits, creating a tension: do you save Shock for a big Mark detonation, or consume it continuously for steady DPS? Additionally, T7's crit-dependent chain extension makes each jump a gamble -- the chain could go on forever or stop at 2 targets.",
+          "antiSynergy": ["ll_0_6_0", "ll_0_3_2"],
+          "antiSynergyNotes": "Thunderous Mark (T6) -- Shock consumption prevents accumulation for Mark detonation. Galvanic Surge (T3c) -- per-Shock-stack damage bonus reduced since stacks are consumed immediately.",
+          "synergy": ["ll_0_1_0", "ll_0_3_1", "ll_0_2_0"],
+          "synergyNotes": "Voltaic Precision (T1a) -- crit per chain jump still works, and infinite chains mean infinite crit ramp. Arc Return (T3b) -- return hit after chain completion is a guaranteed crit at R2, providing a safe chain restart. Stormcaller (T2) -- no-CD casting means more chain completions for Stormcaller procs.",
+          "designNotes": "Identity-transforming keystone. Removes CD entirely and replaces it with HP cost, converting LL from a rhythmic chain caster into a spam-at-will crit gambler. The 1-base-chain + crit-extension mechanic means every chain is a roll of the dice: crit and the chain keeps going, miss and it ends at 2 targets. The -25% crit chance makes the gamble real. Shock consumption for +15% per stack prevents Shock accumulation (tensioning with T6 Mark) but provides immediate burst. The no-CD design exploits LL's 0.7s cast speed -- the fastest cast in the dagger kit becomes a machine gun of chain attempts."
+        }
+      ]
+    },
+    {
+      "branchIndex": 1,
+      "branchName": "Venomcraft",
+      "mechanicCheck": {
+        "mechanics": [
+          "Chain-spread poison (T1 behavior -- chain jumps apply poison stacks across targets)",
+          "Venom Frenzy state (T4 notable -- Chain Contagion state-shift at chain-wide poison threshold)",
+          "Debuff propagation (T6 notable -- Plague Arc chain-jump debuff spreading)"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "nodes": [
+        {
+          "id": "ll_1_1_0",
+          "name": "Voltaic Venom",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Each chain target gains 1 poison stack.",
+          "rank2": "First target in chain gains 2 stacks.",
+          "modifier": {
+            "condition": "onChainJump",
+            "effect": { "applyDebuff": { "debuffId": "poisoned", "stacks": 1 } },
+            "perRank": {
+              "1": { "stacks": 1 },
+              "2": { "stacks": 1, "firstTargetStacks": 2 }
+            }
+          },
+          "designNotes": "Chain-wide poison application. Every chain target gets poisoned -- LL spreads poison faster than any other dagger skill. R2 front-loads stacks on the primary target."
+        },
+        {
+          "id": "ll_1_1_1",
+          "name": "Corrosive Current",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Chaining to a poisoned enemy applies Corroded (+20% damage taken, 2s).",
+          "rank2": "Corroded lasts 3s and stacks 2x.",
+          "modifier": {
+            "condition": "onChainJump",
+            "conditionParam": { "targetHasDebuff": "poisoned" },
+            "effect": { "applyDebuff": { "debuffId": "corroded", "effect": { "increasedDamageTaken": 20 }, "duration": 2 } },
+            "perRank": {
+              "1": { "duration": 2, "maxStacks": 1 },
+              "2": { "duration": 3, "maxStacks": 2 }
+            }
+          },
+          "designNotes": "Chain-conditional debuff. Rewards chaining through already-poisoned packs. With Voltaic Venom applying poison to each chain target, subsequent casts will find poisoned targets to Corrode. R2 stacking makes repeated chain passes devastating."
+        },
+        {
+          "id": "ll_1_2_0",
+          "name": "Conductive Venom",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "When Lightning Lunge chains through 3+ poisoned targets in a single cast: trigger Conductive Burst -- all poisoned chain targets take 40% of their current poison DoT as instant lightning damage. If total poison stacks across all chained targets exceed 10: Conductive Burst also applies Shocked (2 stacks) to all burst targets.",
+          "statsRider": "+12% poison damage.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onChainComplete",
+                "chance": 1.0,
+                "conditionParam": { "poisonedTargetsInChain": 3 },
+                "effect": {
+                  "conductiveBurst": {
+                    "scope": "allPoisonedChainTargets",
+                    "instantDamagePercent": 40,
+                    "damageSource": "currentPoisonDoT",
+                    "damageType": "lightning"
+                  }
+                }
+              },
+              {
+                "trigger": "onChainComplete",
+                "chance": 1.0,
+                "conditionParam": { "totalPoisonStacksAcrossChain": 10 },
+                "effect": {
+                  "applyDebuff": { "debuffId": "shocked", "stacks": 2, "scope": "allBurstTargets" }
+                }
+              }
+            ],
+            "stats": { "incPoisonDamage": 12 }
+          },
+          "designNotes": "Gated proc -- chaining through 3+ poisoned targets is the gate. LL's chain-wide poison application (Voltaic Venom) makes this reliable after the first cast through a pack. The 10-stack Shock bonus bridges Venomcraft into lightning synergy, creating a unique poison+Shock hybrid. Guaranteed proc (no chance roll) rewards investment in chain count and poison stacking."
+        },
+        {
+          "id": "ll_1_2_1",
+          "name": "Conducting Toxin",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Chain jumps to poisoned targets deal +10% damage.",
+          "rank2": "+15% and each jump to poisoned target adds +1 stack.",
+          "modifier": {
+            "condition": "onChainJump",
+            "conditionParam": { "targetHasDebuff": "poisoned" },
+            "perRank": {
+              "1": { "incDamage": 10 },
+              "2": { "incDamage": 15, "bonusPoisonStacks": 1 }
+            }
+          },
+          "designNotes": "Conditional chain damage vs poisoned. R2 creates a stacking feedback loop: chain to poisoned -> add stack -> next chain hit to same target gets bigger bonus. Pairs with Voltaic Venom to ensure targets are poisoned for the bonus."
+        },
+        {
+          "id": "ll_1_3_0",
+          "name": "Galvanic Poison",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "At 5+ stacks, Lightning Lunge chains to +1 additional target.",
+          "rank2": "+2 additional targets.",
+          "modifier": {
+            "condition": "whileDebuffActive",
+            "conditionParam": { "debuffId": "poisoned", "threshold": 5 },
+            "perRank": {
+              "1": { "bonusChainTargets": 1 },
+              "2": { "bonusChainTargets": 2 }
+            }
+          },
+          "designNotes": "Poison-gated chain extension. Reaching 5 stacks on the primary target expands LL's chain range. R2 is massive -- +2 chains means touching more targets for poison spread. Creates a positive feedback loop with Voltaic Venom."
+        },
+        {
+          "id": "ll_1_3_1",
+          "name": "Chain Infection",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On kill, spread 2 poison stacks to all enemies in chain range.",
+          "rank2": "Spread 3 stacks.",
+          "modifier": {
+            "condition": "onKill",
+            "effect": { "spreadDebuff": { "debuffId": "poisoned", "stacks": 2, "range": "chainRange" } },
+            "perRank": {
+              "1": { "stacks": 2 },
+              "2": { "stacks": 3 }
+            }
+          },
+          "designNotes": "Kill-triggered poison spread within chain range. Different from Pandemic (on-kill debuff spread to next target) -- this spreads STACKS to ALL nearby enemies. Primes packs for Conductive Venom's 3+ poisoned targets gate."
+        },
+        {
+          "id": "ll_1_3_2",
+          "name": "Voltaic Burst",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "At 8+ stacks, consume 4 for AoE lightning burst (+50% wpn dmg nearby).",
+          "rank2": "Consume 3 and burst Shocks (1 stack).",
+          "modifier": {
+            "condition": "onHit",
+            "conditionParam": { "debuffId": "poisoned", "threshold": 8 },
+            "effect": { "consumeStacks": 4, "aoeBurst": { "scaleStat": "weaponDamage", "scaleRatio": 0.50, "damageType": "lightning" } },
+            "perRank": {
+              "1": { "consumeStacks": 4 },
+              "2": { "consumeStacks": 3, "applyDebuff": { "debuffId": "shocked", "stacks": 1, "scope": "burstTargets" } }
+            }
+          },
+          "designNotes": "High-stack poison consumption for lightning AoE. The poison-to-lightning conversion is LL's unique identity in Venomcraft. R2's Shock application bridges into Assassination synergy."
+        },
+        {
+          "id": "ll_1_4_0",
+          "name": "Chain Contagion",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "state-shift",
+          "description": "When total poison stacks across all chained targets reach 15+: enter Venom Frenzy (5s) -- Lightning Lunge cast speed +25%, chain jumps apply +1 extra poison stack, and chain range increased by 30%. Venom Frenzy has a 18s internal cooldown.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onChainComplete",
+                "chance": 1.0,
+                "conditionParam": { "totalPoisonStacksAcrossChain": 15 },
+                "applyBuff": {
+                  "buffId": "venomFrenzy",
+                  "effect": { "incCastSpeed": 25, "bonusPoisonPerChainJump": 1, "chainRangeBonus": 30 },
+                  "duration": 5
+                },
+                "internalCooldown": 18
+              }
+            ]
+          },
+          "designNotes": "State-shift triggered by chain-wide poison accumulation. Unlike Stab's Deep Wounds (8+ stacks on single target), this counts TOTAL stacks across ALL chained enemies -- LL's multi-target poison spread makes this achievable in 2-3 casts through a pack. The Venom Frenzy window turbocharges further poison spread with bonus stacks per chain jump and extended range.",
+          "engineNotes": "Needs chain-wide debuff stack counting (sum of poisoned stacks across all targets hit in current chain). ICD system for 18s cooldown."
+        },
+        {
+          "id": "ll_1_4_1",
+          "name": "Storm Frenzy",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "During Venom Frenzy: Lightning Lunge cast speed +20%.",
+          "rank2": "Chain jumps have 15% chance to apply +1 extra poison stack.",
+          "modifier": {
+            "condition": "whileBuffActive",
+            "conditionParam": { "buffId": "venomFrenzy" },
+            "perRank": {
+              "1": { "incCastSpeed": 20 },
+              "2": { "incCastSpeed": 20, "bonusPoisonChance": 0.15 }
+            }
+          },
+          "designNotes": "Venom Frenzy payoff for LL. Stacks with Chain Contagion's built-in cast speed bonus for massive speed during the window. R2's per-jump poison chance accelerates stack accumulation."
+        },
+        {
+          "id": "ll_1_5_0",
+          "name": "Venomous Conductor",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Poison stacks applied by chain jumps deal +8% more damage per chain target hit in the same cast (multiplicative). Chain jumps to poisoned targets extend poison duration by +1s. Poison duration +20% globally.",
+          "modifier": {
+            "chainPoisonScaling": { "incDamagePerChainTarget": 8, "multiplicative": true },
+            "chainJumpPoisonExtension": { "conditionParam": { "targetHasDebuff": "poisoned" }, "durationExtension": 1 },
+            "debuffInteraction": { "debuffDurationBonus": 20 }
+          },
+          "exclusiveWith": ["ll_1_5_1"],
+          "designNotes": "Consistent choice. Reliable poison scaling through chain breadth -- more chain targets = stronger poison per jump. Duration extension keeps stacks alive longer for threshold mechanics. With 3-4 chain targets, each poison application deals 24-32% more damage. Steady, predictable power that rewards maximizing chain count."
+        },
+        {
+          "id": "ll_1_5_1",
+          "name": "Volatile Chain",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "When Lightning Lunge completes a chain through 4+ poisoned targets: 25% chance to detonate ALL poison stacks on ALL chained targets simultaneously. Detonation deals 120% of total remaining poison DoT as instant lightning damage in AoE. All stacks consumed. Chain targets that die from detonation spread 3 poison stacks to nearby enemies. -15% poison duration.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onChainComplete",
+                "chance": 0.25,
+                "conditionParam": { "poisonedTargetsInChain": 4 },
+                "effect": {
+                  "detonateStacks": {
+                    "debuffId": "poisoned",
+                    "scope": "allChainedTargets",
+                    "consumeAll": true,
+                    "instantDamagePercent": 120,
+                    "damageType": "lightning",
+                    "aoe": true
+                  }
+                }
+              },
+              {
+                "trigger": "onDetonationKill",
+                "chance": 1.0,
+                "effect": { "spreadDebuff": { "debuffId": "poisoned", "stacks": 3, "range": "nearby" } }
+              }
+            ],
+            "debuffInteraction": { "debuffDurationPenalty": -15 }
+          },
+          "exclusiveWith": ["ll_1_5_0"],
+          "designNotes": "Risky choice. Chain-wide poison detonation is devastating when it fires (120% of ALL accumulated DoT across ALL targets as instant damage), but the 25% chance means 3 out of 4 casts just maintain stacks normally. The -15% poison duration penalty makes stacks harder to maintain, and full consumption means rebuilding from zero after detonation. Kill-spread mechanic seeds the next pack. Feast/famine that rewards pack density."
+        },
+        {
+          "id": "ll_1_6_0",
+          "name": "Plague Arc",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "Chain jumps propagate ALL debuffs from the previous chain target to the next (retaining stacks and remaining duration). Each propagated debuff deals 20% of its remaining damage as bonus lightning on arrival. If a chain jump propagates 3+ different debuff types: that target takes +30% increased damage for 3s.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onChainJump",
+                "chance": 1.0,
+                "effect": {
+                  "propagateDebuffs": {
+                    "source": "previousChainTarget",
+                    "retainStacks": true,
+                    "retainDuration": true,
+                    "bonusDamageOnArrival": { "percentOfRemainingDoT": 20, "damageType": "lightning" }
+                  }
+                }
+              }
+            ],
+            "conditionalMods": [
+              {
+                "condition": "onDebuffPropagation",
+                "conditionParam": { "debuffTypesCount": 3 },
+                "modifier": { "applyDebuff": { "debuffId": "overwhelmed", "effect": { "increasedDamageTaken": 30 }, "duration": 3 } }
+              }
+            ]
+          },
+          "designNotes": "Chain-delivered debuff propagation specific to LL. Unlike Pandemic (on-kill spread to next target), Plague Arc propagates through chain JUMPS -- every jump carries forward all debuffs from the previous target. With poison, Shock, Corroded, and Vulnerable all in play, reaching 3 debuff types is achievable. The 20% bonus lightning on arrival rewards deep debuff investment. Creates a rolling wave of debuffs through enemy packs."
+        },
+        {
+          "id": "ll_1_7_0",
+          "name": "PLAGUE CONDUIT",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Lightning Lunge can ONLY chain to poisoned targets. Chains no longer have a maximum target count -- they continue until no poisoned target is in range. Each chain jump to a poisoned target consumes 1 poison stack and converts it to +20% weapon damage as lightning on that hit. Poison duration -30%. Chain range -25%.",
+          "modifier": {
+            "chainTargetRestriction": "poisonedOnly",
+            "removeChainCap": true,
+            "chainConsumesPoison": { "stacksConsumed": 1, "convertToDamage": { "incWeaponDamage": 20, "damageType": "lightning" } },
+            "debuffInteraction": { "debuffDurationPenalty": -30 },
+            "chainRangePenalty": -25
+          },
+          "tensionWith": "ll_1_6_0",
+          "tensionDescription": "T6 rewards propagating MANY debuffs through chain jumps -- the more debuffs carried forward, the bigger the lightning bonus and the Overwhelmed amplifier. T7 CONSUMES poison stacks on each chain jump, reducing the stacks available for propagation. Plague Arc's 20% remaining-DoT bonus is weakened (less remaining DoT after consumption), and reaching 3 debuff types for Overwhelmed is harder with poison being consumed. However, T7's unlimited chain length means MORE jumps for T6 to propagate other debuffs through -- it's a tradeoff between poison depth and chain breadth.",
+          "antiSynergy": ["ll_1_6_0", "ll_1_3_0"],
+          "antiSynergyNotes": "Plague Arc (T6) -- poison consumption reduces remaining DoT for propagation bonus. Galvanic Poison (T3a) -- 5+ stack threshold harder to maintain when chains consume stacks.",
+          "synergy": ["ll_1_1_0", "ll_1_3_1", "ll_1_4_0"],
+          "synergyNotes": "Voltaic Venom (T1a) -- continuous poison application feeds the chain restriction. Chain Infection (T3b) -- on-kill stack spreading re-poisons targets for continued chaining. Chain Contagion (T4) -- Venom Frenzy's bonus poison per chain jump helps maintain stacks despite consumption.",
+          "designNotes": "Constraining keystone. Restricts LL to poisoned-only targets but removes the chain cap -- chains continue as long as there are poisoned enemies in range. Each jump consumes 1 stack for +20% weapon damage as lightning, creating a poison-to-lightning conversion pipeline. The -30% poison duration and -25% chain range create real costs: you need constant poison re-application (Voltaic Venom, Chain Infection) and tight positioning. The unlimited chain length rewards packing enemies together and keeping them poisoned -- a fundamentally different playstyle from the base chain skill."
+        }
+      ]
+    },
+    {
+      "branchIndex": 2,
+      "branchName": "Shadow Dance",
+      "mechanicCheck": {
+        "mechanics": [
+          "Evasion-chain feedback (T2 notable -- Flickering Chains cooldown proc on dodge -> chain extension)",
+          "Shadow Form state (T4 notable -- Storm Shadow state-shift from dodge + chain rhythm)",
+          "Chain counter-attack (T6 notable -- Arcing Riposte dodge-triggered chain counter)"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "nodes": [
+        {
+          "id": "ll_2_1_0",
+          "name": "Lightning Reflex",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On lunge: gain +15% evasion for 2s.",
+          "rank2": "+20% evasion and duration extends to 3s.",
+          "modifier": {
+            "condition": "onCast",
+            "effect": { "applyBuff": { "effect": { "incEvasion": 15 }, "duration": 2 } },
+            "perRank": {
+              "1": { "incEvasion": 15, "duration": 2 },
+              "2": { "incEvasion": 20, "duration": 3 }
+            }
+          },
+          "designNotes": "Fast-cast evasion stacking. LL's 0.7s cast + 4s CD means frequent evasion refreshes. R2's 3s duration overlaps nicely with the 4s CD for near-permanent uptime."
+        },
+        {
+          "id": "ll_2_1_1",
+          "name": "Storm Dodge",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Each dodge within 3s of a lunge reduces Lightning Lunge cooldown by 0.5s.",
+          "rank2": "Reduce by 0.8s per dodge.",
+          "modifier": {
+            "condition": "onDodge",
+            "conditionParam": { "withinWindowOf": "dagger_lightning_lunge", "window": 3 },
+            "effect": { "reduceCooldown": { "skillId": "dagger_lightning_lunge", "amount": 0.5 } },
+            "perRank": {
+              "1": { "amount": 0.5 },
+              "2": { "amount": 0.8 }
+            }
+          },
+          "designNotes": "Dodge-CDR rhythm. LL's 4s CD is reduced by each dodge within 3s of casting. With high evasion (from Lightning Reflex), multiple dodges can significantly shorten the cycle. R2's 0.8s means 2 dodges nearly halve the CD."
+        },
+        {
+          "id": "ll_2_2_0",
+          "name": "Flickering Chains",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "cooldown",
+          "description": "On dodge: 30% chance to gain Flickering state (3s) -- next Lightning Lunge chains to +2 additional targets and the lunge itself costs no cooldown. If the enhanced lunge completes a full chain: heal 4% max HP per target hit.",
+          "statsRider": "+8% evasion.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDodge",
+                "chance": 0.30,
+                "applyBuff": {
+                  "buffId": "flickeringChains",
+                  "effect": { "bonusChainTargets": 2, "freeCast": true },
+                  "duration": 3
+                }
+              },
+              {
+                "trigger": "onChainComplete",
+                "chance": 1.0,
+                "conditionParam": { "whileBuffActive": "flickeringChains" },
+                "effect": { "healPercentPerTarget": 4 }
+              }
+            ],
+            "stats": { "incEvasion": 8 }
+          },
+          "designNotes": "Cooldown proc with chain-defense interaction. Dodge triggers an enhanced chain state -- extra targets + free cast. The full-chain heal rewards completing the extended chain. 30% proc rate with LL's dodge-encouraging playstyle (Lightning Reflex evasion) means reliable activation. Creates a dodge -> enhanced lunge -> heal defensive rhythm unique to LL."
+        },
+        {
+          "id": "ll_2_2_1",
+          "name": "Evasive Lunge",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On dodge within 3s of Lightning Lunge: next cast chains to +1 target.",
+          "rank2": "+2 additional targets.",
+          "modifier": {
+            "condition": "onDodge",
+            "conditionParam": { "withinWindowOf": "dagger_lightning_lunge", "window": 3 },
+            "effect": { "applyBuff": { "buffId": "evasiveLunge", "effect": { "bonusChainTargets": 1 } } },
+            "perRank": {
+              "1": { "bonusChainTargets": 1 },
+              "2": { "bonusChainTargets": 2 }
+            }
+          },
+          "designNotes": "Dodge-chain extension. Every dodge within the lunge window adds chain targets. R2 makes a single well-timed dodge add +2 chains, dramatically extending reach. Stacks with Flickering Chains for massive chain extensions after dodges."
+        },
+        {
+          "id": "ll_2_3_0",
+          "name": "Voltaic Counter",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On dodge: deal 35% weapon damage as lightning counter.",
+          "rank2": "Counter also applies Shock (1 stack).",
+          "modifier": {
+            "condition": "onDodge",
+            "effect": { "instantDamage": { "scaleStat": "weaponDamage", "scaleRatio": 0.35, "damageType": "lightning" } },
+            "perRank": {
+              "1": { "scaleRatio": 0.35 },
+              "2": { "scaleRatio": 0.35, "applyDebuff": { "debuffId": "shocked", "stacks": 1 } }
+            }
+          },
+          "designNotes": "Basic lightning counter on dodge. R2's Shock application feeds into chain Shock synergies (Overload, Galvanic Surge). Primes targets for Shock-conditional bonuses between lunges."
+        },
+        {
+          "id": "ll_2_3_1",
+          "name": "Grounding Step",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On dodge: gain +10 lightning resist and heal 2% max HP.",
+          "rank2": "+15 resist and heal 3%.",
+          "modifier": {
+            "condition": "onDodge",
+            "effect": { "lightningResistBonus": 10, "healPercent": 2 },
+            "perRank": {
+              "1": { "lightningResistBonus": 10, "healPercent": 2 },
+              "2": { "lightningResistBonus": 15, "healPercent": 3 }
+            }
+          },
+          "designNotes": "Defensive dodge payoff. Lightning resist is thematic for a lightning skill user. Heal scales well with LL's high evasion encouraging frequent dodges."
+        },
+        {
+          "id": "ll_2_3_2",
+          "name": "Storm Tempo",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On dodge: reduce Lightning Lunge cooldown by 0.5s.",
+          "rank2": "Reduce by 0.8s and gain +10% cast speed for 2s.",
+          "modifier": {
+            "condition": "onDodge",
+            "effect": { "reduceCooldown": { "skillId": "dagger_lightning_lunge", "amount": 0.5 } },
+            "perRank": {
+              "1": { "amount": 0.5 },
+              "2": { "amount": 0.8, "applyBuff": { "effect": { "incCastSpeed": 10 }, "duration": 2 } }
+            }
+          },
+          "designNotes": "Dodge CDR + cast speed. Stacks with Storm Dodge (T1b) for aggressive CDR stacking. R2's cast speed buff makes the 0.7s cast even snappier, enhancing the fast-cast rhythm."
+        },
+        {
+          "id": "ll_2_4_0",
+          "name": "Storm Shadow",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "state-shift",
+          "description": "On dodge within 2s of a Lightning Lunge chain completing: enter Shadow Form (4s) -- take 25% reduced damage, Lightning Lunge chain damage doesn't decay, and chain jumps apply Blind (1s). If Lightning Lunge hits 4+ targets during Shadow Form: extend duration by +2s. Shadow Form has a 15s internal cooldown.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "conditionParam": { "withinWindowOf": "chainComplete", "window": 2 },
+                "applyBuff": {
+                  "buffId": "shadowForm",
+                  "effect": {
+                    "damageReduction": 25,
+                    "chainDamageNoDecay": true,
+                    "chainApplyDebuff": { "debuffId": "blinded", "duration": 1 }
+                  },
+                  "duration": 4
+                },
+                "internalCooldown": 15
+              },
+              {
+                "trigger": "onChainComplete",
+                "chance": 1.0,
+                "conditionParam": { "whileBuffActive": "shadowForm", "chainTargetsHit": 4 },
+                "effect": { "extendBuff": { "buffId": "shadowForm", "amount": 2 } }
+              }
+            ]
+          },
+          "designNotes": "State-shift triggered by dodge + chain completion rhythm. Unlike Stab's Ghost Step (3 dodges in 6s), this requires a dodge AFTER a chain completes -- weaving defense into LL's chain rhythm. Shadow Form removes chain damage decay (huge for chain builds) and adds Blind for defense. The 4+ target extension rewards deep investment in chain count.",
+          "engineNotes": "Needs chain-completion event tracking and dodge-within-window detection. ICD system for 15s cooldown."
+        },
+        {
+          "id": "ll_2_4_1",
+          "name": "Shadow Lightning",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "During Shadow Form: Lightning Lunge chain damage doesn't decay.",
+          "rank2": "Chain jumps also apply Blind (1s).",
+          "modifier": {
+            "condition": "whileBuffActive",
+            "conditionParam": { "buffId": "shadowForm" },
+            "perRank": {
+              "1": { "chainDamageNoDecay": true },
+              "2": { "chainDamageNoDecay": true, "chainApplyDebuff": { "debuffId": "blinded", "duration": 1 } }
+            }
+          },
+          "designNotes": "Shadow Form payoff specific to LL's chain identity. No-decay chains during Shadow Form means every target takes full damage. R2 Blind application adds defensive value to offensive chains. Stacks with Storm Shadow's built-in effects for redundancy/reinforcement."
+        },
+        {
+          "id": "ll_2_5_0",
+          "name": "Stormweave Guard",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Each chain target hit by Lightning Lunge grants +3% damage reduction for 4s (stacks, max 5 targets = 15% DR). On dodge during this window: heal 2% max HP per active DR stack. Lightning Lunge gains +10% evasion while on cooldown. +5 all resist passive.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onChainJump",
+                "chance": 1.0,
+                "applyBuff": {
+                  "buffId": "stormweaveGuard",
+                  "perStack": { "damageReduction": 3 },
+                  "maxStacks": 5,
+                  "duration": 4
+                }
+              },
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "conditionParam": { "whileBuffActive": "stormweaveGuard" },
+                "effect": { "healPercentPerStack": 2 }
+              }
+            ],
+            "conditionalMods": [
+              {
+                "condition": "whileOnCooldown",
+                "conditionParam": { "skillId": "dagger_lightning_lunge" },
+                "modifier": { "incEvasion": 10 }
+              }
+            ],
+            "stats": { "resistBonus": 5 }
+          },
+          "exclusiveWith": ["ll_2_5_1"],
+          "designNotes": "Consistent choice. Chain hits build DR stacks, dodges during the DR window heal per stack. With 4-5 chain targets, that's 12-15% DR and 8-10% HP healed per dodge. The evasion-while-on-cooldown bonus keeps defenses up between lunges. Steady, reliable sustain that scales with chain count."
+        },
+        {
+          "id": "ll_2_5_1",
+          "name": "Tempest Riposte",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "On dodge: fire a chain lightning counter that hits up to 3 targets for 50% weapon damage each. Below 35% HP: counter chains to +2 additional targets and deals 100% weapon damage instead. Lightning Lunge's dodge heal (from Flickering Chains, Grounding Step, etc.) is reduced by 50%. +15% damage taken.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "effect": {
+                  "chainCounter": {
+                    "scaleStat": "weaponDamage",
+                    "scaleRatio": 0.50,
+                    "chainTargets": 3,
+                    "damageType": "lightning"
+                  }
+                }
+              },
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "conditionParam": { "belowHpPercent": 35 },
+                "effect": {
+                  "chainCounter": {
+                    "scaleStat": "weaponDamage",
+                    "scaleRatio": 1.00,
+                    "chainTargets": 5,
+                    "damageType": "lightning"
+                  }
+                }
+              }
+            ],
+            "healReduction": 50,
+            "increasedDamageTaken": 15
+          },
+          "exclusiveWith": ["ll_2_5_0"],
+          "designNotes": "Risky choice. Dodge triggers a chain lightning counter -- offense from defense, scaled to LL's chain identity. Below 35% HP the counter becomes devastating (5 targets, 100% wpn dmg each), but the heal reduction and +15% damage taken make surviving at low HP dangerous. High-risk, high-reward counter-attack playstyle that turns dodges into chain lightning strikes."
+        },
+        {
+          "id": "ll_2_6_0",
+          "name": "Arcing Riposte",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "cooldown",
+          "description": "On dodge: fire a chain lightning counter that hits up to 4 targets for 60% weapon damage as lightning. Each counter target hit reduces Lightning Lunge cooldown by 0.3s. If counter kills any target: reset Lightning Lunge cooldown entirely.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "effect": {
+                  "chainCounter": {
+                    "scaleStat": "weaponDamage",
+                    "scaleRatio": 0.60,
+                    "chainTargets": 4,
+                    "damageType": "lightning"
+                  }
+                }
+              },
+              {
+                "trigger": "onCounterHit",
+                "chance": 1.0,
+                "effect": { "reduceCooldown": { "skillId": "dagger_lightning_lunge", "amount": 0.3 } }
+              },
+              {
+                "trigger": "onCounterKill",
+                "chance": 1.0,
+                "effect": { "resetCooldown": "dagger_lightning_lunge" }
+              }
+            ]
+          },
+          "designNotes": "Chain counter-attack on dodge with CDR payoff. The counter itself is a mini chain lightning -- 4 targets at 60% wpn dmg. Each hit reduces LL's CD by 0.3s (4 hits = 1.2s off the 4s CD). Kill resets the CD entirely, creating a dodge -> counter -> kill -> free lunge chain. The counter as chain lightning is LL's unique identity in Shadow Dance."
+        },
+        {
+          "id": "ll_2_7_0",
+          "name": "TEMPEST INCARNATE",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Lightning Lunge no longer grants evasion or defensive buffs (all evasion bonuses from Lightning Lunge talents are removed). Instead, every chain hit grants +5% damage for 6s (stacks, no cap). Dodges during this window fire a 40% weapon damage lightning bolt at every currently-chained target. Shadow Form is replaced by Storm Incarnate: +40% damage, chains never decay, but you take +25% damage. Storm Incarnate activates automatically when chain-damage stacks reach 8+. -15% max HP.",
+          "modifier": {
+            "removeEvasionBonuses": true,
+            "procs": [
+              {
+                "trigger": "onChainJump",
+                "chance": 1.0,
+                "applyBuff": {
+                  "buffId": "chainDamageStack",
+                  "perStack": { "incDamage": 5 },
+                  "maxStacks": null,
+                  "duration": 6
+                }
+              },
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "conditionParam": { "whileBuffActive": "chainDamageStack" },
+                "effect": {
+                  "lightningBolt": {
+                    "scaleStat": "weaponDamage",
+                    "scaleRatio": 0.40,
+                    "targets": "allChainedTargets",
+                    "damageType": "lightning"
+                  }
+                }
+              },
+              {
+                "trigger": "onBuffStackReach",
+                "conditionParam": { "buffId": "chainDamageStack", "threshold": 8 },
+                "applyBuff": {
+                  "buffId": "stormIncarnate",
+                  "effect": { "incDamage": 40, "chainDamageNoDecay": true, "increasedDamageTaken": 25 },
+                  "duration": 6
+                }
+              }
+            ],
+            "reducedMaxLife": 15
+          },
+          "tensionWith": "ll_2_6_0",
+          "tensionDescription": "T6 creates a balanced dodge -> chain counter -> CDR/reset rhythm that weaves defense and offense. T7 strips all evasion bonuses and converts dodges into pure offense (lightning bolts at all chained targets). Arcing Riposte's counter still fires, but you're no longer dodging to survive -- you're dodging to maximize chain damage stacks. The CDR from Arcing Riposte becomes crucial since Storm Incarnate's +25% damage taken makes you fragile. The tension: T6 gives you the tools to dodge defensively and reset, T7 makes every dodge a damage event that pushes you toward the dangerous Storm Incarnate state.",
+          "antiSynergy": ["ll_2_2_0", "ll_2_1_0"],
+          "antiSynergyNotes": "Flickering Chains (T2) -- heal on chain complete is weakened since evasion bonuses are removed (less dodging = less proc opportunities for the heal). Lightning Reflex (T1a) -- evasion bonus explicitly removed by T7.",
+          "synergy": ["ll_2_6_0", "ll_2_3_2"],
+          "synergyNotes": "Arcing Riposte (T6) -- counter kills reset LL CD, enabling rapid chain stacking toward Storm Incarnate threshold. Storm Tempo (T3c) -- dodge CDR still functions, allowing rapid LL casts to build chain damage stacks despite lost evasion.",
+          "designNotes": "Offense-from-defense transformation keystone. Strips all evasion bonuses from LL talents and converts the defensive dodge-chain rhythm into pure offense. Every chain hit builds uncapped damage stacks, and dodges fire lightning bolts at all chained targets. At 8+ stacks, Storm Incarnate replaces Shadow Form: massive damage bonus and no chain decay, but +25% damage taken makes you a glass cannon. The -15% max HP compounds the fragility. The design exploits LL's fast-cast + chain identity -- rapid casts build stacks fast, and the dodge-bolt mechanic turns the defensive dodge window into a chain-lightning barrage. You're no longer dodging to survive; you're dodging to kill."
+        }
+      ]
+    }
+  ]
+}

@@ -675,7 +675,8 @@ export type TriggerCondition =
   | 'onDebuffApplied' | 'whileLowHp' | 'whileFullHp'
   | 'whileDebuffActive' | 'afterConsecutiveHits'
   | 'onBossPhase' | 'onFirstHit' | 'onOverkill'
-  | 'whileBuffActive' | 'consumeBuff';
+  | 'whileBuffActive' | 'consumeBuff'
+  | 'onCast' | 'onCastComplete' | 'afterCastWithoutKill';
 
 export interface ConditionalModifier {
   condition: TriggerCondition;
@@ -691,7 +692,7 @@ export interface SkillProcEffect {
   castSkill?: string;
   resetCooldown?: string;
   bonusCast?: boolean;
-  applyBuff?: { effect: AbilityEffect; duration: number };
+  applyBuff?: { buffId?: string; effect: AbilityEffect; duration: number };
   applyDebuff?: { debuffId: string; stacks: number; duration: number };
   instantDamage?: { flatDamage: number; element: DamageElement; scaleStat?: string; scaleRatio?: number };
   healPercent?: number;
@@ -699,7 +700,7 @@ export interface SkillProcEffect {
 }
 
 export interface DebuffInteraction {
-  bonusDamageVsDebuffed?: { debuffId: string; incDamage: number };
+  bonusDamageVsDebuffed?: { debuffId: string; incDamage: number; consumeOnHit?: boolean };
   spreadDebuffOnKill?: { debuffIds: string[]; refreshDuration: number };
   debuffOnCrit?: { debuffId: string; stacks: number; duration: number };
   consumeDebuff?: { debuffId: string; damagePerStack: number; element: DamageElement };

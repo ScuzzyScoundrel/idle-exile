@@ -3820,7 +3820,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 43,
+      version: 44,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -4516,6 +4516,16 @@ export const useGameStore = create<GameState & GameActions>()(
             else if (count >= 25) claimed[zoneId] = 25;
           }
           raw.zoneMasteryClaimed = claimed;
+        }
+
+        if (version < 44) {
+          // v44: Unique dagger skill notables/keystones — reset allocations
+          const sp = (raw.skillProgress ?? {}) as Record<string, Record<string, unknown>>;
+          for (const sid of Object.keys(sp)) {
+            if (sid.startsWith('dagger_')) {
+              sp[sid] = { ...sp[sid], allocatedRanks: {} };
+            }
+          }
         }
 
         if (version < 43) {

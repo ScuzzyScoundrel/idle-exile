@@ -1,0 +1,1059 @@
+{
+  "skillId": "dagger_smoke_screen",
+  "skillName": "Shadow Step",
+  "archetypes": ["chaos", "melee", "stealth-synergy"],
+  "branches": [
+    {
+      "branchIndex": 0,
+      "branchName": "Assassination",
+      "mechanicCheck": {
+        "mechanics": [
+          "Stealth charge consumption rhythm (T1 behavior -- consume charges for crit windows)",
+          "Shadowstrike stacks (T2 notable -- escalating proc on charge consumption -> crit burst)",
+          "Executioner's Mark (T6 notable -- catastrophic proc -> massive stealth-amplified hit)"
+        ],
+        "nonTracked": [
+          "+X vs Vulnerable -- applied by Ambush Protocol, not tracked independently",
+          "Stealth uptime ramp -- time-based bonus, no stacking mechanic"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "nodes": [
+        {
+          "id": "ss_0_1_0",
+          "name": "Shadow Surge",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Consuming a Stealth charge grants +15% crit chance for 2s.",
+          "rank2": "Also grants +10% crit mult per charge consumed.",
+          "modifier": {
+            "condition": "onStealthChargeConsume",
+            "effect": { "incCritChance": 15, "duration": 2 },
+            "perRank": {
+              "1": { "incCritChance": 15, "duration": 2 },
+              "2": { "incCritChance": 15, "incCritMultiplierPerCharge": 10, "duration": 2 }
+            }
+          },
+          "designNotes": "STEALTH_CHARGE_CONSUMER template. Rewards the consume-recharge rhythm. R2 makes multi-charge consumption more valuable."
+        },
+        {
+          "id": "ss_0_1_1",
+          "name": "Lurking Death",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "+5% damage per second in Stealth before casting (max +25%).",
+          "rank2": "Max increases to +40%.",
+          "modifier": {
+            "condition": "whileStealthed",
+            "effect": { "incDamagePerSecond": 5, "maxBonus": 25 },
+            "perRank": {
+              "1": { "incDamagePerSecond": 5, "maxBonus": 25 },
+              "2": { "incDamagePerSecond": 5, "maxBonus": 40 }
+            }
+          },
+          "designNotes": "STEALTH_UPTIME_RAMP template. Patience rewards. Waiting in stealth builds a bigger opening strike. Tensions with fast casting -- do you cast now or wait?"
+        },
+        {
+          "id": "ss_0_2_0",
+          "name": "Creeping Menace",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "escalating",
+          "description": "Each Stealth charge consumed grants 1 Shadowstrike stack (max 5). At 5 stacks: consume all to enter Lethal Focus (3s) -- +60% crit chance, +40% crit mult. Stacks persist through stealth cycles.",
+          "statsRider": "+8% crit chance while holding any Stealth charges.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onStealthChargeConsume",
+                "chance": 1.0,
+                "effect": { "addStack": "shadowstrike", "maxStacks": 5 },
+                "atMax": {
+                  "consumeAll": true,
+                  "applyBuff": {
+                    "buffId": "lethalFocus",
+                    "effect": { "incCritChance": 60, "incCritMultiplier": 40 },
+                    "duration": 3
+                  }
+                }
+              }
+            ],
+            "stats": { "incCritChance": 8 }
+          },
+          "designNotes": "Escalating proc on Stealth charge consumption. Shadow Step's 5s CD means ~5 charges consumed per 25s. Lethal Focus fires every 5th consumption -- rewards consistent stealth-cast rhythm. The crit window is powerful but requires 5 consumption events to trigger."
+        },
+        {
+          "id": "ss_0_2_1",
+          "name": "Unseen Blade",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Attacks from Stealth have +20% crit chance.",
+          "rank2": "First attack from Stealth is a guaranteed crit.",
+          "modifier": {
+            "condition": "whileStealthed",
+            "effect": { "incCritChance": 20 },
+            "perRank": {
+              "1": { "incCritChance": 20 },
+              "2": { "guaranteedCritFromStealth": true }
+            }
+          },
+          "designNotes": "Stealth-conditional crit. R2 removes variance entirely for the opener -- guaranteed crit from stealth is the assassin fantasy."
+        },
+        {
+          "id": "ss_0_3_0",
+          "name": "Ambush Protocol",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Consuming a Stealth charge has 30% chance to apply Vulnerable (2s).",
+          "rank2": "Chance increases to 50%.",
+          "modifier": {
+            "condition": "onStealthChargeConsume",
+            "effect": { "applyDebuff": { "debuffId": "vulnerable", "duration": 2 } },
+            "perRank": {
+              "1": { "chance": 0.30 },
+              "2": { "chance": 0.50 }
+            }
+          },
+          "designNotes": "Bridge between stealth consumption and debuff application. Stealth charge consumption gates Vulnerable -- pairs with T4 for stealth + Vulnerable interaction."
+        },
+        {
+          "id": "ss_0_3_1",
+          "name": "Ghost Predator",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On kill while consuming Stealth charges, regain 1 charge.",
+          "rank2": "Also gain +15% damage for 3s on charge regain.",
+          "modifier": {
+            "condition": "onKill",
+            "conditionParam": { "whileConsumingStealthCharges": true },
+            "effect": { "regainStealthCharge": 1 },
+            "perRank": {
+              "1": { "regainStealthCharge": 1 },
+              "2": { "regainStealthCharge": 1, "incDamage": 15, "damageDuration": 3 }
+            }
+          },
+          "designNotes": "STEALTH_REENTRY template. Kill momentum sustains stealth charges. R2 rewards the reentry loop with a damage spike."
+        },
+        {
+          "id": "ss_0_3_2",
+          "name": "Patient Shadow",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Each second in Stealth increases next cast's crit mult by +8% (max +40%).",
+          "rank2": "Max increases to +60%.",
+          "modifier": {
+            "condition": "whileStealthed",
+            "effect": { "incCritMultiplierPerSecond": 8, "maxBonus": 40 },
+            "perRank": {
+              "1": { "incCritMultiplierPerSecond": 8, "maxBonus": 40 },
+              "2": { "incCritMultiplierPerSecond": 8, "maxBonus": 60 }
+            }
+          },
+          "designNotes": "STEALTH_UPTIME_RAMP template for crit mult. Complements Lurking Death (damage) with crit mult scaling. Patient players who wait in stealth get enormous opening strikes."
+        },
+        {
+          "id": "ss_0_4_0",
+          "name": "Ambush Execution",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "Shadow Step from Stealth vs Vulnerable targets: guaranteed crit that deals +80% damage. Consumes Vulnerable on hit. If target dies: regain 2 Stealth charges instantly.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onHit",
+                "chance": 1.0,
+                "conditionParam": { "whileStealthed": true, "debuffId": "vulnerable" },
+                "effect": {
+                  "guaranteedCrit": true,
+                  "incDamage": 80,
+                  "consumeDebuff": { "debuffId": "vulnerable" }
+                }
+              }
+            ],
+            "conditionalMods": [
+              {
+                "condition": "onKill",
+                "conditionParam": { "fromStealthVsVulnerable": true },
+                "modifier": { "regainStealthCharges": 2 }
+              }
+            ]
+          },
+          "designNotes": "Gated proc -- double-gated by Stealth AND Vulnerable. Ambush Protocol (T3a) provides Vulnerable application. The kill -> charge regain creates an assassination chain: stealth -> consume charge -> Vulnerable -> Shadow Step from stealth -> guaranteed massive crit -> kill -> charges back."
+        },
+        {
+          "id": "ss_0_4_1",
+          "name": "Predator's Cloak",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "While in Predator state: Stealth charges consumed 50% slower (duration doubled).",
+          "rank2": "Predator proc also restores 1 Stealth charge.",
+          "modifier": {
+            "condition": "whileBuffActive",
+            "conditionParam": { "buffId": "predator" },
+            "effect": { "stealthChargeConsumptionRate": 0.50 },
+            "perRank": {
+              "1": { "stealthChargeConsumptionRate": 0.50 },
+              "2": { "stealthChargeConsumptionRate": 0.50, "restoreStealthCharge": 1 }
+            }
+          },
+          "designNotes": "Predator state extends stealth charge economy. R2 feeds charges back, enabling longer assassination windows."
+        },
+        {
+          "id": "ss_0_5_0",
+          "name": "Shrouded Certainty",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Shadow Step from Stealth always crits. Crits from Stealth have +25% crit mult. Stealth charges regenerate 30% slower. Your crit chance from non-stealth sources cannot exceed 40%.",
+          "modifier": {
+            "guaranteedCritFromStealth": true,
+            "conditionalMods": [
+              {
+                "condition": "whileStealthed",
+                "modifier": { "incCritMultiplier": 25 }
+              }
+            ],
+            "stealthChargeRegenRate": -30,
+            "critChanceCap": { "nonStealthSources": 40 }
+          },
+          "exclusiveWith": ["ss_0_5_1"],
+          "designNotes": "Consistent choice. Guaranteed stealth crits remove variance but slower charge regen limits frequency. Every Shadow Step from stealth is devastating but you cast fewer of them. Crit cap prevents non-stealth crit stacking from overshadowing the stealth identity."
+        },
+        {
+          "id": "ss_0_5_1",
+          "name": "One Strike, One Kill",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "Consuming ALL remaining Stealth charges at once: Shadow Step deals +40% damage per charge consumed (multiplicative). If the target dies: enter Phantom Stealth (3s) -- full stealth benefits, +50% damage. If the target survives: lose all Stealth charges, -25% damage for 5s (exposed).",
+          "modifier": {
+            "consumeAllCharges": true,
+            "effect": { "incDamagePerCharge": 40 },
+            "procs": [
+              {
+                "trigger": "onKill",
+                "chance": 1.0,
+                "conditionParam": { "allChargesConsumed": true },
+                "applyBuff": {
+                  "buffId": "phantomStealth",
+                  "effect": { "fullStealthBenefits": true, "incDamage": 50 },
+                  "duration": 3
+                }
+              }
+            ],
+            "failState": {
+              "condition": "targetSurvives",
+              "effect": { "loseAllStealthCharges": true, "incDamage": -25, "duration": 5 }
+            }
+          },
+          "exclusiveWith": ["ss_0_5_0"],
+          "designNotes": "Risky choice. All-in gamble -- dump every charge for massive damage. Kill chains reward aggressive play with Phantom Stealth, but whiffing leaves you exposed and chargeless. Tensions with Patient Shadow and Lurking Death's patient playstyle."
+        },
+        {
+          "id": "ss_0_6_0",
+          "name": "Executioner's Mark",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "catastrophic",
+          "description": "On crit from Stealth: 12% chance to apply Executioner's Mark (8s). Marked enemies: next Shadow Step from Stealth deals +150% damage, consumes the Mark, and the hit cannot be dodged or mitigated. Consuming 3+ Stealth charges on the marked hit increases damage to +200%.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onCrit",
+                "chance": 0.12,
+                "conditionParam": { "whileStealthed": true },
+                "applyDebuff": {
+                  "debuffId": "executionersMark",
+                  "stacks": 1,
+                  "duration": 8
+                }
+              }
+            ],
+            "debuffInteraction": {
+              "bonusDamageVsDebuffed": {
+                "debuffId": "executionersMark",
+                "incDamage": 150,
+                "consumeOnHit": true,
+                "unmitigatable": true,
+                "chargeThresholdBonus": {
+                  "stealthChargesConsumed": 3,
+                  "upgradedDamage": 200
+                }
+              }
+            }
+          },
+          "designNotes": "Catastrophic proc -- 12% on stealth crits is low but +150/200% payoff is enormous. Shadow Step's stealth-crit rhythm means several checks per cycle. The Mark lingers 8s, giving time to set up the perfect stealth ambush. Charge consumption bonus rewards saving charges for the marked target."
+        },
+        {
+          "id": "ss_0_7_0",
+          "name": "SHADOW REAPER",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Shadow Step transforms: can ONLY be cast from Stealth. Damage increased by +100%. Each Stealth charge consumed adds +30% damage (multiplicative). Crits from Shadow Step no longer deal bonus crit damage -- crits ONLY apply Executioner's Mark (guaranteed). You cannot regenerate Stealth charges passively -- charges are ONLY gained from kills. -25% base damage when not in Stealth.",
+          "modifier": {
+            "stealthCastOnly": true,
+            "incDamage": 100,
+            "incDamagePerChargeConsumed": 30,
+            "critsDoNoBonusDamage": true,
+            "guaranteedMarkOnCrit": true,
+            "noPassiveChargeRegen": true,
+            "nonStealthDamage": -25
+          },
+          "tensionWith": "ss_0_6_0",
+          "tensionDescription": "T6 makes Executioner's Mark a +150% damage amplifier from stealth crits. T7 removes crit damage entirely and makes crits a guaranteed Mark delivery system. Shadow Step becomes stealth-only but hits devastatingly hard. Kill pipeline: kill -> gain charge -> enter stealth -> Shadow Step -> crit -> Mark applied (no crit damage) -> re-stealth -> Shadow Step the Marked target -> +150% unmitigated damage. T7 makes every kill feed the next assassination.",
+          "antiSynergy": ["ss_0_2_0"],
+          "antiSynergyNotes": "Creeping Menace (T2) -- Shadowstrike stacks build toward crit window, but T7 removes crit damage. Lethal Focus's crit mult has no value when crits don't deal bonus damage.",
+          "synergy": ["ss_0_4_0", "ss_0_3_1"],
+          "synergyNotes": "Ambush Execution (T4) -- guaranteed crit vs Vulnerable from stealth feeds constant Mark application. Ghost Predator (T3b) -- kill-based charge regain is the ONLY charge source under T7, making kill chains essential.",
+          "engineNotes": "Shadow Step MUST check stealth state before allowing cast. UI warning recommended if SHADOW REAPER active and no Stealth charges available."
+        }
+      ]
+    },
+    {
+      "branchIndex": 1,
+      "branchName": "Venomcraft",
+      "mechanicCheck": {
+        "mechanics": [
+          "Stealth-enhanced poison (T1 behavior -- stealth gates bonus poison application)",
+          "Shadow Venom Frenzy state (T4 notable -- state-shift from stealth poison threshold)",
+          "Plague spread from stealth kills (T6 notable -- on-kill debuff spread from stealth)"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "nodes": [
+        {
+          "id": "ss_1_1_0",
+          "name": "Shadow Venom",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Shadow Step applies 2 poison stacks on hit.",
+          "rank2": "If cast from Stealth, applies 4 stacks.",
+          "modifier": {
+            "condition": "onHit",
+            "effect": { "applyDebuff": { "debuffId": "poisoned", "stacks": 2 } },
+            "perRank": {
+              "1": { "stacks": 2 },
+              "2": { "stacks": 2, "fromStealth": { "stacks": 4 } }
+            }
+          },
+          "designNotes": "Basic poison application with stealth bonus. R2 doubles stacks from stealth -- rewards the stealth-cast playstyle unique to Shadow Step."
+        },
+        {
+          "id": "ss_1_1_1",
+          "name": "Insidious Strike",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "+12% damage vs poisoned enemies.",
+          "rank2": "+18% and crits vs poisoned grant +1 Stealth charge.",
+          "modifier": {
+            "condition": "whileDebuffActive",
+            "conditionParam": { "debuffId": "poisoned" },
+            "perRank": {
+              "1": { "incDamage": 12 },
+              "2": { "incDamage": 18, "onCritVsPoisoned": { "grantStealthCharge": 1 } }
+            }
+          },
+          "designNotes": "Conditional damage vs poisoned. R2 bridges poison and stealth mechanics -- crits on poisoned targets feed stealth charges back."
+        },
+        {
+          "id": "ss_1_2_0",
+          "name": "Nightshade Infusion",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "Shadow Step from Stealth: guaranteed 3 poison stacks (ignores poison resistance). If target already has 4+ poison stacks: also apply Cursed (3s) and gain +1 Stealth charge.",
+          "statsRider": "+15% poison damage.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onHit",
+                "chance": 1.0,
+                "conditionParam": { "whileStealthed": true },
+                "applyDebuff": { "debuffId": "poisoned", "stacks": 3, "ignoreResistance": true }
+              },
+              {
+                "trigger": "onHit",
+                "chance": 1.0,
+                "conditionParam": { "whileStealthed": true, "debuffId": "poisoned", "threshold": 4 },
+                "effect": {
+                  "applyDebuff": { "debuffId": "cursed", "duration": 3 },
+                  "grantStealthCharge": 1
+                }
+              }
+            ],
+            "stats": { "incPoisonDamage": 15 }
+          },
+          "designNotes": "Gated proc -- Stealth gates the guaranteed poison, and 4+ existing stacks gates the Cursed application + charge refund. Shadow Step's stealth cycling makes the first gate reliable. The second gate rewards pre-poisoned targets -- cast Shadow Step, re-stealth, cast again on the now-poisoned target for Cursed."
+        },
+        {
+          "id": "ss_1_2_1",
+          "name": "Creeping Darkness",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Poison from Shadow Step has +2s duration.",
+          "rank2": "+3s and poison is 20% stronger (snapshot bonus).",
+          "modifier": {
+            "condition": "onHit",
+            "effect": { "debuffDurationBonus": 2 },
+            "perRank": {
+              "1": { "debuffDurationBonus": 2 },
+              "2": { "debuffDurationBonus": 3, "debuffEffectBonus": 20 }
+            }
+          },
+          "designNotes": "Duration extension keeps poison stacks alive between Shadow Step's 5s CD. R2 snapshot bonus means the poison deals more damage for its entire duration."
+        },
+        {
+          "id": "ss_1_3_0",
+          "name": "Toxic Ambush",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "At 5+ stacks, Shadow Step from Stealth deals +30% damage.",
+          "rank2": "Threshold drops to 3 stacks.",
+          "modifier": {
+            "condition": "onHit",
+            "conditionParam": { "whileStealthed": true, "debuffId": "poisoned", "threshold": 5 },
+            "perRank": {
+              "1": { "threshold": 5, "incDamage": 30 },
+              "2": { "threshold": 3, "incDamage": 30 }
+            }
+          },
+          "designNotes": "Stealth + poison stack threshold conditional. R2 lowers bar significantly. Shadow Step's stealth cycling + Shadow Venom's poison application feeds this naturally."
+        },
+        {
+          "id": "ss_1_3_1",
+          "name": "Plague Assassin",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On kill, spread 3 poison stacks to next enemy.",
+          "rank2": "Also regain 1 Stealth charge.",
+          "modifier": {
+            "condition": "onKill",
+            "effect": { "spreadDebuffStacks": { "debuffId": "poisoned", "stacks": 3 } },
+            "perRank": {
+              "1": { "spreadStacks": 3 },
+              "2": { "spreadStacks": 3, "regainStealthCharge": 1 }
+            }
+          },
+          "designNotes": "Kill momentum for poison + stealth hybrid. R2 bridges killing into stealth charge economy -- kill spreads poison AND refuels stealth."
+        },
+        {
+          "id": "ss_1_3_2",
+          "name": "Festering Shadow",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "At 8+ stacks, consume 4 to apply Vulnerable (3s) + Cursed (3s).",
+          "rank2": "Consume 3 stacks instead.",
+          "modifier": {
+            "condition": "onHit",
+            "conditionParam": { "debuffId": "poisoned", "threshold": 8 },
+            "effect": {
+              "consumeStacks": 4,
+              "applyDebuff": [
+                { "debuffId": "vulnerable", "duration": 3 },
+                { "debuffId": "cursed", "duration": 3 }
+              ]
+            },
+            "perRank": {
+              "1": { "consumeStacks": 4 },
+              "2": { "consumeStacks": 3 }
+            }
+          },
+          "designNotes": "Active stack management. Consume poison stacks for dual debuffs. R2 makes the cycle faster. Bridges into T4's Venom Frenzy state through stack manipulation."
+        },
+        {
+          "id": "ss_1_4_0",
+          "name": "Nightfall Frenzy",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "state-shift",
+          "description": "When Shadow Step from Stealth hits a target with 6+ poison stacks: enter Shadow Venom Frenzy (5s) -- +25% cast speed, all Shadow Step hits apply +2 extra poison stacks, and Shadow Step casts from Stealth grant +1 Stealth charge. Shadow Venom Frenzy has a 18s internal cooldown.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onHit",
+                "chance": 1.0,
+                "conditionParam": { "whileStealthed": true, "debuffId": "poisoned", "threshold": 6 },
+                "applyBuff": {
+                  "buffId": "shadowVenomFrenzy",
+                  "effect": {
+                    "incCastSpeed": 25,
+                    "bonusPoisonStacks": 2,
+                    "stealthCastChargeRefund": 1
+                  },
+                  "duration": 5
+                },
+                "internalCooldown": 18
+              }
+            ]
+          },
+          "designNotes": "State-shift gated by Stealth + 6 poison stacks. Shadow Step's stealth cycling + Shadow Venom builds to 6 stacks in 2-3 casts. Shadow Venom Frenzy turbocharges both poison stacking AND stealth charge economy. The charge refund during Frenzy creates a rapid-fire stealth-cast loop.",
+          "engineNotes": "Needs ICD system and per-debuff stack threshold. stealthCastChargeRefund is new -- grants charge when casting from stealth during buff."
+        },
+        {
+          "id": "ss_1_4_1",
+          "name": "Shadow Frenzy",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "During Venom Frenzy: Shadow Step cooldown reduced by 1s.",
+          "rank2": "Also grants +1 Stealth charge per cast during Frenzy.",
+          "modifier": {
+            "condition": "whileBuffActive",
+            "conditionParam": { "buffId": "shadowVenomFrenzy" },
+            "perRank": {
+              "1": { "reduceCooldown": 1 },
+              "2": { "reduceCooldown": 1, "grantStealthChargeOnCast": 1 }
+            }
+          },
+          "designNotes": "Shadow Venom Frenzy payoff. CD reduction during the window means more Shadow Step casts. R2 feeds the stealth loop -- every cast during Frenzy refuels charges."
+        },
+        {
+          "id": "ss_1_5_0",
+          "name": "Venomous Shroud",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Shadow Step from Stealth applies poison that deals +15% more damage per stack (multiplicative). Poison from Shadow Step has +50% duration. Shadow Step's cooldown increased by 1s.",
+          "modifier": {
+            "conditionalMods": [
+              {
+                "condition": "whileStealthed",
+                "modifier": {
+                  "poisonDamagePerStack": 15,
+                  "poisonDurationBonus": 50
+                }
+              }
+            ],
+            "cooldownIncrease": 1
+          },
+          "exclusiveWith": ["ss_1_5_1"],
+          "designNotes": "Consistent choice. Per-stack poison scaling from stealth rewards building high stacks patiently. Duration extension keeps stacks alive longer. CD increase means fewer casts but each cast's poison is far more potent. Reliable damage ceiling through stealth-enhanced poison."
+        },
+        {
+          "id": "ss_1_5_1",
+          "name": "Blight Detonation",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "Shadow Step from Stealth: consume ALL Stealth charges and ALL poison stacks on target. Deal 25% of total consumed poison DoT as instant chaos damage per Stealth charge consumed. If 3+ charges were consumed: also apply Vulnerable (3s) + Cursed (3s). All Stealth charges and poison stacks are lost. 8s cooldown added to Shadow Step.",
+          "modifier": {
+            "consumeAllCharges": true,
+            "consumeAllStacks": { "debuffId": "poisoned" },
+            "effect": {
+              "instantDamagePerCharge": { "percentOfConsumedDoT": 25 },
+              "chargeThreshold": {
+                "threshold": 3,
+                "applyDebuff": [
+                  { "debuffId": "vulnerable", "duration": 3 },
+                  { "debuffId": "cursed", "duration": 3 }
+                ]
+              }
+            },
+            "additionalCooldown": 8
+          },
+          "exclusiveWith": ["ss_1_5_0"],
+          "designNotes": "Risky choice. Nuclear option -- consume everything for massive burst. 3 charges + 10 poison stacks = 75% of all poison DoT as instant damage. But you lose all stacks and charges, need to rebuild from scratch. The 8s additional CD means long downtime after the detonation. Feast/famine cycle. Tensions with Venomous Shroud's steady scaling."
+        },
+        {
+          "id": "ss_1_6_0",
+          "name": "Miasma Shroud",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "On kill from Stealth: spread ALL debuffs to next enemy with +50% remaining duration. Spread debuffs also gain +2 poison stacks. If 3+ debuff types are spread: gain +2 Stealth charges and enter brief stealth (1s).",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onKill",
+                "chance": 1.0,
+                "conditionParam": { "whileStealthed": true },
+                "effect": {
+                  "spreadAllDebuffs": true,
+                  "durationBonus": 50,
+                  "bonusPoisonStacks": 2
+                }
+              },
+              {
+                "trigger": "onKill",
+                "chance": 1.0,
+                "conditionParam": { "whileStealthed": true, "debuffTypesSpread": 3 },
+                "effect": {
+                  "grantStealthCharges": 2,
+                  "enterStealth": { "duration": 1 }
+                }
+              }
+            ]
+          },
+          "designNotes": "Gated proc -- kill from Stealth gates the spread. 3+ debuff types gates the charge refund + brief stealth. Shadow Step's chaos damage + poison + Vulnerable/Cursed from other nodes easily reaches 3 types. The brief stealth allows immediate follow-up Shadow Step from Stealth on the next target -- assassination chain."
+        },
+        {
+          "id": "ss_1_7_0",
+          "name": "PLAGUE WRAITH",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Shadow Step becomes exclusively a stealth-poison delivery skill: can ONLY deal damage while in Stealth. All Shadow Step poison damage increased by +80%. Poison stacks from Shadow Step have no cap (unlimited). Each poison stack on target reduces Shadow Step cooldown by 0.1s (max 3s reduction). You can only have ONE enemy poisoned at a time -- poisoning a new target removes ALL poison from the previous target. -20% non-poison damage.",
+          "modifier": {
+            "stealthDamageOnly": true,
+            "incPoisonDamage": 80,
+            "removeStackCap": { "debuffId": "poisoned" },
+            "cooldownReductionPerStack": { "perStack": 0.1, "maxReduction": 3 },
+            "singlePoisonTarget": true,
+            "incNonPoisonDamage": -20
+          },
+          "tensionWith": "ss_1_6_0",
+          "tensionDescription": "T6 rewards spreading debuffs to MANY targets on kill from stealth. T7 restricts you to ONE poisoned target at a time -- spread is weaker (new poison removes old). But that single target's poison scales infinitely with no stack cap, and each stack reduces your CD. Breadth vs depth: T6 wants multi-target plague spreading, T7 wants single-target poison assassination.",
+          "antiSynergy": ["ss_1_6_0", "ss_1_3_1"],
+          "antiSynergyNotes": "Miasma Shroud (T6) -- debuff spread loses value when poison can only exist on one target. Plague Assassin (T3b) -- poison spread to next enemy is wasted since new poisoning removes old stacks.",
+          "synergy": ["ss_1_4_0", "ss_1_2_1"],
+          "synergyNotes": "Nightfall Frenzy (T4) -- unlimited poison stacks mean the 6-stack threshold is always met during sustained combat. Creeping Darkness (T2b) -- longer poison duration + snapshot bonus on ever-growing stacks becomes enormous."
+        }
+      ]
+    },
+    {
+      "branchIndex": 2,
+      "branchName": "Shadow Dance",
+      "mechanicCheck": {
+        "mechanics": [
+          "Stealth-dodge synergy (T1 behavior -- Shadow Step cast counts as dodge + stealth charge generation)",
+          "Umbral Form state (T4 notable -- state-shift on dodge + stealth charge interaction)",
+          "Stealth counter-attack (T6 notable -- dodge triggers stealth-enhanced counter from Shadow Step)"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "nodes": [
+        {
+          "id": "ss_2_1_0",
+          "name": "Phase Shift",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Shadow Step cast counts as a dodge for proc purposes.",
+          "rank2": "Also grants +15% evasion for 2s.",
+          "modifier": {
+            "condition": "onCast",
+            "effect": { "countsAsDodge": true },
+            "perRank": {
+              "1": { "countsAsDodge": true },
+              "2": { "countsAsDodge": true, "incEvasion": 15, "evasionDuration": 2 }
+            }
+          },
+          "designNotes": "Shadow Step casts trigger dodge procs. Bridges Shadow Step's 5s CD into the dodge ecosystem. R2 adds evasion snowball -- cast -> evasion -> more dodges."
+        },
+        {
+          "id": "ss_2_1_1",
+          "name": "Shadow Counter",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Dodges within 2s of Shadow Step deal +25% counter damage.",
+          "rank2": "+40% and counters apply Blind (1s).",
+          "modifier": {
+            "condition": "onDodge",
+            "conditionParam": { "withinWindowOf": "dagger_smoke_screen", "window": 2 },
+            "perRank": {
+              "1": { "incCounterDamage": 25 },
+              "2": { "incCounterDamage": 40, "applyDebuffOnCounter": { "debuffId": "blinded", "duration": 1 } }
+            }
+          },
+          "designNotes": "Timed window -- dodge shortly after Shadow Step for bonus counter damage. R2 adds Blind for defensive payoff. Pairs with Phase Shift (T1a) which makes Shadow Step itself count as a dodge."
+        },
+        {
+          "id": "ss_2_2_0",
+          "name": "Umbral Shield",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "cooldown",
+          "description": "Shadow Step cast grants 1 Fortify stack (5s, 3% DR). On dodge within 3s of Shadow Step: consume 1 Stealth charge to gain +2 additional Fortify stacks and heal 3% max HP. 6s internal cooldown on the dodge proc.",
+          "statsRider": "+5 all resist.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onCast",
+                "chance": 1.0,
+                "conditionParam": { "skillId": "dagger_smoke_screen" },
+                "effect": { "addFortifyStack": 1, "fortifyDuration": 5, "fortifyDR": 3 }
+              },
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "conditionParam": { "withinWindowOf": "dagger_smoke_screen", "window": 3 },
+                "effect": {
+                  "consumeStealthCharge": 1,
+                  "addFortifyStacks": 2,
+                  "healPercent": 3
+                },
+                "internalCooldown": 6
+              }
+            ],
+            "stats": { "resistBonus": 5 }
+          },
+          "designNotes": "Cooldown proc -- Shadow Step cast grants base Fortify. Dodge within the window trades a Stealth charge for bonus Fortify + heal. The charge consumption creates tension: spend charges on defense or save them for offense? ICD prevents spamming the dodge proc.",
+          "engineNotes": "Needs stealth charge consumption on dodge proc and ICD system."
+        },
+        {
+          "id": "ss_2_2_1",
+          "name": "Flickering Shadow",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On dodge within 3s of Shadow Step: gain +1 Stealth charge.",
+          "rank2": "Also gain +20% damage for 2s.",
+          "modifier": {
+            "condition": "onDodge",
+            "conditionParam": { "withinWindowOf": "dagger_smoke_screen", "window": 3 },
+            "effect": { "grantStealthCharge": 1 },
+            "perRank": {
+              "1": { "grantStealthCharge": 1 },
+              "2": { "grantStealthCharge": 1, "incDamage": 20, "damageDuration": 2 }
+            }
+          },
+          "designNotes": "Dodge-to-stealth-charge pipeline. Cast Shadow Step -> dodge within 3s -> gain charge. R2 adds damage spike for aggressive follow-up. Directly opposes Umbral Shield's charge consumption -- do you spend or earn?"
+        },
+        {
+          "id": "ss_2_3_0",
+          "name": "Phantom Strike",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On dodge: deal 40% weapon damage as counter from stealth (benefits from Stealth bonuses).",
+          "rank2": "Counter is guaranteed crit from stealth.",
+          "modifier": {
+            "condition": "onDodge",
+            "effect": {
+              "instantDamage": { "scaleStat": "weaponDamage", "scaleRatio": 0.40 },
+              "stealthBonusesApply": true
+            },
+            "perRank": {
+              "1": { "scaleRatio": 0.40, "stealthBonusesApply": true },
+              "2": { "scaleRatio": 0.40, "stealthBonusesApply": true, "guaranteedCrit": true }
+            }
+          },
+          "designNotes": "Dodge counter that counts as a stealth attack. All Lurking Death, Patient Shadow, Unseen Blade bonuses apply to this counter. R2 guaranteed crit makes this a devastating passive attack."
+        },
+        {
+          "id": "ss_2_3_1",
+          "name": "Vanishing Act",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On dodge: gain +20% evasion and +10% DR for 3s.",
+          "rank2": "Duration extends to 5s.",
+          "modifier": {
+            "condition": "onDodge",
+            "effect": { "incEvasion": 20, "damageReduction": 10, "duration": 3 },
+            "perRank": {
+              "1": { "incEvasion": 20, "damageReduction": 10, "duration": 3 },
+              "2": { "incEvasion": 20, "damageReduction": 10, "duration": 5 }
+            }
+          },
+          "designNotes": "Defensive dodge payoff. Evasion snowball -- dodge -> evasion -> more dodges. R2 extends window significantly, nearly permanent with frequent dodges."
+        },
+        {
+          "id": "ss_2_3_2",
+          "name": "Shadow Tempo",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "On dodge: reduce Shadow Step cooldown by 0.8s.",
+          "rank2": "Reduce by 1.2s.",
+          "modifier": {
+            "condition": "onDodge",
+            "effect": { "reduceCooldown": { "skillId": "dagger_smoke_screen", "amount": 0.8 } },
+            "perRank": {
+              "1": { "amount": 0.8 },
+              "2": { "amount": 1.2 }
+            }
+          },
+          "designNotes": "CD reduction on dodge. With Shadow Step's 5s CD, a single R2 dodge gives 24% CDR. Multiple dodges can nearly reset the cooldown entirely."
+        },
+        {
+          "id": "ss_2_4_0",
+          "name": "Umbral Form",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "state-shift",
+          "description": "On dodge: heal 4% max HP. On 3 dodges within 6s while holding Stealth charges: enter Umbral Form (4s) -- take 25% reduced damage, all Shadow Step casts are instant (no cast time), and gain +1 Stealth charge per dodge during Umbral Form. Umbral Form has a 16s internal cooldown.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "healPercent": 4
+              },
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "conditionParam": { "dodgesInWindow": 3, "windowDuration": 6, "holdingStealthCharges": true },
+                "applyBuff": {
+                  "buffId": "umbralForm",
+                  "effect": {
+                    "damageReduction": 25,
+                    "instantCast": { "skillId": "dagger_smoke_screen" },
+                    "grantStealthChargeOnDodge": 1
+                  },
+                  "duration": 4
+                },
+                "internalCooldown": 16
+              }
+            ]
+          },
+          "designNotes": "State-shift on 3 dodges while holding Stealth charges. The charge requirement gates this -- you can't enter Umbral Form if you've spent all charges on offense. Instant Shadow Step during the window enables rapid stealth cycling. Charge generation on dodge during Form feeds the stealth economy.",
+          "engineNotes": "Needs dodge-within-window counting, stealth charge check as additional condition, ICD system, and instant cast override for Shadow Step."
+        },
+        {
+          "id": "ss_2_4_1",
+          "name": "Spectral Shadow",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "During Shadow Form: Shadow Step costs no cooldown.",
+          "rank2": "Also grants +1 Stealth charge per Shadow Step cast.",
+          "modifier": {
+            "condition": "whileBuffActive",
+            "conditionParam": { "buffId": "umbralForm" },
+            "perRank": {
+              "1": { "noCooldown": { "skillId": "dagger_smoke_screen" } },
+              "2": { "noCooldown": { "skillId": "dagger_smoke_screen" }, "grantStealthChargeOnCast": 1 }
+            }
+          },
+          "designNotes": "Umbral Form payoff. No CD during the 4s window means rapid-fire Shadow Step casts. R2 ensures each cast feeds stealth charges, enabling stealth-cast-stealth-cast loops."
+        },
+        {
+          "id": "ss_2_5_0",
+          "name": "Penumbral Grace",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "On dodge: heal 3% max HP and gain +1 Stealth charge. Shadow Step grants +10% evasion for 4s (stacks up to 3x). +5 all resist passive. Stealth charges cannot exceed 5 (hard cap).",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "healPercent": 3,
+                "grantStealthCharge": 1
+              },
+              {
+                "trigger": "onCast",
+                "chance": 1.0,
+                "conditionParam": { "skillId": "dagger_smoke_screen" },
+                "applyBuff": { "effect": { "incEvasion": 10, "maxStacks": 3 }, "duration": 4 }
+              }
+            ],
+            "stats": { "resistBonus": 5 },
+            "stealthChargeHardCap": 5
+          },
+          "exclusiveWith": ["ss_2_5_1"],
+          "designNotes": "Consistent choice. Reliable dodge sustain + stealth charge generation through dodging. Evasion stacking from Shadow Step casts creates a defensive snowball. The charge cap prevents unlimited charge hoarding -- forces spending. Steady, reliable defensive-offensive rhythm."
+        },
+        {
+          "id": "ss_2_5_1",
+          "name": "Shadowmeld",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "On dodge: consume 1 Stealth charge to deal 60% weapon damage as stealth counter-attack (benefits from all Stealth bonuses). Below 30% HP: counter deals 180% instead and grants +2 Stealth charges on kill. Umbral Form's dodge heal REMOVED. +15% damage taken.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "effect": {
+                  "consumeStealthCharge": 1,
+                  "instantDamage": { "scaleStat": "weaponDamage", "scaleRatio": 0.60 },
+                  "stealthBonusesApply": true
+                }
+              },
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "conditionParam": { "belowHpPercent": 30 },
+                "effect": {
+                  "consumeStealthCharge": 1,
+                  "instantDamage": { "scaleStat": "weaponDamage", "scaleRatio": 1.80 },
+                  "stealthBonusesApply": true,
+                  "onKill": { "grantStealthCharges": 2 }
+                }
+              }
+            ],
+            "removeEffect": { "nodeId": "ss_2_4_0", "effectType": "healPercent" },
+            "increasedDamageTaken": 15
+          },
+          "exclusiveWith": ["ss_2_5_0"],
+          "designNotes": "Risky choice. Converts dodges from defense into offense by spending stealth charges. Removes Umbral Form heal and adds damage taken. Below 30% HP becomes a devastating damage window with stealth-enhanced 180% counters. Kill-based charge refund sustains the aggression but only works at low HP. Pure glass cannon stealth assassin."
+        },
+        {
+          "id": "ss_2_6_0",
+          "name": "Umbral Riposte",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "cooldown",
+          "description": "On dodge: deal 70% weapon damage as stealth counter-attack (counts as Shadow Step hit, benefits from all Stealth bonuses). If counter kills: reset Shadow Step cooldown and gain +2 Stealth charges. 4s internal cooldown.",
+          "modifier": {
+            "procs": [
+              {
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "instantDamage": {
+                  "scaleStat": "weaponDamage",
+                  "scaleRatio": 0.70,
+                  "countsAsSkillHit": "dagger_smoke_screen",
+                  "stealthBonusesApply": true
+                },
+                "internalCooldown": 4
+              },
+              {
+                "trigger": "onDodgeKill",
+                "chance": 1.0,
+                "conditionParam": { "fromUmbralRiposte": true },
+                "effect": {
+                  "resetCooldown": "dagger_smoke_screen",
+                  "grantStealthCharges": 2
+                }
+              }
+            ]
+          },
+          "designNotes": "Cooldown proc -- dodge counter that counts as a Shadow Step hit (triggers Shadow Step-specific bonuses). Kill resets Shadow Step CD and refunds charges. The counter benefits from stealth bonuses (Lurking Death, Patient Shadow, etc.), making it a stealth-empowered counter-attack. ICD prevents spam."
+        },
+        {
+          "id": "ss_2_7_0",
+          "name": "PHANTOM SOVEREIGN",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Shadow Step can no longer be cast manually -- it fires AUTOMATICALLY on every dodge as a stealth counter-attack (70% weapon damage, counts as cast from Stealth). Each auto-fire consumes 1 Stealth charge. If no charges remain: Shadow Step deals -50% damage and cannot benefit from Stealth bonuses. Umbral Form's dodge heal REMOVED. All dodge-triggered Shadow Step proc chances doubled. -15% max life.",
+          "modifier": {
+            "autoCastOnDodge": {
+              "skillId": "dagger_smoke_screen",
+              "weaponDamageRatio": 0.70,
+              "countsAsStealthCast": true,
+              "consumesStealthCharge": 1
+            },
+            "noChargesPenalty": {
+              "incDamage": -50,
+              "noStealthBonuses": true
+            },
+            "removeEffect": { "nodeId": "ss_2_4_0", "effectType": "healPercent" },
+            "dodgeProcChanceMultiplier": 2.0,
+            "reducedMaxLife": 15
+          },
+          "tensionWith": "ss_2_6_0",
+          "tensionDescription": "T6 gives a controlled stealth counter with CD reset and charge refund on kill. T7 removes manual casting entirely -- Shadow Step becomes a reactive dodge skill that fires automatically. The heal is removed, max life is reduced, and running out of charges cripples your damage. You're no longer choosing when to attack from stealth -- every dodge IS your attack. Stealth charge management becomes the core gameplay: maintain charges or become a shadow of your former self.",
+          "antiSynergy": ["ss_2_4_0"],
+          "antiSynergyNotes": "Umbral Form (T4) -- dodge heal is explicitly removed. Instant cast during Umbral Form has no value since Shadow Step is auto-cast.",
+          "synergy": ["ss_2_2_1", "ss_2_2_0"],
+          "synergyNotes": "Flickering Shadow (T2b) -- dodge generates Stealth charges, feeding the auto-cast consumption. Umbral Shield (T2) -- Fortify stacks on cast remain valuable since every dodge triggers a cast, building Fortify rapidly.",
+          "engineNotes": "Shadow Step MUST be removed from cast queue and converted to dodge-triggered auto-cast. UI should show Stealth charge count prominently as the resource that determines auto-cast effectiveness."
+        }
+      ]
+    }
+  ]
+}
