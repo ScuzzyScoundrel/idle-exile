@@ -247,16 +247,7 @@ To reach T7 in any branch requires **13 pts** committed (12 for gate + 1 for nod
 Two T7 keystones (13+13=26) leaves only 4 points for the third branch — T1 only.
 This is intentional: keystone builds are deep, not wide.
 
-### Notable Sharing Rules
-
-| Tier | Scope | Rule |
-|------|-------|------|
-| T2 | **Shared** | Identical across all skills in branch |
-| T4 | **Shared** | Identical across all skills in branch |
-| T6 | **Skill-specific** | Unique per skill, feeds into T7 |
-
-T2 + T4 notables establish the branch identity. T6 notables establish the skill identity
-within that branch.
+All nodes are skill-specific. No nodes are shared between skills.
 
 ---
 
@@ -289,7 +280,6 @@ id: "{skillPrefix}_{branchIndex}_{tier}_{position}"
 name: "Notable Name"
 type: notable
 maxRank: 1
-shared: true | false         # T2/T4 shared, T6 skill-specific
 procPattern: "escalating | gated | catastrophic | cooldown | state-shift"
 description: "Proc or state-shift leads the description"
 modifier:
@@ -344,7 +334,7 @@ synergy: []        # node IDs or mechanics this rewards
 3. **3 branch themes** — identity, fantasy, core mechanic, progression arc
 4. **Buff assignments** — which branch owns which buff, with rationale
 5. **Passive removal/redistribution** — if applicable, what was removed and where effects went
-6. **Shared branch notables (T2 + T4)** — with procPattern tags and YAML specs
+6. **Branch notables (T2 + T4)** — with procPattern tags and YAML specs
 7. **Full reference tree for 1 skill** — complete T1-T7 for the most representative skill
 8. **T5-T7 branch definitions** — keystone choices, T6 notables, T7 keystones with tension docs
 9. **Behavior node template selections** — per skill x branch template mapping
@@ -478,7 +468,6 @@ interface TalentNode {
   };
   exclusiveWith?: string[];     // T5 mutual exclusion
   requiresNodeId?: string;      // specific prereq at maxRank
-  shared?: boolean;             // T2/T4 notables shared across skills
   procPattern?: string;         // escalating | gated | catastrophic | cooldown | state-shift
   tensionWith?: string;         // T7 → T6 notable ID
   antiSynergy?: string[];       // nodes this conflicts with
@@ -552,7 +541,7 @@ Pure functions (follows `src/engine/skillGraph.ts` pattern):
 Factory: `createTalentTree(config)` — generates node IDs from prefix + branch/tier/position.
 
 Config supports:
-- Shared branch templates (tiers 1-4 notables)
+- Per-skill branch configs (notables + behavior nodes)
 - Per-skill behavior nodes (tiers 1-4)
 - Per-skill unique nodes (tiers 5-7)
 - Same compositional pattern as existing `createCompactTree()` but for v3.1 layout
@@ -642,7 +631,6 @@ Each weapon is its own sprint. First weapon: **Dagger**.
 ### Dagger-Specific Notes
 
 - Implement from `docs/weapon-designs/dagger.md` (v3.1 aligned)
-- Shared notables: Blade Sense, Exploit Weakness, Envenom, Deep Wounds, Shadow Guard, Ghost Step
 - Full Stab/Assassination tree specced — others use template selections
 - Remove `dagger_lethality` from skill definitions
 - Buff assignments: Stealth → Assassination, Flurry → Shadow Dance

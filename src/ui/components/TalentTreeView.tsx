@@ -350,11 +350,6 @@ export default function TalentTreeView({ skill, progress, gold, onAllocate, onRe
                                 {badge}
                               </span>
                             )}
-                            {node.shared && (
-                              <span className="text-xs px-1 rounded bg-teal-900/60 text-teal-400 font-bold">
-                                SHARED
-                              </span>
-                            )}
                           </div>
                           {modParts.length > 0 && (
                             <div className="text-xs text-green-400 mt-0.5">{modParts.join(', ')}</div>

@@ -1,7 +1,7 @@
-# Sprint 2: Dagger Talent Tree Data — Micro-Sprint Plan
+# Sprint 2: Dagger Talent Tree Data — COMPLETE
 
 > 8-step breakdown for authoring all 7 dagger skill talent trees.
-> Each step is self-contained and safe to execute after a context clear.
+> **Status: COMPLETE** — All 7 trees authored with inline configs (no shared constants).
 > Last updated: 2026-03-05
 
 ## Prerequisites

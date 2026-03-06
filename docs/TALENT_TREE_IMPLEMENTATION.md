@@ -71,151 +71,92 @@ Each of the 7 active dagger skills gets its own talent tree (3 branches × 7 tie
 
 ---
 
-## Sprint 2: Dagger Data — NOT STARTED
+## Sprint 2: Dagger Data — COMPLETE
 
 **Goal**: Author all 7 dagger skill talent trees using builder pattern.
 
-### New Files
+### What Was Built
 
-| File | Purpose |
-|------|---------|
-| `src/data/skillGraphs/talentTreeBuilder.ts` | Builder factory — `TalentBranchConfig`, `TalentTreeConfig`, `createTalentTree()` |
-| `src/data/skillGraphs/dagger_talents.ts` | All 7 skill talent trees (147 behavior nodes + shared notables + T5-T7) |
-| `src/data/skillGraphs/talentTrees.ts` | Barrel export: `ALL_TALENT_TREES` record |
+| File | What | Status |
+|------|------|--------|
+| `src/data/skillGraphs/talentTreeBuilder.ts` | Builder factory — `TalentBranchConfig`, `TalentTreeConfig`, `createTalentTree()` | Done |
+| `src/data/skillGraphs/dagger_talents.ts` | All 7 skill talent trees (147 behavior nodes + per-skill notables + T5-T7) | Done |
+| `src/types/index.ts` | Removed `shared` field from `TalentNode` interface | Done |
+| `src/ui/components/TalentTreeView.tsx` | Removed SHARED badge rendering | Done |
+| `docs/SKILL_TREE_OVERHAUL.md` | Updated to reflect no-shared architecture | Done |
 
-### Modified Files
+### Architecture Decision: All Nodes Inline Per Skill
 
-| File | Change |
-|------|--------|
-| `src/data/unifiedSkills.ts:2487` | Add `talentTree: ALL_TALENT_TREES[s.id]` alongside existing `skillGraph:` |
+Originally planned to use shared constants and factory functions for notables/keystones that repeat across all 7 skills. **Refactored to fully inline** — each skill's branch configs are self-contained with unique proc IDs (e.g., `st_blade_sense` for Stab, `bf_blade_sense` for Blade Flurry). This means:
+- No shared constants or factory functions
+- No `shared` field on `TalentNode`
+- Easier to customize notables per-skill in the future
+- Each tree is fully readable without jumping to shared definitions
 
 ### Builder Pattern
 
-```typescript
-interface TalentBranchConfig {
-  name: string;
-  description: string;
-  t2Notable: Omit<TalentNode, 'id' | 'tier' | 'branch' | 'position'>;
-  t4Notable: Omit<TalentNode, 'id' | 'tier' | 'branch' | 'position'>;
-  behaviorNodes: {
-    t1a: Omit<TalentNode, 'id' | 'tier' | 'branch' | 'position'>;
-    t1b: Omit<TalentNode, 'id' | 'tier' | 'branch' | 'position'>;
-    t2b: Omit<TalentNode, 'id' | 'tier' | 'branch' | 'position'>;
-    t3a: Omit<TalentNode, 'id' | 'tier' | 'branch' | 'position'>;
-    t3b: Omit<TalentNode, 'id' | 'tier' | 'branch' | 'position'>;
-    t3c: Omit<TalentNode, 'id' | 'tier' | 'branch' | 'position'>;
-    t4b: Omit<TalentNode, 'id' | 'tier' | 'branch' | 'position'>;
-  };
-  t5a: Omit<TalentNode, 'id' | 'tier' | 'branch' | 'position' | 'exclusiveWith'>;
-  t5b: Omit<TalentNode, 'id' | 'tier' | 'branch' | 'position' | 'exclusiveWith'>;
-  t6Notable: Omit<TalentNode, 'id' | 'tier' | 'branch' | 'position'>;
-  t7Keystone: Omit<TalentNode, 'id' | 'tier' | 'branch' | 'position'>;
-}
-
-interface TalentTreeConfig {
-  skillId: string;
-  prefix: string;  // e.g. 'st' for Stab
-  branches: [TalentBranchConfig, TalentBranchConfig, TalentBranchConfig];
-}
-
-function createTalentTree(cfg: TalentTreeConfig): TalentTree
-```
-
-**ID format**: `{prefix}_{branchIndex}_{tier}_{position}`
-- Example: `st_0_1_0` = Stab, Assassination branch (0), T1, first node (position 0)
-- Example: `st_1_5_1` = Stab, Venomcraft branch (1), T5, choice B (position 1)
-
-Auto-behaviors:
-- Fills `id`, `tier`, `branch`, `position` from config position
+`createTalentTree(cfg)` takes a `TalentTreeConfig` and generates:
+- Node IDs: `{prefix}_{branchIndex}_{tier}_{position}` (e.g., `st_0_1_0`)
 - Auto-wires T5 `exclusiveWith` between t5a and t5b
+- Fills `id`, `tier`, `branchIndex`, `position` from config structure
 
-### Shared Data (reusable across all 7 skills)
+### 7 Trees with Prefixes
 
-**6 Shared Notables** (Section 5 of dagger.md):
-| Branch | T2 Notable | T4 Notable |
-|--------|------------|------------|
-| Assassination | Blade Sense (escalating proc → Predator state) | Exploit Weakness (crits apply Vulnerable) |
-| Venomcraft | Envenom (guaranteed poison + Toxic Burst) | Deep Wounds (+25% poison dmg, Venom Frenzy at 8+ stacks) |
-| Shadow Dance | Shadow Guard (fortify on hit, dodge → CD reset) | Ghost Step (dodge heal + Shadow Form at 3 dodges) |
+| Skill | Prefix | castSkill (Precision Killer) |
+|-------|--------|-----------------------------|
+| Stab | `st` | `dagger_stab` |
+| Blade Flurry | `bf` | `dagger_blade_flurry` |
+| Frost Fan | `ff` | `dagger_fan_of_knives` |
+| Viper Strike | `vs` | `dagger_viper_strike` |
+| Shadow Step | `ss` | `dagger_smoke_screen` |
+| Assassinate | `as` | `dagger_assassinate` |
+| Lightning Lunge | `ll` | `dagger_lightning_lunge` |
 
-**T5-T7 per Branch** (Section 7 of dagger.md):
-| Branch | T5a | T5b | T6 | T7 |
-|--------|-----|-----|----|----|
-| Assassination | Precision Killer (consistent) | Opportunist (risky) | Death Mark | DEATHBLOW |
-| Venomcraft | Toxic Mastery (consistent) | Volatile Toxins (risky) | Pandemic | PLAGUE LORD |
-| Shadow Dance | Evasive Recovery (consistent) | Counter Stance (risky) | Phantom Stride | SHADOW SOVEREIGN |
-
-### Per-Skill Behavior Nodes
-
-Each skill has 7 unique behavior nodes per branch (21 per skill, 147 total across 7 skills).
-Full specs in dagger.md Section 8.
+### Per-Branch Structure (13 nodes each)
 
 | Slot | Tier | Position | Type |
 |------|------|----------|------|
 | T1a | 1 | 0 | behavior (maxRank: 2) |
 | T1b | 1 | 1 | behavior (maxRank: 2) |
+| T2 Notable | 2 | 0 | notable (maxRank: 1) |
 | T2b | 2 | 1 | behavior (maxRank: 2) |
 | T3a | 3 | 0 | behavior (maxRank: 2) |
 | T3b | 3 | 1 | behavior (maxRank: 2) |
 | T3c | 3 | 2 | behavior (maxRank: 2) |
+| T4 Notable | 4 | 0 | notable (maxRank: 1) |
 | T4b | 4 | 1 | behavior (maxRank: 2) |
+| T5a | 5 | 0 | keystoneChoice (maxRank: 1) |
+| T5b | 5 | 1 | keystoneChoice (maxRank: 1) |
+| T6 Notable | 6 | 0 | notable (maxRank: 1) |
+| T7 Keystone | 7 | 0 | keystone (maxRank: 1) |
 
-### Execution Order (8 steps)
+### Verification
 
-See `docs/SPRINT_2_PLAN.md` for the full micro-sprint breakdown.
-
-1. Builder factory (`talentTreeBuilder.ts`)
-2. Shared data helpers (6 notables + T5-T7)
-3. Stab tree (reference implementation)
-4. Blade Flurry + Frost Fan trees
-5. Viper Strike + Shadow Step trees
-6. Assassinate + Lightning Lunge trees
-7. Barrel export + wiring to `unifiedSkills.ts`
-8. Verification
-
-### Data Source
-
-All behavior node specs come from `docs/weapon-designs/dagger.md`:
-- **Section 5** (lines ~225-393): Shared notables
-- **Section 6** (lines ~397-627): Full Stab/Assassination reference tree
-- **Section 7** (lines ~630-833): T5-T7 per branch
-- **Section 8** (lines ~835-1113): All behavior nodes per skill per branch
-
-### Verification Checklist
-
-- [ ] All 7 dagger skills have `talentTree` populated
-- [ ] T1 nodes allocatable at skill level 1 (gate: 0 pts)
-- [ ] T2 gate requires 2 pts invested in branch
-- [ ] T5 exclusiveWith correctly prevents both being allocated
-- [ ] `npm run build` passes
-- [ ] Game playable, no regressions
-- [ ] Save version unchanged (no migration needed — talent trees are data-only)
+- [x] `npm run build` passes
+- [x] No shared constants, factory functions, or `shared` field remain
+- [x] All 7 Precision Killer castSkill values match their skillId
+- [x] All 21 tensionWith values use correct `{prefix}_{branchIdx}_6_0` format
 
 ---
 
-## Sprint 3: UI + Integration — NOT STARTED
+## Sprint 3: UI + Integration — COMPLETE
 
 **Goal**: Talent tree UI panel + full combat integration.
 
-### UI Work
+### What Was Built
 
-| Component | Purpose |
-|-----------|---------|
-| `TalentTreeView.tsx` | SVG/canvas talent tree visualization (3 branches, 7 tiers) |
-| `TalentTreePanel.tsx` | Panel wrapper (skill selector, points display, respec button) |
-| Integration into `SkillPanel.tsx` | "Talent" button alongside existing "Tree" button for skill graphs |
+| File | What | Status |
+|------|------|--------|
+| `src/data/skillGraphs/talentTrees.ts` | Barrel export `ALL_TALENT_TREES` (keyed by skillId) | Done |
+| `src/data/unifiedSkills.ts:2489` | Wiring: `talentTree: ALL_TALENT_TREES[s.id]` | Done |
+| `src/ui/components/TalentTreeView.tsx` | Talent tree visualization UI | Done |
+| `src/ui/components/SkillPanel.tsx` | Integration — talent tree access from skill panel | Done |
 
 ### Combat Integration
 
 - Talent tree modifiers flow through `resolveTalentModifiers()` → merged with skill graph modifiers
-- `getSkillGraphModifier()` already checks `talentTree` (Sprint 1 wiring)
-- New P1 mechanics from `combatHelpers.ts` (ICD, executeOnly, etc.) activate when talent nodes grant them
-
-### Engine Extensions (P1 — Dagger-Specific)
-
-From `docs/SKILL_TREE_OVERHAUL.md` P1 checklist:
-- Per-debuff stack threshold (`{ debuffId: 'poisoned', threshold: 3 }`)
-- ICD system (`lastProcTriggerAt` + `internalCooldown`)
+- `getSkillGraphModifier()` checks `talentTree` first (Sprint 1 wiring)
+- P1 mechanics from `combatHelpers.ts` (ICD, executeOnly, etc.) activate when talent nodes grant them
 - Dodge-within-window counting
 - `resetCooldown: 'self'` resolution
 - Venom Frenzy buff application

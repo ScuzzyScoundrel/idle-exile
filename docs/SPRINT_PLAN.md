@@ -1,7 +1,7 @@
 # Idle Exile — Sprint Plan & Roadmap
 
 > **Full development roadmap.** Read `PROJECT_STATUS.md` first for current state.
-> Last updated: 2026-03-05 (Skill Tree Overhaul — Sprint 1 complete)
+> Last updated: 2026-03-05 (Skill Tree Overhaul — All 3 sprints complete)
 
 ## Micro-Sprint Workflow
 
@@ -78,6 +78,8 @@ Each conversation = one micro-sprint (3-5 focused changes):
 | **Skill Tree Overhaul Docs** | **Dagger v3.2 design doc, SKILL_TREE_OVERHAUL.md architecture, dagger-review-feedback integration** |
 | **Damage Bucket Fix** | **flatPhysDamage conversion bypass + double-counting fix, v42** |
 | **Skill Tree Sprint 1** | **talentTree.ts engine, TalentNode/Branch/Tree types, Phase 0 (class trees disabled, lethality removed), v43** |
+| **Skill Tree Sprint 2** | **talentTreeBuilder.ts, dagger_talents.ts (7 trees × 3 branches × 13 nodes = 273 nodes), inline per-skill architecture, removed shared/factory pattern** |
+| **Skill Tree Sprint 3** | **talentTrees.ts barrel export, unifiedSkills.ts wiring, TalentTreeView.tsx UI, SkillPanel integration** |
 
 See `PROJECT_STATUS.md` Sprint History section for detailed changelogs.
 
@@ -545,7 +547,7 @@ These items from the original GDD and evolution doc haven't been placed into a s
 
 | Feature | Source | Dependencies / Notes |
 |---------|--------|---------------------|
-| **~~Talent tree~~** | ~~GDD Section 3~~ | **IN PROGRESS** — Sprint 1 done, Sprint 2 next. See `docs/TALENT_TREE_IMPLEMENTATION.md`. |
+| **~~Talent tree~~** | ~~GDD Section 3~~ | **COMPLETE** — All 3 sprints done (engine + data + UI). See `docs/TALENT_TREE_IMPLEMENTATION.md`. |
 | **Full ability population** (50+ abilities, 10 per weapon type) | Sprint 7C-B plan | Current: 24 abilities (3 per weapon). Need ~56 more. |
 | **Specialization system** (one per character) | GDD | Needs talent tree first |
 | **Socket crafting logic** | GDD | Socket Shard currency defined but unused |

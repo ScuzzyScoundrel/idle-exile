@@ -827,7 +827,6 @@ export interface TalentNode {
   perRankModifiers?: Record<number, SkillModifier>;
   exclusiveWith?: string[];     // T5 mutual exclusion
   requiresNodeId?: string;
-  shared?: boolean;
   procPattern?: string;
   tensionWith?: string;
   antiSynergy?: string[];

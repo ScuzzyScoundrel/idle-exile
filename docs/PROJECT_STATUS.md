@@ -1,17 +1,30 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-05 (Skill Tree Overhaul — Sprint 1 Engine Foundation complete)
+> Last updated: 2026-03-05 (Skill Tree Overhaul — All 3 sprints complete)
 
 ## Current Phase
-**Skill Tree Overhaul — Sprint 2: Dagger Data** — NOT STARTED.
+**Skill Tree Overhaul — COMPLETE.** All 3 sprints done (Engine, Data, UI).
 
-- **Purpose**: Author all 7 dagger skill talent trees using a builder pattern. 147 behavior nodes + shared notables + T5-T7 keystones.
-- **Plan**: See `docs/SPRINT_2_PLAN.md` for the 8-step micro-sprint breakdown.
-- **Full plan**: See `docs/TALENT_TREE_IMPLEMENTATION.md` for the 3-sprint overview.
+- **What was built**: Per-skill talent trees for all 7 dagger active skills. 273 nodes (7 trees × 3 branches × 13 nodes). Engine, data, barrel export, `unifiedSkills.ts` wiring, `TalentTreeView.tsx` UI all live in-game.
+- **Architecture**: All nodes defined inline per skill — no shared constants or factory functions. Builder pattern (`createTalentTree`) auto-generates IDs and wires T5 exclusiveWith.
+- **Key files**: `src/engine/talentTree.ts`, `src/data/skillGraphs/talentTreeBuilder.ts`, `src/data/skillGraphs/dagger_talents.ts`, `src/data/skillGraphs/talentTrees.ts`, `src/ui/components/TalentTreeView.tsx`
+- **Save version**: v43
+- **Next**: TBD — see roadmap in `docs/SPRINT_PLAN.md`
+
+**Previous: Skill Tree Overhaul — Sprint 3: UI + Integration** — COMPLETE.
+
+- **Purpose**: Wire talent trees into live game with barrel export, unifiedSkills wiring, and TalentTreeView UI.
+- **Files**: `src/data/skillGraphs/talentTrees.ts` (barrel `ALL_TALENT_TREES`), `src/data/unifiedSkills.ts:2489` (wiring), `src/ui/components/TalentTreeView.tsx` + `SkillPanel.tsx` (UI)
+
+**Previous: Skill Tree Overhaul — Sprint 2: Dagger Data** — COMPLETE.
+
+- **Purpose**: Author all 7 dagger skill talent trees using builder pattern + inline configs. 147 behavior nodes + per-skill notables + T5-T7 keystones.
+- **Architecture**: All nodes defined inline per skill — no shared constants or factory functions. Each skill's 3 branches are self-contained `TalentBranchConfig` objects.
+- **New files**: `src/data/skillGraphs/talentTreeBuilder.ts` (builder), `src/data/skillGraphs/dagger_talents.ts` (7 trees × 3 branches × 13 nodes = 273 total nodes)
+- **Key refactoring**: Removed shared constants, factory functions, `T5NC` type alias, and `shared` field from `TalentNode`. All notables/keystones are now per-skill with unique proc IDs (e.g., `st_blade_sense`, `bf_blade_sense`).
+- **Modified files**: `src/types/index.ts` (removed `shared` from `TalentNode`), `src/ui/components/TalentTreeView.tsx` (removed SHARED badge), `docs/SKILL_TREE_OVERHAUL.md` (updated to reflect no-shared architecture)
 - **Data source**: `docs/weapon-designs/dagger.md` (Sections 5-8)
-- **New files**: `talentTreeBuilder.ts`, `dagger_talents.ts`, `talentTrees.ts` (all in `src/data/skillGraphs/`)
-- **Modified files**: `src/data/unifiedSkills.ts` (wire `talentTree: ALL_TALENT_TREES[s.id]` at line ~2487)
 - **Save version**: v43 (unchanged — data-only, no migration needed)
 
 **Previous: Skill Tree Overhaul — Sprint 1: Engine Foundation** — COMPLETE.

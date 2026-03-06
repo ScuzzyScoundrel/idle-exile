@@ -17,7 +17,6 @@ type T5NodeConfig = Omit<TalentNode, 'id' | 'tier' | 'branchIndex' | 'position' 
 export interface TalentBranchConfig {
   name: string;
   description: string;
-  // Shared notables (identical across all skills in this branch)
   t2Notable: TalentNodeConfig;
   t4Notable: TalentNodeConfig;
   // Skill-specific behavior nodes (7 per branch)
