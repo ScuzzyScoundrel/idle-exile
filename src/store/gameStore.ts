@@ -2606,10 +2606,12 @@ export const useGameStore = create<GameState & GameActions>()(
           }
         }
         // bonusDamageVsDebuffed: extra damage when specific debuff is active
+        let consumeMarkId: string | null = null;
         if (graphMod?.debuffInteraction?.bonusDamageVsDebuffed) {
           const bdv = graphMod.debuffInteraction.bonusDamageVsDebuffed;
           if (state.activeDebuffs.some(d => d.debuffId === bdv.debuffId)) {
             debuffDamageMult += bdv.incDamage / 100;
+            if (bdv.consumeOnHit) consumeMarkId = bdv.debuffId;
           }
         }
         if (roll.isHit) {
@@ -2654,6 +2656,11 @@ export const useGameStore = create<GameState & GameActions>()(
 
         // Apply new debuffs from graph modifier
         let newDebuffs = [...state.activeDebuffs];
+        // consumeOnHit: remove the mark debuff after its bonus was applied
+        if (consumeMarkId) {
+          const idx = newDebuffs.findIndex(d => d.debuffId === consumeMarkId);
+          if (idx >= 0) newDebuffs.splice(idx, 1);
+        }
         if (roll.isHit && graphMod) {
           for (const debuffInfo of graphMod.debuffs) {
             if (Math.random() < debuffInfo.chance) {

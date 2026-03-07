@@ -88,6 +88,22 @@ export const DEBUFF_DEFS: DebuffDef[] = [
     maxStacks: 1,
     effect: { reducedAttackSpeed: 20 },
   },
+  {
+    id: 'deathMark',
+    name: 'Death Mark',
+    description: 'Marked for death. Next hit deals bonus damage and removes the mark.',
+    stackable: false,
+    maxStacks: 1,
+    effect: {},
+  },
+  {
+    id: 'executionersMark',
+    name: "Executioner's Mark",
+    description: 'Marked for execution. Next hit deals bonus damage and removes the mark.',
+    stackable: false,
+    maxStacks: 1,
+    effect: {},
+  },
 ];
 
 export function getDebuffDef(id: string): DebuffDef | undefined {
