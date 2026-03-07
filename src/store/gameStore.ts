@@ -473,7 +473,7 @@ function createInitialState(): GameState {
     prefixes: [],
     suffixes: [],
     weaponType: 'sword',
-    baseStats: { flatPhysDamage: 5 },
+    baseStats: { flatPhysDamage: 5, incPhysDamage: 15 },
     baseDamageMin: 4,
     baseDamageMax: 8,
   };
@@ -1118,7 +1118,8 @@ export const useGameStore = create<GameState & GameActions>()(
           const tempProgress = { abilityId: existing.skillId, xp: existing.xp, level: existing.level, allocatedNodes: existing.allocatedNodes };
           const updated = addAbilityXp(tempProgress, totalAbilityXp);
           newSkillProgress[equipped.skillId] = {
-            skillId: equipped.skillId, xp: updated.xp, level: updated.level, allocatedNodes: updated.allocatedNodes,
+            ...existing,
+            xp: updated.xp, level: updated.level, allocatedNodes: updated.allocatedNodes,
           };
           // Bridge back to abilityProgress using reverse ID mapping
           const oldId = reverseAbilityMap[equipped.skillId];
@@ -3820,7 +3821,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 44,
+      version: 45,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;

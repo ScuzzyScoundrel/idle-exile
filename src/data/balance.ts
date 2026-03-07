@@ -54,7 +54,7 @@ export const BAG_DROP_CHANCE = 0.015;
 
 /** charPower divisor in clearTime formula: baseClearTime / (charPower / POWER_DIVISOR).
  *  Tuned for offense-only charPower (defEff removed from clear speed in 8E). */
-export const POWER_DIVISOR = 50;
+export const POWER_DIVISOR = 15;
 
 /** Exponential penalty per level below zone iLvlMin. 10 levels below = 1.12^10 ~ 3.1x. */
 export const LEVEL_PENALTY_BASE = 1.12;

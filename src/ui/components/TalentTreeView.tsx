@@ -21,6 +21,13 @@ const ALLOCATED_BG = 'bg-purple-900/50';
 const ALLOCATED_BORDER = 'border-purple-500';
 const AVAILABLE_BORDER = 'border-green-500';
 
+// ─── Proc Name Formatting ───
+
+function formatProcName(id: string): string {
+  const stripped = id.replace(/^[a-z]{2}_/, '');
+  return stripped.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
 // ─── Modifier Formatting (adapted from SkillGraphView) ───
 
 function formatModifier(mod: SkillModifier | undefined): string[] {
@@ -88,11 +95,27 @@ function formatModifier(mod: SkillModifier | undefined): string[] {
       const trig = proc.trigger === 'onHit' ? 'on hit' : proc.trigger === 'onCrit' ? 'on crit'
         : proc.trigger === 'onKill' ? 'on kill' : proc.trigger === 'onDodge' ? 'on dodge' : proc.trigger;
       if (proc.bonusCast) parts.push(`${pct}% ${trig}: re-cast`);
-      else if (proc.applyDebuff) parts.push(`${pct}% ${trig}: ${proc.applyDebuff.debuffId}`);
+      else if (proc.applyDebuff) {
+        const name = formatProcName(proc.applyDebuff.debuffId);
+        const dur = proc.applyDebuff.duration ? ` ${proc.applyDebuff.duration}s` : '';
+        parts.push(`${pct}% ${trig}: ${name}${dur}`);
+      }
       else if (proc.castSkill) parts.push(`${pct}% ${trig}: cast ${proc.castSkill}`);
-      else if (proc.instantDamage) parts.push(`${pct}% ${trig}: ${proc.instantDamage.flatDamage} ${proc.instantDamage.element} dmg`);
+      else if (proc.instantDamage) {
+        const flat = proc.instantDamage.flatDamage;
+        const scale = proc.instantDamage.scaleRatio;
+        const ele = proc.instantDamage.element;
+        if (flat) parts.push(`${pct}% ${trig}: ${flat} ${ele} dmg`);
+        else if (scale) parts.push(`${pct}% ${trig}: ${Math.round(scale * 100)}% as ${ele}`);
+        else parts.push(`${pct}% ${trig}: ${ele} dmg`);
+      }
       else if (proc.healPercent) parts.push(`${pct}% ${trig}: heal ${proc.healPercent}%`);
-      else parts.push(`${pct}% ${trig}: proc`);
+      else if (proc.applyBuff) {
+        const name = formatProcName(proc.applyBuff.buffId ?? proc.id);
+        const dur = proc.applyBuff.duration ? ` ${proc.applyBuff.duration}s` : '';
+        parts.push(`${pct}% ${trig}: ${name}${dur}`);
+      }
+      else parts.push(`${pct}% ${trig}: ${formatProcName(proc.id)}`);
     }
   }
   if (mod.debuffInteraction) {
