@@ -148,6 +148,36 @@ export function calcFortifyDR(fortifyStacks: number, fortifyExpiresAt: number, f
   return Math.min(fortifyStacks * fortifyDRPerStack / 100, FORTIFY_MAX_DR);
 }
 
+/** Tick debuff durations and calculate DoT damage (poison/burning/legacy).
+ *  Returns updated debuffs (expired removed) and total DoT damage dealt.
+ *  Reused by applyZoneDamage, applyBossDamage, and the main skill-cast tick. */
+function tickDebuffDoT(
+  debuffs: ActiveDebuff[],
+  dtSec: number,
+  effectBonus: number,
+  incDoTDamage: number,
+  enemyMaxHp: number,
+): { damage: number; updatedDebuffs: ActiveDebuff[] } {
+  const incDoTMult = 1 + (incDoTDamage ?? 0) / 100;
+  const updated = debuffs
+    .map(d => ({ ...d, remainingDuration: d.remainingDuration - dtSec }))
+    .filter(d => d.remainingDuration > 0);
+  let damage = 0;
+  for (const debuff of updated) {
+    const debuffDef = getDebuffDef(debuff.debuffId);
+    if (!debuffDef) continue;
+    if (debuffDef.dotType === 'snapshot' && debuff.debuffId !== 'bleeding') {
+      const snapSum = debuff.stackSnapshots?.reduce((a, b) => a + b, 0) ?? 0;
+      damage += snapSum * (debuffDef.effect.snapshotPercent ?? 0) / 100 * effectBonus * incDoTMult * dtSec;
+    } else if (debuffDef.dotType === 'percentMaxHp') {
+      damage += enemyMaxHp * (debuffDef.effect.percentMaxHp ?? 0) / 100 * effectBonus * incDoTMult * dtSec;
+    } else if (debuffDef.effect.dotDps) {
+      damage += debuffDef.effect.dotDps * debuff.stacks * effectBonus * incDoTMult * dtSec;
+    }
+  }
+  return { damage, updatedDebuffs: updated };
+}
+
 /** Rarity sort order for auto-salvage comparison. */
 const RARITY_ORDER: Record<Rarity, number> = {
   common: 0,
@@ -2270,12 +2300,21 @@ export const useGameStore = create<GameState & GameActions>()(
             // Passive regen per tick
             playerHp = Math.min(bossStats.maxLife, playerHp + bossStats.lifeRegen * dtSec);
 
+            // Tick DoT damage every frame against boss (poison/burning)
+            let helperDotDamage = 0;
+            if (state.activeDebuffs.length > 0) {
+              const dot = tickDebuffDoT(state.activeDebuffs, dtSec, 1, bossStats.incDoTDamage, bs.bossMaxHp);
+              helperDotDamage = dot.damage;
+              helperBossHp -= dot.damage;
+              set({ activeDebuffs: dot.updatedDebuffs });
+            }
+
             if (playerHp <= 0) {
               set({ currentHp: 0, currentEs: 0, bossState: { ...bs, bossNextAttackAt: nextAttack, bossCurrentHp: helperBossHp } });
-              return { ...noResult, bossOutcome: 'defeat', bossAttack: bossAttackResult, bleedTriggerDamage: helperBleedDmg };
+              return { ...noResult, bossOutcome: 'defeat', bossAttack: bossAttackResult, bleedTriggerDamage: helperBleedDmg, dotDamage: helperDotDamage };
             }
             set({ currentHp: playerHp, bossState: { ...bs, bossNextAttackAt: nextAttack, bossCurrentHp: helperBossHp } });
-            return { ...noResult, bossOutcome: 'ongoing', bossAttack: bossAttackResult, bleedTriggerDamage: helperBleedDmg };
+            return { ...noResult, bossOutcome: 'ongoing', bossAttack: bossAttackResult, bleedTriggerDamage: helperBleedDmg, dotDamage: helperDotDamage };
           }
           return noResult;
         };
@@ -2352,7 +2391,19 @@ export const useGameStore = create<GameState & GameActions>()(
             }
             set({ currentHp: playerHp, zoneNextAttackAt: nextAttackAt });
           }
-          return { ...noResult, zoneAttack: zoneAttackResult, bleedTriggerDamage: helperBleedDmg };
+
+          // Tick DoT damage every frame (poison/burning), not just on zone attacks
+          let helperDotDamage = 0;
+          if (state.activeDebuffs.length > 0) {
+            const zonePlayerStats = resolveStats(state.character);
+            const enemyMaxHp = state.maxMobHp > 0 ? state.maxMobHp : 1;
+            const dot = tickDebuffDoT(state.activeDebuffs, dt, 1, zonePlayerStats.incDoTDamage, enemyMaxHp);
+            helperDotDamage = dot.damage;
+            const newMobHp = Math.max(0, state.currentMobHp - dot.damage);
+            set({ activeDebuffs: dot.updatedDebuffs, currentMobHp: newMobHp });
+          }
+
+          return { ...noResult, zoneAttack: zoneAttackResult, bleedTriggerDamage: helperBleedDmg, dotDamage: helperDotDamage };
         };
 
         // GCD check: can we fire any active skill yet?
@@ -2695,30 +2746,12 @@ export const useGameStore = create<GameState & GameActions>()(
         }
 
         // Tick debuff durations + apply DoT (type-aware + incDoTDamage scaling)
-        let debuffDotDamage = 0;
-        const incDoTMult = 1 + (stats.incDoTDamage ?? 0) / 100;
         const enemyMaxHp = (phase === 'boss_fight' && state.bossState)
           ? state.bossState.bossMaxHp
           : (state.maxMobHp > 0 ? state.maxMobHp : 1);
-        newDebuffs = newDebuffs
-          .map(d => ({ ...d, remainingDuration: d.remainingDuration - dtSec }))
-          .filter(d => d.remainingDuration > 0);
-        for (const debuff of newDebuffs) {
-          const debuffDef = getDebuffDef(debuff.debuffId);
-          if (!debuffDef) continue;
-          if (debuffDef.dotType === 'snapshot' && debuff.debuffId !== 'bleeding') {
-            // Poison: sum snapshots * snapshotPercent as DoT/sec
-            const snapSum = debuff.stackSnapshots?.reduce((a, b) => a + b, 0) ?? 0;
-            debuffDotDamage += snapSum * (debuffDef.effect.snapshotPercent ?? 0) / 100 * effectBonus * incDoTMult * dtSec;
-          } else if (debuffDef.dotType === 'percentMaxHp') {
-            // Burning: % of enemy max HP per second
-            debuffDotDamage += enemyMaxHp * (debuffDef.effect.percentMaxHp ?? 0) / 100 * effectBonus * incDoTMult * dtSec;
-          } else if (debuffDef.effect.dotDps) {
-            // Legacy flat DPS fallback
-            debuffDotDamage += debuffDef.effect.dotDps * debuff.stacks * effectBonus * incDoTMult * dtSec;
-          }
-          // Note: bleeding (snapshot) triggers on enemy attack, NOT per-tick — handled separately
-        }
+        const dotResult = tickDebuffDoT(newDebuffs, dtSec, effectBonus, stats.incDoTDamage, enemyMaxHp);
+        const debuffDotDamage = dotResult.damage;
+        newDebuffs = dotResult.updatedDebuffs;
 
         // Proc evaluation (onHit + onCrit triggers)
         let procDamage = 0;
@@ -3155,6 +3188,7 @@ export const useGameStore = create<GameState & GameActions>()(
           }
 
           // onKill procs
+          let killProcDebuffs: { debuffId: string; stacks: number; duration: number; skillId: string }[] = [];
           if (graphMod?.skillProcs?.length) {
             const killProcCtx: ProcContext = {
               isHit: roll.isHit, isCrit: roll.isCrit,
@@ -3171,6 +3205,14 @@ export const useGameStore = create<GameState & GameActions>()(
             for (const buff of killPr.newTempBuffs) {
               activeTempBuffs = [...activeTempBuffs, buff];
             }
+            // Bug 2 fix: onKill cooldown resets
+            if (killPr.cooldownResets.length > 0) {
+              newTimers = newTimers.map(t =>
+                killPr.cooldownResets.includes(t.skillId) ? { ...t, cooldownUntil: null } : t,
+              );
+            }
+            // Bug 3 fix: collect kill proc debuffs for application after debuff clear
+            killProcDebuffs = killPr.newDebuffs;
           }
 
           // Pick a new mob for respawn (random or targeted)
@@ -3195,13 +3237,37 @@ export const useGameStore = create<GameState & GameActions>()(
           if (currentMobHp <= 0) currentMobHp = maxMobHp; // safety: reset if still negative
           newDebuffs = []; // Clear debuffs on mob death
 
-          // spreadDebuffOnKill: re-apply matching debuffs to new mob
+          // spreadDebuffOnKill: re-apply matching debuffs to new mob (Bug 4 fix: preserve full state)
           if (graphMod?.debuffInteraction?.spreadDebuffOnKill) {
             const sdk = graphMod.debuffInteraction.spreadDebuffOnKill;
-            for (const debuffId of sdk.debuffIds) {
-              if (preDeathDebuffs.some(d => d.debuffId === debuffId)) {
-                newDebuffs.push({ debuffId, stacks: 1, remainingDuration: sdk.refreshDuration, appliedBySkillId: skill.id });
-              }
+            const matching = sdk.debuffIds.includes('all')
+              ? preDeathDebuffs
+              : preDeathDebuffs.filter(d => sdk.debuffIds.includes(d.debuffId));
+            for (const srcDebuff of matching) {
+              newDebuffs.push({
+                ...srcDebuff,
+                remainingDuration: sdk.refreshDuration > 0 ? sdk.refreshDuration : srcDebuff.remainingDuration,
+              });
+            }
+          }
+
+          // Bug 3 fix: apply onKill proc debuffs to the new enemy (after debuff clear)
+          for (const pd of killProcDebuffs) {
+            const existing = newDebuffs.findIndex(d => d.debuffId === pd.debuffId);
+            if (existing >= 0) {
+              const d = newDebuffs[existing];
+              newDebuffs[existing] = {
+                ...d,
+                stacks: d.stacks + pd.stacks,
+                remainingDuration: Math.max(d.remainingDuration, pd.duration),
+              };
+            } else {
+              newDebuffs.push({
+                debuffId: pd.debuffId,
+                stacks: pd.stacks,
+                remainingDuration: pd.duration,
+                appliedBySkillId: pd.skillId,
+              });
             }
           }
         }
