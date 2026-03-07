@@ -26,7 +26,7 @@ const B1_ASSASSINATION: BranchTemplate = {
 const B2_VENOMCRAFT: BranchTemplate = {
   name: 'Venomcraft',
   root:  { name: 'Toxic Edge',  desc: '+3% damage. Hits have a 20% chance to Poison enemies for 3 seconds.', modifier: { incDamage: 3, procs: [{ id: 'dg_b2_poison', chance: 0.20, trigger: 'onHit', applyDebuff: { debuffId: 'poisoned', stacks: 1, duration: 3 } }] } },
-  minor: { name: 'Venom Coat',  desc: 'Always applies Poison on hit. Hits also have a 15% chance to cause Bleeding for 3 seconds.', modifier: { applyDebuff: { debuffId: 'poisoned', chance: 1.0, duration: 3 }, procs: [{ id: 'dg_b2_bleed', chance: 0.15, trigger: 'onHit', applyDebuff: { debuffId: 'bleeding', stacks: 1, duration: 3 } }] } },
+  minor: { name: 'Venom Coat',  desc: 'Always applies Poison on hit. 15% chance to cause Bleeding for 3 seconds. Poisons spread to the next enemy on kill.', modifier: { applyDebuff: { debuffId: 'poisoned', chance: 1.0, duration: 3 }, debuffInteraction: { spreadDebuffOnKill: { debuffIds: ['poisoned'], refreshDuration: 0 } }, procs: [{ id: 'dg_b2_bleed', chance: 0.15, trigger: 'onHit', applyDebuff: { debuffId: 'bleeding', stacks: 1, duration: 3 } }] } },
 };
 
 const B3_SHADOW_DANCE: BranchTemplate = {

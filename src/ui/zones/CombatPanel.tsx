@@ -180,6 +180,12 @@ export default function CombatPanel() {
               label: 'Bleed trigger', damage: combatResult.bleedTriggerDamage!,
             }].slice(-20));
           }
+          if (!combatResult.skillFired && combatResult.dotDamage && combatResult.dotDamage > 1) {
+            setCombatLog(prev => [...prev, {
+              id: logIdRef.current++, type: 'dot' as const,
+              label: 'Poison tick', damage: combatResult.dotDamage!,
+            }].slice(-20));
+          }
           if (combatResult.zoneDeath) {
             setFloaters([]);
             setCombatLog([]);
@@ -244,6 +250,12 @@ export default function CombatPanel() {
           setCombatLog(prev => [...prev, {
             id: logIdRef.current++, type: 'bleed' as const,
             label: 'Bleed trigger', damage: bossResult.bleedTriggerDamage!,
+          }].slice(-20));
+        }
+        if (!bossResult.skillFired && bossResult.dotDamage && bossResult.dotDamage > 1) {
+          setCombatLog(prev => [...prev, {
+            id: logIdRef.current++, type: 'dot' as const,
+            label: 'Poison tick', damage: bossResult.dotDamage!,
           }].slice(-20));
         }
         if (bossResult.bossOutcome === 'victory') {
