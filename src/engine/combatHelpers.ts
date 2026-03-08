@@ -129,6 +129,7 @@ export interface ProcResult {
   newTempBuffs: TempBuff[];
   newDebuffs: { debuffId: string; stacks: number; duration: number; skillId: string }[];
   cooldownResets: string[];
+  gcdWasReset: boolean;                        // true if any proc had resetGcd
   procTriggeredAt: Record<string, number>;     // procId → timestamp for ICD tracking
   procsFired: string[];                        // IDs of procs that actually triggered
 }
@@ -141,6 +142,7 @@ export function evaluateProcs(
   const result: ProcResult = {
     bonusDamage: 0, healAmount: 0,
     newTempBuffs: [], newDebuffs: [], cooldownResets: [],
+    gcdWasReset: false,
     procTriggeredAt: {}, procsFired: [],
   };
   for (const proc of procs) {
@@ -211,6 +213,7 @@ export function evaluateProcs(
       // 'self' resolves to the skill that triggered the proc
       const resetTarget = proc.resetCooldown === 'self' ? ctx.skillId : proc.resetCooldown;
       result.cooldownResets.push(resetTarget);
+      if (proc.resetGcd) result.gcdWasReset = true;
     }
   }
   return result;

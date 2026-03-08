@@ -80,12 +80,13 @@ export default function CombatPanel() {
   const floaterIdRef = useRef(0);
   const lastFiredTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const [combatLog, setCombatLog] = useState<Array<{
-    id: number; type: 'skill' | 'dot' | 'bleed' | 'shatter' | 'enemy' | 'proc' | 'spread';
+    id: number; type: 'skill' | 'dot' | 'bleed' | 'shatter' | 'enemy' | 'proc' | 'spread' | 'free';
     label: string; damage: number; isCrit?: boolean; isHit?: boolean;
   }>>([]);
   const logIdRef = useRef(0);
   const [cdResetFlash, setCdResetFlash] = useState(false);
   const cdResetTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const nextCastIsFreeRef = useRef(false);
 
   // --- Main tick effect ---
   useEffect(() => {
@@ -117,9 +118,11 @@ export default function CombatPanel() {
             const skillName = combatResult.skillId
               ? (getUnifiedSkillDef(combatResult.skillId)?.name ?? '???')
               : '???';
+            const isFree = nextCastIsFreeRef.current;
+            nextCastIsFreeRef.current = false;
             setCombatLog(prev => [...prev, {
-              id: logIdRef.current++, type: 'skill' as const,
-              label: skillName,
+              id: logIdRef.current++, type: isFree ? 'free' as const : 'skill' as const,
+              label: isFree ? `FREE ${skillName}` : skillName,
               damage: combatResult.damageDealt,
               isCrit: combatResult.isCrit,
               isHit: combatResult.isHit,
@@ -159,6 +162,9 @@ export default function CombatPanel() {
               setCdResetFlash(true);
               clearTimeout(cdResetTimerRef.current);
               cdResetTimerRef.current = setTimeout(() => setCdResetFlash(false), 500);
+            }
+            if (combatResult.gcdWasReset) {
+              nextCastIsFreeRef.current = true;
             }
             if (combatResult.didSpreadDebuffs) {
               setCombatLog(prev => [...prev, {
@@ -464,7 +470,11 @@ export default function CombatPanel() {
             <div className="flex flex-wrap gap-1 justify-center">
               {tempBuffs.filter(b => b.expiresAt > Date.now()).map(buff => {
                 const remaining = Math.max(0, (buff.expiresAt - Date.now()) / 1000);
-                const meta = BUFF_DISPLAY[buff.id] ?? { label: buff.id.replace(/^st_/, '').slice(0, 6).toUpperCase(), color: 'text-gray-300 bg-gray-700/60' };
+                const meta = BUFF_DISPLAY[buff.id] ?? {
+                  label: buff.id.replace(/^[a-z]+_/, '').replace(/_/g, ' ')
+                    .replace(/\b\w/g, c => c.toUpperCase()).slice(0, 12),
+                  color: 'text-gray-300 bg-gray-700/60',
+                };
                 return (
                   <span key={buff.id} className={`rounded-full px-1.5 text-[10px] font-mono font-semibold ${meta.color}`}
                         title={`${meta.label}: ${remaining.toFixed(1)}s`}>
@@ -552,9 +562,9 @@ export default function CombatPanel() {
               <div className="text-gray-600 text-[10px]">Your damage</div>
               {outgoing.map(entry => (
                 <div key={entry.id} className="text-gray-400">
-                  {entry.type === 'skill' ? (
+                  {entry.type === 'skill' || entry.type === 'free' ? (
                     <>
-                      <span className="text-gray-500">{entry.label}</span>
+                      <span className={entry.type === 'free' ? 'text-blue-300' : 'text-gray-500'}>{entry.label}</span>
                       {entry.isHit
                         ? <> <span className={entry.isCrit ? 'text-yellow-300 font-bold' : 'text-white'}>{Math.round(entry.damage)}</span>
                             {entry.isCrit && <span className="text-yellow-400 ml-1">CRIT</span>}</>

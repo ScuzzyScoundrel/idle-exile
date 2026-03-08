@@ -348,6 +348,7 @@ export interface CombatTickResult {
   procDamage?: number;           // proc bonus damage (for separate floater)
   procLabel?: string;            // human-readable proc name e.g. "Venom Burst"
   cooldownWasReset?: boolean;    // true if any skill CD was reset via proc this tick
+  gcdWasReset?: boolean;         // true if any proc had resetGcd (free instant cast)
   didSpreadDebuffs?: boolean;    // true if debuffs were spread to new mob on kill
 }
 
@@ -701,6 +702,7 @@ export interface SkillProcEffect {
   instantDamage?: { flatDamage: number; element: DamageElement; scaleStat?: string; scaleRatio?: number };
   healPercent?: number;
   internalCooldown?: number;    // seconds — prevents re-triggering within window
+  resetGcd?: boolean;            // if true, also resets GCD (nextActiveSkillAt = now)
 }
 
 export interface DebuffInteraction {

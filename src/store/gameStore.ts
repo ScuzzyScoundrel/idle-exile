@@ -88,6 +88,13 @@ const PROC_LABEL: Record<string, string> = {
   st_ghost_step_heal: 'Ghost Step',
 };
 
+/** Auto-prettify proc IDs: manual overrides first, then strip prefix + title-case. */
+function prettifyProcId(id: string): string {
+  if (PROC_LABEL[id]) return PROC_LABEL[id];
+  return id.replace(/^[a-z]+_/, '').replace(/_/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
+}
+
 const INITIAL_CURRENCIES: Record<CurrencyType, number> = {
   augment: 0,
   chaos: 0,
@@ -2776,6 +2783,7 @@ export const useGameStore = create<GameState & GameActions>()(
         let procDamage = 0;
         let procHeal = 0;
         let procCooldownResets: string[] = [];
+        let procGcdWasReset = false;
         const allProcsFired: string[] = [];
         let newLastProcTriggerAt = { ...state.lastProcTriggerAt };
         if (graphMod?.skillProcs?.length) {
@@ -2869,7 +2877,7 @@ export const useGameStore = create<GameState & GameActions>()(
         const totalLeech = graphMod?.cannotLeech ? 0 : (LEECH_PERCENT + flagLeech + graphLeech);
 
         // Update GCD: next active skill can fire after castInterval (already includes GCD floor)
-        const nextActiveSkillAt = now + castInterval * 1000;
+        let nextActiveSkillAt = now + castInterval * 1000;
 
         // Update per-skill cooldown timer (if skill has a cooldown)
         // Apply graph CDR + ability haste for effective cooldown
@@ -3111,7 +3119,7 @@ export const useGameStore = create<GameState & GameActions>()(
               bossOutcome: 'victory', bossAttack: bossAttackResult,
               dotDamage: debuffDotDamage, bleedTriggerDamage,
               procDamage: procDamage > 0 ? procDamage : undefined,
-              procLabel: allProcsFired.length > 0 ? (PROC_LABEL[allProcsFired[0]] ?? allProcsFired[0]) : undefined,
+              procLabel: allProcsFired.length > 0 ? (prettifyProcId(allProcsFired[0])) : undefined,
               cooldownWasReset: procCooldownResets.length > 0,
             };
           }
@@ -3132,7 +3140,7 @@ export const useGameStore = create<GameState & GameActions>()(
               bossOutcome: 'defeat', bossAttack: bossAttackResult,
               dotDamage: debuffDotDamage, bleedTriggerDamage,
               procDamage: procDamage > 0 ? procDamage : undefined,
-              procLabel: allProcsFired.length > 0 ? (PROC_LABEL[allProcsFired[0]] ?? allProcsFired[0]) : undefined,
+              procLabel: allProcsFired.length > 0 ? (prettifyProcId(allProcsFired[0])) : undefined,
               cooldownWasReset: procCooldownResets.length > 0,
             };
           }
@@ -3153,7 +3161,7 @@ export const useGameStore = create<GameState & GameActions>()(
             bossOutcome: 'ongoing', bossAttack: bossAttackResult,
             dotDamage: debuffDotDamage, bleedTriggerDamage,
             procDamage: procDamage > 0 ? procDamage : undefined,
-            procLabel: allProcsFired.length > 0 ? (PROC_LABEL[allProcsFired[0]] ?? allProcsFired[0]) : undefined,
+            procLabel: allProcsFired.length > 0 ? (prettifyProcId(allProcsFired[0])) : undefined,
             cooldownWasReset: procCooldownResets.length > 0,
           };
         }
@@ -3243,6 +3251,11 @@ export const useGameStore = create<GameState & GameActions>()(
               newTimers = newTimers.map(t =>
                 killPr.cooldownResets.includes(t.skillId) ? { ...t, cooldownUntil: null } : t,
               );
+            }
+            // GCD skip: if proc has resetGcd, allow immediate next cast
+            if (killPr.gcdWasReset) {
+              nextActiveSkillAt = now;
+              procGcdWasReset = true;
             }
             // Bug 3 fix: collect kill proc debuffs for application after debuff clear
             killProcDebuffs = killPr.newDebuffs;
@@ -3488,8 +3501,9 @@ export const useGameStore = create<GameState & GameActions>()(
             zoneDeath: true,
             dotDamage: debuffDotDamage, bleedTriggerDamage, shatterDamage,
             procDamage: procDamage > 0 ? procDamage : undefined,
-            procLabel: allProcsFired.length > 0 ? (PROC_LABEL[allProcsFired[0]] ?? allProcsFired[0]) : undefined,
+            procLabel: allProcsFired.length > 0 ? (prettifyProcId(allProcsFired[0])) : undefined,
             cooldownWasReset: procCooldownResets.length > 0,
+            gcdWasReset: procGcdWasReset,
             didSpreadDebuffs,
           };
         }
@@ -3519,8 +3533,9 @@ export const useGameStore = create<GameState & GameActions>()(
           zoneAttack: zoneAttackResult,
           dotDamage: debuffDotDamage, bleedTriggerDamage, shatterDamage,
           procDamage: procDamage > 0 ? procDamage : undefined,
-          procLabel: allProcsFired.length > 0 ? (PROC_LABEL[allProcsFired[0]] ?? allProcsFired[0]) : undefined,
+          procLabel: allProcsFired.length > 0 ? (prettifyProcId(allProcsFired[0])) : undefined,
           cooldownWasReset: procCooldownResets.length > 0,
+          gcdWasReset: procGcdWasReset,
           didSpreadDebuffs,
         };
       },
