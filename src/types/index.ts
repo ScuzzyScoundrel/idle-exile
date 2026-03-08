@@ -369,6 +369,7 @@ export interface BossState {
   bossAccuracy: number;        // boss accuracy for dodge calc
   bossPhysRatio: number;       // physical vs elemental split (0-1)
   startedAt: number;           // timestamp
+  dodgeEntropy: number;        // entropy counter for POE-style deterministic evasion
 }
 
 // --- Currencies ---
@@ -1142,6 +1143,7 @@ export interface GameState {
   lastCritAt: number;
   lastBlockAt: number;
   lastDodgeAt: number;
+  dodgeEntropy: number;        // entropy counter for POE-style deterministic evasion
   tempBuffs: TempBuff[];
   skillCharges: Record<string, { current: number; max: number; chargeId: string }>;
   rampingStacks: number;

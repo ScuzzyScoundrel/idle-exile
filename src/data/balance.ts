@@ -98,6 +98,14 @@ export const BLOCK_CAP = 75;
 /** Maximum dodge chance percentage. */
 export const DODGE_CAP = 75;
 
+/** Min hit chance — even at cap evasion, 1 in 20 always lands. */
+export const EVASION_MIN_HIT_CHANCE = 5;
+
+/** Diminishing returns exponent on evasion contest formula.
+ *  dodgeChance = (evasion / (evasion + accuracy))^exponent
+ *  1.0 = linear (current), 1.2 = needs ~2x evasion for same dodge%. */
+export const EVASION_DR_EXPONENT = 1.2;
+
 /** Armor formula coefficient: armor / (armor + ARMOR_COEFFICIENT * physDmg). Lower = more effective. */
 export const ARMOR_COEFFICIENT = 3;
 /** Flat DR from armor: 1% per ARMOR_FLAT_DR_RATIO armor points. */

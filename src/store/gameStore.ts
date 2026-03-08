@@ -617,6 +617,7 @@ function createInitialState(): GameState {
     lastCritAt: 0,
     lastBlockAt: 0,
     lastDodgeAt: 0,
+    dodgeEntropy: Math.floor(Math.random() * 100),
     tempBuffs: [],
     skillCharges: {},
     rampingStacks: 0, rampingLastHitAt: 0,
@@ -2352,7 +2353,8 @@ export const useGameStore = create<GameState & GameActions>()(
                 const variance = 0.6 + Math.random() * 0.4; // 60%-100% normal
                 const rawDmg = bs.bossDamagePerHit * (isBossCrit ? BOSS_CRIT_MULTIPLIER : variance);
 
-                const roll = rollZoneAttack(rawDmg, bs.bossPhysRatio, bs.bossAccuracy, defStats);
+                const roll = rollZoneAttack(rawDmg, bs.bossPhysRatio, bs.bossAccuracy, defStats, bs.dodgeEntropy);
+                bs.dodgeEntropy = roll.newDodgeEntropy;
 
                 // Damage cap: never exceed BOSS_MAX_DMG_RATIO of maxHP per hit
                 let cappedDmg = Math.min(roll.damage * helperEnemyMods.damageMult, bossStats.maxLife * BOSS_MAX_DMG_RATIO);
@@ -2392,7 +2394,7 @@ export const useGameStore = create<GameState & GameActions>()(
             }
 
             if (playerHp <= 0) {
-              set({ currentHp: 0, currentEs: 0, bossState: { ...bs, bossNextAttackAt: nextAttack, bossCurrentHp: helperBossHp } });
+              set({ currentHp: 0, currentEs: 0, dodgeEntropy: Math.floor(Math.random() * 100), bossState: { ...bs, bossNextAttackAt: nextAttack, bossCurrentHp: helperBossHp } });
               return { ...noResult, bossOutcome: 'defeat', bossAttack: bossAttackResult, bleedTriggerDamage: helperBleedDmg, dotDamage: helperDotDamage, poisonInstanceCount: helperPoisonCount };
             }
             set({ currentHp: playerHp, bossState: { ...bs, bossNextAttackAt: nextAttack, bossCurrentHp: helperBossHp } });
@@ -2415,6 +2417,7 @@ export const useGameStore = create<GameState & GameActions>()(
           const packDmgScale = packSize > 1 ? 1 / Math.sqrt(packSize) : 1;
 
           // --- Per-mob attack timers ---
+          let currentDodgeEntropy = state.dodgeEntropy;
           let anyAttacked = false;
           for (const mob of updatedMobs) {
             if (mob.nextAttackAt <= 0 || now < mob.nextAttackAt) continue;
@@ -2449,7 +2452,8 @@ export const useGameStore = create<GameState & GameActions>()(
               const mobRareDmgMult = mob.rare?.combinedDamageMult ?? 1;
               const rawDmg = (ZONE_DMG_BASE * zone.band + ZONE_DMG_ILVL_SCALE * zone.iLvlMin) * levelMult * variance * mobRareDmgMult * packDmgScale;
 
-              const roll = rollZoneAttack(rawDmg, ZONE_PHYS_RATIO, zoneAccuracy, buffedStats);
+              const roll = rollZoneAttack(rawDmg, ZONE_PHYS_RATIO, zoneAccuracy, buffedStats, currentDodgeEntropy);
+              currentDodgeEntropy = roll.newDodgeEntropy;
               let mobZoneDmg = roll.damage * mobEnemyMods.damageMult;
               const helperZoneFortifyDR = calcFortifyDR(state.fortifyStacks, state.fortifyExpiresAt, state.fortifyDRPerStack, now);
               if (helperZoneFortifyDR > 0) mobZoneDmg *= (1 - helperZoneFortifyDR);
@@ -2480,10 +2484,10 @@ export const useGameStore = create<GameState & GameActions>()(
             playerHp = Math.min(maxLife, playerHp + regen);
 
             if (playerHp <= 0) {
-              set({ currentHp: 0, currentEs: 0, packMobs: updatedMobs, combatPhase: 'zone_defeat' as CombatPhase, combatPhaseStartedAt: Date.now() });
+              set({ currentHp: 0, currentEs: 0, dodgeEntropy: Math.floor(Math.random() * 100), packMobs: updatedMobs, combatPhase: 'zone_defeat' as CombatPhase, combatPhaseStartedAt: Date.now() });
               return { ...noResult, zoneAttack: zoneAttackResult, zoneDeath: true, bleedTriggerDamage: helperBleedDmg };
             }
-            set({ currentHp: playerHp });
+            set({ currentHp: playerHp, dodgeEntropy: currentDodgeEntropy });
           }
 
           // --- Per-mob DoT and regen ---
@@ -3148,7 +3152,8 @@ export const useGameStore = create<GameState & GameActions>()(
               const bossVariance = 0.6 + Math.random() * 0.4; // 60%-100% normal
               const rawBossDmg = bs.bossDamagePerHit * (isBossCrit ? BOSS_CRIT_MULTIPLIER : bossVariance);
 
-              const bossRoll = rollZoneAttack(rawBossDmg, bs.bossPhysRatio, bs.bossAccuracy, effectiveStats);
+              const bossRoll = rollZoneAttack(rawBossDmg, bs.bossPhysRatio, bs.bossAccuracy, effectiveStats, bs.dodgeEntropy);
+              bs.dodgeEntropy = bossRoll.newDodgeEntropy;
 
               // Incoming damage multiplier (increasedDamageTaken keystone + berserk)
               let incomingMult = mainEnemyMods.damageMult;
@@ -3270,6 +3275,7 @@ export const useGameStore = create<GameState & GameActions>()(
               ...trackingBoss,
               bossState: { ...updatedBoss, bossCurrentHp: 0 },
               currentHp: Math.max(1, playerHp),
+              dodgeEntropy: Math.floor(Math.random() * 100),
               nextActiveSkillAt,
               skillTimers: newTimers,
               activeDebuffs: [], // Clear debuffs on boss death
@@ -3292,6 +3298,7 @@ export const useGameStore = create<GameState & GameActions>()(
               ...trackingBoss,
               bossState: updatedBoss,
               currentHp: 0,
+              dodgeEntropy: Math.floor(Math.random() * 100),
               nextActiveSkillAt,
               skillTimers: newTimers,
               activeDebuffs: [], // Clear debuffs on death
@@ -3669,6 +3676,7 @@ export const useGameStore = create<GameState & GameActions>()(
 
         // Zone attack check: per-mob attack timers during skill-fired tick
         let zoneAttackResult: CombatTickResult['zoneAttack'] = null;
+        let currentDodgeEntropy = state.dodgeEntropy;
         const packDmgScale = updatedPackMobs.length > 1 ? 1 / Math.sqrt(updatedPackMobs.length) : 1;
         for (const mob of updatedPackMobs) {
           if (mob.nextAttackAt <= 0 || now < mob.nextAttackAt) continue;
@@ -3699,7 +3707,8 @@ export const useGameStore = create<GameState & GameActions>()(
             const mobRareDmgMult = mob.rare?.combinedDamageMult ?? 1;
             const rawDmg = (ZONE_DMG_BASE * zone.band + ZONE_DMG_ILVL_SCALE * zone.iLvlMin) * levelMult * variance * mobRareDmgMult * packDmgScale;
 
-            const zoneRoll = rollZoneAttack(rawDmg, ZONE_PHYS_RATIO, zoneAccuracy, buffedStats);
+            const zoneRoll = rollZoneAttack(rawDmg, ZONE_PHYS_RATIO, zoneAccuracy, buffedStats, currentDodgeEntropy);
+            currentDodgeEntropy = zoneRoll.newDodgeEntropy;
 
             let clearIncomingMult = mobEnemyMods.damageMult;
             if (graphMod?.increasedDamageTaken) clearIncomingMult *= (1 + graphMod.increasedDamageTaken / 100);
@@ -3810,6 +3819,7 @@ export const useGameStore = create<GameState & GameActions>()(
           lastCritAt: newLastCritAt,
           lastBlockAt: newLastBlockAt,
           lastDodgeAt: newLastDodgeAt,
+          dodgeEntropy: currentDodgeEntropy,
           rampingStacks: newRampingStacks, rampingLastHitAt: newRampingLastHitAt,
           fortifyStacks: newFortifyStacks, fortifyExpiresAt: newFortifyExpiresAt, fortifyDRPerStack: newFortifyDRPerStack,
           lastHitMobTypeId: state.currentMobTypeId,
@@ -3825,6 +3835,7 @@ export const useGameStore = create<GameState & GameActions>()(
         if (playerHp <= 0) {
           set({
             ...trackingClear,
+            dodgeEntropy: Math.floor(Math.random() * 100),
             currentHp: 0,
             currentEs: 0,
             currentMobTypeId: newMobTypeId,
@@ -4297,7 +4308,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 47,
+      version: 48,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -4397,6 +4408,7 @@ export const useGameStore = create<GameState & GameActions>()(
           state.lastCritAt = 0;
           state.lastBlockAt = 0;
           state.lastDodgeAt = 0;
+          state.dodgeEntropy = Math.floor(Math.random() * 100);
           state.tempBuffs = [];
           state.skillCharges = {};
           state.rampingStacks = 0; state.rampingLastHitAt = 0;
@@ -5012,6 +5024,11 @@ export const useGameStore = create<GameState & GameActions>()(
             else if (count >= 25) claimed[zoneId] = 25;
           }
           raw.zoneMasteryClaimed = claimed;
+        }
+
+        if (version < 48) {
+          // v48: Entropy-based evasion — add dodgeEntropy to player state
+          raw.dodgeEntropy = Math.floor(Math.random() * 100);
         }
 
         if (version < 47) {

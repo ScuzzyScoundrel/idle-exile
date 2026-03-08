@@ -27,7 +27,7 @@ import {
   BOSS_ILVL_BONUS, BOSS_DROP_COUNT_MIN, BOSS_DROP_COUNT_MAX,
   LEVEL_DAMAGE_BASE, OVERLEVEL_DAMAGE_REDUCTION, OVERLEVEL_DAMAGE_FLOOR, UNDERLEVEL_MIN_NET_DAMAGE,
   ZONE_ATTACK_INTERVAL, ZONE_DMG_BASE, ZONE_DMG_ILVL_SCALE, ZONE_PHYS_RATIO, ZONE_ACCURACY_BASE,
-  BLOCK_CAP, BLOCK_REDUCTION, DODGE_CAP,
+  BLOCK_CAP, BLOCK_REDUCTION, DODGE_CAP, EVASION_MIN_HIT_CHANCE, EVASION_DR_EXPONENT,
   BOSS_DMG_PER_HIT_BASE, BOSS_ATTACK_INTERVAL,
   LEECH_PERCENT, MAX_REGEN_RATIO,
   OUTGOING_DAMAGE_PENALTY_BASE, OUTGOING_DAMAGE_PENALTY_FLOOR,
@@ -680,9 +680,20 @@ export function calcZoneAccuracy(band: number, playerLevel: number, zoneILvlMin:
 
 // ── Per-Hit Defense Pipeline ──
 
+/** POE-style entropy evasion roll. Deterministic over N attacks. */
+export function rollEntropicEvasion(
+  hitChance: number, entropy: number,
+): { isEvaded: boolean; newEntropy: number } {
+  const newEntropy = entropy + hitChance;
+  if (newEntropy >= 100) {
+    return { isEvaded: false, newEntropy: newEntropy - 100 };
+  }
+  return { isEvaded: true, newEntropy };
+}
+
 /**
  * Roll one incoming attack through the defense pipeline:
- *   1. Dodge (evasion vs accuracy)
+ *   1. Dodge (evasion vs accuracy, entropy-based with diminishing returns)
  *   2. Block (chance, blocked hits deal 25% damage)
  *   3. Armor mitigation (PoE-style, physical portion only)
  *   4. Resist mitigation (elemental portion, average of capped resists)
@@ -692,11 +703,19 @@ export function rollZoneAttack(
   physRatio: number,
   zoneAccuracy: number,
   stats: ResolvedStats,
-): { damage: number; isDodged: boolean; isBlocked: boolean } {
-  // 1. Dodge check (capped at DODGE_CAP%)
-  const dodgeChance = Math.min(stats.evasion / (stats.evasion + zoneAccuracy), DODGE_CAP / 100);
-  if (Math.random() < dodgeChance) {
-    return { damage: 0, isDodged: true, isBlocked: false };
+  dodgeEntropy?: number,
+): { damage: number; isDodged: boolean; isBlocked: boolean; newDodgeEntropy: number } {
+  // 1. Dodge check — entropy-based with diminishing returns
+  const rawDodge = stats.evasion / (stats.evasion + zoneAccuracy);
+  const dodgeChance = Math.min(
+    Math.pow(rawDodge, EVASION_DR_EXPONENT), DODGE_CAP / 100
+  );
+  const hitChance = Math.max(EVASION_MIN_HIT_CHANCE, (1 - dodgeChance) * 100);
+  const currentEntropy = dodgeEntropy ?? Math.floor(Math.random() * 100);
+  const evasionRoll = rollEntropicEvasion(hitChance, currentEntropy);
+
+  if (evasionRoll.isEvaded) {
+    return { damage: 0, isDodged: true, isBlocked: false, newDodgeEntropy: evasionRoll.newEntropy };
   }
 
   let physDmg = rawDamage * physRatio;
@@ -734,7 +753,7 @@ export function rollZoneAttack(
     totalDmg *= (1 - flatDR);
   }
 
-  return { damage: Math.max(0, totalDmg), isDodged: false, isBlocked };
+  return { damage: Math.max(0, totalDmg), isDodged: false, isBlocked, newDodgeEntropy: evasionRoll.newEntropy };
 }
 
 /**
@@ -754,10 +773,12 @@ export function simulateClearDefense(
 
   let totalDamage = 0;
   let dodges = 0, blocks = 0, hits = 0;
+  let dodgeEntropy = Math.floor(Math.random() * 100);
 
   for (let i = 0; i < hitsPerClear; i++) {
     const variance = 0.8 + Math.random() * 0.4; // 80%-120%
-    const roll = rollZoneAttack(baseDmgPerHit * variance, physRatio, zoneAccuracy, stats);
+    const roll = rollZoneAttack(baseDmgPerHit * variance, physRatio, zoneAccuracy, stats, dodgeEntropy);
+    dodgeEntropy = roll.newDodgeEntropy;
     if (roll.isDodged) { dodges++; continue; }
     if (roll.isBlocked) blocks++;
     hits++;
@@ -834,6 +855,7 @@ export function createBossEncounter(
     bossAccuracy: profile.accuracy,
     bossPhysRatio: profile.physRatio,
     startedAt: Date.now(),
+    dodgeEntropy: Math.floor(Math.random() * 100),
   };
 }
 
