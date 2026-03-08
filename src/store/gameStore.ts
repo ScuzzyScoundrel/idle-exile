@@ -1884,6 +1884,41 @@ export const useGameStore = create<GameState & GameActions>()(
         const newChar = addXp(state.character, progress.xpGained);
         newChar.stats = resolveStats(newChar);
 
+        // Apply skill XP to all equipped skills (mirrors processNewClears lines 1205-1236)
+        const claimZone = ZONE_DEFS.find(z => z.id === progress.zoneId);
+        const newSkillProgress = { ...state.skillProgress };
+        const newAbilityProgress = { ...state.abilityProgress };
+        if (claimZone && progress.clearsCompleted > 0) {
+          const xpPerClear = getAbilityXpPerClear(claimZone.band);
+          const totalAbilityXp = xpPerClear * progress.clearsCompleted;
+          const reverseAbilityMap: Record<string, string> = {};
+          for (const [oldId, newId] of Object.entries(ABILITY_ID_MIGRATION)) {
+            reverseAbilityMap[newId] = oldId;
+          }
+          for (const equipped of state.skillBar) {
+            if (!equipped) continue;
+            const skillDef = getUnifiedSkillDef(equipped.skillId);
+            if (!skillDef) continue;
+            const existing = newSkillProgress[equipped.skillId] ?? {
+              skillId: equipped.skillId, xp: 0, level: 0, allocatedNodes: [],
+            };
+            const tempProgress = {
+              abilityId: existing.skillId, xp: existing.xp,
+              level: existing.level, allocatedNodes: existing.allocatedNodes,
+            };
+            const updated = addAbilityXp(tempProgress, totalAbilityXp);
+            newSkillProgress[equipped.skillId] = {
+              ...existing, xp: updated.xp, level: updated.level,
+              allocatedNodes: updated.allocatedNodes,
+            };
+            const oldId = reverseAbilityMap[equipped.skillId];
+            if (oldId) {
+              const oldExisting = newAbilityProgress[oldId] ?? createAbilityProgress(oldId);
+              newAbilityProgress[oldId] = { ...oldExisting, xp: updated.xp, level: updated.level };
+            }
+          }
+        }
+
         // Update daily quest progress for offline clears (clear_zone + defeat_boss only; kill_mob skips offline)
         let offlineQuestProgress = state.dailyQuests.progress;
         offlineQuestProgress = updateQuestProgressForClears(
@@ -1904,6 +1939,8 @@ export const useGameStore = create<GameState & GameActions>()(
           currencies: newCurrencies,
           gold: newGold,
           bagStash: newBagStash,
+          skillProgress: newSkillProgress,
+          abilityProgress: newAbilityProgress,
           offlineProgress: null,
           dailyQuests: { ...state.dailyQuests, progress: offlineQuestProgress },
         });
@@ -4526,8 +4563,22 @@ export const useGameStore = create<GameState & GameActions>()(
           const offlineClassDef = getClassDef(state.character.class);
           const offlineClassDmgMult = getClassDamageModifier(state.classResource, offlineClassDef);
           const offlineClassSpdMult = getClassClearSpeedModifier(state.classResource, offlineClassDef);
-          const offlineSim = computeNextClear(state, zone, passiveEffect, offlineClassDmgMult, offlineClassSpdMult);
+          let offlineSim = computeNextClear(state, zone, passiveEffect, offlineClassDmgMult, offlineClassSpdMult);
+
+          // Safety: ensure clearTime is valid for offline sim
+          if (!offlineSim.clearTime || !isFinite(offlineSim.clearTime) || offlineSim.clearTime <= 0) {
+            console.warn('[Offline] Invalid clearTime:', offlineSim.clearTime,
+              'zone:', zone.id, 'skillBar:', state.skillBar?.map(s => s?.skillId));
+            const fallbackClear = calcClearTime(character, zone, passiveEffect, offlineClassDmgMult, offlineClassSpdMult);
+            offlineSim = { clearTime: fallbackClear, clearResult: null };
+          }
+
           const result = simulateIdleRun(character, zone, elapsedSeconds, offlineSim.clearTime, passiveEffect);
+
+          if (result.clearsCompleted === 0 && elapsedSeconds >= 60) {
+            console.warn('[Offline] 0 clears despite', Math.round(elapsedSeconds), 's elapsed.',
+              'clearTime:', offlineSim.clearTime, 'zone:', zone.id);
+          }
 
           // Dry run to estimate auto-salvage/auto-sell stats for display
           const capacity = calcBagCapacity(state.bagSlots);
