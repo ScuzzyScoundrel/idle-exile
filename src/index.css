@@ -67,6 +67,12 @@ body {
   50%      { filter: drop-shadow(0 0 8px rgba(96, 165, 250, 0.8)); }
 }
 
+/* Combat: DoT badge pulse (subtle glow on ticking debuffs) */
+@keyframes dot-pulse {
+  0%, 100% { filter: brightness(1); }
+  50%      { filter: brightness(1.3); }
+}
+
 /* Combat: mob debuff glow */
 @keyframes debuff-glow {
   0%, 100% { box-shadow: 0 0 4px 1px rgba(239, 68, 68, 0.15); }

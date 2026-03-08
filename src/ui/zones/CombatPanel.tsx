@@ -88,10 +88,6 @@ export default function CombatPanel() {
   const [cdResetFlash, setCdResetFlash] = useState(false);
   const cdResetTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const nextCastIsFreeRef = useRef(false);
-  const dotTracker = useRef({
-    dotDmg: 0, poisonCount: 0, bleedLast: 0, bleedAge: 99, windowStart: Date.now(),
-  });
-  const [dotSummary, setDotSummary] = useState({ dotDps: 0, poisonCount: 0, bleedLast: 0 });
 
   // --- Main tick effect ---
   useEffect(() => {
@@ -132,15 +128,6 @@ export default function CombatPanel() {
               isCrit: combatResult.isCrit,
               isHit: combatResult.isHit,
             }].slice(-20));
-            // Accumulate DoT/bleed into summary tracker
-            if (combatResult.dotDamage && combatResult.dotDamage > 1) {
-              dotTracker.current.dotDmg += combatResult.dotDamage;
-              dotTracker.current.poisonCount = combatResult.poisonInstanceCount ?? 0;
-            }
-            if (combatResult.bleedTriggerDamage && combatResult.bleedTriggerDamage > 0) {
-              dotTracker.current.bleedLast = combatResult.bleedTriggerDamage;
-              dotTracker.current.bleedAge = 0;
-            }
             if (combatResult.shatterDamage && combatResult.shatterDamage > 0) {
               setCombatLog(prev => [...prev, {
                 id: logIdRef.current++, type: 'shatter' as const,
@@ -217,19 +204,9 @@ export default function CombatPanel() {
               }].slice(-20));
             }
           }
-          if (!combatResult.skillFired && combatResult.bleedTriggerDamage && combatResult.bleedTriggerDamage > 0) {
-            dotTracker.current.bleedLast = combatResult.bleedTriggerDamage;
-            dotTracker.current.bleedAge = 0;
-          }
-          if (!combatResult.skillFired && combatResult.dotDamage && combatResult.dotDamage > 1) {
-            dotTracker.current.dotDmg += combatResult.dotDamage;
-            dotTracker.current.poisonCount = combatResult.poisonInstanceCount ?? 0;
-          }
           if (combatResult.zoneDeath) {
             setFloaters([]);
             setCombatLog([]);
-            dotTracker.current = { dotDmg: 0, poisonCount: 0, bleedLast: 0, bleedAge: 99, windowStart: Date.now() };
-            setDotSummary({ dotDps: 0, poisonCount: 0, bleedLast: 0 });
           }
         }
       } else if (phase === 'boss_fight') {
@@ -254,15 +231,6 @@ export default function CombatPanel() {
             isCrit: bossResult.isCrit,
             isHit: bossResult.isHit,
           }].slice(-20));
-          // Accumulate DoT/bleed into summary tracker
-          if (bossResult.dotDamage && bossResult.dotDamage > 1) {
-            dotTracker.current.dotDmg += bossResult.dotDamage;
-            dotTracker.current.poisonCount = bossResult.poisonInstanceCount ?? 0;
-          }
-          if (bossResult.bleedTriggerDamage && bossResult.bleedTriggerDamage > 0) {
-            dotTracker.current.bleedLast = bossResult.bleedTriggerDamage;
-            dotTracker.current.bleedAge = 0;
-          }
           if (bossResult.procDamage && bossResult.procDamage > 0) {
             setCombatLog(prev => [...prev, {
               id: logIdRef.current++, type: 'proc' as const,
@@ -300,14 +268,6 @@ export default function CombatPanel() {
             }].slice(-20));
           }
         }
-        if (!bossResult.skillFired && bossResult.bleedTriggerDamage && bossResult.bleedTriggerDamage > 0) {
-          dotTracker.current.bleedLast = bossResult.bleedTriggerDamage;
-          dotTracker.current.bleedAge = 0;
-        }
-        if (!bossResult.skillFired && bossResult.dotDamage && bossResult.dotDamage > 1) {
-          dotTracker.current.dotDmg += bossResult.dotDamage;
-          dotTracker.current.poisonCount = bossResult.poisonInstanceCount ?? 0;
-        }
         if (bossResult.bossOutcome === 'victory') {
           const bState = useGameStore.getState().bossState;
           if (bState) {
@@ -337,26 +297,9 @@ export default function CombatPanel() {
             setBossLootItems([]);
             setFloaters([]);
             setCombatLog([]);
-            dotTracker.current = { dotDmg: 0, poisonCount: 0, bleedLast: 0, bleedAge: 99, windowStart: Date.now() };
-            setDotSummary({ dotDps: 0, poisonCount: 0, bleedLast: 0 });
             useGameStore.setState({ idleStartTime: Date.now() });
           }
         }
-      }
-      // Snapshot DoT DPS every ~1s
-      const snapNow = Date.now();
-      const windowMs = snapNow - dotTracker.current.windowStart;
-      if (windowMs >= 1000) {
-        const dmg = dotTracker.current.dotDmg;
-        const dps = dmg / (windowMs / 1000);
-        dotTracker.current.bleedAge++;
-        setDotSummary({
-          dotDps: Math.round(dps),
-          poisonCount: dmg > 0 ? dotTracker.current.poisonCount : 0,
-          bleedLast: dotTracker.current.bleedAge <= 3 ? Math.round(dotTracker.current.bleedLast) : 0,
-        });
-        dotTracker.current.dotDmg = 0;
-        dotTracker.current.windowStart = snapNow;
       }
       lastTickTimeRef.current = now;
     }, 250);
@@ -550,24 +493,6 @@ export default function CombatPanel() {
             <span className="text-red-400">{lastClearResult.misses} miss</span>
           )}
           <span>{lastClearResult.clearTime.toFixed(1)}s</span>
-        </div>
-      )}
-
-      {/* DoT Summary Bar */}
-      {idleMode === 'combat' && (dotSummary.dotDps > 0 || dotSummary.bleedLast > 0) && (
-        <div className="flex items-center gap-3 text-[11px] font-mono bg-gray-900/60 rounded px-2 py-0.5 justify-center">
-          {dotSummary.dotDps > 0 && (
-            <span className="text-green-400">
-              {dotSummary.poisonCount > 0
-                ? `☠ Poison (x${dotSummary.poisonCount}) ${dotSummary.dotDps}/s`
-                : `☠ DoT ${dotSummary.dotDps}/s`}
-            </span>
-          )}
-          {dotSummary.bleedLast > 0 && (
-            <span className="text-red-400">
-              🩸 Bleed {dotSummary.bleedLast}/trigger
-            </span>
-          )}
         </div>
       )}
 

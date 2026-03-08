@@ -62,7 +62,7 @@ export default function MobDisplay({ mobName, mobs, bossIn, signatureDrop }: {
 
           return (
             <div key={i} className={isRare && packSize > 1 ? 'border-l-2 border-yellow-500/40 pl-1' : ''}>
-              {/* Row: marker + affix badges + debuff badges */}
+              {/* Row 1: marker + affix badges */}
               <div className="flex items-center gap-1 flex-wrap">
                 {packSize > 1 && (
                   <span className="text-[9px] w-3 text-right shrink-0">
@@ -75,20 +75,26 @@ export default function MobDisplay({ mobName, mobs, bossIn, signatureDrop }: {
                   <>
                     <span className="text-yellow-300 text-[9px]">{'\u2605'}</span>
                     {mob.rare!.affixes.map(id => {
-                      const def = RARE_AFFIX_DEFS[id];
+                      const adef = RARE_AFFIX_DEFS[id];
                       return (
-                        <span key={id} className={`${def.color} text-[9px] font-semibold bg-gray-900/60 rounded-full px-1`}
-                              title={def.description}>
-                          {def.name}
+                        <span key={id} className={`${adef.color} text-[9px] font-semibold bg-gray-900/60 rounded-full px-1`}
+                              title={adef.description}>
+                          {adef.name}
                         </span>
                       );
                     })}
                   </>
                 )}
-                {mob.debuffs.length > 0 && mob.debuffs.map(d => (
-                  <DebuffBadge key={d.debuffId} debuff={d} />
-                ))}
               </div>
+              {/* Row 2: debuff badges (own row for readability) */}
+              {mob.debuffs.length > 0 && (
+                <div className="flex items-center gap-1 flex-wrap ml-0">
+                  {packSize > 1 && <span className="w-3 shrink-0" />}
+                  {mob.debuffs.map(d => (
+                    <DebuffBadge key={d.debuffId} debuff={d} />
+                  ))}
+                </div>
+              )}
               {/* HP bar */}
               <div className="flex items-center gap-1">
                 {packSize > 1 && <span className="w-3 shrink-0" />}
