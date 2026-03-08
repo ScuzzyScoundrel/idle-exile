@@ -3,11 +3,11 @@
 // Pure TS, no React dependencies.
 // ============================================================
 
-import type { RareAffixId, RareMobState, EquippedSkill, SkillProgress } from '../types';
-import { PACK_SIZE_WEIGHTS, RARE_CHANCE_BY_BAND, RARE_AFFIX_COUNT } from '../data/balance';
+import type { RareAffixId, RareMobState, MobInPack, EquippedSkill, SkillProgress, ZoneDef } from '../types';
+import { PACK_SIZE_WEIGHTS, RARE_CHANCE_BY_BAND, RARE_AFFIX_COUNT, ZONE_ATTACK_INTERVAL } from '../data/balance';
 import { RARE_AFFIX_DEFS } from '../data/rareAffixes';
 import { getUnifiedSkillDef } from '../data/unifiedSkills';
-import { getSkillGraphModifier } from '../engine/unifiedSkills';
+import { getSkillGraphModifier, calcMobHp } from '../engine/unifiedSkills';
 
 // ─── Pack Size ───
 
@@ -64,6 +64,47 @@ export function rollRareAffixes(band: number): RareAffixId[] {
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
   return shuffled.slice(0, Math.min(count, shuffled.length));
+}
+
+// ─── Pack Spawning ───
+
+/** Spawn a full pack of mobs, each with independent rare rolls, HP, and staggered attack timers.
+ *  @param zone     Zone definition (for band, HP scaling)
+ *  @param hpMult   Mob-type HP multiplier (e.g. from mob def)
+ *  @param invMult  Invasion difficulty multiplier (1.0 if not invaded)
+ *  @param startAttackAt  Timestamp (ms) for initial attack window start
+ */
+export function spawnPack(zone: ZoneDef, hpMult: number, invMult: number, startAttackAt: number): MobInPack[] {
+  const packSize = rollPackSize(zone.band);
+  const baseInterval = ZONE_ATTACK_INTERVAL * 1000; // ms
+  const mobs: MobInPack[] = [];
+
+  for (let i = 0; i < packSize; i++) {
+    // Each mob independently rolls rare + affixes
+    let rare: RareMobState | null = null;
+    let rareMult = 1;
+    if (rollIsRare(zone.band)) {
+      const affixes = rollRareAffixes(zone.band);
+      rare = resolveRareMods(affixes);
+      rareMult = rare.combinedHpMult;
+    }
+
+    const mobHp = calcMobHp(zone, hpMult * invMult * rareMult);
+
+    // Stagger attack timers evenly across the base interval
+    const atkSpeedMult = rare?.combinedAtkSpeedMult ?? 1;
+    const staggerOffset = baseInterval * atkSpeedMult * (i + 1) / packSize;
+
+    mobs.push({
+      hp: mobHp,
+      maxHp: mobHp,
+      debuffs: [],
+      nextAttackAt: startAttackAt + staggerOffset,
+      rare,
+    });
+  }
+
+  return mobs;
 }
 
 /** Resolve combined modifiers from a set of affixes (multiplicative stacking). */

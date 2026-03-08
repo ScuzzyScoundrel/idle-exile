@@ -7,7 +7,7 @@ import { calcBagCapacity } from '../../data/items';
 import SkillBar from '../components/SkillBar';
 import { DamageFloaters, FloaterEntry } from '../components/DamageFloater';
 import { getUnifiedSkillDef } from '../../data/unifiedSkills';
-import { BOSS_INTERVAL, ZONE_ATTACK_INTERVAL } from '../../data/balance';
+import { BOSS_INTERVAL } from '../../data/balance';
 import { getMobTypeDef } from '../../data/mobTypes';
 import { resolveStats } from '../../engine/character';
 
@@ -46,12 +46,12 @@ export default function CombatPanel() {
     classResource, tickClassResource, tickAutoCast,
     clearStartedAt, currentClearTime,
     lastClearResult,
-    tickCombat, currentMobHp, maxMobHp, zoneNextAttackAt,
+    tickCombat,
     targetedMobId, currentMobTypeId,
     activeDebuffs, fortifyStacks, fortifyExpiresAt, fortifyDRPerStack,
     tickInvasions,
     tempBuffs, rampingStacks,
-    packBackMobHps, packSingleMobMaxHp, currentRareMob,
+    packMobs,
   } = useGameStore();
 
   const hydrated = useHasHydrated();
@@ -404,9 +404,6 @@ export default function CombatPanel() {
     ? Math.min(1, Math.max(0, (nowMs - clearStartedAt) / clearDurationMs))
     : 0;
 
-  const zoneSwingProgress = zoneNextAttackAt > 0
-    ? 1 - Math.max(0, Math.min(1, (zoneNextAttackAt - nowMs) / (ZONE_ATTACK_INTERVAL * 1000)))
-    : 0;
   const bossSwingProgress = bossState?.bossNextAttackAt
     ? 1 - Math.max(0, Math.min(1, (bossState.bossNextAttackAt - nowMs) / (bossState.bossAttackInterval * 1000)))
     : 0;
@@ -497,15 +494,9 @@ export default function CombatPanel() {
             <div className="relative">
               <MobDisplay
                 mobName={currentMobTypeId ? (getMobTypeDef(currentMobTypeId)?.name ?? runningZone.mobName) : runningZone.mobName}
-                mobCurrentHp={currentMobHp}
-                mobMaxHp={maxMobHp}
+                mobs={packMobs}
                 bossIn={BOSS_INTERVAL - ((zoneClearCounts[currentZoneId!] || 0) % BOSS_INTERVAL)}
-                swingProgress={zoneSwingProgress}
                 signatureDrop={currentMobTypeId ? (getMobTypeDef(currentMobTypeId)?.drops.find(d => d.rarity === 'rare') ?? getMobTypeDef(currentMobTypeId)?.drops[0]) : undefined}
-                activeDebuffs={activeDebuffs}
-                backMobHps={packBackMobHps}
-                singleMobMaxHp={packSingleMobMaxHp}
-                rareAffixes={currentRareMob?.affixes}
               />
               <DamageFloaters floaters={floaters} />
             </div>

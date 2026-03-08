@@ -1,21 +1,32 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-07 (Multi-Mob Packs & Rare Mobs — All 4 sprints complete)
+> Last updated: 2026-03-07 (Per-Mob State Engine Refactor — complete)
 
 ## Current Phase
-**Multi-Mob Packs & Rare Mobs — COMPLETE.** All 4 sprints done (Types/Data/Engine, Store Packs, Store Rares, UI).
+**Per-Mob State Engine Refactor — COMPLETE.** Encounter state moved from flat fields to `packMobs: MobInPack[]` array.
+
+- **What was built**: Refactored encounter state so each mob in a pack carries its own HP, debuffs, and combat state inside a `MobInPack` object. Old encounter-level fields (`currentMobHp`, `currentMobMaxHp`, `debuffs`, `currentMobIsRare`, etc.) replaced by `packMobs` array. Front mob accessed via `packMobs[0]`. Engine (`packs.ts`) gains `rollFullPack()` to produce fully-initialized `MobInPack[]`. Save migration v46 rebuilds pack state from zone/band context.
+- **Key changes**:
+  - `MobInPack` type holds `hp`, `maxHp`, `debuffs`, `isRare`, `rareAffixes`, `resolvedMods`, `dotTimers`
+  - `packMobs: MobInPack[]` replaces ~8 flat encounter fields on game state
+  - `rollFullPack()` in `packs.ts` creates complete pack arrays (rolls size, rare status, affixes, HP)
+  - Store combat tick reads/writes per-mob state from `packMobs[0]` (front mob)
+  - UI components (`CombatPanel`, `MobDisplay`) read from `packMobs` array
+  - Save migration v45→v46: clears encounter, rebuilds from zone/band
+- **Modified files**: `src/types/index.ts`, `src/engine/packs.ts`, `src/store/gameStore.ts`, `src/ui/zones/CombatPanel.tsx`, `src/ui/zones/MobDisplay.tsx`
+- **Save version**: v46
+- **Next**: TBD — see roadmap in `docs/SPRINT_PLAN.md`
+
+**Previous: Multi-Mob Packs & Rare Mobs — COMPLETE.** All 4 sprints done (Types/Data/Engine, Store Packs, Store Rares, UI).
 
 - **What was built**: Combat now spawns packs of 1-5 mobs per encounter. AoE skills damage all mobs simultaneously, single-target only hits front mob. Rare mobs (5-18% chance by band) with 1-4 Diablo-style affixes that multiplicatively stack HP/loot. 5 affixes: Mighty (+25% dmg), Frenzied (+40% atk speed), Armored (20% DR), Empowered (+50% dmg), Regenerating (2% maxHP/sec).
 - **Key mechanics**:
   - Pack progression: front mob death shifts next back mob to front (overkill carries); pack fully dead → new encounter roll
   - AoE detection checks both base skill tags and `convertToAoE` talent mods
   - Rare mob loot multiplier flows through `CombatTickResult.encounterLootMult` → `processNewClears`
-  - All state is ephemeral — no save version migration needed (v45 unchanged)
 - **New files**: `src/data/rareAffixes.ts` (5 affix defs), `src/engine/packs.ts` (rollPackSize, isSkillAoE, rollIsRare, rollRareAffixes, resolveRareMods)
 - **Modified files**: `src/types/index.ts`, `src/data/balance.ts`, `src/store/gameStore.ts`, `src/ui/zones/MobDisplay.tsx`, `src/ui/zones/CombatPanel.tsx`
-- **Save version**: v45 (unchanged)
-- **Next**: TBD — see roadmap in `docs/SPRINT_PLAN.md`
 
 **Previous: Skill Tree Overhaul — COMPLETE.** All 3 sprints done (Engine, Data, UI).
 

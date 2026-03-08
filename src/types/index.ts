@@ -1039,6 +1039,16 @@ export interface RareMobState {
   combinedRegenPerSec: number;       // flat regen rate (% of maxHP)
 }
 
+// --- Per-Mob Pack State ---
+
+export interface MobInPack {
+  hp: number;
+  maxHp: number;
+  debuffs: ActiveDebuff[];
+  nextAttackAt: number;           // ms timestamp, each mob swings independently
+  rare: RareMobState | null;      // null = normal mob
+}
+
 // --- Game State ---
 
 export interface GameState {
@@ -1141,18 +1151,11 @@ export interface GameState {
   lastSkillActivation: number;
 
   // Real-time combat (10K-A — ephemeral, reset on rehydrate)
-  currentMobHp: number;
-  maxMobHp: number;
   nextActiveSkillAt: number;
-  zoneNextAttackAt: number;  // next zone attack timestamp (ms), 0 when not clearing
 
-  // Multi-mob packs (ephemeral, reset on rehydrate)
-  currentPackSize: number;          // total mobs in encounter (1 = single)
-  packBackMobHps: number[];         // HP values of mobs behind front mob
-  packSingleMobMaxHp: number;       // max HP of each individual mob in this pack
-
-  // Rare mobs (ephemeral, reset on rehydrate)
-  currentRareMob: RareMobState | null;  // null = normal mob
+  // Per-mob pack state (ephemeral, reset on rehydrate)
+  packMobs: MobInPack[];              // each mob has own HP, debuffs, attack timer, affixes
+  currentPackSize: number;            // convenience: total mobs in encounter (1 = single)
 
   // Mob types & targeted farming
   targetedMobId: string | null;
