@@ -22,7 +22,7 @@ export const DEBUFF_DEFS: DebuffDef[] = [
     maxStacks: 999,
     dotType: 'snapshot',
     instanceBased: true,
-    dotTickInterval: 0.5,
+    dotTickInterval: 1.0,
     effect: { snapshotPercent: 15 },
   },
   {
