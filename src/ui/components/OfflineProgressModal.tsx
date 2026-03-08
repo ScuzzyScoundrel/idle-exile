@@ -1,4 +1,5 @@
 import { useGameStore } from '../../store/gameStore';
+import { useUiStore } from '../../store/uiStore';
 import type { Rarity, CurrencyType } from '../../types';
 import { CURRENCY_DEFS } from '../../data/items';
 import { getBagDef } from '../../data/items';
@@ -40,7 +41,7 @@ function formatNumber(n: number): string {
 
 export default function OfflineProgressModal() {
   const progress = useGameStore((s) => s.offlineProgress);
-  const claimOfflineProgress = useGameStore((s) => s.claimOfflineProgress);
+  const claimOfflineProgress = useUiStore((s) => s.claimOfflineProgress);
 
   if (!progress) return null;
 

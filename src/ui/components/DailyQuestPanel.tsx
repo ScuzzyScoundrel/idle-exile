@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useGameStore } from '../../store/gameStore';
+import { useQuestStore } from '../../store/questStore';
 import { isQuestComplete } from '../../engine/dailyQuests';
 import type { QuestDef, QuestProgress, QuestObjectiveType } from '../../types';
 
@@ -85,8 +86,8 @@ export default function DailyQuestPanel({ currentZoneId }: { currentZoneId?: str
   const [collapsed, setCollapsed] = useState(false);
   const [countdown, setCountdown] = useState('');
   const dailyQuests = useGameStore(s => s.dailyQuests);
-  const claimQuestReward = useGameStore(s => s.claimQuestReward);
-  const checkDailyQuestReset = useGameStore(s => s.checkDailyQuestReset);
+  const claimQuestReward = useQuestStore(s => s.claimQuestReward);
+  const checkDailyQuestReset = useQuestStore(s => s.checkDailyQuestReset);
 
   // Ensure quests are generated
   useEffect(() => {
