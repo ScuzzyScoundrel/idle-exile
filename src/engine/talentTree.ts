@@ -286,8 +286,9 @@ export function resolveTalentModifiers(
 function getEffectiveModifier(node: TalentNode, rank: number): SkillModifier | null {
   if (rank === 0) return null;
 
-  // If perRankModifiers exist and have an entry for this rank, use it directly
-  if (node.perRankModifiers && node.perRankModifiers[rank]) {
+  // If perRankModifiers exist and have a non-empty entry for this rank, use it directly
+  if (node.perRankModifiers && node.perRankModifiers[rank]
+      && Object.keys(node.perRankModifiers[rank]).length > 0) {
     return node.perRankModifiers[rank];
   }
 

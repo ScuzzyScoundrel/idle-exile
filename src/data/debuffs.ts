@@ -104,6 +104,38 @@ export const DEBUFF_DEFS: DebuffDef[] = [
     maxStacks: 1,
     effect: {},
   },
+  {
+    id: 'shatterMark',
+    name: 'Shatter Mark',
+    description: 'Marked for shattering. Next hit deals bonus damage.',
+    stackable: false,
+    maxStacks: 1,
+    effect: {},
+  },
+  {
+    id: 'cobraMark',
+    name: 'Cobra Mark',
+    description: 'Marked by the cobra. Next hit deals bonus damage.',
+    stackable: false,
+    maxStacks: 1,
+    effect: {},
+  },
+  {
+    id: 'guillotineMark',
+    name: 'Guillotine Mark',
+    description: 'Marked for execution. Next hit deals massive bonus damage.',
+    stackable: false,
+    maxStacks: 1,
+    effect: {},
+  },
+  {
+    id: 'thunderousMark',
+    name: 'Thunderous Mark',
+    description: 'Marked by thunder. Next hit deals bonus lightning damage.',
+    stackable: false,
+    maxStacks: 1,
+    effect: {},
+  },
 ];
 
 export function getDebuffDef(id: string): DebuffDef | undefined {
