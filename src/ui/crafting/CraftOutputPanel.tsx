@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
+import { useCraftingStore } from '../../store/craftingStore';
 import { CRAFT_OUTPUT_BUFFER_SIZE } from '../../data/balance';
 import ItemCard from '../components/ItemCard';
 
 export default function CraftOutputPanel() {
   const buffer = useGameStore(s => s.craftOutputBuffer);
-  const claimCraftOutput = useGameStore(s => s.claimCraftOutput);
-  const claimAllCraftOutput = useGameStore(s => s.claimAllCraftOutput);
-  const salvageCraftOutput = useGameStore(s => s.salvageCraftOutput);
-  const salvageAllCraftOutput = useGameStore(s => s.salvageAllCraftOutput);
+  const claimCraftOutput = useCraftingStore(s => s.claimCraftOutput);
+  const claimAllCraftOutput = useCraftingStore(s => s.claimAllCraftOutput);
+  const salvageCraftOutput = useCraftingStore(s => s.salvageCraftOutput);
+  const salvageAllCraftOutput = useCraftingStore(s => s.salvageAllCraftOutput);
   const [collapsed, setCollapsed] = useState(false);
 
   if (buffer.length === 0) return null;

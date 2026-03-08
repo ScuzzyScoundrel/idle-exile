@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
+import { useCraftingStore } from '../../store/craftingStore';
 import { REFINEMENT_TRACK_DEFS } from '../../data/refinement';
 import { getRefinementChain, canRefine, canDeconstruct } from '../../engine/refinement';
 import { formatMatName } from './craftingHelpers';
 
 export default function RefinePanel() {
-  const { materials, gold, refineMaterial, refineMaterialBatch, deconstructMaterial } = useGameStore();
+  const { materials, gold } = useGameStore();
+  const { refineMaterial, refineMaterialBatch, deconstructMaterial } = useCraftingStore();
   const [selectedTrack, setSelectedTrack] = useState(REFINEMENT_TRACK_DEFS[0].id);
   const [flashId, setFlashId] = useState<string | null>(null);
   const [flashMsg, setFlashMsg] = useState<string | null>(null);
