@@ -547,7 +547,7 @@ These items from the original GDD and evolution doc haven't been placed into a s
 
 | Feature | Source | Dependencies / Notes |
 |---------|--------|---------------------|
-| **~~Talent tree~~** | ~~GDD Section 3~~ | **COMPLETE** — All 3 sprints done (engine + data + UI). See `docs/TALENT_TREE_IMPLEMENTATION.md`. |
+| **~~Talent tree~~** | ~~GDD Section 3~~ | **COMPLETE** — All 3 sprints done (engine + data + UI). See `docs/archive/TALENT_TREE_IMPLEMENTATION.md`. |
 | **Full ability population** (50+ abilities, 10 per weapon type) | Sprint 7C-B plan | Current: 24 abilities (3 per weapon). Need ~56 more. |
 | **Specialization system** (one per character) | GDD | Needs talent tree first |
 | **Socket crafting logic** | GDD | Socket Shard currency defined but unused |

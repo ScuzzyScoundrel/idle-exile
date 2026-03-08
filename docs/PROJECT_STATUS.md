@@ -9,7 +9,7 @@
 - **What was built**: Per-skill talent trees for all 7 dagger active skills. 273 nodes (7 trees × 3 branches × 13 nodes). Engine, data, barrel export, `unifiedSkills.ts` wiring, `TalentTreeView.tsx` UI all live in-game.
 - **Architecture**: All nodes defined inline per skill — no shared constants or factory functions. Builder pattern (`createTalentTree`) auto-generates IDs and wires T5 exclusiveWith.
 - **Key files**: `src/engine/talentTree.ts`, `src/data/skillGraphs/talentTreeBuilder.ts`, `src/data/skillGraphs/dagger_talents.ts`, `src/data/skillGraphs/talentTrees.ts`, `src/ui/components/TalentTreeView.tsx`
-- **Save version**: v43
+- **Save version**: v45
 - **Next**: TBD — see roadmap in `docs/SPRINT_PLAN.md`
 
 **Previous: Skill Tree Overhaul — Sprint 3: UI + Integration** — COMPLETE.
@@ -42,9 +42,9 @@
   - `classTalents` import removed from gameStore
   - Save migration v43: resets `talentAllocations`, removes `dagger_lethality` from skill bar
 - **Modified files**: `src/engine/talentTree.ts` (new), `src/types/index.ts`, `src/data/balance.ts`, `src/engine/unifiedSkills.ts`, `src/store/gameStore.ts`, `src/engine/combatHelpers.ts`
-- **New docs**: `docs/TALENT_TREE_IMPLEMENTATION.md`, `docs/SPRINT_2_PLAN.md`
+- **New docs**: `docs/archive/TALENT_TREE_IMPLEMENTATION.md`, `docs/archive/SPRINT_2_PLAN.md`
 - **Save version**: v42 → v43
-- **Next**: Sprint 2 — Dagger Data (see `docs/SPRINT_2_PLAN.md`)
+- **Next**: Sprint 2 — Dagger Data (see `docs/archive/SPRINT_2_PLAN.md`)
 
 **Previous: Dagger Doc Review — Feedback Implementation** — COMPLETE.
 
@@ -110,7 +110,7 @@
 - **Engine work**: Snapshot application on debuff apply (3 paths: normal, debuffOnCrit, proc), DoT tick rework (snapshot/percentMaxHp/flat + incDoTDamage bug fix), bleed-on-enemy-attack at all 4 attack sites (helper boss, helper zone, main boss, main clearing), shocked +crit pre-roll, chilled shatter on kill in death loop.
 - **Bug fix**: `incDoTDamage` gear stat now actually scales all DoT damage.
 - **Modified files**: `src/types/index.ts`, `src/data/debuffs.ts`, `src/store/gameStore.ts`
-- **New files**: `docs/DEBUFF_OVERHAUL_PLAN.md`
+- **New files**: `docs/archive/DEBUFF_OVERHAUL_PLAN.md`
 - **Save version**: v40 → v41
 
 **Previous: Sprint: Crafting Overhaul** — COMPLETE.
