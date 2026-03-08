@@ -4139,18 +4139,27 @@ export const useGameStore = create<GameState & GameActions>()(
           const { currentZoneId, idleStartTime, character, idleMode } = state;
           if (!currentZoneId || !idleStartTime) return;
 
-          const elapsedSeconds = (Date.now() - idleStartTime) / 1000;
-          if (elapsedSeconds < 60) {
-            // Short absence — let real-time tick handle it, but reset start time
-            state.idleStartTime = Date.now();
-            return;
-          }
-
           const zone = ZONE_DEFS.find(z => z.id === currentZoneId);
           if (!zone) {
             // Zone no longer exists — reset run
             state.currentZoneId = null;
             state.idleStartTime = null;
+            return;
+          }
+
+          const elapsedSeconds = (Date.now() - idleStartTime) / 1000;
+          if (elapsedSeconds < 60) {
+            // Short absence — let real-time tick handle it, but reset start time
+            state.idleStartTime = Date.now();
+            // Respawn pack if combat mode (packMobs is ephemeral, not persisted correctly)
+            if (idleMode === 'combat') {
+              const shortMobId = pickCurrentMob(currentZoneId, state.targetedMobId);
+              const shortHpMult = shortMobId ? (getMobTypeDef(shortMobId)?.hpMultiplier ?? 1.0) : 1.0;
+              const shortInvMult = isZoneInvaded(state.invasionState, currentZoneId, zone.band) ? INVASION_DIFFICULTY_MULT : 1.0;
+              state.packMobs = spawnPack(zone, shortHpMult, shortInvMult, Date.now());
+              state.currentPackSize = state.packMobs.length;
+              state.currentMobTypeId = shortMobId;
+            }
             return;
           }
 
@@ -4302,6 +4311,16 @@ export const useGameStore = create<GameState & GameActions>()(
 
           state.offlineProgress = summary;
           state.idleStartTime = Date.now();
+
+          // Respawn pack for real-time combat after offline catchup
+          if (idleMode === 'combat') {
+            const offMobId = pickCurrentMob(currentZoneId, state.targetedMobId);
+            const offHpMult = offMobId ? (getMobTypeDef(offMobId)?.hpMultiplier ?? 1.0) : 1.0;
+            const offInvMult = isZoneInvaded(state.invasionState, currentZoneId, zone.band) ? INVASION_DIFFICULTY_MULT : 1.0;
+            state.packMobs = spawnPack(zone, offHpMult, offInvMult, Date.now());
+            state.currentPackSize = state.packMobs.length;
+            state.currentMobTypeId = offMobId;
+          }
         };
       },
       migrate: (persisted: unknown, version: number) => {
