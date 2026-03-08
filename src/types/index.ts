@@ -1164,6 +1164,8 @@ export interface GameState {
   fortifyStacks: number;
   fortifyExpiresAt: number;
   fortifyDRPerStack: number;  // copied from graphMod on hit, avoids graphMod lookup at damage sites
+  deathStreak: number;        // consecutive deaths for streak penalty
+  lastDeathTime: number;      // timestamp of last death for streak window
 
   // Talent tree: ephemeral combat state (not persisted, reset on rehydrate)
   lastHitMobTypeId: string | null;                    // for same-target consecutive hit tracking

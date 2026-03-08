@@ -29,9 +29,9 @@ import {
   MobInPack,
 } from '../types';
 import { createCharacter, resolveStats, addXp, getWeaponDamageInfo, calcXpToNext } from '../engine/character';
-import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, simulateCombatClear, createBossEncounter, generateBossLoot, applyAbilityResists, calcHazardPenalty, rollZoneAttack, calcLevelDamageMult, calcOutgoingDamageMult, calcZoneAccuracy, getClaimableMilestones, getMasteryBonus } from '../engine/zones';
+import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, simulateCombatClear, createBossEncounter, generateBossLoot, applyAbilityResists, calcHazardPenalty, rollZoneAttack, calcLevelDamageMult, calcOutgoingDamageMult, calcZoneAccuracy, getClaimableMilestones, getMasteryBonus, calcDeathPenalty } from '../engine/zones';
 import { calcMobHp, calcSkillCastInterval, rollSkillCast } from '../engine/unifiedSkills';
-import { BOSS_VICTORY_DURATION, BOSS_DEFEAT_RECOVERY, BOSS_VICTORY_HEAL_RATIO, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO, SKILL_GCD, LEECH_PERCENT, ZONE_ATTACK_INTERVAL, ZONE_DMG_BASE, ZONE_DMG_ILVL_SCALE, ZONE_PHYS_RATIO, MAX_REGEN_RATIO, BOSS_CRIT_CHANCE, BOSS_CRIT_MULTIPLIER, BOSS_MAX_DMG_RATIO, FORTIFY_MAX_STACKS, FORTIFY_MAX_DR, INVASION_DIFFICULTY_MULT, INVASION_DURATION_MIN_MS, INVASION_DURATION_MAX_MS } from '../data/balance';
+import { BOSS_VICTORY_DURATION, BOSS_VICTORY_HEAL_RATIO, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO, SKILL_GCD, LEECH_PERCENT, ZONE_ATTACK_INTERVAL, ZONE_DMG_BASE, ZONE_DMG_ILVL_SCALE, ZONE_PHYS_RATIO, MAX_REGEN_CAP_RATIO, BOSS_CRIT_CHANCE, BOSS_CRIT_MULTIPLIER, BOSS_MAX_DMG_RATIO, FORTIFY_MAX_STACKS, FORTIFY_MAX_DR, INVASION_DIFFICULTY_MULT, INVASION_DURATION_MIN_MS, INVASION_DURATION_MAX_MS, DEATH_STREAK_WINDOW } from '../data/balance';
 import { pickBestItem, generateId, isTwoHandedWeapon, generateItem } from '../engine/items';
 import { applyCurrency } from '../engine/crafting';
 import {
@@ -624,6 +624,7 @@ function createInitialState(): GameState {
     skillCharges: {},
     rampingStacks: 0, rampingLastHitAt: 0,
     fortifyStacks: 0, fortifyExpiresAt: 0, fortifyDRPerStack: 0,
+    deathStreak: 0, lastDeathTime: 0,
     lastHitMobTypeId: null, freeCastUntil: {}, lastProcTriggerAt: {},
     lastClearResult: null,
     lastSkillActivation: 0,
@@ -2520,12 +2521,15 @@ export const useGameStore = create<GameState & GameActions>()(
           // Passive player regen per tick (only if any mob attacked — keeps original behavior)
           if (anyAttacked) {
             const maxLife = resolveStats(state.character).maxLife;
-            const regenCap = maxLife * MAX_REGEN_RATIO;
+            const regenCap = maxLife * MAX_REGEN_CAP_RATIO;
             const regen = Math.min(resolveStats(state.character).lifeRegen * dt, regenCap);
             playerHp = Math.min(maxLife, playerHp + regen);
 
             if (playerHp <= 0) {
-              set({ currentHp: 0, currentEs: 0, dodgeEntropy: Math.floor(Math.random() * 100), packMobs: updatedMobs, combatPhase: 'zone_defeat' as CombatPhase, combatPhaseStartedAt: Date.now() });
+              const deathNow = Date.now();
+              const streakReset = deathNow - state.lastDeathTime > DEATH_STREAK_WINDOW * 1000;
+              const newStreak = streakReset ? 0 : state.deathStreak + 1;
+              set({ currentHp: 0, currentEs: 0, dodgeEntropy: Math.floor(Math.random() * 100), packMobs: updatedMobs, combatPhase: 'zone_defeat' as CombatPhase, combatPhaseStartedAt: deathNow, deathStreak: newStreak, lastDeathTime: deathNow });
               return { ...noResult, zoneAttack: zoneAttackResult, zoneDeath: true, bleedTriggerDamage: helperBleedDmg };
             }
             set({ currentHp: playerHp, dodgeEntropy: currentDodgeEntropy });
@@ -3898,6 +3902,9 @@ export const useGameStore = create<GameState & GameActions>()(
 
         // Zone death check
         if (playerHp <= 0) {
+          const deathNow2 = Date.now();
+          const streakReset2 = deathNow2 - state.lastDeathTime > DEATH_STREAK_WINDOW * 1000;
+          const newStreak2 = streakReset2 ? 0 : state.deathStreak + 1;
           set({
             ...trackingClear,
             dodgeEntropy: Math.floor(Math.random() * 100),
@@ -3907,12 +3914,14 @@ export const useGameStore = create<GameState & GameActions>()(
             nextActiveSkillAt,
             skillTimers: newTimers,
             combatPhase: 'zone_defeat' as CombatPhase,
-            combatPhaseStartedAt: Date.now(),
+            combatPhaseStartedAt: deathNow2,
             activeDebuffs: [],
             tempBuffs: [],
             skillCharges: newSkillCharges,
             packMobs: updatedPackMobs,
             currentPackSize: newCurrentPackSize,
+            deathStreak: newStreak2,
+            lastDeathTime: deathNow2,
           });
           return {
             mobKills,
@@ -4065,11 +4074,16 @@ export const useGameStore = create<GameState & GameActions>()(
         if (state.currentZoneId) {
           delete newZoneClearCounts[state.currentZoneId];
         }
+        const bossDeathNow = Date.now();
+        const bossStreakReset = bossDeathNow - state.lastDeathTime > DEATH_STREAK_WINDOW * 1000;
+        const bossNewStreak = bossStreakReset ? 0 : state.deathStreak + 1;
         set({
           combatPhase: 'boss_defeat' as CombatPhase,
           currentHp: 0,
-          combatPhaseStartedAt: Date.now(),
+          combatPhaseStartedAt: bossDeathNow,
           zoneClearCounts: newZoneClearCounts,
+          deathStreak: bossNewStreak,
+          lastDeathTime: bossDeathNow,
         });
       },
 
@@ -4078,11 +4092,19 @@ export const useGameStore = create<GameState & GameActions>()(
         if (state.combatPhase !== 'boss_victory' && state.combatPhase !== 'boss_defeat' && state.combatPhase !== 'zone_defeat') return false;
         if (!state.combatPhaseStartedAt) return false;
 
+        const isDefeat = state.combatPhase === 'boss_defeat' || state.combatPhase === 'zone_defeat';
+        const zone = state.currentZoneId ? ZONE_DEFS.find(z => z.id === state.currentZoneId) : null;
+        const band = zone?.band ?? 1;
+
+        // Death penalty duration: scales with band and death streak
+        const duration = isDefeat
+          ? calcDeathPenalty(band, state.deathStreak)
+          : BOSS_VICTORY_DURATION;
+
         const elapsed = (Date.now() - state.combatPhaseStartedAt) / 1000;
-        const duration = state.combatPhase === 'boss_victory' ? BOSS_VICTORY_DURATION : BOSS_DEFEAT_RECOVERY;
         const stats = resolveStats(state.character);
 
-        if (state.combatPhase === 'boss_defeat' || state.combatPhase === 'zone_defeat') {
+        if (isDefeat) {
           // Linearly regen HP during recovery
           const progress = Math.min(1, elapsed / duration);
           set({ currentHp: stats.maxLife * progress });
@@ -4096,7 +4118,6 @@ export const useGameStore = create<GameState & GameActions>()(
             : stats.maxLife;
 
           // Spawn new pack for real-time combat (10K-A)
-          const zone = state.currentZoneId ? ZONE_DEFS.find(z => z.id === state.currentZoneId) : null;
           const recoveryMobId = zone ? pickCurrentMob(zone.id, state.targetedMobId) : null;
           const recoveryHpMult = recoveryMobId ? (getMobTypeDef(recoveryMobId)?.hpMultiplier ?? 1.0) : 1.0;
           const recoveryInvMult = zone && state.currentZoneId && isZoneInvaded(state.invasionState, state.currentZoneId, zone.band) ? INVASION_DIFFICULTY_MULT : 1.0;
@@ -4373,7 +4394,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 49,
+      version: 50,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -5103,6 +5124,12 @@ export const useGameStore = create<GameState & GameActions>()(
             else if (count >= 25) claimed[zoneId] = 25;
           }
           raw.zoneMasteryClaimed = claimed;
+        }
+
+        if (version < 50) {
+          // v50: Death penalty — add streak tracking fields
+          raw.deathStreak = 0;
+          raw.lastDeathTime = 0;
         }
 
         if (version < 49) {

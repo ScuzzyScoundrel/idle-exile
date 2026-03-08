@@ -29,10 +29,13 @@ import {
   ZONE_ATTACK_INTERVAL, ZONE_DMG_BASE, ZONE_DMG_ILVL_SCALE, ZONE_PHYS_RATIO, ZONE_ACCURACY_BASE,
   BLOCK_CAP, BLOCK_REDUCTION, DODGE_CAP, EVASION_MIN_HIT_CHANCE, EVASION_DR_EXPONENT,
   BOSS_DMG_PER_HIT_BASE, BOSS_ATTACK_INTERVAL,
-  LEECH_PERCENT, MAX_REGEN_RATIO,
+  LEECH_PERCENT, BASE_REGEN_CAP_RATIO, REGEN_CAP_PER_MITIGATED, MAX_REGEN_CAP_RATIO,
   OUTGOING_DAMAGE_PENALTY_BASE, OUTGOING_DAMAGE_PENALTY_FLOOR,
-  UNDERLEVEL_ACCURACY_SCALE,
+  UNDERLEVEL_ACCURACY_SCALE, UNDERLEVEL_SOFTCAP,
   ARMOR_COEFFICIENT, ARMOR_FLAT_DR_RATIO, ARMOR_FLAT_DR_CAP,
+  BOSS_HP_RAMP, BOSS_DMG_RAMP,
+  DEATH_RESPAWN_BASE, DEATH_RESPAWN_PER_BAND, DEATH_RESPAWN_CAP,
+  DEATH_STREAK_MULT, DEATH_STREAK_CAP,
 } from '../data/balance';
 import { getZoneMobTypes, weightedRandomMob, getMobTypeDef } from '../data/mobTypes';
 
@@ -649,8 +652,13 @@ export function simulateGatheringClear(
 export function calcLevelDamageMult(playerLevel: number, zoneILvlMin: number): number {
   const delta = zoneILvlMin - playerLevel;
   if (delta > 0) {
-    // Underleveled: exponential damage increase
-    return Math.pow(LEVEL_DAMAGE_BASE, delta);
+    // Underleveled: exponential up to softcap, then sqrt growth
+    if (delta <= UNDERLEVEL_SOFTCAP) {
+      return Math.pow(LEVEL_DAMAGE_BASE, delta);
+    }
+    // Past softcap: base^softcap * sqrt(base^(delta - softcap))
+    return Math.pow(LEVEL_DAMAGE_BASE, UNDERLEVEL_SOFTCAP) *
+      Math.sqrt(Math.pow(LEVEL_DAMAGE_BASE, delta - UNDERLEVEL_SOFTCAP));
   } else if (delta < 0) {
     // Overleveled: linear damage reduction, floor at OVERLEVEL_DAMAGE_FLOOR
     return Math.max(OVERLEVEL_DAMAGE_FLOOR, 1 + delta * OVERLEVEL_DAMAGE_REDUCTION);
@@ -764,7 +772,7 @@ export function simulateClearDefense(
   currentHp: number, maxHp: number, stats: ResolvedStats,
   zone: ZoneDef, playerLevel: number, clearTime: number,
   playerDamageDealt: number,
-): { newHp: number; totalDamage: number; dodges: number; blocks: number; hits: number } {
+): { newHp: number; totalDamage: number; dodges: number; blocks: number; hits: number; totalMitigated: number; regenCapUsed: number } {
   const levelMult = calcLevelDamageMult(playerLevel, zone.iLvlMin);
   const hitsPerClear = Math.max(1, Math.floor(clearTime / ZONE_ATTACK_INTERVAL));
   const baseDmgPerHit = (ZONE_DMG_BASE * zone.band + ZONE_DMG_ILVL_SCALE * zone.iLvlMin) * levelMult;
@@ -772,24 +780,36 @@ export function simulateClearDefense(
   const physRatio = ZONE_PHYS_RATIO;
 
   let totalDamage = 0;
+  let totalRawDamage = 0;
   let dodges = 0, blocks = 0, hits = 0;
   let dodgeEntropy = Math.floor(Math.random() * 100);
 
   for (let i = 0; i < hitsPerClear; i++) {
     const variance = 0.8 + Math.random() * 0.4; // 80%-120%
-    const roll = rollZoneAttack(baseDmgPerHit * variance, physRatio, zoneAccuracy, stats, dodgeEntropy);
+    const rawHit = baseDmgPerHit * variance;
+    const roll = rollZoneAttack(rawHit, physRatio, zoneAccuracy, stats, dodgeEntropy);
     dodgeEntropy = roll.newDodgeEntropy;
     if (roll.isDodged) { dodges++; continue; }
     if (roll.isBlocked) blocks++;
     hits++;
+    totalRawDamage += rawHit;
     totalDamage += roll.damage;
   }
 
-  // Regen: passive + leech (capped at MAX_REGEN_RATIO of maxHP per clear)
+  // Calculate total mitigated damage (pre-mitigation minus post-mitigation for non-dodged hits)
+  const totalMitigated = totalRawDamage - totalDamage;
+
+  // Dynamic regen cap: defense investment earns more regen
+  const dynamicCapRatio = Math.min(
+    BASE_REGEN_CAP_RATIO + totalMitigated * REGEN_CAP_PER_MITIGATED / maxHp,
+    MAX_REGEN_CAP_RATIO,
+  );
+
+  // Regen: passive + leech (capped at dynamic ratio of maxHP per clear)
   const passiveRegen = maxHp * CLEAR_REGEN_RATIO + stats.lifeRegen * clearTime;
   const gearLeechRate = stats.lifeLeechPercent ? stats.lifeLeechPercent / 100 : 0;
   const leechHeal = playerDamageDealt * (LEECH_PERCENT + gearLeechRate);
-  const totalRegen = Math.min(passiveRegen + leechHeal, maxHp * MAX_REGEN_RATIO);
+  const totalRegen = Math.min(passiveRegen + leechHeal, maxHp * dynamicCapRatio);
 
   // Underlevel minimum net damage (prevents immortality via regen stacking)
   let netDamage = totalDamage - totalRegen;
@@ -800,12 +820,12 @@ export function simulateClearDefense(
   }
 
   const newHp = Math.max(0, Math.min(maxHp, currentHp - netDamage));
-  return { newHp, totalDamage, dodges, blocks, hits };
+  return { newHp, totalDamage, dodges, blocks, hits, totalMitigated, regenCapUsed: dynamicCapRatio };
 }
 
-/** Boss HP pool. Scales with band^2. Overgeared players melt it — that's intended. */
+/** Boss HP pool. Linear ramp: base * band * (1 + BOSS_HP_RAMP * (band - 1)). */
 export function calcBossMaxHp(zone: ZoneDef): number {
-  return BOSS_BASE_HP * zone.band * zone.band;
+  return BOSS_BASE_HP * zone.band * (1 + BOSS_HP_RAMP * (zone.band - 1));
 }
 
 /**
@@ -817,7 +837,7 @@ export function calcBossAttackProfile(char: Character, zone: ZoneDef, abilityEff
 } {
   const effectiveStats = applyAbilityResists(char.stats, abilityEffect);
   const levelMult = calcLevelDamageMult(char.level, zone.iLvlMin);
-  const baseDmg = BOSS_DMG_PER_HIT_BASE * zone.band * zone.band * levelMult;
+  const baseDmg = BOSS_DMG_PER_HIT_BASE * zone.band * (1 + BOSS_DMG_RAMP * (zone.band - 1)) * levelMult;
 
   // Hazard bonus: each unresisted hazard adds elemental damage
   let hazardBonus = 0;
@@ -858,6 +878,16 @@ export function createBossEncounter(
     startedAt: Date.now(),
     dodgeEntropy: Math.floor(Math.random() * 100),
   };
+}
+
+/**
+ * Calculate death penalty duration in seconds.
+ * Scales with band and consecutive death streak.
+ */
+export function calcDeathPenalty(band: number, deathStreak: number): number {
+  const base = Math.min(DEATH_RESPAWN_BASE + (band - 1) * DEATH_RESPAWN_PER_BAND, DEATH_RESPAWN_CAP);
+  const streakMult = Math.min(1 + deathStreak * DEATH_STREAK_MULT, DEATH_STREAK_CAP);
+  return base * streakMult;
 }
 
 /** Generate boss loot at boosted iLvl. */

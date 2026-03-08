@@ -56,8 +56,8 @@ export const BAG_DROP_CHANCE = 0.015;
  *  Tuned for offense-only charPower (defEff removed from clear speed in 8E). */
 export const POWER_DIVISOR = 15;
 
-/** Exponential penalty per level below zone iLvlMin. 10 levels below = 1.12^10 ~ 3.1x. */
-export const LEVEL_PENALTY_BASE = 1.12;
+/** Exponential penalty per level below zone iLvlMin. 10 levels below = 1.08^5 * sqrt(1.08^5) ~ 1.75x. */
+export const LEVEL_PENALTY_BASE = 1.08;
 
 /** Clear time floor as fraction of baseClearTime (prevents instant clears). */
 export const CLEAR_TIME_FLOOR_RATIO = 0.2;
@@ -81,8 +81,8 @@ export const ZONE_ACCURACY_BASE = 50;
 /** Divisor for accuracy-based hit chance: hitChance = accuracy / (accuracy + ACCURACY_DIVISOR). */
 export const ACCURACY_DIVISOR = 50;
 
-/** Outgoing damage penalty base per level underleveled. 10 levels = 0.10^10 ~ 39%. */
-export const OUTGOING_DAMAGE_PENALTY_BASE = 1.10;
+/** Outgoing damage penalty base per level underleveled. Softened for balance v2. */
+export const OUTGOING_DAMAGE_PENALTY_BASE = 1.06;
 /** Minimum outgoing damage multiplier (floor). */
 export const OUTGOING_DAMAGE_PENALTY_FLOOR = 0.10;
 
@@ -107,11 +107,11 @@ export const EVASION_MIN_HIT_CHANCE = 5;
 export const EVASION_DR_EXPONENT = 1.2;
 
 /** Armor formula coefficient: armor / (armor + ARMOR_COEFFICIENT * physDmg). Lower = more effective. */
-export const ARMOR_COEFFICIENT = 3;
+export const ARMOR_COEFFICIENT = 2;
 /** Flat DR from armor: 1% per ARMOR_FLAT_DR_RATIO armor points. */
-export const ARMOR_FLAT_DR_RATIO = 100;
-/** Maximum flat DR from armor (20%). */
-export const ARMOR_FLAT_DR_CAP = 0.20;
+export const ARMOR_FLAT_DR_RATIO = 60;
+/** Maximum flat DR from armor (25%). */
+export const ARMOR_FLAT_DR_CAP = 0.25;
 
 // =============================================
 // CHARACTER PROGRESSION
@@ -298,8 +298,8 @@ export const FORTIFY_MAX_DR = 0.75;
 /** maxHp fraction regenerated per normal clear (passive base regen). */
 export const CLEAR_REGEN_RATIO = 0.12;
 
-/** Damage amp per level underleveled (exponential). 5 levels under = 1.76x damage taken. */
-export const LEVEL_DAMAGE_BASE = 1.12;
+/** Damage amp per level underleveled (exponential, softcapped). Reduced from 1.12 for balance v2. */
+export const LEVEL_DAMAGE_BASE = 1.08;
 /** Damage reduction per level overleveled (linear). 5 levels over = 0.70x damage. */
 export const OVERLEVEL_DAMAGE_REDUCTION = 0.10;
 /** Minimum damage multiplier when overleveled (floor). */
@@ -310,8 +310,12 @@ export const UNDERLEVEL_MIN_NET_DAMAGE = 0.02;
 export const ZONE_ILVL_PRESSURE_SCALE = 0.04;
 /** Normal clears between boss encounters. */
 export const BOSS_INTERVAL = 10;
-/** Base boss HP (band 1). Scales with band^2. Overgeared players melt it fast — that's intended. */
-export const BOSS_BASE_HP = 150;
+/** Base boss HP (band 1). Scales with linear ramp instead of band^2 for balance v2. */
+export const BOSS_BASE_HP = 120;
+/** Boss HP ramp: HP = base * band * (1 + BOSS_HP_RAMP * (band - 1)). */
+export const BOSS_HP_RAMP = 0.35;
+/** Boss damage ramp: same formula as HP ramp. */
+export const BOSS_DMG_RAMP = 0.30;
 /** Each unresisted hazard adds this fraction of base boss damage as bonus elemental damage. */
 export const BOSS_HAZARD_DAMAGE_RATIO = 0.15;
 /** Boss drops at iLvlMax + this. */
@@ -337,8 +341,8 @@ export const ZONE_DMG_BASE = 6;
 export const ZONE_DMG_ILVL_SCALE = 0.8;
 /** Fraction of zone damage that's physical (rest is elemental). */
 export const ZONE_PHYS_RATIO = 0.5;
-/** Boss damage per hit base. Scales with band^2. */
-export const BOSS_DMG_PER_HIT_BASE = 6;
+/** Boss damage per hit base. Scales with linear ramp for balance v2. */
+export const BOSS_DMG_PER_HIT_BASE = 5;
 /** Boss crit chance per attack (15%). */
 export const BOSS_CRIT_CHANCE = 0.15;
 /** Boss crit damage multiplier. */
@@ -349,8 +353,28 @@ export const BOSS_MAX_DMG_RATIO = 0.40;
 export const BOSS_ATTACK_INTERVAL = 1.5;
 /** Innate life leech: fraction of damage dealt that heals player. */
 export const LEECH_PERCENT = 0.04;
-/** Max regen per clear as fraction of maxHP (prevents immortality). */
-export const MAX_REGEN_RATIO = 0.50;
+/** Base regen cap ratio (floor — always heal at least 30% maxHP). */
+export const BASE_REGEN_CAP_RATIO = 0.30;
+/** Extra regen cap per point of damage mitigated, normalized to maxHP. */
+export const REGEN_CAP_PER_MITIGATED = 0.003;
+/** Hard ceiling on dynamic regen cap. */
+export const MAX_REGEN_CAP_RATIO = 0.80;
+
+/** Underlevel softcap: growth slows to sqrt after this many levels under. */
+export const UNDERLEVEL_SOFTCAP = 5;
+
+/** Death penalty: base seconds lost on death (Band 1). */
+export const DEATH_RESPAWN_BASE = 3.0;
+/** Death penalty: extra seconds per band beyond 1. */
+export const DEATH_RESPAWN_PER_BAND = 2.0;
+/** Death penalty: max base penalty in seconds. */
+export const DEATH_RESPAWN_CAP = 15.0;
+/** Death streak: each consecutive death adds this fraction more penalty. */
+export const DEATH_STREAK_MULT = 0.5;
+/** Death streak: maximum streak multiplier. */
+export const DEATH_STREAK_CAP = 3.0;
+/** Death streak: streak resets after this many seconds without dying. */
+export const DEATH_STREAK_WINDOW = 60.0;
 
 // =============================================
 // SKILL AUTO-CAST
