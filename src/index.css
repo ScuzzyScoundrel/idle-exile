@@ -34,6 +34,13 @@ body {
   100% { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0); }
 }
 
+/* CD reset flash (blue glow when proc resets cooldown) */
+@keyframes cd-reset-flash {
+  0%   { box-shadow: 0 0 0 0 rgba(96, 165, 250, 0.9); }
+  50%  { box-shadow: 0 0 16px 6px rgba(96, 165, 250, 0.7); }
+  100% { box-shadow: 0 0 0 0 rgba(96, 165, 250, 0); }
+}
+
 /* Damage number float-up (10K-B2) */
 @keyframes float-damage {
   0%   { opacity: 1; transform: translateY(0) scale(1); }

@@ -25,6 +25,16 @@ import MobDisplay from './MobDisplay';
 import BossFightDisplay from './BossFightDisplay';
 import SkillPicker from './SkillPicker';
 
+const BUFF_DISPLAY: Record<string, { label: string; color: string }> = {
+  st_blade_sense:      { label: 'PREDATOR',    color: 'text-yellow-300 bg-yellow-900/60' },
+  st_opportunist:      { label: 'FIRST BLOOD', color: 'text-yellow-300 bg-yellow-900/60' },
+  st_deep_wounds:      { label: 'FRENZY',      color: 'text-green-300 bg-green-900/60' },
+  st_ghost_step_form:  { label: 'SHADOW',      color: 'text-violet-300 bg-violet-900/60' },
+  st_evasive_recovery: { label: 'EVASION+',    color: 'text-teal-300 bg-teal-900/60' },
+  st_counter_stance:   { label: 'COUNTER',     color: 'text-orange-300 bg-orange-900/60' },
+  st_reactive:         { label: 'REACT',       color: 'text-blue-300 bg-blue-900/60' },
+};
+
 export default function CombatPanel() {
   const {
     character, inventory, bagSlots,
@@ -40,6 +50,7 @@ export default function CombatPanel() {
     targetedMobId, currentMobTypeId,
     activeDebuffs, fortifyStacks, fortifyExpiresAt, fortifyDRPerStack,
     tickInvasions,
+    tempBuffs, rampingStacks,
   } = useGameStore();
 
   const hydrated = useHasHydrated();
@@ -69,10 +80,12 @@ export default function CombatPanel() {
   const floaterIdRef = useRef(0);
   const lastFiredTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const [combatLog, setCombatLog] = useState<Array<{
-    id: number; type: 'skill' | 'dot' | 'bleed' | 'shatter' | 'enemy';
+    id: number; type: 'skill' | 'dot' | 'bleed' | 'shatter' | 'enemy' | 'proc' | 'spread';
     label: string; damage: number; isCrit?: boolean; isHit?: boolean;
   }>>([]);
   const logIdRef = useRef(0);
+  const [cdResetFlash, setCdResetFlash] = useState(false);
+  const cdResetTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   // --- Main tick effect ---
   useEffect(() => {
@@ -128,6 +141,29 @@ export default function CombatPanel() {
               setCombatLog(prev => [...prev, {
                 id: logIdRef.current++, type: 'shatter' as const,
                 label: 'Shatter → next', damage: combatResult.shatterDamage!,
+              }].slice(-20));
+            }
+            if (combatResult.procDamage && combatResult.procDamage > 0) {
+              setCombatLog(prev => [...prev, {
+                id: logIdRef.current++, type: 'proc' as const,
+                label: combatResult.procLabel ?? 'Proc',
+                damage: combatResult.procDamage!,
+              }].slice(-20));
+              setFloaters(prev => [...prev, {
+                id: floaterIdRef.current++,
+                damage: combatResult.procDamage!,
+                isCrit: false, isHit: true, isProc: true,
+              }].slice(-8));
+            }
+            if (combatResult.cooldownWasReset) {
+              setCdResetFlash(true);
+              clearTimeout(cdResetTimerRef.current);
+              cdResetTimerRef.current = setTimeout(() => setCdResetFlash(false), 500);
+            }
+            if (combatResult.didSpreadDebuffs) {
+              setCombatLog(prev => [...prev, {
+                id: logIdRef.current++, type: 'spread' as const,
+                label: 'Poison spread', damage: 0,
               }].slice(-20));
             }
           }
@@ -225,6 +261,23 @@ export default function CombatPanel() {
               id: logIdRef.current++, type: 'bleed' as const,
               label: 'Bleed trigger', damage: bossResult.bleedTriggerDamage!,
             }].slice(-20));
+          }
+          if (bossResult.procDamage && bossResult.procDamage > 0) {
+            setCombatLog(prev => [...prev, {
+              id: logIdRef.current++, type: 'proc' as const,
+              label: bossResult.procLabel ?? 'Proc',
+              damage: bossResult.procDamage!,
+            }].slice(-20));
+            setFloaters(prev => [...prev, {
+              id: floaterIdRef.current++,
+              damage: bossResult.procDamage!,
+              isCrit: false, isHit: true, isProc: true,
+            }].slice(-8));
+          }
+          if (bossResult.cooldownWasReset) {
+            setCdResetFlash(true);
+            clearTimeout(cdResetTimerRef.current);
+            cdResetTimerRef.current = setTimeout(() => setCdResetFlash(false), 500);
           }
         }
         if (bossResult.bossAttack) {
@@ -406,6 +459,28 @@ export default function CombatPanel() {
             <ClassResourceBar resource={classResource} charClass={character.class} />
           )}
 
+          {/* Buff / ramping indicator strip */}
+          {idleMode === 'combat' && (tempBuffs.length > 0 || rampingStacks > 0) && (
+            <div className="flex flex-wrap gap-1 justify-center">
+              {tempBuffs.filter(b => b.expiresAt > Date.now()).map(buff => {
+                const remaining = Math.max(0, (buff.expiresAt - Date.now()) / 1000);
+                const meta = BUFF_DISPLAY[buff.id] ?? { label: buff.id.replace(/^st_/, '').slice(0, 6).toUpperCase(), color: 'text-gray-300 bg-gray-700/60' };
+                return (
+                  <span key={buff.id} className={`rounded-full px-1.5 text-[10px] font-mono font-semibold ${meta.color}`}
+                        title={`${meta.label}: ${remaining.toFixed(1)}s`}>
+                    {meta.label} {remaining.toFixed(0)}s
+                  </span>
+                );
+              })}
+              {rampingStacks > 0 && (
+                <span className="rounded-full px-1.5 text-[10px] font-mono font-semibold bg-amber-900/60 text-amber-300"
+                      title={`Ramping damage: ${rampingStacks} stacks`}>
+                  RHYTHM x{rampingStacks}
+                </span>
+              )}
+            </div>
+          )}
+
           {/* Mob display (combat) or progress bar (gathering) */}
           {idleMode === 'combat' && runningZone ? (
             <div className="relative">
@@ -486,11 +561,14 @@ export default function CombatPanel() {
                         : <span className="text-red-400 ml-1">MISS</span>
                       }
                     </>
+                  ) : entry.type === 'spread' ? (
+                    <span className="text-teal-400">{entry.label}</span>
                   ) : (
                     <>
                       <span className={
                         entry.type === 'dot' ? 'text-green-400' :
                         entry.type === 'bleed' ? 'text-red-400' :
+                        entry.type === 'proc' ? 'text-purple-400' :
                         'text-cyan-300'
                       }>{entry.label}</span>
                       {' '}<span className="text-gray-300">{Math.round(entry.damage)}</span>
@@ -515,7 +593,7 @@ export default function CombatPanel() {
       {/* Skill Bar + Picker (combat mode only) */}
       {idleMode === 'combat' && (combatPhase === 'clearing' || combatPhase === 'boss_fight') && (
         <>
-          <SkillBar lastFiredSkillId={lastFiredSkillId} />
+          <SkillBar lastFiredSkillId={lastFiredSkillId} cdResetFlash={cdResetFlash} />
           <SkillPicker />
         </>
       )}

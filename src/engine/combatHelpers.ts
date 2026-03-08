@@ -130,6 +130,7 @@ export interface ProcResult {
   newDebuffs: { debuffId: string; stacks: number; duration: number; skillId: string }[];
   cooldownResets: string[];
   procTriggeredAt: Record<string, number>;     // procId → timestamp for ICD tracking
+  procsFired: string[];                        // IDs of procs that actually triggered
 }
 
 export function evaluateProcs(
@@ -140,7 +141,7 @@ export function evaluateProcs(
   const result: ProcResult = {
     bonusDamage: 0, healAmount: 0,
     newTempBuffs: [], newDebuffs: [], cooldownResets: [],
-    procTriggeredAt: {},
+    procTriggeredAt: {}, procsFired: [],
   };
   for (const proc of procs) {
     if (proc.trigger !== trigger) continue;
@@ -155,6 +156,7 @@ export function evaluateProcs(
 
     // Track when this proc triggered (for ICD)
     result.procTriggeredAt[proc.id] = ctx.now;
+    result.procsFired.push(proc.id);
 
     if (proc.instantDamage) {
       let dmg = proc.instantDamage.flatDamage;

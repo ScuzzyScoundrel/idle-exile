@@ -27,7 +27,7 @@ const KIND_BG: Record<string, string> = {
   ultimate: 'bg-yellow-950',
 };
 
-export default function SkillBar({ lastFiredSkillId }: { lastFiredSkillId?: string | null }) {
+export default function SkillBar({ lastFiredSkillId, cdResetFlash }: { lastFiredSkillId?: string | null; cdResetFlash?: boolean }) {
   const skillBar = useGameStore(s => s.skillBar);
   const skillProgress = useGameStore(s => s.skillProgress);
   const skillTimers = useGameStore(s => s.skillTimers);
@@ -36,7 +36,9 @@ export default function SkillBar({ lastFiredSkillId }: { lastFiredSkillId?: stri
   const toggleSkillAutoCast = useGameStore(s => s.toggleSkillAutoCast);
   const [now, setNow] = useState(Date.now());
   const flashKeyRef = useRef(0);
+  const cdResetKeyRef = useRef(0);
   const prevFiredRef = useRef<string | null | undefined>(undefined);
+  const prevCdResetRef = useRef(false);
 
   // Refresh every 250ms for smooth countdown display
   useEffect(() => {
@@ -49,6 +51,12 @@ export default function SkillBar({ lastFiredSkillId }: { lastFiredSkillId?: stri
     prevFiredRef.current = lastFiredSkillId;
     if (lastFiredSkillId) flashKeyRef.current++;
   }
+
+  // Increment CD reset key when cdResetFlash transitions to true (re-triggers blue flash)
+  if (cdResetFlash && !prevCdResetRef.current) {
+    cdResetKeyRef.current++;
+  }
+  prevCdResetRef.current = !!cdResetFlash;
 
   const unlockedSlots = getUnlockedSlotCount(character.level);
 
@@ -114,13 +122,19 @@ export default function SkillBar({ lastFiredSkillId }: { lastFiredSkillId?: stri
           const activeCdPct = isOnCooldown && effectiveActiveCd > 0
             ? Math.max(0, Math.min(1, remainingCd / effectiveActiveCd))
             : 0;
+          const showCdResetFlash = cdResetFlash && !isOnCooldown && !isFlashing;
           return (
             <div
-              key={isFlashing ? `${idx}-${flashKeyRef.current}` : idx}
+              key={isFlashing ? `${idx}-f${flashKeyRef.current}` : showCdResetFlash ? `${idx}-r${cdResetKeyRef.current}` : idx}
               className={`w-14 h-14 rounded-lg border-2 ${border} ${bg} flex flex-col items-center justify-center relative overflow-hidden ${
                 isOnCooldown ? 'opacity-60' : ''
               }`}
-              style={isFlashing ? { animation: 'skill-flash 0.4s ease-out' } : undefined}
+              style={isFlashing
+                ? { animation: 'skill-flash 0.4s ease-out' }
+                : showCdResetFlash
+                  ? { animation: 'cd-reset-flash 0.5s ease-out' }
+                  : undefined
+              }
               title={`${def.name}: ${def.description}${isOnCooldown ? ` (CD: ${remainingCd.toFixed(0)}s)` : ''}`}
             >
               {/* Cooldown sweep overlay */}

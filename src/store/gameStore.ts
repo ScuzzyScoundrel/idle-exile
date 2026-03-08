@@ -76,6 +76,18 @@ import {
 } from '../engine/dailyQuests';
 
 
+/** Human-readable labels for proc IDs (used in combat log / floaters). */
+const PROC_LABEL: Record<string, string> = {
+  st_venomburst: 'Venom Burst',
+  st_counter: 'Counter Stab',
+  st_toxic_burst: 'Toxic Burst',
+  st_volatile_toxins: 'Toxic Detonate',
+  st_precision_killer: 'Precision Kill',
+  st_death_mark: 'Death Mark',
+  st_counter_stance: 'Counter Stance',
+  st_ghost_step_heal: 'Ghost Step',
+};
+
 const INITIAL_CURRENCIES: Record<CurrencyType, number> = {
   augment: 0,
   chaos: 0,
@@ -2764,6 +2776,7 @@ export const useGameStore = create<GameState & GameActions>()(
         let procDamage = 0;
         let procHeal = 0;
         let procCooldownResets: string[] = [];
+        const allProcsFired: string[] = [];
         let newLastProcTriggerAt = { ...state.lastProcTriggerAt };
         if (graphMod?.skillProcs?.length) {
           const procCtx: ProcContext = {
@@ -2784,6 +2797,7 @@ export const useGameStore = create<GameState & GameActions>()(
             procDamage += pr.bonusDamage;
             procHeal += pr.healAmount;
             procCooldownResets.push(...pr.cooldownResets);
+            allProcsFired.push(...pr.procsFired);
             Object.assign(newLastProcTriggerAt, pr.procTriggeredAt);
 
             // Merge proc temp buffs (stack or add)
@@ -3003,6 +3017,7 @@ export const useGameStore = create<GameState & GameActions>()(
               for (const trigger of defenseTriggers) {
                 const pr = evaluateProcs(graphMod.skillProcs, trigger, defProcCtx);
                 Object.assign(newLastProcTriggerAt, pr.procTriggeredAt);
+                allProcsFired.push(...pr.procsFired);
                 // Apply defensive proc damage directly to boss (onHit/onCrit proc damage was already applied)
                 if (pr.bonusDamage > 0) {
                   newBossHp -= pr.bonusDamage;
@@ -3095,6 +3110,9 @@ export const useGameStore = create<GameState & GameActions>()(
               skillId: skill.id, isCrit: roll.isCrit, isHit: roll.isHit,
               bossOutcome: 'victory', bossAttack: bossAttackResult,
               dotDamage: debuffDotDamage, bleedTriggerDamage,
+              procDamage: procDamage > 0 ? procDamage : undefined,
+              procLabel: allProcsFired.length > 0 ? (PROC_LABEL[allProcsFired[0]] ?? allProcsFired[0]) : undefined,
+              cooldownWasReset: procCooldownResets.length > 0,
             };
           }
           if (playerHp <= 0) {
@@ -3113,6 +3131,9 @@ export const useGameStore = create<GameState & GameActions>()(
               skillId: skill.id, isCrit: roll.isCrit, isHit: roll.isHit,
               bossOutcome: 'defeat', bossAttack: bossAttackResult,
               dotDamage: debuffDotDamage, bleedTriggerDamage,
+              procDamage: procDamage > 0 ? procDamage : undefined,
+              procLabel: allProcsFired.length > 0 ? (PROC_LABEL[allProcsFired[0]] ?? allProcsFired[0]) : undefined,
+              cooldownWasReset: procCooldownResets.length > 0,
             };
           }
 
@@ -3131,6 +3152,9 @@ export const useGameStore = create<GameState & GameActions>()(
             skillId: skill.id, isCrit: roll.isCrit, isHit: roll.isHit,
             bossOutcome: 'ongoing', bossAttack: bossAttackResult,
             dotDamage: debuffDotDamage, bleedTriggerDamage,
+            procDamage: procDamage > 0 ? procDamage : undefined,
+            procLabel: allProcsFired.length > 0 ? (PROC_LABEL[allProcsFired[0]] ?? allProcsFired[0]) : undefined,
+            cooldownWasReset: procCooldownResets.length > 0,
           };
         }
 
@@ -3140,6 +3164,7 @@ export const useGameStore = create<GameState & GameActions>()(
         let totalDamage = 0;
         let bleedTriggerDamage = 0;
         let shatterDamage = 0;
+        let didSpreadDebuffs = false;
 
         if (roll.isHit) {
           currentMobHp -= roll.damage;
@@ -3207,6 +3232,7 @@ export const useGameStore = create<GameState & GameActions>()(
             };
             const killPr = evaluateProcs(graphMod.skillProcs, 'onKill', killProcCtx);
             Object.assign(newLastProcTriggerAt, killPr.procTriggeredAt);
+            allProcsFired.push(...killPr.procsFired);
             procDamage += killPr.bonusDamage;
             procHeal += killPr.healAmount;
             for (const buff of killPr.newTempBuffs) {
@@ -3250,6 +3276,7 @@ export const useGameStore = create<GameState & GameActions>()(
             const matching = sdk.debuffIds.includes('all')
               ? preDeathDebuffs
               : preDeathDebuffs.filter(d => sdk.debuffIds.includes(d.debuffId));
+            if (matching.length > 0) didSpreadDebuffs = true;
             for (const srcDebuff of matching) {
               newDebuffs.push({
                 ...srcDebuff,
@@ -3376,6 +3403,7 @@ export const useGameStore = create<GameState & GameActions>()(
             for (const trigger of defenseTriggers) {
               const pr = evaluateProcs(graphMod.skillProcs, trigger, defProcCtx);
               Object.assign(newLastProcTriggerAt, pr.procTriggeredAt);
+              allProcsFired.push(...pr.procsFired);
               // Apply defensive proc damage directly to mob (onHit/onCrit proc damage was already applied)
               if (pr.bonusDamage > 0) {
                 currentMobHp -= pr.bonusDamage;
@@ -3459,6 +3487,10 @@ export const useGameStore = create<GameState & GameActions>()(
             zoneAttack: zoneAttackResult,
             zoneDeath: true,
             dotDamage: debuffDotDamage, bleedTriggerDamage, shatterDamage,
+            procDamage: procDamage > 0 ? procDamage : undefined,
+            procLabel: allProcsFired.length > 0 ? (PROC_LABEL[allProcsFired[0]] ?? allProcsFired[0]) : undefined,
+            cooldownWasReset: procCooldownResets.length > 0,
+            didSpreadDebuffs,
           };
         }
 
@@ -3486,6 +3518,10 @@ export const useGameStore = create<GameState & GameActions>()(
           isHit: roll.isHit,
           zoneAttack: zoneAttackResult,
           dotDamage: debuffDotDamage, bleedTriggerDamage, shatterDamage,
+          procDamage: procDamage > 0 ? procDamage : undefined,
+          procLabel: allProcsFired.length > 0 ? (PROC_LABEL[allProcsFired[0]] ?? allProcsFired[0]) : undefined,
+          cooldownWasReset: procCooldownResets.length > 0,
+          didSpreadDebuffs,
         };
       },
 

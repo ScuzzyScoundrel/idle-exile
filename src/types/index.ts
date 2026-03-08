@@ -345,6 +345,10 @@ export interface CombatTickResult {
   dotDamage?: number;           // poison + burning DoT this tick
   bleedTriggerDamage?: number;  // bleed trigger damage this tick
   shatterDamage?: number;       // chilled shatter damage this tick
+  procDamage?: number;           // proc bonus damage (for separate floater)
+  procLabel?: string;            // human-readable proc name e.g. "Venom Burst"
+  cooldownWasReset?: boolean;    // true if any skill CD was reset via proc this tick
+  didSpreadDebuffs?: boolean;    // true if debuffs were spread to new mob on kill
 }
 
 export type CombatPhase = 'clearing' | 'boss_fight' | 'boss_victory' | 'boss_defeat' | 'zone_defeat';
