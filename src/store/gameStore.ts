@@ -171,6 +171,7 @@ export function calcFortifyDR(fortifyStacks: number, fortifyExpiresAt: number, f
 
 /** Tick debuff durations and calculate DoT damage (poison/burning/legacy).
  *  Returns updated debuffs (expired removed) and total DoT damage dealt.
+ *  Instance-based debuffs (poison) use batched tick intervals and independent instance durations.
  *  Reused by applyZoneDamage, applyBossDamage, and the main skill-cast tick. */
 function tickDebuffDoT(
   debuffs: ActiveDebuff[],
@@ -178,25 +179,67 @@ function tickDebuffDoT(
   effectBonus: number,
   incDoTDamage: number,
   enemyMaxHp: number,
-): { damage: number; updatedDebuffs: ActiveDebuff[] } {
+): { damage: number; updatedDebuffs: ActiveDebuff[]; poisonInstanceCount?: number } {
   const incDoTMult = 1 + (incDoTDamage ?? 0) / 100;
-  const updated = debuffs
-    .map(d => ({ ...d, remainingDuration: d.remainingDuration - dtSec }))
-    .filter(d => d.remainingDuration > 0);
   let damage = 0;
-  for (const debuff of updated) {
+  let poisonInstanceCount: number | undefined;
+  const updated: ActiveDebuff[] = [];
+
+  for (const debuff of debuffs) {
     const debuffDef = getDebuffDef(debuff.debuffId);
     if (!debuffDef) continue;
+
+    // Instance-based path (poison)
+    if (debuffDef.instanceBased && debuff.instances) {
+      // Decrement each instance's duration independently, filter expired
+      const livingInstances = debuff.instances
+        .map(inst => ({ ...inst, remainingDuration: inst.remainingDuration - dtSec }))
+        .filter(inst => inst.remainingDuration > 0);
+      if (livingInstances.length === 0) continue; // all expired, drop debuff
+
+      // Accumulate tick timer
+      const tickInterval = debuffDef.dotTickInterval ?? 0.5;
+      let accumulator = (debuff.dotTickAccumulator ?? 0) + dtSec;
+
+      // When accumulator >= tickInterval, emit batched damage
+      if (accumulator >= tickInterval) {
+        const snapSum = livingInstances.reduce((a, inst) => a + inst.snapshot, 0);
+        damage += snapSum * (debuffDef.effect.snapshotPercent ?? 0) / 100 * effectBonus * incDoTMult * accumulator;
+        poisonInstanceCount = livingInstances.length;
+        accumulator -= tickInterval;
+        // Prevent drift: if still over interval, clamp to remainder
+        if (accumulator >= tickInterval) accumulator = accumulator % tickInterval;
+      }
+
+      // Sync legacy fields so talent threshold logic works unchanged
+      updated.push({
+        ...debuff,
+        instances: livingInstances,
+        stacks: livingInstances.length,
+        remainingDuration: Math.max(...livingInstances.map(i => i.remainingDuration)),
+        stackSnapshots: livingInstances.map(i => i.snapshot),
+        dotTickAccumulator: accumulator,
+      });
+      continue;
+    }
+
+    // Legacy path (bleed/burning/flat) — unchanged
+    const d = { ...debuff, remainingDuration: debuff.remainingDuration - dtSec };
+    if (d.remainingDuration <= 0) continue;
+
     if (debuffDef.dotType === 'snapshot' && debuff.debuffId !== 'bleeding') {
-      const snapSum = debuff.stackSnapshots?.reduce((a, b) => a + b, 0) ?? 0;
+      // Legacy snapshot (shouldn't hit for poison anymore, but kept for safety)
+      const snapSum = d.stackSnapshots?.reduce((a, b) => a + b, 0) ?? 0;
       damage += snapSum * (debuffDef.effect.snapshotPercent ?? 0) / 100 * effectBonus * incDoTMult * dtSec;
     } else if (debuffDef.dotType === 'percentMaxHp') {
       damage += enemyMaxHp * (debuffDef.effect.percentMaxHp ?? 0) / 100 * effectBonus * incDoTMult * dtSec;
     } else if (debuffDef.effect.dotDps) {
-      damage += debuffDef.effect.dotDps * debuff.stacks * effectBonus * incDoTMult * dtSec;
+      damage += debuffDef.effect.dotDps * d.stacks * effectBonus * incDoTMult * dtSec;
     }
+    updated.push(d);
   }
-  return { damage, updatedDebuffs: updated };
+
+  return { damage, updatedDebuffs: updated, poisonInstanceCount };
 }
 
 /** Rarity sort order for auto-salvage comparison. */
@@ -2339,19 +2382,21 @@ export const useGameStore = create<GameState & GameActions>()(
 
             // Tick DoT damage every frame against boss (poison/burning)
             let helperDotDamage = 0;
+            let helperPoisonCount: number | undefined;
             if (state.activeDebuffs.length > 0) {
               const dot = tickDebuffDoT(state.activeDebuffs, dtSec, 1, bossStats.incDoTDamage, bs.bossMaxHp);
               helperDotDamage = dot.damage;
+              helperPoisonCount = dot.poisonInstanceCount;
               helperBossHp -= dot.damage;
               set({ activeDebuffs: dot.updatedDebuffs });
             }
 
             if (playerHp <= 0) {
               set({ currentHp: 0, currentEs: 0, bossState: { ...bs, bossNextAttackAt: nextAttack, bossCurrentHp: helperBossHp } });
-              return { ...noResult, bossOutcome: 'defeat', bossAttack: bossAttackResult, bleedTriggerDamage: helperBleedDmg, dotDamage: helperDotDamage };
+              return { ...noResult, bossOutcome: 'defeat', bossAttack: bossAttackResult, bleedTriggerDamage: helperBleedDmg, dotDamage: helperDotDamage, poisonInstanceCount: helperPoisonCount };
             }
             set({ currentHp: playerHp, bossState: { ...bs, bossNextAttackAt: nextAttack, bossCurrentHp: helperBossHp } });
-            return { ...noResult, bossOutcome: 'ongoing', bossAttack: bossAttackResult, bleedTriggerDamage: helperBleedDmg, dotDamage: helperDotDamage };
+            return { ...noResult, bossOutcome: 'ongoing', bossAttack: bossAttackResult, bleedTriggerDamage: helperBleedDmg, dotDamage: helperDotDamage, poisonInstanceCount: helperPoisonCount };
           }
           return noResult;
         };
@@ -2443,6 +2488,7 @@ export const useGameStore = create<GameState & GameActions>()(
 
           // --- Per-mob DoT and regen ---
           const zonePlayerStats = resolveStats(state.character);
+          let helperPoisonCount: number | undefined;
           for (const mob of updatedMobs) {
             if (mob.debuffs.length > 0) {
               const enemyMaxHp = mob.maxHp > 0 ? mob.maxHp : 1;
@@ -2452,6 +2498,7 @@ export const useGameStore = create<GameState & GameActions>()(
               helperDotDamage += dotDmg;
               mob.hp = Math.max(0, mob.hp - dotDmg);
               mob.debuffs = dot.updatedDebuffs;
+              if (dot.poisonInstanceCount) helperPoisonCount = (helperPoisonCount ?? 0) + dot.poisonInstanceCount;
             }
             // Rare mob regen (Regenerating)
             const regenRate = mob.rare?.combinedRegenPerSec ?? 0;
@@ -2461,7 +2508,7 @@ export const useGameStore = create<GameState & GameActions>()(
           }
 
           set({ packMobs: updatedMobs });
-          return { ...noResult, zoneAttack: zoneAttackResult, bleedTriggerDamage: helperBleedDmg, dotDamage: helperDotDamage };
+          return { ...noResult, zoneAttack: zoneAttackResult, bleedTriggerDamage: helperBleedDmg, dotDamage: helperDotDamage, poisonInstanceCount: helperPoisonCount };
         };
 
         // GCD check: can we fire any active skill yet?
@@ -2730,7 +2777,31 @@ export const useGameStore = create<GameState & GameActions>()(
               const existing = newDebuffs.findIndex(d => d.debuffId === debuffInfo.debuffId);
               const debuffDef = getDebuffDef(debuffInfo.debuffId);
               const isSnapshotDebuff = debuffDef?.dotType === 'snapshot';
-              if (existing >= 0 && debuffDef?.stackable) {
+
+              // Instance-based path (poison): push independent instance, no cap
+              if (debuffDef?.instanceBased) {
+                const newInstance = { snapshot: roll.damage, remainingDuration: duration, appliedBySkillId: skill.id };
+                if (existing >= 0) {
+                  const d = newDebuffs[existing];
+                  const instances = [...(d.instances ?? []), newInstance];
+                  newDebuffs[existing] = {
+                    ...d,
+                    instances,
+                    stacks: instances.length,
+                    remainingDuration: Math.max(duration, d.remainingDuration),
+                    appliedBySkillId: skill.id,
+                    stackSnapshots: instances.map(i => i.snapshot),
+                  };
+                } else {
+                  newDebuffs.push({
+                    debuffId: debuffInfo.debuffId, stacks: 1, remainingDuration: duration,
+                    appliedBySkillId: skill.id,
+                    stackSnapshots: [roll.damage],
+                    instances: [newInstance],
+                    dotTickAccumulator: 0,
+                  });
+                }
+              } else if (existing >= 0 && debuffDef?.stackable) {
                 const d = newDebuffs[existing];
                 const newStacks = Math.min(d.stacks + 1, debuffDef.maxStacks);
                 // Snapshot: track hit damage per stack (FIFO at max)
@@ -2771,7 +2842,33 @@ export const useGameStore = create<GameState & GameActions>()(
           const existing = newDebuffs.findIndex(d => d.debuffId === doc.debuffId);
           const debuffDef = getDebuffDef(doc.debuffId);
           const isSnapshotDebuff = debuffDef?.dotType === 'snapshot';
-          if (existing >= 0 && debuffDef?.stackable) {
+
+          // Instance-based path (poison): push N independent instances
+          if (debuffDef?.instanceBased) {
+            const newInstances = Array.from({ length: doc.stacks }, () => ({
+              snapshot: roll.damage, remainingDuration: duration, appliedBySkillId: skill.id,
+            }));
+            if (existing >= 0) {
+              const d = newDebuffs[existing];
+              const instances = [...(d.instances ?? []), ...newInstances];
+              newDebuffs[existing] = {
+                ...d,
+                instances,
+                stacks: instances.length,
+                remainingDuration: Math.max(duration, d.remainingDuration),
+                appliedBySkillId: skill.id,
+                stackSnapshots: instances.map(i => i.snapshot),
+              };
+            } else {
+              newDebuffs.push({
+                debuffId: doc.debuffId, stacks: doc.stacks, remainingDuration: duration,
+                appliedBySkillId: skill.id,
+                stackSnapshots: newInstances.map(i => i.snapshot),
+                instances: newInstances,
+                dotTickAccumulator: 0,
+              });
+            }
+          } else if (existing >= 0 && debuffDef?.stackable) {
             const d = newDebuffs[existing];
             let snapshots = d.stackSnapshots ? [...d.stackSnapshots] : undefined;
             if (isSnapshotDebuff) {
@@ -2816,6 +2913,7 @@ export const useGameStore = create<GameState & GameActions>()(
           : (frontMobMaxHp > 0 ? frontMobMaxHp : 1);
         const dotResult = tickDebuffDoT(newDebuffs, dtSec, effectBonus, stats.incDoTDamage, enemyMaxHp);
         const debuffDotDamage = dotResult.damage;
+        const mainPoisonInstanceCount = dotResult.poisonInstanceCount;
         newDebuffs = dotResult.updatedDebuffs;
 
         // Proc evaluation (onHit + onCrit triggers)
@@ -2867,7 +2965,33 @@ export const useGameStore = create<GameState & GameActions>()(
               const existingIdx = newDebuffs.findIndex(d => d.debuffId === pd.debuffId);
               const debuffDef = getDebuffDef(pd.debuffId);
               const isSnapshotDebuff = debuffDef?.dotType === 'snapshot';
-              if (existingIdx >= 0 && debuffDef?.stackable) {
+
+              // Instance-based path (poison): push N independent instances
+              if (debuffDef?.instanceBased) {
+                const newInstances = Array.from({ length: pd.stacks }, () => ({
+                  snapshot: roll.damage, remainingDuration: pd.duration, appliedBySkillId: pd.skillId,
+                }));
+                if (existingIdx >= 0) {
+                  const d = newDebuffs[existingIdx];
+                  const instances = [...(d.instances ?? []), ...newInstances];
+                  newDebuffs[existingIdx] = {
+                    ...d,
+                    instances,
+                    stacks: instances.length,
+                    remainingDuration: Math.max(pd.duration, d.remainingDuration),
+                    appliedBySkillId: pd.skillId,
+                    stackSnapshots: instances.map(i => i.snapshot),
+                  };
+                } else {
+                  newDebuffs.push({
+                    debuffId: pd.debuffId, stacks: pd.stacks, remainingDuration: pd.duration,
+                    appliedBySkillId: pd.skillId,
+                    stackSnapshots: newInstances.map(i => i.snapshot),
+                    instances: newInstances,
+                    dotTickAccumulator: 0,
+                  });
+                }
+              } else if (existingIdx >= 0 && debuffDef?.stackable) {
                 const d = newDebuffs[existingIdx];
                 let snapshots = d.stackSnapshots ? [...d.stackSnapshots] : undefined;
                 if (isSnapshotDebuff) {
@@ -3157,6 +3281,7 @@ export const useGameStore = create<GameState & GameActions>()(
               skillId: skill.id, isCrit: roll.isCrit, isHit: roll.isHit,
               bossOutcome: 'victory', bossAttack: bossAttackResult,
               dotDamage: debuffDotDamage, bleedTriggerDamage,
+              poisonInstanceCount: mainPoisonInstanceCount,
               procDamage: procDamage > 0 ? procDamage : undefined,
               procLabel: allProcsFired.length > 0 ? (prettifyProcId(allProcsFired[0])) : undefined,
               cooldownWasReset: procCooldownResets.length > 0,
@@ -3178,6 +3303,7 @@ export const useGameStore = create<GameState & GameActions>()(
               skillId: skill.id, isCrit: roll.isCrit, isHit: roll.isHit,
               bossOutcome: 'defeat', bossAttack: bossAttackResult,
               dotDamage: debuffDotDamage, bleedTriggerDamage,
+              poisonInstanceCount: mainPoisonInstanceCount,
               procDamage: procDamage > 0 ? procDamage : undefined,
               procLabel: allProcsFired.length > 0 ? (prettifyProcId(allProcsFired[0])) : undefined,
               cooldownWasReset: procCooldownResets.length > 0,
@@ -3199,6 +3325,7 @@ export const useGameStore = create<GameState & GameActions>()(
             skillId: skill.id, isCrit: roll.isCrit, isHit: roll.isHit,
             bossOutcome: 'ongoing', bossAttack: bossAttackResult,
             dotDamage: debuffDotDamage, bleedTriggerDamage,
+            poisonInstanceCount: mainPoisonInstanceCount,
             procDamage: procDamage > 0 ? procDamage : undefined,
             procLabel: allProcsFired.length > 0 ? (prettifyProcId(allProcsFired[0])) : undefined,
             cooldownWasReset: procCooldownResets.length > 0,
@@ -3358,17 +3485,59 @@ export const useGameStore = create<GameState & GameActions>()(
                 : preDeathDebuffs.filter(d => sdk.debuffIds.includes(d.debuffId));
               if (matching.length > 0) didSpreadDebuffs = true;
               for (const srcDebuff of matching) {
-                updatedPackMobs[0].debuffs.push({
-                  ...srcDebuff,
-                  remainingDuration: sdk.refreshDuration > 0 ? sdk.refreshDuration : srcDebuff.remainingDuration,
-                });
+                const spreadDef = getDebuffDef(srcDebuff.debuffId);
+                if (spreadDef?.instanceBased && srcDebuff.instances) {
+                  // Copy instances with refreshed durations + reset tick accumulator
+                  const spreadInstances = srcDebuff.instances.map(inst => ({
+                    ...inst,
+                    remainingDuration: sdk.refreshDuration > 0 ? sdk.refreshDuration : inst.remainingDuration,
+                  }));
+                  updatedPackMobs[0].debuffs.push({
+                    ...srcDebuff,
+                    instances: spreadInstances,
+                    stacks: spreadInstances.length,
+                    remainingDuration: Math.max(...spreadInstances.map(i => i.remainingDuration)),
+                    stackSnapshots: spreadInstances.map(i => i.snapshot),
+                    dotTickAccumulator: 0,
+                  });
+                } else {
+                  updatedPackMobs[0].debuffs.push({
+                    ...srcDebuff,
+                    remainingDuration: sdk.refreshDuration > 0 ? sdk.refreshDuration : srcDebuff.remainingDuration,
+                  });
+                }
               }
             }
 
             // Apply onKill proc debuffs to new front mob
             for (const pd of killProcDebuffs) {
               const existing = updatedPackMobs[0].debuffs.findIndex(d => d.debuffId === pd.debuffId);
-              if (existing >= 0) {
+              const procDebuffDef = getDebuffDef(pd.debuffId);
+              if (procDebuffDef?.instanceBased) {
+                // Instance-based: push new instances
+                const newInstances = Array.from({ length: pd.stacks }, () => ({
+                  snapshot: 0, remainingDuration: pd.duration, appliedBySkillId: pd.skillId,
+                }));
+                if (existing >= 0) {
+                  const d = updatedPackMobs[0].debuffs[existing];
+                  const instances = [...(d.instances ?? []), ...newInstances];
+                  updatedPackMobs[0].debuffs[existing] = {
+                    ...d,
+                    instances,
+                    stacks: instances.length,
+                    remainingDuration: Math.max(pd.duration, d.remainingDuration),
+                    stackSnapshots: instances.map(i => i.snapshot),
+                  };
+                } else {
+                  updatedPackMobs[0].debuffs.push({
+                    debuffId: pd.debuffId, stacks: pd.stacks, remainingDuration: pd.duration,
+                    appliedBySkillId: pd.skillId,
+                    instances: newInstances,
+                    stackSnapshots: newInstances.map(i => i.snapshot),
+                    dotTickAccumulator: 0,
+                  });
+                }
+              } else if (existing >= 0) {
                 const d = updatedPackMobs[0].debuffs[existing];
                 updatedPackMobs[0].debuffs[existing] = {
                   ...d,
@@ -3413,10 +3582,26 @@ export const useGameStore = create<GameState & GameActions>()(
                 : preDeathDebuffs.filter(d => sdk.debuffIds.includes(d.debuffId));
               if (matching.length > 0) didSpreadDebuffs = true;
               for (const srcDebuff of matching) {
-                updatedPackMobs[0].debuffs.push({
-                  ...srcDebuff,
-                  remainingDuration: sdk.refreshDuration > 0 ? sdk.refreshDuration : srcDebuff.remainingDuration,
-                });
+                const spreadDef = getDebuffDef(srcDebuff.debuffId);
+                if (spreadDef?.instanceBased && srcDebuff.instances) {
+                  const spreadInstances = srcDebuff.instances.map(inst => ({
+                    ...inst,
+                    remainingDuration: sdk.refreshDuration > 0 ? sdk.refreshDuration : inst.remainingDuration,
+                  }));
+                  updatedPackMobs[0].debuffs.push({
+                    ...srcDebuff,
+                    instances: spreadInstances,
+                    stacks: spreadInstances.length,
+                    remainingDuration: Math.max(...spreadInstances.map(i => i.remainingDuration)),
+                    stackSnapshots: spreadInstances.map(i => i.snapshot),
+                    dotTickAccumulator: 0,
+                  });
+                } else {
+                  updatedPackMobs[0].debuffs.push({
+                    ...srcDebuff,
+                    remainingDuration: sdk.refreshDuration > 0 ? sdk.refreshDuration : srcDebuff.remainingDuration,
+                  });
+                }
               }
             }
 
@@ -3424,7 +3609,31 @@ export const useGameStore = create<GameState & GameActions>()(
             if (updatedPackMobs.length > 0) {
               for (const pd of killProcDebuffs) {
                 const existing = updatedPackMobs[0].debuffs.findIndex(d => d.debuffId === pd.debuffId);
-                if (existing >= 0) {
+                const procDebuffDef = getDebuffDef(pd.debuffId);
+                if (procDebuffDef?.instanceBased) {
+                  const newInstances = Array.from({ length: pd.stacks }, () => ({
+                    snapshot: 0, remainingDuration: pd.duration, appliedBySkillId: pd.skillId,
+                  }));
+                  if (existing >= 0) {
+                    const d = updatedPackMobs[0].debuffs[existing];
+                    const instances = [...(d.instances ?? []), ...newInstances];
+                    updatedPackMobs[0].debuffs[existing] = {
+                      ...d,
+                      instances,
+                      stacks: instances.length,
+                      remainingDuration: Math.max(pd.duration, d.remainingDuration),
+                      stackSnapshots: instances.map(i => i.snapshot),
+                    };
+                  } else {
+                    updatedPackMobs[0].debuffs.push({
+                      debuffId: pd.debuffId, stacks: pd.stacks, remainingDuration: pd.duration,
+                      appliedBySkillId: pd.skillId,
+                      instances: newInstances,
+                      stackSnapshots: newInstances.map(i => i.snapshot),
+                      dotTickAccumulator: 0,
+                    });
+                  }
+                } else if (existing >= 0) {
                   const d = updatedPackMobs[0].debuffs[existing];
                   updatedPackMobs[0].debuffs[existing] = {
                     ...d,
@@ -3639,6 +3848,7 @@ export const useGameStore = create<GameState & GameActions>()(
             zoneAttack: zoneAttackResult,
             zoneDeath: true,
             dotDamage: debuffDotDamage, bleedTriggerDamage, shatterDamage,
+            poisonInstanceCount: mainPoisonInstanceCount,
             procDamage: procDamage > 0 ? procDamage : undefined,
             procLabel: allProcsFired.length > 0 ? (prettifyProcId(allProcsFired[0])) : undefined,
             cooldownWasReset: procCooldownResets.length > 0,
@@ -3671,6 +3881,7 @@ export const useGameStore = create<GameState & GameActions>()(
           isHit: roll.isHit,
           zoneAttack: zoneAttackResult,
           dotDamage: debuffDotDamage, bleedTriggerDamage, shatterDamage,
+          poisonInstanceCount: mainPoisonInstanceCount,
           procDamage: procDamage > 0 ? procDamage : undefined,
           procLabel: allProcsFired.length > 0 ? (prettifyProcId(allProcsFired[0])) : undefined,
           cooldownWasReset: procCooldownResets.length > 0,
@@ -4086,7 +4297,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 46,
+      version: 47,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -4801,6 +5012,15 @@ export const useGameStore = create<GameState & GameActions>()(
             else if (count >= 25) claimed[zoneId] = 25;
           }
           raw.zoneMasteryClaimed = claimed;
+        }
+
+        if (version < 47) {
+          // v47: Poison instance-based debuff refactor — clear ephemeral debuffs
+          state.activeDebuffs = [];
+          const mobs = (raw.packMobs ?? []) as Array<{ debuffs?: unknown[] }>;
+          for (const m of mobs) {
+            if (m.debuffs) m.debuffs = [];
+          }
         }
 
         if (version < 46) {

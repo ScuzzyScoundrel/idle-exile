@@ -352,6 +352,7 @@ export interface CombatTickResult {
   didSpreadDebuffs?: boolean;    // true if debuffs were spread to new mob on kill
   packSize?: number;             // pack size of current encounter (for UI)
   encounterLootMult?: number;    // rare mob loot multiplier for this encounter
+  poisonInstanceCount?: number;  // number of active poison instances (for "Poison (x8)" log label)
 }
 
 export type CombatPhase = 'clearing' | 'boss_fight' | 'boss_victory' | 'boss_defeat' | 'zone_defeat';
@@ -875,6 +876,14 @@ export interface DebuffDef {
     incCritChanceTaken?: number;   // +crit chance on target per stack (shocked)
     shatterOverkillPercent?: number; // % of overkill dealt to next mob (chilled)
   };
+  instanceBased?: boolean;        // true = each application creates independent instance (poison)
+  dotTickInterval?: number;       // seconds between batched DoT ticks (e.g. 0.5 for poison)
+}
+
+export interface PoisonInstance {
+  snapshot: number;
+  remainingDuration: number;
+  appliedBySkillId: string;
 }
 
 export interface ActiveDebuff {
@@ -883,6 +892,8 @@ export interface ActiveDebuff {
   remainingDuration: number;    // seconds
   appliedBySkillId: string;
   stackSnapshots?: number[];    // hit damage that applied each stack (bleed/poison)
+  instances?: PoisonInstance[];     // instance-based DoT (poison): each has own snapshot + duration
+  dotTickAccumulator?: number;     // accumulates time between batched DoT ticks
 }
 
 export interface TempBuff {

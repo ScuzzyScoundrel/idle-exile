@@ -17,10 +17,12 @@ export const DEBUFF_DEFS: DebuffDef[] = [
   {
     id: 'poisoned',
     name: 'Poisoned',
-    description: 'Each stack snapshots hit damage. 15% of total snapshot as chaos DoT per second. Max 10 stacks.',
+    description: 'Each hit creates an independent poison instance. 15% of snapshot as chaos DoT per second. No cap.',
     stackable: true,
-    maxStacks: 10,
+    maxStacks: 999,
     dotType: 'snapshot',
+    instanceBased: true,
+    dotTickInterval: 0.5,
     effect: { snapshotPercent: 15 },
   },
   {

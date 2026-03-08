@@ -130,9 +130,12 @@ export default function CombatPanel() {
             }].slice(-20));
             // Debuff damage log entries
             if (combatResult.dotDamage && combatResult.dotDamage > 1) {
+              const dotLabel = combatResult.poisonInstanceCount
+                ? `Poison (x${combatResult.poisonInstanceCount})`
+                : 'DoT';
               setCombatLog(prev => [...prev, {
                 id: logIdRef.current++, type: 'dot' as const,
-                label: 'DoT', damage: combatResult.dotDamage!,
+                label: dotLabel, damage: combatResult.dotDamage!,
               }].slice(-20));
             }
             if (combatResult.bleedTriggerDamage && combatResult.bleedTriggerDamage > 0) {
@@ -224,9 +227,12 @@ export default function CombatPanel() {
             }].slice(-20));
           }
           if (!combatResult.skillFired && combatResult.dotDamage && combatResult.dotDamage > 1) {
+            const dotLabel = combatResult.poisonInstanceCount
+              ? `Poison (x${combatResult.poisonInstanceCount})`
+              : 'DoT';
             setCombatLog(prev => [...prev, {
               id: logIdRef.current++, type: 'dot' as const,
-              label: 'Poison tick', damage: combatResult.dotDamage!,
+              label: dotLabel, damage: combatResult.dotDamage!,
             }].slice(-20));
           }
           if (combatResult.zoneDeath) {
@@ -258,9 +264,12 @@ export default function CombatPanel() {
           }].slice(-20));
           // Debuff damage log entries
           if (bossResult.dotDamage && bossResult.dotDamage > 1) {
+            const dotLabel = bossResult.poisonInstanceCount
+              ? `Poison (x${bossResult.poisonInstanceCount})`
+              : 'DoT';
             setCombatLog(prev => [...prev, {
               id: logIdRef.current++, type: 'dot' as const,
-              label: 'DoT', damage: bossResult.dotDamage!,
+              label: dotLabel, damage: bossResult.dotDamage!,
             }].slice(-20));
           }
           if (bossResult.bleedTriggerDamage && bossResult.bleedTriggerDamage > 0) {
@@ -313,9 +322,12 @@ export default function CombatPanel() {
           }].slice(-20));
         }
         if (!bossResult.skillFired && bossResult.dotDamage && bossResult.dotDamage > 1) {
+          const dotLabel = bossResult.poisonInstanceCount
+            ? `Poison (x${bossResult.poisonInstanceCount})`
+            : 'DoT';
           setCombatLog(prev => [...prev, {
             id: logIdRef.current++, type: 'dot' as const,
-            label: 'Poison tick', damage: bossResult.dotDamage!,
+            label: dotLabel, damage: bossResult.dotDamage!,
           }].slice(-20));
         }
         if (bossResult.bossOutcome === 'victory') {
