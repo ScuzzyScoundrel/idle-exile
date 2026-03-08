@@ -4,25 +4,34 @@ import { MOB_DROP_RARITY_COLOR } from './zoneConstants';
 import { formatMatName } from './zoneHelpers';
 import { RARE_AFFIX_DEFS } from '../../data/rareAffixes';
 
-export default function MobDisplay({ mobName, mobCurrentHp, mobMaxHp, bossIn, swingProgress, signatureDrop, activeDebuffs, packSize, rareAffixes }: {
+export default function MobDisplay({ mobName, mobCurrentHp, mobMaxHp, bossIn, swingProgress, signatureDrop, activeDebuffs, backMobHps, singleMobMaxHp, rareAffixes }: {
   mobName: string; mobCurrentHp: number; mobMaxHp: number; bossIn: number; swingProgress: number;
   signatureDrop?: MobDrop; activeDebuffs: ActiveDebuff[];
-  packSize?: number; rareAffixes?: RareAffixId[];
+  backMobHps?: number[]; singleMobMaxHp?: number;
+  rareAffixes?: RareAffixId[];
 }) {
-  const mobHpPct = mobMaxHp > 0 ? Math.max(0, Math.min(100, (mobCurrentHp / mobMaxHp) * 100)) : 0;
   const hasDebuffs = activeDebuffs.length > 0;
   const isRare = rareAffixes && rareAffixes.length > 0;
-  const displayPackSize = packSize ?? 1;
+
+  // Build array of all alive mob HPs: front mob + back mobs
+  const backHps = backMobHps ?? [];
+  const allMobHps = [mobCurrentHp, ...backHps];
+  const packSize = allMobHps.length;
+  const perMobMax = singleMobMaxHp ?? mobMaxHp;
 
   // Build display name
   const namePrefix = isRare ? '\u2605 ' : '';
-  const packSuffix = displayPackSize > 1 ? ` x${displayPackSize}` : '';
-  const displayName = `${namePrefix}${mobName}${packSuffix}`;
+  const packCount = packSize > 1 ? ` (${packSize})` : '';
+  const displayName = `${namePrefix}${mobName}${packCount}`;
 
   // Border style: rare > debuff > normal
   const borderClass = isRare
     ? 'border-yellow-500/60 shadow-lg shadow-yellow-500/20'
     : hasDebuffs ? 'border-red-500/40' : 'border-gray-700';
+
+  // Bar color
+  const barColor = isRare ? 'bg-yellow-500' : 'bg-red-500';
+  const barColorDim = isRare ? 'bg-yellow-500/70' : 'bg-red-500/70';
 
   return (
     <div
@@ -60,9 +69,27 @@ export default function MobDisplay({ mobName, mobCurrentHp, mobMaxHp, bossIn, sw
           {activeDebuffs.map(d => <DebuffBadge key={d.debuffId} debuff={d} />)}
         </div>
       )}
-      <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full transition-all duration-200 ${isRare ? 'bg-yellow-500' : 'bg-red-500'}`}
-             style={{ width: `${mobHpPct}%` }} />
+      {/* Per-mob HP bars */}
+      <div className="space-y-1">
+        {allMobHps.map((hp, i) => {
+          const pct = perMobMax > 0 ? Math.max(0, Math.min(100, (hp / perMobMax) * 100)) : 0;
+          const isFront = i === 0;
+          return (
+            <div key={i} className="flex items-center gap-1">
+              {packSize > 1 && (
+                <span className="text-[9px] w-3 text-right shrink-0">
+                  {isFront
+                    ? <span className="text-yellow-400" title="Targeted">{'\u25B6'}</span>
+                    : <span className="text-gray-600">{'\u00B7'}</span>}
+                </span>
+              )}
+              <div className="h-2 bg-gray-700 rounded-full overflow-hidden flex-1">
+                <div className={`h-full rounded-full transition-all duration-200 ${isFront ? barColor : barColorDim}`}
+                     style={{ width: `${pct}%` }} />
+              </div>
+            </div>
+          );
+        })}
       </div>
       {/* Enemy swing timer */}
       <div className="mt-1 h-1.5 bg-gray-700/50 rounded-full overflow-hidden">
