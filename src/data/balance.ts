@@ -490,3 +490,33 @@ export const MAX_MATERIAL_SAVE = 0.50;
 
 /** Window (ms) for onBlock/onDodge trigger conditions to count as recent. */
 export const BLOCK_DODGE_RECENCY_WINDOW = 3000;
+
+// =============================================
+// MULTI-MOB PACKS
+// =============================================
+
+/** Pack size weights [x1, x2, x3, x4, x5] by band tier. */
+export const PACK_SIZE_WEIGHTS: Record<string, number[]> = {
+  early: [80, 15, 5, 0, 0],   // bands 1-2
+  mid:   [50, 25, 15, 8, 2],  // bands 3-4
+  late:  [30, 25, 20, 15, 10], // bands 5-6
+};
+
+// =============================================
+// RARE MOBS
+// =============================================
+
+/** Chance per encounter to be a rare mob, by band (1-indexed). */
+export const RARE_CHANCE_BY_BAND: Record<number, number> = {
+  1: 0.05, 2: 0.08, 3: 0.10, 4: 0.12, 5: 0.15, 6: 0.18,
+};
+
+/** Number of affixes a rare mob rolls, by band (1-indexed). */
+export const RARE_AFFIX_COUNT: Record<number, { min: number; max: number }> = {
+  1: { min: 1, max: 1 },
+  2: { min: 1, max: 1 },
+  3: { min: 1, max: 2 },
+  4: { min: 1, max: 3 },
+  5: { min: 2, max: 3 },
+  6: { min: 2, max: 4 },
+};

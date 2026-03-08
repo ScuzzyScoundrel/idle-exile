@@ -350,6 +350,8 @@ export interface CombatTickResult {
   cooldownWasReset?: boolean;    // true if any skill CD was reset via proc this tick
   gcdWasReset?: boolean;         // true if any proc had resetGcd (free instant cast)
   didSpreadDebuffs?: boolean;    // true if debuffs were spread to new mob on kill
+  packSize?: number;             // pack size of current encounter (for UI)
+  encounterLootMult?: number;    // rare mob loot multiplier for this encounter
 }
 
 export type CombatPhase = 'clearing' | 'boss_fight' | 'boss_victory' | 'boss_defeat' | 'zone_defeat';
@@ -1010,6 +1012,33 @@ export interface DailyQuestState {
   progress: Record<string, QuestProgress>;
 }
 
+// --- Rare Mob Affixes ---
+
+export type RareAffixId = 'mighty' | 'frenzied' | 'armored' | 'empowered' | 'regenerating';
+
+export interface RareAffixDef {
+  id: RareAffixId;
+  name: string;
+  description: string;
+  hpMultiplier: number;
+  damageMultiplier?: number;         // multiplies zone damage to player
+  attackSpeedMultiplier?: number;    // multiplies zone attack interval (< 1 = faster)
+  damageTakenMultiplier?: number;    // multiplies damage mob receives (< 1 = tankier)
+  regenPerSec?: number;              // % of maxHP regen per second
+  lootMultiplier: number;
+  color: string;
+}
+
+export interface RareMobState {
+  affixes: RareAffixId[];
+  combinedHpMult: number;
+  combinedLootMult: number;
+  combinedDamageMult: number;        // to player
+  combinedAtkSpeedMult: number;      // zone attack interval multiplier
+  combinedDamageTakenMult: number;   // damage mob receives
+  combinedRegenPerSec: number;       // flat regen rate (% of maxHP)
+}
+
 // --- Game State ---
 
 export interface GameState {
@@ -1116,6 +1145,14 @@ export interface GameState {
   maxMobHp: number;
   nextActiveSkillAt: number;
   zoneNextAttackAt: number;  // next zone attack timestamp (ms), 0 when not clearing
+
+  // Multi-mob packs (ephemeral, reset on rehydrate)
+  currentPackSize: number;          // total mobs in encounter (1 = single)
+  packBackMobHps: number[];         // HP values of mobs behind front mob
+  packSingleMobMaxHp: number;       // max HP of each individual mob in this pack
+
+  // Rare mobs (ephemeral, reset on rehydrate)
+  currentRareMob: RareMobState | null;  // null = normal mob
 
   // Mob types & targeted farming
   targetedMobId: string | null;

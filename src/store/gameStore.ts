@@ -66,6 +66,7 @@ import { canAllocateGraphNode, allocateGraphNode, respecGraphNodes, getGraphResp
 import { getDebuffDef } from '../data/debuffs';
 import { evaluateConditionalMods, evaluateProcs, type ConditionContext, type ProcContext } from '../engine/combatHelpers';
 import { getMobTypeDef, getZoneMobTypes, weightedRandomMob } from '../data/mobTypes';
+import { rollPackSize, rollIsRare, rollRareAffixes, resolveRareMods, isSkillAoE } from '../engine/packs';
 import { tickInvasions as tickInvasionsPure, isZoneInvaded, rollCorruption } from '../engine/invasions';
 import { getInvasionMobs } from '../data/invasionMobs';
 import {
@@ -415,7 +416,7 @@ interface GameActions {
 
   // Zone / Idle
   startIdleRun: (zoneId: string) => void;
-  processNewClears: (clearCount: number) => ProcessClearsResult | null;
+  processNewClears: (clearCount: number, lootMultiplier?: number) => ProcessClearsResult | null;
   stopIdleRun: () => void;
   grantIdleXp: (xp: number) => void;
   getEstimatedClearTime: (zoneId: string) => number;
@@ -583,6 +584,10 @@ function createInitialState(): GameState {
     maxMobHp: 0,
     nextActiveSkillAt: 0,
     zoneNextAttackAt: 0,
+    currentPackSize: 1,
+    packBackMobHps: [],
+    packSingleMobMaxHp: 0,
+    currentRareMob: null,
     targetedMobId: null,
     currentMobTypeId: null,
     mobKillCounts: {},
@@ -862,11 +867,24 @@ export const useGameStore = create<GameState & GameActions>()(
         // Real-time combat: initialize mob HP (10K-A) — pick mob and use its hpMultiplier
         let mobHp = 0;
         let initialMobTypeId: string | null = null;
+        let initialPackSize = 1;
+        let initialPackBackMobHps: number[] = [];
+        let initialRareMob: import('../types').RareMobState | null = null;
         if (zone && state.idleMode === 'combat') {
           initialMobTypeId = pickCurrentMob(zoneId, state.targetedMobId);
           const hpMult = initialMobTypeId ? (getMobTypeDef(initialMobTypeId)?.hpMultiplier ?? 1.0) : 1.0;
           const invMult = isZoneInvaded(state.invasionState, zoneId, zone.band) ? INVASION_DIFFICULTY_MULT : 1.0;
-          mobHp = calcMobHp(zone, hpMult * invMult);
+          // Roll pack size
+          initialPackSize = rollPackSize(zone.band);
+          // Roll rare mob
+          let rareMult = 1;
+          if (rollIsRare(zone.band)) {
+            const affixes = rollRareAffixes(zone.band);
+            initialRareMob = resolveRareMods(affixes);
+            rareMult = initialRareMob.combinedHpMult;
+          }
+          mobHp = calcMobHp(zone, hpMult * invMult * rareMult);
+          initialPackBackMobHps = Array(initialPackSize - 1).fill(mobHp);
         }
 
         set({
@@ -887,10 +905,14 @@ export const useGameStore = create<GameState & GameActions>()(
           currentMobTypeId: initialMobTypeId,
           nextActiveSkillAt: now,
           zoneNextAttackAt: now + ZONE_ATTACK_INTERVAL * 1000,
+          currentPackSize: initialPackSize,
+          packBackMobHps: initialPackBackMobHps,
+          packSingleMobMaxHp: mobHp,
+          currentRareMob: initialRareMob,
         });
       },
 
-      processNewClears: (clearCount: number) => {
+      processNewClears: (clearCount: number, lootMultiplier: number = 1) => {
         if (clearCount <= 0) return null;
         const state = get();
         if (!state.currentZoneId) return null;
@@ -1071,6 +1093,14 @@ export const useGameStore = create<GameState & GameActions>()(
               const invPattern = rollPatternDrop(zone.band, 'invasion_drop');
               if (invPattern) accPatternDrops.push(invPattern.id);
             }
+          }
+        }
+
+        // Apply rare mob loot multiplier to gold and materials
+        if (lootMultiplier > 1) {
+          accGold = Math.round(accGold * lootMultiplier);
+          for (const key of Object.keys(accMaterials)) {
+            accMaterials[key] = Math.round(accMaterials[key] * lootMultiplier);
           }
         }
 
@@ -2356,9 +2386,10 @@ export const useGameStore = create<GameState & GameActions>()(
             }
 
             // Miss chance from debuffs (e.g. Blinded)
+            const helperRareAtkMissMult = state.currentRareMob?.combinedAtkSpeedMult ?? 1;
             if (Math.random() * 100 < helperEnemyMods.missChance) {
               zoneAttackResult = { damage: 0, isDodged: true, isBlocked: false };
-              nextAttackAt = now + ZONE_ATTACK_INTERVAL * helperEnemyMods.atkSpeedSlowMult * 1000;
+              nextAttackAt = now + ZONE_ATTACK_INTERVAL * helperEnemyMods.atkSpeedSlowMult * helperRareAtkMissMult * 1000;
             } else {
               const playerStats = resolveStats(state.character);
               const abilEff = getFullEffect(state, now, false);
@@ -2371,7 +2402,9 @@ export const useGameStore = create<GameState & GameActions>()(
               const levelMult = calcLevelDamageMult(state.character.level, zone.iLvlMin);
               const zoneAccuracy = calcZoneAccuracy(zone.band, state.character.level, zone.iLvlMin);
               const variance = 0.8 + Math.random() * 0.4;
-              const rawDmg = (ZONE_DMG_BASE * zone.band + ZONE_DMG_ILVL_SCALE * zone.iLvlMin) * levelMult * variance;
+              // Rare mob damage multiplier (Mighty / Empowered)
+              const helperRareDmgMult = state.currentRareMob?.combinedDamageMult ?? 1;
+              const rawDmg = (ZONE_DMG_BASE * zone.band + ZONE_DMG_ILVL_SCALE * zone.iLvlMin) * levelMult * variance * helperRareDmgMult;
 
               const roll = rollZoneAttack(rawDmg, ZONE_PHYS_RATIO, zoneAccuracy, buffedStats);
               let helperZoneDmg = roll.damage * helperEnemyMods.damageMult;
@@ -2387,7 +2420,9 @@ export const useGameStore = create<GameState & GameActions>()(
               }
               playerHp -= helperZoneDmg;
               zoneAttackResult = roll;
-              nextAttackAt = now + ZONE_ATTACK_INTERVAL * helperEnemyMods.atkSpeedSlowMult * 1000;
+              // Rare mob attack speed multiplier (Frenzied)
+              const helperRareAtkMult = state.currentRareMob?.combinedAtkSpeedMult ?? 1;
+              nextAttackAt = now + ZONE_ATTACK_INTERVAL * helperEnemyMods.atkSpeedSlowMult * helperRareAtkMult * 1000;
 
               // ES recharge per tick
               const zoneStats = resolveStats(state.character);
@@ -2413,13 +2448,22 @@ export const useGameStore = create<GameState & GameActions>()(
 
           // Tick DoT damage every frame (poison/burning), not just on zone attacks
           let helperDotDamage = 0;
+          let helperMobHp = state.currentMobHp;
           if (state.activeDebuffs.length > 0) {
             const zonePlayerStats = resolveStats(state.character);
             const enemyMaxHp = state.maxMobHp > 0 ? state.maxMobHp : 1;
             const dot = tickDebuffDoT(state.activeDebuffs, dt, 1, zonePlayerStats.incDoTDamage, enemyMaxHp);
-            helperDotDamage = dot.damage;
-            const newMobHp = Math.max(0, state.currentMobHp - dot.damage);
-            set({ activeDebuffs: dot.updatedDebuffs, currentMobHp: newMobHp });
+            // Apply Armored DR to DoT
+            const helperDamageTakenMult = state.currentRareMob?.combinedDamageTakenMult ?? 1;
+            helperDotDamage = dot.damage * helperDamageTakenMult;
+            helperMobHp = Math.max(0, helperMobHp - helperDotDamage);
+            set({ activeDebuffs: dot.updatedDebuffs, currentMobHp: helperMobHp });
+          }
+          // Rare mob regen (Regenerating)
+          const helperRegenRate = state.currentRareMob?.combinedRegenPerSec ?? 0;
+          if (helperRegenRate > 0 && state.maxMobHp > 0) {
+            helperMobHp = Math.min(state.maxMobHp, helperMobHp + state.maxMobHp * helperRegenRate * dt);
+            set({ currentMobHp: helperMobHp });
           }
 
           return { ...noResult, zoneAttack: zoneAttackResult, bleedTriggerDamage: helperBleedDmg, dotDamage: helperDotDamage };
@@ -3203,13 +3247,47 @@ export const useGameStore = create<GameState & GameActions>()(
           totalDamage += procDamage;
         }
 
+        // Rare mob: Armored — mob takes reduced damage
+        const rareDamageTakenMult = state.currentRareMob?.combinedDamageTakenMult ?? 1;
+        if (rareDamageTakenMult < 1 && totalDamage > 0) {
+          // Recalculate damage with DR: undo full damage, re-apply with mult
+          const reduction = totalDamage * (1 - rareDamageTakenMult);
+          currentMobHp += reduction;
+          totalDamage *= rareDamageTakenMult;
+        }
+
+        // Rare mob: Regenerating — regen % maxHP per second
+        const rareRegenPerSec = state.currentRareMob?.combinedRegenPerSec ?? 0;
+        if (rareRegenPerSec > 0) {
+          const regenAmount = state.maxMobHp * rareRegenPerSec * dtSec;
+          currentMobHp = Math.min(state.maxMobHp, currentMobHp + regenAmount);
+        }
+
+        // AoE splash damage to back mobs in pack
+        let packBackMobHps = [...state.packBackMobHps];
+        const skillIsAoE = isSkillAoE(state.skillBar, skill.id, state.skillProgress);
+        if (skillIsAoE && packBackMobHps.length > 0 && totalDamage > 0) {
+          packBackMobHps = packBackMobHps.map(hp => hp - totalDamage);
+        }
+
         // Move playerHp before death loop for lifeOnKill
         let playerHp = state.currentHp;
         let newCurrentEs = state.currentEs;
 
+        // Count and remove dead back mobs (killed by AoE splash)
+        let packMobKills = 0;
+        if (skillIsAoE && packBackMobHps.length > 0) {
+          const aliveBackMobs = packBackMobHps.filter(hp => hp > 0);
+          packMobKills = packBackMobHps.length - aliveBackMobs.length;
+          packBackMobHps = aliveBackMobs;
+        }
+
         // Check for mob death(s) — cap at 10 kills per tick for safety
         let maxMobHp = state.maxMobHp > 0 ? state.maxMobHp : calcMobHp(zone, 1.0);
         let newMobTypeId = state.currentMobTypeId;
+        let newCurrentRareMob = state.currentRareMob;
+        let newCurrentPackSize = state.currentPackSize;
+        let encounterLootMult = state.currentRareMob?.combinedLootMult ?? 1;
         const preDeathDebuffs = [...newDebuffs]; // Snapshot for spreadDebuffOnKill
         while (currentMobHp <= 0 && mobKills < 10) {
           mobKills++;
@@ -3261,12 +3339,6 @@ export const useGameStore = create<GameState & GameActions>()(
             killProcDebuffs = killPr.newDebuffs;
           }
 
-          // Pick a new mob for respawn (random or targeted)
-          newMobTypeId = pickCurrentMob(zone.id, state.targetedMobId);
-          const hpMult = newMobTypeId ? (getMobTypeDef(newMobTypeId)?.hpMultiplier ?? 1.0) : 1.0;
-          const invHpMult = isZoneInvaded(state.invasionState, zone.id, zone.band) ? INVASION_DIFFICULTY_MULT : 1.0;
-          maxMobHp = calcMobHp(zone, hpMult * invHpMult);
-
           // Overkill damage carry + bonus
           const overkillAmount = Math.abs(currentMobHp);
           newLastOverkillDamage = overkillAmount;
@@ -3279,9 +3351,38 @@ export const useGameStore = create<GameState & GameActions>()(
             : 0;
           if (shatterDmg > 0) shatterDamage += shatterDmg;
 
-          currentMobHp = maxMobHp - overkillAmount - overkillBonus - shatterDmg;
-          if (currentMobHp <= 0) currentMobHp = maxMobHp; // safety: reset if still negative
-          newDebuffs = []; // Clear debuffs on mob death
+          // Pack progression: if back mobs remain, shift one to front (same encounter)
+          if (packBackMobHps.length > 0) {
+            const nextMobHp = packBackMobHps[0];
+            packBackMobHps = packBackMobHps.slice(1);
+            currentMobHp = nextMobHp - overkillAmount - overkillBonus - shatterDmg;
+            // maxMobHp stays the same (same encounter)
+            if (currentMobHp <= 0) currentMobHp = state.packSingleMobMaxHp; // safety
+            newDebuffs = []; // Clear debuffs on mob death (mob died)
+          } else {
+            // Pack fully dead — roll NEW encounter (new mob type, new pack, possibly new rare)
+            newMobTypeId = pickCurrentMob(zone.id, state.targetedMobId);
+            const hpMult = newMobTypeId ? (getMobTypeDef(newMobTypeId)?.hpMultiplier ?? 1.0) : 1.0;
+            const invHpMult = isZoneInvaded(state.invasionState, zone.id, zone.band) ? INVASION_DIFFICULTY_MULT : 1.0;
+
+            // Roll new pack + rare
+            newCurrentPackSize = rollPackSize(zone.band);
+            newCurrentRareMob = null;
+            encounterLootMult = 1;
+            let newRareMult = 1;
+            if (rollIsRare(zone.band)) {
+              const affixes = rollRareAffixes(zone.band);
+              newCurrentRareMob = resolveRareMods(affixes);
+              newRareMult = newCurrentRareMob.combinedHpMult;
+              encounterLootMult = newCurrentRareMob.combinedLootMult;
+            }
+            maxMobHp = calcMobHp(zone, hpMult * invHpMult * newRareMult);
+            packBackMobHps = Array(newCurrentPackSize - 1).fill(maxMobHp);
+
+            currentMobHp = maxMobHp - overkillAmount - overkillBonus - shatterDmg;
+            if (currentMobHp <= 0) currentMobHp = maxMobHp; // safety: reset if still negative
+            newDebuffs = []; // Clear debuffs on mob death
+          }
 
           // spreadDebuffOnKill: re-apply matching debuffs to new mob (Bug 4 fix: preserve full state)
           if (graphMod?.debuffInteraction?.spreadDebuffOnKill) {
@@ -3319,6 +3420,20 @@ export const useGameStore = create<GameState & GameActions>()(
           }
         }
 
+        // Add pack back-mob kills (AoE splash kills)
+        mobKills += packMobKills;
+        // On-kill effects for pack mob kills (life on kill, charge gain)
+        for (let i = 0; i < packMobKills; i++) {
+          newKillStreak++;
+          if (graphMod?.lifeOnKill) {
+            playerHp = Math.min(effectiveMaxLife, playerHp + graphMod.lifeOnKill);
+          }
+          if (chargeConfig?.gainOn === 'onKill') {
+            const charges = newSkillCharges[skill.id];
+            if (charges) charges.current = Math.min(charges.current + chargeConfig.gainAmount, charges.max);
+          }
+        }
+
         // Zone attack check during clearing (real-time defense)
         let zoneAttackResult: CombatTickResult['zoneAttack'] = null;
         let nextZoneAttack = state.zoneNextAttackAt;
@@ -3334,9 +3449,10 @@ export const useGameStore = create<GameState & GameActions>()(
           }
 
           // Miss chance from debuffs (e.g. Blinded)
+          const rareAtkSpeedMultMiss = newCurrentRareMob?.combinedAtkSpeedMult ?? 1;
           if (Math.random() * 100 < clearEnemyMods.missChance) {
             zoneAttackResult = { damage: 0, isDodged: true, isBlocked: false };
-            nextZoneAttack = now + ZONE_ATTACK_INTERVAL * clearEnemyMods.atkSpeedSlowMult * 1000;
+            nextZoneAttack = now + ZONE_ATTACK_INTERVAL * clearEnemyMods.atkSpeedSlowMult * rareAtkSpeedMultMiss * 1000;
           } else {
             const defStats = applyAbilityResists(stats, abilityEffect);
             const buffedStats: ResolvedStats = abilityEffect.defenseMult
@@ -3346,7 +3462,9 @@ export const useGameStore = create<GameState & GameActions>()(
             const levelMult = calcLevelDamageMult(state.character.level, zone.iLvlMin);
             const zoneAccuracy = calcZoneAccuracy(zone.band, state.character.level, zone.iLvlMin);
             const variance = 0.8 + Math.random() * 0.4;
-            const rawDmg = (ZONE_DMG_BASE * zone.band + ZONE_DMG_ILVL_SCALE * zone.iLvlMin) * levelMult * variance;
+            // Rare mob damage multiplier (Mighty / Empowered)
+            const rareZoneDmgMult = newCurrentRareMob?.combinedDamageMult ?? 1;
+            const rawDmg = (ZONE_DMG_BASE * zone.band + ZONE_DMG_ILVL_SCALE * zone.iLvlMin) * levelMult * variance * rareZoneDmgMult;
 
             const zoneRoll = rollZoneAttack(rawDmg, ZONE_PHYS_RATIO, zoneAccuracy, buffedStats);
 
@@ -3367,7 +3485,9 @@ export const useGameStore = create<GameState & GameActions>()(
             }
             playerHp -= clearZoneDmg;
             zoneAttackResult = zoneRoll;
-            nextZoneAttack = now + ZONE_ATTACK_INTERVAL * clearEnemyMods.atkSpeedSlowMult * 1000;
+            // Rare mob attack speed multiplier (Frenzied)
+            const rareAtkSpeedMult = newCurrentRareMob?.combinedAtkSpeedMult ?? 1;
+            nextZoneAttack = now + ZONE_ATTACK_INTERVAL * clearEnemyMods.atkSpeedSlowMult * rareAtkSpeedMult * 1000;
           }
         }
 
@@ -3489,6 +3609,10 @@ export const useGameStore = create<GameState & GameActions>()(
             activeDebuffs: [],
             tempBuffs: [], // Clear temp buffs on zone death
             skillCharges: newSkillCharges,
+            currentPackSize: newCurrentPackSize,
+            packBackMobHps,
+            packSingleMobMaxHp: maxMobHp,
+            currentRareMob: newCurrentRareMob,
           });
           return {
             mobKills,
@@ -3505,6 +3629,8 @@ export const useGameStore = create<GameState & GameActions>()(
             cooldownWasReset: procCooldownResets.length > 0,
             gcdWasReset: procGcdWasReset,
             didSpreadDebuffs,
+            packSize: newCurrentPackSize,
+            encounterLootMult,
           };
         }
 
@@ -3521,6 +3647,10 @@ export const useGameStore = create<GameState & GameActions>()(
           activeDebuffs: newDebuffs,
           tempBuffs: activeTempBuffs,
           skillCharges: newSkillCharges,
+          currentPackSize: newCurrentPackSize,
+          packBackMobHps,
+          packSingleMobMaxHp: maxMobHp,
+          currentRareMob: newCurrentRareMob,
         });
 
         return {
@@ -3537,6 +3667,8 @@ export const useGameStore = create<GameState & GameActions>()(
           cooldownWasReset: procCooldownResets.length > 0,
           gcdWasReset: procGcdWasReset,
           didSpreadDebuffs,
+          packSize: newCurrentPackSize,
+          encounterLootMult,
         };
       },
 
@@ -4025,6 +4157,11 @@ export const useGameStore = create<GameState & GameActions>()(
           state.maxMobHp = 0;
           state.nextActiveSkillAt = 0;
           state.zoneNextAttackAt = 0;
+          // Reset ephemeral pack/rare state
+          state.currentPackSize = 1;
+          state.packBackMobHps = [];
+          state.packSingleMobMaxHp = 0;
+          state.currentRareMob = null;
           // Reset ephemeral debuffs (11B)
           state.activeDebuffs = [];
           state.craftLog = [];

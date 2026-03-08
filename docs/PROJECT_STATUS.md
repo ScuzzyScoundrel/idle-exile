@@ -1,16 +1,26 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-05 (Skill Tree Overhaul — All 3 sprints complete)
+> Last updated: 2026-03-07 (Multi-Mob Packs & Rare Mobs — All 4 sprints complete)
 
 ## Current Phase
-**Skill Tree Overhaul — COMPLETE.** All 3 sprints done (Engine, Data, UI).
+**Multi-Mob Packs & Rare Mobs — COMPLETE.** All 4 sprints done (Types/Data/Engine, Store Packs, Store Rares, UI).
 
-- **What was built**: Per-skill talent trees for all 7 dagger active skills. 273 nodes (7 trees × 3 branches × 13 nodes). Engine, data, barrel export, `unifiedSkills.ts` wiring, `TalentTreeView.tsx` UI all live in-game.
-- **Architecture**: All nodes defined inline per skill — no shared constants or factory functions. Builder pattern (`createTalentTree`) auto-generates IDs and wires T5 exclusiveWith.
-- **Key files**: `src/engine/talentTree.ts`, `src/data/skillGraphs/talentTreeBuilder.ts`, `src/data/skillGraphs/dagger_talents.ts`, `src/data/skillGraphs/talentTrees.ts`, `src/ui/components/TalentTreeView.tsx`
-- **Save version**: v45
+- **What was built**: Combat now spawns packs of 1-5 mobs per encounter. AoE skills damage all mobs simultaneously, single-target only hits front mob. Rare mobs (5-18% chance by band) with 1-4 Diablo-style affixes that multiplicatively stack HP/loot. 5 affixes: Mighty (+25% dmg), Frenzied (+40% atk speed), Armored (20% DR), Empowered (+50% dmg), Regenerating (2% maxHP/sec).
+- **Key mechanics**:
+  - Pack progression: front mob death shifts next back mob to front (overkill carries); pack fully dead → new encounter roll
+  - AoE detection checks both base skill tags and `convertToAoE` talent mods
+  - Rare mob loot multiplier flows through `CombatTickResult.encounterLootMult` → `processNewClears`
+  - All state is ephemeral — no save version migration needed (v45 unchanged)
+- **New files**: `src/data/rareAffixes.ts` (5 affix defs), `src/engine/packs.ts` (rollPackSize, isSkillAoE, rollIsRare, rollRareAffixes, resolveRareMods)
+- **Modified files**: `src/types/index.ts`, `src/data/balance.ts`, `src/store/gameStore.ts`, `src/ui/zones/MobDisplay.tsx`, `src/ui/zones/CombatPanel.tsx`
+- **Save version**: v45 (unchanged)
 - **Next**: TBD — see roadmap in `docs/SPRINT_PLAN.md`
+
+**Previous: Skill Tree Overhaul — COMPLETE.** All 3 sprints done (Engine, Data, UI).
+
+- Per-skill talent trees for all 7 dagger active skills. 273 nodes (7 trees × 3 branches × 13 nodes).
+- **Key files**: `src/engine/talentTree.ts`, `src/data/skillGraphs/talentTreeBuilder.ts`, `src/data/skillGraphs/dagger_talents.ts`, `src/data/skillGraphs/talentTrees.ts`, `src/ui/components/TalentTreeView.tsx`
 
 **Previous: Skill Tree Overhaul — Sprint 3: UI + Integration** — COMPLETE.
 

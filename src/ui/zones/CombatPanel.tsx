@@ -51,6 +51,7 @@ export default function CombatPanel() {
     activeDebuffs, fortifyStacks, fortifyExpiresAt, fortifyDRPerStack,
     tickInvasions,
     tempBuffs, rampingStacks,
+    packBackMobHps, currentRareMob,
   } = useGameStore();
 
   const hydrated = useHasHydrated();
@@ -179,7 +180,7 @@ export default function CombatPanel() {
               const runXpScale = calcXpScale(storeState.character.level, rz.iLvlMin);
               grantIdleXp(Math.round(10 * rz.band * combatResult.mobKills * runXpScale));
             }
-            const clearResult = processNewClears(combatResult.mobKills);
+            const clearResult = processNewClears(combatResult.mobKills, combatResult.encounterLootMult);
             if (clearResult) {
               setSession(prev => accumulateSession(prev, clearResult, combatResult.mobKills));
               if (clearResult.overflowCount > 0) {
@@ -502,6 +503,8 @@ export default function CombatPanel() {
                 swingProgress={zoneSwingProgress}
                 signatureDrop={currentMobTypeId ? (getMobTypeDef(currentMobTypeId)?.drops.find(d => d.rarity === 'rare') ?? getMobTypeDef(currentMobTypeId)?.drops[0]) : undefined}
                 activeDebuffs={activeDebuffs}
+                packSize={1 + packBackMobHps.length}
+                rareAffixes={currentRareMob?.affixes}
               />
               <DamageFloaters floaters={floaters} />
             </div>
