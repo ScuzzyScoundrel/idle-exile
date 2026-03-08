@@ -171,6 +171,15 @@ export const BASE_STATS: ResolvedStats = {
   movementSpeed: 0,
   itemQuantity: 0,
   itemRarity: 0,
+  // Sustain
+  ailmentDuration: 0,
+  lifeLeechPercent: 0,
+  lifeOnHit: 0,
+  lifeOnKill: 0,
+  // Build depth
+  cooldownRecovery: 0,
+  fortifyEffect: 0,
+  damageTakenReduction: 0,
 };
 
 /** Flat physical damage gained per level beyond 1. */
@@ -327,7 +336,7 @@ export const ZONE_DMG_BASE = 6;
 /** Per-iLvl damage scaling so zones get harder within a band. */
 export const ZONE_DMG_ILVL_SCALE = 0.8;
 /** Fraction of zone damage that's physical (rest is elemental). */
-export const ZONE_PHYS_RATIO = 0.7;
+export const ZONE_PHYS_RATIO = 0.5;
 /** Boss damage per hit base. Scales with band^2. */
 export const BOSS_DMG_PER_HIT_BASE = 6;
 /** Boss crit chance per attack (15%). */

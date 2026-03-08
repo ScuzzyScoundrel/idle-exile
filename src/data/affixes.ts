@@ -3,7 +3,7 @@
 // 33 affix types with slot restrictions, 330 total variations.
 // ============================================================
 
-import type { AffixDef, AffixTier, GearSlot, WeaponType, OffhandType } from '../types';
+import type { AffixDef, AffixTier, GearSlot, WeaponType, OffhandType, ArmorType } from '../types';
 import { WEAPON_TYPE_META } from './weapons';
 
 /**
@@ -393,6 +393,7 @@ export const AFFIX_DEFS: AffixDef[] = [
     allowedSlots: ['main_armor', 'shields', 'belt'],
     tiers: buildTiers(5, 10, 10, 18, 18, 30, 28, 48, 44, 72, 80, 140),
     weight: 70, displayTemplate: '+{value} Energy Shield',
+    armorTypeRestriction: 'cloth',
   },
   {
     id: 'inc_energy_shield', name: 'of Warding', category: 'inc_energy_shield',
@@ -400,6 +401,7 @@ export const AFFIX_DEFS: AffixDef[] = [
     allowedSlots: ['chest', 'main_armor', 'belt'],
     tiers: buildTiers(1, 2, 2, 4, 4, 7, 6, 10, 10, 16, 15, 25),
     weight: 60, displayTemplate: '+{value}% Energy Shield',
+    armorTypeRestriction: 'cloth',
   },
   {
     id: 'es_recharge', name: 'of Renewal', category: 'es_recharge',
@@ -407,6 +409,60 @@ export const AFFIX_DEFS: AffixDef[] = [
     allowedSlots: ['chest', 'main_armor'],
     tiers: buildTiers(1, 1, 1, 2, 2, 3, 2, 4, 3, 5, 4, 8),
     weight: 50, displayTemplate: '+{value} ES Recharge/s',
+    armorTypeRestriction: 'cloth',
+  },
+
+  // ================================================================
+  // SUFFIXES — Sustain & Build Depth (v49)
+  // ================================================================
+  {
+    id: 'ailment_duration', name: 'of Lingering', category: 'ailment_duration',
+    slot: 'suffix', stat: 'ailmentDuration',
+    allowedSlots: ['all_weapons', 'rings', 'amulets', 'trinkets'],
+    tiers: buildTiers(3, 5, 5, 8, 8, 12, 12, 18, 16, 25, 20, 35),
+    weight: 60, displayTemplate: '+{value}% Ailment Duration',
+  },
+  {
+    id: 'life_leech_percent', name: 'Vampiric', category: 'life_leech_percent',
+    slot: 'prefix', stat: 'lifeLeechPercent',
+    allowedSlots: ['attack_weapons', 'spell_weapons', 'gloves', 'rings', 'amulets'],
+    tiers: buildTiers(0.2, 0.4, 0.4, 0.6, 0.5, 0.8, 0.8, 1.2, 1.2, 1.8, 1.5, 2.5),
+    weight: 50, displayTemplate: '+{value}% Life Leech',
+  },
+  {
+    id: 'life_on_hit', name: 'of Siphoning', category: 'life_on_hit',
+    slot: 'suffix', stat: 'lifeOnHit',
+    allowedSlots: ['all_weapons', 'gloves', 'rings'],
+    tiers: buildTiers(1, 2, 2, 3, 3, 5, 4, 7, 6, 10, 8, 15),
+    weight: 60, displayTemplate: '+{value} Life on Hit',
+  },
+  {
+    id: 'life_on_kill', name: 'of Slaughter', category: 'life_on_kill',
+    slot: 'suffix', stat: 'lifeOnKill',
+    allowedSlots: ['all_weapons', 'amulets', 'rings'],
+    tiers: buildTiers(2, 3, 3, 5, 4, 7, 6, 10, 8, 15, 12, 22),
+    weight: 60, displayTemplate: '+{value} Life on Kill',
+  },
+  {
+    id: 'cooldown_recovery', name: 'of Alacrity', category: 'cooldown_recovery',
+    slot: 'suffix', stat: 'cooldownRecovery',
+    allowedSlots: ['all_weapons', 'amulets', 'trinkets', 'belt'],
+    tiers: buildTiers(1, 2, 2, 3, 3, 5, 4, 7, 6, 10, 8, 15),
+    weight: 50, displayTemplate: '+{value}% Cooldown Recovery',
+  },
+  {
+    id: 'fortify_effect', name: 'of Steadfastness', category: 'fortify_effect',
+    slot: 'suffix', stat: 'fortifyEffect',
+    allowedSlots: ['shields', 'chest', 'belt'],
+    tiers: buildTiers(2, 4, 4, 7, 6, 10, 8, 14, 12, 20, 15, 30),
+    weight: 50, displayTemplate: '+{value}% Fortify Effect',
+  },
+  {
+    id: 'damage_taken_reduction', name: 'of the Sentinel', category: 'damage_taken_reduction',
+    slot: 'suffix', stat: 'damageTakenReduction',
+    allowedSlots: ['shields', 'chest', 'amulets'],
+    tiers: buildTiers(0.3, 0.5, 0.5, 0.8, 0.7, 1.0, 1.0, 1.5, 1.5, 2.5, 2.0, 4.0),
+    weight: 30, displayTemplate: '+{value}% Damage Taken Reduction',
   },
 ];
 
@@ -453,10 +509,15 @@ export function getAffixesForSlot(
   weaponType?: WeaponType,
   offhandType?: OffhandType,
   affixSlot?: 'prefix' | 'suffix',
+  armorType?: ArmorType,
 ): AffixDef[] {
   return AFFIX_DEFS.filter(def => {
     // Filter by prefix/suffix if requested
     if (affixSlot && def.slot !== affixSlot) return false;
+
+    // Armor type restriction (cloth-only ES, etc.)
+    // Only applies when the item HAS an armorType — shields/belts/accessories pass through
+    if (def.armorTypeRestriction && armorType && def.armorTypeRestriction !== armorType) return false;
 
     // Check if any of the affix's allowed slot groups match this gear slot
     return def.allowedSlots.some(group => {

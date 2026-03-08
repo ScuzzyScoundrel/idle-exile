@@ -163,10 +163,12 @@ function calcBleedTriggerDamage(activeDebuffs: ActiveDebuff[], debuffEffectBonus
   return snapSum * (def.effect.snapshotPercent / 100) * debuffEffectBonus * incDoTMult;
 }
 
-/** Compute fortify damage reduction from stacks. Returns 0 if expired or no stacks. */
-export function calcFortifyDR(fortifyStacks: number, fortifyExpiresAt: number, fortifyDRPerStack: number, now: number): number {
+/** Compute fortify damage reduction from stacks. Returns 0 if expired or no stacks.
+ *  fortifyEffectBonus: gear stat that increases fortify DR per stack (default 0). */
+export function calcFortifyDR(fortifyStacks: number, fortifyExpiresAt: number, fortifyDRPerStack: number, now: number, fortifyEffectBonus: number = 0): number {
   if (fortifyStacks <= 0 || now > fortifyExpiresAt) return 0;
-  return Math.min(fortifyStacks * fortifyDRPerStack / 100, FORTIFY_MAX_DR);
+  const effectiveDRPerStack = fortifyDRPerStack * (1 + fortifyEffectBonus / 100);
+  return Math.min(fortifyStacks * effectiveDRPerStack / 100, FORTIFY_MAX_DR);
 }
 
 /** Tick debuff durations and calculate DoT damage (poison/burning/legacy).
@@ -605,7 +607,7 @@ function createInitialState(): GameState {
     classSelected: false,
     totalKills: 0,
     fastestClears: {},
-    skillBar: [null, null, null, null, null],
+    skillBar: [null, null, null, null],
     skillProgress: {},
     skillTimers: [],
     talentAllocations: [],
@@ -2359,8 +2361,9 @@ export const useGameStore = create<GameState & GameActions>()(
                 // Damage cap: never exceed BOSS_MAX_DMG_RATIO of maxHP per hit
                 let cappedDmg = Math.min(roll.damage * helperEnemyMods.damageMult, bossStats.maxLife * BOSS_MAX_DMG_RATIO);
                 // Fortify DR (use previous tick's state)
-                const helperBossFortifyDR = calcFortifyDR(state.fortifyStacks, state.fortifyExpiresAt, state.fortifyDRPerStack, now);
+                const helperBossFortifyDR = calcFortifyDR(state.fortifyStacks, state.fortifyExpiresAt, state.fortifyDRPerStack, now, bossStats.fortifyEffect);
                 if (helperBossFortifyDR > 0) cappedDmg *= (1 - helperBossFortifyDR);
+                if (bossStats.damageTakenReduction > 0) cappedDmg *= (1 - bossStats.damageTakenReduction / 100);
                 // ES absorbs boss damage before HP
                 let bossCurrentEs = state.currentEs;
                 if (bossCurrentEs > 0 && cappedDmg > 0) {
@@ -2455,8 +2458,9 @@ export const useGameStore = create<GameState & GameActions>()(
               const roll = rollZoneAttack(rawDmg, ZONE_PHYS_RATIO, zoneAccuracy, buffedStats, currentDodgeEntropy);
               currentDodgeEntropy = roll.newDodgeEntropy;
               let mobZoneDmg = roll.damage * mobEnemyMods.damageMult;
-              const helperZoneFortifyDR = calcFortifyDR(state.fortifyStacks, state.fortifyExpiresAt, state.fortifyDRPerStack, now);
+              const helperZoneFortifyDR = calcFortifyDR(state.fortifyStacks, state.fortifyExpiresAt, state.fortifyDRPerStack, now, resolveStats(state.character).fortifyEffect);
               if (helperZoneFortifyDR > 0) mobZoneDmg *= (1 - helperZoneFortifyDR);
+              if (playerStats.damageTakenReduction > 0) mobZoneDmg *= (1 - playerStats.damageTakenReduction / 100);
               let currentEs = state.currentEs;
               if (currentEs > 0 && mobZoneDmg > 0) {
                 const esAbsorbed = Math.min(currentEs, mobZoneDmg);
@@ -2773,10 +2777,13 @@ export const useGameStore = create<GameState & GameActions>()(
         if (roll.isHit && graphMod) {
           for (const debuffInfo of graphMod.debuffs) {
             if (Math.random() < debuffInfo.chance) {
-              // debuffDurationBonus: scale duration
+              // debuffDurationBonus: scale duration (graph + gear ailmentDuration)
               let duration = debuffInfo.duration;
               if (graphMod.debuffInteraction?.debuffDurationBonus) {
                 duration *= (1 + graphMod.debuffInteraction.debuffDurationBonus / 100);
+              }
+              if (effectiveStats.ailmentDuration > 0) {
+                duration *= (1 + effectiveStats.ailmentDuration / 100);
               }
               const existing = newDebuffs.findIndex(d => d.debuffId === debuffInfo.debuffId);
               const debuffDef = getDebuffDef(debuffInfo.debuffId);
@@ -2842,6 +2849,9 @@ export const useGameStore = create<GameState & GameActions>()(
           let duration = doc.duration;
           if (graphMod.debuffInteraction.debuffDurationBonus) {
             duration *= (1 + graphMod.debuffInteraction.debuffDurationBonus / 100);
+          }
+          if (effectiveStats.ailmentDuration > 0) {
+            duration *= (1 + effectiveStats.ailmentDuration / 100);
           }
           const existing = newDebuffs.findIndex(d => d.debuffId === doc.debuffId);
           const debuffDef = getDebuffDef(doc.debuffId);
@@ -3038,10 +3048,11 @@ export const useGameStore = create<GameState & GameActions>()(
           }
         }
 
-        // Life leech: base + flag bonus + graph bonus (cannotLeech overrides all)
+        // Life leech: base + flag bonus + graph bonus + gear bonus (cannotLeech overrides all)
         const flagLeech = graphMod?.flags.includes('lifeLeech') ? LEECH_PERCENT : 0;
         const graphLeech = graphMod?.leechPercent ? graphMod.leechPercent / 100 : 0;
-        const totalLeech = graphMod?.cannotLeech ? 0 : (LEECH_PERCENT + flagLeech + graphLeech);
+        const gearLeech = effectiveStats.lifeLeechPercent ? effectiveStats.lifeLeechPercent / 100 : 0;
+        const totalLeech = graphMod?.cannotLeech ? 0 : (LEECH_PERCENT + flagLeech + graphLeech + gearLeech);
 
         // Update GCD: next active skill can fire after castInterval (already includes GCD floor)
         let nextActiveSkillAt = now + castInterval * 1000;
@@ -3053,6 +3064,9 @@ export const useGameStore = create<GameState & GameActions>()(
           let effectiveCD = skill.cooldown * (1 - (graphMod?.cooldownReduction ?? 0) / 100);
           if (effectiveStats.abilityHaste > 0) {
             effectiveCD = effectiveCD / (1 + effectiveStats.abilityHaste / 100);
+          }
+          if (effectiveStats.cooldownRecovery > 0) {
+            effectiveCD = effectiveCD / (1 + effectiveStats.cooldownRecovery / 100);
           }
           effectiveCD = Math.max(1, effectiveCD);
           const cdMs = effectiveCD * 1000;
@@ -3163,8 +3177,9 @@ export const useGameStore = create<GameState & GameActions>()(
               // Damage cap: never exceed BOSS_MAX_DMG_RATIO of maxHP per hit
               let cappedBossDmg = Math.min(bossRoll.damage * incomingMult, stats.maxLife * BOSS_MAX_DMG_RATIO);
               // Fortify DR (current tick values)
-              const mainBossFortifyDR = calcFortifyDR(newFortifyStacks, newFortifyExpiresAt, newFortifyDRPerStack, now);
+              const mainBossFortifyDR = calcFortifyDR(newFortifyStacks, newFortifyExpiresAt, newFortifyDRPerStack, now, effectiveStats.fortifyEffect);
               if (mainBossFortifyDR > 0) cappedBossDmg *= (1 - mainBossFortifyDR);
+              if (effectiveStats.damageTakenReduction > 0) cappedBossDmg *= (1 - effectiveStats.damageTakenReduction / 100);
               playerHp -= cappedBossDmg;
               bossAttackResult = { damage: cappedBossDmg, isDodged: bossRoll.isDodged, isBlocked: bossRoll.isBlocked, isCrit: isBossCrit };
               nextAttack = now + bs.bossAttackInterval * mainEnemyMods.atkSpeedSlowMult * 1000;
@@ -3238,9 +3253,12 @@ export const useGameStore = create<GameState & GameActions>()(
             playerHp = Math.min(effectiveMaxLife, playerHp + roll.damage * totalLeech);
           }
 
-          // Life on hit
-          if (roll.isHit && graphMod?.lifeOnHit) {
-            playerHp = Math.min(effectiveMaxLife, playerHp + graphMod.lifeOnHit);
+          // Life on hit (graph + gear)
+          {
+            const totalLifeOnHit = (graphMod?.lifeOnHit ?? 0) + (effectiveStats.lifeOnHit ?? 0);
+            if (roll.isHit && totalLifeOnHit > 0) {
+              playerHp = Math.min(effectiveMaxLife, playerHp + totalLifeOnHit);
+            }
           }
 
           // Proc heal
@@ -3420,9 +3438,12 @@ export const useGameStore = create<GameState & GameActions>()(
           mobKills++;
           newKillStreak++;
 
-          // Life on kill
-          if (graphMod?.lifeOnKill) {
-            playerHp = Math.min(effectiveMaxLife, playerHp + graphMod.lifeOnKill);
+          // Life on kill (graph + gear)
+          {
+            const totalLifeOnKill = (graphMod?.lifeOnKill ?? 0) + (effectiveStats.lifeOnKill ?? 0);
+            if (totalLifeOnKill > 0) {
+              playerHp = Math.min(effectiveMaxLife, playerHp + totalLifeOnKill);
+            }
           }
 
           // Charge gain on kill
@@ -3665,8 +3686,11 @@ export const useGameStore = create<GameState & GameActions>()(
         // On-kill effects for pack mob kills (life on kill, charge gain)
         for (let i = 0; i < packMobKills; i++) {
           newKillStreak++;
-          if (graphMod?.lifeOnKill) {
-            playerHp = Math.min(effectiveMaxLife, playerHp + graphMod.lifeOnKill);
+          {
+            const totalLifeOnKill = (graphMod?.lifeOnKill ?? 0) + (effectiveStats.lifeOnKill ?? 0);
+            if (totalLifeOnKill > 0) {
+              playerHp = Math.min(effectiveMaxLife, playerHp + totalLifeOnKill);
+            }
           }
           if (chargeConfig?.gainOn === 'onKill') {
             const charges = newSkillCharges[skill.id];
@@ -3715,8 +3739,9 @@ export const useGameStore = create<GameState & GameActions>()(
             if (graphMod?.berserk) clearIncomingMult *= (1 + graphMod.berserk.damageTakenIncrease / 100);
 
             let clearZoneDmg = zoneRoll.damage * clearIncomingMult;
-            const mainClearFortifyDR = calcFortifyDR(newFortifyStacks, newFortifyExpiresAt, newFortifyDRPerStack, now);
+            const mainClearFortifyDR = calcFortifyDR(newFortifyStacks, newFortifyExpiresAt, newFortifyDRPerStack, now, effectiveStats.fortifyEffect);
             if (mainClearFortifyDR > 0) clearZoneDmg *= (1 - mainClearFortifyDR);
+            if (effectiveStats.damageTakenReduction > 0) clearZoneDmg *= (1 - effectiveStats.damageTakenReduction / 100);
             if (newCurrentEs > 0 && clearZoneDmg > 0) {
               const esAbs = Math.min(newCurrentEs, clearZoneDmg);
               newCurrentEs -= esAbs;
@@ -3736,9 +3761,12 @@ export const useGameStore = create<GameState & GameActions>()(
           playerHp = Math.min(effectiveMaxLife, playerHp + roll.damage * totalLeech);
         }
 
-        // Life on hit
-        if (roll.isHit && graphMod?.lifeOnHit) {
-          playerHp = Math.min(effectiveMaxLife, playerHp + graphMod.lifeOnHit);
+        // Life on hit (graph + gear)
+        {
+          const totalLifeOnHit = (graphMod?.lifeOnHit ?? 0) + (effectiveStats.lifeOnHit ?? 0);
+          if (roll.isHit && totalLifeOnHit > 0) {
+            playerHp = Math.min(effectiveMaxLife, playerHp + totalLifeOnHit);
+          }
         }
 
         // Proc heal
@@ -4308,7 +4336,7 @@ export const useGameStore = create<GameState & GameActions>()(
     }),
     {
       name: 'idle-exile-save',
-      version: 48,
+      version: 49,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
@@ -4352,7 +4380,7 @@ export const useGameStore = create<GameState & GameActions>()(
               const wt = state.character.equipment.mainhand.weaponType;
               const defaultSkill = getDefaultSkillForWeapon(wt, state.character.level);
               if (defaultSkill) {
-                if (!state.skillBar) state.skillBar = [null, null, null, null, null];
+                if (!state.skillBar) state.skillBar = [null, null, null, null];
                 state.skillBar[0] = { skillId: defaultSkill.id, autoCast: true };
               }
             }
@@ -4386,7 +4414,7 @@ export const useGameStore = create<GameState & GameActions>()(
           }
 
           // Null guards for unified skill bar fields
-          if (!state.skillBar) state.skillBar = [null, null, null, null, null];
+          if (!state.skillBar) state.skillBar = [null, null, null, null];
           if (!state.skillProgress) state.skillProgress = {};
           if (!state.skillTimers) state.skillTimers = [];
 
@@ -5024,6 +5052,22 @@ export const useGameStore = create<GameState & GameActions>()(
             else if (count >= 25) claimed[zoneId] = 25;
           }
           raw.zoneMasteryClaimed = claimed;
+        }
+
+        if (version < 49) {
+          // v49: Skill bar 5→4, affix overhaul, resist rebalance
+          const bar = (raw.skillBar ?? []) as (unknown | null)[];
+          if (bar.length > 4) {
+            const dropped = bar[4];
+            raw.skillBar = bar.slice(0, 4);
+            // Remove timer for dropped skill
+            if (dropped && typeof dropped === 'object' && (dropped as Record<string, unknown>).skillId) {
+              const timers = (raw.skillTimers ?? []) as Record<string, unknown>[];
+              raw.skillTimers = timers.filter(t => t.skillId !== (dropped as Record<string, unknown>).skillId);
+            }
+          }
+          raw.dodgeEntropy = Math.floor(Math.random() * 100);
+          // New stats default to 0 via resolveStats() — no item migration needed
         }
 
         if (version < 48) {

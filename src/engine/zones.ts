@@ -787,7 +787,8 @@ export function simulateClearDefense(
 
   // Regen: passive + leech (capped at MAX_REGEN_RATIO of maxHP per clear)
   const passiveRegen = maxHp * CLEAR_REGEN_RATIO + stats.lifeRegen * clearTime;
-  const leechHeal = playerDamageDealt * LEECH_PERCENT;
+  const gearLeechRate = stats.lifeLeechPercent ? stats.lifeLeechPercent / 100 : 0;
+  const leechHeal = playerDamageDealt * (LEECH_PERCENT + gearLeechRate);
   const totalRegen = Math.min(passiveRegen + leechHeal, maxHp * MAX_REGEN_RATIO);
 
   // Underlevel minimum net damage (prevents immortality via regen stacking)

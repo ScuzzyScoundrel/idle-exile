@@ -1018,6 +1018,13 @@ const STAT_LABELS: Record<StatKey, string> = {
   movementSpeed: 'Move Speed',
   itemQuantity: 'Item Quantity',
   itemRarity: 'Item Rarity',
+  ailmentDuration: 'Ailment Duration',
+  lifeLeechPercent: 'Life Leech',
+  lifeOnHit: 'Life on Hit',
+  lifeOnKill: 'Life on Kill',
+  cooldownRecovery: 'CD Recovery',
+  fortifyEffect: 'Fortify Effect',
+  damageTakenReduction: 'Damage Reduction',
 };
 
 function ComparisonPanel({ selected, equipped }: { selected: Item; equipped: Item }) {

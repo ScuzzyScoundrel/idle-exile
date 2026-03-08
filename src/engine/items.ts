@@ -3,7 +3,7 @@
 // Pure functions: no React, no side effects, no DOM.
 // ============================================================
 
-import type { Item, Affix, AffixDef, AffixTier, AffixCategory, Rarity, GearSlot, StatKey, WeaponType, OffhandType, ItemBaseDef } from '../types';
+import type { Item, Affix, AffixDef, AffixTier, AffixCategory, Rarity, GearSlot, StatKey, WeaponType, OffhandType, ArmorType, ItemBaseDef } from '../types';
 import { AFFIX_DEFS, getAffixesForSlot } from '../data/affixes';
 import { GATHERING_AFFIX_DEFS } from '../data/gatheringAffixes';
 import { PROFESSION_AFFIX_DEFS } from '../data/professionAffixes';
@@ -165,8 +165,9 @@ export function rollAffixes(
   weaponType?: WeaponType,
   offhandType?: OffhandType,
   exclude: string[] = [],
+  armorType?: ArmorType,
 ): Affix[] {
-  const available = getAffixesForSlot(gearSlot, weaponType, offhandType, affixSlot)
+  const available = getAffixesForSlot(gearSlot, weaponType, offhandType, affixSlot, armorType)
     .filter(d => !exclude.includes(d.id));
   const result: Affix[] = [];
   let pool = [...available];
@@ -249,9 +250,9 @@ export function generateItem(slot: GearSlot, iLvl: number, baseId?: string, guar
   }
 
   const prefixes = rollAffixes('prefix', prefixCount, iLvl, slot, weaponType, offhandType,
-    guaranteedExcludeId ? [guaranteedExcludeId] : []);
+    guaranteedExcludeId ? [guaranteedExcludeId] : [], base.armorType);
   const excludeIds = [...prefixes.map(a => a.defId), ...(guaranteedExcludeId ? [guaranteedExcludeId] : [])];
-  const suffixes = rollAffixes('suffix', suffixCount, iLvl, slot, weaponType, offhandType, excludeIds);
+  const suffixes = rollAffixes('suffix', suffixCount, iLvl, slot, weaponType, offhandType, excludeIds, base.armorType);
 
   const allPrefixes = [...prefixes];
   const allSuffixes = [...suffixes];

@@ -50,7 +50,10 @@ export type AffixCategory =
   | 'item_rarity'
   | 'flat_energy_shield'
   | 'inc_energy_shield'
-  | 'es_recharge';
+  | 'es_recharge'
+  | 'ailment_duration' | 'life_leech_percent' | 'life_on_hit'
+  | 'life_on_kill' | 'cooldown_recovery' | 'fortify_effect'
+  | 'damage_taken_reduction';
 
 export type AffixTier = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 
@@ -64,6 +67,7 @@ export interface AffixDef {
   tiers: Record<AffixTier, { min: number; max: number }>;
   weight: number; // drop weight for rolling
   displayTemplate: string; // e.g. "+{value} Life" or "+{value}% Damage"
+  armorTypeRestriction?: ArmorType; // only roll on this armor type (cloth/leather/plate)
 }
 
 export interface Affix {
@@ -198,7 +202,16 @@ export type StatKey =
   // Utility
   | 'movementSpeed'
   | 'itemQuantity'
-  | 'itemRarity';
+  | 'itemRarity'
+  // Sustain
+  | 'ailmentDuration'
+  | 'lifeLeechPercent'
+  | 'lifeOnHit'
+  | 'lifeOnKill'
+  // Build depth
+  | 'cooldownRecovery'
+  | 'fortifyEffect'
+  | 'damageTakenReduction';
 
 export type ResolvedStats = Record<StatKey, number>;
 
@@ -545,7 +558,7 @@ export interface AbilityProgress {
   allocatedNodes: string[];             // IDs of unlocked skill tree nodes
 }
 
-export const ABILITY_SLOT_UNLOCKS = [1, 5, 12, 20] as const;
+export const ABILITY_SLOT_UNLOCKS = [1, 5, 15] as const;
 
 // --- Rare Materials ---
 
