@@ -31,7 +31,7 @@ import {
 import { createCharacter, resolveStats, addXp, getWeaponDamageInfo, calcXpToNext } from '../engine/character';
 import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, simulateCombatClear, createBossEncounter, generateBossLoot, applyAbilityResists, calcHazardPenalty, rollZoneAttack, calcLevelDamageMult, calcOutgoingDamageMult, calcZoneAccuracy, getClaimableMilestones, getMasteryBonus, calcDeathPenalty } from '../engine/zones';
 import { calcMobHp, calcSkillCastInterval, rollSkillCast } from '../engine/unifiedSkills';
-import { BOSS_VICTORY_DURATION, BOSS_VICTORY_HEAL_RATIO, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO, SKILL_GCD, LEECH_PERCENT, ZONE_ATTACK_INTERVAL, ZONE_DMG_BASE, ZONE_DMG_ILVL_SCALE, ZONE_PHYS_RATIO, MAX_REGEN_CAP_RATIO, BOSS_CRIT_CHANCE, BOSS_CRIT_MULTIPLIER, BOSS_MAX_DMG_RATIO, FORTIFY_MAX_STACKS, FORTIFY_MAX_DR, INVASION_DIFFICULTY_MULT, INVASION_DURATION_MIN_MS, INVASION_DURATION_MAX_MS, DEATH_STREAK_WINDOW } from '../data/balance';
+import { BOSS_VICTORY_DURATION, BOSS_VICTORY_HEAL_RATIO, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO, SKILL_GCD, LEECH_PERCENT, ZONE_ATTACK_INTERVAL, ZONE_DMG_BASE, ZONE_DMG_ILVL_SCALE, ZONE_PHYS_RATIO, MAX_REGEN_CAP_RATIO, BOSS_CRIT_CHANCE, BOSS_CRIT_MULTIPLIER, BOSS_MAX_DMG_RATIO, FORTIFY_MAX_STACKS, INVASION_DIFFICULTY_MULT, INVASION_DURATION_MIN_MS, INVASION_DURATION_MAX_MS, DEATH_STREAK_WINDOW } from '../data/balance';
 import { pickBestItem, generateId, isTwoHandedWeapon, generateItem } from '../engine/items';
 import { applyCurrency } from '../engine/crafting';
 import {
@@ -67,6 +67,8 @@ import { getUnifiedSkillDef, ABILITY_ID_MIGRATION } from '../data/unifiedSkills'
 import { canAllocateGraphNode, allocateGraphNode, respecGraphNodes, getGraphRespecCost } from '../engine/skillGraph';
 import { getDebuffDef } from '../data/debuffs';
 import { evaluateConditionalMods, evaluateProcs, type ConditionContext, type ProcContext } from '../engine/combatHelpers';
+import { prettifyProcId, tickDebuffDoT, calcEnemyDebuffMods, calcBleedTriggerDamage, calcFortifyDR } from '../engine/combat/helpers';
+import { RARITY_ORDER, ESSENCE_REWARD, SELL_GOLD, addItemsWithOverflow } from '../engine/inventory/helpers';
 import { getMobTypeDef, getZoneMobTypes, weightedRandomMob } from '../data/mobTypes';
 import { isSkillAoE, spawnPack } from '../engine/packs';
 import { tickInvasions as tickInvasionsPure, isZoneInvaded, rollCorruption } from '../engine/invasions';
@@ -79,24 +81,6 @@ import {
 } from '../engine/dailyQuests';
 
 
-/** Human-readable labels for proc IDs (used in combat log / floaters). */
-const PROC_LABEL: Record<string, string> = {
-  st_venomburst: 'Venom Burst',
-  st_counter: 'Counter Stab',
-  st_toxic_burst: 'Toxic Burst',
-  st_volatile_toxins: 'Toxic Detonate',
-  st_precision_killer: 'Precision Kill',
-  st_death_mark: 'Death Mark',
-  st_counter_stance: 'Counter Stance',
-  st_ghost_step_heal: 'Ghost Step',
-};
-
-/** Auto-prettify proc IDs: manual overrides first, then strip prefix + title-case. */
-function prettifyProcId(id: string): string {
-  if (PROC_LABEL[id]) return PROC_LABEL[id];
-  return id.replace(/^[a-z]+_/, '').replace(/_/g, ' ')
-    .replace(/\b\w/g, c => c.toUpperCase());
-}
 
 const INITIAL_CURRENCIES: Record<CurrencyType, number> = {
   augment: 0,
@@ -128,206 +112,9 @@ function pickCurrentMob(zoneId: string, targetedMobId: string | null): string | 
   return weightedRandomMob(mobs).id;
 }
 
-/** Compute enemy debuff modifiers from active debuffs (Weakened/Blinded/Slowed). */
-function calcEnemyDebuffMods(activeDebuffs: ActiveDebuff[]): {
-  damageMult: number;       // multiply incoming enemy damage (< 1 = less damage)
-  missChance: number;       // 0-100, roll before attack
-  atkSpeedSlowMult: number; // multiply attack interval (> 1 = slower attacks)
-} {
-  let damageMult = 1;
-  let missChance = 0;
-  let atkSpeedSlowMult = 1;
-  for (const debuff of activeDebuffs) {
-    const def = getDebuffDef(debuff.debuffId);
-    if (!def) continue;
-    if (def.effect.reducedDamageDealt) {
-      damageMult -= (def.effect.reducedDamageDealt * debuff.stacks) / 100;
-    }
-    if (def.effect.missChance) {
-      missChance += def.effect.missChance * debuff.stacks;
-    }
-    if (def.effect.reducedAttackSpeed) {
-      atkSpeedSlowMult += (def.effect.reducedAttackSpeed * debuff.stacks) / 100;
-    }
-  }
-  return { damageMult: Math.max(0.1, damageMult), missChance: Math.min(missChance, 75), atkSpeedSlowMult };
-}
-
-/** Compute bleed trigger damage from active bleed debuff (triggers on enemy attack). */
-function calcBleedTriggerDamage(activeDebuffs: ActiveDebuff[], debuffEffectBonus: number, incDoTDamage: number): number {
-  const bleed = activeDebuffs.find(d => d.debuffId === 'bleeding');
-  if (!bleed?.stackSnapshots?.length) return 0;
-  const def = getDebuffDef('bleeding');
-  if (!def?.effect.snapshotPercent) return 0;
-  const snapSum = bleed.stackSnapshots.reduce((a, b) => a + b, 0);
-  const incDoTMult = 1 + (incDoTDamage ?? 0) / 100;
-  return snapSum * (def.effect.snapshotPercent / 100) * debuffEffectBonus * incDoTMult;
-}
-
-/** Compute fortify damage reduction from stacks. Returns 0 if expired or no stacks.
- *  fortifyEffectBonus: gear stat that increases fortify DR per stack (default 0). */
-export function calcFortifyDR(fortifyStacks: number, fortifyExpiresAt: number, fortifyDRPerStack: number, now: number, fortifyEffectBonus: number = 0): number {
-  if (fortifyStacks <= 0 || now > fortifyExpiresAt) return 0;
-  const effectiveDRPerStack = fortifyDRPerStack * (1 + fortifyEffectBonus / 100);
-  return Math.min(fortifyStacks * effectiveDRPerStack / 100, FORTIFY_MAX_DR);
-}
-
-/** Tick debuff durations and calculate DoT damage (poison/burning/legacy).
- *  Returns updated debuffs (expired removed) and total DoT damage dealt.
- *  Instance-based debuffs (poison) use batched tick intervals and independent instance durations.
- *  Reused by applyZoneDamage, applyBossDamage, and the main skill-cast tick. */
-function tickDebuffDoT(
-  debuffs: ActiveDebuff[],
-  dtSec: number,
-  effectBonus: number,
-  incDoTDamage: number,
-  enemyMaxHp: number,
-): { damage: number; updatedDebuffs: ActiveDebuff[]; poisonInstanceCount?: number } {
-  const incDoTMult = 1 + (incDoTDamage ?? 0) / 100;
-  let damage = 0;
-  let poisonInstanceCount: number | undefined;
-  const updated: ActiveDebuff[] = [];
-
-  for (const debuff of debuffs) {
-    const debuffDef = getDebuffDef(debuff.debuffId);
-    if (!debuffDef) continue;
-
-    // Instance-based path (poison)
-    if (debuffDef.instanceBased && debuff.instances) {
-      // Decrement each instance's duration independently, filter expired
-      const livingInstances = debuff.instances
-        .map(inst => ({ ...inst, remainingDuration: inst.remainingDuration - dtSec }))
-        .filter(inst => inst.remainingDuration > 0);
-      if (livingInstances.length === 0) continue; // all expired, drop debuff
-
-      // Accumulate tick timer
-      const tickInterval = debuffDef.dotTickInterval ?? 0.5;
-      let accumulator = (debuff.dotTickAccumulator ?? 0) + dtSec;
-
-      // When accumulator >= tickInterval, emit batched damage
-      if (accumulator >= tickInterval) {
-        const snapSum = livingInstances.reduce((a, inst) => a + inst.snapshot, 0);
-        damage += snapSum * (debuffDef.effect.snapshotPercent ?? 0) / 100 * effectBonus * incDoTMult * accumulator;
-        poisonInstanceCount = livingInstances.length;
-        accumulator -= tickInterval;
-        // Prevent drift: if still over interval, clamp to remainder
-        if (accumulator >= tickInterval) accumulator = accumulator % tickInterval;
-      }
-
-      // Sync legacy fields so talent threshold logic works unchanged
-      updated.push({
-        ...debuff,
-        instances: livingInstances,
-        stacks: livingInstances.length,
-        remainingDuration: Math.max(...livingInstances.map(i => i.remainingDuration)),
-        stackSnapshots: livingInstances.map(i => i.snapshot),
-        dotTickAccumulator: accumulator,
-      });
-      continue;
-    }
-
-    // Legacy path (bleed/burning/flat) — unchanged
-    const d = { ...debuff, remainingDuration: debuff.remainingDuration - dtSec };
-    if (d.remainingDuration <= 0) continue;
-
-    if (debuffDef.dotType === 'snapshot' && debuff.debuffId !== 'bleeding') {
-      // Legacy snapshot (shouldn't hit for poison anymore, but kept for safety)
-      const snapSum = d.stackSnapshots?.reduce((a, b) => a + b, 0) ?? 0;
-      damage += snapSum * (debuffDef.effect.snapshotPercent ?? 0) / 100 * effectBonus * incDoTMult * dtSec;
-    } else if (debuffDef.dotType === 'percentMaxHp') {
-      damage += enemyMaxHp * (debuffDef.effect.percentMaxHp ?? 0) / 100 * effectBonus * incDoTMult * dtSec;
-    } else if (debuffDef.effect.dotDps) {
-      damage += debuffDef.effect.dotDps * d.stacks * effectBonus * incDoTMult * dtSec;
-    }
-    updated.push(d);
-  }
-
-  return { damage, updatedDebuffs: updated, poisonInstanceCount };
-}
-
-/** Rarity sort order for auto-salvage comparison. */
-const RARITY_ORDER: Record<Rarity, number> = {
-  common: 0,
-  uncommon: 1,
-  rare: 2,
-  epic: 3,
-  legendary: 4,
-};
-
-/** Enchanting essence reward by rarity (from salvage/disenchant). */
-const ESSENCE_REWARD: Record<Rarity, number> = {
-  common: 1,
-  uncommon: 2,
-  rare: 3,
-  epic: 4,
-  legendary: 5,
-};
-
-/** Gold received when selling gear by rarity (base — iLvl/5 added). */
-export const SELL_GOLD: Record<Rarity, number> = {
-  common: 1,
-  uncommon: 3,
-  rare: 8,
-  epic: 20,
-  legendary: 50,
-};
-
-/** Auto-salvage stats returned alongside state updates. */
-interface SalvageStats {
-  itemsSalvaged: number;
-  dustGained: number;
-}
-
-/**
- * Process items against auto-salvage threshold and inventory capacity.
- * Items go directly into bags (or are salvaged). Pure function.
- */
-function addItemsWithOverflow(
-  inventory: Item[],
-  inventoryCapacity: number,
-  autoSalvageMinRarity: Rarity,
-  autoDisposalAction: 'salvage' | 'sell',
-  materials: Record<string, number>,
-  items: Item[],
-): { newInventory: Item[]; newMaterials: Record<string, number>; salvageStats: SalvageStats; autoSoldGold: number; autoSoldCount: number; keptItems: Item[] } {
-  const newInventory = [...inventory];
-  const newMaterials = { ...materials };
-  const minOrder = RARITY_ORDER[autoSalvageMinRarity];
-  let itemsSalvaged = 0;
-  let dustGained = 0;
-  let autoSoldGold = 0;
-  let autoSoldCount = 0;
-  const keptItems: Item[] = [];
-
-  for (const item of items) {
-    // Never auto-salvage corrupted items (void invasion drops are always valuable)
-    // Auto-dispose by rarity threshold
-    if (!item.isCorrupted && minOrder > 0 && RARITY_ORDER[item.rarity] < minOrder) {
-      if (autoDisposalAction === 'sell') {
-        autoSoldGold += SELL_GOLD[item.rarity] + Math.floor(item.iLvl / 5);
-        autoSoldCount++;
-      } else {
-        dustGained += ESSENCE_REWARD[item.rarity];
-        itemsSalvaged++;
-      }
-      continue;
-    }
-    // Overflow: always salvage for essence (emergency)
-    if (newInventory.length >= inventoryCapacity) {
-      dustGained += ESSENCE_REWARD[item.rarity];
-      itemsSalvaged++;
-      continue;
-    }
-    newInventory.push(item);
-    keptItems.push(item);
-  }
-
-  if (dustGained > 0) {
-    newMaterials['enchanting_essence'] = (newMaterials['enchanting_essence'] || 0) + dustGained;
-  }
-
-  return { newInventory, newMaterials, salvageStats: { itemsSalvaged, dustGained }, autoSoldGold, autoSoldCount, keptItems };
-}
+// Re-export for consumers that import from gameStore
+export { calcFortifyDR } from '../engine/combat/helpers';
+export { SELL_GOLD } from '../engine/inventory/helpers';
 
 /** Get inventory capacity from bag slots. */
 function getInventoryCapacity(state: GameState): number {
