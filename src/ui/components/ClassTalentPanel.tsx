@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
+import { useSkillStore } from '../../store/skillStore';
 import { CharacterClass, SkillTreeNode } from '../../types';
 import { CLASS_TALENT_TREES } from '../../data/classTalents';
 import { canAllocateTalentNode, getAvailableTalentPoints, getTalentRespecCost } from '../../engine/classTalents';
@@ -32,8 +33,8 @@ export default function ClassTalentPanel() {
   const character = useGameStore(s => s.character);
   const talentAllocations = useGameStore(s => s.talentAllocations);
   const gold = useGameStore(s => s.gold);
-  const allocateTalentNode = useGameStore(s => s.allocateTalentNode);
-  const respecTalents = useGameStore(s => s.respecTalents);
+  const allocateTalentNode = useSkillStore(s => s.allocateTalentNode);
+  const respecTalents = useSkillStore(s => s.respecTalents);
 
   const [selectedPath, setSelectedPath] = useState<'A' | 'B' | 'C'>('A');
   const [collapsed, setCollapsed] = useState(false);

@@ -31,18 +31,18 @@ import {
 import { createCharacter, resolveStats, addXp, getWeaponDamageInfo, calcXpToNext } from '../engine/character';
 import { simulateSingleClear, simulateIdleRun, simulateGatheringClear, calcClearTime, simulateCombatClear, createBossEncounter, generateBossLoot, applyAbilityResists, calcHazardPenalty, rollZoneAttack, calcLevelDamageMult, calcOutgoingDamageMult, calcZoneAccuracy, getClaimableMilestones, getMasteryBonus, calcDeathPenalty } from '../engine/zones';
 import { calcMobHp, calcSkillCastInterval, rollSkillCast } from '../engine/unifiedSkills';
-import { BOSS_VICTORY_DURATION, BOSS_VICTORY_HEAL_RATIO, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO, SKILL_GCD, LEECH_PERCENT, ZONE_ATTACK_INTERVAL, ZONE_DMG_BASE, ZONE_DMG_ILVL_SCALE, ZONE_PHYS_RATIO, MAX_REGEN_CAP_RATIO, BOSS_CRIT_CHANCE, BOSS_CRIT_MULTIPLIER, BOSS_MAX_DMG_RATIO, FORTIFY_MAX_STACKS, INVASION_DIFFICULTY_MULT, INVASION_DURATION_MIN_MS, INVASION_DURATION_MAX_MS, DEATH_STREAK_WINDOW } from '../data/balance';
+import { BOSS_VICTORY_DURATION, BOSS_VICTORY_HEAL_RATIO, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO, LEECH_PERCENT, ZONE_ATTACK_INTERVAL, ZONE_DMG_BASE, ZONE_DMG_ILVL_SCALE, ZONE_PHYS_RATIO, MAX_REGEN_CAP_RATIO, BOSS_CRIT_CHANCE, BOSS_CRIT_MULTIPLIER, BOSS_MAX_DMG_RATIO, FORTIFY_MAX_STACKS, INVASION_DIFFICULTY_MULT, INVASION_DURATION_MIN_MS, INVASION_DURATION_MAX_MS, DEATH_STREAK_WINDOW } from '../data/balance';
+// SKILL_GCD import moved to skillStore
 import { pickBestItem, generateId, isTwoHandedWeapon, generateItem } from '../engine/items';
 import { applyCurrency } from '../engine/crafting';
 import {
   createAbilityProgress, addAbilityXp, getAbilityXpPerClear,
-  canAllocateNode, allocateNode, respecAbility as respecAbilityEngine, getRespecCost,
 } from '../engine/unifiedSkills';
-import { getAbilityDef } from '../data/unifiedSkills';
 import { ZONE_DEFS } from '../data/zones';
 import { getBagDef, calcBagCapacity, BAG_SLOT_COUNT } from '../data/items';
 import { runMigrations } from './migrations';
 import { useCraftingStore } from './craftingStore';
+import { useSkillStore } from './skillStore';
 import { addGatheringXp, calcGatherClearTime, createDefaultGatheringSkills, canGatherInZone } from '../engine/gathering';
 import { createDefaultCraftingSkills, CRAFTING_MILESTONES } from '../data/craftingProfessions';
 import { calcRareFindBonus } from '../engine/rareMaterials';
@@ -58,12 +58,13 @@ import {
   getClassLootModifier, dischargeMageCharges,
 } from '../engine/classResource';
 import { getDefaultSkillForWeapon } from '../engine/unifiedSkills';
-import { getSkillDef } from '../data/unifiedSkills';
-import { aggregateSkillBarEffects, aggregateGraphGlobalEffects, getPrimaryDamageSkill, getNextRotationSkill, getSkillEffectiveDuration, getSkillEffectiveCooldown, mergeEffect, getSkillGraphModifier, aggregateTempBuffEffects } from '../engine/unifiedSkills';
+// getSkillDef import moved to skillStore
+import { aggregateSkillBarEffects, aggregateGraphGlobalEffects, getPrimaryDamageSkill, getNextRotationSkill, mergeEffect, getSkillGraphModifier, aggregateTempBuffEffects } from '../engine/unifiedSkills';
+// getSkillEffectiveDuration, getSkillEffectiveCooldown imports moved to skillStore
 // classTalents import removed (Skill Tree Overhaul Phase 0)
-import { canAllocateTalentRank, allocateTalentRank, respecTalentRanks, getTalentRespecCost } from '../engine/talentTree';
+// canAllocateTalentRank, allocateTalentRank, respecTalentRanks, getTalentRespecCost imports moved to skillStore
 import { getUnifiedSkillDef, ABILITY_ID_MIGRATION } from '../data/unifiedSkills';
-import { canAllocateGraphNode, allocateGraphNode, respecGraphNodes, getGraphRespecCost } from '../engine/skillGraph';
+// canAllocateGraphNode, allocateGraphNode, respecGraphNodes, getGraphRespecCost imports moved to skillStore
 import { getDebuffDef } from '../data/debuffs';
 import { evaluateConditionalMods, evaluateProcs, type ConditionContext, type ProcContext } from '../engine/combatHelpers';
 import { prettifyProcId, tickDebuffDoT, calcEnemyDebuffMods, calcBleedTriggerDamage, calcFortifyDR } from '../engine/combat/helpers';
@@ -1459,384 +1460,51 @@ export const useGameStore = create<GameState & GameActions>()(
         });
       },
 
+      // ─── Skill/talent actions (delegated to skillStore) ─────
       allocateAbilityNode: (abilityId: string, nodeId: string) => {
-        set((state) => {
-          const unifiedDef = getUnifiedSkillDef(abilityId);
-
-          // Talent tree path (v3.2): takes priority
-          if (unifiedDef?.talentTree) {
-            const progress = state.skillProgress[abilityId];
-            if (!progress) return state;
-            const ranks = progress.allocatedRanks ?? {};
-            if (!canAllocateTalentRank(unifiedDef.talentTree, ranks, nodeId, progress.level))
-              return state;
-            const newProgress = { ...state.skillProgress };
-            newProgress[abilityId] = { ...progress, allocatedRanks: allocateTalentRank(ranks, nodeId) };
-            return { skillProgress: newProgress };
-          }
-
-          // Old compact graph path (unchanged)
-          if (unifiedDef?.skillGraph) {
-            const progress = state.skillProgress[abilityId];
-            if (!progress) return state;
-            if (!canAllocateGraphNode(unifiedDef.skillGraph, progress.allocatedNodes, nodeId, progress.level)) return state;
-            const newProgress = { ...state.skillProgress };
-            newProgress[abilityId] = { ...progress, allocatedNodes: allocateGraphNode(progress.allocatedNodes, nodeId) };
-            return { skillProgress: newProgress };
-          }
-
-          // Old tree path
-          const def = getAbilityDef(abilityId);
-          if (!def) return state;
-          const progress = state.abilityProgress[abilityId];
-          if (!progress) return state;
-          if (!canAllocateNode(def, progress, nodeId)) return state;
-          const newProgress = { ...state.abilityProgress };
-          newProgress[abilityId] = allocateNode(progress, nodeId);
-          return { abilityProgress: newProgress };
-        });
+        useSkillStore.getState().allocateAbilityNode(abilityId, nodeId);
       },
 
       respecAbility: (abilityId: string) => {
-        set((state) => {
-          const unifiedDef = getUnifiedSkillDef(abilityId);
-
-          // Talent tree path (v3.2): takes priority
-          if (unifiedDef?.talentTree) {
-            const progress = state.skillProgress[abilityId];
-            if (!progress?.allocatedRanks || Object.keys(progress.allocatedRanks).length === 0)
-              return state;
-            const cost = getTalentRespecCost(progress.level);
-            if (state.gold < cost) return state;
-            const newProgress = { ...state.skillProgress };
-            newProgress[abilityId] = { ...progress, allocatedRanks: respecTalentRanks() };
-            return { skillProgress: newProgress, gold: state.gold - cost };
-          }
-
-          // Old compact graph path (unchanged)
-          if (unifiedDef?.skillGraph) {
-            const progress = state.skillProgress[abilityId];
-            if (!progress || progress.allocatedNodes.length === 0) return state;
-            const cost = getGraphRespecCost(progress.level);
-            if (state.gold < cost) return state;
-            const newProgress = { ...state.skillProgress };
-            newProgress[abilityId] = { ...progress, allocatedNodes: respecGraphNodes() };
-            return { skillProgress: newProgress, gold: state.gold - cost };
-          }
-
-          // Old tree path
-          const progress = state.abilityProgress[abilityId];
-          if (!progress) return state;
-          const cost = getRespecCost(progress);
-          if (state.gold < cost) return state;
-          const newProgress = { ...state.abilityProgress };
-          newProgress[abilityId] = respecAbilityEngine(progress);
-          return { abilityProgress: newProgress, gold: state.gold - cost };
-        });
+        useSkillStore.getState().respecAbility(abilityId);
       },
 
-      // Class talent tree
-      allocateTalentNode: (_nodeId: string) => {
-        set((state) => {
-          return state; // Class talent trees disabled (Skill Tree Overhaul Phase 0)
-        });
+      allocateTalentNode: (nodeId: string) => {
+        useSkillStore.getState().allocateTalentNode(nodeId);
       },
 
       respecTalents: () => {
-        set((state) => {
-          return state; // Class talent trees disabled (Skill Tree Overhaul Phase 0)
-        });
+        useSkillStore.getState().respecTalents();
       },
 
-      // Active skill equip
-      equipSkill: (skillId: string, _slot?: number) => {
-        const state = get();
-
-        // Validate skill exists
-        const skillDef = getSkillDef(skillId);
-        if (!skillDef) return;
-
-        // Validate weapon type matches equipped weapon
-        const mainhand = state.character.equipment.mainhand;
-        if (!mainhand?.weaponType || skillDef.weaponType !== mainhand.weaponType) return;
-
-        // Validate level requirement
-        if (state.character.level < skillDef.levelRequired) return;
-
-        // Set skill in skillBar[0]
-        const newSkillBar = [...state.skillBar] as (EquippedSkill | null)[];
-        newSkillBar[0] = { skillId, autoCast: true };
-
-        const updates: Partial<GameState> = { skillBar: newSkillBar };
-
-        // Mid-clear recalculation
-        if (state.idleStartTime && state.currentZoneId && state.currentClearTime > 0) {
-          const now = Date.now();
-          const oldClearTime = state.currentClearTime;
-          const progress = (now - state.clearStartedAt) / (oldClearTime * 1000);
-          const clampedProgress = Math.min(Math.max(progress, 0), 0.99);
-
-          const zone = ZONE_DEFS.find(z => z.id === state.currentZoneId);
-          if (zone) {
-            const cDef = getClassDef(state.character.class);
-            const abilityEffect = getFullEffect(state, now, false, { skillBar: newSkillBar });
-            const classDmgMult = getClassDamageModifier(state.classResource, cDef);
-            const classSpdMult = getClassClearSpeedModifier(state.classResource, cDef);
-            const tempState = { ...state, skillBar: newSkillBar };
-            const { clearTime: newClearTime, clearResult: newClearResult } = computeNextClear(
-              tempState, zone, abilityEffect, classDmgMult, classSpdMult,
-            );
-            updates.clearStartedAt = now - clampedProgress * newClearTime * 1000;
-            updates.currentClearTime = newClearTime;
-            updates.lastClearResult = newClearResult;
-          }
-        }
-
-        set(updates);
+      equipSkill: (skillId: string, slot?: number) => {
+        useSkillStore.getState().equipSkill(skillId, slot);
       },
 
-      // ── Unified Skill Bar Actions ──
+      // ── Unified Skill Bar Actions (delegated to skillStore) ──
 
       equipToSkillBar: (skillId: string, slotIndex: number) => {
-        const state = get();
-        if (slotIndex < 0 || slotIndex >= 8) return;
-
-        const skillDef = getUnifiedSkillDef(skillId);
-        if (!skillDef) return;
-
-        // Validate weapon compatibility
-        const mainhand = state.character.equipment.mainhand;
-        if (mainhand?.weaponType && skillDef.weaponType !== mainhand.weaponType) return;
-
-        // Validate level requirement
-        if (state.character.level < skillDef.levelRequired) return;
-
-        const newSkillBar = [...state.skillBar] as (EquippedSkill | null)[];
-
-        // If skill already in another slot, clear that slot
-        const existingIdx = newSkillBar.findIndex(s => s?.skillId === skillId);
-        if (existingIdx !== -1 && existingIdx !== slotIndex) {
-          newSkillBar[existingIdx] = null;
-        }
-
-        const autoCast = true; // All skills auto-cast by default (idle game)
-        newSkillBar[slotIndex] = { skillId, autoCast };
-
-        const updates: Partial<GameState> = { skillBar: newSkillBar };
-
-        // Init skillProgress if missing
-        const newProgress = { ...state.skillProgress };
-        if (!newProgress[skillId]) {
-          newProgress[skillId] = { skillId, xp: 0, level: 0, allocatedNodes: [] };
-          updates.skillProgress = newProgress;
-        }
-
-        // Init skillTimers entry for all skill kinds that need timers
-        if (skillDef.kind === 'active' || skillDef.kind === 'buff' || skillDef.kind === 'toggle' || skillDef.kind === 'instant' || skillDef.kind === 'ultimate') {
-          const newTimers = state.skillTimers.filter(t => t.skillId !== skillId);
-          newTimers.push({ skillId, activatedAt: null, cooldownUntil: null });
-          updates.skillTimers = newTimers;
-        }
-
-        // Mid-clear recalc if running
-        if (state.idleStartTime && state.currentZoneId && state.currentClearTime > 0) {
-          const now = Date.now();
-          const progress = (now - state.clearStartedAt) / (state.currentClearTime * 1000);
-          const clampedProgress = Math.min(Math.max(progress, 0), 0.99);
-          const zone = ZONE_DEFS.find(z => z.id === state.currentZoneId);
-          if (zone) {
-            const abilityEffect = getFullEffect(state, now, false, {
-              skillBar: newSkillBar,
-              skillProgress: updates.skillProgress ?? state.skillProgress,
-              skillTimers: updates.skillTimers ?? state.skillTimers,
-            });
-            const cDef = getClassDef(state.character.class);
-            const classDmgMult = getClassDamageModifier(state.classResource, cDef);
-            const classSpdMult = getClassClearSpeedModifier(state.classResource, cDef);
-            const tempState = { ...state, skillBar: newSkillBar };
-            const { clearTime: newClearTime, clearResult: newClearResult } = computeNextClear(
-              tempState, zone, abilityEffect, classDmgMult, classSpdMult,
-            );
-            updates.clearStartedAt = now - clampedProgress * newClearTime * 1000;
-            updates.currentClearTime = newClearTime;
-            updates.lastClearResult = newClearResult;
-          }
-        }
-
-        set(updates);
+        useSkillStore.getState().equipToSkillBar(skillId, slotIndex);
       },
 
       unequipSkillBarSlot: (slotIndex: number) => {
-        set((state) => {
-          if (slotIndex < 0 || slotIndex >= 5) return state;
-          const equipped = state.skillBar[slotIndex];
-          if (!equipped) return state;
-
-          const newSkillBar = [...state.skillBar] as (EquippedSkill | null)[];
-          newSkillBar[slotIndex] = null;
-
-          // Remove from skillTimers but preserve skillProgress
-          const newTimers = state.skillTimers.filter(t => t.skillId !== equipped.skillId);
-
-          return { skillBar: newSkillBar, skillTimers: newTimers };
-        });
+        useSkillStore.getState().unequipSkillBarSlot(slotIndex);
       },
 
       toggleSkillAutoCast: (slotIndex: number) => {
-        set((state) => {
-          if (slotIndex < 0 || slotIndex >= 5) return state;
-          const equipped = state.skillBar[slotIndex];
-          if (!equipped) return state;
-
-          const newSkillBar = [...state.skillBar] as (EquippedSkill | null)[];
-          newSkillBar[slotIndex] = { ...equipped, autoCast: !equipped.autoCast };
-          return { skillBar: newSkillBar };
-        });
+        useSkillStore.getState().toggleSkillAutoCast(slotIndex);
       },
 
       reorderSkillBar: (fromSlot: number, toSlot: number) => {
-        set((state) => {
-          if (fromSlot < 0 || fromSlot >= 5 || toSlot < 0 || toSlot >= 5) return state;
-          if (fromSlot === toSlot) return state;
-
-          const newSkillBar = [...state.skillBar] as (EquippedSkill | null)[];
-          const temp = newSkillBar[fromSlot];
-          newSkillBar[fromSlot] = newSkillBar[toSlot];
-          newSkillBar[toSlot] = temp;
-          return { skillBar: newSkillBar };
-        });
+        useSkillStore.getState().reorderSkillBar(fromSlot, toSlot);
       },
 
       activateSkillBarSlot: (slotIndex: number) => {
-        set((state) => {
-          const equipped = state.skillBar[slotIndex];
-          if (!equipped) return state;
-          const def = getUnifiedSkillDef(equipped.skillId);
-          if (!def) return state;
-          if (def.kind === 'active' || def.kind === 'passive' || def.kind === 'proc') return state;
-
-          const now = Date.now();
-
-          const progress = state.skillProgress[equipped.skillId];
-          const stIdx = state.skillTimers.findIndex(t => t.skillId === equipped.skillId);
-          if (stIdx === -1) return state;
-          const timer = state.skillTimers[stIdx];
-
-          const newSkillTimers = [...state.skillTimers];
-          const updates: Partial<GameState> = {};
-
-          // === TOGGLE (no GCD — set-and-forget) ===
-          if (def.kind === 'toggle') {
-            const newActivatedAt = timer.activatedAt !== null ? null : now;
-            newSkillTimers[stIdx] = { skillId: equipped.skillId, activatedAt: newActivatedAt, cooldownUntil: null };
-            updates.skillTimers = newSkillTimers;
-
-            return updates;
-          }
-
-          // === BUFF / INSTANT / ULTIMATE ===
-          // GCD check (only for non-toggle skills)
-          if (state.lastSkillActivation && now - state.lastSkillActivation < SKILL_GCD * 1000) return state;
-
-          // Cooldown check
-          if (timer.cooldownUntil && now < timer.cooldownUntil) return state;
-
-          const duration = getSkillEffectiveDuration(def, progress);
-          const charStats = resolveStats(state.character);
-          const cooldown = getSkillEffectiveCooldown(def, progress, charStats.abilityHaste);
-
-          if (def.kind === 'buff') {
-            newSkillTimers[stIdx] = {
-              skillId: equipped.skillId,
-              activatedAt: now,
-              cooldownUntil: now + (duration + cooldown) * 1000,
-            };
-          } else {
-            // instant / ultimate: fire immediately, go on CD
-            newSkillTimers[stIdx] = {
-              skillId: equipped.skillId,
-              activatedAt: null,
-              cooldownUntil: now + cooldown * 1000,
-            };
-          }
-          updates.skillTimers = newSkillTimers;
-          updates.lastSkillActivation = now;
-
-          // Mage: increment arcane charges on ability activation
-          const cDef = getClassDef(state.character.class);
-          if (cDef.resourceType === 'arcane_charges') {
-            let newStacks = state.classResource.stacks + 1;
-            if (cDef.resourceMax !== null) newStacks = Math.min(newStacks, cDef.resourceMax);
-            updates.classResource = { ...state.classResource, stacks: newStacks };
-          }
-
-          // Mid-clear recalculation (preserve progress % but adjust timing)
-          if (state.idleStartTime && state.currentZoneId && state.currentClearTime > 0) {
-            const oldClearTime = state.currentClearTime;
-            const prog = (now - state.clearStartedAt) / (oldClearTime * 1000);
-            const clampedProgress = Math.min(Math.max(prog, 0), 0.99);
-            const zone = ZONE_DEFS.find(z => z.id === state.currentZoneId);
-            if (zone) {
-              const newAbilityEffect = getFullEffect(state, now, false, {
-                skillTimers: updates.skillTimers ?? state.skillTimers,
-              });
-              const classDmgMult = getClassDamageModifier(updates.classResource ?? state.classResource, cDef);
-              const classSpdMult = getClassClearSpeedModifier(updates.classResource ?? state.classResource, cDef);
-              const { clearTime: newClearTime, clearResult: newClearResult } = computeNextClear(
-                state, zone, newAbilityEffect, classDmgMult, classSpdMult,
-              );
-              updates.clearStartedAt = now - clampedProgress * newClearTime * 1000;
-              updates.currentClearTime = newClearTime;
-              updates.lastClearResult = newClearResult;
-            }
-          }
-
-          return updates;
-        });
+        useSkillStore.getState().activateSkillBarSlot(slotIndex);
       },
 
       tickAutoCast: () => {
-        const state = get();
-        // Only during active combat
-        if (!state.idleStartTime || !state.currentZoneId) return;
-        const phase = state.combatPhase;
-        if (phase !== 'clearing' && phase !== 'boss_fight') return;
-
-        const now = Date.now();
-
-        for (let i = 0; i < state.skillBar.length; i++) {
-          const equipped = state.skillBar[i];
-          if (!equipped || !equipped.autoCast) continue;
-
-          const def = getUnifiedSkillDef(equipped.skillId);
-          if (!def) continue;
-          if (def.kind === 'active' || def.kind === 'passive' || def.kind === 'proc') continue;
-
-          const timer = state.skillTimers.find(t => t.skillId === equipped.skillId);
-          if (!timer) continue;
-
-          // Toggle: auto-activate if OFF (no GCD)
-          if (def.kind === 'toggle') {
-            if (timer.activatedAt === null) {
-              get().activateSkillBarSlot(i);
-            }
-            continue;
-          }
-
-          // Buff/Instant/Ultimate: check readiness + GCD
-          const freshState = get(); // Re-read after possible prior activation
-          if (freshState.lastSkillActivation && now - freshState.lastSkillActivation < SKILL_GCD * 1000) break;
-
-          const progress = freshState.skillProgress[equipped.skillId];
-          const duration = getSkillEffectiveDuration(def, progress);
-          const freshTimer = freshState.skillTimers.find(t => t.skillId === equipped.skillId);
-          const isActive = freshTimer?.activatedAt != null && now < freshTimer.activatedAt + duration * 1000;
-          const isOnCooldown = freshTimer?.cooldownUntil != null && now < freshTimer.cooldownUntil;
-
-          if (!isActive && !isOnCooldown) {
-            get().activateSkillBarSlot(i);
-          }
-        }
+        useSkillStore.getState().tickAutoCast();
       },
 
       // Class resource time decay (called from 250ms timer)

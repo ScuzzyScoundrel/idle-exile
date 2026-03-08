@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useGameStore } from '../../store/gameStore';
+import { useSkillStore } from '../../store/skillStore';
 import { getUnifiedSkillDef } from '../../data/unifiedSkills';
 import { getSkillEffectiveDuration, getSkillEffectiveCooldown } from '../../engine/unifiedSkills';
 import { getAbilityXpForLevel, getUnlockedSlotCount } from '../../engine/unifiedSkills';
@@ -32,8 +33,8 @@ export default function SkillBar({ lastFiredSkillId, cdResetFlash }: { lastFired
   const skillProgress = useGameStore(s => s.skillProgress);
   const skillTimers = useGameStore(s => s.skillTimers);
   const character = useGameStore(s => s.character);
-  const activateSkillBarSlot = useGameStore(s => s.activateSkillBarSlot);
-  const toggleSkillAutoCast = useGameStore(s => s.toggleSkillAutoCast);
+  const activateSkillBarSlot = useSkillStore(s => s.activateSkillBarSlot);
+  const toggleSkillAutoCast = useSkillStore(s => s.toggleSkillAutoCast);
   const [now, setNow] = useState(Date.now());
   const flashKeyRef = useRef(0);
   const cdResetKeyRef = useRef(0);
