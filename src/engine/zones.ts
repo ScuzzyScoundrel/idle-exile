@@ -36,6 +36,7 @@ import {
   BOSS_HP_RAMP, BOSS_DMG_RAMP,
   DEATH_RESPAWN_BASE, DEATH_RESPAWN_PER_BAND, DEATH_RESPAWN_CAP,
   DEATH_STREAK_MULT, DEATH_STREAK_CAP,
+  DODGE_DAMAGE_FLOOR,
 } from '../data/balance';
 import { getZoneMobTypes, weightedRandomMob, getMobTypeDef } from '../data/mobTypes';
 
@@ -723,7 +724,9 @@ export function rollZoneAttack(
   const evasionRoll = rollEntropicEvasion(hitChance, currentEntropy);
 
   if (evasionRoll.isEvaded) {
-    return { damage: 0, isDodged: true, isBlocked: false, newDodgeEntropy: evasionRoll.newEntropy };
+    // Dodged hits still deal reduced damage (not full avoidance)
+    const dodgedDamage = rawDamage * DODGE_DAMAGE_FLOOR;
+    return { damage: dodgedDamage, isDodged: true, isBlocked: false, newDodgeEntropy: evasionRoll.newEntropy };
   }
 
   let physDmg = rawDamage * physRatio;
@@ -789,7 +792,13 @@ export function simulateClearDefense(
     const rawHit = baseDmgPerHit * variance;
     const roll = rollZoneAttack(rawHit, physRatio, zoneAccuracy, stats, dodgeEntropy);
     dodgeEntropy = roll.newDodgeEntropy;
-    if (roll.isDodged) { dodges++; continue; }
+    if (roll.isDodged) {
+      dodges++;
+      totalRawDamage += rawHit;
+      totalDamage += roll.damage;
+      hits++;  // Count dodged hits as hits (they deal damage now)
+      continue;
+    }
     if (roll.isBlocked) blocks++;
     hits++;
     totalRawDamage += rawHit;

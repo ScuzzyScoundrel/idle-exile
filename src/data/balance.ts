@@ -98,6 +98,9 @@ export const BLOCK_CAP = 75;
 /** Maximum dodge chance percentage. */
 export const DODGE_CAP = 75;
 
+/** Dodged hits still deal this fraction of raw damage (not full avoidance). */
+export const DODGE_DAMAGE_FLOOR = 0.25;
+
 /** Min hit chance — even at cap evasion, 1 in 20 always lands. */
 export const EVASION_MIN_HIT_CHANCE = 5;
 
@@ -157,7 +160,9 @@ export const BASE_STATS: ResolvedStats = {
   incMaxLife: 0,
   lifeRegen: 3,
   armor: 0,
+  incArmor: 0,
   evasion: 0,
+  incEvasion: 0,
   blockChance: 0,
   fireResist: 0,
   coldResist: 0,
@@ -364,11 +369,11 @@ export const MAX_REGEN_CAP_RATIO = 0.80;
 export const UNDERLEVEL_SOFTCAP = 5;
 
 /** Death penalty: base seconds lost on death (Band 1). */
-export const DEATH_RESPAWN_BASE = 3.0;
+export const DEATH_RESPAWN_BASE = 5.0;
 /** Death penalty: extra seconds per band beyond 1. */
-export const DEATH_RESPAWN_PER_BAND = 2.0;
+export const DEATH_RESPAWN_PER_BAND = 4.0;
 /** Death penalty: max base penalty in seconds. */
-export const DEATH_RESPAWN_CAP = 15.0;
+export const DEATH_RESPAWN_CAP = 30.0;
 /** Death streak: each consecutive death adds this fraction more penalty. */
 export const DEATH_STREAK_MULT = 0.5;
 /** Death streak: maximum streak multiplier. */

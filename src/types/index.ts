@@ -53,7 +53,11 @@ export type AffixCategory =
   | 'es_recharge'
   | 'ailment_duration' | 'life_leech_percent' | 'life_on_hit'
   | 'life_on_kill' | 'cooldown_recovery' | 'fortify_effect'
-  | 'damage_taken_reduction';
+  | 'damage_taken_reduction'
+  | 'inc_armor'
+  | 'inc_evasion'
+  | 'plate_dr'
+  | 'leather_speed';
 
 export type AffixTier = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 
@@ -189,7 +193,9 @@ export type StatKey =
   | 'incMaxLife'
   | 'lifeRegen'
   | 'armor'
+  | 'incArmor'
   | 'evasion'
+  | 'incEvasion'
   | 'blockChance'
   | 'fireResist'
   | 'coldResist'
