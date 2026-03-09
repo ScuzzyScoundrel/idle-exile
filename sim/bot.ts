@@ -3,7 +3,7 @@
 // ============================================================
 
 import type { Character, ZoneDef, EquippedSkill, SkillProgress, Item, GearSlot, CurrencyType } from '../src/types';
-import { createCharacter, resolveStats, addXp, getWeaponDamageInfo, calcTotalDps } from '../src/engine/character';
+import { createCharacter, resolveStats, addXp } from '../src/engine/character';
 import { applyCurrency } from '../src/engine/crafting';
 import {
   calcPlayerDps, simulateSingleClear, simulateClearDefense,
@@ -118,6 +118,7 @@ export class Bot {
         this.logger.sampleProgression(
           this.totalClears, this.char, zone.id,
           this.computeClearTime(zone),
+          this.computePlayerDps(),
         );
       }
 
@@ -127,10 +128,12 @@ export class Bot {
 
     // Final sample
     const finalZone = ZONE_DEFS[this.currentZoneIndex];
+    const finalDps = this.computePlayerDps();
     if (finalZone) {
       this.logger.sampleProgression(
         this.totalClears, this.char, finalZone.id,
         this.computeClearTime(finalZone),
+        finalDps,
       );
     }
 
@@ -139,7 +142,7 @@ export class Bot {
       craftingUpgrades: this.craftingUpgrades,
       currencySpent: { ...this.currencySpent },
       currencyEarned: { ...this.currencyEarned },
-    });
+    }, finalDps);
   }
 
   private simulateClear(zone: ZoneDef): void {
@@ -226,7 +229,7 @@ export class Bot {
 
     // 9. Log
     this.zoneClearsCount++;
-    const dps = calcCharDps(this.char);
+    const dps = calcCharDps(this.char, this.skillBar, this.skillProgress);
 
     const log: ClearLog = {
       clearNumber: this.totalClears,
@@ -319,7 +322,7 @@ export class Bot {
   }
 
   private tryEquipUpgrade(item: Item): boolean {
-    if (isUpgrade(this.char, item, this.config.gearWeights, this.config.armorPreference)) {
+    if (isUpgrade(this.char, item, this.config.gearWeights, this.config.armorPreference, this.skillBar, this.skillProgress)) {
       this.char = equipItem(this.char, item);
       this.currentHp = Math.min(this.currentHp, this.char.stats.maxLife);
       this.logger.logUpgrade(this.totalClears, item.slot, item.iLvl);
@@ -378,7 +381,7 @@ export class Bot {
     const result = applyCurrency(weakest, currencyToUse);
     if (result.success) {
       // Check if crafted item is an upgrade over what we had
-      if (isUpgrade(this.char, result.item, this.config.gearWeights, this.config.armorPreference)) {
+      if (isUpgrade(this.char, result.item, this.config.gearWeights, this.config.armorPreference, this.skillBar, this.skillProgress)) {
         this.char = equipItem(this.char, result.item);
         this.currentHp = Math.min(this.currentHp, this.char.stats.maxLife);
         this.craftingUpgrades++;
@@ -392,23 +395,35 @@ export class Bot {
   }
 
   private checkZoneAdvancement(): void {
-    if (this.recentClearTimes.length < ADVANCE_WINDOW) return;
     if (this.currentZoneIndex >= ZONE_DEFS.length - 1) return;
 
     const zone = ZONE_DEFS[this.currentZoneIndex];
+
+    // Overlevel check: advance if player is 3+ levels above zone (mirrors real player behavior)
+    if (this.char.level >= zone.iLvlMin + 3) {
+      this.advanceToNextZone();
+      return;
+    }
+
+    if (this.recentClearTimes.length < ADVANCE_WINDOW) return;
+
     const avgClearTime = this.recentClearTimes.reduce((a, b) => a + b, 0) / this.recentClearTimes.length;
     const recentDeathCount = this.recentDeaths.reduce((a, b) => a + b, 0);
     const threshold = zone.baseClearTime * ADVANCE_CLEAR_RATIO;
 
     if (avgClearTime < threshold && recentDeathCount < ADVANCE_DEATH_THRESHOLD) {
-      this.currentZoneIndex++;
-      const newZone = ZONE_DEFS[this.currentZoneIndex];
-      this.zoneClearsCount = 0;
-      this.clearsSinceBoss = 0;
-      this.recentClearTimes = [];
-      this.recentDeaths = [];
-      this.logger.enterZone(newZone.id, this.char.level);
+      this.advanceToNextZone();
     }
+  }
+
+  private advanceToNextZone(): void {
+    this.currentZoneIndex++;
+    const newZone = ZONE_DEFS[this.currentZoneIndex];
+    this.zoneClearsCount = 0;
+    this.clearsSinceBoss = 0;
+    this.recentClearTimes = [];
+    this.recentDeaths = [];
+    this.logger.enterZone(newZone.id, this.char.level);
   }
 
   private computePlayerDps(): number {

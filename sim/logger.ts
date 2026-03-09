@@ -4,7 +4,7 @@
 
 import type { Character, GearSlot, Item, CurrencyType } from '../src/types';
 import { getAffixDef } from '../src/engine/items';
-import { calcCharDps, calcEhp } from './gear-eval';
+import { calcEhp } from './gear-eval';
 import type {
   ClearLog, ZoneSummary, BotSummary, ProgressionSample,
   GearSnapshot, ItemDropLog, AggregateResult, ZoneAggregate,
@@ -67,13 +67,13 @@ export class BotLogger {
   }
 
   /** Sample progression data (call every N clears). */
-  sampleProgression(clearNumber: number, char: Character, zoneId: string, clearTime: number): void {
+  sampleProgression(clearNumber: number, char: Character, zoneId: string, clearTime: number, dps: number): void {
     this.progressionSamples.push({
       clearNumber,
       level: char.level,
       zoneId,
       clearTime,
-      dps: calcCharDps(char),
+      dps,
       ehp: calcEhp(char.stats),
     });
   }
@@ -82,6 +82,7 @@ export class BotLogger {
   buildSummary(
     char: Character, totalSimTime: number, armorPreference: string = 'any', totalDeathPenaltyTime: number = 0,
     craftingMetrics?: { craftingAttempts: number; craftingUpgrades: number; currencySpent: Record<CurrencyType, number>; currencyEarned: Record<CurrencyType, number> },
+    finalDps: number = 0,
   ): BotSummary {
     const zoneIndex = ZONE_DEFS.findIndex(z => z.id === this.currentZoneId);
     const zoneSummaries = this.buildZoneSummaries(char);
@@ -123,7 +124,7 @@ export class BotLogger {
       longestWall,
       deathClustering,
       zoneSummaries,
-      finalDps: calcCharDps(char),
+      finalDps,
       finalEhp: calcEhp(char.stats),
       totalDeathPenaltyTime,
       craftingAttempts: craftingMetrics?.craftingAttempts ?? 0,
