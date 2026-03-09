@@ -238,10 +238,14 @@ export class Bot {
     this.char = addXp(this.char, clearResult.xpGained);
     this.currentHp = Math.min(this.currentHp, this.char.stats.maxLife);
 
-    // 6. Handle level-ups: allocate skill graph + talent tree nodes
+    // 6. Handle level-ups: allocate skill nodes
     if (this.char.level > prevLevel) {
-      this.allocateGraphNodes();
-      this.allocateTalentNodes();
+      // Daggers use the new talent tree system; other weapons use legacy skill graphs
+      if (this.config.archetype.weaponType === 'dagger') {
+        this.allocateTalentNodes();
+      } else {
+        this.allocateGraphNodes();
+      }
       this.grantSkillXp(zone.band);
     }
 
