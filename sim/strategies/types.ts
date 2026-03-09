@@ -2,7 +2,7 @@
 // Simulator Type Definitions
 // ============================================================
 
-import type { Character, Item, GearSlot, Affix, ZoneDef } from '../../src/types';
+import type { Character, Item, GearSlot, Affix, ZoneDef, CurrencyType } from '../../src/types';
 
 // --- Gear Strategy ---
 
@@ -165,6 +165,11 @@ export interface BotSummary {
   finalDps: number;
   finalEhp: number;
   totalDeathPenaltyTime: number;
+  // Crafting metrics
+  craftingAttempts: number;
+  craftingUpgrades: number;
+  currencySpent: Record<CurrencyType, number>;
+  currencyEarned: Record<CurrencyType, number>;
 }
 
 // --- Aggregate Stats ---

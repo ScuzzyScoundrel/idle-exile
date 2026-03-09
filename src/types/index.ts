@@ -56,6 +56,10 @@ export type AffixCategory =
   | 'damage_taken_reduction'
   | 'inc_armor'
   | 'inc_evasion'
+  | 'inc_attack_speed'
+  | 'inc_crit_chance'
+  | 'fire_penetration' | 'cold_penetration' | 'lightning_penetration' | 'chaos_penetration'
+  | 'dot_multiplier' | 'weapon_mastery'
   | 'plate_dr'
   | 'leather_speed';
 
@@ -161,8 +165,12 @@ export type StatKey =
   | 'flatAtkColdDamage'
   | 'flatAtkLightningDamage'
   | 'flatAtkChaosDamage'
+  | 'baseAttackSpeed'
+  | 'incAttackSpeed'
   | 'attackSpeed'
   | 'accuracy'
+  | 'baseCritChance'
+  | 'incCritChance'
   | 'incPhysDamage'
   | 'incAttackDamage'
   // Spell
@@ -179,6 +187,13 @@ export type StatKey =
   | 'incColdDamage'
   | 'incLightningDamage'
   | 'incChaosDamage'
+  // Multiplicative Offense
+  | 'firePenetration'
+  | 'coldPenetration'
+  | 'lightningPenetration'
+  | 'chaosPenetration'
+  | 'dotMultiplier'
+  | 'weaponMastery'
   // Delivery
   | 'incMeleeDamage'
   | 'incProjectileDamage'

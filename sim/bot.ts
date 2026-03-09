@@ -2,8 +2,9 @@
 // Bot — Core per-clear state machine for headless simulation
 // ============================================================
 
-import type { Character, ZoneDef, EquippedSkill, SkillProgress, Item, GearSlot } from '../src/types';
+import type { Character, ZoneDef, EquippedSkill, SkillProgress, Item, GearSlot, CurrencyType } from '../src/types';
 import { createCharacter, resolveStats, addXp, getWeaponDamageInfo, calcTotalDps } from '../src/engine/character';
+import { applyCurrency } from '../src/engine/crafting';
 import {
   calcPlayerDps, simulateSingleClear, simulateClearDefense,
   calcHazardPenalty, calcBossMaxHp, calcBossAttackProfile, generateBossLoot, rollZoneAttack,
@@ -44,6 +45,19 @@ export class Bot {
   // Skill bar (4 active skills as EquippedSkill)
   private skillBar: (EquippedSkill | null)[] = [];
   private skillProgress: Record<string, SkillProgress> = {};
+
+  // Currency + crafting tracking
+  private currency: Record<CurrencyType, number> = {
+    augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, greater_exalt: 0, perfect_exalt: 0, socket: 0,
+  };
+  private craftingAttempts = 0;
+  private craftingUpgrades = 0;
+  private currencySpent: Record<CurrencyType, number> = {
+    augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, greater_exalt: 0, perfect_exalt: 0, socket: 0,
+  };
+  private currencyEarned: Record<CurrencyType, number> = {
+    augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, greater_exalt: 0, perfect_exalt: 0, socket: 0,
+  };
 
   // Rolling window for zone advancement
   private recentClearTimes: number[] = [];
@@ -120,7 +134,12 @@ export class Bot {
       );
     }
 
-    return this.logger.buildSummary(this.char, this.totalSimTime, this.config.armorPreference, this.totalDeathPenaltyTime);
+    return this.logger.buildSummary(this.char, this.totalSimTime, this.config.armorPreference, this.totalDeathPenaltyTime, {
+      craftingAttempts: this.craftingAttempts,
+      craftingUpgrades: this.craftingUpgrades,
+      currencySpent: { ...this.currencySpent },
+      currencyEarned: { ...this.currencyEarned },
+    });
   }
 
   private simulateClear(zone: ZoneDef): void {
@@ -158,6 +177,14 @@ export class Bot {
     // 4. Simulate loot/xp from clear
     const clearResult = simulateSingleClear(this.char, zone);
 
+    // 4b. Accumulate currency from clear
+    for (const [type, qty] of Object.entries(clearResult.currencyDrops)) {
+      if (qty > 0) {
+        this.currency[type as CurrencyType] += qty;
+        this.currencyEarned[type as CurrencyType] += qty;
+      }
+    }
+
     // 5. Add XP
     const prevLevel = this.char.level;
     this.char = addXp(this.char, clearResult.xpGained);
@@ -183,6 +210,11 @@ export class Bot {
         })),
         wasEquipped,
       };
+    }
+
+    // 7b. Attempt crafting every 25 clears
+    if (this.totalClears % 25 === 0) {
+      this.attemptCrafting();
     }
 
     // 8. Boss fight every BOSS_INTERVAL clears
@@ -294,6 +326,69 @@ export class Bot {
       return true;
     }
     return false;
+  }
+
+  /** Attempt to craft on the weakest equipped item using available currency. */
+  private attemptCrafting(): void {
+    const equipment = this.char.equipment;
+    const slots: GearSlot[] = [
+      'mainhand', 'offhand', 'helmet', 'chest', 'shoulders', 'cloak',
+      'pants', 'boots', 'gloves', 'belt', 'bracers', 'neck',
+      'ring1', 'ring2', 'trinket1', 'trinket2',
+    ];
+
+    // Find weakest equipped item (lowest iLvl, fewest affixes)
+    let weakest: Item | null = null;
+    let weakestSlot: GearSlot | null = null;
+    for (const slot of slots) {
+      const item = equipment[slot];
+      if (!item) continue;
+      if (!weakest || item.iLvl < weakest.iLvl ||
+          (item.iLvl === weakest.iLvl &&
+           (item.prefixes.length + item.suffixes.length) < (weakest.prefixes.length + weakest.suffixes.length))) {
+        weakest = item;
+        weakestSlot = slot;
+      }
+    }
+    if (!weakest || !weakestSlot) return;
+
+    const totalAffixes = weakest.prefixes.length + weakest.suffixes.length;
+
+    // Strategy: augment on <4 affixes, chaos on poor items, exalt on 4+ with open slots, divine on near-perfect
+    let currencyToUse: CurrencyType | null = null;
+    if (totalAffixes < 4 && this.currency.augment > 0) {
+      currencyToUse = 'augment';
+    } else if (totalAffixes <= 3 && this.currency.chaos > 0) {
+      currencyToUse = 'chaos';
+    } else if (totalAffixes >= 4 && totalAffixes < 6 && this.currency.exalt > 0) {
+      currencyToUse = 'exalt';
+    } else if (totalAffixes >= 5 && this.currency.divine > 0) {
+      currencyToUse = 'divine';
+    } else if (this.currency.augment > 0 && totalAffixes < 6) {
+      currencyToUse = 'augment';
+    }
+
+    if (!currencyToUse) return;
+
+    // Spend currency
+    this.currency[currencyToUse]--;
+    this.currencySpent[currencyToUse]++;
+    this.craftingAttempts++;
+
+    const result = applyCurrency(weakest, currencyToUse);
+    if (result.success) {
+      // Check if crafted item is an upgrade over what we had
+      if (isUpgrade(this.char, result.item, this.config.gearWeights, this.config.armorPreference)) {
+        this.char = equipItem(this.char, result.item);
+        this.currentHp = Math.min(this.currentHp, this.char.stats.maxLife);
+        this.craftingUpgrades++;
+      } else if (currencyToUse === 'augment' || currencyToUse === 'exalt') {
+        // Augment/exalt always add affixes, so always equip the result (it's the same item improved)
+        this.char = equipItem(this.char, result.item);
+        this.currentHp = Math.min(this.currentHp, this.char.stats.maxLife);
+        this.craftingUpgrades++;
+      }
+    }
   }
 
   private checkZoneAdvancement(): void {

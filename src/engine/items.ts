@@ -9,7 +9,7 @@ import { GATHERING_AFFIX_DEFS } from '../data/gatheringAffixes';
 import { PROFESSION_AFFIX_DEFS } from '../data/professionAffixes';
 import { PROFESSION_BASE_DEFS } from '../data/professionBases';
 import { ITEM_BASE_DEFS } from '../data/items';
-import { TIER_LOW_WEIGHTS, TIER_HIGH_WEIGHTS, TIER_ILVL_CAP, AFFIX_COUNT_WEIGHTS } from '../data/balance';
+import { TIER_LOW_WEIGHTS, TIER_HIGH_WEIGHTS, TIER_ILVL_CAP, AFFIX_COUNT_WEIGHTS, AFFIX_COUNT_WEIGHTS_BY_BAND } from '../data/balance';
 
 /** Unified affix lookup across all pools (combat + gathering + profession). */
 const ALL_AFFIX_DEFS: AffixDef[] = [...AFFIX_DEFS, ...GATHERING_AFFIX_DEFS, ...PROFESSION_AFFIX_DEFS];
@@ -124,15 +124,17 @@ export function buildItemName(item: Item): string {
 
 /**
  * Roll how many affixes an item gets (2-6, weighted).
+ * Higher bands guarantee more affixes via AFFIX_COUNT_WEIGHTS_BY_BAND.
  */
-export function rollAffixCount(): number {
-  const totalWeight = AFFIX_COUNT_WEIGHTS.reduce((sum, e) => sum + e.weight, 0);
+export function rollAffixCount(band: number = 1): number {
+  const weights = AFFIX_COUNT_WEIGHTS_BY_BAND[band] ?? AFFIX_COUNT_WEIGHTS;
+  const totalWeight = weights.reduce((sum, e) => sum + e.weight, 0);
   let roll = Math.random() * totalWeight;
-  for (const entry of AFFIX_COUNT_WEIGHTS) {
+  for (const entry of weights) {
     roll -= entry.weight;
     if (roll <= 0) return entry.count;
   }
-  return 2;
+  return weights[0]?.count ?? 2;
 }
 
 /**
@@ -183,7 +185,7 @@ export function rollAffixes(
  * Generate a complete item for a given gear slot and item level.
  * Uses slot-restricted affix rolling.
  */
-export function generateItem(slot: GearSlot, iLvl: number, baseId?: string, guaranteedAffix?: AffixCategory): Item {
+export function generateItem(slot: GearSlot, iLvl: number, baseId?: string, guaranteedAffix?: AffixCategory, band: number = 1): Item {
   let base = baseId ? ITEM_BASE_DEFS.find(b => b.id === baseId) : undefined;
 
   if (!base) {
@@ -203,7 +205,7 @@ export function generateItem(slot: GearSlot, iLvl: number, baseId?: string, guar
     base = topBases[Math.floor(Math.random() * topBases.length)];
   }
 
-  const totalAffixes = rollAffixCount();
+  const totalAffixes = rollAffixCount(band);
 
   let prefixCount: number;
   let suffixCount: number;
