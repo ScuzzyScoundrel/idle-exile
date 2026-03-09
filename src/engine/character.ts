@@ -128,6 +128,14 @@ export function resolveStats(char: Character): ResolvedStats {
     stats.critChance = Math.floor(stats.critChance * (1 + stats.incCritChance / 100));
   }
 
+  // Apply allResist to individual resistances
+  if (stats.allResist > 0) {
+    stats.fireResist += stats.allResist;
+    stats.coldResist += stats.allResist;
+    stats.lightningResist += stats.allResist;
+    stats.chaosResist += stats.allResist;
+  }
+
   return stats;
 }
 

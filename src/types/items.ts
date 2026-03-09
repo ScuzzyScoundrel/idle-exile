@@ -47,6 +47,7 @@ export type AffixCategory =
   | 'cold_resist'
   | 'lightning_resist'
   | 'chaos_resist'
+  | 'all_resist'
   | 'movement_speed'
   | 'item_quantity'
   | 'item_rarity'

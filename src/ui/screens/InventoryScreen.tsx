@@ -1091,6 +1091,7 @@ const STAT_LABELS: Record<StatKey, string> = {
   coldResist: 'Cold Resist',
   lightningResist: 'Lightning Resist',
   chaosResist: 'Chaos Resist',
+  allResist: 'All Resist',
   energyShield: 'Energy Shield',
   incEnergyShield: '% Energy Shield',
   esRecharge: 'ES Recharge',

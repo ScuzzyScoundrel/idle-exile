@@ -60,6 +60,7 @@ export type StatKey =
   | 'coldResist'
   | 'lightningResist'
   | 'chaosResist'
+  | 'allResist'
   // Energy Shield
   | 'energyShield'
   | 'incEnergyShield'
