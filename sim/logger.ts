@@ -83,6 +83,7 @@ export class BotLogger {
     char: Character, totalSimTime: number, armorPreference: string = 'any', totalDeathPenaltyTime: number = 0,
     craftingMetrics?: { craftingAttempts: number; craftingUpgrades: number; currencySpent: Record<CurrencyType, number>; currencyEarned: Record<CurrencyType, number> },
     finalDps: number = 0, refDamage?: number, refAccuracy?: number,
+    skillProgress?: Record<string, { skillId: string; level: number; allocatedNodes: string[]; allocatedRanks: Record<string, number> }>,
   ): BotSummary {
     const zoneIndex = ZONE_DEFS.findIndex(z => z.id === this.currentZoneId);
     const zoneSummaries = this.buildZoneSummaries(char);
@@ -132,6 +133,7 @@ export class BotLogger {
       currencySpent: craftingMetrics?.currencySpent ?? { augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, greater_exalt: 0, perfect_exalt: 0, socket: 0 },
       currencyEarned: craftingMetrics?.currencyEarned ?? { augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, greater_exalt: 0, perfect_exalt: 0, socket: 0 },
       upgradeRecords: this.upgradeRecords,
+      skillProgress: skillProgress ?? {},
     };
   }
 

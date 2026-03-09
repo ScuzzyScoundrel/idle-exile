@@ -12,9 +12,11 @@ import {
 } from '../src/engine/zones';
 import { generateItem } from '../src/engine/items';
 import { canAllocateGraphNode, allocateGraphNode } from '../src/engine/skillGraph';
+import { canAllocateTalentRank, allocateTalentRank } from '../src/engine/talentTree';
 import { ZONE_DEFS } from '../src/data/zones';
 import { BOSS_INTERVAL, DEATH_STREAK_WINDOW } from '../src/data/balance';
 import { ALL_SKILL_GRAPHS } from '../src/data/skillGraphs';
+import { ALL_TALENT_TREES } from '../src/data/skillGraphs/talentTrees';
 import { aggregateGraphGlobalEffects } from '../src/engine/unifiedSkills';
 import { getClassDef } from '../src/data/classes';
 import {
@@ -119,6 +121,7 @@ export class Bot {
         xp: 0,
         level: 1,
         allocatedNodes: [],
+        allocatedRanks: {},
       };
     }
   }
@@ -163,12 +166,23 @@ export class Bot {
       );
     }
 
+    // Build skill progress snapshot for export
+    const skillProgressSnapshot: Record<string, { skillId: string; level: number; allocatedNodes: string[]; allocatedRanks: Record<string, number> }> = {};
+    for (const [skillId, progress] of Object.entries(this.skillProgress)) {
+      skillProgressSnapshot[skillId] = {
+        skillId: progress.skillId,
+        level: progress.level,
+        allocatedNodes: [...progress.allocatedNodes],
+        allocatedRanks: { ...(progress.allocatedRanks ?? {}) },
+      };
+    }
+
     return this.logger.buildSummary(this.char, this.totalSimTime, this.config.armorPreference, this.totalDeathPenaltyTime, {
       craftingAttempts: this.craftingAttempts,
       craftingUpgrades: this.craftingUpgrades,
       currencySpent: { ...this.currencySpent },
       currencyEarned: { ...this.currencyEarned },
-    }, finalDps, finalRefDmg, finalRefAcc);
+    }, finalDps, finalRefDmg, finalRefAcc, skillProgressSnapshot);
   }
 
   private simulateClear(zone: ZoneDef): void {
@@ -224,9 +238,10 @@ export class Bot {
     this.char = addXp(this.char, clearResult.xpGained);
     this.currentHp = Math.min(this.currentHp, this.char.stats.maxLife);
 
-    // 6. Handle level-ups: allocate skill graph nodes
+    // 6. Handle level-ups: allocate skill graph + talent tree nodes
     if (this.char.level > prevLevel) {
       this.allocateGraphNodes();
+      this.allocateTalentNodes();
       this.grantSkillXp(zone.band);
     }
 
@@ -599,6 +614,35 @@ export class Bot {
     }
   }
 
+  /** Allocate talent tree ranks based on archetype's branch choices. */
+  private allocateTalentNodes(): void {
+    for (const alloc of this.config.archetype.allocations) {
+      const tree = ALL_TALENT_TREES[alloc.skillId];
+      const progress = this.skillProgress[alloc.skillId];
+      if (!tree || !progress) continue;
+
+      // Map branch choice to branch index: b1→0, b2→1, b3→2
+      const branchIndex = alloc.branch === 'b1' ? 0 : alloc.branch === 'b2' ? 1 : 2;
+      const branch = tree.branches[branchIndex];
+      if (!branch) continue;
+
+      // Sort branch nodes by tier, then try to allocate ranks
+      const sortedNodes = [...branch.nodes].sort((a, b) => a.tier - b.tier);
+      const ranks = progress.allocatedRanks ?? {};
+
+      for (const node of sortedNodes) {
+        // Try to fill each rank of this node
+        for (let r = 0; r < node.maxRank; r++) {
+          if ((ranks[node.id] ?? 0) >= node.maxRank) break;
+          if (canAllocateTalentRank(tree, ranks, node.id, progress.level)) {
+            progress.allocatedRanks = allocateTalentRank(ranks, node.id);
+            return; // One rank per level-up check
+          }
+        }
+      }
+    }
+  }
+
   /** Grant skill XP per clear (simplified: 10 + band * 2). */
   private grantSkillXp(band: number): void {
     const xpGain = 10 + Math.floor(band * 2);
@@ -609,7 +653,7 @@ export class Bot {
       progress.xp += xpGain;
       // Level up: 100 * (level + 1) * (1 + level * 0.1)
       const xpNeeded = Math.round(100 * (progress.level + 1) * (1 + progress.level * 0.1));
-      if (progress.xp >= xpNeeded && progress.level < 30) {
+      if (progress.xp >= xpNeeded && progress.level < 20) {
         progress.xp -= xpNeeded;
         progress.level++;
       }

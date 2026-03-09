@@ -84,7 +84,7 @@ export const BAND_RESIST_PENALTY: Record<number, number> = {
   2: -5,    // Frontier — slight pressure
   3: -15,   // Contested — must actively gear resist
   4: -30,   // Dark Reaches — resist is tight (median ~70 raw → ~40 effective)
-  5: -50,   // Shattered Realm — resist is a real constraint
+  5: -40,   // Shattered Realm — resist is a real constraint
   6: -75,   // Endlands — every resist roll matters
 };
 
@@ -230,7 +230,7 @@ export const ACCURACY_PER_LEVEL = 5;
 
 /** XP curve: XP to next level = XP_BASE * XP_GROWTH^(level-1). */
 export const XP_BASE = 100;
-export const XP_GROWTH = 1.15;
+export const XP_GROWTH = 1.05;
 
 // =============================================
 // ITEM GENERATION
@@ -242,7 +242,7 @@ export const XP_GROWTH = 1.15;
  * At iLvl cap: T10 still most common, T1 still rare (chase tier).
  * Formula: lerp(TIER_LOW_WEIGHTS[tier], TIER_HIGH_WEIGHTS[tier], clamp(iLvl / TIER_ILVL_CAP, 0, 1))
  */
-export const TIER_ILVL_CAP = 70;
+export const TIER_ILVL_CAP = 92;
 /** Weights at iLvl 0 — high tiers dominate completely. */
 export const TIER_LOW_WEIGHTS: Record<AffixTier, number> = {
   10: 50, 9: 40, 8: 30, 7: 20, 6: 12, 5: 6, 4: 3, 3: 1, 2: 0.3, 1: 0.02,

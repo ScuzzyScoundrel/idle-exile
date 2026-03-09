@@ -160,7 +160,7 @@ export const AFFIX_DEFS: AffixDef[] = [
     id: 'inc_elemental_damage', name: 'Ruinous', category: 'inc_elemental_damage',
     slot: 'prefix', stat: 'incElementalDamage',
     allowedSlots: ['all_weapons', 'amulets', 'belt'],
-    tiers: buildTiers(3, 4, 4, 7, 7, 12, 10, 18, 16, 26, 20, 32),
+    tiers: buildTiers(4, 6, 6, 9, 9, 16, 16, 25, 22, 34, 32, 44),
     weight: 80, displayTemplate: '+{value}% Elemental Damage',
   },
   {

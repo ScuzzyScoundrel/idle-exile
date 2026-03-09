@@ -50,9 +50,20 @@ export function isUpgrade(
   skillBar?: (EquippedSkill | null)[], skillProgress?: Record<string, SkillProgress>,
   refDamage?: number, refAccuracy?: number,
 ): boolean {
-  // Filter by armor type if preference is set
-  if (armorPreference !== 'any' && candidate.armorType && candidate.armorType !== armorPreference) {
-    return false;
+  // Soft armor preference filter:
+  // - Empty slot → accept ANY armor type (prevents slot-fill failures)
+  // - Filled with wrong type + candidate matches preference → allow upgrade comparison
+  // - Candidate doesn't match preference on an already-filled slot → reject
+  if (armorPreference !== 'any' && candidate.armorType) {
+    const currentItem = char.equipment[candidate.slot];
+    const candidateMatchesPreference = candidate.armorType === armorPreference;
+    if (!currentItem) {
+      // Empty slot: accept any armor to fill the gap
+    } else if (currentItem.armorType && currentItem.armorType !== armorPreference && candidateMatchesPreference) {
+      // Current item is wrong type, candidate is right type: allow upgrade
+    } else if (!candidateMatchesPreference) {
+      return false;
+    }
   }
   const currentScore = scoreCharacter(char, weights, skillBar, skillProgress, refDamage, refAccuracy);
   const withCandidate = equipTemporarily(char, candidate);

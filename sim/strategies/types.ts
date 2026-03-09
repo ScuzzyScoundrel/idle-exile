@@ -204,6 +204,8 @@ export interface BotSummary {
   currencyEarned: Record<CurrencyType, number>;
   // Affix-level upgrade instrumentation
   upgradeRecords: UpgradeRecord[];
+  // Skill progress with graph + talent allocations
+  skillProgress: Record<string, { skillId: string; level: number; allocatedNodes: string[]; allocatedRanks: Record<string, number> }>;
 }
 
 // --- Aggregate Stats ---
