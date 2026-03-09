@@ -15,6 +15,7 @@ import { canAllocateGraphNode, allocateGraphNode } from '../src/engine/skillGrap
 import { ZONE_DEFS } from '../src/data/zones';
 import { BOSS_INTERVAL, DEATH_STREAK_WINDOW } from '../src/data/balance';
 import { ALL_SKILL_GRAPHS } from '../src/data/skillGraphs';
+import { aggregateGraphGlobalEffects } from '../src/engine/unifiedSkills';
 import { getClassDef } from '../src/data/classes';
 import {
   createResourceState, tickResourceOnClear, tickResourceDecay,
@@ -22,7 +23,7 @@ import {
   getClassLootModifier,
 } from '../src/engine/classResource';
 import { advanceClock } from './clock';
-import { isUpgrade, equipItem, calcCharDps, calcEhp } from './gear-eval';
+import { isUpgrade, equipItem, calcCharDps, calcEhp, calcZoneRefDamage, calcZoneAccuracy } from './gear-eval';
 import { BotLogger } from './logger';
 import { getBranchPath as getDaggerBranchPath } from './strategies/dagger';
 import { getBranchPath as getSwordBranchPath } from './strategies/sword';
@@ -130,10 +131,12 @@ export class Bot {
 
       // Sample progression every 50 clears
       if (this.totalClears % 50 === 0) {
+        const { refDamage, refAccuracy } = this.getZoneEhpParams();
         this.logger.sampleProgression(
           this.totalClears, this.char, zone.id,
           this.computeClearTime(zone),
           this.computePlayerDps(),
+          refDamage, refAccuracy,
         );
       }
 
@@ -144,11 +147,13 @@ export class Bot {
     // Final sample
     const finalZone = ZONE_DEFS[this.currentZoneIndex];
     const finalDps = this.computePlayerDps();
+    const { refDamage: finalRefDmg, refAccuracy: finalRefAcc } = this.getZoneEhpParams();
     if (finalZone) {
       this.logger.sampleProgression(
         this.totalClears, this.char, finalZone.id,
         this.computeClearTime(finalZone),
         finalDps,
+        finalRefDmg, finalRefAcc,
       );
     }
 
@@ -157,7 +162,7 @@ export class Bot {
       craftingUpgrades: this.craftingUpgrades,
       currencySpent: { ...this.currencySpent },
       currencyEarned: { ...this.currencyEarned },
-    }, finalDps);
+    }, finalDps, finalRefDmg, finalRefAcc);
   }
 
   private simulateClear(zone: ZoneDef): void {
@@ -197,7 +202,8 @@ export class Bot {
     }
 
     // 4. Simulate loot/xp from clear
-    const clearResult = simulateSingleClear(this.char, zone);
+    const effect = this.computeAbilityEffect();
+    const clearResult = simulateSingleClear(this.char, zone, effect);
 
     // 4b. Accumulate currency from clear
     for (const [type, qty] of Object.entries(clearResult.currencyDrops)) {
@@ -293,7 +299,8 @@ export class Bot {
 
   private simulateBoss(zone: ZoneDef): void {
     const bossHp = calcBossMaxHp(zone);
-    const profile = calcBossAttackProfile(this.char, zone);
+    const effect = this.computeAbilityEffect();
+    const profile = calcBossAttackProfile(this.char, zone, effect);
     const playerDps = this.computePlayerDps();
 
     // Simplified boss fight: DPS race
@@ -343,8 +350,18 @@ export class Bot {
     }
   }
 
+  /** Get zone-scaled ref damage and accuracy for EHP scoring. */
+  private getZoneEhpParams(): { refDamage: number; refAccuracy: number } {
+    const zone = ZONE_DEFS[this.currentZoneIndex];
+    return {
+      refDamage: calcZoneRefDamage(zone, this.char.level),
+      refAccuracy: calcZoneAccuracy(zone.band, this.char.level, zone.iLvlMin),
+    };
+  }
+
   private tryEquipUpgrade(item: Item): boolean {
-    if (isUpgrade(this.char, item, this.config.gearWeights, this.config.armorPreference, this.skillBar, this.skillProgress)) {
+    const { refDamage, refAccuracy } = this.getZoneEhpParams();
+    if (isUpgrade(this.char, item, this.config.gearWeights, this.config.armorPreference, this.skillBar, this.skillProgress, refDamage, refAccuracy)) {
       this.char = equipItem(this.char, item);
       this.currentHp = Math.min(this.currentHp, this.char.stats.maxLife);
       this.logger.logUpgrade(this.totalClears, item.slot, item.iLvl);
@@ -407,7 +424,8 @@ export class Bot {
     const result = applyCurrency(weakest, currencyToUse);
     if (result.success) {
       // Check if crafted item is an upgrade over what we had
-      if (isUpgrade(this.char, result.item, this.config.gearWeights, this.config.armorPreference, this.skillBar, this.skillProgress)) {
+      const { refDamage, refAccuracy } = this.getZoneEhpParams();
+      if (isUpgrade(this.char, result.item, this.config.gearWeights, this.config.armorPreference, this.skillBar, this.skillProgress, refDamage, refAccuracy)) {
         this.char = equipItem(this.char, result.item);
         this.currentHp = Math.min(this.currentHp, this.char.stats.maxLife);
         this.craftingUpgrades++;
@@ -456,15 +474,22 @@ export class Bot {
     this.resourceState = resetResourceOnEvent(this.resourceState, classDef, 'zone_switch');
   }
 
+  /** Aggregate skill graph node modifiers into an AbilityEffect. */
+  private computeAbilityEffect() {
+    return aggregateGraphGlobalEffects(this.skillBar, this.skillProgress);
+  }
+
   private computePlayerDps(): number {
-    return calcPlayerDps(this.char, undefined, undefined, this.skillBar, this.skillProgress);
+    const effect = this.computeAbilityEffect();
+    return calcPlayerDps(this.char, effect, undefined, this.skillBar, this.skillProgress);
   }
 
   private computeClearTime(zone: ZoneDef): number {
     const classDef = getClassDef(this.config.archetype.charClass);
     const classDmgMult = getClassDamageModifier(this.resourceState, classDef);
     const classSpdMult = getClassClearSpeedModifier(this.resourceState, classDef);
-    return calcClearTime(this.char, zone, undefined, classDmgMult, classSpdMult);
+    const effect = this.computeAbilityEffect();
+    return calcClearTime(this.char, zone, effect, classDmgMult, classSpdMult);
   }
 
   /** Route to the correct getBranchPath for this archetype's weapon type. */

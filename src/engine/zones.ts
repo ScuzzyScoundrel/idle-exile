@@ -694,6 +694,15 @@ export function calcZoneAccuracy(band: number, playerLevel: number, zoneILvlMin:
   return levelDelta > 0 ? baseAccuracy * (1 + levelDelta * UNDERLEVEL_ACCURACY_SCALE) : baseAccuracy;
 }
 
+/**
+ * Calculate the reference damage per hit for a zone (for EHP scoring).
+ * Mirrors simulateClearDefense's baseDmgPerHit formula.
+ */
+export function calcZoneRefDamage(zone: ZoneDef, playerLevel: number): number {
+  const levelMult = calcLevelDamageMult(playerLevel, zone.iLvlMin);
+  return (ZONE_DMG_BASE * zone.band + ZONE_DMG_ILVL_SCALE * zone.iLvlMin) * levelMult;
+}
+
 // ── Per-Hit Defense Pipeline ──
 
 /** POE-style entropy evasion roll. Deterministic over N attacks. */
