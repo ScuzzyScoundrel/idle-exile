@@ -7,7 +7,7 @@
 import type {
   TriggerCondition, ConditionalModifier, SkillProcEffect,
   ActiveDebuff, TempBuff, ResolvedStats,
-  ActiveSkillDef,
+  ActiveSkillDef, ConversionSpec,
 } from '../types';
 import { BLOCK_DODGE_RECENCY_WINDOW } from '../data/balance';
 import { getUnifiedSkillDef } from '../data/unifiedSkills';
@@ -121,6 +121,7 @@ export interface ProcContext {
   damageMult: number;
   now: number;
   lastProcTriggerAt?: Record<string, number>;  // for ICD tracking
+  weaponConversion?: ConversionSpec;
 }
 
 export interface ProcResult {
@@ -177,6 +178,7 @@ export function evaluateProcs(
         const procRoll = rollSkillCast(
           procSkill as ActiveSkillDef, ctx.stats,
           ctx.weaponAvgDmg, ctx.weaponSpellPower, ctx.damageMult,
+          undefined, ctx.weaponConversion,
         );
         if (procRoll.isHit) result.bonusDamage += procRoll.damage;
       }
@@ -187,6 +189,7 @@ export function evaluateProcs(
         const bonusRoll = rollSkillCast(
           currentSkill as ActiveSkillDef, ctx.stats,
           ctx.weaponAvgDmg, ctx.weaponSpellPower, ctx.damageMult,
+          undefined, ctx.weaponConversion,
         );
         if (bonusRoll.isHit) result.bonusDamage += bonusRoll.damage;
       }

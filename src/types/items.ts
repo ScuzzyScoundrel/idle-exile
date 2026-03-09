@@ -3,6 +3,7 @@
 // ============================================================
 
 import type { StatKey } from './stats';
+import type { ConversionSpec } from './skills';
 
 // --- Affixes ---
 
@@ -116,6 +117,7 @@ export interface ItemBaseDef {
   baseDamageMin?: number; // attack weapon min hit
   baseDamageMax?: number; // attack weapon max hit
   baseSpellPower?: number; // spell weapon base SP
+  baseConversion?: ConversionSpec; // elemental weapon global conversion (applies to ALL attacks)
   iLvl: number;
 }
 
@@ -135,6 +137,7 @@ export interface Item {
   baseDamageMin?: number;
   baseDamageMax?: number;
   baseSpellPower?: number;
+  baseConversion?: ConversionSpec; // elemental weapon global conversion
   isGatheringGear?: boolean;
   isProfessionGear?: boolean;
   isCrafted?: boolean;

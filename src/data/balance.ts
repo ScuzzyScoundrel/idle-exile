@@ -81,11 +81,11 @@ export const HAZARD_OVERCAP_MULT = 0.95;
 /** Flat resistance penalty per band — forces resist investment in later content. */
 export const BAND_RESIST_PENALTY: Record<number, number> = {
   1: 0,     // Greenlands — no penalty
-  2: -10,   // Frontier — slight pressure
-  3: -25,   // Contested — must actively gear resist
-  4: -45,   // Dark Reaches — resist is tight
-  5: -70,   // Shattered Realm — resist is a real constraint
-  6: -100,  // Endlands — every resist roll matters
+  2: -5,    // Frontier — slight pressure
+  3: -15,   // Contested — must actively gear resist
+  4: -30,   // Dark Reaches — resist is tight (median ~70 raw → ~40 effective)
+  5: -50,   // Shattered Realm — resist is a real constraint
+  6: -75,   // Endlands — every resist roll matters
 };
 
 // =============================================

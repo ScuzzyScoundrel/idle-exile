@@ -36,6 +36,10 @@ const ADVANCE_WINDOW = 20;
 const ADVANCE_CLEAR_RATIO = 0.35; // advance when avgClearTime < baseClearTime * this ratio
 const ADVANCE_DEATH_THRESHOLD = 1;
 
+// Retreat logic: if bot dies too many times without progress, drop back a zone to farm gear
+const RETREAT_DEATH_THRESHOLD = 10; // deaths in rolling window to trigger retreat
+const RETREAT_COOLDOWN = 50; // minimum clears in a zone before allowing another retreat
+
 export class Bot {
   readonly config: BotConfig;
   readonly logger: BotLogger;
@@ -74,6 +78,8 @@ export class Bot {
   // Rolling window for zone advancement
   private recentClearTimes: number[] = [];
   private recentDeaths: number[] = []; // 1 = died, 0 = survived
+  private clearsSinceZoneChange = 0; // retreat cooldown tracker
+  private highestZoneReached = 0; // track furthest progress for re-advance logic
 
   constructor(config: BotConfig) {
     this.config = config;
@@ -254,6 +260,7 @@ export class Bot {
 
     // 9. Log
     this.zoneClearsCount++;
+    this.clearsSinceZoneChange++;
     const dps = calcCharDps(this.char, this.skillBar, this.skillProgress);
 
     const log: ClearLog = {
@@ -484,9 +491,20 @@ export class Bot {
   }
 
   private checkZoneAdvancement(): void {
-    if (this.currentZoneIndex >= ZONE_DEFS.length - 1) return;
-
     const zone = ZONE_DEFS[this.currentZoneIndex];
+
+    // --- Retreat check: too many deaths → drop back to farm gear ---
+    if (this.currentZoneIndex > 0
+      && this.clearsSinceZoneChange >= RETREAT_COOLDOWN
+      && this.recentDeaths.length >= ADVANCE_WINDOW) {
+      const recentDeathCount = this.recentDeaths.reduce((a, b) => a + b, 0);
+      if (recentDeathCount >= RETREAT_DEATH_THRESHOLD) {
+        this.retreatToPreviousZone();
+        return;
+      }
+    }
+
+    if (this.currentZoneIndex >= ZONE_DEFS.length - 1) return;
 
     // Overlevel check: advance if player is 3+ levels above zone (mirrors real player behavior)
     if (this.char.level >= zone.iLvlMin + 3) {
@@ -507,9 +525,22 @@ export class Bot {
 
   private advanceToNextZone(): void {
     this.currentZoneIndex++;
+    if (this.currentZoneIndex > this.highestZoneReached) {
+      this.highestZoneReached = this.currentZoneIndex;
+    }
+    this.resetZoneState();
+  }
+
+  private retreatToPreviousZone(): void {
+    this.currentZoneIndex--;
+    this.resetZoneState();
+  }
+
+  private resetZoneState(): void {
     const newZone = ZONE_DEFS[this.currentZoneIndex];
     this.zoneClearsCount = 0;
     this.clearsSinceBoss = 0;
+    this.clearsSinceZoneChange = 0;
     this.recentClearTimes = [];
     this.recentDeaths = [];
     this.logger.enterZone(newZone.id, this.char.level);

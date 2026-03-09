@@ -3,7 +3,7 @@
 // Pure functions: no React, no side effects, no DOM.
 // ============================================================
 
-import type { Character, ZoneDef, IdleRunResult, Item, CurrencyType, GearSlot, ResolvedStats, AbilityEffect, GatheringProfession, BossState, CombatClearResult, ActiveSkillDef, MobTypeDef, EquippedSkill, SkillProgress } from '../types';
+import type { Character, ZoneDef, IdleRunResult, Item, CurrencyType, GearSlot, ResolvedStats, AbilityEffect, GatheringProfession, BossState, CombatClearResult, ActiveSkillDef, MobTypeDef, EquippedSkill, SkillProgress, ConversionSpec } from '../types';
 import { generateItem, generateProfessionItem } from './items';
 import { PROFESSION_GEAR_SLOTS } from '../types';
 import { PROFESSION_GEAR_DROP_CHANCE, PROFESSION_GEAR_GATHER_DROP_CHANCE } from '../data/balance';
@@ -140,7 +140,7 @@ export function calcPlayerDps(
   skillProgress?: Record<string, SkillProgress>,
 ): number {
   const stats = char.stats;
-  const { avgDamage, spellPower } = getWeaponDamageInfo(char.equipment);
+  const { avgDamage, spellPower, weaponConversion } = getWeaponDamageInfo(char.equipment);
 
   // Apply ability effects to a modified stats copy
   const effectiveStats: ResolvedStats = { ...stats };
@@ -152,21 +152,21 @@ export function calcPlayerDps(
 
   // Full rotation DPS: sum DPS across all equipped active skills
   if (skillBar && skillProgress) {
-    dps = calcRotationDps(skillBar, skillProgress, effectiveStats, avgDamage, spellPower, atkSpeedMult);
+    dps = calcRotationDps(skillBar, skillProgress, effectiveStats, avgDamage, spellPower, atkSpeedMult, weaponConversion);
   } else {
     // Legacy path: single skill ID
     const activeSkillId = equippedSkills?.[0];
     const skillDef = activeSkillId ? getSkillDef(activeSkillId) : null;
 
     if (skillDef) {
-      dps = calcSkillDps(skillDef, effectiveStats, avgDamage, spellPower, undefined, atkSpeedMult);
+      dps = calcSkillDps(skillDef, effectiveStats, avgDamage, spellPower, undefined, atkSpeedMult, weaponConversion);
     } else {
       // Auto-assign default skill based on weapon type
       const weaponType = char.equipment.mainhand?.weaponType;
       const defaultSkill = weaponType ? getDefaultSkillForWeapon(weaponType, char.level) : null;
 
       if (defaultSkill) {
-        dps = calcSkillDps(defaultSkill, effectiveStats, avgDamage, spellPower, undefined, atkSpeedMult);
+        dps = calcSkillDps(defaultSkill, effectiveStats, avgDamage, spellPower, undefined, atkSpeedMult, weaponConversion);
       } else {
         dps = 0;
       }
@@ -236,9 +236,10 @@ export function simulateCombatClear(
   mobHp: number,
   abilityDamageMult: number,
   abilityAttackSpeedMult: number,
+  weaponConversion?: ConversionSpec,
 ): CombatClearResult {
   const masteryMult = stats.weaponMastery > 0 ? (1 + stats.weaponMastery / 100) : 1;
-  const baseDmgPerCast = calcSkillDamagePerCast(skill, stats, weaponAvgDmg, weaponSpellPower).total * abilityDamageMult * masteryMult;
+  const baseDmgPerCast = calcSkillDamagePerCast(skill, stats, weaponAvgDmg, weaponSpellPower, undefined, weaponConversion).total * abilityDamageMult * masteryMult;
   if (baseDmgPerCast <= 0) {
     return { clearTime: 999, totalCasts: 0, hits: 0, crits: 0, misses: 0, totalDamage: 0, dotDamage: 0 };
   }

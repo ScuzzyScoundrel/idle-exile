@@ -8,7 +8,7 @@ import type {
   SkillDef, SkillProgress, SkillTimerState, EquippedSkill,
   AbilityEffect, AbilityProgress, AbilityDef, AbilityTimerState, EquippedAbility,
   ResolvedStats, ScalingFormula, SkillTreeNode, WeaponType, ZoneDef, ActiveSkillDef,
-  TempBuff, DamageResult, DamageBucket,
+  TempBuff, DamageResult, DamageBucket, ConversionSpec,
 } from '../types';
 import { ABILITY_SLOT_UNLOCKS } from '../types';
 import { calcHitChance } from './character';
@@ -678,8 +678,9 @@ export function calcSkillDamagePerCast(
   weaponAvgDmg: number,
   weaponSpellPower: number,
   graphMod?: ResolvedSkillModifier,
+  weaponConversion?: ConversionSpec,
 ): DamageResult {
-  return resolveDamageBuckets(skill, stats, weaponAvgDmg, weaponSpellPower, graphMod);
+  return resolveDamageBuckets(skill, stats, weaponAvgDmg, weaponSpellPower, graphMod, weaponConversion);
 }
 
 /**
@@ -701,8 +702,9 @@ export function calcSkillDps(
   weaponSpellPower: number,
   graphMod?: ResolvedSkillModifier,
   atkSpeedMult: number = 1.0,
+  weaponConversion?: ConversionSpec,
 ): number {
-  const dmgResult = calcSkillDamagePerCast(skill, stats, weaponAvgDmg, weaponSpellPower, graphMod);
+  const dmgResult = calcSkillDamagePerCast(skill, stats, weaponAvgDmg, weaponSpellPower, graphMod, weaponConversion);
   const dmgPerCast = dmgResult.total;
   if (dmgPerCast <= 0) return 0;
 
@@ -823,8 +825,9 @@ export function rollSkillCast(
   weaponSpellPower: number,
   damageMult: number,
   graphMod?: ResolvedSkillModifier,
+  weaponConversion?: ConversionSpec,
 ): { damage: number; isCrit: boolean; isHit: boolean; graphMod?: ResolvedSkillModifier; buckets?: DamageBucket[] } {
-  const dmgResult = calcSkillDamagePerCast(skill, stats, weaponAvgDmg, weaponSpellPower, graphMod);
+  const dmgResult = calcSkillDamagePerCast(skill, stats, weaponAvgDmg, weaponSpellPower, graphMod, weaponConversion);
   const baseDmgPerCast = dmgResult.total * damageMult;
   if (baseDmgPerCast <= 0) return { damage: 0, isCrit: false, isHit: false };
 
@@ -876,11 +879,12 @@ export function calcUnifiedDps(
   stats: ResolvedStats,
   weaponAvgDmg: number,
   weaponSpellPower: number,
+  weaponConversion?: ConversionSpec,
 ): number {
   if (skill.kind !== 'active') return 0;
 
   // SkillDef matches ActiveSkillDef shape for active skills
-  return calcSkillDps(skill, stats, weaponAvgDmg, weaponSpellPower);
+  return calcSkillDps(skill, stats, weaponAvgDmg, weaponSpellPower, undefined, 1.0, weaponConversion);
 }
 
 /**
@@ -892,9 +896,10 @@ export function calcUnifiedDamagePerCast(
   stats: ResolvedStats,
   weaponAvgDmg: number,
   weaponSpellPower: number,
+  weaponConversion?: ConversionSpec,
 ): number {
   if (skill.kind !== 'active') return 0;
-  return calcSkillDamagePerCast(skill, stats, weaponAvgDmg, weaponSpellPower).total;
+  return calcSkillDamagePerCast(skill, stats, weaponAvgDmg, weaponSpellPower, undefined, weaponConversion).total;
 }
 
 /**
@@ -909,6 +914,7 @@ export function calcRotationDps(
   weaponAvgDmg: number,
   weaponSpellPower: number,
   atkSpeedMult: number = 1.0,
+  weaponConversion?: ConversionSpec,
 ): number {
   let totalDps = 0;
   for (const equipped of skillBar) {
@@ -918,7 +924,7 @@ export function calcRotationDps(
 
     const progress = skillProgress[equipped.skillId];
     const graphMod = getSkillGraphModifier(skill, progress);
-    totalDps += calcSkillDps(skill, stats, weaponAvgDmg, weaponSpellPower, graphMod ?? undefined, atkSpeedMult);
+    totalDps += calcSkillDps(skill, stats, weaponAvgDmg, weaponSpellPower, graphMod ?? undefined, atkSpeedMult, weaponConversion);
   }
   return totalDps;
 }

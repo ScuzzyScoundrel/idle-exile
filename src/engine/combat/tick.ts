@@ -484,8 +484,8 @@ export function runCombatTick(
   }
 
   // Fire skill
-  const { avgDamage, spellPower } = getWeaponDamageInfo(state.character.equipment);
-  const roll = rollSkillCast(skill, effectiveStats, avgDamage, spellPower, damageMult, graphMod ?? undefined);
+  const { avgDamage, spellPower, weaponConversion } = getWeaponDamageInfo(state.character.equipment);
+  const roll = rollSkillCast(skill, effectiveStats, avgDamage, spellPower, damageMult, graphMod ?? undefined, weaponConversion);
 
   // Post-roll conditional modifiers (on conditions)
   if (graphMod?.conditionalMods?.length && roll.isHit) {
@@ -782,6 +782,7 @@ export function runCombatTick(
       weaponAvgDmg: avgDamage, weaponSpellPower: spellPower,
       damageMult, now,
       lastProcTriggerAt: newLastProcTriggerAt,
+      weaponConversion,
     };
 
     const triggers: TriggerCondition[] = [];

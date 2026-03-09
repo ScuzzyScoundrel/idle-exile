@@ -63,6 +63,7 @@ export function resolveDamageBuckets(
   weaponAvgDmg: number,
   weaponSpellPower: number,
   graphMod?: ResolvedSkillModifier,
+  weaponConversion?: ConversionSpec,
 ): DamageResult {
   const isAttack = skill.tags.includes('Attack');
   const isSpell = skill.tags.includes('Spell');
@@ -106,7 +107,27 @@ export function resolveDamageBuckets(
   }
 
   // ── Step 2: Split by conversion ──
-  const conversion = resolveConversion(skill.baseConversion, graphMod?.convertElement);
+  // Merge skill + graph + weapon conversions into per-element map
+  const skillGraphConversion = resolveConversion(skill.baseConversion, graphMod?.convertElement);
+
+  const conversionMap = new Map<DamageType, number>();
+  if (skillGraphConversion && skillGraphConversion.percent > 0) {
+    conversionMap.set(skillGraphConversion.to, skillGraphConversion.percent);
+  }
+  if (weaponConversion && weaponConversion.percent > 0) {
+    const existing = conversionMap.get(weaponConversion.to) ?? 0;
+    conversionMap.set(weaponConversion.to, existing + weaponConversion.percent);
+  }
+
+  // Cap total conversion at 100%
+  let totalConvPct = 0;
+  for (const pct of conversionMap.values()) totalConvPct += pct;
+  if (totalConvPct > 100) {
+    const scale = 100 / totalConvPct;
+    for (const [type, pct] of conversionMap) {
+      conversionMap.set(type, pct * scale);
+    }
+  }
 
   // Bucket accumulators
   const buckets: Record<DamageType, number> = {
@@ -118,10 +139,14 @@ export function resolveDamageBuckets(
   };
 
   if (physBase > 0) {
-    if (conversion && conversion.percent > 0) {
-      const convertedAmount = physBase * (conversion.percent / 100);
-      buckets[conversion.to] += convertedAmount;
-      buckets.physical += physBase - convertedAmount;
+    if (conversionMap.size > 0) {
+      let remaining = physBase;
+      for (const [type, pct] of conversionMap) {
+        const converted = physBase * (pct / 100);
+        buckets[type] += converted;
+        remaining -= converted;
+      }
+      buckets.physical += Math.max(0, remaining);
     } else {
       buckets.physical += physBase;
     }

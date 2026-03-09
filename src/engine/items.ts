@@ -280,6 +280,7 @@ export function generateItem(slot: GearSlot, iLvl: number, baseId?: string, guar
     baseDamageMin: base.baseDamageMin,
     baseDamageMax: base.baseDamageMax,
     baseSpellPower: base.baseSpellPower,
+    baseConversion: base.baseConversion,
   };
 
   item.rarity = classifyRarity(item);

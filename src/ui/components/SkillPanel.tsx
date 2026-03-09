@@ -78,7 +78,7 @@ export default function SkillPanel() {
   }
 
   const stats = resolveStats(character);
-  const { avgDamage, spellPower } = getWeaponDamageInfo(character.equipment);
+  const { avgDamage, spellPower, weaponConversion } = getWeaponDamageInfo(character.equipment);
   const allSkills = getUnifiedSkillsForWeapon(weaponType);
   const unlockedSlots = getUnlockedSlotCount(character.level);
 
@@ -89,7 +89,7 @@ export default function SkillPanel() {
     return def?.kind === 'active';
   });
   const equippedActiveDef = equippedActiveSkill ? getUnifiedSkillDef(equippedActiveSkill.skillId) : null;
-  const equippedDps = equippedActiveDef ? calcSkillDps(equippedActiveDef, stats, avgDamage, spellPower) : 0;
+  const equippedDps = equippedActiveDef ? calcSkillDps(equippedActiveDef, stats, avgDamage, spellPower, undefined, 1.0, weaponConversion) : 0;
 
   // Determine which kind filters to show
   const presentKinds = new Set(allSkills.map(s => s.kind));
@@ -219,7 +219,7 @@ export default function SkillPanel() {
 
           // For active skills, show DPS comparison
           const isActive = skill.kind === 'active';
-          const dps = isActive ? calcSkillDps(skill, stats, avgDamage, spellPower) : 0;
+          const dps = isActive ? calcSkillDps(skill, stats, avgDamage, spellPower, undefined, 1.0, weaponConversion) : 0;
           const delta = isActive && equippedDps > 0 ? ((dps - equippedDps) / equippedDps) * 100 : 0;
 
           return (

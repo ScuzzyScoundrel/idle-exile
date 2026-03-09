@@ -188,13 +188,13 @@ export default function CharacterScreen() {
   const weaponType = getEquippedWeaponType(character.equipment);
   const skillDps = (() => {
     const stats = resolveStats(character);
-    const { avgDamage, spellPower } = getWeaponDamageInfo(character.equipment);
+    const { avgDamage, spellPower, weaponConversion } = getWeaponDamageInfo(character.equipment);
     // Try full rotation DPS first
-    const rotDps = calcRotationDps(skillBar, skillProgress, stats, avgDamage, spellPower);
+    const rotDps = calcRotationDps(skillBar, skillProgress, stats, avgDamage, spellPower, 1.0, weaponConversion);
     if (rotDps > 0) return rotDps;
     // Fallback to default weapon skill
     const defaultSkill = weaponType ? getDefaultSkillForWeapon(weaponType, character.level) : null;
-    return defaultSkill ? calcSkillDps(defaultSkill, stats, avgDamage, spellPower) : 0;
+    return defaultSkill ? calcSkillDps(defaultSkill, stats, avgDamage, spellPower, undefined, 1.0, weaponConversion) : 0;
   })();
 
   return (

@@ -3,7 +3,7 @@
 // Pure functions: no React, no side effects, no DOM.
 // ============================================================
 
-import type { Character, CharacterClass, ResolvedStats, StatKey, GearSlot, Item } from '../types';
+import type { Character, CharacterClass, ResolvedStats, StatKey, GearSlot, Item, ConversionSpec } from '../types';
 import { getAffixDef } from './items';
 import { CLASS_DEFS } from '../data/classes';
 import { calcSetBonuses } from './setBonus';
@@ -147,7 +147,7 @@ export function calcHitChance(accuracy: number): number {
 }
 
 /** Get weapon damage info from equipped mainhand. */
-export function getWeaponDamageInfo(equipment: Partial<Record<GearSlot, Item>>): { avgDamage: number; spellPower: number; speedMod: number } {
+export function getWeaponDamageInfo(equipment: Partial<Record<GearSlot, Item>>): { avgDamage: number; spellPower: number; speedMod: number; weaponConversion?: ConversionSpec } {
   const mainhand = equipment.mainhand;
   if (!mainhand) return { avgDamage: 0, spellPower: 0, speedMod: 1.0 };
 
@@ -159,7 +159,7 @@ export function getWeaponDamageInfo(equipment: Partial<Record<GearSlot, Item>>):
   const spellPower = mainhand.baseSpellPower ?? 0;
   const speedMod = mainhand.weaponType ? WEAPON_TYPE_META[mainhand.weaponType]?.speedModifier ?? 1.0 : 1.0;
 
-  return { avgDamage, spellPower, speedMod };
+  return { avgDamage, spellPower, speedMod, weaponConversion: mainhand.baseConversion };
 }
 
 /**

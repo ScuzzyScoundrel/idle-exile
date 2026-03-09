@@ -60,7 +60,11 @@ const __dirname = path.dirname(__filename);
 
 const selectedArchetypes = archetypeFilter === 'all'
   ? ARCHETYPES
-  : ARCHETYPES.filter(a => a.name.toLowerCase() === archetypeFilter || a.name.toLowerCase().startsWith(archetypeFilter));
+  : ARCHETYPES.filter(a =>
+      a.name.toLowerCase() === archetypeFilter
+      || a.name.toLowerCase().startsWith(archetypeFilter)
+      || a.weaponType === archetypeFilter
+    );
 
 const selectedStrategies = gearStratFilter === 'all'
   ? Object.entries(GEAR_STRATEGIES)
@@ -229,7 +233,9 @@ if (!fs.existsSync(resultsDir)) {
 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 const outputPath = path.join(resultsDir, `run_${timestamp}.json`);
 
-const output = {
+// Stream-write JSON to avoid RangeError on large runs
+const fd = fs.openSync(outputPath, 'w');
+const header = {
   timestamp: new Date().toISOString(),
   balanceVersion: 'v2',
   configs: selectedArchetypes.flatMap(a =>
@@ -242,11 +248,14 @@ const output = {
       }))
     )
   ),
-  aggregates,
-  botSummaries: allSummaries,
 };
-
-fs.writeFileSync(outputPath, JSON.stringify(output, null, 2));
+fs.writeSync(fd, `{\n"timestamp": ${JSON.stringify(header.timestamp)},\n"balanceVersion": ${JSON.stringify(header.balanceVersion)},\n"configs": ${JSON.stringify(header.configs, null, 2)},\n"aggregates": ${JSON.stringify(aggregates, null, 2)},\n"botSummaries": [\n`);
+for (let i = 0; i < allSummaries.length; i++) {
+  const comma = i < allSummaries.length - 1 ? ',\n' : '\n';
+  fs.writeSync(fd, JSON.stringify(allSummaries[i], null, 2) + comma);
+}
+fs.writeSync(fd, ']\n}\n');
+fs.closeSync(fd);
 console.log(`\nFull results saved to: ${outputPath}`);
 
 // ─── Helpers ─────────────────────────────────────────────

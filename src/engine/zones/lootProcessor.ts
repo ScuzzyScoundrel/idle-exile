@@ -132,7 +132,7 @@ function computeNextClear(
   if (abilityEffect?.critChanceBonus) effectiveStats.critChance += abilityEffect.critChanceBonus;
   if (abilityEffect?.critMultiplierBonus) effectiveStats.critMultiplier += abilityEffect.critMultiplierBonus;
 
-  const { avgDamage, spellPower } = getWeaponDamageInfo(state.character.equipment);
+  const { avgDamage, spellPower, weaponConversion } = getWeaponDamageInfo(state.character.equipment);
   const invasionMult = isZoneInvaded(state.invasionState, zone.id, zone.band) ? INVASION_DIFFICULTY_MULT : 1.0;
   const mobHp = calcMobHp(zone) * invasionMult;
 
@@ -151,7 +151,7 @@ function computeNextClear(
 
   const result = simulateCombatClear(
     skill, effectiveStats, avgDamage, spellPower,
-    effectiveMobHp, damageMult, atkSpeedMult,
+    effectiveMobHp, damageMult, atkSpeedMult, weaponConversion,
   );
 
   let clearTime = result.clearTime;
