@@ -1,6 +1,7 @@
-import { ActiveDebuff } from '../../types';
+import { ActiveDebuff, GameState, AbilityEffect, EquippedSkill, SkillProgress, SkillTimerState } from '../../types';
 import { getDebuffDef } from '../../data/debuffs';
 import { FORTIFY_MAX_DR } from '../../data/balance';
+import { aggregateSkillBarEffects, aggregateGraphGlobalEffects, mergeEffect } from '../../engine/unifiedSkills';
 
 /** Human-readable labels for proc IDs (used in combat log / floaters). */
 export const PROC_LABEL: Record<string, string> = {
@@ -136,4 +137,33 @@ export function calcFortifyDR(fortifyStacks: number, fortifyExpiresAt: number, f
   if (fortifyStacks <= 0 || now > fortifyExpiresAt) return 0;
   const effectiveDRPerStack = fortifyDRPerStack * (1 + fortifyEffectBonus / 100);
   return Math.min(fortifyStacks * effectiveDRPerStack / 100, FORTIFY_MAX_DR);
+}
+
+/**
+ * Aggregate skill bar effects + class talent effects into one AbilityEffect.
+ * When no talents are allocated, talent effect is {} (identity under mergeEffect).
+ */
+export function getFullEffect(
+  state: GameState,
+  now: number,
+  offlineMode: boolean,
+  overrides?: {
+    skillBar?: (EquippedSkill | null)[];
+    skillProgress?: Record<string, SkillProgress>;
+    skillTimers?: SkillTimerState[];
+  },
+): AbilityEffect {
+  const skillEffect = aggregateSkillBarEffects(
+    overrides?.skillBar ?? state.skillBar,
+    overrides?.skillProgress ?? state.skillProgress,
+    overrides?.skillTimers ?? state.skillTimers,
+    now,
+    offlineMode,
+  );
+  const talentEffect: AbilityEffect = {};
+  const graphGlobalEffect = aggregateGraphGlobalEffects(
+    overrides?.skillBar ?? state.skillBar,
+    overrides?.skillProgress ?? state.skillProgress,
+  );
+  return mergeEffect(mergeEffect(skillEffect, talentEffect), graphGlobalEffect);
 }

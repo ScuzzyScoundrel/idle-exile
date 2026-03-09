@@ -1,4 +1,5 @@
-import { Item, Rarity } from '../../types';
+import { Item, Rarity, GameState } from '../../types';
+import { calcBagCapacity } from '../../data/items';
 
 /** Rarity sort order for auto-salvage comparison. */
 export const RARITY_ORDER: Record<Rarity, number> = {
@@ -82,4 +83,9 @@ export function addItemsWithOverflow(
   }
 
   return { newInventory, newMaterials, salvageStats: { itemsSalvaged, dustGained }, autoSoldGold, autoSoldCount, keptItems };
+}
+
+/** Get inventory capacity from bag slots. */
+export function getInventoryCapacity(state: GameState): number {
+  return calcBagCapacity(state.bagSlots);
 }

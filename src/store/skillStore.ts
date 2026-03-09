@@ -9,122 +9,25 @@
 import { create } from 'zustand';
 import type {
   EquippedSkill,
-  SkillProgress,
   GameState,
-  ResolvedStats,
-  AbilityEffect,
 } from '../types';
 import { useGameStore } from './gameStore';
 import { getUnifiedSkillDef, getAbilityDef, getSkillDef } from '../data/unifiedSkills';
 import {
   canAllocateNode, allocateNode, respecAbility as respecAbilityEngine, getRespecCost,
   getSkillEffectiveDuration, getSkillEffectiveCooldown,
-  aggregateSkillBarEffects, aggregateGraphGlobalEffects, getPrimaryDamageSkill,
-  getDefaultSkillForWeapon,
 } from '../engine/unifiedSkills';
 import { canAllocateTalentRank, allocateTalentRank, respecTalentRanks, getTalentRespecCost } from '../engine/talentTree';
 import { canAllocateGraphNode, allocateGraphNode, respecGraphNodes, getGraphRespecCost } from '../engine/skillGraph';
 import { ZONE_DEFS } from '../data/zones';
-import { SKILL_GCD, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO, INVASION_DIFFICULTY_MULT } from '../data/balance';
-import { resolveStats, getWeaponDamageInfo } from '../engine/character';
+import { SKILL_GCD } from '../data/balance';
+import { resolveStats } from '../engine/character';
 import { getClassDef } from '../data/classes';
 import {
   getClassDamageModifier, getClassClearSpeedModifier,
 } from '../engine/classResource';
-import { calcMobHp, mergeEffect } from '../engine/unifiedSkills';
-import { calcClearTime, simulateCombatClear, applyAbilityResists, calcHazardPenalty, calcOutgoingDamageMult } from '../engine/zones';
-import { isZoneInvaded } from '../engine/invasions';
-
-/**
- * Aggregate skill bar effects + graph global effects into one AbilityEffect.
- * Mirrors the getFullEffect helper in gameStore.
- */
-function getFullEffect(
-  state: GameState,
-  now: number,
-  offlineMode: boolean,
-  overrides?: {
-    skillBar?: (EquippedSkill | null)[];
-    skillProgress?: Record<string, SkillProgress>;
-    skillTimers?: import('../types').SkillTimerState[];
-  },
-): AbilityEffect {
-  const skillEffect = aggregateSkillBarEffects(
-    overrides?.skillBar ?? state.skillBar,
-    overrides?.skillProgress ?? state.skillProgress,
-    overrides?.skillTimers ?? state.skillTimers,
-    now,
-    offlineMode,
-  );
-  const talentEffect: AbilityEffect = {};
-  const graphGlobalEffect = aggregateGraphGlobalEffects(
-    overrides?.skillBar ?? state.skillBar,
-    overrides?.skillProgress ?? state.skillProgress,
-  );
-  return mergeEffect(mergeEffect(skillEffect, talentEffect), graphGlobalEffect);
-}
-
-/**
- * Compute clear time for next clear using per-hit combat sim.
- * Falls back to expected-value calcClearTime if no skill is available.
- */
-function computeNextClear(
-  state: GameState,
-  zone: import('../types').ZoneDef,
-  abilityEffect: AbilityEffect | undefined,
-  classDamageMult: number,
-  classSpeedMult: number,
-): { clearTime: number; clearResult: import('../types').CombatClearResult | null } {
-  const primarySkill = getPrimaryDamageSkill(state.skillBar ?? []);
-  const skill = primarySkill ?? getDefaultSkillForWeapon(
-    state.character.equipment.mainhand?.weaponType ?? 'sword',
-    state.character.level,
-  );
-
-  if (!skill) {
-    return {
-      clearTime: calcClearTime(state.character, zone, abilityEffect, classDamageMult, classSpeedMult),
-      clearResult: null,
-    };
-  }
-
-  const stats = resolveStats(state.character);
-  const effectiveStats: ResolvedStats = { ...stats };
-  if (abilityEffect?.critChanceBonus) effectiveStats.critChance += abilityEffect.critChanceBonus;
-  if (abilityEffect?.critMultiplierBonus) effectiveStats.critMultiplier += abilityEffect.critMultiplierBonus;
-
-  const { avgDamage, spellPower } = getWeaponDamageInfo(state.character.equipment);
-  // Invasion difficulty: mobs have more HP during void invasions
-  const invasionMult = isZoneInvaded(state.invasionState, zone.id, zone.band) ? INVASION_DIFFICULTY_MULT : 1.0;
-  const mobHp = calcMobHp(zone) * invasionMult;
-
-  // Hazard penalty: unresisted hazards make effective mob HP higher
-  const hazardMult = abilityEffect?.ignoreHazards ? 1.0 : calcHazardPenalty(
-    applyAbilityResists(stats, abilityEffect), zone,
-  );
-
-  let effectiveMobHp = mobHp / hazardMult;
-
-  // Level penalty: underleveled = mob effectively tougher
-  const levelDelta = Math.max(0, zone.iLvlMin - state.character.level);
-  if (levelDelta > 0) effectiveMobHp *= Math.pow(LEVEL_PENALTY_BASE, levelDelta);
-
-  const outgoingMult = calcOutgoingDamageMult(state.character.level, zone.iLvlMin);
-  const damageMult = (abilityEffect?.damageMult ?? 1) * classDamageMult * outgoingMult;
-  const atkSpeedMult = abilityEffect?.attackSpeedMult ?? 1;
-
-  const result = simulateCombatClear(
-    skill, effectiveStats, avgDamage, spellPower,
-    effectiveMobHp, damageMult, atkSpeedMult,
-  );
-
-  // Post-sim: apply clear speed bonuses + floor
-  let clearTime = result.clearTime;
-  clearTime /= (abilityEffect?.clearSpeedMult ?? 1) * classSpeedMult;
-  clearTime = Math.max(clearTime, zone.baseClearTime * CLEAR_TIME_FLOOR_RATIO);
-
-  return { clearTime, clearResult: { ...result, clearTime } };
-}
+import { getFullEffect } from '../engine/combat/helpers';
+import { computeNextClear } from '../engine/zones/helpers';
 
 interface SkillActions {
   // Ability / skill graph / talent tree node allocation

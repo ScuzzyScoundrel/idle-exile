@@ -22,18 +22,11 @@ import {
 } from '../engine/craftingProfessions';
 import { resolveProfessionBonuses } from '../engine/professionBonuses';
 import { getPatternDef } from '../data/craftingPatterns';
-import { addItemsWithOverflow, ESSENCE_REWARD } from '../engine/inventory/helpers';
-import { calcBagCapacity } from '../data/items';
+import { addItemsWithOverflow, ESSENCE_REWARD, getInventoryCapacity } from '../engine/inventory/helpers';
 import {
   CRAFT_OUTPUT_BUFFER_SIZE, CRAFT_LOG_MAX_ENTRIES,
   MAX_GOLD_EFFICIENCY, CRAFTING_XP_PER_TIER,
 } from '../data/balance';
-import type { GameState } from '../types';
-
-/** Helper: get inventory capacity from bag slots. */
-function getInventoryCapacity(state: GameState): number {
-  return calcBagCapacity(state.bagSlots);
-}
 
 interface CraftingActions {
   // Refinement

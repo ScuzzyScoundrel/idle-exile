@@ -10,8 +10,8 @@ import { create } from 'zustand';
 import type { CurrencyType, GearSlot } from '../types';
 import { useGameStore } from './gameStore';
 import { addXp, resolveStats } from '../engine/character';
-import { getBagDef, calcBagCapacity, BAG_SLOT_COUNT } from '../data/items';
-import { addItemsWithOverflow } from '../engine/inventory/helpers';
+import { getBagDef, BAG_SLOT_COUNT } from '../data/items';
+import { addItemsWithOverflow, getInventoryCapacity } from '../engine/inventory/helpers';
 import { ZONE_DEFS } from '../data/zones';
 import { getUnifiedSkillDef, ABILITY_ID_MIGRATION } from '../data/unifiedSkills';
 import {
@@ -20,12 +20,6 @@ import {
 import {
   updateQuestProgressForClears, updateQuestProgressForBossKill,
 } from '../engine/dailyQuests';
-import type { GameState } from '../types';
-
-/** Helper: get inventory capacity from bag slots. */
-function getInventoryCapacity(state: GameState): number {
-  return calcBagCapacity(state.bagSlots);
-}
 
 interface UiActions {
   // Offline progress
