@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useGameStore } from '../../store/gameStore';
+import { useUiStore } from '../../store/uiStore';
 
 interface TutorialOverlayProps {
   activeTab: string;
@@ -20,7 +21,7 @@ export default function TutorialOverlay({ activeTab, onTabChange }: TutorialOver
   const equipment = useGameStore((s) => s.character.equipment);
   const idleStartTime = useGameStore((s) => s.idleStartTime);
   const idleMode = useGameStore((s) => s.idleMode);
-  const advanceTutorial = useGameStore((s) => s.advanceTutorial);
+  const advanceTutorial = useUiStore((s) => s.advanceTutorial);
 
   // Auto-advance: Step 1 -> 2 when mainhand equipped
   useEffect(() => {

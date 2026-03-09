@@ -1,9 +1,10 @@
 import { useGameStore } from '../../store/gameStore';
+import { useCraftingStore } from '../../store/craftingStore';
 import { RARITY_TEXT } from './craftingConstants';
 
 export default function CraftLog() {
   const craftLog = useGameStore(s => s.craftLog);
-  const clearCraftLog = useGameStore(s => s.clearCraftLog);
+  const clearCraftLog = useCraftingStore(s => s.clearCraftLog);
 
   if (craftLog.length === 0) return null;
 

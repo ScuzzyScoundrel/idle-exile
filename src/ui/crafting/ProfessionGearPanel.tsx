@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
+import { useUiStore } from '../../store/uiStore';
 import { Item, GearSlot, PROFESSION_GEAR_SLOTS, ProfessionBonuses } from '../../types';
 import { resolveProfessionBonuses } from '../../engine/professionBonuses';
 import { formatAffix } from '../../engine/items';
@@ -121,8 +122,8 @@ function EquipSlot({
 export default function ProfessionGearPanel() {
   const professionEquipment = useGameStore(s => s.professionEquipment);
   const inventory = useGameStore(s => s.inventory);
-  const equipProfessionGear = useGameStore(s => s.equipProfessionGear);
-  const unequipProfessionSlot = useGameStore(s => s.unequipProfessionSlot);
+  const equipProfessionGear = useUiStore(s => s.equipProfessionGear);
+  const unequipProfessionSlot = useUiStore(s => s.unequipProfessionSlot);
 
   const bonuses: ProfessionBonuses = resolveProfessionBonuses(professionEquipment);
 

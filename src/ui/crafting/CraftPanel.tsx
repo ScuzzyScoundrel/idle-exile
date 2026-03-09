@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useGameStore } from '../../store/gameStore';
+import { useCraftingStore } from '../../store/craftingStore';
 import { CRAFTING_PROFESSION_DEFS } from '../../data/craftingProfessions';
 import { getRecipesForProfession } from '../../data/craftingRecipes';
 import { canCraftRecipe } from '../../engine/craftingProfessions';
@@ -27,7 +28,8 @@ interface CraftPanelProps {
 }
 
 export default function CraftPanel({ onMaterialClick }: CraftPanelProps) {
-  const { craftingSkills, materials, gold, craftRecipe, craftRecipeBatch, craftAutoSalvageMinRarity, setCraftAutoSalvageRarity } = useGameStore();
+  const { craftingSkills, materials, gold, craftAutoSalvageMinRarity } = useGameStore();
+  const { craftRecipe, craftRecipeBatch, setCraftAutoSalvageRarity } = useCraftingStore();
   const [selectedProfession, setSelectedProfession] = useState<CraftingProfession>('weaponsmith');
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
   const [expandedRecipeIds, setExpandedRecipeIds] = useState<Set<string>>(new Set());

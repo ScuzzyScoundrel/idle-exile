@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
+import { useSkillStore } from '../../store/skillStore';
 import { getUnifiedSkillsForWeapon, getUnifiedSkillDef } from '../../data/unifiedSkills';
 import { calcSkillDps, getAbilityXpForLevel, getRespecCost, getUnlockedSlotCount, canAllocateNode } from '../../engine/unifiedSkills';
 import { SKILL_MAX_LEVEL } from '../../data/balance';
@@ -54,10 +55,10 @@ export default function SkillPanel() {
   const character = useGameStore(s => s.character);
   const skillBar = useGameStore(s => s.skillBar);
   const skillProgress = useGameStore(s => s.skillProgress);
-  const equipToSkillBar = useGameStore(s => s.equipToSkillBar);
-  const unequipSkillBarSlot = useGameStore(s => s.unequipSkillBarSlot);
-  const allocateAbilityNode = useGameStore(s => s.allocateAbilityNode);
-  const respecAbility = useGameStore(s => s.respecAbility);
+  const equipToSkillBar = useSkillStore(s => s.equipToSkillBar);
+  const unequipSkillBarSlot = useSkillStore(s => s.unequipSkillBarSlot);
+  const allocateAbilityNode = useSkillStore(s => s.allocateAbilityNode);
+  const respecAbility = useSkillStore(s => s.respecAbility);
   const gold = useGameStore(s => s.gold);
 
   const [kindFilter, setKindFilter] = useState<KindFilter>('all');

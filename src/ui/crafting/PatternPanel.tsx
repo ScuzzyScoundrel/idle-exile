@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
+import { useCraftingStore } from '../../store/craftingStore';
 import { getPatternDef } from '../../data/craftingPatterns';
 import { getPatternMaterialCost, canCraftPattern } from '../../engine/craftingProfessions';
 import { getCraftingProfessionDef } from '../../data/craftingProfessions';
@@ -21,7 +22,8 @@ const SOURCE_STYLE: Record<string, string> = {
 };
 
 export default function PatternPanel() {
-  const { ownedPatterns, craftingSkills, materials, gold, craftFromPattern } = useGameStore();
+  const { ownedPatterns, craftingSkills, materials, gold } = useGameStore();
+  const { craftFromPattern } = useCraftingStore();
   const [flashItem, setFlashItem] = useState<{ name: string; rarity: Rarity; wasSalvaged: boolean } | null>(null);
 
   const handleCraft = (index: number) => {
