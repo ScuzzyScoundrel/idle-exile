@@ -52,6 +52,7 @@ export default function CombatPanel() {
     tickInvasions,
     tempBuffs, rampingStacks,
     packMobs,
+    hasSeenCraftingHint, dismissCraftingHint,
   } = useGameStore();
 
   const hydrated = useHasHydrated();
@@ -397,7 +398,14 @@ export default function CombatPanel() {
       )}
 
       {idleMode === 'combat' && combatPhase === 'zone_defeat' && runningZone && (
-        <ZoneDefeatOverlay mobName={targetedMobId ? (getMobTypeDef(targetedMobId)?.name ?? runningZone.mobName) : runningZone.mobName} zoneName={runningZone.name} currentHp={currentHp} maxHp={maxHp} />
+        <ZoneDefeatOverlay
+          mobName={targetedMobId ? (getMobTypeDef(targetedMobId)?.name ?? runningZone.mobName) : runningZone.mobName}
+          zoneName={runningZone.name}
+          currentHp={currentHp}
+          maxHp={maxHp}
+          showCraftingHint={!hasSeenCraftingHint && runningZone.band === 1}
+          onDismissCraftingHint={dismissCraftingHint}
+        />
       )}
 
       {/* Normal progress (clearing phase or gathering) */}

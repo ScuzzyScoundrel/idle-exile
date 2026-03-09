@@ -56,8 +56,16 @@ export default function ZoneScreen() {
   // Band zones
   const bands = [1, 2, 3, 4, 5, 6];
   const bandZones = ZONE_DEFS.filter(z => z.band === selectedBand);
-  const gridZones = bandZones.filter((_, i) => i < 4);
-  const bossZone = bandZones[4] ?? null;
+  const allGridZones = bandZones.filter((_, i) => i < 4);
+  const allBossZone = bandZones[4] ?? null;
+
+  // In gathering mode, only show zones that support the selected profession
+  const gridZones = idleMode === 'gathering' && selectedGatheringProfession
+    ? allGridZones.filter(z => z.gatheringTypes.includes(selectedGatheringProfession))
+    : allGridZones;
+  const bossZone = idleMode === 'gathering' && selectedGatheringProfession
+    ? (allBossZone?.gatheringTypes.includes(selectedGatheringProfession) ? allBossZone : null)
+    : allBossZone;
 
   // Current gathering skill level for selected profession
   const currentGatheringLevel = selectedGatheringProfession

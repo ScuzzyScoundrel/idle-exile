@@ -36,10 +36,6 @@ export default function ZoneCard({
   const underleveled = charLevel < zone.recommendedLevel;
   const skillReq = getGatheringSkillRequirement(zone.band);
   const skillTooLow = idleMode === 'gathering' && selectedProfession && gatheringSkillLevel < skillReq;
-  const hasMatchingProfession = idleMode === 'gathering' && selectedProfession
-    ? zone.gatheringTypes.includes(selectedProfession)
-    : true;
-
   return (
     <button
       onClick={onSelect}
@@ -54,7 +50,6 @@ export default function ZoneCard({
             : isSelected
               ? 'border-yellow-400 ring-2 ring-yellow-400/50'
               : `${BAND_BORDERS[band]} hover:brightness-125`}
-        ${idleMode === 'gathering' && !hasMatchingProfession ? 'opacity-30' : ''}
       `}
       style={isInvaded && isUnlocked ? { animation: 'invasion-glow 2s ease-in-out infinite' } : undefined}
     >

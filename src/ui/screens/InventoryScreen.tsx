@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useLayoutEffect, useMemo } from 'react';
 import { useGameStore, SELL_GOLD } from '../../store/gameStore';
 import { Item, Affix, GearSlot, CurrencyType, Rarity, StatKey, ArmorType } from '../../types';
-import { CURRENCY_DEFS, calcBagCapacity } from '../../data/items';
+import { CURRENCY_DEFS, calcBagCapacity, getBagDef } from '../../data/items';
 import { formatAffix, getBestTierForILvl, isUpgradeOver, getComparisonTarget, calcItemStatContribution } from '../../engine/items';
 import { formatCorruptionAffix } from '../../data/corruptionAffixes';
 import { slotLabel, DROPPABLE_SLOTS } from '../slotConfig';
@@ -127,7 +127,7 @@ const AUTO_SALVAGE_OPTIONS: { value: Rarity; label: string }[] = [
 export default function InventoryScreen() {
   const {
     character, inventory, currencies, gold,
-    bagSlots,
+    bagSlots, bagStash, equipBag, sellBag, salvageBag,
     equipItem, unequipSlot, disenchantItem, sellItem, craft,
     autoSalvageMinRarity, setAutoSalvageRarity,
     autoDisposalAction, setAutoDisposalAction,
@@ -144,6 +144,7 @@ export default function InventoryScreen() {
   const [disenchantMsg, setDisenchantMsg] = useState<string | null>(null);
   const [craftMsg, setCraftMsg] = useState<string | null>(null);
   const [equippedOpen, setEquippedOpen] = useState(true);
+  const [bagsExpanded, setBagsExpanded] = useState(false);
   const [currencyTip, setCurrencyTip] = useState<CurrencyType | null>(null);
 
   const [tooltip, setTooltip] = useState<{ item: Item; slot: GearSlot; x: number; y: number; rectHeight: number } | null>(null);
@@ -638,9 +639,13 @@ export default function InventoryScreen() {
       {/* Inventory Header + Filters */}
       <div>
         <div className="flex items-center justify-between mb-1">
-          <h2 className={`text-sm font-bold ${inventory.length >= inventoryCapacity ? 'text-red-400' : inventory.length >= inventoryCapacity * 0.8 ? 'text-yellow-400' : 'text-yellow-400'}`}>
+          <button
+            onClick={() => setBagsExpanded(!bagsExpanded)}
+            className={`text-sm font-bold flex items-center gap-1 ${inventory.length >= inventoryCapacity ? 'text-red-400' : inventory.length >= inventoryCapacity * 0.8 ? 'text-yellow-400' : 'text-yellow-400'}`}
+          >
+            <span className={`text-xs transition-transform ${bagsExpanded ? 'rotate-90' : ''}`}>{'\u25B6'}</span>
             {'\u{1F392}'} Bags ({inventory.length}/{inventoryCapacity})
-          </h2>
+          </button>
           {filteredInventory.length > 0 && (
             <div className="flex gap-1">
               <button
@@ -658,6 +663,68 @@ export default function InventoryScreen() {
             </div>
           )}
         </div>
+        {/* Collapsible bag management panel */}
+        {bagsExpanded && (
+          <div className="bg-gray-800/60 rounded-lg p-2 mb-2 space-y-2">
+            {/* Equipped bag slots */}
+            <div className="flex gap-1">
+              {bagSlots.map((slotId, i) => {
+                const def = getBagDef(slotId);
+                const tierBorder = ['border-gray-500', 'border-green-500', 'border-blue-500', 'border-purple-500', 'border-orange-500'][def.tier - 1] ?? 'border-gray-500';
+                return (
+                  <div key={i} className={`flex-1 bg-gray-900 rounded border ${tierBorder} p-1.5 text-center`}>
+                    <div className="text-[10px] text-gray-300 font-semibold truncate">{def.name}</div>
+                    <div className="text-xs text-gray-500">[{def.capacity}]</div>
+                  </div>
+                );
+              })}
+            </div>
+            {/* Stashed bags */}
+            {Object.keys(bagStash).length > 0 && (
+              <div className="space-y-1">
+                <div className="text-xs text-gray-500 font-semibold">Stash</div>
+                {Object.entries(bagStash).filter(([, count]) => count > 0).map(([bagId, count]) => {
+                  const def = getBagDef(bagId);
+                  const tierColor = ['text-gray-400', 'text-green-400', 'text-blue-400', 'text-purple-400', 'text-orange-400'][def.tier - 1] ?? 'text-gray-400';
+                  return (
+                    <div key={bagId} className="flex items-center gap-2 bg-gray-900/60 rounded px-2 py-1">
+                      <span className={`text-xs font-semibold flex-1 ${tierColor}`}>
+                        {def.name} [{def.capacity}] {count > 1 && <span className="text-gray-500">x{count}</span>}
+                      </span>
+                      <button
+                        onClick={() => {
+                          // Find weakest equipped slot (lowest tier/capacity) and equip there
+                          let weakestIdx = 0;
+                          let weakestCap = Infinity;
+                          bagSlots.forEach((sid, idx) => {
+                            const c = getBagDef(sid).capacity;
+                            if (c < weakestCap) { weakestCap = c; weakestIdx = idx; }
+                          });
+                          equipBag(bagId, weakestIdx);
+                        }}
+                        className="px-2 py-0.5 rounded text-[10px] bg-green-900 hover:bg-green-800 text-green-300 font-semibold"
+                      >
+                        Equip
+                      </button>
+                      <button
+                        onClick={() => sellBag(bagId)}
+                        className="px-2 py-0.5 rounded text-[10px] bg-yellow-900 hover:bg-yellow-800 text-yellow-300 font-semibold"
+                      >
+                        Sell
+                      </button>
+                      <button
+                        onClick={() => salvageBag(bagId)}
+                        className="px-2 py-0.5 rounded text-[10px] bg-purple-900 hover:bg-purple-800 text-purple-300 font-semibold"
+                      >
+                        Salvage
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
         <div className="flex items-center gap-2 mb-1">
           <label className="text-xs text-gray-500 shrink-0">Auto:</label>
           <div className="flex rounded overflow-hidden border border-gray-600 shrink-0">
