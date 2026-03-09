@@ -103,6 +103,7 @@ function applyBossDamage(
     const abilEff = getFullEffect(state, now, false);
     const defStats = applyAbilityResists(bossStats, abilEff);
     let playerHp = state.currentHp;
+    let bossCurrentEs = state.currentEs;
     let bossAttackResult: CombatTickResult['bossAttack'] = null;
     let helperBleedDmg = 0;
 
@@ -135,7 +136,6 @@ function applyBossDamage(
         if (helperBossFortifyDR > 0) cappedDmg *= (1 - helperBossFortifyDR);
         if (bossStats.damageTakenReduction > 0) cappedDmg *= (1 - bossStats.damageTakenReduction / 100);
         // ES absorbs boss damage before HP
-        let bossCurrentEs = state.currentEs;
         if (bossCurrentEs > 0 && cappedDmg > 0) {
           const esAbsorbed = Math.min(bossCurrentEs, cappedDmg);
           bossCurrentEs -= esAbsorbed;
@@ -183,6 +183,7 @@ function applyBossDamage(
     return {
       patch: {
         currentHp: playerHp,
+        currentEs: bossCurrentEs,
         bossState: { ...bs, bossNextAttackAt: nextAttack, bossCurrentHp: helperBossHp },
         activeDebuffs: updatedDebuffs,
       },

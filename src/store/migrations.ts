@@ -6,7 +6,7 @@ import {
   SkillTimerState,
   GameState,
 } from '../types';
-import { BAG_UPGRADE_DEFS, getBagDef, BAG_SLOT_COUNT } from '../data/items';
+import { BAG_UPGRADE_DEFS, getBagDef, BAG_SLOT_COUNT, ITEM_BASE_DEFS } from '../data/items';
 import { createDefaultGatheringSkills } from '../engine/gathering';
 import { createDefaultCraftingSkills } from '../data/craftingProfessions';
 import { createResourceState } from '../engine/classResource';
@@ -504,6 +504,41 @@ export function runMigrations(
       else if (count >= 25) claimed[zoneId] = 25;
     }
     raw.zoneMasteryClaimed = claimed;
+  }
+
+  if (version < 52) {
+    // v52: Multiplicative offense stats (penetration, dotMultiplier, weaponMastery)
+    // No-op: new stats default to 0 via BASE_STATS, no existing items have these affixes.
+  }
+
+  if (version < 51) {
+    // v51: Weapon base attack speed + crit chance
+    // Add baseAttackSpeed/baseCritChance to existing weapon items from base defs
+    const baseLookup = new Map(ITEM_BASE_DEFS.map(d => [d.id, d.baseStats]));
+    const migrateWeaponStats = (item: Record<string, unknown>) => {
+      if (!item.weaponType || !item.baseId) return;
+      const bs = (item.baseStats ?? {}) as Record<string, unknown>;
+      // Rename dagger critChance → baseCritChance
+      if (item.weaponType === 'dagger' && 'critChance' in bs) {
+        bs.baseCritChance = bs.critChance;
+        delete bs.critChance;
+      }
+      // Add missing baseAttackSpeed/baseCritChance from base def
+      const defStats = baseLookup.get(item.baseId as string) as Record<string, unknown> | undefined;
+      if (defStats) {
+        if (bs.baseAttackSpeed === undefined && defStats.baseAttackSpeed !== undefined) {
+          bs.baseAttackSpeed = defStats.baseAttackSpeed;
+        }
+        if (bs.baseCritChance === undefined && defStats.baseCritChance !== undefined) {
+          bs.baseCritChance = defStats.baseCritChance;
+        }
+      }
+      item.baseStats = bs;
+    };
+    const equip51 = ((raw.character as Record<string, unknown>)?.equipment ?? {}) as Record<string, Record<string, unknown>>;
+    for (const item of Object.values(equip51)) { if (item) migrateWeaponStats(item); }
+    const inv51 = (raw.inventory ?? []) as Record<string, unknown>[];
+    for (const item of inv51) migrateWeaponStats(item);
   }
 
   if (version < 50) {
