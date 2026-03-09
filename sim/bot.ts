@@ -2,7 +2,7 @@
 // Bot — Core per-clear state machine for headless simulation
 // ============================================================
 
-import type { Character, ZoneDef, EquippedSkill, SkillProgress, Item, GearSlot, CurrencyType } from '../src/types';
+import type { Character, ZoneDef, EquippedSkill, SkillProgress, Item, GearSlot, CurrencyType, ClassResourceState } from '../src/types';
 import { createCharacter, resolveStats, addXp } from '../src/engine/character';
 import { applyCurrency } from '../src/engine/crafting';
 import {
@@ -14,12 +14,22 @@ import { generateItem } from '../src/engine/items';
 import { canAllocateGraphNode, allocateGraphNode } from '../src/engine/skillGraph';
 import { ZONE_DEFS } from '../src/data/zones';
 import { BOSS_INTERVAL, DEATH_STREAK_WINDOW } from '../src/data/balance';
-import { DAGGER_SKILL_GRAPHS } from '../src/data/skillGraphs/dagger';
+import { ALL_SKILL_GRAPHS } from '../src/data/skillGraphs';
+import { aggregateGraphGlobalEffects } from '../src/engine/unifiedSkills';
+import { getClassDef } from '../src/data/classes';
+import {
+  createResourceState, tickResourceOnClear, tickResourceDecay,
+  resetResourceOnEvent, getClassDamageModifier, getClassClearSpeedModifier,
+  getClassLootModifier,
+} from '../src/engine/classResource';
 import { advanceClock } from './clock';
-import { isUpgrade, equipItem, calcCharDps, calcEhp } from './gear-eval';
+import { isUpgrade, equipItem, calcCharDps, calcEhp, calcZoneRefDamage, calcZoneAccuracy } from './gear-eval';
 import { BotLogger } from './logger';
-import { getBranchPath } from './strategies/dagger';
-import type { BotConfig, ClearLog, BotSummary, GearWeights } from './strategies/types';
+import { getBranchPath as getDaggerBranchPath } from './strategies/dagger';
+import { getBranchPath as getSwordBranchPath } from './strategies/sword';
+import { getBranchPath as getStaffBranchPath } from './strategies/staff';
+import { getBranchPath as getBowBranchPath } from './strategies/bow';
+import type { BotConfig, ClearLog, BotSummary, GearWeights, WeaponType } from './strategies/types';
 
 // Zone advancement: rolling window settings
 const ADVANCE_WINDOW = 20;
@@ -58,6 +68,9 @@ export class Bot {
     augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, greater_exalt: 0, perfect_exalt: 0, socket: 0,
   };
 
+  // Class resource tracking
+  private resourceState: ClassResourceState;
+
   // Rolling window for zone advancement
   private recentClearTimes: number[] = [];
   private recentDeaths: number[] = []; // 1 = died, 0 = survived
@@ -66,14 +79,18 @@ export class Bot {
     this.config = config;
     this.logger = new BotLogger(config.seed, config.archetype.name, config.gearStrategy);
 
-    // Create rogue character with dagger
-    this.char = createCharacter('Bot', 'rogue');
+    // Create character with archetype's class
+    const charClass = config.archetype.charClass;
+    this.char = createCharacter('Bot', charClass);
 
-    // Give starting weapon
-    const startDagger = generateItem('mainhand', 1, undefined);
-    this.char = equipItem(this.char, startDagger);
+    // Give starting weapon (matches archetype's weapon type)
+    const startWeapon = generateItem('mainhand', 1, undefined);
+    this.char = equipItem(this.char, startWeapon);
 
     this.currentHp = this.char.stats.maxLife;
+
+    // Initialize class resource state
+    this.resourceState = createResourceState(charClass);
 
     // Initialize skill bar
     this.initSkillBar();
@@ -114,10 +131,12 @@ export class Bot {
 
       // Sample progression every 50 clears
       if (this.totalClears % 50 === 0) {
+        const { refDamage, refAccuracy } = this.getZoneEhpParams();
         this.logger.sampleProgression(
           this.totalClears, this.char, zone.id,
           this.computeClearTime(zone),
           this.computePlayerDps(),
+          refDamage, refAccuracy,
         );
       }
 
@@ -128,11 +147,13 @@ export class Bot {
     // Final sample
     const finalZone = ZONE_DEFS[this.currentZoneIndex];
     const finalDps = this.computePlayerDps();
+    const { refDamage: finalRefDmg, refAccuracy: finalRefAcc } = this.getZoneEhpParams();
     if (finalZone) {
       this.logger.sampleProgression(
         this.totalClears, this.char, finalZone.id,
         this.computeClearTime(finalZone),
         finalDps,
+        finalRefDmg, finalRefAcc,
       );
     }
 
@@ -141,11 +162,15 @@ export class Bot {
       craftingUpgrades: this.craftingUpgrades,
       currencySpent: { ...this.currencySpent },
       currencyEarned: { ...this.currencyEarned },
-    }, finalDps);
+    }, finalDps, finalRefDmg, finalRefAcc);
   }
 
   private simulateClear(zone: ZoneDef): void {
-    // 1. Calculate clear time
+    // 0. Tick class resource on clear
+    const classDef = getClassDef(this.config.archetype.charClass);
+    this.resourceState = tickResourceOnClear(this.resourceState, classDef, zone.id);
+
+    // 1. Calculate clear time (with class multipliers)
     const clearTime = this.computeClearTime(zone);
 
     // 2. Simulate incoming damage during clear
@@ -177,7 +202,8 @@ export class Bot {
     }
 
     // 4. Simulate loot/xp from clear
-    const clearResult = simulateSingleClear(this.char, zone);
+    const effect = this.computeAbilityEffect();
+    const clearResult = simulateSingleClear(this.char, zone, effect);
 
     // 4b. Accumulate currency from clear
     for (const [type, qty] of Object.entries(clearResult.currencyDrops)) {
@@ -259,6 +285,9 @@ export class Bot {
     this.totalSimTime += clearTime + deathPenaltyTime;
     advanceClock((clearTime + deathPenaltyTime) * 1000);
 
+    // 11. Tick class resource decay (Warrior rage decays over time)
+    this.resourceState = tickResourceDecay(this.resourceState, classDef, clearTime + deathPenaltyTime);
+
     // Update rolling window
     this.recentClearTimes.push(clearTime);
     this.recentDeaths.push(died ? 1 : 0);
@@ -270,7 +299,8 @@ export class Bot {
 
   private simulateBoss(zone: ZoneDef): void {
     const bossHp = calcBossMaxHp(zone);
-    const profile = calcBossAttackProfile(this.char, zone);
+    const effect = this.computeAbilityEffect();
+    const profile = calcBossAttackProfile(this.char, zone, effect);
     const playerDps = this.computePlayerDps();
 
     // Simplified boss fight: DPS race
@@ -320,11 +350,25 @@ export class Bot {
     }
   }
 
+  /** Get zone-scaled ref damage and accuracy for EHP scoring. */
+  private getZoneEhpParams(): { refDamage: number; refAccuracy: number } {
+    const zone = ZONE_DEFS[this.currentZoneIndex];
+    return {
+      refDamage: calcZoneRefDamage(zone, this.char.level),
+      refAccuracy: calcZoneAccuracy(zone.band, this.char.level, zone.iLvlMin),
+    };
+  }
+
   private tryEquipUpgrade(item: Item): boolean {
-    if (isUpgrade(this.char, item, this.config.gearWeights, this.config.armorPreference, this.skillBar, this.skillProgress)) {
+    const { refDamage, refAccuracy } = this.getZoneEhpParams();
+    if (isUpgrade(this.char, item, this.config.gearWeights, this.config.armorPreference, this.skillBar, this.skillProgress, refDamage, refAccuracy)) {
       this.char = equipItem(this.char, item);
       this.currentHp = Math.min(this.currentHp, this.char.stats.maxLife);
       this.logger.logUpgrade(this.totalClears, item.slot, item.iLvl);
+
+      // Reset class resource on gear swap (Rogue momentum)
+      const classDef = getClassDef(this.config.archetype.charClass);
+      this.resourceState = resetResourceOnEvent(this.resourceState, classDef, 'gear_swap');
       return true;
     }
     return false;
@@ -380,7 +424,8 @@ export class Bot {
     const result = applyCurrency(weakest, currencyToUse);
     if (result.success) {
       // Check if crafted item is an upgrade over what we had
-      if (isUpgrade(this.char, result.item, this.config.gearWeights, this.config.armorPreference, this.skillBar, this.skillProgress)) {
+      const { refDamage, refAccuracy } = this.getZoneEhpParams();
+      if (isUpgrade(this.char, result.item, this.config.gearWeights, this.config.armorPreference, this.skillBar, this.skillProgress, refDamage, refAccuracy)) {
         this.char = equipItem(this.char, result.item);
         this.currentHp = Math.min(this.currentHp, this.char.stats.maxLife);
         this.craftingUpgrades++;
@@ -423,24 +468,49 @@ export class Bot {
     this.recentClearTimes = [];
     this.recentDeaths = [];
     this.logger.enterZone(newZone.id, this.char.level);
+
+    // Reset class resource on zone switch (Ranger tracking, Rogue momentum)
+    const classDef = getClassDef(this.config.archetype.charClass);
+    this.resourceState = resetResourceOnEvent(this.resourceState, classDef, 'zone_switch');
+  }
+
+  /** Aggregate skill graph node modifiers into an AbilityEffect. */
+  private computeAbilityEffect() {
+    return aggregateGraphGlobalEffects(this.skillBar, this.skillProgress);
   }
 
   private computePlayerDps(): number {
-    return calcPlayerDps(this.char, undefined, undefined, this.skillBar, this.skillProgress);
+    const effect = this.computeAbilityEffect();
+    return calcPlayerDps(this.char, effect, undefined, this.skillBar, this.skillProgress);
   }
 
   private computeClearTime(zone: ZoneDef): number {
-    return calcClearTime(this.char, zone);
+    const classDef = getClassDef(this.config.archetype.charClass);
+    const classDmgMult = getClassDamageModifier(this.resourceState, classDef);
+    const classSpdMult = getClassClearSpeedModifier(this.resourceState, classDef);
+    const effect = this.computeAbilityEffect();
+    return calcClearTime(this.char, zone, effect, classDmgMult, classSpdMult);
+  }
+
+  /** Route to the correct getBranchPath for this archetype's weapon type. */
+  private getBranchPathForWeapon(skillId: string, branch: import('./strategies/types').BranchChoice): string[] {
+    switch (this.config.archetype.weaponType) {
+      case 'dagger': return getDaggerBranchPath(skillId, branch);
+      case 'sword':  return getSwordBranchPath(skillId, branch);
+      case 'staff':  return getStaffBranchPath(skillId, branch);
+      case 'bow':    return getBowBranchPath(skillId, branch);
+      default:       return [];
+    }
   }
 
   /** Allocate skill graph nodes based on archetype's branch choices. */
   private allocateGraphNodes(): void {
     for (const alloc of this.config.archetype.allocations) {
-      const graph = DAGGER_SKILL_GRAPHS[alloc.skillId];
+      const graph = ALL_SKILL_GRAPHS[alloc.skillId];
       const progress = this.skillProgress[alloc.skillId];
       if (!graph || !progress) continue;
 
-      const path = getBranchPath(alloc.skillId, alloc.branch);
+      const path = this.getBranchPathForWeapon(alloc.skillId, alloc.branch);
 
       // Try to allocate the next unallocated node in the path
       for (const nodeId of path) {

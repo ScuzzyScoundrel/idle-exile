@@ -67,14 +67,14 @@ export class BotLogger {
   }
 
   /** Sample progression data (call every N clears). */
-  sampleProgression(clearNumber: number, char: Character, zoneId: string, clearTime: number, dps: number): void {
+  sampleProgression(clearNumber: number, char: Character, zoneId: string, clearTime: number, dps: number, refDamage?: number, refAccuracy?: number): void {
     this.progressionSamples.push({
       clearNumber,
       level: char.level,
       zoneId,
       clearTime,
       dps,
-      ehp: calcEhp(char.stats),
+      ehp: calcEhp(char.stats, refDamage, refAccuracy),
     });
   }
 
@@ -82,7 +82,7 @@ export class BotLogger {
   buildSummary(
     char: Character, totalSimTime: number, armorPreference: string = 'any', totalDeathPenaltyTime: number = 0,
     craftingMetrics?: { craftingAttempts: number; craftingUpgrades: number; currencySpent: Record<CurrencyType, number>; currencyEarned: Record<CurrencyType, number> },
-    finalDps: number = 0,
+    finalDps: number = 0, refDamage?: number, refAccuracy?: number,
   ): BotSummary {
     const zoneIndex = ZONE_DEFS.findIndex(z => z.id === this.currentZoneId);
     const zoneSummaries = this.buildZoneSummaries(char);
@@ -125,7 +125,7 @@ export class BotLogger {
       deathClustering,
       zoneSummaries,
       finalDps,
-      finalEhp: calcEhp(char.stats),
+      finalEhp: calcEhp(char.stats, refDamage, refAccuracy),
       totalDeathPenaltyTime,
       craftingAttempts: craftingMetrics?.craftingAttempts ?? 0,
       craftingUpgrades: craftingMetrics?.craftingUpgrades ?? 0,

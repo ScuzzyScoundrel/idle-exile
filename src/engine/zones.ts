@@ -694,6 +694,15 @@ export function calcZoneAccuracy(band: number, playerLevel: number, zoneILvlMin:
   return levelDelta > 0 ? baseAccuracy * (1 + levelDelta * UNDERLEVEL_ACCURACY_SCALE) : baseAccuracy;
 }
 
+/**
+ * Calculate the reference damage per hit for a zone (for EHP scoring).
+ * Mirrors simulateClearDefense's baseDmgPerHit formula.
+ */
+export function calcZoneRefDamage(zone: ZoneDef, playerLevel: number): number {
+  const levelMult = calcLevelDamageMult(playerLevel, zone.iLvlMin);
+  return (ZONE_DMG_BASE * zone.band + ZONE_DMG_ILVL_SCALE * zone.iLvlMin) * levelMult;
+}
+
 // ── Per-Hit Defense Pipeline ──
 
 /** POE-style entropy evasion roll. Deterministic over N attacks. */
@@ -842,6 +851,9 @@ export function simulateClearDefense(
   let totalRawDamage = 0;
   let dodges = 0, blocks = 0, hits = 0;
   let dodgeEntropy = Math.floor(Math.random() * 100);
+  let currentEs = stats.energyShield ?? 0;
+  const esRecharge = stats.esRecharge ?? 0;
+  const dtPerHit = hitsPerClear > 0 ? clearTime / hitsPerClear : 0;
 
   for (let i = 0; i < hitsPerClear; i++) {
     const variance = 0.8 + Math.random() * 0.4; // 80%-120%
@@ -852,13 +864,26 @@ export function simulateClearDefense(
       dodges++;
       totalRawDamage += rawHit;
       totalDamage += roll.damage;
-      hits++;  // Count dodged hits as hits (they deal damage now)
+      hits++;
       continue;
     }
     if (roll.isBlocked) blocks++;
     hits++;
     totalRawDamage += rawHit;
-    totalDamage += roll.damage;
+
+    // ES absorbs damage before HP (mirrors tick.ts:258-270)
+    let dmgAfterEs = roll.damage;
+    if (currentEs > 0 && dmgAfterEs > 0) {
+      const esAbsorbed = Math.min(currentEs, dmgAfterEs);
+      currentEs -= esAbsorbed;
+      dmgAfterEs -= esAbsorbed;
+    }
+    totalDamage += dmgAfterEs;
+
+    // ES recharges between hits
+    if (esRecharge > 0) {
+      currentEs = Math.min(stats.energyShield ?? 0, currentEs + esRecharge * dtPerHit);
+    }
   }
 
   // Calculate total mitigated damage (pre-mitigation minus post-mitigation for non-dodged hits)
