@@ -851,6 +851,9 @@ export function simulateClearDefense(
   let totalRawDamage = 0;
   let dodges = 0, blocks = 0, hits = 0;
   let dodgeEntropy = Math.floor(Math.random() * 100);
+  let currentEs = stats.energyShield ?? 0;
+  const esRecharge = stats.esRecharge ?? 0;
+  const dtPerHit = hitsPerClear > 0 ? clearTime / hitsPerClear : 0;
 
   for (let i = 0; i < hitsPerClear; i++) {
     const variance = 0.8 + Math.random() * 0.4; // 80%-120%
@@ -861,13 +864,26 @@ export function simulateClearDefense(
       dodges++;
       totalRawDamage += rawHit;
       totalDamage += roll.damage;
-      hits++;  // Count dodged hits as hits (they deal damage now)
+      hits++;
       continue;
     }
     if (roll.isBlocked) blocks++;
     hits++;
     totalRawDamage += rawHit;
-    totalDamage += roll.damage;
+
+    // ES absorbs damage before HP (mirrors tick.ts:258-270)
+    let dmgAfterEs = roll.damage;
+    if (currentEs > 0 && dmgAfterEs > 0) {
+      const esAbsorbed = Math.min(currentEs, dmgAfterEs);
+      currentEs -= esAbsorbed;
+      dmgAfterEs -= esAbsorbed;
+    }
+    totalDamage += dmgAfterEs;
+
+    // ES recharges between hits
+    if (esRecharge > 0) {
+      currentEs = Math.min(stats.energyShield ?? 0, currentEs + esRecharge * dtPerHit);
+    }
   }
 
   // Calculate total mitigated damage (pre-mitigation minus post-mitigation for non-dodged hits)
