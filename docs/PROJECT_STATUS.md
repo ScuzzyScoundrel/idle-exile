@@ -1,10 +1,27 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-07 (Per-Mob State Engine Refactor — complete)
+> Last updated: 2026-03-08 (Balance v3.0: Offense Scaling, Economy Fix, Bot Crafting)
 
 ## Current Phase
-**Per-Mob State Engine Refactor — COMPLETE.** Encounter state moved from flat fields to `packMobs: MobInPack[]` array.
+**Balance v3.0 — COMPLETE.** Multiplicative offense affixes, economy rebalancing, XP hard cutoff, and bot crafting.
+
+- **What was built**: 6 multiplicative offensive stats (element penetration, DoT multiplier, weapon mastery) with 6 new affixes. Economy fixes: XP hard cutoff at 5+ levels over zone, per-band affix count scaling (band 5-6 always 4+ affixes), currency band multiplier, exponential gold scaling, clear time floor halved (0.20→0.10). Bot simulator now tracks and spends crafting currency.
+- **Key changes**:
+  - `StatKey` gains `firePenetration`, `coldPenetration`, `lightningPenetration`, `chaosPenetration`, `dotMultiplier`, `weaponMastery`
+  - Penetration applied in `damageBuckets.ts` as "more" multiplier per element
+  - DoT multiplier in both `unifiedSkills.ts` (DPS display) and `zones.ts` (combat sim)
+  - Weapon mastery as "more" multiplier on total DPS in both callers
+  - `AFFIX_COUNT_WEIGHTS_BY_BAND` — band 5-6 items always have 4+ affixes
+  - `CURRENCY_BAND_MULTIPLIER` — band 6 gives 1.5x currency drop chance
+  - Gold formula: `round(3 * band^1.4)` — band 6 goes from 24→47 per clear
+  - `calcXpScale` now returns 0 at 5+ levels over zone (was 10% floor)
+  - Bot crafting: augment/chaos/exalt/divine every 25 clears on weakest item
+- **Modified files**: `src/types/index.ts`, `src/data/balance.ts`, `src/data/affixes.ts`, `src/engine/damageBuckets.ts`, `src/engine/unifiedSkills.ts`, `src/engine/zones.ts`, `src/engine/items.ts`, `src/store/gameStore.ts`, `src/ui/screens/InventoryScreen.tsx`, `src/ui/screens/CharacterScreen.tsx`, `sim/bot.ts`, `sim/logger.ts`, `sim/strategies/types.ts`
+- **Save version**: v52
+- **Next**: Run sim comparison (`npx tsx sim/runner.ts --bots 5 --max-clears 5000 --verbose`) and compare with v2.1 baseline
+
+**Previous: Per-Mob State Engine Refactor — COMPLETE.** Encounter state moved from flat fields to `packMobs: MobInPack[]` array.
 
 - **What was built**: Refactored encounter state so each mob in a pack carries its own HP, debuffs, and combat state inside a `MobInPack` object. Old encounter-level fields (`currentMobHp`, `currentMobMaxHp`, `debuffs`, `currentMobIsRare`, etc.) replaced by `packMobs` array. Front mob accessed via `packMobs[0]`. Engine (`packs.ts`) gains `rollFullPack()` to produce fully-initialized `MobInPack[]`. Save migration v46 rebuilds pack state from zone/band context.
 - **Key changes**:

@@ -286,6 +286,7 @@ export const AFFIX_DEFS: AffixDef[] = [
     allowedSlots: ['main_armor', 'shields', 'belt', 'bracers'],
     tiers: buildTiers(2, 6, 5, 12, 10, 22, 18, 35, 30, 52, 41, 65),
     weight: 100, displayTemplate: '+{value} Armor',
+    armorTypeRestriction: 'plate',
   },
   {
     id: 'flat_evasion', name: 'Nimble', category: 'flat_evasion',
@@ -293,6 +294,47 @@ export const AFFIX_DEFS: AffixDef[] = [
     allowedSlots: ['main_armor', 'shields', 'belt', 'bracers'],
     tiers: buildTiers(5, 15, 12, 25, 22, 45, 38, 70, 58, 100, 80, 140),
     weight: 80, displayTemplate: '+{value} Evasion',
+    armorTypeRestriction: 'leather',
+  },
+
+  // ================================================================
+  // PREFIXES — Plate & Leather Exclusive
+  // ================================================================
+  // Plate-exclusive: % increased armor
+  {
+    id: 'inc_armor', name: 'Ironclad', category: 'inc_armor',
+    slot: 'suffix', stat: 'incArmor',
+    allowedSlots: ['chest', 'main_armor', 'belt'],
+    tiers: buildTiers(1, 2, 2, 4, 4, 7, 6, 10, 10, 16, 15, 25),
+    weight: 70, displayTemplate: '+{value}% Armor',
+    armorTypeRestriction: 'plate',
+  },
+  // Plate-exclusive: flat damage reduction
+  {
+    id: 'plate_dr', name: 'Indomitable', category: 'plate_dr',
+    slot: 'suffix', stat: 'damageTakenReduction',
+    allowedSlots: ['chest', 'main_armor', 'shields'],
+    tiers: buildTiers(0.2, 0.4, 0.3, 0.6, 0.5, 0.9, 0.7, 1.2, 1.0, 1.8, 1.5, 2.5),
+    weight: 50, displayTemplate: '-{value}% Damage Taken',
+    armorTypeRestriction: 'plate',
+  },
+  // Leather-exclusive: % increased evasion
+  {
+    id: 'inc_evasion', name: 'Flickering', category: 'inc_evasion',
+    slot: 'suffix', stat: 'incEvasion',
+    allowedSlots: ['chest', 'main_armor', 'belt'],
+    tiers: buildTiers(1, 2, 2, 4, 4, 7, 6, 10, 10, 16, 15, 25),
+    weight: 70, displayTemplate: '+{value}% Evasion',
+    armorTypeRestriction: 'leather',
+  },
+  // Leather-exclusive: movement speed bonus
+  {
+    id: 'leather_speed', name: 'Windrunner', category: 'leather_speed',
+    slot: 'suffix', stat: 'movementSpeed',
+    allowedSlots: ['boots', 'chest', 'pants'],
+    tiers: buildTiers(1, 1, 1, 2, 2, 3, 2, 4, 3, 6, 5, 8),
+    weight: 50, displayTemplate: '+{value}% Movement Speed',
+    armorTypeRestriction: 'leather',
   },
 
   // ================================================================
@@ -463,6 +505,69 @@ export const AFFIX_DEFS: AffixDef[] = [
     allowedSlots: ['shields', 'chest', 'amulets'],
     tiers: buildTiers(0.3, 0.5, 0.5, 0.8, 0.7, 1.0, 1.0, 1.5, 1.5, 2.5, 2.0, 4.0),
     weight: 30, displayTemplate: '+{value}% Damage Taken Reduction',
+  },
+
+  // ================================================================
+  // SUFFIXES — Weapon Scaling (v51)
+  // ================================================================
+  {
+    id: 'inc_attack_speed', name: 'of Velocity', category: 'inc_attack_speed',
+    slot: 'suffix', stat: 'incAttackSpeed',
+    allowedSlots: ['attack_weapons', 'gloves', 'rings'],
+    tiers: buildTiers(1, 2, 2, 4, 4, 7, 6, 10, 10, 16, 15, 25),
+    weight: 70, displayTemplate: '+{value}% Increased Attack Speed',
+  },
+  {
+    id: 'inc_crit_chance', name: 'of Precision', category: 'inc_crit_chance',
+    slot: 'suffix', stat: 'incCritChance',
+    allowedSlots: ['all_weapons', 'gloves', 'rings', 'amulets'],
+    tiers: buildTiers(1, 2, 2, 4, 4, 7, 6, 10, 10, 16, 15, 25),
+    weight: 70, displayTemplate: '+{value}% Increased Crit Chance',
+  },
+  // ================================================================
+  // SUFFIXES/PREFIXES — Multiplicative Offense (v52)
+  // ================================================================
+  {
+    id: 'fire_penetration', name: 'of Ignition', category: 'fire_penetration',
+    slot: 'suffix', stat: 'firePenetration',
+    allowedSlots: ['all_weapons', 'rings', 'amulets'],
+    tiers: buildTiers(1, 2, 2, 3, 3, 5, 5, 8, 8, 12, 12, 18),
+    weight: 40, displayTemplate: '+{value}% Fire Penetration',
+  },
+  {
+    id: 'cold_penetration', name: 'of Frostbite', category: 'cold_penetration',
+    slot: 'suffix', stat: 'coldPenetration',
+    allowedSlots: ['all_weapons', 'rings', 'amulets'],
+    tiers: buildTiers(1, 2, 2, 3, 3, 5, 5, 8, 8, 12, 12, 18),
+    weight: 40, displayTemplate: '+{value}% Cold Penetration',
+  },
+  {
+    id: 'lightning_penetration', name: 'of Conductivity', category: 'lightning_penetration',
+    slot: 'suffix', stat: 'lightningPenetration',
+    allowedSlots: ['all_weapons', 'rings', 'amulets'],
+    tiers: buildTiers(1, 2, 2, 3, 3, 5, 5, 8, 8, 12, 12, 18),
+    weight: 40, displayTemplate: '+{value}% Lightning Penetration',
+  },
+  {
+    id: 'chaos_penetration', name: 'of the Void', category: 'chaos_penetration',
+    slot: 'suffix', stat: 'chaosPenetration',
+    allowedSlots: ['all_weapons', 'rings'],
+    tiers: buildTiers(1, 1, 1, 2, 2, 4, 4, 7, 7, 10, 10, 15),
+    weight: 30, displayTemplate: '+{value}% Chaos Penetration',
+  },
+  {
+    id: 'dot_multiplier', name: 'Malignant', category: 'dot_multiplier',
+    slot: 'prefix', stat: 'dotMultiplier',
+    allowedSlots: ['all_weapons', 'amulets', 'gloves'],
+    tiers: buildTiers(2, 4, 4, 7, 6, 10, 10, 16, 15, 22, 22, 35),
+    weight: 50, displayTemplate: '+{value}% DoT Multiplier',
+  },
+  {
+    id: 'weapon_mastery', name: 'of Mastery', category: 'weapon_mastery',
+    slot: 'suffix', stat: 'weaponMastery',
+    allowedSlots: ['all_weapons'],
+    tiers: buildTiers(1, 2, 2, 3, 3, 5, 5, 8, 8, 12, 12, 18),
+    weight: 40, displayTemplate: '+{value}% Weapon Mastery',
   },
 ];
 

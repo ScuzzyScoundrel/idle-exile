@@ -2,7 +2,7 @@
 // Simulator Logger — Structured stats tracking & aggregation
 // ============================================================
 
-import type { Character, GearSlot, Item } from '../src/types';
+import type { Character, GearSlot, Item, CurrencyType } from '../src/types';
 import { getAffixDef } from '../src/engine/items';
 import { calcCharDps, calcEhp } from './gear-eval';
 import type {
@@ -79,7 +79,10 @@ export class BotLogger {
   }
 
   /** Build final bot summary. */
-  buildSummary(char: Character, totalSimTime: number, armorPreference: string = 'any', totalDeathPenaltyTime: number = 0): BotSummary {
+  buildSummary(
+    char: Character, totalSimTime: number, armorPreference: string = 'any', totalDeathPenaltyTime: number = 0,
+    craftingMetrics?: { craftingAttempts: number; craftingUpgrades: number; currencySpent: Record<CurrencyType, number>; currencyEarned: Record<CurrencyType, number> },
+  ): BotSummary {
     const zoneIndex = ZONE_DEFS.findIndex(z => z.id === this.currentZoneId);
     const zoneSummaries = this.buildZoneSummaries(char);
 
@@ -123,6 +126,10 @@ export class BotLogger {
       finalDps: calcCharDps(char),
       finalEhp: calcEhp(char.stats),
       totalDeathPenaltyTime,
+      craftingAttempts: craftingMetrics?.craftingAttempts ?? 0,
+      craftingUpgrades: craftingMetrics?.craftingUpgrades ?? 0,
+      currencySpent: craftingMetrics?.currencySpent ?? { augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, greater_exalt: 0, perfect_exalt: 0, socket: 0 },
+      currencyEarned: craftingMetrics?.currencyEarned ?? { augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, greater_exalt: 0, perfect_exalt: 0, socket: 0 },
     };
   }
 

@@ -178,6 +178,16 @@ export function resolveDamageBuckets(
     buckets.chaos *= (1 + inc / 100);
   }
 
+  // Penetration: "more" multiplier per element (no mob resists, so pure damage amp)
+  if (buckets.fire > 0 && stats.firePenetration > 0)
+    buckets.fire *= (1 + stats.firePenetration / 100);
+  if (buckets.cold > 0 && stats.coldPenetration > 0)
+    buckets.cold *= (1 + stats.coldPenetration / 100);
+  if (buckets.lightning > 0 && stats.lightningPenetration > 0)
+    buckets.lightning *= (1 + stats.lightningPenetration / 100);
+  if (buckets.chaos > 0 && stats.chaosPenetration > 0)
+    buckets.chaos *= (1 + stats.chaosPenetration / 100);
+
   // ── Hit count ──
   const bounceHits = (graphMod?.chainCount ?? 0) + (graphMod?.pierceCount ?? 0) + (graphMod?.forkCount ?? 0);
   const hitCount = (skill.hitCount ?? 1) + (graphMod?.extraHits ?? 0) + bounceHits;

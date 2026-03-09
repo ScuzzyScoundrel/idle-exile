@@ -36,8 +36,17 @@ export const CURRENCY_DROP_CHANCES: Record<CurrencyType, number> = {
   socket:         0.035,
 };
 
-/** Gold gained per clear = GOLD_PER_BAND * zone.band. */
+/** Gold per clear: round(GOLD_BASE * band^GOLD_BAND_EXPONENT) = 3, 8, 14, 22, 33, 47. */
+export const GOLD_BASE = 3;
+export const GOLD_BAND_EXPONENT = 1.4;
+
+/** @deprecated Use GOLD_BASE + GOLD_BAND_EXPONENT instead. Kept for reference. */
 export const GOLD_PER_BAND = 4;
+
+/** Currency drop multiplier by band — higher bands give more currency per clear. */
+export const CURRENCY_BAND_MULTIPLIER: Record<number, number> = {
+  1: 1.0, 2: 1.05, 3: 1.10, 4: 1.20, 5: 1.35, 6: 1.50,
+};
 
 /** XP gained per clear = XP_PER_BAND * zone.band + XP_ILVL_SCALE * zone.iLvlMin. */
 export const XP_PER_BAND = 10;
@@ -59,8 +68,9 @@ export const POWER_DIVISOR = 15;
 /** Exponential penalty per level below zone iLvlMin. 10 levels below = 1.08^5 * sqrt(1.08^5) ~ 1.75x. */
 export const LEVEL_PENALTY_BASE = 1.08;
 
-/** Clear time floor as fraction of baseClearTime (prevents instant clears). */
-export const CLEAR_TIME_FLOOR_RATIO = 0.2;
+/** Clear time floor as fraction of baseClearTime (prevents instant clears).
+ *  0.10 = zone 1 floor is 1.0s, zone 26 floor is 7.8s. DPS investment halves clear time vs 0.20. */
+export const CLEAR_TIME_FLOOR_RATIO = 0.10;
 
 /** Hazard penalty floor: resist at 0 vs threshold gives this multiplier (0.05 = 95% slower). */
 export const HAZARD_PENALTY_FLOOR = 0.05;
@@ -98,6 +108,9 @@ export const BLOCK_CAP = 75;
 /** Maximum dodge chance percentage. */
 export const DODGE_CAP = 75;
 
+/** Dodged hits still deal this fraction of raw damage (not full avoidance). */
+export const DODGE_DAMAGE_FLOOR = 0.25;
+
 /** Min hit chance — even at cap evasion, 1 in 20 always lands. */
 export const EVASION_MIN_HIT_CHANCE = 5;
 
@@ -125,8 +138,12 @@ export const BASE_STATS: ResolvedStats = {
   flatAtkColdDamage: 0,
   flatAtkLightningDamage: 0,
   flatAtkChaosDamage: 0,
+  baseAttackSpeed: 0,
+  incAttackSpeed: 0,
   attackSpeed: 0,
   accuracy: 250,
+  baseCritChance: 0,
+  incCritChance: 0,
   incPhysDamage: 0,
   incAttackDamage: 0,
   // Spell
@@ -143,6 +160,13 @@ export const BASE_STATS: ResolvedStats = {
   incColdDamage: 0,
   incLightningDamage: 0,
   incChaosDamage: 0,
+  // Multiplicative Offense
+  firePenetration: 0,
+  coldPenetration: 0,
+  lightningPenetration: 0,
+  chaosPenetration: 0,
+  dotMultiplier: 0,
+  weaponMastery: 0,
   // Delivery
   incMeleeDamage: 0,
   incProjectileDamage: 0,
@@ -157,7 +181,9 @@ export const BASE_STATS: ResolvedStats = {
   incMaxLife: 0,
   lifeRegen: 3,
   armor: 0,
+  incArmor: 0,
   evasion: 0,
+  incEvasion: 0,
   blockChance: 0,
   fireResist: 0,
   coldResist: 0,
@@ -215,7 +241,7 @@ export const TIER_HIGH_WEIGHTS: Record<AffixTier, number> = {
   10: 15, 9: 13, 8: 11, 7: 9, 6: 8, 5: 7, 4: 5, 3: 3, 2: 2, 1: 1,
 };
 
-/** How many affixes an item rolls (weighted). */
+/** How many affixes an item rolls (weighted). Default/Band 1 weights. */
 export const AFFIX_COUNT_WEIGHTS: { count: number; weight: number }[] = [
   { count: 2, weight: 35 },
   { count: 3, weight: 30 },
@@ -223,6 +249,16 @@ export const AFFIX_COUNT_WEIGHTS: { count: number; weight: number }[] = [
   { count: 5, weight: 10 },
   { count: 6, weight: 5 },
 ];
+
+/** Per-band affix count weights. Higher bands guarantee more affixes. */
+export const AFFIX_COUNT_WEIGHTS_BY_BAND: Record<number, { count: number; weight: number }[]> = {
+  1: [{ count: 2, weight: 35 }, { count: 3, weight: 30 }, { count: 4, weight: 20 }, { count: 5, weight: 10 }, { count: 6, weight: 5 }],
+  2: [{ count: 2, weight: 30 }, { count: 3, weight: 30 }, { count: 4, weight: 22 }, { count: 5, weight: 12 }, { count: 6, weight: 6 }],
+  3: [{ count: 2, weight: 15 }, { count: 3, weight: 30 }, { count: 4, weight: 28 }, { count: 5, weight: 17 }, { count: 6, weight: 10 }],
+  4: [{ count: 2, weight: 5 },  { count: 3, weight: 20 }, { count: 4, weight: 35 }, { count: 5, weight: 25 }, { count: 6, weight: 15 }],
+  5: [{ count: 4, weight: 40 }, { count: 5, weight: 35 }, { count: 6, weight: 25 }],
+  6: [{ count: 4, weight: 30 }, { count: 5, weight: 40 }, { count: 6, weight: 30 }],
+};
 
 // =============================================
 // REFINEMENT
@@ -364,11 +400,11 @@ export const MAX_REGEN_CAP_RATIO = 0.80;
 export const UNDERLEVEL_SOFTCAP = 5;
 
 /** Death penalty: base seconds lost on death (Band 1). */
-export const DEATH_RESPAWN_BASE = 3.0;
+export const DEATH_RESPAWN_BASE = 5.0;
 /** Death penalty: extra seconds per band beyond 1. */
-export const DEATH_RESPAWN_PER_BAND = 2.0;
+export const DEATH_RESPAWN_PER_BAND = 4.0;
 /** Death penalty: max base penalty in seconds. */
-export const DEATH_RESPAWN_CAP = 15.0;
+export const DEATH_RESPAWN_CAP = 30.0;
 /** Death streak: each consecutive death adds this fraction more penalty. */
 export const DEATH_STREAK_MULT = 0.5;
 /** Death streak: maximum streak multiplier. */

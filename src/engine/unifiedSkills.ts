@@ -738,8 +738,14 @@ export function calcSkillDps(
 
   // --- DoT bonus: damage dealt over dotDuration, amortized over cycleTime ---
   if (skill.dotDuration && skill.dotDamagePercent) {
-    const dotTotalDmg = effectiveDmgPerCast * skill.dotDamagePercent * skill.dotDuration;
+    const dotMult = 1 + stats.dotMultiplier / 100;
+    const dotTotalDmg = effectiveDmgPerCast * skill.dotDamagePercent * skill.dotDuration * dotMult;
     dps += dotTotalDmg / cycleTime;
+  }
+
+  // Weapon mastery: "more" multiplier on total weapon DPS
+  if (stats.weaponMastery > 0) {
+    dps *= (1 + stats.weaponMastery / 100);
   }
 
   return dps;

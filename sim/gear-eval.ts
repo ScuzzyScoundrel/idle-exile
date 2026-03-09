@@ -4,7 +4,7 @@
 
 import type { Character, Item, GearSlot, ResolvedStats } from '../src/types';
 import { resolveStats, getWeaponDamageInfo, calcTotalDps } from '../src/engine/character';
-import { ARMOR_COEFFICIENT, ARMOR_FLAT_DR_RATIO, ARMOR_FLAT_DR_CAP } from '../src/data/balance';
+import { ARMOR_COEFFICIENT, ARMOR_FLAT_DR_RATIO, ARMOR_FLAT_DR_CAP, DODGE_DAMAGE_FLOOR } from '../src/data/balance';
 import type { GearWeights, ArmorPreference } from './strategies/types';
 
 /** Estimate armor mitigation fraction against a reference damage value. */
@@ -28,13 +28,16 @@ function resistMitigation(stats: ResolvedStats): number {
   return 1 - avgResist / 100;
 }
 
-/** Calculate EHP (effective HP pool considering armor + resists). */
+/** Calculate EHP (effective HP pool considering armor + resists + dodge). */
 export function calcEhp(stats: ResolvedStats): number {
-  // EHP = maxLife / (armorMult * resistMult)
-  // Lower mult = more mitigation = higher EHP
   const armorMult = armorMitigation(stats);
   const resistMult = resistMitigation(stats);
-  const rawMult = armorMult * resistMult;
+  // Model dodge: reduces effective incoming damage
+  const rawDodge = stats.evasion / (stats.evasion + 200); // approximate zone accuracy
+  const dodgeChance = Math.min(Math.pow(rawDodge, 1.2), 0.75);
+  // With dodge floor, effective dodge reduction = dodgeChance * (1 - DODGE_DAMAGE_FLOOR)
+  const dodgeMult = 1 - dodgeChance * (1 - DODGE_DAMAGE_FLOOR);
+  const rawMult = armorMult * resistMult * dodgeMult;
   return rawMult > 0 ? stats.maxLife / rawMult : stats.maxLife;
 }
 

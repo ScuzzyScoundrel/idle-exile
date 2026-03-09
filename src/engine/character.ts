@@ -107,6 +107,27 @@ export function resolveStats(char: Character): ResolvedStats {
     stats.energyShield = Math.floor(stats.energyShield * (1 + stats.incEnergyShield / 100));
   }
 
+  // Apply incArmor as a multiplier on armor
+  if (stats.incArmor > 0) {
+    stats.armor = Math.floor(stats.armor * (1 + stats.incArmor / 100));
+  }
+
+  // Apply incEvasion as a multiplier on evasion
+  if (stats.incEvasion > 0) {
+    stats.evasion = Math.floor(stats.evasion * (1 + stats.incEvasion / 100));
+  }
+
+  // Add weapon base stats to pool, then apply % multipliers
+  stats.attackSpeed += stats.baseAttackSpeed;
+  if (stats.incAttackSpeed > 0) {
+    stats.attackSpeed = Math.floor(stats.attackSpeed * (1 + stats.incAttackSpeed / 100));
+  }
+
+  stats.critChance += stats.baseCritChance;
+  if (stats.incCritChance > 0) {
+    stats.critChance = Math.floor(stats.critChance * (1 + stats.incCritChance / 100));
+  }
+
   return stats;
 }
 

@@ -19,7 +19,8 @@ import {
   BASE_ITEM_DROP_CHANCE, MASTERY_DROP_BONUS,
   MATERIAL_DROP_MIN, MATERIAL_DROP_MAX,
   COMBAT_MATERIAL_DROP_CHANCE, COMBAT_MATERIAL_DROP_MIN, COMBAT_MATERIAL_DROP_MAX,
-  CURRENCY_DROP_CHANCES, GOLD_PER_BAND, XP_PER_BAND, XP_ILVL_SCALE, BAG_DROP_CHANCE,
+  CURRENCY_DROP_CHANCES, GOLD_BASE, GOLD_BAND_EXPONENT, CURRENCY_BAND_MULTIPLIER,
+  XP_PER_BAND, XP_ILVL_SCALE, BAG_DROP_CHANCE,
   POWER_DIVISOR, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO,
   HAZARD_PENALTY_FLOOR, HAZARD_OVERCAP_MULT,
   CLEAR_REGEN_RATIO, BOSS_BASE_HP,
@@ -36,6 +37,7 @@ import {
   BOSS_HP_RAMP, BOSS_DMG_RAMP,
   DEATH_RESPAWN_BASE, DEATH_RESPAWN_PER_BAND, DEATH_RESPAWN_CAP,
   DEATH_STREAK_MULT, DEATH_STREAK_CAP,
+  DODGE_DAMAGE_FLOOR,
 } from '../data/balance';
 import { getZoneMobTypes, weightedRandomMob, getMobTypeDef } from '../data/mobTypes';
 
@@ -231,7 +233,8 @@ export function simulateCombatClear(
   abilityDamageMult: number,
   abilityAttackSpeedMult: number,
 ): CombatClearResult {
-  const baseDmgPerCast = calcSkillDamagePerCast(skill, stats, weaponAvgDmg, weaponSpellPower).total * abilityDamageMult;
+  const masteryMult = stats.weaponMastery > 0 ? (1 + stats.weaponMastery / 100) : 1;
+  const baseDmgPerCast = calcSkillDamagePerCast(skill, stats, weaponAvgDmg, weaponSpellPower).total * abilityDamageMult * masteryMult;
   if (baseDmgPerCast <= 0) {
     return { clearTime: 999, totalCasts: 0, hits: 0, crits: 0, misses: 0, totalDamage: 0, dotDamage: 0 };
   }
@@ -310,7 +313,7 @@ export function simulateCombatClear(
     if (hasDoT && remainingHp > 0) {
       dotStacks.push({
         remaining: skill.dotDuration!,
-        dps: damage * skill.dotDamagePercent!,
+        dps: damage * skill.dotDamagePercent! * (1 + stats.dotMultiplier / 100),
       });
     }
 
@@ -332,10 +335,13 @@ export function simulateCombatClear(
 /**
  * XP scaling based on player level vs zone iLvl.
  * Overleveled zones give drastically reduced XP.
- * Each level above zone = -10% XP. Floor at 10%.
+ * Each level above zone = -20% XP. Hard cutoff at 5+ levels over (0 XP).
  */
 export function calcXpScale(playerLevel: number, zoneIlvl: number): number {
-  return Math.max(0.1, Math.min(1.0, 1 - (playerLevel - zoneIlvl) * 0.1));
+  const delta = playerLevel - zoneIlvl;
+  if (delta >= 5) return 0;      // Hard cutoff: 0 XP at 5+ levels over
+  if (delta <= 0) return 1.0;    // Full XP if at or below zone level
+  return 1 - delta * 0.2;       // 80%, 60%, 40%, 20%, then 0%
 }
 
 /**
@@ -375,7 +381,7 @@ export function simulateIdleRun(
     if (Math.random() < itemDropChance) {
       const slot = GEAR_SLOTS[Math.floor(Math.random() * GEAR_SLOTS.length)];
       const dropILvl = zone.iLvlMin + Math.floor(Math.random() * (zone.iLvlMax - zone.iLvlMin + 1));
-      items.push(generateItem(slot, dropILvl));
+      items.push(generateItem(slot, dropILvl, undefined, undefined, zone.band));
     }
 
     if (Math.random() < COMBAT_MATERIAL_DROP_CHANCE) {
@@ -399,8 +405,9 @@ export function simulateIdleRun(
       }
     }
 
+    const idleCurrencyMult = CURRENCY_BAND_MULTIPLIER[zone.band] ?? 1;
     for (const [type, chance] of Object.entries(CURRENCY_DROP_CHANCES)) {
-      if (Math.random() < chance) {
+      if (Math.random() < chance * idleCurrencyMult) {
         currencyDrops[type as CurrencyType] += doubleClear ? 2 : 1;
       }
     }
@@ -435,7 +442,7 @@ export function simulateIdleRun(
   }
 
   const xpGained = totalXpGained;
-  const goldGained = GOLD_PER_BAND * zone.band * clearsCompleted * (doubleClear ? 2 : 1);
+  const goldGained = Math.round(GOLD_BASE * Math.pow(zone.band, GOLD_BAND_EXPONENT)) * clearsCompleted * (doubleClear ? 2 : 1);
 
   return { items, materials, currencyDrops, bagDrops, xpGained, goldGained, clearsCompleted, elapsed };
 }
@@ -500,7 +507,7 @@ export function simulateSingleClear(
   if (Math.random() < itemDropChance) {
     const slot = GEAR_SLOTS[Math.floor(Math.random() * GEAR_SLOTS.length)];
     const dropILvl = zone.iLvlMin + Math.floor(Math.random() * (zone.iLvlMax - zone.iLvlMin + 1));
-    item = generateItem(slot, dropILvl);
+    item = generateItem(slot, dropILvl, undefined, undefined, zone.band);
   }
 
   const materials: Record<string, number> = {};
@@ -517,8 +524,9 @@ export function simulateSingleClear(
   const currencyDrops: Record<CurrencyType, number> = {
     augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, greater_exalt: 0, perfect_exalt: 0, socket: 0,
   };
+  const currencyBandMult = CURRENCY_BAND_MULTIPLIER[zone.band] ?? 1;
   for (const [type, chance] of Object.entries(CURRENCY_DROP_CHANCES)) {
-    if (Math.random() < chance) {
+    if (Math.random() < chance * currencyBandMult) {
       currencyDrops[type as CurrencyType] += doubleClear ? 2 : 1;
     }
   }
@@ -579,7 +587,7 @@ export function simulateSingleClear(
     professionGearDrop,
     materials,
     currencyDrops,
-    goldGained: GOLD_PER_BAND * zone.band * (doubleClear ? 2 : 1),
+    goldGained: Math.round(GOLD_BASE * Math.pow(zone.band, GOLD_BAND_EXPONENT)) * (doubleClear ? 2 : 1),
     xpGained: Math.round((XP_PER_BAND * zone.band + XP_ILVL_SCALE * zone.iLvlMin) * xpMult * xpScale),
     bagDrop,
     mobTypeId,
@@ -723,7 +731,9 @@ export function rollZoneAttack(
   const evasionRoll = rollEntropicEvasion(hitChance, currentEntropy);
 
   if (evasionRoll.isEvaded) {
-    return { damage: 0, isDodged: true, isBlocked: false, newDodgeEntropy: evasionRoll.newEntropy };
+    // Dodged hits still deal reduced damage (not full avoidance)
+    const dodgedDamage = rawDamage * DODGE_DAMAGE_FLOOR;
+    return { damage: dodgedDamage, isDodged: true, isBlocked: false, newDodgeEntropy: evasionRoll.newEntropy };
   }
 
   let physDmg = rawDamage * physRatio;
@@ -789,7 +799,13 @@ export function simulateClearDefense(
     const rawHit = baseDmgPerHit * variance;
     const roll = rollZoneAttack(rawHit, physRatio, zoneAccuracy, stats, dodgeEntropy);
     dodgeEntropy = roll.newDodgeEntropy;
-    if (roll.isDodged) { dodges++; continue; }
+    if (roll.isDodged) {
+      dodges++;
+      totalRawDamage += rawHit;
+      totalDamage += roll.damage;
+      hits++;  // Count dodged hits as hits (they deal damage now)
+      continue;
+    }
     if (roll.isBlocked) blocks++;
     hits++;
     totalRawDamage += rawHit;
@@ -897,7 +913,7 @@ export function generateBossLoot(zone: ZoneDef): Item[] {
   const items: Item[] = [];
   for (let i = 0; i < count; i++) {
     const slot = GEAR_SLOTS[Math.floor(Math.random() * GEAR_SLOTS.length)];
-    items.push(generateItem(slot, bossILvl));
+    items.push(generateItem(slot, bossILvl, undefined, undefined, zone.band));
   }
   return items;
 }
