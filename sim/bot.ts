@@ -246,8 +246,10 @@ export class Bot {
       } else {
         this.allocateGraphNodes();
       }
-      this.grantSkillXp(zone.band);
     }
+
+    // 6b. Grant skill XP every clear (not just on level-up)
+    this.grantSkillXp(zone.band);
 
     // 7. Check for item drops and equip upgrades
     let itemDropLog = null;
@@ -650,6 +652,7 @@ export class Bot {
   /** Grant skill XP per clear (simplified: 10 + band * 2). */
   private grantSkillXp(band: number): void {
     const xpGain = 10 + Math.floor(band * 2);
+    let anyLevelUp = false;
     for (const skillId of this.config.archetype.skillBar) {
       const progress = this.skillProgress[skillId];
       if (!progress) continue;
@@ -660,6 +663,15 @@ export class Bot {
       if (progress.xp >= xpNeeded && progress.level < 20) {
         progress.xp -= xpNeeded;
         progress.level++;
+        anyLevelUp = true;
+      }
+    }
+    // Allocate talent nodes when skills level up (more points available)
+    if (anyLevelUp) {
+      if (this.config.archetype.weaponType === 'dagger') {
+        this.allocateTalentNodes();
+      } else {
+        this.allocateGraphNodes();
       }
     }
   }

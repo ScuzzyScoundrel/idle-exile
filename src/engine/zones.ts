@@ -847,7 +847,7 @@ export function simulateClearDefense(
   playerDamageDealt: number,
 ): { newHp: number; totalDamage: number; dodges: number; blocks: number; hits: number; totalMitigated: number; regenCapUsed: number } {
   const levelMult = calcLevelDamageMult(playerLevel, zone.iLvlMin);
-  const hitsPerClear = Math.max(1, Math.floor(clearTime / ZONE_ATTACK_INTERVAL));
+  const hitsPerClear = Math.min(50, Math.max(1, Math.floor(clearTime / ZONE_ATTACK_INTERVAL)));
   const baseDmgPerHit = (ZONE_DMG_BASE * zone.band + ZONE_DMG_ILVL_SCALE * zone.iLvlMin) * levelMult;
   const zoneAccuracy = calcZoneAccuracy(zone.band, playerLevel, zone.iLvlMin);
   const physRatio = ZONE_PHYS_RATIO;
