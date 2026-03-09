@@ -131,6 +131,31 @@ export interface BossFightLog {
   bossHp: number;
 }
 
+// --- Upgrade Record (affix-level instrumentation) ---
+
+export interface UpgradeRecord {
+  clearNumber: number;
+  zoneId: string;
+  band: number;
+  slot: GearSlot;
+  // Old item (null for first equip in slot)
+  oldILvl: number | null;
+  oldRarity: string | null;
+  oldAffixes: { defId: string; tier: number; value: number }[] | null;
+  // New item
+  newILvl: number;
+  newRarity: string;
+  newAffixes: { defId: string; tier: number; value: number }[];
+  newArmorType?: 'plate' | 'leather' | 'cloth';
+  // Score deltas
+  dpsBefore: number;
+  dpsAfter: number;
+  ehpBefore: number;
+  ehpAfter: number;
+  scoreBefore: number;
+  scoreAfter: number;
+}
+
 // --- Per-Bot Summary ---
 
 export interface ProgressionSample {
@@ -177,6 +202,8 @@ export interface BotSummary {
   craftingUpgrades: number;
   currencySpent: Record<CurrencyType, number>;
   currencyEarned: Record<CurrencyType, number>;
+  // Affix-level upgrade instrumentation
+  upgradeRecords: UpgradeRecord[];
 }
 
 // --- Aggregate Stats ---

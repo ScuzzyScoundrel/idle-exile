@@ -51,7 +51,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 
-const ARMOR_TYPES: ArmorPreference[] = ['plate', 'leather', 'cloth'];
+const ARMOR_TYPES: ArmorPreference[] = ['plate', 'leather', 'cloth', 'any'];
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -78,12 +78,11 @@ if (selectedStrategies.length === 0) {
 const selectedArmors: ArmorPreference[] = armorFilter === 'all'
   ? ARMOR_TYPES
   : ARMOR_TYPES.filter(a => a === armorFilter);
-if (selectedArmors.length === 0 && armorFilter !== 'any') {
-  console.error(`No armor type matching "${armorFilter}". Available: plate, leather, cloth, all, any`);
+if (selectedArmors.length === 0) {
+  console.error(`No armor type matching "${armorFilter}". Available: plate, leather, cloth, any, all`);
   process.exit(1);
 }
-// 'any' means no filter — single run with ArmorPreference='any'
-const armorLoop: ArmorPreference[] = armorFilter === 'any' ? ['any'] : selectedArmors;
+const armorLoop: ArmorPreference[] = selectedArmors;
 
 // ─── Run simulations ─────────────────────────────────────
 

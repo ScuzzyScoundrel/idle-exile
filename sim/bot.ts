@@ -23,13 +23,13 @@ import {
   getClassLootModifier,
 } from '../src/engine/classResource';
 import { advanceClock } from './clock';
-import { isUpgrade, equipItem, calcCharDps, calcEhp, calcZoneRefDamage, calcZoneAccuracy } from './gear-eval';
+import { isUpgrade, equipItem, calcCharDps, calcEhp, scoreCharacter, calcZoneRefDamage, calcZoneAccuracy } from './gear-eval';
 import { BotLogger } from './logger';
 import { getBranchPath as getDaggerBranchPath } from './strategies/dagger';
 import { getBranchPath as getSwordBranchPath } from './strategies/sword';
 import { getBranchPath as getStaffBranchPath } from './strategies/staff';
 import { getBranchPath as getBowBranchPath } from './strategies/bow';
-import type { BotConfig, ClearLog, BotSummary, GearWeights, WeaponType } from './strategies/types';
+import type { BotConfig, ClearLog, BotSummary, GearWeights, WeaponType, UpgradeRecord } from './strategies/types';
 
 // Zone advancement: rolling window settings
 const ADVANCE_WINDOW = 20;
@@ -359,12 +359,54 @@ export class Bot {
     };
   }
 
+  /** Build an UpgradeRecord capturing before/after metrics and both items' affixes. */
+  private buildUpgradeRecord(oldItem: Item | undefined, newItem: Item, charBefore: Character): UpgradeRecord {
+    const { refDamage, refAccuracy } = this.getZoneEhpParams();
+    const zone = ZONE_DEFS[this.currentZoneIndex];
+
+    const dpsBefore = calcCharDps(charBefore, this.skillBar, this.skillProgress);
+    const ehpBefore = calcEhp(charBefore.stats, refDamage, refAccuracy);
+    const scoreBefore = scoreCharacter(charBefore, this.config.gearWeights, this.skillBar, this.skillProgress, refDamage, refAccuracy);
+
+    const dpsAfter = calcCharDps(this.char, this.skillBar, this.skillProgress);
+    const ehpAfter = calcEhp(this.char.stats, refDamage, refAccuracy);
+    const scoreAfter = scoreCharacter(this.char, this.config.gearWeights, this.skillBar, this.skillProgress, refDamage, refAccuracy);
+
+    const extractAffixes = (it: Item) =>
+      [...it.prefixes, ...it.suffixes].map(a => ({ defId: a.defId, tier: a.tier, value: a.value }));
+
+    return {
+      clearNumber: this.totalClears,
+      zoneId: zone.id,
+      band: zone.band,
+      slot: newItem.slot,
+      oldILvl: oldItem ? oldItem.iLvl : null,
+      oldRarity: oldItem ? oldItem.rarity : null,
+      oldAffixes: oldItem ? extractAffixes(oldItem) : null,
+      newILvl: newItem.iLvl,
+      newRarity: newItem.rarity,
+      newAffixes: extractAffixes(newItem),
+      newArmorType: newItem.armorType as 'plate' | 'leather' | 'cloth' | undefined,
+      dpsBefore,
+      dpsAfter,
+      ehpBefore,
+      ehpAfter,
+      scoreBefore,
+      scoreAfter,
+    };
+  }
+
   private tryEquipUpgrade(item: Item): boolean {
     const { refDamage, refAccuracy } = this.getZoneEhpParams();
     if (isUpgrade(this.char, item, this.config.gearWeights, this.config.armorPreference, this.skillBar, this.skillProgress, refDamage, refAccuracy)) {
+      const oldItem = this.char.equipment[item.slot];
+      const charBefore = this.char;
+
       this.char = equipItem(this.char, item);
       this.currentHp = Math.min(this.currentHp, this.char.stats.maxLife);
-      this.logger.logUpgrade(this.totalClears, item.slot, item.iLvl);
+
+      const record = this.buildUpgradeRecord(oldItem ?? undefined, item, charBefore);
+      this.logger.logUpgrade(record);
 
       // Reset class resource on gear swap (Rogue momentum)
       const classDef = getClassDef(this.config.archetype.charClass);
@@ -425,15 +467,18 @@ export class Bot {
     if (result.success) {
       // Check if crafted item is an upgrade over what we had
       const { refDamage, refAccuracy } = this.getZoneEhpParams();
-      if (isUpgrade(this.char, result.item, this.config.gearWeights, this.config.armorPreference, this.skillBar, this.skillProgress, refDamage, refAccuracy)) {
+      const shouldEquip = isUpgrade(this.char, result.item, this.config.gearWeights, this.config.armorPreference, this.skillBar, this.skillProgress, refDamage, refAccuracy)
+        || currencyToUse === 'augment' || currencyToUse === 'exalt';
+      if (shouldEquip) {
+        const oldItem = this.char.equipment[result.item.slot];
+        const charBefore = this.char;
+
         this.char = equipItem(this.char, result.item);
         this.currentHp = Math.min(this.currentHp, this.char.stats.maxLife);
         this.craftingUpgrades++;
-      } else if (currencyToUse === 'augment' || currencyToUse === 'exalt') {
-        // Augment/exalt always add affixes, so always equip the result (it's the same item improved)
-        this.char = equipItem(this.char, result.item);
-        this.currentHp = Math.min(this.currentHp, this.char.stats.maxLife);
-        this.craftingUpgrades++;
+
+        const record = this.buildUpgradeRecord(oldItem ?? undefined, result.item, charBefore);
+        this.logger.logUpgrade(record);
       }
     }
   }
