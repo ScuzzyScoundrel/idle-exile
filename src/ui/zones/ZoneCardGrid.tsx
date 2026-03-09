@@ -33,6 +33,7 @@ export default function ZoneCardGrid({
   const [expanded, setExpanded] = useState(true);
 
   const isZoneUnlocked = (z: ZoneDef): boolean => {
+    if (idleMode === 'gathering') return true; // gathering uses skill level gating instead
     if (!z.unlockRequirement) return true;
     return (bossKillCounts[z.unlockRequirement] ?? 0) >= 1;
   };

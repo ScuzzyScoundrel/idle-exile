@@ -1,4 +1,7 @@
-export default function ZoneDefeatOverlay({ mobName, zoneName, currentHp, maxHp }: { mobName: string; zoneName: string; currentHp: number; maxHp: number }) {
+export default function ZoneDefeatOverlay({ mobName, zoneName, currentHp, maxHp, showCraftingHint, onDismissCraftingHint }: {
+  mobName: string; zoneName: string; currentHp: number; maxHp: number;
+  showCraftingHint?: boolean; onDismissCraftingHint?: () => void;
+}) {
   const pct = maxHp > 0 ? Math.max(0, (currentHp / maxHp) * 100) : 0;
   return (
     <div className="bg-gradient-to-br from-red-950 via-gray-900 to-red-950 rounded-lg border-2 border-red-800 p-4 text-center space-y-2">
@@ -13,6 +16,18 @@ export default function ZoneDefeatOverlay({ mobName, zoneName, currentHp, maxHp 
                style={{ width: `${pct}%` }} />
         </div>
       </div>
+      {showCraftingHint && (
+        <div className="mt-3 bg-yellow-950/60 border border-yellow-700 rounded-lg p-3 space-y-2">
+          <div className="text-yellow-300 text-xs font-bold">Getting owned? Try crafting a better weapon!</div>
+          <div className="text-gray-400 text-[11px]">Check the Craft tab to forge stronger gear.</div>
+          <button
+            onClick={onDismissCraftingHint}
+            className="px-3 py-1 text-xs rounded bg-yellow-800 hover:bg-yellow-700 text-yellow-200 font-semibold"
+          >
+            Got it!
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -148,6 +148,7 @@ export interface GameState {
 
   // Tutorial
   tutorialStep: number;
+  hasSeenCraftingHint: boolean;
 
   // Meta
   lastSaveTime: number;

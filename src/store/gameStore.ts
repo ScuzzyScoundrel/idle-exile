@@ -197,6 +197,7 @@ interface GameActions {
 
   // Tutorial
   advanceTutorial: (step: number) => void;
+  dismissCraftingHint: () => void;
 
   // Pattern crafting
   craftFromPattern: (patternIndex: number) => { item: Item; wasSalvaged: boolean } | null;
@@ -295,6 +296,7 @@ function createInitialState(): GameState {
     zoneMasteryClaimed: {},
     invasionState: { activeInvasions: {}, bandCooldowns: {} },
     tutorialStep: 1,
+    hasSeenCraftingHint: false,
     lastSaveTime: Date.now(),
   };
 }
@@ -1066,6 +1068,9 @@ export const useGameStore = create<GameState & GameActions>()(
       // --- Tutorial (delegated to uiStore) ---
       advanceTutorial: (step: number) => {
         useUiStore.getState().advanceTutorial(step);
+      },
+      dismissCraftingHint: () => {
+        set({ hasSeenCraftingHint: true });
       },
 
       setAutoSalvageRarity: (rarity: Rarity) => {
