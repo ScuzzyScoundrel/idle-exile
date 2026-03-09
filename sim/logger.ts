@@ -8,7 +8,7 @@ import { calcEhp } from './gear-eval';
 import type {
   ClearLog, ZoneSummary, BotSummary, ProgressionSample,
   GearSnapshot, ItemDropLog, AggregateResult, ZoneAggregate,
-  PercentileStats,
+  PercentileStats, UpgradeRecord,
 } from './strategies/types';
 import { ZONE_DEFS } from '../src/data/zones';
 
@@ -25,7 +25,7 @@ export class BotLogger {
   private currentZoneId: string = '';
   private currentZoneClears = 0;
   private deaths: Record<string, number> = {};
-  private upgradeLog: { clearNumber: number; slot: GearSlot; iLvl: number }[] = [];
+  private upgradeRecords: UpgradeRecord[] = [];
   private bossFights: { zoneId: string; victory: boolean }[] = [];
   private progressionSamples: ProgressionSample[] = [];
   private lastUpgradePerSlot: Record<string, { clearNumber: number; iLvl: number }> = {};
@@ -55,10 +55,10 @@ export class BotLogger {
     }
   }
 
-  /** Log an item upgrade being equipped. */
-  logUpgrade(clearNumber: number, slot: GearSlot, iLvl: number): void {
-    this.upgradeLog.push({ clearNumber, slot, iLvl });
-    this.lastUpgradePerSlot[slot] = { clearNumber, iLvl };
+  /** Log an item upgrade being equipped (with full affix data). */
+  logUpgrade(record: UpgradeRecord): void {
+    this.upgradeRecords.push(record);
+    this.lastUpgradePerSlot[record.slot] = { clearNumber: record.clearNumber, iLvl: record.newILvl };
   }
 
   /** Log a boss fight result. */
@@ -131,6 +131,7 @@ export class BotLogger {
       craftingUpgrades: craftingMetrics?.craftingUpgrades ?? 0,
       currencySpent: craftingMetrics?.currencySpent ?? { augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, greater_exalt: 0, perfect_exalt: 0, socket: 0 },
       currencyEarned: craftingMetrics?.currencyEarned ?? { augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, greater_exalt: 0, perfect_exalt: 0, socket: 0 },
+      upgradeRecords: this.upgradeRecords,
     };
   }
 
@@ -146,7 +147,7 @@ export class BotLogger {
       if (zoneClears.length === 0) continue;
 
       const clearTimes = zoneClears.map(c => c.clearTime);
-      const zoneUpgrades = this.upgradeLog.filter(u =>
+      const zoneUpgrades = this.upgradeRecords.filter(u =>
         zoneClears.some(c => c.clearNumber === u.clearNumber)
       );
 
