@@ -78,6 +78,16 @@ export const HAZARD_PENALTY_FLOOR = 0.05;
 /** Minor benefit when resist exceeds threshold. */
 export const HAZARD_OVERCAP_MULT = 0.95;
 
+/** Flat resistance penalty per band — forces resist investment in later content. */
+export const BAND_RESIST_PENALTY: Record<number, number> = {
+  1: 0,     // Greenlands — no penalty
+  2: -10,   // Frontier — slight pressure
+  3: -25,   // Contested — must actively gear resist
+  4: -45,   // Dark Reaches — resist is tight
+  5: -70,   // Shattered Realm — resist is a real constraint
+  6: -100,  // Endlands — every resist roll matters
+};
+
 // =============================================
 // ZONE COMBAT CONSTANTS (new v16)
 // =============================================
@@ -189,6 +199,7 @@ export const BASE_STATS: ResolvedStats = {
   coldResist: 0,
   lightningResist: 0,
   chaosResist: 0,
+  allResist: 0,
   // Energy Shield
   energyShield: 0,
   incEnergyShield: 0,

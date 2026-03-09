@@ -22,7 +22,7 @@ import {
   CURRENCY_DROP_CHANCES, GOLD_BASE, GOLD_BAND_EXPONENT, CURRENCY_BAND_MULTIPLIER,
   XP_PER_BAND, XP_ILVL_SCALE, BAG_DROP_CHANCE,
   POWER_DIVISOR, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO,
-  HAZARD_PENALTY_FLOOR, HAZARD_OVERCAP_MULT,
+  HAZARD_PENALTY_FLOOR, HAZARD_OVERCAP_MULT, BAND_RESIST_PENALTY,
   CLEAR_REGEN_RATIO, BOSS_BASE_HP,
   BOSS_HAZARD_DAMAGE_RATIO,
   BOSS_ILVL_BONUS, BOSS_DROP_COUNT_MIN, BOSS_DROP_COUNT_MAX,
@@ -96,9 +96,11 @@ export function applyAbilityResists(stats: ResolvedStats, abilityEffect?: Abilit
 export function calcHazardPenalty(stats: ResolvedStats, zone: ZoneDef): number {
   if (zone.hazards.length === 0) return 1.0;
 
+  const bandPenalty = BAND_RESIST_PENALTY[zone.band] ?? 0;
   let combined = 1.0;
   for (const hazard of zone.hazards) {
-    const resist = stats[HAZARD_STAT_MAP[hazard.type]] ?? 0;
+    const rawResist = stats[HAZARD_STAT_MAP[hazard.type]] ?? 0;
+    const resist = Math.max(0, rawResist + bandPenalty);
     let mult: number;
     if (resist >= hazard.threshold) {
       mult = HAZARD_OVERCAP_MULT;
@@ -116,8 +118,10 @@ export function calcHazardPenalty(stats: ResolvedStats, zone: ZoneDef): number {
  */
 export function checkZoneMastery(stats: ResolvedStats, zone: ZoneDef): boolean {
   if (zone.hazards.length === 0) return true;
+  const bandPenalty = BAND_RESIST_PENALTY[zone.band] ?? 0;
   for (const hazard of zone.hazards) {
-    const resist = stats[HAZARD_STAT_MAP[hazard.type]] ?? 0;
+    const rawResist = stats[HAZARD_STAT_MAP[hazard.type]] ?? 0;
+    const resist = Math.max(0, rawResist + bandPenalty);
     if (resist < hazard.threshold) return false;
   }
   return true;

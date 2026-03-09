@@ -153,6 +153,41 @@ export const ITEM_BASE_DEFS: ItemBaseDef[] = [
   { id: 'starforged_quiver', name: 'Starforged Quiver', slot: 'offhand', offhandType: 'quiver', baseStats: { maxLife: 46 }, iLvl: 60 },
 
   // ============================================================
+  // ELEMENTAL WEAPON VARIANTS — lower phys base, inherent elemental damage
+  // ============================================================
+  // Fire Swords — lower phys, built-in fire damage
+  { id: 'ember_shortsword',   name: 'Ember Shortsword',   slot: 'mainhand', weaponType: 'sword', baseStats: { baseAttackSpeed: 8, baseCritChance: 3, flatAtkFireDamage: 3 },  baseDamageMin: 3, baseDamageMax: 6, iLvl: 1 },
+  { id: 'ember_blade',        name: 'Ember Blade',        slot: 'mainhand', weaponType: 'sword', baseStats: { baseAttackSpeed: 10, baseCritChance: 4, flatAtkFireDamage: 8 }, baseDamageMin: 14, baseDamageMax: 24, iLvl: 10 },
+  { id: 'magma_edge',         name: 'Magma Edge',         slot: 'mainhand', weaponType: 'sword', baseStats: { baseAttackSpeed: 12, baseCritChance: 5, flatAtkFireDamage: 14 }, baseDamageMin: 22, baseDamageMax: 38, iLvl: 20 },
+  { id: 'inferno_blade',      name: 'Inferno Blade',      slot: 'mainhand', weaponType: 'sword', baseStats: { baseAttackSpeed: 15, baseCritChance: 6, flatAtkFireDamage: 20 }, baseDamageMin: 32, baseDamageMax: 51, iLvl: 30 },
+  { id: 'pyroclast_cleaver',  name: 'Pyroclast Cleaver',  slot: 'mainhand', weaponType: 'sword', baseStats: { baseAttackSpeed: 18, baseCritChance: 8, flatAtkFireDamage: 28 }, baseDamageMin: 47, baseDamageMax: 74, iLvl: 45 },
+  { id: 'starforged_ember',   name: 'Starforged Ember',   slot: 'mainhand', weaponType: 'sword', baseStats: { baseAttackSpeed: 22, baseCritChance: 10, flatAtkFireDamage: 38 }, baseDamageMin: 65, baseDamageMax: 101, iLvl: 60 },
+
+  // Frost Axes — lower phys, built-in cold damage
+  { id: 'frost_hatchet',      name: 'Frost Hatchet',      slot: 'mainhand', weaponType: 'axe', baseStats: { baseAttackSpeed: 5, baseCritChance: 2, flatAtkColdDamage: 4 },   baseDamageMin: 9, baseDamageMax: 18, iLvl: 1 },
+  { id: 'frost_battleaxe',    name: 'Frost Battleaxe',    slot: 'mainhand', weaponType: 'axe', baseStats: { baseAttackSpeed: 6, baseCritChance: 3, flatAtkColdDamage: 10 },  baseDamageMin: 17, baseDamageMax: 29, iLvl: 10 },
+  { id: 'glacial_cleaver',    name: 'Glacial Cleaver',    slot: 'mainhand', weaponType: 'axe', baseStats: { baseAttackSpeed: 8, baseCritChance: 4, flatAtkColdDamage: 16 },  baseDamageMin: 27, baseDamageMax: 45, iLvl: 20 },
+  { id: 'permafrost_waraxe',  name: 'Permafrost Waraxe',  slot: 'mainhand', weaponType: 'axe', baseStats: { baseAttackSpeed: 10, baseCritChance: 5, flatAtkColdDamage: 24 }, baseDamageMin: 38, baseDamageMax: 62, iLvl: 30 },
+  { id: 'avalanche_reaver',   name: 'Avalanche Reaver',   slot: 'mainhand', weaponType: 'axe', baseStats: { baseAttackSpeed: 12, baseCritChance: 6, flatAtkColdDamage: 34 }, baseDamageMin: 56, baseDamageMax: 89, iLvl: 45 },
+  { id: 'starforged_frost',   name: 'Starforged Frost',   slot: 'mainhand', weaponType: 'axe', baseStats: { baseAttackSpeed: 15, baseCritChance: 8, flatAtkColdDamage: 46 }, baseDamageMin: 77, baseDamageMax: 122, iLvl: 60 },
+
+  // Storm Daggers — lower phys, built-in lightning damage
+  { id: 'spark_shiv',         name: 'Spark Shiv',         slot: 'mainhand', weaponType: 'dagger', baseStats: { spellPower: 4, baseAttackSpeed: 12, baseCritChance: 3, flatAtkLightningDamage: 3 },  baseDamageMin: 4, baseDamageMax: 8, baseSpellPower: 4, iLvl: 1 },
+  { id: 'storm_stiletto',     name: 'Storm Stiletto',     slot: 'mainhand', weaponType: 'dagger', baseStats: { spellPower: 7, baseAttackSpeed: 15, baseCritChance: 5, flatAtkLightningDamage: 7 },  baseDamageMin: 7, baseDamageMax: 14, baseSpellPower: 7, iLvl: 10 },
+  { id: 'tempest_kris',       name: 'Tempest Kris',       slot: 'mainhand', weaponType: 'dagger', baseStats: { spellPower: 11, baseAttackSpeed: 18, baseCritChance: 8, flatAtkLightningDamage: 12 }, baseDamageMin: 11, baseDamageMax: 22, baseSpellPower: 11, iLvl: 20 },
+  { id: 'thunderstrike_dirk', name: 'Thunderstrike Dirk', slot: 'mainhand', weaponType: 'dagger', baseStats: { spellPower: 15, baseAttackSpeed: 22, baseCritChance: 10, flatAtkLightningDamage: 16 }, baseDamageMin: 15, baseDamageMax: 30, baseSpellPower: 15, iLvl: 30 },
+  { id: 'voltaic_fang',       name: 'Voltaic Fang',       slot: 'mainhand', weaponType: 'dagger', baseStats: { spellPower: 22, baseAttackSpeed: 26, baseCritChance: 13, flatAtkLightningDamage: 22 }, baseDamageMin: 23, baseDamageMax: 44, baseSpellPower: 22, iLvl: 45 },
+  { id: 'starforged_storm',   name: 'Starforged Storm',   slot: 'mainhand', weaponType: 'dagger', baseStats: { spellPower: 30, baseAttackSpeed: 32, baseCritChance: 16, flatAtkLightningDamage: 30 }, baseDamageMin: 32, baseDamageMax: 59, baseSpellPower: 30, iLvl: 60 },
+
+  // Void Maces — lower phys, built-in chaos damage
+  { id: 'blight_club',        name: 'Blight Club',        slot: 'mainhand', weaponType: 'mace', baseStats: { armor: 3, baseAttackSpeed: 4, baseCritChance: 2, flatAtkChaosDamage: 3 },  baseDamageMin: 6, baseDamageMax: 14, iLvl: 1 },
+  { id: 'blight_mace',        name: 'Blight Mace',        slot: 'mainhand', weaponType: 'mace', baseStats: { armor: 6, baseAttackSpeed: 5, baseCritChance: 2, flatAtkChaosDamage: 7 },  baseDamageMin: 11, baseDamageMax: 22, iLvl: 10 },
+  { id: 'corruption_hammer',  name: 'Corruption Hammer',  slot: 'mainhand', weaponType: 'mace', baseStats: { armor: 11, baseAttackSpeed: 6, baseCritChance: 3, flatAtkChaosDamage: 12 }, baseDamageMin: 19, baseDamageMax: 34, iLvl: 20 },
+  { id: 'pestilence_mace',    name: 'Pestilence Mace',    slot: 'mainhand', weaponType: 'mace', baseStats: { armor: 16, baseAttackSpeed: 8, baseCritChance: 4, flatAtkChaosDamage: 16 }, baseDamageMin: 26, baseDamageMax: 46, iLvl: 30 },
+  { id: 'entropy_crusher',    name: 'Entropy Crusher',    slot: 'mainhand', weaponType: 'mace', baseStats: { armor: 22, baseAttackSpeed: 10, baseCritChance: 5, flatAtkChaosDamage: 24 }, baseDamageMin: 39, baseDamageMax: 66, iLvl: 45 },
+  { id: 'starforged_blight',  name: 'Starforged Blight',  slot: 'mainhand', weaponType: 'mace', baseStats: { armor: 30, baseAttackSpeed: 12, baseCritChance: 6, flatAtkChaosDamage: 32 }, baseDamageMin: 54, baseDamageMax: 90, iLvl: 60 },
+
+  // ============================================================
   // ARMOR — stat key migration: life → maxLife, dodgeChance → evasion (×10), critDamage → critMultiplier
   // All IDs preserved for crafting recipe compatibility.
   // ============================================================
