@@ -12,3 +12,4 @@ export * from './skills';
 export * from './crafting';
 export * from './quests';
 export * from './state';
+export * from './commands';
