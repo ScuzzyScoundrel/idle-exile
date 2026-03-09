@@ -775,6 +775,55 @@ export function rollZoneAttack(
 }
 
 /**
+ * Estimate effective HP considering armor, resists, dodge, and block.
+ * Mirrors rollZoneAttack's exact mitigation pipeline (dodge → block → armor → resist → flatDR)
+ * so the sim and engine always agree on defensive value.
+ *
+ * refDamage: reference hit size (armor is hit-size-dependent). Default 50 = mid-range zone hit.
+ * refAccuracy: reference zone accuracy for dodge calc. Default 200 = mid-band zone.
+ */
+export function calcEhp(stats: ResolvedStats, refDamage: number = 50, refAccuracy: number = 200): number {
+  // Dodge (expected value of entropy-based system)
+  const rawDodge = stats.evasion / (stats.evasion + refAccuracy);
+  const dodgeChance = Math.min(Math.pow(rawDodge, EVASION_DR_EXPONENT), DODGE_CAP / 100);
+
+  const blockChance = Math.min(stats.blockChance, BLOCK_CAP) / 100;
+
+  const physDmg = refDamage * ZONE_PHYS_RATIO;
+  const eleDmg = refDamage * (1 - ZONE_PHYS_RATIO);
+
+  // Mitigation helper: armor (phys only) → resist (ele only) → flat DR (total)
+  function mitigate(rawPhys: number, rawEle: number): number {
+    const armorRed = rawPhys > 0 ? stats.armor / (stats.armor + ARMOR_COEFFICIENT * rawPhys) : 0;
+    const physAfter = rawPhys * (1 - armorRed);
+    const avgResist = (
+      Math.min(stats.fireResist, 75) +
+      Math.min(stats.coldResist, 75) +
+      Math.min(stats.lightningResist, 75) +
+      Math.min(stats.chaosResist, 75)
+    ) / 4;
+    const eleAfter = rawEle * (1 - avgResist / 100);
+    const total = physAfter + eleAfter;
+    const flatDR = Math.min(stats.armor / ARMOR_FLAT_DR_RATIO / 100, ARMOR_FLAT_DR_CAP);
+    return total * (1 - flatDR);
+  }
+
+  // Dodged hits bypass block/armor/resist — just DODGE_DAMAGE_FLOOR of raw
+  const dodgedDmg = refDamage * DODGE_DAMAGE_FLOOR;
+  // Blocked hits reduce phys+ele before armor/resist
+  const blockedDmg = mitigate(physDmg * (1 - BLOCK_REDUCTION), eleDmg * (1 - BLOCK_REDUCTION));
+  // Normal hits
+  const normalDmg = mitigate(physDmg, eleDmg);
+
+  const expectedDmg =
+    dodgeChance * dodgedDmg +
+    (1 - dodgeChance) * (blockChance * blockedDmg + (1 - blockChance) * normalDmg);
+
+  const dmgRatio = expectedDmg / refDamage;
+  return dmgRatio > 0 ? stats.maxLife / dmgRatio : stats.maxLife;
+}
+
+/**
  * Simulate all incoming zone attacks during one clear.
  * Returns new HP after damage and regen/leech.
  */

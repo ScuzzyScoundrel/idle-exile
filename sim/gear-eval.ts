@@ -4,43 +4,11 @@
 
 import type { Character, Item, GearSlot, ResolvedStats, EquippedSkill, SkillProgress } from '../src/types';
 import { resolveStats } from '../src/engine/character';
-import { calcPlayerDps } from '../src/engine/zones';
-import { ARMOR_COEFFICIENT, ARMOR_FLAT_DR_RATIO, ARMOR_FLAT_DR_CAP, DODGE_DAMAGE_FLOOR } from '../src/data/balance';
+import { calcPlayerDps, calcEhp } from '../src/engine/zones';
 import type { GearWeights, ArmorPreference } from './strategies/types';
 
-/** Estimate armor mitigation fraction against a reference damage value. */
-function armorMitigation(stats: ResolvedStats): number {
-  // PoE-style: armor / (armor + coefficient * refDmg)
-  // Use a reference hit of 50 (mid-range zone hit)
-  const refDmg = 50;
-  const percentDR = stats.armor / (stats.armor + ARMOR_COEFFICIENT * refDmg);
-  const flatDR = Math.min(stats.armor / ARMOR_FLAT_DR_RATIO / 100, ARMOR_FLAT_DR_CAP);
-  return (1 - percentDR) * (1 - flatDR);
-}
-
-/** Estimate resist mitigation (average of all 4 resists, capped at 75). */
-function resistMitigation(stats: ResolvedStats): number {
-  const avgResist = (
-    Math.min(stats.fireResist, 75) +
-    Math.min(stats.coldResist, 75) +
-    Math.min(stats.lightningResist, 75) +
-    Math.min(stats.chaosResist, 75)
-  ) / 4;
-  return 1 - avgResist / 100;
-}
-
-/** Calculate EHP (effective HP pool considering armor + resists + dodge). */
-export function calcEhp(stats: ResolvedStats): number {
-  const armorMult = armorMitigation(stats);
-  const resistMult = resistMitigation(stats);
-  // Model dodge: reduces effective incoming damage
-  const rawDodge = stats.evasion / (stats.evasion + 200); // approximate zone accuracy
-  const dodgeChance = Math.min(Math.pow(rawDodge, 1.2), 0.75);
-  // With dodge floor, effective dodge reduction = dodgeChance * (1 - DODGE_DAMAGE_FLOOR)
-  const dodgeMult = 1 - dodgeChance * (1 - DODGE_DAMAGE_FLOOR);
-  const rawMult = armorMult * resistMult * dodgeMult;
-  return rawMult > 0 ? stats.maxLife / rawMult : stats.maxLife;
-}
+// Re-export calcEhp so existing imports from gear-eval still work
+export { calcEhp } from '../src/engine/zones';
 
 /** Calculate DPS from a character using skill-based rotation (or default weapon skill fallback). */
 export function calcCharDps(

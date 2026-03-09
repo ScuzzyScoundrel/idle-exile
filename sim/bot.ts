@@ -6,15 +6,14 @@ import type { Character, ZoneDef, EquippedSkill, SkillProgress, Item, GearSlot, 
 import { createCharacter, resolveStats, addXp } from '../src/engine/character';
 import { applyCurrency } from '../src/engine/crafting';
 import {
-  calcPlayerDps, simulateSingleClear, simulateClearDefense,
-  calcHazardPenalty, calcBossMaxHp, calcBossAttackProfile, generateBossLoot, rollZoneAttack,
-  calcOutgoingDamageMult,
+  calcPlayerDps, calcClearTime, simulateSingleClear, simulateClearDefense,
+  calcBossMaxHp, calcBossAttackProfile, generateBossLoot, rollZoneAttack,
+  calcDeathPenalty,
 } from '../src/engine/zones';
 import { generateItem } from '../src/engine/items';
 import { canAllocateGraphNode, allocateGraphNode } from '../src/engine/skillGraph';
 import { ZONE_DEFS } from '../src/data/zones';
-import { BOSS_INTERVAL, POWER_DIVISOR, LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO, DEATH_STREAK_WINDOW } from '../src/data/balance';
-import { calcDeathPenalty } from '../src/engine/zones';
+import { BOSS_INTERVAL, DEATH_STREAK_WINDOW } from '../src/data/balance';
 import { DAGGER_SKILL_GRAPHS } from '../src/data/skillGraphs/dagger';
 import { advanceClock } from './clock';
 import { isUpgrade, equipItem, calcCharDps, calcEhp } from './gear-eval';
@@ -431,15 +430,7 @@ export class Bot {
   }
 
   private computeClearTime(zone: ZoneDef): number {
-    const playerDps = this.computePlayerDps();
-    const hazardMult = calcHazardPenalty(this.char.stats, zone);
-    const outgoingMult = calcOutgoingDamageMult(this.char.level, zone.iLvlMin);
-    const charPower = playerDps * hazardMult * outgoingMult;
-    let clearTime = zone.baseClearTime / (charPower / POWER_DIVISOR);
-    const levelDelta = Math.max(0, zone.iLvlMin - this.char.level);
-    if (levelDelta > 0) clearTime *= Math.pow(LEVEL_PENALTY_BASE, levelDelta);
-    clearTime = Math.max(zone.baseClearTime * CLEAR_TIME_FLOOR_RATIO, clearTime);
-    return clearTime;
+    return calcClearTime(this.char, zone);
   }
 
   /** Allocate skill graph nodes based on archetype's branch choices. */
