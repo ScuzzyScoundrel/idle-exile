@@ -39,10 +39,12 @@ import {
   createAbilityProgress, addAbilityXp, getAbilityXpPerClear,
 } from '../engine/unifiedSkills';
 import { ZONE_DEFS } from '../data/zones';
-import { getBagDef, calcBagCapacity, BAG_SLOT_COUNT } from '../data/items';
+import { calcBagCapacity, BAG_SLOT_COUNT } from '../data/items';
 import { runMigrations } from './migrations';
 import { useCraftingStore } from './craftingStore';
 import { useSkillStore } from './skillStore';
+import { useQuestStore } from './questStore';
+import { useUiStore } from './uiStore';
 import { addGatheringXp, calcGatherClearTime, createDefaultGatheringSkills, canGatherInZone } from '../engine/gathering';
 import { createDefaultCraftingSkills, CRAFTING_MILESTONES } from '../data/craftingProfessions';
 import { calcRareFindBonus } from '../engine/rareMaterials';
@@ -74,10 +76,8 @@ import { isSkillAoE, spawnPack } from '../engine/packs';
 import { tickInvasions as tickInvasionsPure, isZoneInvaded, rollCorruption } from '../engine/invasions';
 import { getInvasionMobs } from '../data/invasionMobs';
 import {
-  generateDailyQuests, getUtcDateString, shouldResetDailyQuests,
-  createInitialProgress, updateQuestProgressForKills,
+  updateQuestProgressForKills,
   updateQuestProgressForClears, updateQuestProgressForBossKill,
-  isQuestComplete,
 } from '../engine/dailyQuests';
 
 
@@ -436,7 +436,7 @@ function createInitialState(): GameState {
 
 export const useGameStore = create<GameState & GameActions>()(
   persist(
-    (set, get) => ({
+    ((set, get) => ({
       ...createInitialState(),
 
       selectClass: (classId: CharacterClass) => {
@@ -1212,58 +1212,18 @@ export const useGameStore = create<GameState & GameActions>()(
       },
 
       // --- Bag actions (canonical logic in uiStore; kept here for internal callers) ---
+      // ─── Bag actions (delegated to uiStore) ─────
       equipBag: (bagDefId: string, slotIndex: number) => {
-        const state = get();
-        if (slotIndex < 0 || slotIndex >= BAG_SLOT_COUNT) return null;
-        const stashCount = state.bagStash[bagDefId] || 0;
-        if (stashCount <= 0) return null;
-        const newDef = getBagDef(bagDefId);
-        const oldId = state.bagSlots[slotIndex];
-        const oldDef = getBagDef(oldId);
-        const capacityDelta = newDef.capacity - oldDef.capacity;
-        const currentCap = getInventoryCapacity(state);
-        if (currentCap + capacityDelta < state.inventory.length) return null;
-        const newSlots = [...state.bagSlots];
-        newSlots[slotIndex] = bagDefId;
-        const newStash = { ...state.bagStash };
-        newStash[bagDefId] = stashCount - 1;
-        if (newStash[bagDefId] <= 0) delete newStash[bagDefId];
-        newStash[oldId] = (newStash[oldId] || 0) + 1;
-        set({ bagSlots: newSlots, bagStash: newStash });
-        return { replacedId: oldId, capacityDelta };
+        return useUiStore.getState().equipBag(bagDefId, slotIndex);
       },
       sellBag: (bagDefId: string) => {
-        const state = get();
-        const count = state.bagStash[bagDefId] || 0;
-        if (count <= 0) return false;
-        const def = getBagDef(bagDefId);
-        const newStash = { ...state.bagStash };
-        newStash[bagDefId] = count - 1;
-        if (newStash[bagDefId] <= 0) delete newStash[bagDefId];
-        set({ bagStash: newStash, gold: state.gold + def.sellValue });
-        return true;
+        return useUiStore.getState().sellBag(bagDefId);
       },
       salvageBag: (bagDefId: string) => {
-        const state = get();
-        const count = state.bagStash[bagDefId] || 0;
-        if (count <= 0) return false;
-        const def = getBagDef(bagDefId);
-        const newStash = { ...state.bagStash };
-        newStash[bagDefId] = count - 1;
-        if (newStash[bagDefId] <= 0) delete newStash[bagDefId];
-        const newMaterials = { ...state.materials };
-        newMaterials['enchanting_essence'] = (newMaterials['enchanting_essence'] || 0) + def.salvageValue;
-        set({ bagStash: newStash, materials: newMaterials });
-        return true;
+        return useUiStore.getState().salvageBag(bagDefId);
       },
       buyBag: (bagDefId: string) => {
-        const state = get();
-        const def = getBagDef(bagDefId);
-        if (state.gold < def.goldCost) return false;
-        const newStash = { ...state.bagStash };
-        newStash[bagDefId] = (newStash[bagDefId] || 0) + 1;
-        set({ gold: state.gold - def.goldCost, bagStash: newStash });
-        return true;
+        return useUiStore.getState().buyBag(bagDefId);
       },
 
       craft: (itemId: string, currency: CurrencyType) => {
@@ -1355,97 +1315,9 @@ export const useGameStore = create<GameState & GameActions>()(
         useCraftingStore.getState().salvageAllCraftOutput();
       },
 
-      // --- Offline progress (canonical logic in uiStore; kept here for internal callers) ---
+      // --- Offline progress (delegated to uiStore) ---
       claimOfflineProgress: () => {
-        const state = get();
-        const progress = state.offlineProgress;
-        if (!progress) return;
-
-        const { newInventory, newMaterials, autoSoldGold: claimAutoSoldGold } = addItemsWithOverflow(
-          state.inventory,
-          getInventoryCapacity(state),
-          state.autoSalvageMinRarity,
-          state.autoDisposalAction,
-          state.materials,
-          progress.items,
-        );
-
-        const newGold = state.gold + progress.goldGained + claimAutoSoldGold;
-
-        const newCurrencies = { ...state.currencies };
-        for (const [key, val] of Object.entries(progress.currencyDrops)) {
-          newCurrencies[key as CurrencyType] += val;
-        }
-
-        for (const [key, val] of Object.entries(progress.materials)) {
-          newMaterials[key] = (newMaterials[key] || 0) + val;
-        }
-
-        const newBagStash = { ...state.bagStash };
-        for (const [key, val] of Object.entries(progress.bagDrops)) {
-          newBagStash[key] = (newBagStash[key] || 0) + val;
-        }
-
-        const newChar = addXp(state.character, progress.xpGained);
-        newChar.stats = resolveStats(newChar);
-
-        const claimZone = ZONE_DEFS.find(z => z.id === progress.zoneId);
-        const newSkillProgress = { ...state.skillProgress };
-        const newAbilityProgress = { ...state.abilityProgress };
-        if (claimZone && progress.clearsCompleted > 0) {
-          const xpPerClear = getAbilityXpPerClear(claimZone.band);
-          const totalAbilityXp = xpPerClear * progress.clearsCompleted;
-          const reverseAbilityMap: Record<string, string> = {};
-          for (const [oldId, newId] of Object.entries(ABILITY_ID_MIGRATION)) {
-            reverseAbilityMap[newId] = oldId;
-          }
-          for (const equipped of state.skillBar) {
-            if (!equipped) continue;
-            const skillDef = getUnifiedSkillDef(equipped.skillId);
-            if (!skillDef) continue;
-            const existing = newSkillProgress[equipped.skillId] ?? {
-              skillId: equipped.skillId, xp: 0, level: 0, allocatedNodes: [],
-            };
-            const tempProgress = {
-              abilityId: existing.skillId, xp: existing.xp,
-              level: existing.level, allocatedNodes: existing.allocatedNodes,
-            };
-            const updated = addAbilityXp(tempProgress, totalAbilityXp);
-            newSkillProgress[equipped.skillId] = {
-              ...existing, xp: updated.xp, level: updated.level,
-              allocatedNodes: updated.allocatedNodes,
-            };
-            const oldId = reverseAbilityMap[equipped.skillId];
-            if (oldId) {
-              const oldExisting = newAbilityProgress[oldId] ?? createAbilityProgress(oldId);
-              newAbilityProgress[oldId] = { ...oldExisting, xp: updated.xp, level: updated.level };
-            }
-          }
-        }
-
-        let offlineQuestProgress = state.dailyQuests.progress;
-        offlineQuestProgress = updateQuestProgressForClears(
-          state.dailyQuests.quests, offlineQuestProgress, progress.zoneId, progress.clearsCompleted,
-        );
-        const offlineBossKills = Math.floor(progress.clearsCompleted / 10);
-        for (let b = 0; b < offlineBossKills; b++) {
-          offlineQuestProgress = updateQuestProgressForBossKill(
-            state.dailyQuests.quests, offlineQuestProgress, progress.zoneId,
-          );
-        }
-
-        set({
-          character: newChar,
-          inventory: newInventory,
-          materials: newMaterials,
-          currencies: newCurrencies,
-          gold: newGold,
-          bagStash: newBagStash,
-          skillProgress: newSkillProgress,
-          abilityProgress: newAbilityProgress,
-          offlineProgress: null,
-          dailyQuests: { ...state.dailyQuests, progress: offlineQuestProgress },
-        });
+        useUiStore.getState().claimOfflineProgress();
       },
 
       // ─── Skill/talent actions (delegated to skillStore) ─────
@@ -3310,48 +3182,17 @@ export const useGameStore = create<GameState & GameActions>()(
 
       // --- Profession Gear ---
 
-      // --- Profession gear (canonical logic in uiStore; kept here for internal callers) ---
+      // --- Profession gear (delegated to uiStore) ---
       equipProfessionGear: (itemId: string) => {
-        set((state) => {
-          const idx = state.inventory.findIndex(i => i.id === itemId);
-          if (idx === -1) return state;
-          const item = state.inventory[idx];
-          if (!item.isProfessionGear) return state;
-
-          const slot = item.slot;
-          const newInventory = [...state.inventory];
-          newInventory.splice(idx, 1);
-
-          const existing = state.professionEquipment[slot];
-          if (existing) newInventory.push(existing);
-
-          return {
-            inventory: newInventory,
-            professionEquipment: { ...state.professionEquipment, [slot]: item },
-          };
-        });
+        useUiStore.getState().equipProfessionGear(itemId);
       },
       unequipProfessionSlot: (slot: GearSlot) => {
-        set((state) => {
-          const item = state.professionEquipment[slot];
-          if (!item) return state;
-          const newEquip = { ...state.professionEquipment };
-          delete newEquip[slot];
-          return {
-            inventory: [...state.inventory, item],
-            professionEquipment: newEquip,
-          };
-        });
+        useUiStore.getState().unequipProfessionSlot(slot);
       },
 
-      // --- Tutorial (canonical logic in uiStore; kept here for internal callers) ---
+      // --- Tutorial (delegated to uiStore) ---
       advanceTutorial: (step: number) => {
-        set((state) => {
-          if (step === 0 || step > state.tutorialStep) {
-            return { tutorialStep: step };
-          }
-          return state;
-        });
+        useUiStore.getState().advanceTutorial(step);
       },
 
       setAutoSalvageRarity: (rarity: Rarity) => {
@@ -3403,79 +3244,18 @@ export const useGameStore = create<GameState & GameActions>()(
         set({ invasionState: { ...state.invasionState, activeInvasions: newActive } });
       },
 
-      // --- Daily quests (canonical logic in questStore; kept here for internal callers) ---
+      // --- Daily quests (delegated to questStore) ---
       checkDailyQuestReset: () => {
-        const state = get();
-        const now = new Date();
-        if (!shouldResetDailyQuests(state.dailyQuests, now) && state.dailyQuests.quests.length > 0) return;
-
-        const dateStr = getUtcDateString(now);
-        const accessibleBands = new Set<number>();
-        for (const zoneId of Object.keys(state.totalZoneClears)) {
-          const zone = ZONE_DEFS.find(z => z.id === zoneId);
-          if (zone) accessibleBands.add(zone.band);
-        }
-        accessibleBands.add(1);
-        const bands = Array.from(accessibleBands).sort((a, b) => a - b);
-
-        const zonesByBand: Record<number, typeof ZONE_DEFS> = {};
-        for (const z of ZONE_DEFS) {
-          if (!zonesByBand[z.band]) zonesByBand[z.band] = [];
-          zonesByBand[z.band].push(z);
-        }
-        const mobTypesByZone: Record<string, ReturnType<typeof getZoneMobTypes>> = {};
-        for (const z of ZONE_DEFS) {
-          mobTypesByZone[z.id] = getZoneMobTypes(z.id);
-        }
-
-        const quests = generateDailyQuests(dateStr, bands, zonesByBand, mobTypesByZone);
-        const progress = createInitialProgress(quests);
-        set({ dailyQuests: { questDate: dateStr, quests, progress } });
+        useQuestStore.getState().checkDailyQuestReset();
       },
       claimQuestReward: (questId: string) => {
-        const state = get();
-        const quest = state.dailyQuests.quests.find(q => q.id === questId);
-        const progress = state.dailyQuests.progress[questId];
-        if (!quest || !progress || progress.claimed) return false;
-        if (!isQuestComplete(quest, progress)) return false;
-
-        const reward = quest.reward;
-        const newGold = state.gold + (reward.gold ?? 0);
-        const xpResult = addXp(state.character, reward.xp ?? 0);
-
-        const newMaterials = { ...state.materials };
-        if (reward.materials) {
-          for (const [matId, qty] of Object.entries(reward.materials)) {
-            newMaterials[matId] = (newMaterials[matId] ?? 0) + qty;
-          }
-        }
-
-        const newCurrencies = { ...state.currencies };
-        if (reward.currencies) {
-          for (const [cur, qty] of Object.entries(reward.currencies)) {
-            if (qty) newCurrencies[cur as CurrencyType] = (newCurrencies[cur as CurrencyType] ?? 0) + qty;
-          }
-        }
-
-        const newProgress = {
-          ...state.dailyQuests.progress,
-          [questId]: { ...progress, claimed: true },
-        };
-
-        set({
-          gold: newGold,
-          character: { ...state.character, ...xpResult },
-          materials: newMaterials,
-          currencies: newCurrencies,
-          dailyQuests: { ...state.dailyQuests, progress: newProgress },
-        });
-        return true;
+        return useQuestStore.getState().claimQuestReward(questId);
       },
 
       resetGame: () => {
         set(createInitialState());
       },
-    }),
+    })) as import('zustand').StateCreator<GameState & GameActions, [['zustand/persist', unknown]], []>,
     {
       name: 'idle-exile-save',
       version: 50,
