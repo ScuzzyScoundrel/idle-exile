@@ -158,3 +158,14 @@ Post-plan:  Full 4-class balance run → first real cross-class data
   - calcClearTime now receives classDmgMult/classSpdMult from resource state
   - ALL_SKILL_GRAPHS replaces hardcoded DAGGER_SKILL_GRAPHS
   - Validated: 432 bots (16×3×3×3), tsc clean, all classes producing differentiated data
+- [x] Priority 1.5: AbilityEffect wiring
+  - aggregateGraphGlobalEffects passes skill graph bonuses to calcPlayerDps/calcClearTime/simulateSingleClear
+  - Keystones now affect DPS: +4 zones, +28% DPS for Crit Assassin
+- [x] Priority 2: Zone-scaled EHP
+  - Added calcZoneRefDamage(zone, playerLevel) to engine
+  - Gear scoring, progression sampling, and summaries use zone-specific refDamage/refAccuracy
+  - Deaths −42%, death hotspot pushed from Band 3 to Band 4
+- [x] Priority 3: Energy Shield in defense
+  - ES absorb + recharge added to simulateClearDefense (mirrors tick.ts)
+  - Mage cloth builds now viable: Arcane Blaster reaches Zone 18 (was Zone 8.6)
+- [x] Priority 4: DoT DPS verification — confirmed non-issue (24 DoT fields, calcRotationDps handles)
