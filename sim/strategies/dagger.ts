@@ -55,6 +55,9 @@ export function getBranchPath(skillId: string, branch: BranchChoice): string[] {
 export const ARCHETYPES: ArchetypeDef[] = [
   {
     name: 'Poison',
+    charClass: 'rogue',
+    weaponType: 'dagger',
+    armorAffinity: 'leather',
     skillBar: ['dagger_viper_strike', 'dagger_fan_of_knives', 'dagger_blade_flurry', 'dagger_smoke_screen'],
     allocations: [
       { skillId: 'dagger_viper_strike',    branch: 'b2' },
@@ -65,6 +68,9 @@ export const ARCHETYPES: ArchetypeDef[] = [
   },
   {
     name: 'Crit Assassin',
+    charClass: 'rogue',
+    weaponType: 'dagger',
+    armorAffinity: 'leather',
     skillBar: ['dagger_assassinate', 'dagger_blade_flurry', 'dagger_lightning_lunge', 'dagger_stab'],
     allocations: [
       { skillId: 'dagger_assassinate',     branch: 'b1' },
@@ -75,6 +81,9 @@ export const ARCHETYPES: ArchetypeDef[] = [
   },
   {
     name: 'Shadow Dodge',
+    charClass: 'rogue',
+    weaponType: 'dagger',
+    armorAffinity: 'leather',
     skillBar: ['dagger_smoke_screen', 'dagger_viper_strike', 'dagger_fan_of_knives', 'dagger_stab'],
     allocations: [
       { skillId: 'dagger_smoke_screen',    branch: 'b3' },
@@ -85,6 +94,9 @@ export const ARCHETYPES: ArchetypeDef[] = [
   },
   {
     name: 'Poison-Crit',
+    charClass: 'rogue',
+    weaponType: 'dagger',
+    armorAffinity: 'leather',
     skillBar: ['dagger_viper_strike', 'dagger_assassinate', 'dagger_fan_of_knives', 'dagger_blade_flurry'],
     allocations: [
       { skillId: 'dagger_viper_strike',    branch: 'b2' },
@@ -95,6 +107,9 @@ export const ARCHETYPES: ArchetypeDef[] = [
   },
   {
     name: 'Poison-Dodge',
+    charClass: 'rogue',
+    weaponType: 'dagger',
+    armorAffinity: 'leather',
     skillBar: ['dagger_viper_strike', 'dagger_fan_of_knives', 'dagger_smoke_screen', 'dagger_stab'],
     allocations: [
       { skillId: 'dagger_viper_strike',    branch: 'b2' },
@@ -105,6 +120,9 @@ export const ARCHETYPES: ArchetypeDef[] = [
   },
   {
     name: 'Crit-Dodge',
+    charClass: 'rogue',
+    weaponType: 'dagger',
+    armorAffinity: 'leather',
     skillBar: ['dagger_assassinate', 'dagger_lightning_lunge', 'dagger_smoke_screen', 'dagger_blade_flurry'],
     allocations: [
       { skillId: 'dagger_assassinate',     branch: 'b1' },
@@ -115,6 +133,9 @@ export const ARCHETYPES: ArchetypeDef[] = [
   },
   {
     name: 'Full Hybrid',
+    charClass: 'rogue',
+    weaponType: 'dagger',
+    armorAffinity: 'leather',
     skillBar: ['dagger_assassinate', 'dagger_viper_strike', 'dagger_smoke_screen', 'dagger_blade_flurry'],
     allocations: [
       { skillId: 'dagger_assassinate',     branch: 'b1' },

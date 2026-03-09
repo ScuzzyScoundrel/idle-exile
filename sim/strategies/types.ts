@@ -2,10 +2,11 @@
 // Simulator Type Definitions
 // ============================================================
 
-import type { Character, Item, GearSlot, Affix, ZoneDef, CurrencyType } from '../../src/types';
+import type { Character, Item, GearSlot, Affix, ZoneDef, CurrencyType, CharacterClass } from '../../src/types';
 
 // --- Gear Strategy ---
 
+export type WeaponType = 'dagger' | 'sword' | 'staff' | 'bow';
 export type ArmorPreference = 'plate' | 'leather' | 'cloth' | 'any';
 
 export interface GearWeights {
@@ -31,6 +32,12 @@ export interface SkillAllocation {
 
 export interface ArchetypeDef {
   name: string;
+  /** Character class this archetype belongs to */
+  charClass: CharacterClass;
+  /** Primary weapon type */
+  weaponType: WeaponType;
+  /** Preferred armor type (matches class affinity) */
+  armorAffinity: ArmorPreference;
   /** 4 active skills in priority order */
   skillBar: string[];
   /** Per-skill graph allocation path (branch to follow) */

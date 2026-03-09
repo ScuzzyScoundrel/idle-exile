@@ -31,8 +31,19 @@ installClock();
 
 // Now safe to import engine code
 import { Bot } from './bot';
-import { ARCHETYPES } from './strategies/dagger';
+import { ARCHETYPES as DAGGER_ARCHETYPES } from './strategies/dagger';
+import { ARCHETYPES as SWORD_ARCHETYPES } from './strategies/sword';
+import { ARCHETYPES as STAFF_ARCHETYPES } from './strategies/staff';
+import { ARCHETYPES as BOW_ARCHETYPES } from './strategies/bow';
 import { GEAR_STRATEGIES } from './strategies/types';
+
+// All archetypes across all weapon types
+const ARCHETYPES = [
+  ...DAGGER_ARCHETYPES,
+  ...SWORD_ARCHETYPES,
+  ...STAFF_ARCHETYPES,
+  ...BOW_ARCHETYPES,
+];
 import type { BotConfig, BotSummary, AggregateResult, GearWeights, ArmorPreference } from './strategies/types';
 import { aggregateBots } from './logger';
 import { ZONE_DEFS } from '../src/data/zones';
