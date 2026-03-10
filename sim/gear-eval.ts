@@ -5,6 +5,7 @@
 import type { Character, Item, GearSlot, ResolvedStats, EquippedSkill, SkillProgress, ZoneDef } from '../src/types';
 import { resolveStats } from '../src/engine/character';
 import { calcPlayerDps, calcEhp, calcZoneRefDamage, calcZoneAccuracy } from '../src/engine/zones';
+import { isTwoHandedWeapon } from '../src/engine/items';
 import type { GearWeights, ArmorPreference } from './strategies/types';
 
 // Re-export for existing imports
@@ -74,6 +75,10 @@ export function isUpgrade(
 /** Equip an item on a character (returns new Character with updated stats). */
 export function equipItem(char: Character, item: Item): Character {
   const newEquipment = { ...char.equipment, [item.slot]: item };
+  // Two-handed weapons clear the offhand slot
+  if (item.slot === 'mainhand' && item.weaponType && isTwoHandedWeapon(item.weaponType)) {
+    delete newEquipment.offhand;
+  }
   const newChar: Character = { ...char, equipment: newEquipment };
   newChar.stats = resolveStats(newChar);
   return newChar;

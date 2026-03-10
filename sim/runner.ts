@@ -86,17 +86,16 @@ if (selectedArmors.length === 0) {
   console.error(`No armor type matching "${armorFilter}". Available: plate, leather, cloth, any, all`);
   process.exit(1);
 }
-const armorLoop: ArmorPreference[] = selectedArmors;
 
 // ─── Run simulations ─────────────────────────────────────
 
-const totalConfigs = selectedArchetypes.length * selectedStrategies.length * armorLoop.length;
+const totalConfigs = selectedArchetypes.length * selectedStrategies.length * selectedArmors.length;
 const totalBots = totalConfigs * botsPerConfig;
 
 console.log(`\n=== Idle Exile Balance Simulator (Balance v2) ===`);
 console.log(`Archetypes: ${selectedArchetypes.map(a => a.name).join(', ')}`);
 console.log(`Strategies: ${selectedStrategies.map(([n]) => n).join(', ')}`);
-console.log(`Armor types: ${armorLoop.join(', ')}`);
+console.log(`Armor types: ${selectedArmors.join(', ')}`);
 console.log(`Bots per config: ${botsPerConfig}`);
 console.log(`Max clears: ${maxClears}`);
 console.log(`Base seed: ${baseSeed}`);
@@ -108,7 +107,7 @@ let botIndex = 0;
 
 for (const archetype of selectedArchetypes) {
   for (const [stratName, weights] of selectedStrategies) {
-    for (const armorPref of armorLoop) {
+    for (const armorPref of selectedArmors) {
       const configSummaries: BotSummary[] = [];
 
       for (let i = 0; i < botsPerConfig; i++) {
@@ -163,7 +162,7 @@ for (const agg of aggregates) {
   const wallName = wallZone ? wallZone.name.slice(0, 16) : 'N/A';
   const medZoneIdx = Math.round(agg.finalZone.median);
   const medZoneName = ZONE_DEFS[medZoneIdx]?.name ?? `Zone ${medZoneIdx}`;
-  const armorLabel = agg.botCount > 0 ? (allSummaries.find(s => s.archetypeName === agg.archetypeName && s.gearStrategy === agg.gearStrategy)?.armorPreference ?? 'any') : 'any';
+  const armorLabel = agg.armorPreference;
 
   console.log(
     `│ ${pad(agg.archetypeName, 16)} │ ${pad(agg.gearStrategy, 10)} │ ${pad(armorLabel, 7)} │ ${pad(String(agg.botCount), 5)} │ ${pad(medZoneName.slice(0, 8), 8)} │ ${pad(String(Math.round(agg.finalLevel.median)), 6)} │ ${pad(String(Math.round(agg.totalDeaths.median)), 6)} │ ${pad(String(Math.round(agg.totalClears.median)), 6)} │ ${pad(String(Math.round(agg.finalDps.median)), 7)} │ ${pad(wallName, 16)} │`
@@ -240,7 +239,7 @@ const header = {
   balanceVersion: 'v2',
   configs: selectedArchetypes.flatMap(a =>
     selectedStrategies.flatMap(([s]) =>
-      armorLoop.map(armor => ({
+      selectedArmors.map(armor => ({
         archetype: a.name,
         gearStrategy: s,
         armorPreference: armor,

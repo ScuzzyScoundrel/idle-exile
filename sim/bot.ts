@@ -10,11 +10,13 @@ import {
   calcBossMaxHp, calcBossAttackProfile, generateBossLoot, rollZoneAttack,
   calcDeathPenalty,
 } from '../src/engine/zones';
+import type { CombatContext } from '../src/engine/procEstimation';
 import { generateItem } from '../src/engine/items';
 import { canAllocateGraphNode, allocateGraphNode } from '../src/engine/skillGraph';
 import { canAllocateTalentRank, allocateTalentRank } from '../src/engine/talentTree';
 import { ZONE_DEFS } from '../src/data/zones';
-import { BOSS_INTERVAL, DEATH_STREAK_WINDOW } from '../src/data/balance';
+import { BOSS_INTERVAL, DEATH_STREAK_WINDOW, ZONE_ATTACK_INTERVAL } from '../src/data/balance';
+import { rollPackSize, rollIsRare, rollRareAffixes, resolveRareMods, isSkillAoE } from '../src/engine/packs';
 import { ALL_SKILL_GRAPHS } from '../src/data/skillGraphs';
 import { ALL_TALENT_TREES } from '../src/data/skillGraphs/talentTrees';
 import { aggregateGraphGlobalEffects } from '../src/engine/unifiedSkills';
@@ -41,6 +43,79 @@ const ADVANCE_DEATH_THRESHOLD = 1;
 // Retreat logic: if bot dies too many times without progress, drop back a zone to farm gear
 const RETREAT_DEATH_THRESHOLD = 10; // deaths in rolling window to trigger retreat
 const RETREAT_COOLDOWN = 50; // minimum clears in a zone before allowing another retreat
+
+// ─── Pack Encounter Simulation ───
+
+interface PackEncounterResult {
+  packSize: number;
+  clearTimeMult: number;       // multiplier on clear time from pack HP
+  damageMult: number;          // avg damage multiplier from rare affixes
+  hitCountMult: number;        // more mobs = more incoming hits
+  rareCount: number;
+}
+
+/**
+ * Roll a pack encounter and compute expected-value multipliers.
+ *
+ * AoE model: If the skill bar has at least one AoE skill, packs take
+ * sqrt(packSize) times longer (AoE cleaves multiple mobs). Otherwise
+ * packs take packSize times longer (sequential single-target kills).
+ *
+ * Rare mob affixes inflate HP (via clearTimeMult) and incoming damage
+ * (via damageMult). Each mob attacks independently so hitCountMult = packSize.
+ */
+function simulatePackEncounter(
+  zone: ZoneDef,
+  skillBar: (EquippedSkill | null)[],
+  skillProgress: Record<string, SkillProgress>,
+): PackEncounterResult {
+  const packSize = rollPackSize(zone.band);
+
+  // Roll rare status for each mob in the pack
+  let rareCount = 0;
+  let totalHpMult = 0;         // sum of per-mob HP multipliers
+  let totalDamageMult = 0;     // sum of per-mob damage multipliers (for weighted avg)
+
+  for (let i = 0; i < packSize; i++) {
+    let mobHpMult = 1;
+    let mobDmgMult = 1;
+    if (rollIsRare(zone.band)) {
+      rareCount++;
+      const affixes = rollRareAffixes(zone.band);
+      const mods = resolveRareMods(affixes);
+      mobHpMult = mods.combinedHpMult;
+      mobDmgMult = mods.combinedDamageMult;
+    }
+    totalHpMult += mobHpMult;
+    totalDamageMult += mobDmgMult;
+  }
+
+  // Average damage multiplier across all mobs in the pack
+  const avgDamageMult = totalDamageMult / packSize;
+
+  // AoE detection: check if any equipped skill has AoE tag
+  let hasAoE = false;
+  for (const slot of skillBar) {
+    if (!slot) continue;
+    if (isSkillAoE(skillBar, slot.skillId, skillProgress)) {
+      hasAoE = true;
+      break;
+    }
+  }
+
+  // Clear time multiplier:
+  // - AoE builds: sqrt(totalHpMult) — AoE hits all mobs simultaneously
+  // - Single-target builds: totalHpMult — must kill each mob sequentially
+  const clearTimeMult = hasAoE ? Math.sqrt(totalHpMult) : totalHpMult;
+
+  return {
+    packSize,
+    clearTimeMult,
+    damageMult: avgDamageMult,
+    hitCountMult: packSize,  // each mob swings independently
+    rareCount,
+  };
+}
 
 export class Bot {
   readonly config: BotConfig;
@@ -190,15 +265,20 @@ export class Bot {
     const classDef = getClassDef(this.config.archetype.charClass);
     this.resourceState = tickResourceOnClear(this.resourceState, classDef, zone.id);
 
-    // 1. Calculate clear time (with class multipliers)
-    const clearTime = this.computeClearTime(zone);
+    // 0b. Roll pack encounter (pack size + rare affixes)
+    const pack = simulatePackEncounter(zone, this.skillBar, this.skillProgress);
 
-    // 2. Simulate incoming damage during clear
+    // 1. Calculate clear time (with class multipliers), scaled by pack
+    const baseClearTime = this.computeClearTime(zone);
+    const clearTime = baseClearTime * pack.clearTimeMult;
+
+    // 2. Simulate incoming damage during clear (pack mobs attack independently)
     const playerDps = this.computePlayerDps();
     const playerDamageDealt = playerDps * clearTime;
     const defense = simulateClearDefense(
       this.currentHp, this.char.stats.maxLife, this.char.stats,
       zone, this.char.level, clearTime, playerDamageDealt,
+      { damageMult: pack.damageMult, hitCountMult: pack.hitCountMult },
     );
 
     const hpBefore = this.currentHp;
@@ -306,6 +386,8 @@ export class Bot {
       deathPenaltyTime,
       totalMitigated: defense.totalMitigated,
       regenCapUsed: defense.regenCapUsed,
+      packSize: pack.packSize,
+      rareCount: pack.rareCount,
     };
     this.logger.logClear(log);
 
@@ -527,8 +609,8 @@ export class Bot {
 
     if (this.currentZoneIndex >= ZONE_DEFS.length - 1) return;
 
-    // Overlevel check: advance if player is 3+ levels above zone (mirrors real player behavior)
-    if (this.char.level >= zone.iLvlMin + 3) {
+    // Overlevel check: advance if player is 5+ levels above zone (wider gap with compressed iLvl)
+    if (this.char.level >= zone.iLvlMin + 5) {
       this.advanceToNextZone();
       return;
     }
@@ -578,7 +660,12 @@ export class Bot {
 
   private computePlayerDps(): number {
     const effect = this.computeAbilityEffect();
-    return calcPlayerDps(this.char, effect, undefined, this.skillBar, this.skillProgress);
+    const zone = ZONE_DEFS[this.currentZoneIndex];
+    const combatCtx: CombatContext = {
+      mobAttackInterval: ZONE_ATTACK_INTERVAL,
+      zoneAccuracy: calcZoneAccuracy(zone.band, this.char.level, zone.iLvlMin),
+    };
+    return calcPlayerDps(this.char, effect, undefined, this.skillBar, this.skillProgress, combatCtx);
   }
 
   private computeClearTime(zone: ZoneDef): number {
@@ -586,7 +673,11 @@ export class Bot {
     const classDmgMult = getClassDamageModifier(this.resourceState, classDef);
     const classSpdMult = getClassClearSpeedModifier(this.resourceState, classDef);
     const effect = this.computeAbilityEffect();
-    return calcClearTime(this.char, zone, effect, classDmgMult, classSpdMult);
+    const combatCtx: CombatContext = {
+      mobAttackInterval: ZONE_ATTACK_INTERVAL,
+      zoneAccuracy: calcZoneAccuracy(zone.band, this.char.level, zone.iLvlMin),
+    };
+    return calcClearTime(this.char, zone, effect, classDmgMult, classSpdMult, undefined, this.skillBar, this.skillProgress, combatCtx);
   }
 
   /** Route to the correct getBranchPath for this archetype's weapon type. */
@@ -620,29 +711,33 @@ export class Bot {
     }
   }
 
-  /** Allocate talent tree ranks based on archetype's branch choices. */
+  /** Allocate talent tree ranks based on archetype's branch choices.
+   *  Round-robins across skills (1 rank per skill per loop), continuing
+   *  until no skill can allocate any more ranks. */
   private allocateTalentNodes(): void {
-    for (const alloc of this.config.archetype.allocations) {
-      const tree = ALL_TALENT_TREES[alloc.skillId];
-      const progress = this.skillProgress[alloc.skillId];
-      if (!tree || !progress) continue;
+    let allocated = true;
+    while (allocated) {
+      allocated = false;
+      for (const alloc of this.config.archetype.allocations) {
+        const tree = ALL_TALENT_TREES[alloc.skillId];
+        const progress = this.skillProgress[alloc.skillId];
+        if (!tree || !progress) continue;
 
-      // Map branch choice to branch index: b1→0, b2→1, b3→2
-      const branchIndex = alloc.branch === 'b1' ? 0 : alloc.branch === 'b2' ? 1 : 2;
-      const branch = tree.branches[branchIndex];
-      if (!branch) continue;
+        // Map branch choice to branch index: b1→0, b2→1, b3→2
+        const branchIndex = alloc.branch === 'b1' ? 0 : alloc.branch === 'b2' ? 1 : 2;
+        const branch = tree.branches[branchIndex];
+        if (!branch) continue;
 
-      // Sort branch nodes by tier, then try to allocate ranks
-      const sortedNodes = [...branch.nodes].sort((a, b) => a.tier - b.tier);
-      const ranks = progress.allocatedRanks ?? {};
+        // Sort branch nodes by tier, then try to allocate ranks
+        const sortedNodes = [...branch.nodes].sort((a, b) => a.tier - b.tier);
+        const ranks = progress.allocatedRanks ?? {};
 
-      for (const node of sortedNodes) {
-        // Try to fill each rank of this node
-        for (let r = 0; r < node.maxRank; r++) {
-          if ((ranks[node.id] ?? 0) >= node.maxRank) break;
+        for (const node of sortedNodes) {
+          if ((ranks[node.id] ?? 0) >= node.maxRank) continue;
           if (canAllocateTalentRank(tree, ranks, node.id, progress.level)) {
             progress.allocatedRanks = allocateTalentRank(ranks, node.id);
-            return; // One rank per level-up check
+            allocated = true;
+            break; // move to next skill's allocation
           }
         }
       }

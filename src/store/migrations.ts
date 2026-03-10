@@ -506,6 +506,17 @@ export function runMigrations(
     raw.zoneMasteryClaimed = claimed;
   }
 
+  if (version < 53) {
+    // v53: Level 60 cap + zone iLvl compression (1-95 → 1-60)
+    // Clamp existing characters above level 60 to 60, reset XP.
+    const char53 = raw.character as Record<string, unknown> | undefined;
+    if (char53 && typeof char53.level === 'number' && char53.level > 60) {
+      char53.level = 60;
+      char53.xp = 0;
+      char53.xpToNext = 0;
+    }
+  }
+
   if (version < 52) {
     // v52: Multiplicative offense stats (penetration, dotMultiplier, weaponMastery)
     // No-op: new stats default to 0 via BASE_STATS, no existing items have these affixes.

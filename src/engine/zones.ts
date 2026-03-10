@@ -9,6 +9,7 @@ import { PROFESSION_GEAR_SLOTS } from '../types';
 import { PROFESSION_GEAR_DROP_CHANCE, PROFESSION_GEAR_GATHER_DROP_CHANCE } from '../data/balance';
 import { getWeaponDamageInfo, calcHitChance, calcXpToNext } from './character';
 import { calcSkillDps, calcSkillDamagePerCast, getDefaultSkillForWeapon, calcRotationDps } from './unifiedSkills';
+import type { CombatContext } from './procEstimation';
 import { getSkillDef } from '../data/unifiedSkills';
 import { calcGatheringYield } from './gathering';
 import { rollRareMaterialDrop } from './rareMaterials';
@@ -29,15 +30,16 @@ import {
   LEVEL_DAMAGE_BASE, OVERLEVEL_DAMAGE_REDUCTION, OVERLEVEL_DAMAGE_FLOOR, UNDERLEVEL_MIN_NET_DAMAGE,
   ZONE_ATTACK_INTERVAL, ZONE_DMG_BASE, ZONE_DMG_ILVL_SCALE, ZONE_PHYS_RATIO, ZONE_ACCURACY_BASE,
   BLOCK_CAP, BLOCK_REDUCTION, DODGE_CAP, EVASION_MIN_HIT_CHANCE, EVASION_DR_EXPONENT,
-  BOSS_DMG_PER_HIT_BASE, BOSS_ATTACK_INTERVAL,
+  BOSS_ATTACK_INTERVAL, BOSS_DAMAGE_MULT,
   LEECH_PERCENT, BASE_REGEN_CAP_RATIO, REGEN_CAP_PER_MITIGATED, MAX_REGEN_CAP_RATIO,
   OUTGOING_DAMAGE_PENALTY_BASE, OUTGOING_DAMAGE_PENALTY_FLOOR,
   UNDERLEVEL_ACCURACY_SCALE, UNDERLEVEL_SOFTCAP,
   ARMOR_COEFFICIENT, ARMOR_FLAT_DR_RATIO, ARMOR_FLAT_DR_CAP,
-  BOSS_HP_RAMP, BOSS_DMG_RAMP,
+  BOSS_HP_RAMP, BOSS_HP_ILVL_SCALE,
   DEATH_RESPAWN_BASE, DEATH_RESPAWN_PER_BAND, DEATH_RESPAWN_CAP,
   DEATH_STREAK_MULT, DEATH_STREAK_CAP,
   DODGE_DAMAGE_FLOOR,
+  MAX_LEVEL,
 } from '../data/balance';
 import { getZoneMobTypes, weightedRandomMob, getMobTypeDef } from '../data/mobTypes';
 
@@ -138,6 +140,7 @@ export function calcPlayerDps(
   equippedSkills?: (string | null)[],
   skillBar?: (EquippedSkill | null)[],
   skillProgress?: Record<string, SkillProgress>,
+  combatCtx?: CombatContext,
 ): number {
   const stats = char.stats;
   const { avgDamage, spellPower, weaponConversion } = getWeaponDamageInfo(char.equipment);
@@ -152,7 +155,7 @@ export function calcPlayerDps(
 
   // Full rotation DPS: sum DPS across all equipped active skills
   if (skillBar && skillProgress) {
-    dps = calcRotationDps(skillBar, skillProgress, effectiveStats, avgDamage, spellPower, atkSpeedMult, weaponConversion);
+    dps = calcRotationDps(skillBar, skillProgress, effectiveStats, avgDamage, spellPower, atkSpeedMult, weaponConversion, combatCtx);
   } else {
     // Legacy path: single skill ID
     const activeSkillId = equippedSkills?.[0];
@@ -192,8 +195,11 @@ export function calcClearTime(
   classDamageMult: number = 1.0,
   classSpeedMult: number = 1.0,
   equippedSkills?: (string | null)[],
+  skillBar?: (EquippedSkill | null)[],
+  skillProgress?: Record<string, SkillProgress>,
+  combatCtx?: CombatContext,
 ): number {
-  const playerDps = calcPlayerDps(char, abilityEffect, equippedSkills) * classDamageMult;
+  const playerDps = calcPlayerDps(char, abilityEffect, equippedSkills, skillBar, skillProgress, combatCtx) * classDamageMult;
 
   // Apply ability resist bonus to stats for hazard calculations
   const effectiveStats = applyAbilityResists(char.stats, abilityEffect);
@@ -439,7 +445,7 @@ export function simulateIdleRun(
     const clearXp = Math.round(baseXpPerClear * xpScale);
     totalXpGained += clearXp;
     tempXp += clearXp;
-    while (tempXp >= tempXpToNext) {
+    while (tempXp >= tempXpToNext && tempLevel < MAX_LEVEL) {
       tempXp -= tempXpToNext;
       tempLevel++;
       tempXpToNext = calcXpToNext(tempLevel);
@@ -845,10 +851,11 @@ export function simulateClearDefense(
   currentHp: number, maxHp: number, stats: ResolvedStats,
   zone: ZoneDef, playerLevel: number, clearTime: number,
   playerDamageDealt: number,
+  packMods?: { damageMult: number; hitCountMult: number },
 ): { newHp: number; totalDamage: number; dodges: number; blocks: number; hits: number; totalMitigated: number; regenCapUsed: number } {
   const levelMult = calcLevelDamageMult(playerLevel, zone.iLvlMin);
-  const hitsPerClear = Math.min(50, Math.max(1, Math.floor(clearTime / ZONE_ATTACK_INTERVAL)));
-  const baseDmgPerHit = (ZONE_DMG_BASE * zone.band + ZONE_DMG_ILVL_SCALE * zone.iLvlMin) * levelMult;
+  const hitsPerClear = Math.min(50, Math.max(1, Math.floor(clearTime / ZONE_ATTACK_INTERVAL * (packMods?.hitCountMult ?? 1))));
+  const baseDmgPerHit = (ZONE_DMG_BASE * zone.band + ZONE_DMG_ILVL_SCALE * zone.iLvlMin) * levelMult * (packMods?.damageMult ?? 1);
   const zoneAccuracy = calcZoneAccuracy(zone.band, playerLevel, zone.iLvlMin);
   const physRatio = ZONE_PHYS_RATIO;
 
@@ -918,9 +925,10 @@ export function simulateClearDefense(
   return { newHp, totalDamage, dodges, blocks, hits, totalMitigated, regenCapUsed: dynamicCapRatio };
 }
 
-/** Boss HP pool. Linear ramp: base * band * (1 + BOSS_HP_RAMP * (band - 1)). */
+/** Boss HP pool. Linear ramp + iLvl scaling for intra-band difficulty. */
 export function calcBossMaxHp(zone: ZoneDef): number {
-  return BOSS_BASE_HP * zone.band * (1 + BOSS_HP_RAMP * (zone.band - 1));
+  return (BOSS_BASE_HP * zone.band * (1 + BOSS_HP_RAMP * (zone.band - 1)))
+    + (BOSS_HP_ILVL_SCALE * zone.iLvlMin * zone.band);
 }
 
 /**
@@ -932,7 +940,7 @@ export function calcBossAttackProfile(char: Character, zone: ZoneDef, abilityEff
 } {
   const effectiveStats = applyAbilityResists(char.stats, abilityEffect);
   const levelMult = calcLevelDamageMult(char.level, zone.iLvlMin);
-  const baseDmg = BOSS_DMG_PER_HIT_BASE * zone.band * (1 + BOSS_DMG_RAMP * (zone.band - 1)) * levelMult;
+  const baseDmg = (ZONE_DMG_BASE * zone.band + ZONE_DMG_ILVL_SCALE * zone.iLvlMin) * BOSS_DAMAGE_MULT * levelMult;
 
   // Hazard bonus: each unresisted hazard adds elemental damage
   let hazardBonus = 0;

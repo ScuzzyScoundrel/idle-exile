@@ -17,6 +17,7 @@ import { POWER_DIVISOR, SKILL_MAX_LEVEL, BASE_GCD, GCD_FLOOR } from '../data/bal
 import { resolveSkillGraphModifiers, type ResolvedSkillModifier } from './skillGraph';
 import { resolveTalentModifiers } from './talentTree';
 import { resolveDamageBuckets } from './damageBuckets';
+import { estimateProcDps, type CombatContext } from './procEstimation';
 
 // ─── Constants ───
 
@@ -712,7 +713,7 @@ export function calcSkillDps(
   const hitChance = calcHitChance(stats.accuracy);
 
   // --- Crit multiplier (expected value), with graph bonuses ---
-  const effectiveCritChance = Math.min(stats.critChance + (graphMod?.incCritChance ?? 0), 100);
+  const effectiveCritChance = Math.min(stats.critChance * (1 + (graphMod?.incCritChance ?? 0) / 100), 100);
   const effectiveCritMult = stats.critMultiplier + (graphMod?.incCritMultiplier ?? 0);
   const critMult = 1 + (effectiveCritChance / 100) * ((effectiveCritMult - 100) / 100);
 
@@ -836,7 +837,7 @@ export function rollSkillCast(
   if (Math.random() > hitChance) return { damage: 0, isCrit: false, isHit: false };
 
   // Crit roll with graph modifier
-  let effectiveCritChance = stats.critChance + (graphMod?.incCritChance ?? 0);
+  let effectiveCritChance = stats.critChance * (1 + (graphMod?.incCritChance ?? 0) / 100);
   const hasAlwaysCrit = graphMod?.flags.includes('alwaysCrit');
   const hasCannotCrit = graphMod?.flags.includes('cannotCrit');
   if (hasCannotCrit) effectiveCritChance = 0;
@@ -906,6 +907,9 @@ export function calcUnifiedDamagePerCast(
  * Calculate total rotation DPS across all equipped active skills.
  * Each skill contributes its individual DPS (dmg/cycleTime), summed together.
  * This works because skills fire independently on staggered cooldowns.
+ *
+ * When proc/conditional data is available from skill graph modifiers,
+ * applies steady-state proc DPS estimation on top of base rotation DPS.
  */
 export function calcRotationDps(
   skillBar: (EquippedSkill | null)[],
@@ -915,8 +919,20 @@ export function calcRotationDps(
   weaponSpellPower: number,
   atkSpeedMult: number = 1.0,
   weaponConversion?: ConversionSpec,
+  combatCtx?: CombatContext,
 ): number {
   let totalDps = 0;
+
+  // Collect proc data across all skills for steady-state estimation
+  const allProcs: import('../types').SkillProcEffect[] = [];
+  const allConditionalMods: import('../types').ConditionalModifier[] = [];
+  let mergedDebuffInteraction: import('../types/skills').DebuffInteraction | null = null;
+  let totalCycleTime = 0;
+  let skillCount = 0;
+  let totalBaseIncDamage = 0;
+  let maxGraphCritChance = 0;
+  let maxGraphCritMult = 0;
+
   for (const equipped of skillBar) {
     if (!equipped) continue;
     const skill = getUnifiedSkillDef(equipped.skillId);
@@ -925,7 +941,40 @@ export function calcRotationDps(
     const progress = skillProgress[equipped.skillId];
     const graphMod = getSkillGraphModifier(skill, progress);
     totalDps += calcSkillDps(skill, stats, weaponAvgDmg, weaponSpellPower, graphMod ?? undefined, atkSpeedMult, weaponConversion);
+
+    // Collect proc/conditional data from graph modifiers
+    if (graphMod) {
+      if (graphMod.skillProcs.length > 0) allProcs.push(...graphMod.skillProcs);
+      if (graphMod.conditionalMods.length > 0) allConditionalMods.push(...graphMod.conditionalMods);
+      if (graphMod.debuffInteraction && !mergedDebuffInteraction) {
+        mergedDebuffInteraction = graphMod.debuffInteraction;
+      }
+      // Accumulate baseIncDamage and track max graph crit bonuses
+      totalBaseIncDamage += graphMod.incDamage;
+      if (graphMod.incCritChance > maxGraphCritChance) maxGraphCritChance = graphMod.incCritChance;
+      if (graphMod.incCritMultiplier > maxGraphCritMult) maxGraphCritMult = graphMod.incCritMultiplier;
+    }
+
+    // Accumulate cycle time for averaging
+    const graphSpeedMult = graphMod?.incCastSpeed ? (1 + graphMod.incCastSpeed / 100) : 1;
+    totalCycleTime += calcSkillCastInterval(skill, stats, atkSpeedMult * graphSpeedMult);
+    skillCount++;
   }
+
+  // Apply proc estimation if any proc/conditional data exists
+  if (totalDps > 0 && (allProcs.length > 0 || allConditionalMods.length > 0 || mergedDebuffInteraction)) {
+    const avgCycleTime = skillCount > 0 ? totalCycleTime / skillCount : 1;
+    const procEst = estimateProcDps(
+      allProcs, allConditionalMods, mergedDebuffInteraction,
+      stats, weaponAvgDmg, avgCycleTime, combatCtx,
+      totalBaseIncDamage, maxGraphCritChance, maxGraphCritMult,
+    );
+    totalDps += procEst.instantDamageDps;
+    totalDps *= procEst.buffDpsMult * procEst.conditionalDpsMult * procEst.debuffInteractionMult;
+    // Debuff tick DPS (poison etc.) is independent of hit-based multipliers
+    totalDps += procEst.debuffTickDps;
+  }
+
   return totalDps;
 }
 

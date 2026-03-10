@@ -10,7 +10,7 @@ import { calcSetBonuses } from './setBonus';
 import { WEAPON_TYPE_META } from '../data/weapons';
 import {
   BASE_STATS, PHYS_DAMAGE_PER_LEVEL, MAX_LIFE_PER_LEVEL, ACCURACY_PER_LEVEL,
-  XP_BASE, XP_GROWTH, ACCURACY_DIVISOR,
+  XP_BASE, XP_GROWTH, ACCURACY_DIVISOR, MAX_LEVEL,
 } from '../data/balance';
 
 // --- Functions ---
@@ -235,19 +235,26 @@ export function calcTotalDps(stats: ResolvedStats, weaponBaseDmgAvg: number, wea
  * Returns a NEW character object (does not mutate the original).
  */
 export function addXp(char: Character, amount: number): Character {
+  if (char.level >= MAX_LEVEL) return { ...char, xp: 0, xpToNext: 0, equipment: { ...char.equipment } };
+
   let newChar: Character = {
     ...char,
     xp: char.xp + amount,
     equipment: { ...char.equipment },
   };
 
-  while (newChar.xp >= newChar.xpToNext) {
+  while (newChar.xp >= newChar.xpToNext && newChar.level < MAX_LEVEL) {
     newChar = {
       ...newChar,
       xp: newChar.xp - newChar.xpToNext,
       level: newChar.level + 1,
       xpToNext: calcXpToNext(newChar.level + 1),
     };
+  }
+
+  if (newChar.level >= MAX_LEVEL) {
+    newChar.xp = 0;
+    newChar.xpToNext = 0;
   }
 
   newChar.stats = resolveStats(newChar);

@@ -351,7 +351,7 @@ export const AFFIX_DEFS: AffixDef[] = [
     id: 'crit_multiplier', name: 'of Devastation', category: 'crit_multiplier',
     slot: 'suffix', stat: 'critMultiplier',
     allowedSlots: ['all_weapons', 'gloves', 'amulets', 'trinkets'],
-    tiers: buildTiers(2, 5, 5, 10, 8, 16, 14, 25, 22, 38, 31, 50),
+    tiers: buildTiers(1, 3, 3, 6, 5, 10, 8, 15, 13, 23, 19, 30),
     weight: 100, displayTemplate: '+{value}% Crit Multiplier',
   },
 

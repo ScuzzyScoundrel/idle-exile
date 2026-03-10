@@ -218,7 +218,7 @@ function calcPercentiles(values: number[]): PercentileStats {
 export function aggregateBots(summaries: BotSummary[]): AggregateResult {
   if (summaries.length === 0) {
     return {
-      archetypeName: '', gearStrategy: '', botCount: 0,
+      archetypeName: '', gearStrategy: '', armorPreference: 'any', botCount: 0,
       finalZone: { median: 0, p10: 0, p90: 0 },
       finalLevel: { median: 0, p10: 0, p90: 0 },
       totalClears: { median: 0, p10: 0, p90: 0 },
@@ -276,6 +276,7 @@ export function aggregateBots(summaries: BotSummary[]): AggregateResult {
   return {
     archetypeName: first.archetypeName,
     gearStrategy: first.gearStrategy,
+    armorPreference: first.armorPreference,
     botCount: summaries.length,
     finalZone: calcPercentiles(summaries.map(s => s.finalZoneIndex)),
     finalLevel: calcPercentiles(summaries.map(s => s.finalLevel)),

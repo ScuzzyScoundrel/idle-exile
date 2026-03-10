@@ -79,6 +79,8 @@ export interface ClearLog {
   deathPenaltyTime: number;
   totalMitigated: number;
   regenCapUsed: number;
+  packSize?: number;
+  rareCount?: number;
 }
 
 export interface ItemDropLog {
@@ -229,6 +231,7 @@ export interface ZoneAggregate {
 export interface AggregateResult {
   archetypeName: string;
   gearStrategy: string;
+  armorPreference: string;
   botCount: number;
   finalZone: PercentileStats;
   finalLevel: PercentileStats;

@@ -70,7 +70,7 @@ export const LEVEL_PENALTY_BASE = 1.08;
 
 /** Clear time floor as fraction of baseClearTime (prevents instant clears).
  *  0.10 = zone 1 floor is 1.0s, zone 26 floor is 7.8s. DPS investment halves clear time vs 0.20. */
-export const CLEAR_TIME_FLOOR_RATIO = 0.10;
+export const CLEAR_TIME_FLOOR_RATIO = 0.15;
 
 /** Hazard penalty floor: resist at 0 vs threshold gives this multiplier (0.05 = 95% slower). */
 export const HAZARD_PENALTY_FLOOR = 0.05;
@@ -139,6 +139,9 @@ export const ARMOR_FLAT_DR_CAP = 0.25;
 // =============================================
 // CHARACTER PROGRESSION
 // =============================================
+
+/** Hard level cap — characters cannot exceed this level. */
+export const MAX_LEVEL = 60;
 
 /** Starting stats for a fresh level 1 character (all ~30 keys). */
 export const BASE_STATS: ResolvedStats = {
@@ -230,7 +233,7 @@ export const ACCURACY_PER_LEVEL = 5;
 
 /** XP curve: XP to next level = XP_BASE * XP_GROWTH^(level-1). */
 export const XP_BASE = 100;
-export const XP_GROWTH = 1.05;
+export const XP_GROWTH = 1.10;
 
 // =============================================
 // ITEM GENERATION
@@ -242,7 +245,7 @@ export const XP_GROWTH = 1.05;
  * At iLvl cap: T10 still most common, T1 still rare (chase tier).
  * Formula: lerp(TIER_LOW_WEIGHTS[tier], TIER_HIGH_WEIGHTS[tier], clamp(iLvl / TIER_ILVL_CAP, 0, 1))
  */
-export const TIER_ILVL_CAP = 92;
+export const TIER_ILVL_CAP = 60;
 /** Weights at iLvl 0 — high tiers dominate completely. */
 export const TIER_LOW_WEIGHTS: Record<AffixTier, number> = {
   10: 50, 9: 40, 8: 30, 7: 20, 6: 12, 5: 6, 4: 3, 3: 1, 2: 0.3, 1: 0.02,
@@ -357,16 +360,18 @@ export const UNDERLEVEL_MIN_NET_DAMAGE = 0.02;
 export const ZONE_ILVL_PRESSURE_SCALE = 0.04;
 /** Normal clears between boss encounters. */
 export const BOSS_INTERVAL = 10;
-/** Base boss HP (band 1). Scales with linear ramp instead of band^2 for balance v2. */
-export const BOSS_BASE_HP = 120;
-/** Boss HP ramp: HP = base * band * (1 + BOSS_HP_RAMP * (band - 1)). */
-export const BOSS_HP_RAMP = 0.35;
-/** Boss damage ramp: same formula as HP ramp. */
+/** Base boss HP (band 1). Scales with linear ramp + iLvl component. */
+export const BOSS_BASE_HP = 100;
+/** Boss HP ramp: HP = base * band * (1 + BOSS_HP_RAMP * (band - 1)) + BOSS_HP_ILVL_SCALE * iLvlMin * band. */
+export const BOSS_HP_RAMP = 0.40;
+/** iLvl-based boss HP scaling — makes bosses harder within each band. */
+export const BOSS_HP_ILVL_SCALE = 3.0;
+/** @deprecated Use BOSS_DAMAGE_MULT instead. Kept for reference. */
 export const BOSS_DMG_RAMP = 0.30;
 /** Each unresisted hazard adds this fraction of base boss damage as bonus elemental damage. */
 export const BOSS_HAZARD_DAMAGE_RATIO = 0.15;
-/** Boss drops at iLvlMax + this. */
-export const BOSS_ILVL_BONUS = 5;
+/** Boss drops at iLvlMax + this. Barely bridges to next band. */
+export const BOSS_ILVL_BONUS = 3;
 export const BOSS_DROP_COUNT_MIN = 1;
 export const BOSS_DROP_COUNT_MAX = 2;
 /** Seconds of celebration after boss victory (shows loot + fight stats). */
@@ -388,8 +393,10 @@ export const ZONE_DMG_BASE = 6;
 export const ZONE_DMG_ILVL_SCALE = 0.8;
 /** Fraction of zone damage that's physical (rest is elemental). */
 export const ZONE_PHYS_RATIO = 0.5;
-/** Boss damage per hit base. Scales with linear ramp for balance v2. */
+/** @deprecated Use BOSS_DAMAGE_MULT instead. Boss damage now mirrors mob damage * multiplier. */
 export const BOSS_DMG_PER_HIT_BASE = 5;
+/** Boss damage multiplier: bosses hit this many times harder than zone mobs. */
+export const BOSS_DAMAGE_MULT = 1.75;
 /** Boss crit chance per attack (15%). */
 export const BOSS_CRIT_CHANCE = 0.15;
 /** Boss crit damage multiplier. */
@@ -413,9 +420,9 @@ export const UNDERLEVEL_SOFTCAP = 5;
 /** Death penalty: base seconds lost on death (Band 1). */
 export const DEATH_RESPAWN_BASE = 5.0;
 /** Death penalty: extra seconds per band beyond 1. */
-export const DEATH_RESPAWN_PER_BAND = 4.0;
+export const DEATH_RESPAWN_PER_BAND = 5.0;
 /** Death penalty: max base penalty in seconds. */
-export const DEATH_RESPAWN_CAP = 30.0;
+export const DEATH_RESPAWN_CAP = 45.0;
 /** Death streak: each consecutive death adds this fraction more penalty. */
 export const DEATH_STREAK_MULT = 0.5;
 /** Death streak: maximum streak multiplier. */

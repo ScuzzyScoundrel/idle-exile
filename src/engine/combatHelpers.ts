@@ -164,8 +164,18 @@ export function evaluateProcs(
     if (proc.instantDamage) {
       let dmg = proc.instantDamage.flatDamage;
       if (proc.instantDamage.scaleStat && proc.instantDamage.scaleRatio) {
-        const statVal = ctx.stats[proc.instantDamage.scaleStat as keyof ResolvedStats];
-        if (typeof statVal === 'number') dmg += statVal * proc.instantDamage.scaleRatio;
+        let statVal: number;
+        if (proc.instantDamage.scaleStat === 'weaponDamage') {
+          statVal = ctx.weaponAvgDmg;
+        } else if (proc.instantDamage.scaleStat === 'debuffDamage') {
+          statVal = ctx.weaponAvgDmg
+            * (1 + (ctx.stats.incChaosDamage ?? 0) / 100)
+            * (1 + (ctx.stats.dotMultiplier ?? 0) / 100);
+        } else {
+          const raw = ctx.stats[proc.instantDamage.scaleStat as keyof ResolvedStats];
+          statVal = typeof raw === 'number' ? raw : 0;
+        }
+        dmg += statVal * proc.instantDamage.scaleRatio;
       }
       result.bonusDamage += dmg;
     }
