@@ -26,14 +26,14 @@ export const COMBAT_MATERIAL_DROP_MAX = 2;
 
 /** Per-clear probability for each currency type. */
 export const CURRENCY_DROP_CHANCES: Record<CurrencyType, number> = {
-  augment:        0.10,
-  chaos:          0.05,
-  divine:         0.025,
-  annul:          0.025,
-  exalt:          0.015,
-  greater_exalt:  0.002,
-  perfect_exalt:  0.0002,
-  socket:         0.035,
+  augment:        0.035,
+  chaos:          0.018,
+  divine:         0.008,
+  annul:          0.008,
+  exalt:          0.005,
+  greater_exalt:  0.0007,
+  perfect_exalt:  0.0001,
+  socket:         0.012,
 };
 
 /** Gold per clear: round(GOLD_BASE * band^GOLD_BAND_EXPONENT) = 3, 8, 14, 22, 33, 47. */
@@ -130,7 +130,7 @@ export const EVASION_MIN_HIT_CHANCE = 5;
 export const EVASION_DR_EXPONENT = 1.2;
 
 /** Armor formula coefficient: armor / (armor + ARMOR_COEFFICIENT * physDmg). Lower = more effective. */
-export const ARMOR_COEFFICIENT = 2;
+export const ARMOR_COEFFICIENT = 4;
 /** Flat DR from armor: 1% per ARMOR_FLAT_DR_RATIO armor points. */
 export const ARMOR_FLAT_DR_RATIO = 60;
 /** Maximum flat DR from armor (25%). */
@@ -192,7 +192,7 @@ export const BASE_STATS: ResolvedStats = {
   // Defensive
   maxLife: 100,
   incMaxLife: 0,
-  lifeRegen: 3,
+  lifeRegen: 1.5,
   armor: 0,
   incArmor: 0,
   evasion: 0,
@@ -250,9 +250,9 @@ export const TIER_ILVL_CAP = 60;
 export const TIER_LOW_WEIGHTS: Record<AffixTier, number> = {
   10: 50, 9: 40, 8: 30, 7: 20, 6: 12, 5: 6, 4: 3, 3: 1, 2: 0.3, 1: 0.02,
 };
-/** Weights at iLvl cap — T1 is still a chase tier (~1.4%), T10 still most common (~20%). */
+/** Weights at iLvl cap — bell curve peaks at T6, T1 still chase (~2%). */
 export const TIER_HIGH_WEIGHTS: Record<AffixTier, number> = {
-  10: 15, 9: 13, 8: 11, 7: 9, 6: 8, 5: 7, 4: 5, 3: 3, 2: 2, 1: 1,
+  10: 3, 9: 5, 8: 8, 7: 12, 6: 15, 5: 13, 4: 10, 3: 6, 2: 3, 1: 1.5,
 };
 
 /** How many affixes an item rolls (weighted). Default/Band 1 weights. */
@@ -346,14 +346,14 @@ export const FORTIFY_MAX_DR = 0.75;
 // =============================================
 
 /** maxHp fraction regenerated per normal clear (passive base regen). */
-export const CLEAR_REGEN_RATIO = 0.12;
+export const CLEAR_REGEN_RATIO = 0.08;
 
 /** Damage amp per level underleveled (exponential, softcapped). Reduced from 1.12 for balance v2. */
 export const LEVEL_DAMAGE_BASE = 1.08;
 /** Damage reduction per level overleveled (linear). 5 levels over = 0.70x damage. */
 export const OVERLEVEL_DAMAGE_REDUCTION = 0.10;
 /** Minimum damage multiplier when overleveled (floor). */
-export const OVERLEVEL_DAMAGE_FLOOR = 0.30;
+export const OVERLEVEL_DAMAGE_FLOOR = 0.50;
 /** Unavoidable net damage per level gap when underleveled (fraction of maxHp). Harsh. */
 export const UNDERLEVEL_MIN_NET_DAMAGE = 0.02;
 /** Zone pressure increase per iLvl above band base (intra-band difficulty gradient). */
@@ -388,7 +388,7 @@ export const BOSS_VICTORY_HEAL_RATIO = 0.6;
 /** Seconds between zone attacks during normal clears. */
 export const ZONE_ATTACK_INTERVAL = 2.0;
 /** Base zone damage per hit at band 1. Scales linearly with band. */
-export const ZONE_DMG_BASE = 6;
+export const ZONE_DMG_BASE = 9;
 /** Per-iLvl damage scaling so zones get harder within a band. */
 export const ZONE_DMG_ILVL_SCALE = 0.8;
 /** Fraction of zone damage that's physical (rest is elemental). */
@@ -396,19 +396,19 @@ export const ZONE_PHYS_RATIO = 0.5;
 /** @deprecated Use BOSS_DAMAGE_MULT instead. Boss damage now mirrors mob damage * multiplier. */
 export const BOSS_DMG_PER_HIT_BASE = 5;
 /** Boss damage multiplier: bosses hit this many times harder than zone mobs. */
-export const BOSS_DAMAGE_MULT = 1.75;
+export const BOSS_DAMAGE_MULT = 2.25;
 /** Boss crit chance per attack (15%). */
 export const BOSS_CRIT_CHANCE = 0.15;
 /** Boss crit damage multiplier. */
 export const BOSS_CRIT_MULTIPLIER = 1.5;
 /** Max boss damage per hit as fraction of player maxHP (prevents one-shots). */
-export const BOSS_MAX_DMG_RATIO = 0.40;
+export const BOSS_MAX_DMG_RATIO = 99.0;
 /** Seconds between boss attacks. */
 export const BOSS_ATTACK_INTERVAL = 1.5;
 /** Innate life leech: fraction of damage dealt that heals player. */
 export const LEECH_PERCENT = 0.04;
 /** Base regen cap ratio (floor — always heal at least 30% maxHP). */
-export const BASE_REGEN_CAP_RATIO = 0.30;
+export const BASE_REGEN_CAP_RATIO = 0.20;
 /** Extra regen cap per point of damage mitigated, normalized to maxHP. */
 export const REGEN_CAP_PER_MITIGATED = 0.003;
 /** Hard ceiling on dynamic regen cap. */

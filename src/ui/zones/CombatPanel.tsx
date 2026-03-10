@@ -182,7 +182,9 @@ export default function CombatPanel() {
             if (afterState.combatPhase === 'clearing' && afterState.currentZoneId) {
               const counts = afterState.zoneClearCounts;
               const zoneCount = counts[afterState.currentZoneId] || 0;
-              if (zoneCount > 0 && zoneCount % BOSS_INTERVAL === 0) {
+              // Use >= and floor division to catch multi-kill ticks that skip past exact modulo
+              const prevCount = zoneCount - combatResult.mobKills;
+              if (zoneCount >= BOSS_INTERVAL && Math.floor(zoneCount / BOSS_INTERVAL) > Math.floor(prevCount / BOSS_INTERVAL)) {
                 startBossFight();
               }
             }
