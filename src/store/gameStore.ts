@@ -215,17 +215,18 @@ function createInitialState(): GameState {
   const char = createCharacter('Exile', 'warrior');
   const starterWeapon: Item = {
     id: generateId(),
-    baseId: 'rusty_shortsword',
-    name: 'Rusty Shortsword',
+    baseId: 'crude_dagger',
+    name: 'Crude Dagger',
     slot: 'mainhand',
     rarity: 'common',
     iLvl: 1,
     prefixes: [],
     suffixes: [],
-    weaponType: 'sword',
-    baseStats: { flatPhysDamage: 5, incPhysDamage: 15 },
-    baseDamageMin: 4,
-    baseDamageMax: 8,
+    weaponType: 'dagger',
+    baseStats: { spellPower: 4, baseAttackSpeed: 12, baseCritChance: 3 },
+    baseDamageMin: 5,
+    baseDamageMax: 11,
+    baseSpellPower: 4,
   };
   return {
     character: { ...char, stats: resolveStats(char) },
