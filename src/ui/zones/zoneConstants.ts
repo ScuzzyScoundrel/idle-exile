@@ -51,17 +51,44 @@ export const HAZARD_STAT_MAP: Record<string, string> = {
 };
 
 // Debuff badge color/label mapping
-export const DEBUFF_META: Record<string, { text: string; bg: string; label: string }> = {
-  chilled:    { text: 'text-cyan-300',   bg: 'bg-cyan-900/60',   label: 'CHI' },
-  shocked:    { text: 'text-yellow-300', bg: 'bg-yellow-900/60', label: 'SHK' },
-  burning:    { text: 'text-orange-400', bg: 'bg-orange-900/60', label: 'BRN' },
-  poisoned:   { text: 'text-green-400',  bg: 'bg-green-900/60',  label: 'PSN' },
-  bleeding:   { text: 'text-red-400',    bg: 'bg-red-900/60',    label: 'BLD' },
-  weakened:   { text: 'text-gray-300',   bg: 'bg-gray-700/60',   label: 'WKN' },
-  blinded:    { text: 'text-violet-300', bg: 'bg-violet-900/60', label: 'BLN' },
-  vulnerable: { text: 'text-pink-400',   bg: 'bg-pink-900/60',   label: 'VLN' },
-  cursed:     { text: 'text-purple-400', bg: 'bg-purple-900/60', label: 'CRS' },
-  slowed:     { text: 'text-teal-300',   bg: 'bg-teal-900/60',   label: 'SLO' },
+export const DEBUFF_META: Record<string, {
+  text: string; bg: string; label: string;
+  fullName: string; description: string;
+}> = {
+  chilled:    { text: 'text-cyan-300',   bg: 'bg-cyan-900/60',   label: 'CHI',
+    fullName: 'Chilled', description: 'If this enemy dies while chilled, 50% of overkill damage shatters onto the next enemy as cold damage.' },
+  shocked:    { text: 'text-yellow-300', bg: 'bg-yellow-900/60', label: 'SHK',
+    fullName: 'Shocked', description: 'Enemy has +10% chance to be critically hit per stack (max 3 stacks).' },
+  burning:    { text: 'text-orange-400', bg: 'bg-orange-900/60', label: 'BRN',
+    fullName: 'Burning', description: 'Burns for 2% of enemy maximum life per second as fire damage.' },
+  poisoned:   { text: 'text-green-400',  bg: 'bg-green-900/60',  label: 'PSN',
+    fullName: 'Poisoned', description: 'Deals chaos damage over time. Each hit creates a separate poison instance dealing 15% of hit damage per second.' },
+  bleeding:   { text: 'text-red-400',    bg: 'bg-red-900/60',    label: 'BLD',
+    fullName: 'Bleeding', description: 'Deals physical damage each time the enemy attacks. Each stack snapshots hit damage; 30% of total triggers per enemy attack. Max 5 stacks.' },
+  weakened:   { text: 'text-gray-300',   bg: 'bg-gray-700/60',   label: 'WKN',
+    fullName: 'Weakened', description: 'Enemy deals 10% less damage.' },
+  blinded:    { text: 'text-violet-300', bg: 'bg-violet-900/60', label: 'BLN',
+    fullName: 'Blinded', description: 'Enemy has a 20% chance to miss attacks.' },
+  vulnerable: { text: 'text-pink-400',   bg: 'bg-pink-900/60',   label: 'VLN',
+    fullName: 'Vulnerable', description: 'Enemy takes 20% more damage from all sources.' },
+  cursed:     { text: 'text-purple-400', bg: 'bg-purple-900/60', label: 'CRS',
+    fullName: 'Cursed', description: 'Reduces enemy resistances by 15 per stack (max 3 stacks).' },
+  slowed:     { text: 'text-teal-300',   bg: 'bg-teal-900/60',   label: 'SLO',
+    fullName: 'Slowed', description: 'Enemy attack speed reduced by 20%.' },
+  corroded:   { text: 'text-amber-400',  bg: 'bg-amber-900/60',  label: 'COR',
+    fullName: 'Corroded', description: 'Enemy takes 20% more damage from all sources.' },
+  deathMark:  { text: 'text-red-300',    bg: 'bg-red-900/60',    label: 'DTH',
+    fullName: 'Death Mark', description: 'Marked for death. Next hit deals bonus damage and consumes the mark.' },
+  executionersMark: { text: 'text-red-300', bg: 'bg-red-900/60', label: 'EXE',
+    fullName: "Executioner's Mark", description: 'Marked for execution. Next hit deals bonus damage and consumes the mark.' },
+  shatterMark: { text: 'text-cyan-300',  bg: 'bg-cyan-900/60',   label: 'SHT',
+    fullName: 'Shatter Mark', description: 'Marked for shattering. Next hit deals bonus cold damage.' },
+  cobraMark:  { text: 'text-green-300',  bg: 'bg-green-900/60',  label: 'CBR',
+    fullName: 'Cobra Mark', description: 'Marked by the cobra. Next hit deals bonus damage.' },
+  guillotineMark: { text: 'text-red-300', bg: 'bg-red-900/60',   label: 'GIL',
+    fullName: 'Guillotine Mark', description: 'Marked for execution. Next hit deals massive bonus damage.' },
+  thunderousMark: { text: 'text-blue-300', bg: 'bg-blue-900/60', label: 'THN',
+    fullName: 'Thunderous Mark', description: 'Marked by thunder. Next hit deals bonus lightning damage.' },
 };
 
 // Mob drop rarity colors

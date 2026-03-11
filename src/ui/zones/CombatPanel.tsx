@@ -11,6 +11,7 @@ import { BOSS_INTERVAL } from '../../data/balance';
 import { getMobTypeDef } from '../../data/mobTypes';
 import { resolveStats } from '../../engine/character';
 
+import Tooltip from '../components/Tooltip';
 import { PROFESSION_ICONS } from './zoneConstants';
 import { emptySession, accumulateSession } from './zoneHelpers';
 import type { SessionSummary } from './zoneHelpers';
@@ -25,82 +26,82 @@ import MobDisplay from './MobDisplay';
 import BossFightDisplay from './BossFightDisplay';
 import SkillPicker from './SkillPicker';
 
-const BUFF_DISPLAY: Record<string, { label: string; color: string }> = {
+const BUFF_DISPLAY: Record<string, { label: string; color: string; description: string }> = {
   // ── Shared / cross-skill buffs ──
-  predator:           { label: 'PREDATOR',     color: 'text-yellow-300 bg-yellow-900/60' },
-  venomFrenzy:        { label: 'VENOM FRENZY', color: 'text-green-300 bg-green-900/60' },
-  venomSurge:         { label: 'VENOM SURGE',  color: 'text-green-300 bg-green-900/60' },
+  predator:           { label: 'PREDATOR',     color: 'text-yellow-300 bg-yellow-900/60', description: '+25% critical multiplier' },
+  venomFrenzy:        { label: 'VENOM FRENZY', color: 'text-green-300 bg-green-900/60',   description: '+25% attack speed' },
+  venomSurge:         { label: 'VENOM SURGE',  color: 'text-green-300 bg-green-900/60',   description: '+25% damage, bonus poison per hit' },
 
   // ── Stab ──
-  honedInstincts:     { label: 'HONED',        color: 'text-yellow-300 bg-yellow-900/60' },
-  st_opportunist:     { label: 'FIRST BLOOD',  color: 'text-yellow-300 bg-yellow-900/60' },
-  st_deep_wounds:     { label: 'FRENZY',       color: 'text-green-300 bg-green-900/60' },
-  st_ghost_step_form: { label: 'SHADOW',       color: 'text-violet-300 bg-violet-900/60' },
-  st_evasive_recovery:{ label: 'EVASION+',     color: 'text-teal-300 bg-teal-900/60' },
-  st_reactive:        { label: 'REACT',        color: 'text-blue-300 bg-blue-900/60' },
-  st_secondwind:      { label: 'SECOND WIND',  color: 'text-teal-300 bg-teal-900/60' },
+  honedInstincts:     { label: 'HONED',        color: 'text-yellow-300 bg-yellow-900/60', description: '+4% critical multiplier on crit' },
+  st_opportunist:     { label: 'FIRST BLOOD',  color: 'text-yellow-300 bg-yellow-900/60', description: '+60% damage on kill' },
+  st_deep_wounds:     { label: 'FRENZY',       color: 'text-green-300 bg-green-900/60',   description: '+30% attack speed at 8+ poison stacks' },
+  st_ghost_step_form: { label: 'SHADOW',       color: 'text-violet-300 bg-violet-900/60', description: '+30% defense on dodge' },
+  st_evasive_recovery:{ label: 'EVASION+',     color: 'text-teal-300 bg-teal-900/60',     description: '+10% damage on dodge' },
+  st_reactive:        { label: 'REACT',        color: 'text-blue-300 bg-blue-900/60',     description: '+15% damage on dodge' },
+  st_secondwind:      { label: 'SECOND WIND',  color: 'text-teal-300 bg-teal-900/60',     description: '+10% defense on dodge' },
 
   // ── Blade Flurry ──
-  bf_flurry_of_steel: { label: 'FLURRY',       color: 'text-yellow-300 bg-yellow-900/60' },
-  stormState:         { label: 'STORM',        color: 'text-blue-300 bg-blue-900/60' },
-  precisionCuts:      { label: 'PRECISION',    color: 'text-yellow-300 bg-yellow-900/60' },
-  cascadeKiller:      { label: 'CASCADE',      color: 'text-red-300 bg-red-900/60' },
-  crimsonBarrage:     { label: 'BARRAGE',      color: 'text-red-300 bg-red-900/60' },
-  flickerCharge:      { label: 'FLICKER',      color: 'text-violet-300 bg-violet-900/60' },
-  phantomEdge:        { label: 'PHANTOM',      color: 'text-violet-300 bg-violet-900/60' },
-  bladeShield:        { label: 'BLADE SHLD',   color: 'text-teal-300 bg-teal-900/60' },
-  bf_mirage_flurry:   { label: 'MIRAGE',       color: 'text-violet-300 bg-violet-900/60' },
+  bf_flurry_of_steel: { label: 'FLURRY',       color: 'text-yellow-300 bg-yellow-900/60', description: '+8% critical multiplier per crit in cast' },
+  stormState:         { label: 'STORM',        color: 'text-blue-300 bg-blue-900/60',     description: '+20% critical multiplier' },
+  precisionCuts:      { label: 'PRECISION',    color: 'text-yellow-300 bg-yellow-900/60', description: '+2% critical multiplier per hit (stacking)' },
+  cascadeKiller:      { label: 'CASCADE',      color: 'text-red-300 bg-red-900/60',       description: '+30% damage, +2 extra hits on kill' },
+  crimsonBarrage:     { label: 'BARRAGE',      color: 'text-red-300 bg-red-900/60',       description: 'Guaranteed critical hits' },
+  flickerCharge:      { label: 'FLICKER',      color: 'text-violet-300 bg-violet-900/60', description: 'Enables dodge counter-attack' },
+  phantomEdge:        { label: 'PHANTOM',      color: 'text-violet-300 bg-violet-900/60', description: '+1 hit, applies Blind, +15% evasion' },
+  bladeShield:        { label: 'BLADE SHLD',   color: 'text-teal-300 bg-teal-900/60',     description: '+15% damage on dodge' },
+  bf_mirage_flurry:   { label: 'MIRAGE',       color: 'text-violet-300 bg-violet-900/60', description: 'Heal per recent hit, +5% evasion' },
 
   // ── Frost Fan ──
-  glacialFocus:       { label: 'GLACIAL',      color: 'text-cyan-300 bg-cyan-900/60' },
-  frozenCarnage:      { label: 'FROZEN',       color: 'text-cyan-300 bg-cyan-900/60' },
-  miasma:             { label: 'MIASMA',       color: 'text-green-300 bg-green-900/60' },
-  mistVeil:           { label: 'MIST VEIL',    color: 'text-teal-300 bg-teal-900/60' },
-  evasiveScatter:     { label: 'EVASIVE',      color: 'text-teal-300 bg-teal-900/60' },
-  iceBarrier:         { label: 'ICE BARRIER',  color: 'text-cyan-300 bg-cyan-900/60' },
-  ff_aurora_shield:   { label: 'AURORA',       color: 'text-cyan-300 bg-cyan-900/60' },
+  glacialFocus:       { label: 'GLACIAL',      color: 'text-cyan-300 bg-cyan-900/60',     description: '+60% critical multiplier (one shot)' },
+  frozenCarnage:      { label: 'FROZEN',       color: 'text-cyan-300 bg-cyan-900/60',     description: 'Double projectiles on kill' },
+  miasma:             { label: 'MIASMA',       color: 'text-green-300 bg-green-900/60',   description: '+2 poison per hit, 15% tick spread' },
+  mistVeil:           { label: 'MIST VEIL',    color: 'text-teal-300 bg-teal-900/60',     description: '+25% defense on dodge' },
+  evasiveScatter:     { label: 'EVASIVE',      color: 'text-teal-300 bg-teal-900/60',     description: '+15% damage on dodge' },
+  iceBarrier:         { label: 'ICE BARRIER',  color: 'text-cyan-300 bg-cyan-900/60',     description: '+25% damage reduction on dodge' },
+  ff_aurora_shield:   { label: 'AURORA',       color: 'text-cyan-300 bg-cyan-900/60',     description: '+10% damage, heal 3%, Frost Fortify bonus' },
 
   // ── Viper Strike ──
-  serpentClarity:     { label: 'CLARITY',      color: 'text-green-300 bg-green-900/60' },
-  cobrasMomentum:     { label: 'COBRA',        color: 'text-green-300 bg-green-900/60' },
-  serpentForm:        { label: 'SERPENT',       color: 'text-teal-300 bg-teal-900/60' },
-  serpentDodge:       { label: 'SERPENT DG',    color: 'text-teal-300 bg-teal-900/60' },
-  lethalFocus:        { label: 'LETHAL',       color: 'text-red-300 bg-red-900/60' },
-  vs_serpent_patience_mult: { label: 'PATIENCE', color: 'text-green-300 bg-green-900/60' },
-  vs_shedding_scales: { label: 'SHEDDING',     color: 'text-teal-300 bg-teal-900/60' },
+  serpentClarity:     { label: 'CLARITY',      color: 'text-green-300 bg-green-900/60',   description: '+40% critical multiplier, +30% poison' },
+  cobrasMomentum:     { label: 'COBRA',        color: 'text-green-300 bg-green-900/60',   description: '2x damage, guaranteed crit, 2x poison per hit' },
+  serpentForm:        { label: 'SERPENT',       color: 'text-teal-300 bg-teal-900/60',     description: '+25% defense, applies Blind on hit' },
+  serpentDodge:       { label: 'SERPENT DG',    color: 'text-teal-300 bg-teal-900/60',     description: '+15% damage, applies poison on dodge' },
+  lethalFocus:        { label: 'LETHAL',       color: 'text-red-300 bg-red-900/60',       description: '+40% critical multiplier' },
+  vs_serpent_patience_mult: { label: 'PATIENCE', color: 'text-green-300 bg-green-900/60', description: '+3% critical multiplier per stack (max 10)' },
+  vs_shedding_scales: { label: 'SHEDDING',     color: 'text-teal-300 bg-teal-900/60',     description: '+10% damage, heal 2%, evasion per poison' },
 
   // ── Shadow Step ──
-  ghostPredator:      { label: 'GHOST PRED',   color: 'text-violet-300 bg-violet-900/60' },
-  phantomStealth:     { label: 'STEALTH',      color: 'text-violet-300 bg-violet-900/60' },
-  shadowVenomFrenzy:  { label: 'SHADOW FRNZ',  color: 'text-green-300 bg-green-900/60' },
-  umbralForm:         { label: 'UMBRAL',       color: 'text-violet-300 bg-violet-900/60' },
-  shadowCounter:      { label: 'COUNTER',      color: 'text-orange-300 bg-orange-900/60' },
-  flickeringShadow:   { label: 'FLICKER',      color: 'text-violet-300 bg-violet-900/60' },
-  vanishingAct:       { label: 'VANISH',       color: 'text-violet-300 bg-violet-900/60' },
-  ss_penumbral_grace_cast: { label: 'PENUMBRAL', color: 'text-violet-300 bg-violet-900/60' },
+  ghostPredator:      { label: 'GHOST PRED',   color: 'text-violet-300 bg-violet-900/60', description: '+15% damage on kill' },
+  phantomStealth:     { label: 'STEALTH',      color: 'text-violet-300 bg-violet-900/60', description: '+50% damage after consuming charges' },
+  shadowVenomFrenzy:  { label: 'SHADOW FRNZ',  color: 'text-green-300 bg-green-900/60',   description: '+25% attack speed, +2 poison per hit' },
+  umbralForm:         { label: 'UMBRAL',       color: 'text-violet-300 bg-violet-900/60', description: '+25% defense, -50% cooldown' },
+  shadowCounter:      { label: 'COUNTER',      color: 'text-orange-300 bg-orange-900/60', description: '+25% damage on dodge' },
+  flickeringShadow:   { label: 'FLICKER',      color: 'text-violet-300 bg-violet-900/60', description: '+15% damage on dodge' },
+  vanishingAct:       { label: 'VANISH',       color: 'text-violet-300 bg-violet-900/60', description: '+20% damage reduction on dodge' },
+  ss_penumbral_grace_cast: { label: 'PENUMBRAL', color: 'text-violet-300 bg-violet-900/60', description: '+10% damage, +10% evasion (stacking)' },
 
   // ── Assassinate ──
-  executionMomentum:  { label: 'MOMENTUM',     color: 'text-red-300 bg-red-900/60' },
-  deathsOpportunity:  { label: 'DEATH OPP',    color: 'text-red-300 bg-red-900/60' },
-  executionChain:     { label: 'EXEC CHAIN',   color: 'text-red-300 bg-red-900/60' },
-  venomApex:          { label: 'VENOM APEX',   color: 'text-green-300 bg-green-900/60' },
-  coiledPatience:     { label: 'COILED',       color: 'text-teal-300 bg-teal-900/60' },
-  assassinsShroud:    { label: 'SHROUD',       color: 'text-violet-300 bg-violet-900/60' },
-  patientCounter:     { label: 'PATIENT',      color: 'text-orange-300 bg-orange-900/60' },
-  shadowCharge:       { label: 'SHADOW CHG',   color: 'text-violet-300 bg-violet-900/60' },
-  as_inevitable_end:  { label: 'INEVITABLE',   color: 'text-red-300 bg-red-900/60' },
-  as_patience_shadows:{ label: 'PATIENCE',     color: 'text-violet-300 bg-violet-900/60' },
+  executionMomentum:  { label: 'MOMENTUM',     color: 'text-red-300 bg-red-900/60',       description: '+10% critical multiplier (escalating)' },
+  deathsOpportunity:  { label: 'DEATH OPP',    color: 'text-red-300 bg-red-900/60',       description: '+15% damage on kill' },
+  executionChain:     { label: 'EXEC CHAIN',   color: 'text-red-300 bg-red-900/60',       description: '+40% damage per kill (chains up to 3)' },
+  venomApex:          { label: 'VENOM APEX',   color: 'text-green-300 bg-green-900/60',   description: '+50% damage at 10+ poison stacks' },
+  coiledPatience:     { label: 'COILED',       color: 'text-teal-300 bg-teal-900/60',     description: '+5% defense per dodge (stacking)' },
+  assassinsShroud:    { label: 'SHROUD',       color: 'text-violet-300 bg-violet-900/60', description: '+25% defense on dodge' },
+  patientCounter:     { label: 'PATIENT',      color: 'text-orange-300 bg-orange-900/60', description: '+10% damage on dodge' },
+  shadowCharge:       { label: 'SHADOW CHG',   color: 'text-violet-300 bg-violet-900/60', description: '+12% damage per charge (max 6)' },
+  as_inevitable_end:  { label: 'INEVITABLE',   color: 'text-red-300 bg-red-900/60',       description: '+30% critical multiplier, extends debuffs' },
+  as_patience_shadows:{ label: 'PATIENCE',     color: 'text-violet-300 bg-violet-900/60', description: '+10% damage, heal 3%, +15% evasion' },
 
   // ── Lightning Lunge ──
-  stormcaller:        { label: 'STORMCALL',    color: 'text-blue-300 bg-blue-900/60' },
-  conductingCharge:   { label: 'CONDUCTING',   color: 'text-blue-300 bg-blue-900/60' },
-  flickeringChains:   { label: 'CHAINS',       color: 'text-blue-300 bg-blue-900/60' },
-  shadowForm:         { label: 'SHADOW FM',    color: 'text-violet-300 bg-violet-900/60' },
-  evasiveLunge:       { label: 'EVASIVE LG',   color: 'text-teal-300 bg-teal-900/60' },
-  stormTempo:         { label: 'TEMPO',        color: 'text-blue-300 bg-blue-900/60' },
-  stormweaveGuard:    { label: 'STORMWEAVE',   color: 'text-blue-300 bg-blue-900/60' },
-  chainDamageStack:   { label: 'CHAIN DMG',    color: 'text-blue-300 bg-blue-900/60' },
-  ll_surge_overcharge:{ label: 'SURGE',        color: 'text-blue-300 bg-blue-900/60' },
+  stormcaller:        { label: 'STORMCALL',    color: 'text-blue-300 bg-blue-900/60',     description: '+22% critical multiplier' },
+  conductingCharge:   { label: 'CONDUCTING',   color: 'text-blue-300 bg-blue-900/60',     description: '+4% crit, +8% critical multiplier per chain' },
+  flickeringChains:   { label: 'CHAINS',       color: 'text-blue-300 bg-blue-900/60',     description: 'Enables chain counter-attack on dodge' },
+  shadowForm:         { label: 'SHADOW FM',    color: 'text-violet-300 bg-violet-900/60', description: '+25% defense on dodge' },
+  evasiveLunge:       { label: 'EVASIVE LG',   color: 'text-teal-300 bg-teal-900/60',    description: '+15% damage on dodge' },
+  stormTempo:         { label: 'TEMPO',        color: 'text-blue-300 bg-blue-900/60',     description: '+10% attack speed on dodge' },
+  stormweaveGuard:    { label: 'STORMWEAVE',   color: 'text-blue-300 bg-blue-900/60',     description: '+3% defense per chain target (max 5)' },
+  chainDamageStack:   { label: 'CHAIN DMG',    color: 'text-blue-300 bg-blue-900/60',     description: '+5% damage per hit (stacking)' },
+  ll_surge_overcharge:{ label: 'SURGE',        color: 'text-blue-300 bg-blue-900/60',     description: '+60% damage for final target explosion' },
 };
 
 export default function CombatPanel() {
@@ -568,12 +569,21 @@ export default function CombatPanel() {
                   label: buff.id.replace(/^[a-z]+_/, '').replace(/_/g, ' ')
                     .replace(/\b\w/g, c => c.toUpperCase()).slice(0, 12),
                   color: 'text-gray-300 bg-gray-700/60',
+                  description: '',
                 };
+                const tooltipContent = (
+                  <div className="space-y-0.5">
+                    <div className="font-bold">{meta.label}</div>
+                    {meta.description && <div className="text-gray-400">{meta.description}</div>}
+                    <div>Remaining: {remaining.toFixed(1)}s</div>
+                  </div>
+                );
                 return (
-                  <span key={buff.id} className={`rounded-full px-1.5 text-[10px] font-mono font-semibold ${meta.color}`}
-                        title={`${meta.label}: ${remaining.toFixed(1)}s`}>
-                    {meta.label} {remaining.toFixed(0)}s
-                  </span>
+                  <Tooltip key={buff.id} content={tooltipContent}>
+                    <span className={`rounded-full px-1.5 text-[10px] font-mono font-semibold ${meta.color}`}>
+                      {meta.label} {remaining.toFixed(0)}s
+                    </span>
+                  </Tooltip>
                 );
               })}
               {rampingStacks > 0 && (

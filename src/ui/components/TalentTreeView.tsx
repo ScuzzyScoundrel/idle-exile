@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, type ReactNode } from 'react';
 import type { SkillDef, SkillProgress, SkillModifier, TalentNode, TalentBranch } from '../../types';
 import {
   canAllocateTalentRank,
@@ -7,6 +7,7 @@ import {
   getBranchPoints,
 } from '../../engine/talentTree';
 import { TALENT_TIER_GATES } from '../../data/balance';
+import Tooltip from './Tooltip';
 
 // ─── Color Palettes ───
 
@@ -212,6 +213,89 @@ function getRankModDescription(node: TalentNode, currentRank: number): string[] 
   return formatModifier(node.modifier);
 }
 
+// ─── Stat Glossary ───
+
+const STAT_GLOSSARY: Record<string, string> = {
+  // Full forms (post-Sprint 3)
+  'weapon mastery':             'Increases base weapon damage scaling',
+  'weapon counter-attack':      'A free counter-attack triggered after dodging',
+  'fire penetration':           'Ignores a portion of enemy fire resistance',
+  'cold penetration':           'Ignores a portion of enemy cold resistance',
+  'lightning penetration':      'Ignores a portion of enemy lightning resistance',
+  'chaos penetration':          'Ignores a portion of enemy chaos resistance',
+  'damage over time multiplier':'Multiplies all damage-over-time effects (poison, bleed, burn)',
+  'ailment duration':           'How long poison, bleed, and burn effects last',
+  'critical hit chance':        'Chance for attacks to deal bonus damage based on critical multiplier',
+  'critical multiplier':        'Bonus damage multiplier on critical hits (base is +50%)',
+  'damage reduction':           'Flat percentage reduction to all incoming damage',
+  'life on hit':                'Restores a flat amount of life each time you hit an enemy',
+  'life leech':                 'Restores life equal to a percentage of damage dealt',
+  'cast speed':                 'How quickly skills are used — higher is faster',
+  'attack speed':               'How quickly skills are used — higher is faster',
+  'execute threshold':          'Instantly kills enemies below this HP percentage',
+  'energy shield':              'Absorbs damage before life; recharges after not taking damage',
+  // Abbreviated forms (pre-Sprint 3)
+  'wpn mastery':                'Increases base weapon damage scaling',
+  'wpn counter':                'A free counter-attack triggered after dodging',
+  'fire pen':                   'Ignores a portion of enemy fire resistance',
+  'cold pen':                   'Ignores a portion of enemy cold resistance',
+  'lightning pen':              'Ignores a portion of enemy lightning resistance',
+  'chaos pen':                  'Ignores a portion of enemy chaos resistance',
+  'dot mult':                   'Multiplies all damage-over-time effects (poison, bleed, burn)',
+  'dot multiplier':             'Multiplies all damage-over-time effects (poison, bleed, burn)',
+  'ailment dur':                'How long poison, bleed, and burn effects last',
+  'crit mult':                  'Bonus damage multiplier on critical hits (base is +50%)',
+  'crit chance':                'Chance for attacks to deal bonus damage based on critical multiplier',
+  // Mechanics
+  'fortify':                    'Grants damage reduction per stack, earned by hitting enemies',
+  'evasion':                    'Chance to completely avoid incoming attacks',
+  'overkill':                   'Damage exceeding the lethal hit — can carry to the next enemy',
+  'shatter':                    'When a chilled enemy dies, overkill damage hits the next enemy as cold',
+  'spread':                     'Transfers debuff stacks from a dying enemy to the next target',
+  'icd':                        'Internal cooldown — minimum time between proc activations',
+};
+
+// Pre-build regex from glossary keys (longest first to avoid partial matches)
+const _glossaryTerms = Object.keys(STAT_GLOSSARY).sort((a, b) => b.length - a.length);
+const _glossaryPattern = new RegExp(
+  `\\b(${_glossaryTerms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\b`,
+  'gi',
+);
+
+function renderDescription(text: string): ReactNode {
+  const parts: ReactNode[] = [];
+  let lastIndex = 0;
+  const seen = new Set<string>();
+  // Reset regex state for each call
+  _glossaryPattern.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = _glossaryPattern.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    const term = match[1];
+    const termLower = term.toLowerCase();
+    const desc = STAT_GLOSSARY[termLower];
+    if (desc && !seen.has(desc)) {
+      // Deduplicate by description content (handles abbreviated + full forms)
+      seen.add(desc);
+      parts.push(
+        <Tooltip key={match.index} content={desc}>
+          <span className="underline decoration-dotted decoration-gray-500 cursor-help">{term}</span>
+        </Tooltip>,
+      );
+    } else {
+      parts.push(term);
+    }
+    lastIndex = _glossaryPattern.lastIndex;
+  }
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+  if (parts.length === 0) return text;
+  return <>{parts}</>;
+}
+
 // ─── Nodes grouped by tier ───
 
 function groupByTier(nodes: TalentNode[]): Map<number, TalentNode[]> {
@@ -384,7 +468,7 @@ export default function TalentTreeView({ skill, progress, gold, onAllocate, onRe
                     {/* Expanded detail */}
                     {isExpanded && (
                       <div className="bg-gray-800/90 border border-gray-600 rounded-lg p-3 mt-1 ml-2">
-                        <div className="text-xs text-gray-400">{node.description}</div>
+                        <div className="text-xs text-gray-400">{renderDescription(node.description)}</div>
 
                         {/* Rank-specific info for multi-rank nodes */}
                         {node.maxRank > 1 && node.perRankModifiers && (

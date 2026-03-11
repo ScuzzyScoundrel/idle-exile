@@ -48,8 +48,8 @@ export default function DebuffBadge({ debuff }: { debuff: ActiveDebuff }) {
 
   const tooltipContent = (
     <div className="space-y-0.5">
-      <div className="font-bold">{def?.name ?? debuff.debuffId}</div>
-      {def?.description && <div className="text-gray-400">{def.description}</div>}
+      <div className="font-bold">{meta?.fullName ?? def?.name ?? debuff.debuffId}</div>
+      <div className="text-gray-400">{meta?.description ?? def?.description ?? ''}</div>
       {isInstanceBased ? (
         <>
           <div>Instances: {debuff.instances!.length}</div>
