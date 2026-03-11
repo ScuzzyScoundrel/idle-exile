@@ -53,8 +53,10 @@ export function simulateOfflineCombat(
 ): OfflineSimResult {
   const wallStart = performance.now();
 
-  // Deep copy so we can mutate freely
-  const s = structuredClone(initialState) as GameState;
+  // Deep copy so we can mutate freely.
+  // Use JSON round-trip instead of structuredClone because the Zustand store
+  // state object contains action functions which structuredClone cannot handle.
+  const s = JSON.parse(JSON.stringify(initialState)) as GameState;
 
   const cappedSeconds = Math.min(elapsedSeconds, MAX_VIRTUAL_SECONDS);
   const startMs = s.idleStartTime ?? Date.now();
