@@ -28,6 +28,7 @@ export interface ConditionContext {
   lastOverkillDamage: number;
   now: number;
   activeTempBuffIds?: string[];   // for whileBuffActive condition
+  killStreak?: number;            // for afterCastWithoutKill condition
 }
 
 export function evaluateCondition(
@@ -57,6 +58,9 @@ export function evaluateCondition(
     case 'onOverkill': return ctx.lastOverkillDamage > 0;
     case 'whileBuffActive': return false; // evaluated in evaluateConditionalMods with buffId check
     case 'consumeBuff': return false;     // evaluated separately when buff is consumed
+    case 'onCast': return true;           // always true during a cast evaluation
+    case 'onCastComplete': return true;   // always true (single-tick casts)
+    case 'afterCastWithoutKill': return (ctx.killStreak ?? 0) === 0;
     default: return false;
   }
 }
@@ -75,6 +79,7 @@ export interface ConditionalModResult {
 const PRE_ROLL_CONDITIONS: Set<TriggerCondition> = new Set([
   'whileLowHp', 'whileFullHp', 'whileDebuffActive',
   'afterConsecutiveHits', 'onBossPhase', 'whileBuffActive',
+  'afterCastWithoutKill',
 ]);
 
 export function evaluateConditionalMods(
@@ -94,6 +99,10 @@ export function evaluateConditionalMods(
     // Special handling for whileBuffActive: check buffId against active buffs
     if (cm.condition === 'whileBuffActive') {
       if (!cm.buffId || !ctx.activeTempBuffIds?.includes(cm.buffId)) continue;
+    // Special handling for whileDebuffActive + debuffId: check specific debuff's stack count
+    } else if (cm.condition === 'whileDebuffActive' && cm.debuffId) {
+      const debuff = ctx.activeDebuffs.find(d => d.debuffId === cm.debuffId);
+      if (!debuff || debuff.stacks < (cm.threshold ?? 1)) continue;
     } else {
       if (!evaluateCondition(cm.condition, cm.threshold, ctx)) continue;
     }

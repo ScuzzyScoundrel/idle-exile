@@ -164,6 +164,18 @@ export function runCombatTick(
     ? stats.maxLife * (1 - graphMod.reducedMaxLife / 100)
     : stats.maxLife;
 
+  // executeOnly: skip cast entirely if target HP% above threshold (e.g. DEATHBLOW)
+  if (graphMod?.executeOnly) {
+    const targetHpPct = phase === 'boss_fight' && state.bossState
+      ? (state.bossState.bossCurrentHp / state.bossState.bossMaxHp) * 100
+      : (frontMobHp / frontMobMaxHp) * 100;
+    if (targetHpPct > graphMod.executeOnly.hpThreshold) {
+      // Target too healthy — skip this skill, let zone/boss damage proceed
+      if (phase === 'clearing') return applyZoneDamage(state, dtSec, now, zone);
+      return applyBossDamage(state, dtSec, now);
+    }
+  }
+
   // Charge system: per-charge bonuses BEFORE roll
   let newSkillCharges = { ...state.skillCharges };
   let chargeSpendDamage = 0;
@@ -195,6 +207,11 @@ export function runCombatTick(
   const outgoingDmgMult = calcOutgoingDamageMult(state.character.level, zone.iLvlMin);
   let damageMult = (combinedAbilityEffect.damageMult ?? 1) * getClassDamageModifier(state.classResource, classDef) * berserkMult * chargeDamageMult * outgoingDmgMult;
 
+  // executeOnly bonus damage when target is below threshold
+  if (graphMod?.executeOnly) {
+    damageMult *= (1 + graphMod.executeOnly.bonusDamage / 100);
+  }
+
   // Pre-roll conditional modifiers (while conditions)
   let condSpeedBonus = 0;
   if (graphMod?.conditionalMods?.length) {
@@ -206,6 +223,7 @@ export function runCombatTick(
       lastBlockAt: state.lastBlockAt, lastDodgeAt: state.lastDodgeAt,
       lastOverkillDamage: state.lastOverkillDamage, now,
       activeTempBuffIds: activeTempBuffs.map(b => b.id),
+      killStreak: state.killStreak,
     };
     const preRoll = evaluateConditionalMods(graphMod.conditionalMods, condCtx, 'pre-roll');
     if (preRoll.incCritChance) effectiveStats.critChance += preRoll.incCritChance;
@@ -243,6 +261,7 @@ export function runCombatTick(
       lastBlockAt: state.lastBlockAt, lastDodgeAt: state.lastDodgeAt,
       lastOverkillDamage: state.lastOverkillDamage, now,
       activeTempBuffIds: activeTempBuffs.map(b => b.id),
+      killStreak: state.killStreak,
     };
     const postRoll = evaluateConditionalMods(graphMod.conditionalMods, postCtx, 'post-roll');
     if (postRoll.incDamage || postRoll.flatDamage || postRoll.damageMult !== 1) {
@@ -424,7 +443,7 @@ export function runCombatTick(
       weaponConversion,
     };
 
-    const triggers: TriggerCondition[] = [];
+    const triggers: TriggerCondition[] = ['onCast', 'onCastComplete'];
     if (roll.isHit) triggers.push('onHit');
     if (roll.isCrit) triggers.push('onCrit');
 
@@ -939,7 +958,7 @@ export function runCombatTick(
 
   // Add pack back-mob kills (AoE splash kills)
   mobKills += packMobKills;
-  // On-kill effects for pack mob kills (life on kill, charge gain)
+  // On-kill effects for pack mob kills (life on kill, charge gain, onKill procs)
   for (let i = 0; i < packMobKills; i++) {
     newKillStreak++;
     {
@@ -951,6 +970,34 @@ export function runCombatTick(
     if (chargeConfig?.gainOn === 'onKill') {
       const charges = newSkillCharges[skill.id];
       if (charges) charges.current = Math.min(charges.current + chargeConfig.gainAmount, charges.max);
+    }
+    // onKill procs for AoE back-mob kills
+    if (graphMod?.skillProcs?.length) {
+      const aoeKillCtx: ProcContext = {
+        isHit: roll.isHit, isCrit: roll.isCrit,
+        skillId: skill.id, effectiveMaxLife,
+        stats: effectiveStats,
+        weaponAvgDmg: avgDamage, weaponSpellPower: spellPower,
+        damageMult, now,
+        lastProcTriggerAt: newLastProcTriggerAt,
+      };
+      const aoeKillPr = evaluateProcs(graphMod.skillProcs, 'onKill', aoeKillCtx);
+      Object.assign(newLastProcTriggerAt, aoeKillPr.procTriggeredAt);
+      allProcsFired.push(...aoeKillPr.procsFired);
+      procDamage += aoeKillPr.bonusDamage;
+      procHeal += aoeKillPr.healAmount;
+      for (const buff of aoeKillPr.newTempBuffs) {
+        activeTempBuffs = mergeProcTempBuff(activeTempBuffs, buff);
+      }
+      if (aoeKillPr.cooldownResets.length > 0) {
+        newTimers = newTimers.map(t =>
+          aoeKillPr.cooldownResets.includes(t.skillId) ? { ...t, cooldownUntil: null } : t,
+        );
+      }
+      if (aoeKillPr.gcdWasReset) {
+        nextActiveSkillAt = now;
+        procGcdWasReset = true;
+      }
     }
   }
 

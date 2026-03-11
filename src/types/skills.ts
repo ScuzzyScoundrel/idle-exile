@@ -159,6 +159,7 @@ export interface ConditionalModifier {
   condition: TriggerCondition;
   threshold?: number;
   buffId?: string;              // for whileBuffActive / consumeBuff
+  debuffId?: string;            // for whileDebuffActive — check specific debuff's stack count
   modifier: SkillModifier;
 }
 
