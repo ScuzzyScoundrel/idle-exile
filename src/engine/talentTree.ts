@@ -245,6 +245,15 @@ export function resolveTalentModifiers(
       if (m.reducedMaxLife) result.reducedMaxLife += m.reducedMaxLife;
       if (m.increasedDamageTaken) result.increasedDamageTaken += m.increasedDamageTaken;
 
+      // Multiplicative offense stats (additive sum)
+      if (m.firePenetration) result.firePenetration += m.firePenetration;
+      if (m.coldPenetration) result.coldPenetration += m.coldPenetration;
+      if (m.lightningPenetration) result.lightningPenetration += m.lightningPenetration;
+      if (m.chaosPenetration) result.chaosPenetration += m.chaosPenetration;
+      if (m.dotMultiplier) result.dotMultiplier += m.dotMultiplier;
+      if (m.weaponMastery) result.weaponMastery += m.weaponMastery;
+      if (m.ailmentDuration) result.ailmentDuration += m.ailmentDuration;
+
       // Max-wins
       if (m.executeThreshold) result.executeThreshold = Math.max(result.executeThreshold, m.executeThreshold);
 
@@ -321,5 +330,12 @@ function scaleModifier(m: SkillModifier, multiplier: number): SkillModifier {
   if (scaled.overkillDamage) scaled.overkillDamage *= multiplier;
   if (scaled.selfDamagePercent) scaled.selfDamagePercent *= multiplier;
   if (scaled.increasedDamageTaken) scaled.increasedDamageTaken *= multiplier;
+  if (scaled.firePenetration) scaled.firePenetration *= multiplier;
+  if (scaled.coldPenetration) scaled.coldPenetration *= multiplier;
+  if (scaled.lightningPenetration) scaled.lightningPenetration *= multiplier;
+  if (scaled.chaosPenetration) scaled.chaosPenetration *= multiplier;
+  if (scaled.dotMultiplier) scaled.dotMultiplier *= multiplier;
+  if (scaled.weaponMastery) scaled.weaponMastery *= multiplier;
+  if (scaled.ailmentDuration) scaled.ailmentDuration *= multiplier;
   return scaled;
 }

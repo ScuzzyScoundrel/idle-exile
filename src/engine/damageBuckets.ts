@@ -203,15 +203,19 @@ export function resolveDamageBuckets(
     buckets.chaos *= (1 + inc / 100);
   }
 
-  // Penetration: "more" multiplier per element (no mob resists, so pure damage amp)
-  if (buckets.fire > 0 && stats.firePenetration > 0)
-    buckets.fire *= (1 + stats.firePenetration / 100);
-  if (buckets.cold > 0 && stats.coldPenetration > 0)
-    buckets.cold *= (1 + stats.coldPenetration / 100);
-  if (buckets.lightning > 0 && stats.lightningPenetration > 0)
-    buckets.lightning *= (1 + stats.lightningPenetration / 100);
-  if (buckets.chaos > 0 && stats.chaosPenetration > 0)
-    buckets.chaos *= (1 + stats.chaosPenetration / 100);
+  // Penetration: "more" multiplier per element (gear + graph, additive then applied as more)
+  const firePen = stats.firePenetration + (graphMod?.firePenetration ?? 0);
+  const coldPen = stats.coldPenetration + (graphMod?.coldPenetration ?? 0);
+  const lightPen = stats.lightningPenetration + (graphMod?.lightningPenetration ?? 0);
+  const chaosPen = stats.chaosPenetration + (graphMod?.chaosPenetration ?? 0);
+  if (buckets.fire > 0 && firePen > 0)
+    buckets.fire *= (1 + firePen / 100);
+  if (buckets.cold > 0 && coldPen > 0)
+    buckets.cold *= (1 + coldPen / 100);
+  if (buckets.lightning > 0 && lightPen > 0)
+    buckets.lightning *= (1 + lightPen / 100);
+  if (buckets.chaos > 0 && chaosPen > 0)
+    buckets.chaos *= (1 + chaosPen / 100);
 
   // ── Hit count ──
   const bounceHits = (graphMod?.chainCount ?? 0) + (graphMod?.pierceCount ?? 0) + (graphMod?.forkCount ?? 0);

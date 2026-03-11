@@ -272,6 +272,15 @@ export interface SkillModifier {
   critChanceCap?: number;               // clamp effective crit chance (0-1)
   executeOnly?: { hpThreshold: number; bonusDamage: number };  // skip if mob HP > threshold
   castPriority?: 'execute' | 'normal';  // execute = queue jump in rotation
+
+  // --- Multiplicative offense stats (mirror gear stats on ResolvedStats) ---
+  firePenetration?: number;             // % more fire damage (penetration)
+  coldPenetration?: number;             // % more cold damage (penetration)
+  lightningPenetration?: number;        // % more lightning damage (penetration)
+  chaosPenetration?: number;            // % more chaos damage (penetration)
+  dotMultiplier?: number;               // % more DoT damage
+  weaponMastery?: number;               // % more total damage (weapon mastery)
+  ailmentDuration?: number;             // % increased ailment/debuff duration
 }
 
 export interface SkillGraphNode {

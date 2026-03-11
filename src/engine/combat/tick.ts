@@ -159,6 +159,16 @@ export function runCombatTick(
   const skillDef = getUnifiedSkillDef(skill.id);
   const graphMod = skillDef ? getSkillGraphModifier(skillDef, skillProgress) : null;
 
+  // Fold graph multiplicative offense stats into effectiveStats.
+  // Penetration is handled in resolveDamageBuckets (reads graphMod directly).
+  // dotMultiplier, weaponMastery, ailmentDuration need to be on effectiveStats
+  // because they're read from stats in various combat paths.
+  if (graphMod) {
+    if (graphMod.dotMultiplier) effectiveStats.dotMultiplier += graphMod.dotMultiplier;
+    if (graphMod.weaponMastery) effectiveStats.weaponMastery += graphMod.weaponMastery;
+    if (graphMod.ailmentDuration) effectiveStats.ailmentDuration += graphMod.ailmentDuration;
+  }
+
   // Effective max life (reducedMaxLife keystone) — hoisted for condition evaluation
   const effectiveMaxLife = graphMod?.reducedMaxLife
     ? stats.maxLife * (1 - graphMod.reducedMaxLife / 100)

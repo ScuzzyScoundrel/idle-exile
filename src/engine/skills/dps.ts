@@ -70,13 +70,14 @@ export function calcSkillDps(
   let dps = effectiveDmgPerCast / cycleTime;
 
   if (skill.dotDuration && skill.dotDamagePercent) {
-    const dotMult = 1 + stats.dotMultiplier / 100;
+    const dotMult = 1 + (stats.dotMultiplier + (graphMod?.dotMultiplier ?? 0)) / 100;
     const dotTotalDmg = effectiveDmgPerCast * skill.dotDamagePercent * skill.dotDuration * dotMult;
     dps += dotTotalDmg / cycleTime;
   }
 
-  if (stats.weaponMastery > 0) {
-    dps *= (1 + stats.weaponMastery / 100);
+  const totalWeaponMastery = stats.weaponMastery + (graphMod?.weaponMastery ?? 0);
+  if (totalWeaponMastery > 0) {
+    dps *= (1 + totalWeaponMastery / 100);
   }
 
   return dps;

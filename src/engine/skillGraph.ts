@@ -56,6 +56,15 @@ export interface ResolvedSkillModifier {
   critChanceCap: number;        // 0 = no cap
   executeOnly: { hpThreshold: number; bonusDamage: number } | null;
   castPriority: 'execute' | 'normal' | null;
+
+  // Multiplicative offense stats (mirror gear stats on ResolvedStats)
+  firePenetration: number;
+  coldPenetration: number;
+  lightningPenetration: number;
+  chaosPenetration: number;
+  dotMultiplier: number;
+  weaponMastery: number;
+  ailmentDuration: number;
 }
 
 /** Empty modifier (identity). */
@@ -106,6 +115,14 @@ export const EMPTY_GRAPH_MOD: ResolvedSkillModifier = {
   critChanceCap: 0,
   executeOnly: null,
   castPriority: null,
+  // Multiplicative offense stat defaults
+  firePenetration: 0,
+  coldPenetration: 0,
+  lightningPenetration: 0,
+  chaosPenetration: 0,
+  dotMultiplier: 0,
+  weaponMastery: 0,
+  ailmentDuration: 0,
 };
 
 /**
@@ -218,6 +235,15 @@ export function resolveSkillGraphModifiers(
     if (m.selfDamagePercent) result.selfDamagePercent += m.selfDamagePercent;
     if (m.reducedMaxLife) result.reducedMaxLife += m.reducedMaxLife;
     if (m.increasedDamageTaken) result.increasedDamageTaken += m.increasedDamageTaken;
+
+    // Multiplicative offense stats (additive sum)
+    if (m.firePenetration) result.firePenetration += m.firePenetration;
+    if (m.coldPenetration) result.coldPenetration += m.coldPenetration;
+    if (m.lightningPenetration) result.lightningPenetration += m.lightningPenetration;
+    if (m.chaosPenetration) result.chaosPenetration += m.chaosPenetration;
+    if (m.dotMultiplier) result.dotMultiplier += m.dotMultiplier;
+    if (m.weaponMastery) result.weaponMastery += m.weaponMastery;
+    if (m.ailmentDuration) result.ailmentDuration += m.ailmentDuration;
 
     // Max-wins
     if (m.executeThreshold) result.executeThreshold = Math.max(result.executeThreshold, m.executeThreshold);
