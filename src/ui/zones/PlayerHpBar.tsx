@@ -1,16 +1,22 @@
 import type { ClassResourceState, TempBuff } from '../../types';
 import { getClassDef } from '../../data/classes';
 import Tooltip from '../components/Tooltip';
+import { useGameStore } from '../../store/gameStore';
+import { useSkillStore } from '../../store/skillStore';
+import { getUnifiedSkillDef } from '../../data/skills';
+import { getSkillEffectiveDuration, getSkillEffectiveCooldown } from '../../engine/unifiedSkills';
 
 interface BuffMeta { label: string; color: string; description: string }
 
-export default function PlayerHpBar({ currentHp, maxHp, trailHp, fortifyStacks, fortifyDR, currentEs, maxEs, classResource, charClass, buffs, buffDisplay, rampingStacks }: {
+export default function PlayerHpBar({ currentHp, maxHp, trailHp, fortifyStacks, fortifyDR, currentEs, maxEs, classResource, charClass, buffs, buffDisplay, rampingStacks, hideHpBars, lastFiredSkillId }: {
   currentHp: number; maxHp: number; trailHp?: number;
   fortifyStacks?: number; fortifyDR?: number;
   currentEs?: number; maxEs?: number;
   classResource?: ClassResourceState; charClass?: string;
   buffs?: TempBuff[]; buffDisplay?: Record<string, BuffMeta>;
   rampingStacks?: number;
+  hideHpBars?: boolean;
+  lastFiredSkillId?: string | null;
 }) {
   const pct = maxHp > 0 ? Math.max(0, Math.min(100, (currentHp / maxHp) * 100)) : 0;
   const trailPct = trailHp != null && maxHp > 0
@@ -31,8 +37,8 @@ export default function PlayerHpBar({ currentHp, maxHp, trailHp, fortifyStacks, 
 
   return (
     <div
-      className={`bg-gray-800/50 rounded-lg border p-2 space-y-1 ${hasFortify ? 'border-amber-500/40' : 'border-gray-700'}`}
-      style={hasFortify ? { animation: 'fortify-glow 2s ease-in-out infinite' } : undefined}
+      className={`bg-gray-800/50 rounded-lg border p-2 space-y-1 ${hasFortify && !hideHpBars ? 'border-amber-500/40' : 'border-gray-700'}`}
+      style={hasFortify && !hideHpBars ? { animation: 'fortify-glow 2s ease-in-out infinite' } : undefined}
     >
       {/* Buff squares (WoW-style) — fixed row */}
       <div className="flex flex-wrap gap-0.5 min-h-[1.25rem]">
@@ -73,44 +79,44 @@ export default function PlayerHpBar({ currentHp, maxHp, trailHp, fortifyStacks, 
         )}
       </div>
 
-      {/* HP header */}
-      <div className="flex justify-between text-xs">
-        <div className="flex items-center gap-1.5">
-          <span className="text-gray-300 font-semibold">HP</span>
-          {hasFortify && (
-            <span className="text-[10px] font-mono text-amber-300">
-              FORT {fortifyStacks} ({Math.round((fortifyDR ?? 0) * 100)}% DR)
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
+      {/* HP/ES bars — hidden during boss fight (BossFightDisplay has its own) */}
+      {!hideHpBars && (
+        <>
+          {/* ES bar with value inside */}
           {hasEs && (
-            <span className="text-blue-400 font-mono text-[11px]">
-              ES: {Math.ceil(currentEs ?? 0)}/{maxEs}
-            </span>
+            <div className="h-3.5 bg-gray-700 rounded-full overflow-hidden relative">
+              <div className="h-full bg-blue-500 rounded-full transition-all duration-150"
+                   style={{ width: `${esPct}%` }} />
+              <span className="absolute inset-0 flex items-center justify-end pr-2 text-[10px] font-mono text-white"
+                    style={{ textShadow: '0 1px 3px rgba(0,0,0,1), 0 0 6px rgba(0,0,0,0.8)' }}>
+                ES {Math.ceil(currentEs ?? 0)}/{maxEs}
+              </span>
+            </div>
           )}
-          <span className="text-white font-mono">{Math.ceil(currentHp)}/{maxHp}</span>
-        </div>
-      </div>
-      {/* ES bar */}
-      {hasEs && (
-        <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-          <div className="h-full bg-blue-500 rounded-full transition-all duration-150"
-               style={{ width: `${esPct}%` }} />
-        </div>
+          {/* HP bar with value inside */}
+          <div className="h-4 bg-gray-700 rounded-full overflow-hidden relative">
+            {trailPct > pct && (
+              <div className="absolute h-full bg-red-800/60 rounded-full transition-all duration-500"
+                   style={{ width: `${trailPct}%` }} />
+            )}
+            <div className={`absolute h-full ${color} rounded-full transition-all duration-150`}
+                 style={{ width: `${pct}%` }} />
+            <div className="absolute inset-0 flex items-center justify-between px-2 text-[10px] font-mono"
+                 style={{ textShadow: '0 1px 3px rgba(0,0,0,1), 0 0 6px rgba(0,0,0,0.8)' }}>
+              <span className="text-amber-300">
+                {hasFortify ? `FORT ${fortifyStacks} (${Math.round((fortifyDR ?? 0) * 100)}%)` : ''}
+              </span>
+              <span className="text-white font-bold">{Math.ceil(currentHp)}/{maxHp}</span>
+            </div>
+          </div>
+        </>
       )}
-      {/* HP bar */}
-      <div className="h-2.5 bg-gray-700 rounded-full overflow-hidden relative">
-        {trailPct > pct && (
-          <div className="absolute h-full bg-red-800/60 rounded-full transition-all duration-500"
-               style={{ width: `${trailPct}%` }} />
-        )}
-        <div className={`absolute h-full ${color} rounded-full transition-all duration-150`}
-             style={{ width: `${pct}%` }} />
-      </div>
 
       {/* Class resource (compact inline) */}
       {classDef && classResource && <CompactResource classDef={classDef} stacks={resourceStacks} max={resourceMax} />}
+
+      {/* Compact skill icons */}
+      <CompactSkills lastFiredSkillId={lastFiredSkillId} />
     </div>
   );
 }
@@ -168,4 +174,68 @@ function CompactResource({ classDef, stacks, max }: {
     );
   }
   return null;
+}
+
+function CompactSkills({ lastFiredSkillId }: { lastFiredSkillId?: string | null }) {
+  const skillBar = useGameStore(s => s.skillBar);
+  const skillTimers = useGameStore(s => s.skillTimers);
+  const skillProgress = useGameStore(s => s.skillProgress);
+  const abilityHaste = useGameStore(s => s.character.stats.abilityHaste);
+  const activateSkillBarSlot = useSkillStore(s => s.activateSkillBarSlot);
+  const now = Date.now();
+
+  return (
+    <div className="flex gap-1 justify-center">
+      {skillBar.map((equipped, idx) => {
+        if (!equipped) return null;
+        const def = getUnifiedSkillDef(equipped.skillId);
+        if (!def) return null;
+
+        const progress = skillProgress[equipped.skillId];
+        const timer = skillTimers.find(t => t.skillId === equipped.skillId);
+        const duration = getSkillEffectiveDuration(def, progress);
+        const cooldown = getSkillEffectiveCooldown(def, progress, abilityHaste);
+
+        const isActive = timer?.activatedAt != null && now < timer.activatedAt + duration * 1000;
+        const isOnCd = timer?.cooldownUntil != null && now < timer.cooldownUntil;
+        const cdRemaining = isOnCd && timer?.cooldownUntil ? Math.max(0, (timer.cooldownUntil - now) / 1000) : 0;
+
+        const totalCd = def.kind === 'buff' ? (duration + cooldown) : cooldown;
+        const cdPct = isOnCd && totalCd > 0 ? Math.max(0, Math.min(1, cdRemaining / totalCd)) : 0;
+
+        const isToggleOn = def.kind === 'toggle' && timer?.activatedAt != null;
+        const isFlashing = equipped.skillId === lastFiredSkillId;
+
+        // Interactive: toggle always clickable, buff/instant/ultimate when ready
+        const isInteractive = def.kind === 'toggle' || def.kind === 'buff' || def.kind === 'instant' || def.kind === 'ultimate';
+        const canClick = isInteractive && (def.kind === 'toggle' || (!isActive && !isOnCd));
+
+        return (
+          <div
+            key={idx}
+            onClick={canClick ? () => activateSkillBarSlot(idx) : undefined}
+            className={`w-8 h-8 rounded border flex items-center justify-center relative overflow-hidden
+              ${isActive ? 'border-yellow-500/70 bg-yellow-950/60'
+                : isToggleOn ? 'border-green-500/70 bg-green-950/60'
+                : isOnCd ? 'border-gray-700 bg-gray-900/80 opacity-50'
+                : 'border-gray-700 bg-gray-900/80'}
+              ${canClick ? 'cursor-pointer active:scale-95' : ''}`}
+            style={isFlashing ? { animation: 'skill-flash 0.4s ease-out' } : undefined}
+            title={`${def.name}${isOnCd ? ` (${cdRemaining.toFixed(0)}s)` : isActive ? ' (Active)' : ''}`}
+          >
+            {isOnCd && cdPct > 0 && (
+              <div className="absolute inset-0 pointer-events-none"
+                   style={{ background: `conic-gradient(rgba(0,0,0,0.55) ${cdPct * 360}deg, transparent ${cdPct * 360}deg)` }} />
+            )}
+            <span className="relative z-[1] text-sm leading-none">{def.icon}</span>
+            {isOnCd && (
+              <span className="absolute bottom-0 inset-x-0 text-center text-[7px] font-mono text-gray-300 z-[2] leading-none pb-px">
+                {Math.ceil(cdRemaining)}
+              </span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
 }

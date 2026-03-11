@@ -4,7 +4,6 @@ import { ZONE_DEFS } from '../../data/zones';
 import { calcXpScale } from '../../engine/zones';
 import { Rarity } from '../../types';
 import { calcBagCapacity } from '../../data/items';
-import SkillBar from '../components/SkillBar';
 import { getUnifiedSkillDef } from '../../data/skills';
 import { BOSS_INTERVAL } from '../../data/balance';
 import { getMobTypeDef } from '../../data/mobTypes';
@@ -22,7 +21,6 @@ import BagStatus from './BagStatus';
 import PlayerHpBar from './PlayerHpBar';
 import MobDisplay from './MobDisplay';
 import BossFightDisplay from './BossFightDisplay';
-import SkillPicker from './SkillPicker';
 
 const BUFF_DISPLAY: Record<string, { label: string; color: string; description: string }> = {
   // ── Shared / cross-skill buffs ──
@@ -172,8 +170,6 @@ export default function CombatPanel() {
     timestamp: number;
   }>>([]);
   const incomingIdRef = useRef(0);
-  const [cdResetSkillId, setCdResetSkillId] = useState<string | null>(null);
-  const cdResetTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const nextCastIsFreeRef = useRef(false);
 
   // --- Main tick effect ---
@@ -238,15 +234,6 @@ export default function CombatPanel() {
               }].slice(-6));
             }
             // CD reset flash
-            if (combatResult.cooldownResets && combatResult.cooldownResets.length > 0) {
-              setCdResetSkillId(combatResult.cooldownResets[0]);
-              clearTimeout(cdResetTimerRef.current);
-              cdResetTimerRef.current = setTimeout(() => setCdResetSkillId(null), 500);
-            } else if (combatResult.cooldownWasReset) {
-              setCdResetSkillId('__all__');
-              clearTimeout(cdResetTimerRef.current);
-              cdResetTimerRef.current = setTimeout(() => setCdResetSkillId(null), 500);
-            }
             if (combatResult.gcdWasReset) {
               nextCastIsFreeRef.current = true;
             }
@@ -345,15 +332,6 @@ export default function CombatPanel() {
             isFree: false,
             timestamp: now,
           }}));
-          if (bossResult.cooldownResets && bossResult.cooldownResets.length > 0) {
-            setCdResetSkillId(bossResult.cooldownResets[0]);
-            clearTimeout(cdResetTimerRef.current);
-            cdResetTimerRef.current = setTimeout(() => setCdResetSkillId(null), 500);
-          } else if (bossResult.cooldownWasReset) {
-            setCdResetSkillId('__all__');
-            clearTimeout(cdResetTimerRef.current);
-            cdResetTimerRef.current = setTimeout(() => setCdResetSkillId(null), 500);
-          }
         }
         if (bossResult.bossAttack) {
           const ba = bossResult.bossAttack;
@@ -460,6 +438,19 @@ export default function CombatPanel() {
 
   return (
     <div className="space-y-2">
+      {/* Player status: buffs + HP + ES + class resource + skills */}
+      {idleMode === 'combat' && hydrated && (combatPhase === 'clearing' || combatPhase === 'boss_fight') && (
+        <PlayerHpBar
+          currentHp={displayHp} maxHp={maxHp}
+          fortifyStacks={fortifyStacks} fortifyDR={fortifyDR}
+          currentEs={currentEs} maxEs={maxEs}
+          classResource={classResource} charClass={character.class}
+          buffs={tempBuffs} buffDisplay={BUFF_DISPLAY} rampingStacks={rampingStacks}
+          hideHpBars={combatPhase === 'boss_fight'}
+          lastFiredSkillId={lastFiredSkillId}
+        />
+      )}
+
       {/* Combat Phase Display */}
       {idleMode === 'combat' && combatPhase === 'boss_fight' && bossState && (
         <BossFightDisplay
@@ -508,17 +499,6 @@ export default function CombatPanel() {
       {/* Normal progress (clearing phase or gathering) */}
       {(combatPhase === 'clearing' || idleMode === 'gathering') && (
         <>
-          {/* Player status: buffs + HP + ES + class resource (combat only) */}
-          {idleMode === 'combat' && hydrated && (
-            <PlayerHpBar
-              currentHp={displayHp} maxHp={maxHp}
-              fortifyStacks={fortifyStacks} fortifyDR={fortifyDR}
-              currentEs={currentEs} maxEs={maxEs}
-              classResource={classResource} charClass={character.class}
-              buffs={tempBuffs} buffDisplay={BUFF_DISPLAY} rampingStacks={rampingStacks}
-            />
-          )}
-
           {/* Mob display (combat) or progress bar (gathering) */}
           {idleMode === 'combat' && runningZone ? (
             <div
@@ -698,14 +678,6 @@ export default function CombatPanel() {
               )}
           </div>
         </div>
-      )}
-
-      {/* Skill Bar + Picker (combat mode only) */}
-      {idleMode === 'combat' && (combatPhase === 'clearing' || combatPhase === 'boss_fight') && (
-        <>
-          <SkillBar lastFiredSkillId={lastFiredSkillId} cdResetSkillId={cdResetSkillId} />
-          <SkillPicker />
-        </>
       )}
 
       {/* Bags status + overflow warning */}
