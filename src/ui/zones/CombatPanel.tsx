@@ -677,11 +677,10 @@ export default function CombatPanel() {
               )}
             </div>
           </div>
-          {/* Events feed (below, full width) */}
-          {events.length > 0 && (
-            <div className="border-t border-gray-700/40 mt-1.5 pt-1 space-y-0.5">
-              <div className="text-gray-600 text-[10px]">Events</div>
-              {events.slice(-4).map(evt => {
+          {/* Events feed (below, full width) — fixed height to prevent layout shift */}
+          <div className="border-t border-gray-700/40 mt-1.5 pt-1 space-y-0.5 min-h-[3.5rem]">
+            <div className="text-gray-600 text-[10px]">Events</div>
+            {events.length > 0 ? events.slice(-3).map(evt => {
                 const evtTooltip = evt.type === 'shatter'
                   ? 'Chill shatter: when a Chilled mob dies, a % of overkill damage carries to the next mob as cold burst damage'
                   : evt.type === 'spread'
@@ -700,9 +699,10 @@ export default function CombatPanel() {
                     </div>
                   </Tooltip>
                 );
-              })}
-            </div>
-          )}
+              }) : (
+                <div className="text-gray-700 text-[10px]">No recent events</div>
+              )}
+          </div>
         </div>
       )}
 
