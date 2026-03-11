@@ -20,7 +20,7 @@ export default function MobDisplay({ mobName, mobs, bossIn, signatureDrop }: {
   const displayName = `${namePrefix}${mobName}${packCount}`;
 
   return (
-    <div className="bg-gray-900/70 rounded-lg p-2">
+    <div className="p-2">
 
       {/* Header row */}
       <div className="flex justify-between text-xs mb-1">

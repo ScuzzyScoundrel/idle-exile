@@ -14,7 +14,6 @@ import Tooltip from '../components/Tooltip';
 import { PROFESSION_ICONS } from './zoneConstants';
 import { emptySession, accumulateSession } from './zoneHelpers';
 import type { SessionSummary } from './zoneHelpers';
-import ClassResourceBar from './ClassResourceBar';
 import BossVictoryOverlay from './BossVictoryOverlay';
 import BossDefeatOverlay from './BossDefeatOverlay';
 import ZoneDefeatOverlay from './ZoneDefeatOverlay';
@@ -509,56 +508,22 @@ export default function CombatPanel() {
       {/* Normal progress (clearing phase or gathering) */}
       {(combatPhase === 'clearing' || idleMode === 'gathering') && (
         <>
-          {/* Player HP Bar (combat only, clearing) */}
+          {/* Player status: buffs + HP + ES + class resource (combat only) */}
           {idleMode === 'combat' && hydrated && (
-            <PlayerHpBar currentHp={displayHp} maxHp={maxHp} fortifyStacks={fortifyStacks} fortifyDR={fortifyDR} currentEs={currentEs} maxEs={maxEs} />
-          )}
-
-          {/* Class Resource Bar (combat only) */}
-          {idleMode === 'combat' && (
-            <ClassResourceBar resource={classResource} charClass={character.class} />
-          )}
-
-          {/* Buff / ramping indicator strip — fixed height to prevent layout shift */}
-          {idleMode === 'combat' && (
-            <div className="flex flex-wrap gap-1 justify-center min-h-[1.25rem]">
-              {tempBuffs.filter(b => b.expiresAt > Date.now()).map(buff => {
-                const remaining = Math.max(0, (buff.expiresAt - Date.now()) / 1000);
-                const meta = BUFF_DISPLAY[buff.id] ?? {
-                  label: buff.id.replace(/^[a-z]+_/, '').replace(/_/g, ' ')
-                    .replace(/\b\w/g, c => c.toUpperCase()).slice(0, 12),
-                  color: 'text-gray-300 bg-gray-700/60',
-                  description: '',
-                };
-                const tooltipContent = (
-                  <div className="space-y-0.5">
-                    <div className="font-bold">{meta.label}</div>
-                    {meta.description && <div className="text-gray-400">{meta.description}</div>}
-                    <div>Remaining: {remaining.toFixed(1)}s</div>
-                  </div>
-                );
-                return (
-                  <Tooltip key={buff.id} content={tooltipContent}>
-                    <span className={`rounded-full px-1.5 text-[10px] font-mono font-semibold ${meta.color}`}>
-                      {meta.label} {remaining.toFixed(0)}s
-                    </span>
-                  </Tooltip>
-                );
-              })}
-              {rampingStacks > 0 && (
-                <span className="rounded-full px-1.5 text-[10px] font-mono font-semibold bg-amber-900/60 text-amber-300"
-                      title={`Ramping damage: ${rampingStacks} stacks`}>
-                  RHYTHM x{rampingStacks}
-                </span>
-              )}
-            </div>
+            <PlayerHpBar
+              currentHp={displayHp} maxHp={maxHp}
+              fortifyStacks={fortifyStacks} fortifyDR={fortifyDR}
+              currentEs={currentEs} maxEs={maxEs}
+              classResource={classResource} charClass={character.class}
+              buffs={tempBuffs} buffDisplay={BUFF_DISPLAY} rampingStacks={rampingStacks}
+            />
           )}
 
           {/* Mob display (combat) or progress bar (gathering) */}
           {idleMode === 'combat' && runningZone ? (
             <div
               className="rounded-lg overflow-hidden relative border border-gray-700/50"
-              style={{ height: '20rem' }}
+              style={{ height: '15rem' }}
             >
               {/* Zone background image */}
               <div
