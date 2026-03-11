@@ -10,7 +10,7 @@ This rework elevates talent tree quality before using dagger as the template for
 
 ### Sprint Status
 - [x] **Sprint 1**: Engine — Add new stats to SkillModifier
-- [ ] **Sprint 2**: Rework 3 legacy buff skills
+- [x] **Sprint 2**: Rework 3 legacy buff skills
 - [ ] **Sprint 3**: Venomcraft branch rework (all 7 skills)
 - [ ] **Sprint 4**: Assassination branch rework (all 7 skills)
 - [ ] **Sprint 5**: Shadow Dance branch rework + final polish
