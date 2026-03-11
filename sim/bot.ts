@@ -418,10 +418,16 @@ export class Bot {
     const timeToKill = playerDps > 0 ? bossHp / playerDps : 999;
     const bossAttacks = Math.floor(timeToKill / profile.attackInterval);
 
-    // Simulate boss attacks
+    // Simulate boss attacks (with set bonus sustain mechanics)
     let hp = this.currentHp;
     let dodgeEntropy = Math.floor(Math.random() * 100);
     let victory = true;
+    const stats = this.char.stats;
+    const lifeRecoverPct = stats.lifeRecoveryPerHit ?? 0;
+    const lifeOnDodgePct = stats.lifeOnDodgePercent ?? 0;
+    const esRecoverPct = stats.esCombatRecharge ?? 0;
+    const maxEs = stats.energyShield ?? 0;
+    let currentEs = maxEs;
 
     for (let i = 0; i < bossAttacks; i++) {
       const variance = 0.8 + Math.random() * 0.4;
@@ -429,11 +435,30 @@ export class Bot {
         profile.damagePerHit * variance,
         profile.physRatio,
         profile.accuracy,
-        this.char.stats,
+        stats,
         dodgeEntropy,
       );
       dodgeEntropy = roll.newDodgeEntropy;
-      hp -= roll.damage;
+
+      // ES absorbs damage before HP
+      let dmg = roll.damage;
+      if (currentEs > 0 && dmg > 0) {
+        const esAbsorbed = Math.min(currentEs, dmg);
+        currentEs -= esAbsorbed;
+        dmg -= esAbsorbed;
+      }
+      hp -= dmg;
+
+      // Set bonus sustain mechanics
+      if (roll.isDodged && lifeOnDodgePct > 0) {
+        hp = Math.min(stats.maxLife, hp + stats.maxLife * lifeOnDodgePct / 100);
+      }
+      if (!roll.isDodged && lifeRecoverPct > 0) {
+        hp = Math.min(stats.maxLife, hp + stats.maxLife * lifeRecoverPct / 100);
+      }
+      if (!roll.isDodged && esRecoverPct > 0 && maxEs > 0) {
+        currentEs = Math.min(maxEs, currentEs + maxEs * esRecoverPct / 100);
+      }
 
       if (hp <= 0) {
         victory = false;

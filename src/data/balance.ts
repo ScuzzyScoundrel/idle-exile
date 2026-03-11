@@ -96,7 +96,7 @@ export const BAND_RESIST_PENALTY: Record<number, number> = {
 export const ZONE_PHYS_DAMAGE_BASE = 50;
 
 /** Base zone accuracy for hit chance calculation. */
-export const ZONE_ACCURACY_BASE = 50;
+export const ZONE_ACCURACY_BASE = 200;
 
 /** Divisor for accuracy-based hit chance: hitChance = accuracy / (accuracy + ACCURACY_DIVISOR). */
 export const ACCURACY_DIVISOR = 50;
@@ -119,7 +119,7 @@ export const BLOCK_CAP = 75;
 export const DODGE_CAP = 75;
 
 /** Dodged hits still deal this fraction of raw damage (not full avoidance). */
-export const DODGE_DAMAGE_FLOOR = 0.25;
+export const DODGE_DAMAGE_FLOOR = 0.00;
 
 /** Min hit chance — even at cap evasion, 1 in 20 always lands. */
 export const EVASION_MIN_HIT_CHANCE = 5;
@@ -130,7 +130,7 @@ export const EVASION_MIN_HIT_CHANCE = 5;
 export const EVASION_DR_EXPONENT = 1.2;
 
 /** Armor formula coefficient: armor / (armor + ARMOR_COEFFICIENT * physDmg). Lower = more effective. */
-export const ARMOR_COEFFICIENT = 4;
+export const ARMOR_COEFFICIENT = 3;
 /** Flat DR from armor: 1% per ARMOR_FLAT_DR_RATIO armor points. */
 export const ARMOR_FLAT_DR_RATIO = 60;
 /** Maximum flat DR from armor (25%). */
@@ -207,6 +207,7 @@ export const BASE_STATS: ResolvedStats = {
   energyShield: 0,
   incEnergyShield: 0,
   esRecharge: 0,
+  esCombatRecharge: 0,
   // Utility
   movementSpeed: 0,
   itemQuantity: 0,
@@ -216,6 +217,8 @@ export const BASE_STATS: ResolvedStats = {
   lifeLeechPercent: 0,
   lifeOnHit: 0,
   lifeOnKill: 0,
+  lifeOnDodgePercent: 0,
+  lifeRecoveryPerHit: 0,
   // Build depth
   cooldownRecovery: 0,
   fortifyEffect: 0,

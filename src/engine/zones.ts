@@ -791,6 +791,11 @@ export function rollZoneAttack(
     totalDmg *= (1 - flatDR);
   }
 
+  // 6. Generic damage taken reduction (set bonuses, fortify, etc.)
+  if (stats.damageTakenReduction > 0) {
+    totalDmg *= (1 - stats.damageTakenReduction / 100);
+  }
+
   return { damage: Math.max(0, totalDmg), isDodged: false, isBlocked, newDodgeEntropy: evasionRoll.newEntropy };
 }
 
@@ -864,8 +869,14 @@ export function simulateClearDefense(
   let dodges = 0, blocks = 0, hits = 0;
   let dodgeEntropy = Math.floor(Math.random() * 100);
   let currentEs = stats.energyShield ?? 0;
-  const esRecharge = stats.esRecharge ?? 0;
-  const dtPerHit = hitsPerClear > 0 ? clearTime / hitsPerClear : 0;
+  const maxEs = stats.energyShield ?? 0;
+  // ES does NOT recharge during clears by default.
+  // esCombatRecharge (cloth 6pc): % of max ES recovered per hit taken
+  const esRecoverPct = stats.esCombatRecharge ?? 0;
+  let dodgeHealing = 0;
+  let hitTakenHealing = 0;
+  const lifeOnDodgePct = stats.lifeOnDodgePercent ?? 0;
+  const lifeRecoverPct = stats.lifeRecoveryPerHit ?? 0;
 
   for (let i = 0; i < hitsPerClear; i++) {
     const variance = 0.8 + Math.random() * 0.4; // 80%-120%
@@ -877,6 +888,10 @@ export function simulateClearDefense(
       totalRawDamage += rawHit;
       totalDamage += roll.damage;
       hits++;
+      // Leather set bonus: heal on dodge
+      if (lifeOnDodgePct > 0) {
+        dodgeHealing += maxHp * lifeOnDodgePct / 100;
+      }
       continue;
     }
     if (roll.isBlocked) blocks++;
@@ -892,9 +907,14 @@ export function simulateClearDefense(
     }
     totalDamage += dmgAfterEs;
 
-    // ES recharges between hits
-    if (esRecharge > 0) {
-      currentEs = Math.min(stats.energyShield ?? 0, currentEs + esRecharge * dtPerHit);
+    // Cloth 6pc: recover % of max ES per hit taken
+    if (esRecoverPct > 0 && maxEs > 0) {
+      currentEs = Math.min(maxEs, currentEs + maxEs * esRecoverPct / 100);
+    }
+
+    // Plate 6pc: recover % of maxLife per hit taken
+    if (lifeRecoverPct > 0) {
+      hitTakenHealing += maxHp * lifeRecoverPct / 100;
     }
   }
 
@@ -913,8 +933,11 @@ export function simulateClearDefense(
   const leechHeal = playerDamageDealt * (LEECH_PERCENT + gearLeechRate);
   const totalRegen = Math.min(passiveRegen + leechHeal, maxHp * dynamicCapRatio);
 
+  // Set bonus healing bypasses regen cap (leather dodge heal + plate hit-taken heal)
+  const totalHealing = totalRegen + dodgeHealing + hitTakenHealing;
+
   // Underlevel minimum net damage (prevents immortality via regen stacking)
-  let netDamage = totalDamage - totalRegen;
+  let netDamage = totalDamage - totalHealing;
   const levelDelta = zone.iLvlMin - playerLevel;
   if (levelDelta > 0) {
     const minNet = maxHp * UNDERLEVEL_MIN_NET_DAMAGE * levelDelta;

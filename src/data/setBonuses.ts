@@ -5,9 +5,9 @@ export const SET_BONUS_DEFS: Record<ArmorType, SetBonusDef> = {
     armorType: 'plate',
     name: 'Juggernaut',
     thresholds: {
-      2: { flatPhysDamage: 8, armor: 10 },
-      4: { maxLife: 20 },
-      6: { flatPhysDamage: 12, maxLife: 15 },
+      2: { flatPhysDamage: 8, lifeLeechPercent: 1 },
+      4: { incMaxLife: 20 },
+      6: { damageTakenReduction: 10, lifeRecoveryPerHit: 0.8 },
     },
   },
   leather: {
@@ -15,17 +15,17 @@ export const SET_BONUS_DEFS: Record<ArmorType, SetBonusDef> = {
     name: 'Stalker',
     thresholds: {
       2: { evasion: 40, critChance: 3 },
-      4: { attackSpeed: 5, critMultiplier: 10 },
-      6: { evasion: 60, critChance: 4, critMultiplier: 10 },
+      4: { evasion: 40 },
+      6: { lifeOnDodgePercent: 1, critMultiplier: 20 },
     },
   },
   cloth: {
     armorType: 'cloth',
-    name: 'Rapid Caster',
+    name: 'Arcane Weaver',
     thresholds: {
       2: { abilityHaste: 6, energyShield: 40 },
-      4: { critChance: 3 },
-      6: { abilityHaste: 10, critMultiplier: 5, energyShield: 80, esRecharge: 3 },
+      4: { incEnergyShield: 30, esRecharge: 2 },
+      6: { esCombatRecharge: 40, maxLife: 200, allResist: 20, critChance: 3, critMultiplier: 5 },
     },
   },
 };

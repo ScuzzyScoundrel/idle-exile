@@ -194,13 +194,13 @@ export const ITEM_BASE_DEFS: ItemBaseDef[] = [
 
   // ==================== Helmet ====================
   // -- Plate --
-  { id: 'iron_helm', name: 'Iron Helm', slot: 'helmet', armorType: 'plate', baseStats: { armor: 9 }, iLvl: 1 },
-  { id: 'steel_greathelm', name: 'Steel Greathelm', slot: 'helmet', armorType: 'plate', baseStats: { armor: 22 }, iLvl: 10 },
-  { id: 'obsidian_faceplate', name: 'Obsidian Faceplate', slot: 'helmet', armorType: 'plate', baseStats: { armor: 38 }, iLvl: 20 },
-  { id: 'mithril_helm', name: 'Mithril Helm', slot: 'helmet', armorType: 'plate', baseStats: { armor: 52 }, iLvl: 30 },
-  { id: 'runic_greathelm', name: 'Runic Greathelm', slot: 'helmet', armorType: 'plate', baseStats: { armor: 70 }, iLvl: 40 },
-  { id: 'void_faceplate', name: 'Void Faceplate', slot: 'helmet', armorType: 'plate', baseStats: { armor: 92 }, iLvl: 50 },
-  { id: 'starforged_helm', name: 'Starforged Helm', slot: 'helmet', armorType: 'plate', baseStats: { armor: 118 }, iLvl: 60 },
+  { id: 'iron_helm', name: 'Iron Helm', slot: 'helmet', armorType: 'plate', baseStats: { armor: 9, maxLife: 5 }, iLvl: 1 },
+  { id: 'steel_greathelm', name: 'Steel Greathelm', slot: 'helmet', armorType: 'plate', baseStats: { armor: 22, maxLife: 10 }, iLvl: 10 },
+  { id: 'obsidian_faceplate', name: 'Obsidian Faceplate', slot: 'helmet', armorType: 'plate', baseStats: { armor: 38, maxLife: 16 }, iLvl: 20 },
+  { id: 'mithril_helm', name: 'Mithril Helm', slot: 'helmet', armorType: 'plate', baseStats: { armor: 52, maxLife: 22 }, iLvl: 30 },
+  { id: 'runic_greathelm', name: 'Runic Greathelm', slot: 'helmet', armorType: 'plate', baseStats: { armor: 70, maxLife: 28 }, iLvl: 40 },
+  { id: 'void_faceplate', name: 'Void Faceplate', slot: 'helmet', armorType: 'plate', baseStats: { armor: 92, maxLife: 32 }, iLvl: 50 },
+  { id: 'starforged_helm', name: 'Starforged Helm', slot: 'helmet', armorType: 'plate', baseStats: { armor: 118, maxLife: 36 }, iLvl: 60 },
   // -- Leather --
   { id: 'rawhide_cap', name: 'Rawhide Cap', slot: 'helmet', armorType: 'leather', baseStats: { armor: 2, evasion: 30 }, iLvl: 1 },
   { id: 'studded_headband', name: 'Studded Headband', slot: 'helmet', armorType: 'leather', baseStats: { armor: 6, evasion: 50 }, iLvl: 10 },
@@ -229,13 +229,13 @@ export const ITEM_BASE_DEFS: ItemBaseDef[] = [
 
   // ==================== Shoulders ====================
   // -- Plate --
-  { id: 'iron_pauldrons', name: 'Iron Pauldrons', slot: 'shoulders', armorType: 'plate', baseStats: { armor: 8 }, iLvl: 1 },
-  { id: 'steel_shoulderguards', name: 'Steel Shoulderguards', slot: 'shoulders', armorType: 'plate', baseStats: { armor: 18 }, iLvl: 10 },
-  { id: 'obsidian_mantle', name: 'Obsidian Mantle', slot: 'shoulders', armorType: 'plate', baseStats: { armor: 32 }, iLvl: 20 },
-  { id: 'mithril_pauldrons', name: 'Mithril Pauldrons', slot: 'shoulders', armorType: 'plate', baseStats: { armor: 44 }, iLvl: 30 },
-  { id: 'runic_shoulderguards', name: 'Runic Shoulderguards', slot: 'shoulders', armorType: 'plate', baseStats: { armor: 60 }, iLvl: 40 },
-  { id: 'void_mantle', name: 'Void Mantle', slot: 'shoulders', armorType: 'plate', baseStats: { armor: 78 }, iLvl: 50 },
-  { id: 'starforged_pauldrons', name: 'Starforged Pauldrons', slot: 'shoulders', armorType: 'plate', baseStats: { armor: 100 }, iLvl: 60 },
+  { id: 'iron_pauldrons', name: 'Iron Pauldrons', slot: 'shoulders', armorType: 'plate', baseStats: { armor: 8, maxLife: 4 }, iLvl: 1 },
+  { id: 'steel_shoulderguards', name: 'Steel Shoulderguards', slot: 'shoulders', armorType: 'plate', baseStats: { armor: 18, maxLife: 8 }, iLvl: 10 },
+  { id: 'obsidian_mantle', name: 'Obsidian Mantle', slot: 'shoulders', armorType: 'plate', baseStats: { armor: 32, maxLife: 13 }, iLvl: 20 },
+  { id: 'mithril_pauldrons', name: 'Mithril Pauldrons', slot: 'shoulders', armorType: 'plate', baseStats: { armor: 44, maxLife: 18 }, iLvl: 30 },
+  { id: 'runic_shoulderguards', name: 'Runic Shoulderguards', slot: 'shoulders', armorType: 'plate', baseStats: { armor: 60, maxLife: 24 }, iLvl: 40 },
+  { id: 'void_mantle', name: 'Void Mantle', slot: 'shoulders', armorType: 'plate', baseStats: { armor: 78, maxLife: 28 }, iLvl: 50 },
+  { id: 'starforged_pauldrons', name: 'Starforged Pauldrons', slot: 'shoulders', armorType: 'plate', baseStats: { armor: 100, maxLife: 30 }, iLvl: 60 },
   // -- Leather --
   { id: 'hide_shoulderpads', name: 'Hide Shoulderpads', slot: 'shoulders', armorType: 'leather', baseStats: { armor: 2, evasion: 30 }, iLvl: 1 },
   { id: 'studded_shoulderguards', name: 'Studded Shoulderguards', slot: 'shoulders', armorType: 'leather', baseStats: { armor: 5, evasion: 40 }, iLvl: 10 },
@@ -264,8 +264,8 @@ export const ITEM_BASE_DEFS: ItemBaseDef[] = [
 
   // ==================== Chest ====================
   // -- Plate --
-  { id: 'iron_breastplate', name: 'Iron Breastplate', slot: 'chest', armorType: 'plate', baseStats: { armor: 12 }, iLvl: 1 },
-  { id: 'steel_cuirass', name: 'Steel Cuirass', slot: 'chest', armorType: 'plate', baseStats: { armor: 28 }, iLvl: 10 },
+  { id: 'iron_breastplate', name: 'Iron Breastplate', slot: 'chest', armorType: 'plate', baseStats: { armor: 12, maxLife: 8 }, iLvl: 1 },
+  { id: 'steel_cuirass', name: 'Steel Cuirass', slot: 'chest', armorType: 'plate', baseStats: { armor: 28, maxLife: 12 }, iLvl: 10 },
   { id: 'plate_cuirass', name: 'Plate Cuirass', slot: 'chest', armorType: 'plate', baseStats: { armor: 45, maxLife: 15 }, iLvl: 20 },
   { id: 'mithril_cuirass', name: 'Mithril Cuirass', slot: 'chest', armorType: 'plate', baseStats: { armor: 62, maxLife: 20 }, iLvl: 30 },
   { id: 'runic_breastplate', name: 'Runic Breastplate', slot: 'chest', armorType: 'plate', baseStats: { armor: 84, maxLife: 28 }, iLvl: 40 },
@@ -299,13 +299,13 @@ export const ITEM_BASE_DEFS: ItemBaseDef[] = [
 
   // ==================== Gloves ====================
   // -- Plate --
-  { id: 'iron_gauntlets', name: 'Iron Gauntlets', slot: 'gloves', armorType: 'plate', baseStats: { armor: 6 }, iLvl: 1 },
-  { id: 'steel_gauntlets', name: 'Steel Gauntlets', slot: 'gloves', armorType: 'plate', baseStats: { armor: 14 }, iLvl: 10 },
-  { id: 'obsidian_gauntlets', name: 'Obsidian Gauntlets', slot: 'gloves', armorType: 'plate', baseStats: { armor: 24 }, iLvl: 20 },
-  { id: 'mithril_gauntlets', name: 'Mithril Gauntlets', slot: 'gloves', armorType: 'plate', baseStats: { armor: 33 }, iLvl: 30 },
-  { id: 'runic_gauntlets', name: 'Runic Gauntlets', slot: 'gloves', armorType: 'plate', baseStats: { armor: 44 }, iLvl: 40 },
-  { id: 'void_gauntlets', name: 'Void Gauntlets', slot: 'gloves', armorType: 'plate', baseStats: { armor: 58 }, iLvl: 50 },
-  { id: 'starforged_gauntlets', name: 'Starforged Gauntlets', slot: 'gloves', armorType: 'plate', baseStats: { armor: 74 }, iLvl: 60 },
+  { id: 'iron_gauntlets', name: 'Iron Gauntlets', slot: 'gloves', armorType: 'plate', baseStats: { armor: 6, maxLife: 3 }, iLvl: 1 },
+  { id: 'steel_gauntlets', name: 'Steel Gauntlets', slot: 'gloves', armorType: 'plate', baseStats: { armor: 14, maxLife: 7 }, iLvl: 10 },
+  { id: 'obsidian_gauntlets', name: 'Obsidian Gauntlets', slot: 'gloves', armorType: 'plate', baseStats: { armor: 24, maxLife: 12 }, iLvl: 20 },
+  { id: 'mithril_gauntlets', name: 'Mithril Gauntlets', slot: 'gloves', armorType: 'plate', baseStats: { armor: 33, maxLife: 16 }, iLvl: 30 },
+  { id: 'runic_gauntlets', name: 'Runic Gauntlets', slot: 'gloves', armorType: 'plate', baseStats: { armor: 44, maxLife: 21 }, iLvl: 40 },
+  { id: 'void_gauntlets', name: 'Void Gauntlets', slot: 'gloves', armorType: 'plate', baseStats: { armor: 58, maxLife: 24 }, iLvl: 50 },
+  { id: 'starforged_gauntlets', name: 'Starforged Gauntlets', slot: 'gloves', armorType: 'plate', baseStats: { armor: 74, maxLife: 26 }, iLvl: 60 },
   // -- Leather --
   { id: 'hide_gloves', name: 'Hide Gloves', slot: 'gloves', armorType: 'leather', baseStats: { armor: 2, evasion: 20 }, iLvl: 1 },
   { id: 'studded_gloves', name: 'Studded Gloves', slot: 'gloves', armorType: 'leather', baseStats: { armor: 4, evasion: 30 }, iLvl: 10 },
@@ -334,13 +334,13 @@ export const ITEM_BASE_DEFS: ItemBaseDef[] = [
 
   // ==================== Pants ====================
   // -- Plate --
-  { id: 'iron_legguards', name: 'Iron Legguards', slot: 'pants', armorType: 'plate', baseStats: { armor: 10 }, iLvl: 1 },
-  { id: 'steel_legplates', name: 'Steel Legplates', slot: 'pants', armorType: 'plate', baseStats: { armor: 24 }, iLvl: 10 },
-  { id: 'obsidian_greaves', name: 'Obsidian Greaves', slot: 'pants', armorType: 'plate', baseStats: { armor: 42 }, iLvl: 20 },
-  { id: 'mithril_legplates', name: 'Mithril Legplates', slot: 'pants', armorType: 'plate', baseStats: { armor: 58 }, iLvl: 30 },
-  { id: 'runic_legplates', name: 'Runic Legplates', slot: 'pants', armorType: 'plate', baseStats: { armor: 78 }, iLvl: 40 },
-  { id: 'void_legplates', name: 'Void Legplates', slot: 'pants', armorType: 'plate', baseStats: { armor: 102 }, iLvl: 50 },
-  { id: 'starforged_legplates', name: 'Starforged Legplates', slot: 'pants', armorType: 'plate', baseStats: { armor: 130 }, iLvl: 60 },
+  { id: 'iron_legguards', name: 'Iron Legguards', slot: 'pants', armorType: 'plate', baseStats: { armor: 10, maxLife: 5 }, iLvl: 1 },
+  { id: 'steel_legplates', name: 'Steel Legplates', slot: 'pants', armorType: 'plate', baseStats: { armor: 24, maxLife: 10 }, iLvl: 10 },
+  { id: 'obsidian_greaves', name: 'Obsidian Greaves', slot: 'pants', armorType: 'plate', baseStats: { armor: 42, maxLife: 16 }, iLvl: 20 },
+  { id: 'mithril_legplates', name: 'Mithril Legplates', slot: 'pants', armorType: 'plate', baseStats: { armor: 58, maxLife: 22 }, iLvl: 30 },
+  { id: 'runic_legplates', name: 'Runic Legplates', slot: 'pants', armorType: 'plate', baseStats: { armor: 78, maxLife: 28 }, iLvl: 40 },
+  { id: 'void_legplates', name: 'Void Legplates', slot: 'pants', armorType: 'plate', baseStats: { armor: 102, maxLife: 32 }, iLvl: 50 },
+  { id: 'starforged_legplates', name: 'Starforged Legplates', slot: 'pants', armorType: 'plate', baseStats: { armor: 130, maxLife: 36 }, iLvl: 60 },
   // -- Leather --
   { id: 'rawhide_pants', name: 'Rawhide Pants', slot: 'pants', armorType: 'leather', baseStats: { armor: 3, evasion: 30 }, iLvl: 1 },
   { id: 'studded_leggings', name: 'Studded Leggings', slot: 'pants', armorType: 'leather', baseStats: { armor: 7, evasion: 50 }, iLvl: 10 },
@@ -360,13 +360,13 @@ export const ITEM_BASE_DEFS: ItemBaseDef[] = [
 
   // ==================== Boots ====================
   // -- Plate --
-  { id: 'iron_sabatons', name: 'Iron Sabatons', slot: 'boots', armorType: 'plate', baseStats: { armor: 8, evasion: 10 }, iLvl: 1 },
-  { id: 'plated_greaves', name: 'Plated Greaves', slot: 'boots', armorType: 'plate', baseStats: { armor: 15, evasion: 20 }, iLvl: 10 },
-  { id: 'obsidian_sabatons', name: 'Obsidian Sabatons', slot: 'boots', armorType: 'plate', baseStats: { armor: 28, evasion: 20 }, iLvl: 20 },
-  { id: 'mithril_sabatons', name: 'Mithril Sabatons', slot: 'boots', armorType: 'plate', baseStats: { armor: 38, evasion: 30 }, iLvl: 30 },
-  { id: 'runic_sabatons', name: 'Runic Sabatons', slot: 'boots', armorType: 'plate', baseStats: { armor: 52, evasion: 40 }, iLvl: 40 },
-  { id: 'void_sabatons', name: 'Void Sabatons', slot: 'boots', armorType: 'plate', baseStats: { armor: 68, evasion: 50 }, iLvl: 50 },
-  { id: 'starforged_sabatons', name: 'Starforged Sabatons', slot: 'boots', armorType: 'plate', baseStats: { armor: 88, evasion: 60 }, iLvl: 60 },
+  { id: 'iron_sabatons', name: 'Iron Sabatons', slot: 'boots', armorType: 'plate', baseStats: { armor: 8, evasion: 10, maxLife: 3 }, iLvl: 1 },
+  { id: 'plated_greaves', name: 'Plated Greaves', slot: 'boots', armorType: 'plate', baseStats: { armor: 15, evasion: 20, maxLife: 7 }, iLvl: 10 },
+  { id: 'obsidian_sabatons', name: 'Obsidian Sabatons', slot: 'boots', armorType: 'plate', baseStats: { armor: 28, evasion: 20, maxLife: 12 }, iLvl: 20 },
+  { id: 'mithril_sabatons', name: 'Mithril Sabatons', slot: 'boots', armorType: 'plate', baseStats: { armor: 38, evasion: 30, maxLife: 16 }, iLvl: 30 },
+  { id: 'runic_sabatons', name: 'Runic Sabatons', slot: 'boots', armorType: 'plate', baseStats: { armor: 52, evasion: 40, maxLife: 21 }, iLvl: 40 },
+  { id: 'void_sabatons', name: 'Void Sabatons', slot: 'boots', armorType: 'plate', baseStats: { armor: 68, evasion: 50, maxLife: 24 }, iLvl: 50 },
+  { id: 'starforged_sabatons', name: 'Starforged Sabatons', slot: 'boots', armorType: 'plate', baseStats: { armor: 88, evasion: 60, maxLife: 26 }, iLvl: 60 },
   // -- Leather --
   { id: 'leather_boots', name: 'Leather Boots', slot: 'boots', armorType: 'leather', baseStats: { armor: 5, evasion: 30 }, iLvl: 1 },
   { id: 'studded_boots', name: 'Studded Boots', slot: 'boots', armorType: 'leather', baseStats: { armor: 5, evasion: 50 }, iLvl: 10 },

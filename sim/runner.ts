@@ -29,6 +29,9 @@ const verbose = hasFlag('verbose');
 // Now install mocks
 installClock();
 
+// Apply sim-only balance overrides (mutates SET_BONUS_DEFS etc.)
+import './balance-overrides';
+
 // Now safe to import engine code
 import { Bot } from './bot';
 import { ARCHETYPES as DAGGER_ARCHETYPES } from './strategies/dagger';

@@ -65,6 +65,7 @@ export type StatKey =
   | 'energyShield'
   | 'incEnergyShield'
   | 'esRecharge'
+  | 'esCombatRecharge'
   // Utility
   | 'movementSpeed'
   | 'itemQuantity'
@@ -74,6 +75,8 @@ export type StatKey =
   | 'lifeLeechPercent'
   | 'lifeOnHit'
   | 'lifeOnKill'
+  | 'lifeOnDodgePercent'
+  | 'lifeRecoveryPerHit'
   // Build depth
   | 'cooldownRecovery'
   | 'fortifyEffect'
