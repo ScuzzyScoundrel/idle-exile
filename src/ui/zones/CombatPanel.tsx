@@ -529,9 +529,9 @@ export default function CombatPanel() {
             <ClassResourceBar resource={classResource} charClass={character.class} />
           )}
 
-          {/* Buff / ramping indicator strip */}
-          {idleMode === 'combat' && (tempBuffs.length > 0 || rampingStacks > 0) && (
-            <div className="flex flex-wrap gap-1 justify-center">
+          {/* Buff / ramping indicator strip — fixed height to prevent layout shift */}
+          {idleMode === 'combat' && (
+            <div className="flex flex-wrap gap-1 justify-center min-h-[1.25rem]">
               {tempBuffs.filter(b => b.expiresAt > Date.now()).map(buff => {
                 const remaining = Math.max(0, (buff.expiresAt - Date.now()) / 1000);
                 const meta = BUFF_DISPLAY[buff.id] ?? {
@@ -566,7 +566,7 @@ export default function CombatPanel() {
 
           {/* Mob display (combat) or progress bar (gathering) */}
           {idleMode === 'combat' && runningZone ? (
-            <div style={{ minHeight: lockedPackSize > 0 ? `${lockedPackSize * 3.5 + 2.5}rem` : undefined }}>
+            <div className="overflow-hidden" style={{ height: lockedPackSize > 0 ? `${lockedPackSize * 3.5 + 2.5}rem` : undefined }}>
               <MobDisplay
                 mobName={currentMobTypeId ? (getMobTypeDef(currentMobTypeId)?.name ?? runningZone.mobName) : runningZone.mobName}
                 mobs={packMobs}

@@ -81,15 +81,13 @@ export default function MobDisplay({ mobName, mobs, bossIn, signatureDrop }: {
                   </>
                 )}
               </div>
-              {/* Row 2: debuff badges (own row for readability) */}
-              {mob.debuffs.length > 0 && (
-                <div className="flex items-center gap-1 flex-wrap ml-0">
-                  {packSize > 1 && <span className="w-3 shrink-0" />}
-                  {mob.debuffs.map(d => (
-                    <DebuffBadge key={d.debuffId} debuff={d} />
-                  ))}
-                </div>
-              )}
+              {/* Row 2: debuff badges — always reserve row to prevent layout shift */}
+              <div className="flex items-center gap-1 flex-wrap ml-0 min-h-[1rem]">
+                {packSize > 1 && <span className="w-3 shrink-0" />}
+                {mob.debuffs.map(d => (
+                  <DebuffBadge key={d.debuffId} debuff={d} />
+                ))}
+              </div>
               {/* HP bar */}
               <div className="flex items-center gap-1">
                 {packSize > 1 && <span className="w-3 shrink-0" />}
