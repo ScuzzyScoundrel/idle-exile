@@ -1,4 +1,5 @@
 import { useState, Component, type ReactNode, type ErrorInfo } from 'react';
+import TooltipProvider from './ui/components/TooltipProvider';
 import TopBar from './ui/components/TopBar';
 import NavBar from './ui/components/NavBar';
 import TutorialOverlay from './ui/components/TutorialOverlay';
@@ -128,5 +129,5 @@ function App() {
 }
 
 export default function AppWithBoundary() {
-  return <ErrorBoundary><App /></ErrorBoundary>;
+  return <ErrorBoundary><TooltipProvider><App /></TooltipProvider></ErrorBoundary>;
 }

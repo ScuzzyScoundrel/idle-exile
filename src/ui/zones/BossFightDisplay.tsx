@@ -1,9 +1,10 @@
 import type { ActiveDebuff } from '../../types';
 import DebuffBadge from './DebuffBadge';
 
-export default function BossFightDisplay({ bossName, bossHp, bossMaxHp, playerHp, maxHp, bossDps, swingProgress, activeDebuffs, fortifyStacks, fortifyDR, playerEs, maxEs }: {
+export default function BossFightDisplay({ bossName, bossHp, bossMaxHp, playerHp, maxHp, bossDps, nextBossAttackAt, bossAtkIntervalMs, activeDebuffs, fortifyStacks, fortifyDR, playerEs, maxEs }: {
   bossName: string; bossHp: number; bossMaxHp: number;
-  playerHp: number; maxHp: number; bossDps: number; swingProgress: number;
+  playerHp: number; maxHp: number; bossDps: number;
+  nextBossAttackAt: number; bossAtkIntervalMs: number;
   activeDebuffs: ActiveDebuff[]; fortifyStacks: number; fortifyDR: number;
   playerEs?: number; maxEs?: number;
 }) {
@@ -38,10 +39,18 @@ export default function BossFightDisplay({ bossName, bossHp, bossMaxHp, playerHp
                style={{ width: `${bossPct}%` }} />
         </div>
       </div>
-      {/* Boss swing timer */}
+      {/* Boss swing timer (CSS animation for 60fps smoothness) */}
       <div className="h-1.5 bg-gray-700/50 rounded-full overflow-hidden">
-        <div className="h-full bg-orange-500/80 rounded-full transition-all duration-200"
-             style={{ width: `${Math.max(0, Math.min(1, swingProgress)) * 100}%` }} />
+        <div
+          key={nextBossAttackAt}
+          className="h-full bg-orange-500/80 rounded-full"
+          style={{
+            animation: nextBossAttackAt > 0
+              ? `swing-fill ${bossAtkIntervalMs}ms linear forwards`
+              : 'none',
+            width: '100%',
+          }}
+        />
       </div>
       {/* Player HP */}
       <div

@@ -5,7 +5,6 @@ import { calcXpScale } from '../../engine/zones';
 import { Rarity } from '../../types';
 import { calcBagCapacity } from '../../data/items';
 import SkillBar from '../components/SkillBar';
-import { DamageFloaters, FloaterEntry } from '../components/DamageFloater';
 import { getUnifiedSkillDef } from '../../data/skills';
 import { BOSS_INTERVAL } from '../../data/balance';
 import { getMobTypeDef } from '../../data/mobTypes';
@@ -145,16 +144,35 @@ export default function CombatPanel() {
   const [bossLootItems, setBossLootItems] = useState<{ name: string; rarity: Rarity }[]>([]);
   const [bossFightStats, setBossFightStats] = useState<{ duration: number; playerDps: number; bossDps: number; bossMaxHp: number } | null>(null);
 
-  // Visual feedback state
-  const [floaters, setFloaters] = useState<FloaterEntry[]>([]);
+  // Visual feedback state — "Last Hit" dashboard (replaces scrolling combat log)
   const [lastFiredSkillId, setLastFiredSkillId] = useState<string | null>(null);
-  const floaterIdRef = useRef(0);
   const lastFiredTimerRef = useRef<ReturnType<typeof setTimeout>>();
-  const [combatLog, setCombatLog] = useState<Array<{
-    id: number; type: 'skill' | 'shatter' | 'enemy' | 'proc' | 'spread' | 'free' | 'heal' | 'cdReset';
-    label: string; damage: number; isCrit?: boolean; isHit?: boolean;
+  const [lastHits, setLastHits] = useState<Record<string, {
+    skillName: string;
+    damage: number;
+    isCrit: boolean;
+    isHit: boolean;
+    procDamage: number;
+    isFree: boolean;
+    timestamp: number;
+  }>>({});
+  const [events, setEvents] = useState<Array<{
+    id: number;
+    type: 'shatter' | 'spread' | 'heal';
+    label: string;
+    damage: number;
+    timestamp: number;
   }>>([]);
-  const logIdRef = useRef(0);
+  const eventIdRef = useRef(0);
+  const [incoming, setIncoming] = useState<Array<{
+    id: number;
+    damage: number;
+    isDodged: boolean;
+    isBlocked: boolean;
+    isCrit: boolean;
+    timestamp: number;
+  }>>([]);
+  const incomingIdRef = useRef(0);
   const [cdResetSkillId, setCdResetSkillId] = useState<string | null>(null);
   const cdResetTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const nextCastIsFreeRef = useRef(false);
@@ -179,74 +197,48 @@ export default function CombatPanel() {
         if (storeState.idleMode === 'combat') {
           const combatResult = tickCombat(dtSec);
           if (combatResult.skillFired) {
-            setFloaters(prev => [...prev, {
-              id: floaterIdRef.current++,
-              damage: combatResult.damageDealt,
-              isCrit: combatResult.isCrit,
-              isHit: combatResult.isHit,
-            }].slice(-5));
             setLastFiredSkillId(combatResult.skillId);
             clearTimeout(lastFiredTimerRef.current);
             lastFiredTimerRef.current = setTimeout(() => setLastFiredSkillId(null), 400);
+            const skillId = combatResult.skillId ?? '__unknown__';
             const skillName = combatResult.skillId
               ? (getUnifiedSkillDef(combatResult.skillId)?.name ?? '???')
               : '???';
             const isFree = nextCastIsFreeRef.current;
             nextCastIsFreeRef.current = false;
-            setCombatLog(prev => [...prev, {
-              id: logIdRef.current++, type: isFree ? 'free' as const : 'skill' as const,
-              label: isFree ? `FREE ${skillName}` : skillName,
+            // Sum proc damage for this cast
+            let procTotal = 0;
+            if (combatResult.procEvents && combatResult.procEvents.length > 0) {
+              for (const pe of combatResult.procEvents) {
+                if (pe.type === 'damage' && pe.damage > 0) procTotal += pe.damage;
+                if (pe.type === 'heal') {
+                  setEvents(prev => [...prev, {
+                    id: eventIdRef.current++, type: 'heal' as const,
+                    label: `+${pe.label}`, damage: 0, timestamp: now,
+                  }].slice(-6));
+                }
+              }
+            } else if (combatResult.procDamage && combatResult.procDamage > 0) {
+              procTotal = combatResult.procDamage;
+            }
+            // Update per-skill "last hit" row
+            setLastHits(prev => ({...prev, [skillId]: {
+              skillName,
               damage: combatResult.damageDealt,
               isCrit: combatResult.isCrit,
               isHit: combatResult.isHit,
-            }].slice(-20));
+              procDamage: procTotal,
+              isFree,
+              timestamp: now,
+            }}));
+            // Shatter → events feed
             if (combatResult.shatterDamage && combatResult.shatterDamage > 0) {
-              setCombatLog(prev => [...prev, {
-                id: logIdRef.current++, type: 'shatter' as const,
-                label: `Shatter → next`, damage: combatResult.shatterDamage!,
-              }].slice(-20));
+              setEvents(prev => [...prev, {
+                id: eventIdRef.current++, type: 'shatter' as const,
+                label: `Shatter → next`, damage: combatResult.shatterDamage!, timestamp: now,
+              }].slice(-6));
             }
-            // Proc events: use structured data when available, fall back to legacy
-            if (combatResult.procEvents && combatResult.procEvents.length > 0) {
-              for (const pe of combatResult.procEvents) {
-                const srcName = getUnifiedSkillDef(pe.sourceSkillId)?.name ?? '???';
-                if (pe.type === 'damage' && pe.damage > 0) {
-                  setCombatLog(prev => [...prev, {
-                    id: logIdRef.current++, type: 'proc' as const,
-                    label: `${srcName} → ${pe.label}`,
-                    damage: pe.damage,
-                  }].slice(-20));
-                } else if (pe.type === 'heal') {
-                  setCombatLog(prev => [...prev, {
-                    id: logIdRef.current++, type: 'heal' as const,
-                    label: `+${pe.label}`,
-                    damage: 0,
-                  }].slice(-20));
-                }
-                // buff/debuff/cdReset/cast procs → icon feedback only (no log line)
-              }
-              // Floater for total proc damage
-              if (combatResult.procDamage && combatResult.procDamage > 0) {
-                setFloaters(prev => [...prev, {
-                  id: floaterIdRef.current++,
-                  damage: combatResult.procDamage!,
-                  isCrit: false, isHit: true, isProc: true,
-                }].slice(-8));
-              }
-            } else if (combatResult.procDamage && combatResult.procDamage > 0) {
-              // Legacy fallback
-              setCombatLog(prev => [...prev, {
-                id: logIdRef.current++, type: 'proc' as const,
-                label: combatResult.procLabel ?? 'Proc',
-                damage: combatResult.procDamage!,
-              }].slice(-20));
-              setFloaters(prev => [...prev, {
-                id: floaterIdRef.current++,
-                damage: combatResult.procDamage!,
-                isCrit: false, isHit: true, isProc: true,
-              }].slice(-8));
-            }
-            // CD reset flash — use specific skill ID when available
+            // CD reset flash
             if (combatResult.cooldownResets && combatResult.cooldownResets.length > 0) {
               setCdResetSkillId(combatResult.cooldownResets[0]);
               clearTimeout(cdResetTimerRef.current);
@@ -259,21 +251,20 @@ export default function CombatPanel() {
             if (combatResult.gcdWasReset) {
               nextCastIsFreeRef.current = true;
             }
-            // Spread events: use structured data when available
+            // Spread → events feed
             if (combatResult.spreadEvents && combatResult.spreadEvents.length > 0) {
               for (const se of combatResult.spreadEvents) {
                 const debuffName = se.debuffId.charAt(0).toUpperCase() + se.debuffId.slice(1);
-                setCombatLog(prev => [...prev, {
-                  id: logIdRef.current++, type: 'spread' as const,
-                  label: `${debuffName} (x${se.stacks}) → next`,
-                  damage: 0,
-                }].slice(-20));
+                setEvents(prev => [...prev, {
+                  id: eventIdRef.current++, type: 'spread' as const,
+                  label: `${debuffName} (x${se.stacks}) → next`, damage: 0, timestamp: now,
+                }].slice(-6));
               }
             } else if (combatResult.didSpreadDebuffs) {
-              setCombatLog(prev => [...prev, {
-                id: logIdRef.current++, type: 'spread' as const,
-                label: 'Poison spread', damage: 0,
-              }].slice(-20));
+              setEvents(prev => [...prev, {
+                id: eventIdRef.current++, type: 'spread' as const,
+                label: 'Poison spread', damage: 0, timestamp: now,
+              }].slice(-6));
             }
           }
           if (combatResult.mobKills > 0) {
@@ -305,80 +296,56 @@ export default function CombatPanel() {
           }
           if (combatResult.zoneAttack) {
             const za = combatResult.zoneAttack;
-            setFloaters(prev => [...prev, {
-              id: floaterIdRef.current++,
+            // Include ALL attacks in incoming — dodges, blocks, and hits
+            setIncoming(prev => [...prev, {
+              id: incomingIdRef.current++,
               damage: za.damage,
-              isCrit: false,
-              isHit: !za.isDodged,
-              isEnemyAttack: true,
               isDodged: za.isDodged,
               isBlocked: za.isBlocked,
-            }].slice(-8));
-            if (!za.isDodged) {
-              setCombatLog(prev => [...prev, {
-                id: logIdRef.current++, type: 'enemy' as const,
-                label: 'Mob swing', damage: za.damage,
-              }].slice(-20));
-            }
+              isCrit: false,
+              timestamp: now,
+            }].slice(-3));
           }
           if (combatResult.zoneDeath) {
-            setFloaters([]);
-            setCombatLog([]);
+            setLastHits({});
+            setEvents([]);
+            setIncoming([]);
           }
         }
       } else if (phase === 'boss_fight') {
         const bossResult = tickCombat(dtSec);
         if (bossResult.skillFired) {
-          setFloaters(prev => [...prev, {
-            id: floaterIdRef.current++,
-            damage: bossResult.damageDealt,
-            isCrit: bossResult.isCrit,
-            isHit: bossResult.isHit,
-          }].slice(-5));
           setLastFiredSkillId(bossResult.skillId);
           clearTimeout(lastFiredTimerRef.current);
           lastFiredTimerRef.current = setTimeout(() => setLastFiredSkillId(null), 400);
+          const skillId = bossResult.skillId ?? '__unknown__';
           const skillName = bossResult.skillId
             ? (getUnifiedSkillDef(bossResult.skillId)?.name ?? '???')
             : '???';
-          setCombatLog(prev => [...prev, {
-            id: logIdRef.current++, type: 'skill' as const,
-            label: skillName,
+          // Sum proc damage
+          let procTotal = 0;
+          if (bossResult.procEvents && bossResult.procEvents.length > 0) {
+            for (const pe of bossResult.procEvents) {
+              if (pe.type === 'damage' && pe.damage > 0) procTotal += pe.damage;
+              if (pe.type === 'heal') {
+                setEvents(prev => [...prev, {
+                  id: eventIdRef.current++, type: 'heal' as const,
+                  label: `+${pe.label}`, damage: 0, timestamp: now,
+                }].slice(-6));
+              }
+            }
+          } else if (bossResult.procDamage && bossResult.procDamage > 0) {
+            procTotal = bossResult.procDamage;
+          }
+          setLastHits(prev => ({...prev, [skillId]: {
+            skillName,
             damage: bossResult.damageDealt,
             isCrit: bossResult.isCrit,
             isHit: bossResult.isHit,
-          }].slice(-20));
-          // Proc events: use structured data when available
-          if (bossResult.procEvents && bossResult.procEvents.length > 0) {
-            for (const pe of bossResult.procEvents) {
-              const srcName = getUnifiedSkillDef(pe.sourceSkillId)?.name ?? '???';
-              if (pe.type === 'damage' && pe.damage > 0) {
-                setCombatLog(prev => [...prev, {
-                  id: logIdRef.current++, type: 'proc' as const,
-                  label: `${srcName} → ${pe.label}`,
-                  damage: pe.damage,
-                }].slice(-20));
-              }
-            }
-            if (bossResult.procDamage && bossResult.procDamage > 0) {
-              setFloaters(prev => [...prev, {
-                id: floaterIdRef.current++,
-                damage: bossResult.procDamage!,
-                isCrit: false, isHit: true, isProc: true,
-              }].slice(-8));
-            }
-          } else if (bossResult.procDamage && bossResult.procDamage > 0) {
-            setCombatLog(prev => [...prev, {
-              id: logIdRef.current++, type: 'proc' as const,
-              label: bossResult.procLabel ?? 'Proc',
-              damage: bossResult.procDamage!,
-            }].slice(-20));
-            setFloaters(prev => [...prev, {
-              id: floaterIdRef.current++,
-              damage: bossResult.procDamage!,
-              isCrit: false, isHit: true, isProc: true,
-            }].slice(-8));
-          }
+            procDamage: procTotal,
+            isFree: false,
+            timestamp: now,
+          }}));
           if (bossResult.cooldownResets && bossResult.cooldownResets.length > 0) {
             setCdResetSkillId(bossResult.cooldownResets[0]);
             clearTimeout(cdResetTimerRef.current);
@@ -391,22 +358,14 @@ export default function CombatPanel() {
         }
         if (bossResult.bossAttack) {
           const ba = bossResult.bossAttack;
-          setFloaters(prev => [...prev, {
-            id: floaterIdRef.current++,
+          setIncoming(prev => [...prev, {
+            id: incomingIdRef.current++,
             damage: ba.damage,
-            isCrit: false,
-            isHit: !ba.isDodged,
-            isEnemyAttack: true,
             isDodged: ba.isDodged,
             isBlocked: ba.isBlocked,
-            isBossCrit: ba.isCrit,
-          }].slice(-8));
-          if (!ba.isDodged) {
-            setCombatLog(prev => [...prev, {
-              id: logIdRef.current++, type: 'enemy' as const,
-              label: 'Boss swing', damage: ba.damage,
-            }].slice(-20));
-          }
+            isCrit: ba.isCrit,
+            timestamp: now,
+          }].slice(-3));
         }
         if (bossResult.bossOutcome === 'victory') {
           const bState = useGameStore.getState().bossState;
@@ -435,8 +394,9 @@ export default function CombatPanel() {
             setElapsed(0);
             lastClearCount.current = 0;
             setBossLootItems([]);
-            setFloaters([]);
-            setCombatLog([]);
+            setLastHits({});
+            setEvents([]);
+            setIncoming([]);
             useGameStore.setState({ idleStartTime: Date.now() });
           }
         }
@@ -446,14 +406,15 @@ export default function CombatPanel() {
     return () => clearInterval(interval);
   }, [isRunning, idleStartTime, handleBossVictory, handleBossDefeat, checkRecoveryComplete, tickClassResource, tickAutoCast, tickInvasions, tickCombat, grantIdleXp, processNewClears, startBossFight]);
 
-  // Auto-remove floaters
+  // Auto-expire events feed entries after 5 seconds
   useEffect(() => {
-    if (floaters.length === 0) return;
-    const timer = setTimeout(() => {
-      setFloaters(prev => prev.slice(1));
+    if (events.length === 0) return;
+    const timer = setInterval(() => {
+      const cutoff = Date.now() - 5000;
+      setEvents(prev => prev.filter(e => e.timestamp > cutoff));
     }, 1000);
-    return () => clearTimeout(timer);
-  }, [floaters]);
+    return () => clearInterval(timer);
+  }, [events.length > 0]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Gathering mode loot processing
   useEffect(() => {
@@ -494,31 +455,29 @@ export default function CombatPanel() {
     ? Math.min(1, Math.max(0, (nowMs - clearStartedAt) / clearDurationMs))
     : 0;
 
-  const bossSwingProgress = bossState?.bossNextAttackAt
-    ? 1 - Math.max(0, Math.min(1, (bossState.bossNextAttackAt - nowMs) / (bossState.bossAttackInterval * 1000)))
-    : 0;
+  // Read skillBar for the "last hit" dashboard
+  const skillBar = useGameStore(s => s.skillBar);
+  const skillTimers = useGameStore(s => s.skillTimers);
 
   return (
     <div className="space-y-2">
       {/* Combat Phase Display */}
       {idleMode === 'combat' && combatPhase === 'boss_fight' && bossState && (
-        <div className="relative">
-          <BossFightDisplay
-            bossName={bossState.bossName}
-            bossHp={bossState.bossCurrentHp}
-            bossMaxHp={bossState.bossMaxHp}
-            playerHp={currentHp}
-            maxHp={maxHp}
-            bossDps={bossState.bossDps}
-            swingProgress={bossSwingProgress}
-            activeDebuffs={activeDebuffs}
-            fortifyStacks={fortifyStacks}
-            playerEs={currentEs}
-            maxEs={maxEs}
-            fortifyDR={fortifyDR}
-          />
-          <DamageFloaters floaters={floaters} />
-        </div>
+        <BossFightDisplay
+          bossName={bossState.bossName}
+          bossHp={bossState.bossCurrentHp}
+          bossMaxHp={bossState.bossMaxHp}
+          playerHp={currentHp}
+          maxHp={maxHp}
+          bossDps={bossState.bossDps}
+          nextBossAttackAt={bossState.bossNextAttackAt}
+          bossAtkIntervalMs={bossState.bossAttackInterval * 1000}
+          activeDebuffs={activeDebuffs}
+          fortifyStacks={fortifyStacks}
+          playerEs={currentEs}
+          maxEs={maxEs}
+          fortifyDR={fortifyDR}
+        />
       )}
 
       {idleMode === 'combat' && combatPhase === 'boss_victory' && bossState && (
@@ -597,15 +556,12 @@ export default function CombatPanel() {
 
           {/* Mob display (combat) or progress bar (gathering) */}
           {idleMode === 'combat' && runningZone ? (
-            <div className="relative">
-              <MobDisplay
-                mobName={currentMobTypeId ? (getMobTypeDef(currentMobTypeId)?.name ?? runningZone.mobName) : runningZone.mobName}
-                mobs={packMobs}
-                bossIn={BOSS_INTERVAL - ((zoneClearCounts[currentZoneId!] || 0) % BOSS_INTERVAL)}
-                signatureDrop={currentMobTypeId ? (getMobTypeDef(currentMobTypeId)?.drops.find(d => d.rarity === 'rare') ?? getMobTypeDef(currentMobTypeId)?.drops[0]) : undefined}
-              />
-              <DamageFloaters floaters={floaters} />
-            </div>
+            <MobDisplay
+              mobName={currentMobTypeId ? (getMobTypeDef(currentMobTypeId)?.name ?? runningZone.mobName) : runningZone.mobName}
+              mobs={packMobs}
+              bossIn={BOSS_INTERVAL - ((zoneClearCounts[currentZoneId!] || 0) % BOSS_INTERVAL)}
+              signatureDrop={currentMobTypeId ? (getMobTypeDef(currentMobTypeId)?.drops.find(d => d.rarity === 'rare') ?? getMobTypeDef(currentMobTypeId)?.drops[0]) : undefined}
+            />
           ) : (
             <div className="bg-gray-800 rounded-lg p-3">
               <div className="flex justify-between text-sm mb-1">
@@ -652,53 +608,91 @@ export default function CombatPanel() {
         </div>
       )}
 
-      {/* Combat log — two columns: outgoing | incoming */}
-      {idleMode === 'combat' && combatLog.length > 0 && (() => {
-        const outgoing = combatLog.filter(e => e.type !== 'enemy').slice(-8).reverse();
-        const incoming = combatLog.filter(e => e.type === 'enemy').slice(-8).reverse();
-        return (
-          <div className="grid grid-cols-2 gap-1 text-[11px] bg-gray-900/50 rounded px-2 py-1 font-mono max-h-40 overflow-y-auto">
-            {/* Left: your damage */}
-            <div className="space-y-0.5 border-r border-gray-700/50 pr-1">
-              <div className="text-gray-600 text-[10px]">Your damage</div>
-              {outgoing.map(entry => (
-                <div key={entry.id} className="text-gray-400">
-                  {entry.type === 'skill' || entry.type === 'free' ? (
-                    <>
-                      <span className={entry.type === 'free' ? 'text-blue-300' : 'text-gray-500'}>{entry.label}</span>
-                      {entry.isHit
-                        ? <> <span className={entry.isCrit ? 'text-yellow-300 font-bold' : 'text-white'}>{Math.round(entry.damage)}</span>
-                            {entry.isCrit && <span className="text-yellow-400 ml-1">CRIT</span>}</>
-                        : <span className="text-red-400 ml-1">MISS</span>
-                      }
-                    </>
-                  ) : entry.type === 'spread' ? (
-                    <span className="text-teal-400">{entry.label}</span>
-                  ) : entry.type === 'heal' ? (
-                    <span className="text-green-400">{entry.label}</span>
+      {/* Last Hit Dashboard — per-skill rows + events feed + incoming */}
+      {idleMode === 'combat' && (combatPhase === 'clearing' || combatPhase === 'boss_fight') && (
+        <div className="text-[11px] bg-gray-900/50 rounded px-2 py-1.5 font-mono space-y-1.5">
+          {/* Per-skill rows */}
+          <div className="space-y-0.5">
+            <div className="text-gray-600 text-[10px]">Last Hits</div>
+            {skillBar.map((slot) => {
+              if (!slot) return null;
+              const def = getUnifiedSkillDef(slot.skillId);
+              if (!def) return null;
+              const hit = lastHits[slot.skillId];
+              const timer = skillTimers.find(t => t.skillId === slot.skillId);
+              const isOnCd = timer?.cooldownUntil ? timer.cooldownUntil > Date.now() : false;
+              const cdRemaining = isOnCd && timer?.cooldownUntil
+                ? Math.max(0, (timer.cooldownUntil - Date.now()) / 1000)
+                : 0;
+              return (
+                <div key={slot.skillId} className="flex items-center gap-1.5">
+                  <span className={`w-24 truncate ${hit?.isFree ? 'text-blue-300' : 'text-gray-400'}`}>
+                    {hit?.isFree ? 'FREE ' : ''}{def.name}
+                  </span>
+                  {isOnCd ? (
+                    <span className="text-gray-600">(cd {cdRemaining.toFixed(0)}s)</span>
+                  ) : hit ? (
+                    <span className="flex items-center gap-1">
+                      {hit.isHit ? (
+                        <>
+                          <span
+                            key={hit.timestamp}
+                            className={`animate-pop ${hit.isCrit ? 'text-yellow-300 font-bold' : 'text-white'}`}
+                          >
+                            {Math.round(hit.damage)}
+                          </span>
+                          {hit.isCrit && <span className="text-yellow-400 text-[10px]">CRIT</span>}
+                          {hit.procDamage > 0 && (
+                            <span className="text-purple-400">+{Math.round(hit.procDamage)}</span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-red-400">MISS</span>
+                      )}
+                    </span>
                   ) : (
-                    <>
-                      <span className={
-                        entry.type === 'proc' ? 'text-purple-400' : 'text-cyan-300'
-                      }>{entry.label}</span>
-                      {' '}<span className="text-gray-300">{Math.round(entry.damage)}</span>
-                    </>
+                    <span className="text-gray-700">--</span>
                   )}
                 </div>
-              ))}
-            </div>
-            {/* Right: incoming */}
-            <div className="space-y-0.5 pl-1">
-              <div className="text-gray-600 text-[10px]">Incoming</div>
-              {incoming.map(entry => (
-                <div key={entry.id} className="text-orange-400">
-                  {entry.label} <span className="text-gray-300">{Math.round(entry.damage)}</span>
-                </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
-        );
-      })()}
+          {/* Bottom row: events + incoming side by side */}
+          {(events.length > 0 || incoming.length > 0) && (
+            <div className="grid grid-cols-2 gap-1 border-t border-gray-700/40 pt-1">
+              {/* Events feed */}
+              <div className="space-y-0.5">
+                <div className="text-gray-600 text-[10px]">Events</div>
+                {events.slice(-4).map(evt => (
+                  <div key={evt.id} className={
+                    evt.type === 'shatter' ? 'text-cyan-300'
+                    : evt.type === 'spread' ? 'text-teal-400'
+                    : 'text-green-400'
+                  }>
+                    {evt.label}{evt.damage > 0 ? ` ${Math.round(evt.damage)}` : ''}
+                  </div>
+                ))}
+              </div>
+              {/* Incoming */}
+              <div className="space-y-0.5 pl-1">
+                <div className="text-gray-600 text-[10px]">Incoming</div>
+                {incoming.map(entry => (
+                  <div key={entry.id} className={
+                    entry.isDodged ? 'text-blue-400'
+                    : entry.isBlocked ? 'text-orange-400'
+                    : 'text-red-400'
+                  }>
+                    {entry.isDodged ? 'Dodged!'
+                      : entry.isBlocked ? `Blocked ${Math.round(entry.damage)}`
+                      : `${combatPhase === 'boss_fight' ? 'Boss' : 'Mob'} swing ${Math.round(entry.damage)}`}
+                    {entry.isCrit && !entry.isDodged && <span className="text-red-300 ml-1">CRIT</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Skill Bar + Picker (combat mode only) */}
       {idleMode === 'combat' && (combatPhase === 'clearing' || combatPhase === 'boss_fight') && (

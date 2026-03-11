@@ -25,8 +25,6 @@ export default function MobDisplay({ mobName, mobs, bossIn, signatureDrop }: {
     ? 'border-yellow-500/60 shadow-lg shadow-yellow-500/20'
     : hasAnyDebuffs ? 'border-red-500/40' : 'border-gray-700';
 
-  const nowMs = Date.now();
-
   return (
     <div
       className={`bg-gray-800/60 rounded-lg border p-2 ${borderClass}`}
@@ -54,11 +52,8 @@ export default function MobDisplay({ mobName, mobs, bossIn, signatureDrop }: {
           const pct = mob.maxHp > 0 ? Math.max(0, Math.min(100, (mob.hp / mob.maxHp) * 100)) : 0;
           const barColor = isRare ? (isFront ? 'bg-yellow-500' : 'bg-yellow-500/70') : (isFront ? 'bg-red-500' : 'bg-red-500/70');
 
-          // Per-mob swing timer
+          // Per-mob swing timer (CSS animation duration)
           const mobAtkInterval = ZONE_ATTACK_INTERVAL * (mob.rare?.combinedAtkSpeedMult ?? 1) * 1000;
-          const swingProgress = mob.nextAttackAt > 0
-            ? 1 - Math.max(0, Math.min(1, (mob.nextAttackAt - nowMs) / mobAtkInterval))
-            : 0;
 
           return (
             <div key={i} className={isRare && packSize > 1 ? 'border-l-2 border-yellow-500/40 pl-1' : ''}>
@@ -103,12 +98,20 @@ export default function MobDisplay({ mobName, mobs, bossIn, signatureDrop }: {
                        style={{ width: `${pct}%` }} />
                 </div>
               </div>
-              {/* Per-mob swing timer */}
+              {/* Per-mob swing timer (CSS animation for 60fps smoothness) */}
               <div className="flex items-center gap-1">
                 {packSize > 1 && <span className="w-3 shrink-0" />}
                 <div className="h-1 bg-gray-700/50 rounded-full overflow-hidden flex-1">
-                  <div className="h-full bg-orange-500/80 rounded-full transition-all duration-200"
-                       style={{ width: `${Math.max(0, Math.min(1, swingProgress)) * 100}%` }} />
+                  <div
+                    key={mob.nextAttackAt}
+                    className="h-full bg-orange-500/80 rounded-full"
+                    style={{
+                      animation: mob.nextAttackAt > 0
+                        ? `swing-fill ${mobAtkInterval}ms linear forwards`
+                        : 'none',
+                      width: '100%',
+                    }}
+                  />
                 </div>
               </div>
             </div>
