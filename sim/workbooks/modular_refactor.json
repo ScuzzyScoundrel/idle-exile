@@ -1,0 +1,681 @@
+{
+  "workbook": "Modular Refactor — Full Traceability Architecture",
+  "method": "Universal Engineering Method (types → leaves → core → entry)",
+  "created": "2026-03-09",
+  "branch": "refactor/modular-traceability",
+  "baseBranch": "master",
+  "baseCommit": "fc71b11",
+
+  "targets": {
+    "src/data/unifiedSkills.ts": { "lines": 2597, "concern": "135 skill defs + query functions mixed" },
+    "src/engine/unifiedSkills.ts": { "lines": 966, "concern": "43 functions spanning 7 concerns" },
+    "src/engine/zones.ts": { "lines": 993, "concern": "DPS + defense + loot + boss in one file" },
+    "src/engine/combat/tick.ts": { "lines": 1751, "concern": "60fps tick with 9 subsystems interleaved" },
+    "src/store/gameStore.ts:hydrate": { "lines": 240, "concern": "24 silent mutations bypass dispatch" }
+  },
+
+  "consumers": {
+    "src/data/unifiedSkills.ts": [
+      "src/engine/unifiedSkills.ts:15",
+      "src/engine/zones.ts:12",
+      "src/engine/combat/tick.ts:69",
+      "src/engine/combatHelpers.ts:13",
+      "src/engine/packs.ts:9",
+      "src/engine/zones/lootProcessor.ts:46",
+      "src/store/gameStore.ts:54",
+      "src/store/migrations.ts:14",
+      "src/store/skillStore.ts:15",
+      "src/store/uiStore.ts:16",
+      "src/ui/components/SkillBar.tsx:4",
+      "src/ui/components/SkillPanel.tsx:4,9,10",
+      "src/ui/zones/CombatPanel.tsx:9",
+      "src/ui/zones/SkillPicker.tsx:3"
+    ],
+    "src/engine/unifiedSkills.ts": [
+      "src/engine/combat/helpers.ts:4",
+      "src/engine/packs.ts:10",
+      "src/engine/zones/helpers.ts:3",
+      "src/engine/zones/lootProcessor.ts:44-45",
+      "src/store/gameStore.ts:50",
+      "src/store/migrations.ts:13",
+      "src/store/skillStore.ts:19",
+      "src/store/uiStore.ts:19",
+      "src/ui/components/SkillBar.tsx:5-6",
+      "src/ui/components/SkillPanel.tsx:5",
+      "src/ui/screens/CharacterScreen.tsx:13",
+      "src/ui/zones/SkillPicker.tsx:5"
+    ],
+    "src/engine/zones.ts": [
+      "src/engine/zones/helpers.ts:5",
+      "src/engine/zones/lootProcessor.ts:21",
+      "src/store/gameStore.ts:24",
+      "src/ui/zones/CombatPanel.tsx:4",
+      "src/ui/zones/StatsTicker.tsx:3",
+      "src/ui/zones/ZoneCardGrid.tsx:3"
+    ]
+  },
+
+  "validationGates": {
+    "afterEveryStep": [
+      "npx tsc --noEmit",
+      "npm run build"
+    ],
+    "afterEveryPhase": [
+      "npx tsc --noEmit",
+      "npm run build",
+      "grep -r 'store\\.store\\|skills\\.skills\\|zones\\.zones' src/ && echo FAIL || echo CLEAN",
+      "npm run build 2>&1 | grep -i size"
+    ]
+  },
+
+  "phases": [
+    {
+      "id": "A",
+      "name": "Data Layer Split",
+      "description": "Split src/data/unifiedSkills.ts (2,597 lines) into per-weapon skill definition files",
+      "risk": "LOW",
+      "principle": "Types & pure data first — zero logic, zero behavior change",
+      "dependsOn": [],
+      "source": "src/data/unifiedSkills.ts",
+      "steps": [
+        {
+          "id": "A1",
+          "name": "Extract dagger skill definitions",
+          "action": "Move all dagger active + buff + passive skill defs to data/skills/dagger.ts",
+          "source": { "file": "src/data/unifiedSkills.ts", "lineRange": "16-200 (active), 1471-1530 (abilities)" },
+          "target": "src/data/skills/dagger.ts",
+          "exports": [
+            "DAGGER_ACTIVE_SKILLS: ActiveSkillDef[]",
+            "DAGGER_ABILITIES: AbilityDef[]"
+          ],
+          "estimatedLines": 250,
+          "dependsOn": [],
+          "validation": ["npx tsc --noEmit", "npm run build"]
+        },
+        {
+          "id": "A2",
+          "name": "Extract sword skill definitions",
+          "action": "Move all sword active + buff + passive skill defs",
+          "source": { "file": "src/data/unifiedSkills.ts", "lineRange": "201-400 (active), 1531-1590 (abilities)" },
+          "target": "src/data/skills/sword.ts",
+          "exports": [
+            "SWORD_ACTIVE_SKILLS: ActiveSkillDef[]",
+            "SWORD_ABILITIES: AbilityDef[]"
+          ],
+          "estimatedLines": 250,
+          "dependsOn": ["A1"],
+          "validation": ["npx tsc --noEmit", "npm run build"]
+        },
+        {
+          "id": "A3",
+          "name": "Extract staff skill definitions",
+          "action": "Move all staff active + buff + passive skill defs",
+          "source": { "file": "src/data/unifiedSkills.ts", "lineRange": "401-580 (active), 1591-1650 (abilities)" },
+          "target": "src/data/skills/staff.ts",
+          "exports": [
+            "STAFF_ACTIVE_SKILLS: ActiveSkillDef[]",
+            "STAFF_ABILITIES: AbilityDef[]"
+          ],
+          "estimatedLines": 230,
+          "dependsOn": ["A2"],
+          "validation": ["npx tsc --noEmit", "npm run build"]
+        },
+        {
+          "id": "A4",
+          "name": "Extract bow skill definitions",
+          "action": "Move all bow active + buff + passive skill defs",
+          "source": { "file": "src/data/unifiedSkills.ts", "lineRange": "581-750 (active), 1651-1710 (abilities)" },
+          "target": "src/data/skills/bow.ts",
+          "exports": [
+            "BOW_ACTIVE_SKILLS: ActiveSkillDef[]",
+            "BOW_ABILITIES: AbilityDef[]"
+          ],
+          "estimatedLines": 230,
+          "dependsOn": ["A3"],
+          "validation": ["npx tsc --noEmit", "npm run build"]
+        },
+        {
+          "id": "A5",
+          "name": "Extract secondary weapon definitions",
+          "action": "Move wand/axe/mace/crossbow/greatsword/greataxe/maul/scepter/gauntlet/tome defs",
+          "source": { "file": "src/data/unifiedSkills.ts", "lineRange": "751-1464 (active), 1711-2451 (abilities)" },
+          "target": "src/data/skills/secondary.ts",
+          "exports": [
+            "SECONDARY_ACTIVE_SKILLS: ActiveSkillDef[]",
+            "SECONDARY_ABILITIES: AbilityDef[]"
+          ],
+          "estimatedLines": 1450,
+          "dependsOn": ["A4"],
+          "validation": ["npx tsc --noEmit", "npm run build"]
+        },
+        {
+          "id": "A6",
+          "name": "Extract migration map",
+          "action": "Move ABILITY_ID_MIGRATION to its own file",
+          "source": { "file": "src/data/unifiedSkills.ts", "lineRange": "2467-2525" },
+          "target": "src/data/skills/migration.ts",
+          "exports": ["ABILITY_ID_MIGRATION: Record<string, string>"],
+          "estimatedLines": 60,
+          "dependsOn": ["A5"],
+          "consumersToUpdate": [
+            "src/engine/zones/lootProcessor.ts:46",
+            "src/store/migrations.ts:14",
+            "src/store/uiStore.ts:16",
+            "src/ui/components/SkillPanel.tsx:10"
+          ],
+          "validation": ["npx tsc --noEmit", "npm run build"]
+        },
+        {
+          "id": "A7",
+          "name": "Create barrel index with lookups",
+          "action": "Create data/skills/index.ts that merges all weapon arrays + provides lookup functions",
+          "source": { "file": "src/data/unifiedSkills.ts", "lineRange": "2528-2597 (lookups)" },
+          "target": "src/data/skills/index.ts",
+          "exports": [
+            "ACTIVE_SKILL_DEFS: ActiveSkillDef[]",
+            "ABILITY_DEFS: AbilityDef[]",
+            "SKILL_DEFS: SkillDef[]",
+            "getUnifiedSkillsForWeapon(weaponType: WeaponType): SkillDef[]",
+            "getUnifiedSkillDef(id: string): SkillDef | undefined",
+            "getSkillsByKind(kind: SkillKind): SkillDef[]",
+            "getSkillsByKindForWeapon(kind: SkillKind, weaponType: WeaponType): SkillDef[]",
+            "getSkillsForWeapon(weaponType: WeaponType): ActiveSkillDef[]",
+            "getSkillDef(id: string): ActiveSkillDef | undefined",
+            "getAbilitiesForWeapon(weaponType: WeaponType): AbilityDef[]",
+            "getAbilityDef(id: string): AbilityDef | undefined"
+          ],
+          "estimatedLines": 80,
+          "dependsOn": ["A1", "A2", "A3", "A4", "A5", "A6"],
+          "validation": ["npx tsc --noEmit", "npm run build"]
+        },
+        {
+          "id": "A8",
+          "name": "Delete src/data/unifiedSkills.ts, update all 14 consumers",
+          "action": "Replace old import paths with new barrel. Verify all 14 consumer files compile.",
+          "source": { "file": "src/data/unifiedSkills.ts" },
+          "target": "DELETE",
+          "consumersToUpdate": [
+            { "file": "src/engine/unifiedSkills.ts:15", "oldImport": "from '../data/unifiedSkills'", "newImport": "from '../data/skills'" },
+            { "file": "src/engine/zones.ts:12", "oldImport": "from '../data/unifiedSkills'", "newImport": "from '../data/skills'" },
+            { "file": "src/engine/combat/tick.ts:69", "oldImport": "from '../../data/unifiedSkills'", "newImport": "from '../../data/skills'" },
+            { "file": "src/engine/combatHelpers.ts:13", "oldImport": "from '../data/unifiedSkills'", "newImport": "from '../data/skills'" },
+            { "file": "src/engine/packs.ts:9", "oldImport": "from '../data/unifiedSkills'", "newImport": "from '../data/skills'" },
+            { "file": "src/engine/zones/lootProcessor.ts:46", "oldImport": "from '../../data/unifiedSkills'", "newImport": "from '../../data/skills'" },
+            { "file": "src/store/gameStore.ts:54", "oldImport": "from '../data/unifiedSkills'", "newImport": "from '../data/skills'" },
+            { "file": "src/store/migrations.ts:14", "oldImport": "from '../data/unifiedSkills'", "newImport": "from '../data/skills'" },
+            { "file": "src/store/skillStore.ts:15", "oldImport": "from '../data/unifiedSkills'", "newImport": "from '../data/skills'" },
+            { "file": "src/store/uiStore.ts:16", "oldImport": "from '../data/unifiedSkills'", "newImport": "from '../data/skills'" },
+            { "file": "src/ui/components/SkillBar.tsx:4", "oldImport": "from '../../data/unifiedSkills'", "newImport": "from '../../data/skills'" },
+            { "file": "src/ui/components/SkillPanel.tsx:4,9,10", "oldImport": "from '../../data/unifiedSkills'", "newImport": "from '../../data/skills'" },
+            { "file": "src/ui/zones/CombatPanel.tsx:9", "oldImport": "from '../../data/unifiedSkills'", "newImport": "from '../../data/skills'" },
+            { "file": "src/ui/zones/SkillPicker.tsx:3", "oldImport": "from '../../data/unifiedSkills'", "newImport": "from '../../data/skills'" }
+          ],
+          "dependsOn": ["A7"],
+          "validation": [
+            "npx tsc --noEmit",
+            "npm run build",
+            "grep -r \"from.*data/unifiedSkills\" src/ && echo STALE_IMPORTS || echo CLEAN"
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "B",
+      "name": "Engine Skills Split",
+      "description": "Split src/engine/unifiedSkills.ts (966 lines) into 6 concern-specific modules",
+      "risk": "LOW",
+      "principle": "Leaf modules first — timers have no deps, resolution uses timers, effects uses resolution",
+      "dependsOn": ["A"],
+      "source": "src/engine/unifiedSkills.ts",
+      "steps": [
+        {
+          "id": "B1",
+          "name": "Extract timer queries",
+          "action": "Move all timer/cooldown state checks to engine/skills/timers.ts",
+          "source": { "file": "src/engine/unifiedSkills.ts", "lineRange": "145-341" },
+          "target": "src/engine/skills/timers.ts",
+          "functions": [
+            { "name": "getEffectiveDuration", "line": 145, "signature": "(equipped: EquippedAbility, progress: AbilityProgress): number" },
+            { "name": "getEffectiveDurationLegacy", "line": 167, "signature": "(equipped: EquippedAbility): number" },
+            { "name": "getEffectiveCooldown", "line": 182, "signature": "(equipped: EquippedAbility, progress: AbilityProgress, abilityHaste: number): number" },
+            { "name": "getSkillEffectiveDuration", "line": 205, "signature": "(skillDef: SkillDef, progress: SkillProgress): number" },
+            { "name": "getSkillEffectiveCooldown", "line": 232, "signature": "(skillDef: SkillDef, progress: SkillProgress, abilityHaste: number): number" },
+            { "name": "calcBonusClears", "line": 267, "signature": "(effect: AbilityEffect, stats: ResolvedStats): number" },
+            { "name": "rollProc", "line": 273, "signature": "(effect: AbilityEffect): boolean" },
+            { "name": "isAbilityActive", "line": 283, "signature": "(equipped: EquippedAbility, timer: AbilityTimerState, now: number, progress: AbilityProgress): boolean" },
+            { "name": "isAbilityOnCooldown", "line": 297, "signature": "(timer: AbilityTimerState, now: number): boolean" },
+            { "name": "getRemainingCooldown", "line": 305, "signature": "(timer: AbilityTimerState, now: number): number" },
+            { "name": "getRemainingBuff", "line": 313, "signature": "(equipped: EquippedAbility, timer: AbilityTimerState, now: number, progress: AbilityProgress): number" },
+            { "name": "isSkillActive", "line": 327, "signature": "(skillDef: SkillDef, timer: SkillTimerState, now: number, progress: SkillProgress): boolean" },
+            { "name": "isSkillOnCooldown", "line": 341, "signature": "(timer: SkillTimerState, now: number): boolean" }
+          ],
+          "internalDeps": [],
+          "estimatedLines": 200,
+          "dependsOn": [],
+          "validation": ["npx tsc --noEmit", "npm run build"]
+        },
+        {
+          "id": "B2",
+          "name": "Extract effect resolution",
+          "action": "Move ability/skill effect resolution to engine/skills/resolution.ts",
+          "source": { "file": "src/engine/unifiedSkills.ts", "lineRange": "24-138" },
+          "target": "src/engine/skills/resolution.ts",
+          "functions": [
+            { "name": "EMPTY_EFFECT", "line": 24, "signature": "const: AbilityEffect" },
+            { "name": "evaluateFormula", "line": 29, "signature": "(formula: ScalingFormula, stats: ResolvedStats): number" },
+            { "name": "resolveAbilityEffect", "line": 51, "signature": "(equipped: EquippedAbility, progress: AbilityProgress): AbilityEffect" },
+            { "name": "resolveAbilityEffectLegacy", "line": 79, "signature": "(equipped: EquippedAbility): AbilityEffect" },
+            { "name": "getSkillGraphModifier", "line": 98, "signature": "(skillDef: SkillDef, progress: SkillProgress): ResolvedSkillModifier" },
+            { "name": "resolveSkillEffect", "line": 116, "signature": "(skillDef: SkillDef, progress: SkillProgress): AbilityEffect" }
+          ],
+          "internalDeps": ["mergeEffect (from B3 — circular, keep local copy or extract first)"],
+          "estimatedLines": 120,
+          "dependsOn": [],
+          "note": "mergeEffect is used by resolution — extract B3 first OR keep mergeEffect in resolution and re-export",
+          "validation": ["npx tsc --noEmit", "npm run build"]
+        },
+        {
+          "id": "B3",
+          "name": "Extract effect merging and aggregation",
+          "action": "Move all merge/aggregate functions to engine/skills/effects.ts",
+          "source": { "file": "src/engine/unifiedSkills.ts", "lineRange": "352-537" },
+          "target": "src/engine/skills/effects.ts",
+          "functions": [
+            { "name": "mergeEffect", "line": 352, "signature": "(target: AbilityEffect, source: AbilityEffect): AbilityEffect" },
+            { "name": "aggregateTempBuffEffects", "line": 374, "signature": "(tempBuffs: TempBuff[], now: number): AbilityEffect" },
+            { "name": "aggregateAbilityEffects", "line": 396, "signature": "(equipped: EquippedAbility[], timers: Record<string, AbilityTimerState>, now: number, progress: Record<string, AbilityProgress>, offlineMode?: boolean): AbilityEffect" },
+            { "name": "aggregateSkillBarEffects", "line": 447, "signature": "(skillBar: (EquippedSkill|null)[], timers: Record<string, SkillTimerState>, now: number, progress: Record<string, SkillProgress>, offlineMode?: boolean): AbilityEffect" },
+            { "name": "aggregateGraphGlobalEffects", "line": 512, "signature": "(skillBar: (EquippedSkill|null)[], progress: Record<string, SkillProgress>): AbilityEffect" }
+          ],
+          "internalDeps": ["resolveAbilityEffect (B2)", "resolveSkillEffect (B2)", "isAbilityActive (B1)", "isSkillActive (B1)"],
+          "estimatedLines": 190,
+          "dependsOn": ["B1", "B2"],
+          "validation": ["npx tsc --noEmit", "npm run build"]
+        },
+        {
+          "id": "B4",
+          "name": "Extract skill progression",
+          "action": "Move XP/allocation/respec to engine/skills/progression.ts",
+          "source": { "file": "src/engine/unifiedSkills.ts", "lineRange": "544-665" },
+          "target": "src/engine/skills/progression.ts",
+          "functions": [
+            { "name": "getIncompatibleAbilities", "line": 544, "signature": "(abilities: EquippedAbility[], weaponType: WeaponType): EquippedAbility[]" },
+            { "name": "getUnlockedSlotCount", "line": 563, "signature": "(characterLevel: number): number" },
+            { "name": "getAbilityXpForLevel", "line": 574, "signature": "(level: number): number" },
+            { "name": "addAbilityXp", "line": 579, "signature": "(progress: AbilityProgress, xpGained: number): AbilityProgress" },
+            { "name": "getAbilityXpPerClear", "line": 600, "signature": "(zoneBand: number): number" },
+            { "name": "canAllocateNode", "line": 607, "signature": "(progress: AbilityProgress, nodeId: string, tree: SkillTreeNode[]): { ok: boolean; reason?: string }" },
+            { "name": "allocateNode", "line": 635, "signature": "(progress: AbilityProgress, nodeId: string): AbilityProgress" },
+            { "name": "respecAbility", "line": 643, "signature": "(progress: AbilityProgress): AbilityProgress" },
+            { "name": "getRespecCost", "line": 653, "signature": "(progress: AbilityProgress): number" },
+            { "name": "createAbilityProgress", "line": 658, "signature": "(abilityId: string): AbilityProgress" }
+          ],
+          "internalDeps": [],
+          "estimatedLines": 125,
+          "dependsOn": [],
+          "validation": ["npx tsc --noEmit", "npm run build"]
+        },
+        {
+          "id": "B5",
+          "name": "Extract DPS calculation",
+          "action": "Move all damage/DPS/cast functions to engine/skills/dps.ts",
+          "source": { "file": "src/engine/unifiedSkills.ts", "lineRange": "675-866" },
+          "target": "src/engine/skills/dps.ts",
+          "functions": [
+            { "name": "calcSkillDamagePerCast", "line": 675, "signature": "(skill: ActiveSkillDef, stats: ResolvedStats, weaponAvgDmg: number, weaponSpellPower: number, graphMod?: ResolvedSkillModifier): DamageResult" },
+            { "name": "calcSkillDps", "line": 697, "signature": "(skill: ActiveSkillDef, stats: ResolvedStats, weaponAvgDmg: number, weaponSpellPower: number, graphMod?: ResolvedSkillModifier, atkSpeedMult?: number): number" },
+            { "name": "calcSkillCastInterval", "line": 795, "signature": "(skill: ActiveSkillDef, stats: ResolvedStats, atkSpeedMult?: number): number" },
+            { "name": "rollSkillCast", "line": 819, "signature": "(skill: ActiveSkillDef, stats: ResolvedStats, weaponAvgDmg: number, weaponSpellPower: number, graphMod?: ResolvedSkillModifier, atkSpeedMult?: number): SkillCastResult" },
+            { "name": "calcUnifiedDps", "line": 874, "signature": "(skillDef: SkillDef, stats: ResolvedStats, weaponAvgDmg: number, weaponSpellPower: number, progress: SkillProgress, atkSpeedMult?: number): number" },
+            { "name": "calcUnifiedDamagePerCast", "line": 890, "signature": "(skillDef: SkillDef, stats: ResolvedStats, weaponAvgDmg: number, weaponSpellPower: number, progress: SkillProgress): DamageResult" }
+          ],
+          "internalDeps": ["getSkillGraphModifier (B2)"],
+          "externalDeps": ["resolveDamageBuckets (damageBuckets.ts)", "calcHitChance (character.ts)"],
+          "estimatedLines": 195,
+          "dependsOn": ["B2"],
+          "validation": ["npx tsc --noEmit", "npm run build"]
+        },
+        {
+          "id": "B6",
+          "name": "Extract rotation logic",
+          "action": "Move rotation/weapon helpers to engine/skills/rotation.ts",
+          "source": { "file": "src/engine/unifiedSkills.ts", "lineRange": "760-966" },
+          "target": "src/engine/skills/rotation.ts",
+          "functions": [
+            { "name": "getDefaultSkillForWeapon", "line": 760, "signature": "(weaponType: WeaponType, playerLevel?: number): ActiveSkillDef | null" },
+            { "name": "calcMobHp", "line": 784, "signature": "(zone: ZoneDef, hpMultiplier?: number): number" },
+            { "name": "calcRotationDps", "line": 905, "signature": "(skillBar: (EquippedSkill|null)[], stats: ResolvedStats, weaponAvgDmg: number, weaponSpellPower: number, progress: Record<string, SkillProgress>, atkSpeedMult?: number): number" },
+            { "name": "getPrimaryDamageSkill", "line": 930, "signature": "(skillBar: (EquippedSkill|null)[]): SkillDef | null" },
+            { "name": "getNextRotationSkill", "line": 946, "signature": "(skillBar: (EquippedSkill|null)[], timers: Record<string, SkillTimerState>, now: number): SkillDef | null" }
+          ],
+          "internalDeps": ["calcSkillDps (B5)", "getSkillGraphModifier (B2)"],
+          "estimatedLines": 100,
+          "dependsOn": ["B5"],
+          "validation": ["npx tsc --noEmit", "npm run build"]
+        },
+        {
+          "id": "B7",
+          "name": "Create barrel + delete original",
+          "action": "Create engine/skills/index.ts re-exporting all, update 12 consumer files, delete engine/unifiedSkills.ts",
+          "target": "src/engine/skills/index.ts",
+          "consumersToUpdate": [
+            { "file": "src/engine/combat/helpers.ts:4", "imports": ["aggregateSkillBarEffects", "aggregateGraphGlobalEffects", "mergeEffect"] },
+            { "file": "src/engine/packs.ts:10", "imports": ["getSkillGraphModifier", "calcMobHp"] },
+            { "file": "src/engine/zones/helpers.ts:3", "imports": ["calcMobHp", "getPrimaryDamageSkill", "getDefaultSkillForWeapon"] },
+            { "file": "src/engine/zones/lootProcessor.ts:44-45", "imports": ["aggregateSkillBarEffects", "aggregateGraphGlobalEffects", "mergeEffect", "addAbilityXp", "getAbilityXpPerClear"] },
+            { "file": "src/store/gameStore.ts:50", "imports": ["getDefaultSkillForWeapon"] },
+            { "file": "src/store/migrations.ts:13", "imports": ["getDefaultSkillForWeapon"] },
+            { "file": "src/store/skillStore.ts:19", "imports": ["canAllocateNode", "allocateNode", "respecAbility", "getRespecCost", "createAbilityProgress"] },
+            { "file": "src/store/uiStore.ts:19", "imports": ["getEffectiveDuration", "getEffectiveCooldown", "isAbilityActive"] },
+            { "file": "src/ui/components/SkillBar.tsx:5-6", "imports": ["getSkillEffectiveDuration", "getSkillEffectiveCooldown", "getAbilityXpForLevel", "getUnlockedSlotCount"] },
+            { "file": "src/ui/components/SkillPanel.tsx:5", "imports": ["calcSkillDps", "getAbilityXpForLevel", "getRespecCost", "getUnlockedSlotCount", "canAllocateNode"] },
+            { "file": "src/ui/screens/CharacterScreen.tsx:13", "imports": ["calcSkillDps", "calcRotationDps", "getDefaultSkillForWeapon"] },
+            { "file": "src/ui/zones/SkillPicker.tsx:5", "imports": ["getUnlockedSlotCount"] }
+          ],
+          "dependsOn": ["B1", "B2", "B3", "B4", "B5", "B6"],
+          "validation": [
+            "npx tsc --noEmit",
+            "npm run build",
+            "grep -r \"from.*engine/unifiedSkills\" src/ && echo STALE || echo CLEAN"
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "C",
+      "name": "Engine Zones Split",
+      "description": "Split src/engine/zones.ts (993 lines) into 5 concern-specific modules",
+      "risk": "MEDIUM",
+      "principle": "Leaves first — scaling has no internal deps, defense uses scaling, DPS uses both",
+      "dependsOn": [],
+      "source": "src/engine/zones.ts",
+      "steps": [
+        {
+          "id": "C1",
+          "name": "Extract zone scaling functions",
+          "action": "Move level/hazard/accuracy scaling to engine/zones/scaling.ts",
+          "source": { "file": "src/engine/zones.ts" },
+          "target": "src/engine/zones/scaling.ts",
+          "functions": [
+            { "name": "applyAbilityResists", "line": 80, "signature": "(stats: ResolvedStats, abilityEffect?: AbilityEffect): ResolvedStats" },
+            { "name": "calcHazardPenalty", "line": 96, "signature": "(stats: ResolvedStats, zone: ZoneDef): number" },
+            { "name": "checkZoneMastery", "line": 117, "signature": "(stats: ResolvedStats, zone: ZoneDef): boolean" },
+            { "name": "calcXpScale", "line": 340, "signature": "(playerLevel: number, zoneIlvl: number): number" },
+            { "name": "calcLevelDamageMult", "line": 660, "signature": "(playerLevel: number, zoneILvlMin: number): number" },
+            { "name": "calcOutgoingDamageMult", "line": 681, "signature": "(playerLevel: number, zoneILvlMin: number): number" },
+            { "name": "calcZoneAccuracy", "line": 691, "signature": "(band: number, playerLevel: number, zoneILvlMin: number): number" },
+            { "name": "calcZoneRefDamage", "line": 701, "signature": "(zone: ZoneDef, playerLevel: number): number" }
+          ],
+          "internalDeps": [],
+          "estimatedLines": 130,
+          "dependsOn": [],
+          "validation": ["npx tsc --noEmit", "npm run build"]
+        },
+        {
+          "id": "C2",
+          "name": "Extract defense pipeline",
+          "action": "Move dodge/block/armor/resist/EHP to engine/zones/defense.ts",
+          "source": { "file": "src/engine/zones.ts" },
+          "target": "src/engine/zones/defense.ts",
+          "functions": [
+            { "name": "rollEntropicEvasion", "line": 709, "signature": "(dodgeChance: number, entropy: number): { dodged: boolean; newEntropy: number }" },
+            { "name": "rollZoneAttack", "line": 726, "signature": "(rawDamage: number, physRatio: number, accuracy: number, stats: ResolvedStats, entropy: number): ZoneAttackResult" },
+            { "name": "calcEhp", "line": 794, "signature": "(stats: ResolvedStats, refDamage?: number, refAccuracy?: number): number" },
+            { "name": "simulateClearDefense", "line": 839, "signature": "(stats: ResolvedStats, zone: ZoneDef, clearTime: number, playerLevel: number, entropy: number, currentHp: number, currentEs?: number, esRecharge?: number): ClearDefenseResult" }
+          ],
+          "internalDeps": ["calcLevelDamageMult (C1)", "calcZoneAccuracy (C1)"],
+          "estimatedLines": 210,
+          "dependsOn": ["C1"],
+          "validation": ["npx tsc --noEmit", "npm run build"]
+        },
+        {
+          "id": "C3",
+          "name": "Extract DPS and clear time",
+          "action": "Move player DPS and clear time calc to engine/zones/dps.ts",
+          "source": { "file": "src/engine/zones.ts" },
+          "target": "src/engine/zones/dps.ts",
+          "functions": [
+            { "name": "calcPlayerDps", "line": 131, "signature": "(char: Character, abilityEffect?: AbilityEffect, equippedSkills?: (EquippedSkill|null)[], skillProgress?: Record<string, SkillProgress>): number" },
+            { "name": "calcClearTime", "line": 184, "signature": "(char: Character, zone: ZoneDef, abilityEffect?: AbilityEffect, classDamageMult?: number, classSpeedMult?: number, equippedSkills?: (EquippedSkill|null)[]): number" },
+            { "name": "simulateCombatClear", "line": 227, "signature": "(char: Character, zone: ZoneDef, abilityEffect?: AbilityEffect): CombatClearResult" }
+          ],
+          "internalDeps": ["calcHazardPenalty (C1)", "calcOutgoingDamageMult (C1)", "applyAbilityResists (C1)"],
+          "externalDeps": ["calcRotationDps (B6)", "calcSkillDps (B5)", "getDefaultSkillForWeapon (B6)", "getWeaponDamageInfo (character.ts)"],
+          "estimatedLines": 200,
+          "dependsOn": ["C1"],
+          "validation": ["npx tsc --noEmit", "npm run build"]
+        },
+        {
+          "id": "C4",
+          "name": "Extract drops and gathering",
+          "action": "Move loot/gathering simulation to engine/zones/drops.ts",
+          "source": { "file": "src/engine/zones.ts" },
+          "target": "src/engine/zones/drops.ts",
+          "functions": [
+            { "name": "rollMobDrops", "line": 66, "signature": "(mob: MobTypeDef): Record<string, number>" },
+            { "name": "simulateIdleRun", "line": 352, "signature": "(char: Character, zone: ZoneDef, seconds: number, ...): IdleRunResult" },
+            { "name": "getClaimableMilestones", "line": 455, "signature": "(totalClears: number, highestClaimed: number): MasteryMilestone[]" },
+            { "name": "getMasteryBonus", "line": 460, "signature": "(zoneMasteryClaimed: Record<string, number>, zoneId: string): { dropBonus: number; matBonus: number }" },
+            { "name": "simulateSingleClear", "line": 484, "signature": "(zone: ZoneDef, char: Character, hasMastery: boolean, ...): SingleClearResult" },
+            { "name": "simulateGatheringClear", "line": 610, "signature": "(skillLevel: number, zone: ZoneDef, ...): GatheringClearResult" }
+          ],
+          "internalDeps": ["checkZoneMastery (C1)", "calcXpScale (C1)"],
+          "externalDeps": ["generateItem (items.ts)", "rollPatternDrop (craftingPatterns.ts)", "getZoneMobTypes (mobTypes.ts)"],
+          "estimatedLines": 310,
+          "dependsOn": ["C1"],
+          "validation": ["npx tsc --noEmit", "npm run build"]
+        },
+        {
+          "id": "C5",
+          "name": "Extract boss mechanics",
+          "action": "Move boss HP/attack/encounter/loot to engine/zones/boss.ts",
+          "source": { "file": "src/engine/zones.ts" },
+          "target": "src/engine/zones/boss.ts",
+          "functions": [
+            { "name": "calcBossMaxHp", "line": 917, "signature": "(zone: ZoneDef): number" },
+            { "name": "calcBossAttackProfile", "line": 925, "signature": "(char: Character, zone: ZoneDef, abilityEffect?: AbilityEffect): BossAttackProfile" },
+            { "name": "createBossEncounter", "line": 948, "signature": "(char: Character, zone: ZoneDef, abilityEffect?: AbilityEffect, ...): BossState" },
+            { "name": "calcDeathPenalty", "line": 977, "signature": "(band: number, deathStreak: number): number" },
+            { "name": "generateBossLoot", "line": 984, "signature": "(zone: ZoneDef): Item[]" }
+          ],
+          "internalDeps": ["applyAbilityResists (C1)", "calcLevelDamageMult (C1)", "calcZoneAccuracy (C1)", "calcPlayerDps (C3)"],
+          "estimatedLines": 80,
+          "dependsOn": ["C1", "C3"],
+          "validation": ["npx tsc --noEmit", "npm run build"]
+        },
+        {
+          "id": "C6",
+          "name": "Create barrel + delete original",
+          "action": "Create engine/zones/index.ts re-exporting all, update 6 consumer files, delete engine/zones.ts",
+          "target": "src/engine/zones/index.ts",
+          "consumersToUpdate": [
+            { "file": "src/engine/zones/helpers.ts:5", "imports": ["calcClearTime", "simulateCombatClear", "applyAbilityResists", "calcHazardPenalty", "calcOutgoingDamageMult"] },
+            { "file": "src/engine/zones/lootProcessor.ts:21", "imports": ["simulateSingleClear", "simulateGatheringClear", "calcClearTime", "simulateCombatClear", "calcHazardPenalty", "applyAbilityResists", "calcOutgoingDamageMult", "getClaimableMilestones", "getMasteryBonus"] },
+            { "file": "src/store/gameStore.ts:24", "imports": ["simulateIdleRun", "simulateGatheringClear", "calcClearTime", "createBossEncounter", "generateBossLoot", "calcDeathPenalty"] },
+            { "file": "src/ui/zones/CombatPanel.tsx:4", "imports": ["calcXpScale"] },
+            { "file": "src/ui/zones/StatsTicker.tsx:3", "imports": ["calcXpScale"] },
+            { "file": "src/ui/zones/ZoneCardGrid.tsx:3", "imports": ["checkZoneMastery"] }
+          ],
+          "dependsOn": ["C1", "C2", "C3", "C4", "C5"],
+          "validation": [
+            "npx tsc --noEmit",
+            "npm run build",
+            "grep -r \"from.*engine/zones'\" src/ | grep -v index.ts && echo STALE || echo CLEAN"
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "D",
+      "name": "Combat Tick Decomposition",
+      "description": "Split src/engine/combat/tick.ts (1,751 lines) into subsystem modules",
+      "risk": "MEDIUM",
+      "principle": "Extract pure subsystems first, tick.ts becomes ~200 line orchestrator",
+      "dependsOn": ["B", "C"],
+      "source": "src/engine/combat/tick.ts",
+      "steps": [
+        {
+          "id": "D1",
+          "name": "Extract debuff application system",
+          "action": "Deduplicate 3 application paths into single engine/combat/debuffs.ts",
+          "source": { "file": "src/engine/combat/tick.ts", "lineRange": "607-748" },
+          "target": "src/engine/combat/debuffs.ts",
+          "note": "3 nearly-identical debuff application blocks (standard, on-crit, proc) → one function",
+          "estimatedLines": 140,
+          "dependsOn": [],
+          "validation": ["npx tsc --noEmit", "npm run build"]
+        },
+        {
+          "id": "D2",
+          "name": "Extract proc evaluation system",
+          "action": "Move onHit/onCrit proc eval to engine/combat/procs.ts",
+          "source": { "file": "src/engine/combat/tick.ts", "lineRange": "750-873" },
+          "target": "src/engine/combat/procs.ts",
+          "estimatedLines": 125,
+          "dependsOn": ["D1"],
+          "validation": ["npx tsc --noEmit", "npm run build"]
+        },
+        {
+          "id": "D3",
+          "name": "Extract skill resolution",
+          "action": "Move GCD gate + rotation query to engine/combat/skillResolution.ts",
+          "source": { "file": "src/engine/combat/tick.ts", "lineRange": "359-393" },
+          "target": "src/engine/combat/skillResolution.ts",
+          "estimatedLines": 40,
+          "dependsOn": [],
+          "validation": ["npx tsc --noEmit", "npm run build"]
+        },
+        {
+          "id": "D4",
+          "name": "Extract stat preparation",
+          "action": "Move stat resolution + ability merge + charge setup to engine/combat/statPrep.ts",
+          "source": { "file": "src/engine/combat/tick.ts", "lineRange": "395-484" },
+          "target": "src/engine/combat/statPrep.ts",
+          "estimatedLines": 90,
+          "dependsOn": [],
+          "validation": ["npx tsc --noEmit", "npm run build"]
+        },
+        {
+          "id": "D5",
+          "name": "Extract damage roll",
+          "action": "Move pre-roll mods + rollSkillCast + post-roll to engine/combat/damageRoll.ts",
+          "source": { "file": "src/engine/combat/tick.ts", "lineRange": "486-605" },
+          "target": "src/engine/combat/damageRoll.ts",
+          "estimatedLines": 120,
+          "dependsOn": [],
+          "validation": ["npx tsc --noEmit", "npm run build"]
+        },
+        {
+          "id": "D6",
+          "name": "Extract boss attack resolution",
+          "action": "Move boss counter-attack + bleed trigger to engine/combat/bossAttack.ts",
+          "source": { "file": "src/engine/combat/tick.ts", "lineRange": "946-1185" },
+          "target": "src/engine/combat/bossAttack.ts",
+          "note": "Also extract applyBossDamage helper (line 95-197)",
+          "estimatedLines": 240,
+          "dependsOn": ["D1", "D2"],
+          "validation": ["npx tsc --noEmit", "npm run build"]
+        },
+        {
+          "id": "D7",
+          "name": "Extract pack kill loop",
+          "action": "Move front mob death + overkill carry + shatter + pack respawn to engine/combat/packKills.ts",
+          "source": { "file": "src/engine/combat/tick.ts", "lineRange": "1187-1510" },
+          "target": "src/engine/combat/packKills.ts",
+          "note": "Deeply nested — candidate for state machine pattern",
+          "estimatedLines": 325,
+          "dependsOn": ["D1", "D2"],
+          "validation": ["npx tsc --noEmit", "npm run build"]
+        },
+        {
+          "id": "D8",
+          "name": "Extract zone attack loop + reduce tick.ts to orchestrator",
+          "action": "Move per-mob attack timers to engine/combat/zoneAttack.ts, reduce tick.ts to ~200 lines",
+          "source": { "file": "src/engine/combat/tick.ts", "lineRange": "1528-1581" },
+          "target": "src/engine/combat/zoneAttack.ts",
+          "estimatedLines": 55,
+          "dependsOn": ["D1", "D2", "D3", "D4", "D5", "D6", "D7"],
+          "resultingTickSize": "~200 lines (orchestrator only)",
+          "validation": ["npx tsc --noEmit", "npm run build"]
+        }
+      ]
+    },
+
+    {
+      "id": "E",
+      "name": "Hydrate Consolidation",
+      "description": "Route 24 silent state mutations through dispatch layer",
+      "risk": "LOW",
+      "principle": "Single mutation path per field — all state changes through dispatch",
+      "dependsOn": [],
+      "source": "src/store/gameStore.ts",
+      "steps": [
+        {
+          "id": "E1",
+          "name": "Extract hydrate handler",
+          "action": "Move gameStore.ts:1147-1387 to store/hydrate.ts as pure function",
+          "source": { "file": "src/store/gameStore.ts", "lineRange": "1147-1387" },
+          "target": "src/store/hydrate.ts",
+          "estimatedLines": 240,
+          "dependsOn": [],
+          "validation": ["npx tsc --noEmit", "npm run build"]
+        },
+        {
+          "id": "E2",
+          "name": "Add HydrateReset command type",
+          "action": "Add new command to types/commands.ts for hydrate state resets",
+          "target": "src/types/commands.ts",
+          "note": "Extends existing 52-type GameCommand union with hydration commands",
+          "dependsOn": ["E1"],
+          "validation": ["npx tsc --noEmit", "npm run build"]
+        },
+        {
+          "id": "E3",
+          "name": "Route hydrate mutations through dispatch",
+          "action": "Replace 24 direct mutations with dispatch(HydrateReset) calls",
+          "target": "src/store/hydrate.ts",
+          "silentMutations": [
+            "character.xpToNext", "currentEs", "combatPhase", "bossState",
+            "combatPhaseStartedAt", "lastClearResult", "lastHitMobTypeId",
+            "freeCastUntil", "lastProcTriggerAt", "skillBar[0]",
+            "currentZoneId", "idleStartTime", "packMobs", "currentPackSize",
+            "currentMobTypeId", "skillProgress", "skillCharges",
+            "consecutiveHits", "rampingStacks", "fortifyStacks",
+            "dodgeEntropy", "tempBuffs", "activeDebuffs", "killStreak"
+          ],
+          "dependsOn": ["E2"],
+          "validation": [
+            "npx tsc --noEmit",
+            "npm run build",
+            "grep -n 'state\\.' src/store/hydrate.ts | grep -v 'const\\|return\\|if\\|//' | wc -l"
+          ]
+        }
+      ]
+    }
+  ],
+
+  "summary": {
+    "totalPhases": 5,
+    "totalSteps": 32,
+    "newFilesCreated": 27,
+    "megaFilesDecomposed": 5,
+    "behaviorChange": "ZERO",
+    "saveFormatChange": "ZERO",
+    "executionOrder": "A → B (needs A barrel) → C (independent of B) → D (needs B+C) → E (independent)",
+    "parallelizable": ["B and C can execute in parallel after A completes", "E can execute anytime"]
+  },
+
+  "openItems": {
+    "fromSkillWiringAudit": [
+      { "id": "SW1", "issue": "Wire mage discharge in bot", "detail": "dischargeMageCharges() not imported in bot.ts", "branch": "sim/mage-discharge" },
+      { "id": "SW2", "issue": "Wire ranger loot modifier in bot", "detail": "getClassLootModifier() imported but never called", "branch": "sim/ranger-loot" },
+      { "id": "SW3", "issue": "Fix class-blind starting weapon", "detail": "generateItem('mainhand', 1) picks random weapon type", "branch": "sim/class-weapon" },
+      { "id": "SW4", "issue": "Add buff/passive skills to archetypes", "detail": "42 buff/passive skills never in any archetype skillBar", "branch": "sim/buff-passives" },
+      { "id": "SW5", "issue": "Wire getClassAbilityHasteBonus()", "detail": "Zero call sites in entire codebase", "branch": "engine/ability-haste" }
+    ],
+    "note": "These are FEATURE branches, separate from the refactor. Execute AFTER refactor completes."
+  }
+}

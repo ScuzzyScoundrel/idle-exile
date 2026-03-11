@@ -6,7 +6,7 @@
 import type { RareAffixId, RareMobState, MobInPack, EquippedSkill, SkillProgress, ZoneDef } from '../types';
 import { PACK_SIZE_WEIGHTS, RARE_CHANCE_BY_BAND, RARE_AFFIX_COUNT, ZONE_ATTACK_INTERVAL } from '../data/balance';
 import { RARE_AFFIX_DEFS } from '../data/rareAffixes';
-import { getUnifiedSkillDef } from '../data/unifiedSkills';
+import { getUnifiedSkillDef } from '../data/skills';
 import { getSkillGraphModifier, calcMobHp } from '../engine/unifiedSkills';
 
 // ─── Pack Size ───

@@ -43,7 +43,7 @@ import {
   calcMobHp,
 } from '../../engine/unifiedSkills';
 import { mergeEffect } from '../../engine/unifiedSkills';
-import { getUnifiedSkillDef, ABILITY_ID_MIGRATION } from '../../data/unifiedSkills';
+import { getUnifiedSkillDef, ABILITY_ID_MIGRATION } from '../../data/skills';
 import { addXp, resolveStats, getWeaponDamageInfo } from '../../engine/character';
 import { generateItem } from '../../engine/items';
 import { rollPatternDrop, getPatternDef } from '../../data/craftingPatterns';

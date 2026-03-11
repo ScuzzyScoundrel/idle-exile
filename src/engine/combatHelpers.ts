@@ -10,7 +10,7 @@ import type {
   ActiveSkillDef, ConversionSpec,
 } from '../types';
 import { BLOCK_DODGE_RECENCY_WINDOW } from '../data/balance';
-import { getUnifiedSkillDef } from '../data/unifiedSkills';
+import { getUnifiedSkillDef } from '../data/skills';
 import { rollSkillCast } from './unifiedSkills';
 
 // ─── Condition Evaluation ───

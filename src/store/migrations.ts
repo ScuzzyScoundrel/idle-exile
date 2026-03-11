@@ -11,7 +11,7 @@ import { createDefaultGatheringSkills } from '../engine/gathering';
 import { createDefaultCraftingSkills } from '../data/craftingProfessions';
 import { createResourceState } from '../engine/classResource';
 import { getDefaultSkillForWeapon } from '../engine/unifiedSkills';
-import { getUnifiedSkillDef, ABILITY_ID_MIGRATION } from '../data/unifiedSkills';
+import { getUnifiedSkillDef, ABILITY_ID_MIGRATION } from '../data/skills';
 import { generateId } from '../engine/items';
 
 /**

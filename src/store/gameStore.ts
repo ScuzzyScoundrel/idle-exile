@@ -9,7 +9,6 @@ import {
   GearSlot,
   CraftResult,
   Rarity,
-  OfflineProgressSummary,
   IdleMode,
   GatheringProfession,
   CombatPhase,
@@ -20,23 +19,23 @@ import {
   CraftLogEntry,
   MobInPack,
 } from '../types';
-import { createCharacter, resolveStats, addXp, calcXpToNext } from '../engine/character';
-import { simulateIdleRun, simulateGatheringClear, calcClearTime, createBossEncounter, generateBossLoot, calcDeathPenalty } from '../engine/zones';
+import { createCharacter, resolveStats, addXp } from '../engine/character';
+import { calcClearTime, createBossEncounter, generateBossLoot, calcDeathPenalty } from '../engine/zones';
 import { BOSS_VICTORY_DURATION, BOSS_VICTORY_HEAL_RATIO, INVASION_DIFFICULTY_MULT, INVASION_DURATION_MIN_MS, INVASION_DURATION_MAX_MS, DEATH_STREAK_WINDOW } from '../data/balance';
 // SKILL_GCD import moved to skillStore
-import { pickBestItem, generateId, isTwoHandedWeapon } from '../engine/items';
+import { generateId, isTwoHandedWeapon } from '../engine/items';
 import { applyCurrency } from '../engine/crafting';
 // createAbilityProgress, addAbilityXp, getAbilityXpPerClear moved to lootProcessor
 import { ZONE_DEFS } from '../data/zones';
-import { calcBagCapacity, BAG_SLOT_COUNT } from '../data/items';
+import { BAG_SLOT_COUNT } from '../data/items';
 import { runMigrations } from './migrations';
 import { useCraftingStore } from './craftingStore';
 import { useSkillStore } from './skillStore';
 import { useQuestStore } from './questStore';
 import { useUiStore } from './uiStore';
-import { addGatheringXp, calcGatherClearTime, createDefaultGatheringSkills, canGatherInZone } from '../engine/gathering';
+import { handleRehydrate } from './hydrate';
+import { calcGatherClearTime, createDefaultGatheringSkills, canGatherInZone } from '../engine/gathering';
 import { createDefaultCraftingSkills, CRAFTING_MILESTONES } from '../data/craftingProfessions';
-import { calcRareFindBonus } from '../engine/rareMaterials';
 // refinement + craftingProfessions imports moved to craftingStore
 import { BOSS_PATTERN_DROP_CHANCE, PATTERN_CHARGES } from '../data/balance';
 import { getPatternDef, rollPatternDrop } from '../data/craftingPatterns';
@@ -51,7 +50,7 @@ import { getDefaultSkillForWeapon } from '../engine/unifiedSkills';
 // getSkillEffectiveDuration, getSkillEffectiveCooldown imports moved to skillStore
 // classTalents import removed (Skill Tree Overhaul Phase 0)
 // canAllocateTalentRank, allocateTalentRank, respecTalentRanks, getTalentRespecCost imports moved to skillStore
-import { getUnifiedSkillDef } from '../data/unifiedSkills';
+import { getUnifiedSkillDef } from '../data/skills';
 // canAllocateGraphNode, allocateGraphNode, respecGraphNodes, getGraphRespecCost imports moved to skillStore
 import { getFullEffect } from '../engine/combat/helpers';
 import { runCombatTick } from '../engine/combat/tick';
@@ -1141,252 +1140,9 @@ export const useGameStore = create<GameState & GameActions>()(
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
-
-          // Preserve persisted HP through rehydration (startIdleRun sets maxLife for new runs)
-          // Clamp to valid range in case of stale data
-          const rehydrateStats = resolveStats(state.character);
-          state.currentHp = (state.currentHp > 0 && state.currentHp <= rehydrateStats.maxLife)
-            ? state.currentHp
-            : rehydrateStats.maxLife;
-          // Recalculate xpToNext in case XP curve constants changed
-          state.character.xpToNext = calcXpToNext(state.character.level);
-          // Reset ES to full on rehydrate
-          state.currentEs = rehydrateStats.energyShield;
-          state.combatPhase = 'clearing';
-          state.bossState = null;
-          state.combatPhaseStartedAt = null;
-          state.lastClearResult = null;
-
-          // Reset talent tree ephemeral state
-          state.lastHitMobTypeId = null;
-          state.freeCastUntil = {};
-          state.lastProcTriggerAt = {};
-
-          // Check daily quest reset on rehydrate
-          // (Must use useGameStore.getState() because state here is the raw object,
-          // but checkDailyQuestReset uses get()/set() which need the store to be ready.
-          // Schedule for next tick to ensure store is fully initialized.)
-          setTimeout(() => {
+          handleRehydrate(state, () => {
             useGameStore.getState().checkDailyQuestReset();
-          }, 0);
-
-          // Auto-assign default active skill to skillBar[0] if weapon equipped but no skill set
-          if (state.character?.equipment?.mainhand?.weaponType) {
-            const hasActiveSkill = state.skillBar?.some(s => {
-              if (!s) return false;
-              const def = getUnifiedSkillDef(s.skillId);
-              return def?.kind === 'active';
-            });
-            if (!hasActiveSkill) {
-              const wt = state.character.equipment.mainhand.weaponType;
-              const defaultSkill = getDefaultSkillForWeapon(wt, state.character.level);
-              if (defaultSkill) {
-                if (!state.skillBar) state.skillBar = [null, null, null, null];
-                state.skillBar[0] = { skillId: defaultSkill.id, autoCast: true };
-              }
-            }
-          }
-
-          const { currentZoneId, idleStartTime, character, idleMode } = state;
-          if (!currentZoneId || !idleStartTime) return;
-
-          const zone = ZONE_DEFS.find(z => z.id === currentZoneId);
-          if (!zone) {
-            // Zone no longer exists — reset run
-            state.currentZoneId = null;
-            state.idleStartTime = null;
-            return;
-          }
-
-          const elapsedSeconds = (Date.now() - idleStartTime) / 1000;
-          if (elapsedSeconds < 60) {
-            // Short absence — let real-time tick handle it, but reset start time
-            state.idleStartTime = Date.now();
-            // Respawn pack if combat mode (packMobs is ephemeral, not persisted correctly)
-            if (idleMode === 'combat') {
-              const shortMobId = pickCurrentMob(currentZoneId, state.targetedMobId);
-              const shortHpMult = shortMobId ? (getMobTypeDef(shortMobId)?.hpMultiplier ?? 1.0) : 1.0;
-              const shortInvMult = isZoneInvaded(state.invasionState, currentZoneId, zone.band) ? INVASION_DIFFICULTY_MULT : 1.0;
-              state.packMobs = spawnPack(zone, shortHpMult, shortInvMult, Date.now());
-              state.currentPackSize = state.packMobs.length;
-              state.currentMobTypeId = shortMobId;
-            }
-            return;
-          }
-
-          // Null guards for unified skill bar fields
-          if (!state.skillBar) state.skillBar = [null, null, null, null];
-          if (!state.skillProgress) state.skillProgress = {};
-          if (!state.skillTimers) state.skillTimers = [];
-
-          // Reset ephemeral GCD state
-          state.lastSkillActivation = 0;
-          // Reset ephemeral real-time combat state (10K-A)
-          state.nextActiveSkillAt = 0;
-          // Reset ephemeral pack state
-          state.packMobs = [];
-          state.currentPackSize = 1;
-          // Reset ephemeral debuffs (11B)
-          state.activeDebuffs = [];
-          state.craftLog = [];
-          // Reset ephemeral combat state (Phase 1 — skill tree expansion)
-          state.consecutiveHits = 0;
-          state.lastSkillsCast = [];
-          state.lastOverkillDamage = 0;
-          state.killStreak = 0;
-          state.lastCritAt = 0;
-          state.lastBlockAt = 0;
-          state.lastDodgeAt = 0;
-          state.dodgeEntropy = Math.floor(Math.random() * 100);
-          state.tempBuffs = [];
-          state.skillCharges = {};
-          state.rampingStacks = 0; state.rampingLastHitAt = 0;
-          state.fortifyStacks = 0; state.fortifyExpiresAt = 0; state.fortifyDRPerStack = 0;
-
-          // Ensure all equipped skills default to autoCast: true (fix for pre-10I saves)
-          if (state.skillBar) {
-            state.skillBar = state.skillBar.map((s: EquippedSkill | null) => {
-              if (s && !s.autoCast) return { ...s, autoCast: true };
-              return s;
-            }) as (EquippedSkill | null)[];
-          }
-
-          // Clean up stale skill timers
-          if (state.skillTimers && state.skillTimers.length > 0) {
-            state.skillTimers = state.skillTimers.map(t => ({
-              ...t,
-              cooldownUntil: t.cooldownUntil && t.cooldownUntil < Date.now() ? null : t.cooldownUntil,
-              activatedAt: null, // Clear active buffs after offline
-            }));
-            // Remove timers for skills no longer in the skill bar
-            const equippedSkillIds = new Set(state.skillBar.filter(Boolean).map(s => s!.skillId));
-            state.skillTimers = state.skillTimers.filter(t => equippedSkillIds.has(t.skillId));
-          }
-
-          if (idleMode === 'gathering') {
-            // Gathering mode offline simulation
-            const profession = state.selectedGatheringProfession;
-            if (!profession) {
-              state.currentZoneId = null;
-              state.idleStartTime = null;
-              return;
-            }
-            const skillLevel = state.gatheringSkills[profession].level;
-            const offlineProfBonuses = resolveProfessionBonuses(state.professionEquipment);
-            const clearTime = calcGatherClearTime(skillLevel, zone, offlineProfBonuses.gatherSpeed);
-            const clearsCompleted = Math.floor(elapsedSeconds / clearTime);
-
-            if (clearsCompleted > 0) {
-              let accMaterials: Record<string, number> = {};
-              let totalGatheringXp = 0;
-              const offlineYieldMult = 1.0 + offlineProfBonuses.gatherYield / 100;
-              const offlineInstantChance = offlineProfBonuses.instantGather / 100;
-              const offlineRareFindBonus = calcRareFindBonus(skillLevel, offlineProfBonuses.rareFind);
-              for (let i = 0; i < clearsCompleted; i++) {
-                const result = simulateGatheringClear(skillLevel, zone, profession, offlineYieldMult, offlineInstantChance, offlineRareFindBonus);
-                for (const [key, val] of Object.entries(result.materials)) {
-                  accMaterials[key] = (accMaterials[key] || 0) + val;
-                }
-                totalGatheringXp += result.gatheringXp;
-              }
-
-              // Apply materials
-              for (const [key, val] of Object.entries(accMaterials)) {
-                state.materials[key] = (state.materials[key] || 0) + val;
-              }
-
-              // Apply gathering XP
-              state.gatheringSkills = addGatheringXp(state.gatheringSkills, profession, totalGatheringXp);
-
-              const summary: OfflineProgressSummary = {
-                zoneId: zone.id,
-                zoneName: zone.name,
-                elapsedSeconds,
-                clearsCompleted,
-                items: [],
-                autoSalvagedCount: 0,
-                autoSalvagedDust: 0,
-                autoSoldCount: 0,
-                autoSoldGold: 0,
-                goldGained: 0,
-                xpGained: 0,
-                materials: accMaterials,
-                currencyDrops: { augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, greater_exalt: 0, perfect_exalt: 0, socket: 0 },
-                bagDrops: {},
-                bestItem: null,
-              };
-
-              state.offlineProgress = summary;
-            }
-            state.idleStartTime = Date.now();
-            return;
-          }
-
-          // Combat mode offline simulation — use same DPS path as real-time
-          const passiveEffect = getFullEffect(state, Date.now(), true);
-          const offlineClassDef = getClassDef(state.character.class);
-          const offlineClassDmgMult = getClassDamageModifier(state.classResource, offlineClassDef);
-          const offlineClassSpdMult = getClassClearSpeedModifier(state.classResource, offlineClassDef);
-          let offlineSim = computeNextClear(state, zone, passiveEffect, offlineClassDmgMult, offlineClassSpdMult);
-
-          // Safety: ensure clearTime is valid for offline sim
-          if (!offlineSim.clearTime || !isFinite(offlineSim.clearTime) || offlineSim.clearTime <= 0) {
-            console.warn('[Offline] Invalid clearTime:', offlineSim.clearTime,
-              'zone:', zone.id, 'skillBar:', state.skillBar?.map(s => s?.skillId));
-            const fallbackClear = calcClearTime(character, zone, passiveEffect, offlineClassDmgMult, offlineClassSpdMult);
-            offlineSim = { clearTime: fallbackClear, clearResult: null };
-          }
-
-          const result = simulateIdleRun(character, zone, elapsedSeconds, offlineSim.clearTime, passiveEffect);
-
-          if (result.clearsCompleted === 0 && elapsedSeconds >= 60) {
-            console.warn('[Offline] 0 clears despite', Math.round(elapsedSeconds), 's elapsed.',
-              'clearTime:', offlineSim.clearTime, 'zone:', zone.id);
-          }
-
-          // Dry run to estimate auto-salvage/auto-sell stats for display
-          const capacity = calcBagCapacity(state.bagSlots);
-          const { salvageStats, autoSoldGold: offlineAutoSoldGold, autoSoldCount: offlineAutoSoldCount } = addItemsWithOverflow(
-            state.inventory,
-            capacity,
-            state.autoSalvageMinRarity,
-            state.autoDisposalAction,
-            { ...state.materials },
-            result.items,
-          );
-
-          const best = pickBestItem(result.items);
-
-          const summary: OfflineProgressSummary = {
-            zoneId: zone.id,
-            zoneName: zone.name,
-            elapsedSeconds,
-            clearsCompleted: result.clearsCompleted,
-            items: result.items,
-            autoSalvagedCount: salvageStats.itemsSalvaged,
-            autoSalvagedDust: salvageStats.dustGained,
-            autoSoldCount: offlineAutoSoldCount,
-            autoSoldGold: offlineAutoSoldGold,
-            goldGained: result.goldGained,
-            xpGained: result.xpGained,
-            materials: result.materials,
-            currencyDrops: result.currencyDrops,
-            bagDrops: result.bagDrops,
-            bestItem: best,
-          };
-
-          state.offlineProgress = summary;
-          state.idleStartTime = Date.now();
-
-          // Respawn pack for real-time combat after offline catchup
-          if (idleMode === 'combat') {
-            const offMobId = pickCurrentMob(currentZoneId, state.targetedMobId);
-            const offHpMult = offMobId ? (getMobTypeDef(offMobId)?.hpMultiplier ?? 1.0) : 1.0;
-            const offInvMult = isZoneInvaded(state.invasionState, currentZoneId, zone.band) ? INVASION_DIFFICULTY_MULT : 1.0;
-            state.packMobs = spawnPack(zone, offHpMult, offInvMult, Date.now());
-            state.currentPackSize = state.packMobs.length;
-            state.currentMobTypeId = offMobId;
-          }
+          });
         };
       },
       migrate: (persisted: unknown, version: number) => {

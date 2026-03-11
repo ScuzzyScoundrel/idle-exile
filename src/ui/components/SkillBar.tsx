@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { useSkillStore } from '../../store/skillStore';
-import { getUnifiedSkillDef } from '../../data/unifiedSkills';
+import { getUnifiedSkillDef } from '../../data/skills';
 import { getSkillEffectiveDuration, getSkillEffectiveCooldown } from '../../engine/unifiedSkills';
 import { getAbilityXpForLevel, getUnlockedSlotCount } from '../../engine/unifiedSkills';
 import { SKILL_MAX_LEVEL } from '../../data/balance';

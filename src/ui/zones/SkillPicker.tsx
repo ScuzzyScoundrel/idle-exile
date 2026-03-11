@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
-import { getUnifiedSkillsForWeapon } from '../../data/unifiedSkills';
+import { getUnifiedSkillsForWeapon } from '../../data/skills';
 import { getEquippedWeaponType } from '../../engine/items';
 import { getUnlockedSlotCount } from '../../engine/unifiedSkills';
 import { WEAPON_ICONS, KIND_BADGE_COLORS } from './zoneConstants';
