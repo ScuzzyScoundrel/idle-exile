@@ -1398,21 +1398,31 @@ export const useGameStore = create<GameState & GameActions>()(
 
 // ── Tab-refocus catchup: run headless sim for time lost while backgrounded ──
 // The 250ms setInterval in CombatPanel gets throttled/suspended by browsers when
-// the tab is hidden. On refocus we detect the gap and run the headless sim.
+// the tab is hidden. We pause the tick loop via `isTabHidden` and run the headless
+// sim for the full gap when the tab becomes visible again.
 
-let lastVisibleAt = Date.now();
+let _tabHiddenAt = 0;
+let _isTabHidden = false;
+
+/** True when the browser tab is hidden. CombatPanel should skip ticks. */
+export function isTabHidden(): boolean { return _isTabHidden; }
 
 if (typeof document !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
-      // Tab is being hidden — record when
-      lastVisibleAt = Date.now();
+      _isTabHidden = true;
+      _tabHiddenAt = Date.now();
       return;
     }
 
-    // Tab became visible again
-    const gapSeconds = (Date.now() - lastVisibleAt) / 1000;
-    // Only catch up if gap is meaningful (>5s) — short gaps are handled by dtSec catchup
+    // Tab became visible again — unblock ticks immediately
+    _isTabHidden = false;
+
+    if (!_tabHiddenAt) return;
+    const gapSeconds = (Date.now() - _tabHiddenAt) / 1000;
+    _tabHiddenAt = 0;
+
+    // Only catch up if gap is meaningful (>5s)
     if (gapSeconds < 5) return;
 
     const state = useGameStore.getState();

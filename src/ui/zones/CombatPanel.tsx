@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useGameStore, useHasHydrated, calcFortifyDR } from '../../store/gameStore';
+import { useGameStore, useHasHydrated, calcFortifyDR, isTabHidden } from '../../store/gameStore';
 import { ZONE_DEFS } from '../../data/zones';
 import { calcXpScale } from '../../engine/zones';
 import { Rarity } from '../../types';
@@ -95,6 +95,8 @@ export default function CombatPanel() {
     if (!isRunning || !idleStartTime) return;
     lastTickTimeRef.current = Date.now();
     const interval = setInterval(() => {
+      // Skip ticks while tab is hidden — headless sim handles catchup on return
+      if (isTabHidden()) { lastTickTimeRef.current = Date.now(); return; }
       const now = Date.now();
       const phase = useGameStore.getState().combatPhase;
       const dtSec = Math.min((now - lastTickTimeRef.current) / 1000, 2);
