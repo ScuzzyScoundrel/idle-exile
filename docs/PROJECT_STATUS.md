@@ -1,17 +1,18 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-11 (Dagger Rework Phase 2: Sprints 1-4 complete)
+> Last updated: 2026-03-11 (Dagger Rework Phase 2: ALL 5 SPRINTS COMPLETE)
 
 ## Current Phase
-**Dagger Rework Phase 2 — IN PROGRESS.** Elevating talent tree quality before templating for other weapons. See `docs/DAGGER_REWORK_PLAN.md` for full plan.
+**Dagger Rework Phase 2 — COMPLETE.** All talent trees now have unique per-skill identity with new multiplicative stats. Ready for templating to other weapons. See `docs/DAGGER_REWORK_PLAN.md` for full plan.
 
 - **Sprint 1 COMPLETE**: Added 7 multiplicative offense stats to `SkillModifier` (`firePenetration`, `coldPenetration`, `lightningPenetration`, `chaosPenetration`, `dotMultiplier`, `weaponMastery`, `ailmentDuration`). Wired into `ResolvedSkillModifier`, `resolveDamageBuckets`, `calcSkillDps`, and `effectiveStats` in tick.ts.
 - **Sprint 2 COMPLETE**: Replaced 3 legacy buff/passive skills with archetype-themed buffs: `dagger_predators_mark` (Assassination), `dagger_venom_covenant` (Venomcraft), `dagger_shadow_covenant` (Shadow Dance). Save migration v54.
 - **Sprint 3 COMPLETE**: Reworked Venomcraft branch (branch index 1) across all 7 dagger active skills. Each skill now has unique per-skill identity with new stats. Stab=ailmentDuration, Blade Flurry=dotMultiplier, Frost Fan=coldPenetration, Viper Strike=dotMultiplier+chaosPenetration+ailmentDuration, Shadow Step=chaosPenetration, Assassinate=dotMultiplier+weaponMastery, Lightning Lunge=lightningPenetration. T3 nodes renamed for differentiation. ~60 nodes changed.
 - **Sprint 4 COMPLETE**: Reworked Assassination branch (branch index 0) across all 7 dagger active skills. Added per-skill penetration/mastery stats: Stab=weaponMastery, Blade Flurry=weaponMastery, Frost Fan=coldPenetration, Viper Strike=chaosPenetration, Shadow Step=chaosPenetration, Assassinate=weaponMastery, Lightning Lunge=lightningPenetration. Key fixes: Assassinate T3a "Toxic Concentration" (copy of Viper Strike) replaced with unique "Executioner's Mastery". T3 renames: Stab→Relentless Edge, BF→Surgical Cascade, FF→Frozen Precision/Glacial Crossfire, VS→Critical Venom/Venomous Precision, LL→Voltaic Cascade. ~50 nodes changed.
+- **Sprint 5 COMPLETE**: Reworked Shadow Dance branch (branch index 2) across all 7 dagger active skills. Added per-skill penetration/mastery stats: Stab=weaponMastery, Blade Flurry=weaponMastery, Frost Fan=coldPenetration, Viper Strike=chaosPenetration, Shadow Step=chaosPenetration, Assassinate=weaponMastery, Lightning Lunge=lightningPenetration. Updated all branch descriptions from generic 'Defensive mastery and evasion-based combat' to skill-specific descriptions. ~77 nodes changed.
 - **Save version**: v54 (no save migration needed — data-only changes to talent node definitions)
-- **Next**: Sprint 5 — Shadow Dance branch rework + final polish (all 7 active skills, ~35 node changes)
+- **DAGGER REWORK PHASE 2 COMPLETE** — All 5 sprints done. All 273 dagger talent nodes now have unique per-skill identity with new multiplicative stats across all 3 branches (Assassination, Venomcraft, Shadow Dance).
 
 **Previous: Balance v3.0 — COMPLETE.** Multiplicative offense affixes, economy rebalancing, XP hard cutoff, and bot crafting.
 

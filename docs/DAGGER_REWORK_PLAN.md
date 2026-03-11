@@ -13,7 +13,7 @@ This rework elevates talent tree quality before using dagger as the template for
 - [x] **Sprint 2**: Rework 3 legacy buff skills
 - [x] **Sprint 3**: Venomcraft branch rework (all 7 skills)
 - [x] **Sprint 4**: Assassination branch rework (all 7 skills)
-- [ ] **Sprint 5**: Shadow Dance branch rework + final polish
+- [x] **Sprint 5**: Shadow Dance branch rework + final polish
 
 ---
 
