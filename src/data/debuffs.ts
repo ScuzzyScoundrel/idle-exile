@@ -91,6 +91,14 @@ export const DEBUFF_DEFS: DebuffDef[] = [
     effect: { reducedAttackSpeed: 20 },
   },
   {
+    id: 'corroded',
+    name: 'Corroded',
+    description: 'Target takes 20% more damage from all sources.',
+    stackable: false,
+    maxStacks: 1,
+    effect: { incDamageTaken: 20 },
+  },
+  {
     id: 'deathMark',
     name: 'Death Mark',
     description: 'Marked for death. Next hit deals bonus damage and removes the mark.',

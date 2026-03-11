@@ -215,7 +215,7 @@ export function evaluateProcs(
     }
     if (proc.applyBuff) {
       result.newTempBuffs.push({
-        id: proc.id,
+        id: proc.applyBuff.buffId ?? proc.id,
         effect: proc.applyBuff.effect,
         expiresAt: ctx.now + proc.applyBuff.duration * 1000,
         sourceSkillId: ctx.skillId,
