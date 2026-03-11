@@ -1396,6 +1396,110 @@ export const useGameStore = create<GameState & GameActions>()(
   )
 );
 
+// ── Tab-refocus catchup: run headless sim for time lost while backgrounded ──
+// The 250ms setInterval in CombatPanel gets throttled/suspended by browsers when
+// the tab is hidden. On refocus we detect the gap and run the headless sim.
+
+let lastVisibleAt = Date.now();
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      // Tab is being hidden — record when
+      lastVisibleAt = Date.now();
+      return;
+    }
+
+    // Tab became visible again
+    const gapSeconds = (Date.now() - lastVisibleAt) / 1000;
+    // Only catch up if gap is meaningful (>5s) — short gaps are handled by dtSec catchup
+    if (gapSeconds < 5) return;
+
+    const state = useGameStore.getState();
+    // Only run if we're actively in combat mode with a zone
+    if (!state.currentZoneId || !state.idleStartTime || state.idleMode !== 'combat') return;
+    // Don't interrupt an already-showing offline modal
+    if (state.offlineProgress) return;
+
+    const zone = ZONE_DEFS.find(z => z.id === state.currentZoneId);
+    if (!zone) return;
+
+    console.log(`[TabCatchup] Tab was hidden for ${gapSeconds.toFixed(0)}s, running headless sim...`);
+
+    const simResult = simulateOfflineCombat(state as GameState, gapSeconds);
+    console.log(`[TabCatchup] ${simResult.totalMobKills} kills, ${simResult.totalDeaths} deaths in ${simResult.elapsedSimMs.toFixed(0)}ms`);
+
+    if (simResult.totalMobKills === 0 && !simResult.deathLoopDetected) return; // Nothing happened
+
+    // Generate loot via existing simulateIdleRun
+    const passiveEffect = getFullEffect(state, Date.now(), true);
+    const syntheticClearTime = simResult.totalMobKills > 0
+      ? gapSeconds / simResult.totalMobKills : 999;
+    const result = simulateIdleRun(state.character, zone, gapSeconds, syntheticClearTime, passiveEffect);
+    result.items.push(...simResult.bossLoot);
+
+    // Dry run auto-salvage/sell for display
+    const capacity = calcBagCapacity(state.bagSlots);
+    const { salvageStats, autoSoldGold: catchupAutoSoldGold, autoSoldCount: catchupAutoSoldCount } = addItemsWithOverflow(
+      state.inventory,
+      capacity,
+      state.autoSalvageMinRarity,
+      state.autoDisposalAction,
+      { ...state.materials },
+      result.items,
+    );
+
+    const best = pickBestItem(result.items);
+
+    const summary: OfflineProgressSummary = {
+      zoneId: zone.id,
+      zoneName: zone.name,
+      elapsedSeconds: gapSeconds,
+      clearsCompleted: simResult.totalMobKills,
+      items: result.items,
+      autoSalvagedCount: salvageStats.itemsSalvaged,
+      autoSalvagedDust: salvageStats.dustGained,
+      autoSoldCount: catchupAutoSoldCount,
+      autoSoldGold: catchupAutoSoldGold,
+      goldGained: result.goldGained,
+      xpGained: result.xpGained,
+      materials: result.materials,
+      currencyDrops: result.currencyDrops,
+      bagDrops: result.bagDrops,
+      bestItem: best,
+      totalDeaths: simResult.totalDeaths,
+      bossVictories: simResult.bossVictories,
+      deathLoopDetected: simResult.deathLoopDetected,
+    };
+
+    // Reset idleStartTime so real-time tick resumes from now
+    // Respawn pack for fresh combat
+    const catchupMobId = pickCurrentMob(state.currentZoneId!, state.targetedMobId);
+    const catchupHpMult = catchupMobId ? (getMobTypeDef(catchupMobId)?.hpMultiplier ?? 1.0) : 1.0;
+    const catchupInvMult = isZoneInvaded(state.invasionState, state.currentZoneId!, zone.band)
+      ? INVASION_DIFFICULTY_MULT : 1.0;
+    const catchupNow = Date.now();
+
+    // Heal to full after catchup (same as rehydration)
+    const catchupStats = resolveStats(state.character);
+
+    useGameStore.setState({
+      offlineProgress: summary,
+      idleStartTime: catchupNow,
+      packMobs: spawnPack(zone, catchupHpMult, catchupInvMult, catchupNow),
+      currentPackSize: state.currentPackSize,
+      currentMobTypeId: catchupMobId,
+      currentHp: catchupStats.maxLife,
+      currentEs: catchupStats.energyShield,
+      combatPhase: 'clearing' as CombatPhase,
+      bossState: null,
+      combatPhaseStartedAt: null,
+      activeDebuffs: [],
+      tempBuffs: [],
+    });
+  });
+}
+
 export function useHasHydrated() {
   const [hydrated, setHydrated] = useState(useGameStore.persist.hasHydrated());
   useEffect(() => {
