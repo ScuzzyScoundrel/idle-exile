@@ -231,6 +231,7 @@ export function simulateOfflineCombat(
       if (result.zoneDeath) {
         totalDeaths++;
         consecutiveDeathsWithoutKill++;
+        clearsSinceBoss = 0; // Death resets boss progress
         if (consecutiveDeathsWithoutKill >= DEATH_LOOP_THRESHOLD) {
           deathLoopDetected = true;
         }

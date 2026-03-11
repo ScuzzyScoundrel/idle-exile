@@ -1041,6 +1041,11 @@ export const useGameStore = create<GameState & GameActions>()(
           const recoveryNow = Date.now();
           const recoveryPack = zone ? spawnPack(zone, recoveryHpMult, recoveryInvMult, recoveryNow) : [];
 
+          // Reset boss progress on any death (zone or boss defeat)
+          const recoveryZoneClearCounts = isDefeat && state.currentZoneId
+            ? { ...state.zoneClearCounts, [state.currentZoneId]: 0 }
+            : state.zoneClearCounts;
+
           set({
             combatPhase: 'clearing' as CombatPhase,
             bossState: null,
@@ -1051,6 +1056,7 @@ export const useGameStore = create<GameState & GameActions>()(
             nextActiveSkillAt: recoveryNow,
             packMobs: recoveryPack,
             currentPackSize: recoveryPack.length,
+            zoneClearCounts: recoveryZoneClearCounts,
           });
           return true;
         }
