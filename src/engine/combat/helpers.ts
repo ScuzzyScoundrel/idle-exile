@@ -1,7 +1,121 @@
-import { ActiveDebuff, GameState, AbilityEffect, EquippedSkill, SkillProgress, SkillTimerState } from '../../types';
+import { ActiveDebuff, GameState, AbilityEffect, EquippedSkill, SkillProgress, SkillTimerState, PoisonInstance, TempBuff } from '../../types';
 import { getDebuffDef } from '../../data/debuffs';
 import { FORTIFY_MAX_DR } from '../../data/balance';
 import { aggregateSkillBarEffects, aggregateGraphGlobalEffects, mergeEffect } from '../../engine/unifiedSkills';
+
+/**
+ * Unified debuff stacking — handles all 3 paths:
+ *   1. Instance-based (poison): push N independent instances, each with own snapshot + duration
+ *   2. Stackable: increment stacks (up to maxStacks), FIFO snapshot array if snapshot debuff
+ *   3. Non-stackable: refresh duration only
+ *
+ * Mutates `debuffs` array in-place and returns it (for chaining / reassignment).
+ * `stacks` = how many stacks to add (1 for single-hit, N for multi-stack procs).
+ * `snapshotDamage` = hit damage to record per stack (0 or omit if not a snapshot debuff).
+ */
+export function applyDebuffToList(
+  debuffs: ActiveDebuff[],
+  debuffId: string,
+  stacks: number,
+  duration: number,
+  skillId: string,
+  snapshotDamage: number = 0,
+): ActiveDebuff[] {
+  const debuffDef = getDebuffDef(debuffId);
+  const existingIdx = debuffs.findIndex(d => d.debuffId === debuffId);
+  const isSnapshotDebuff = debuffDef?.dotType === 'snapshot';
+
+  // Path 1: Instance-based (poison) — each stack is an independent instance
+  if (debuffDef?.instanceBased) {
+    const newInstances: PoisonInstance[] = Array.from({ length: stacks }, () => ({
+      snapshot: snapshotDamage,
+      remainingDuration: duration,
+      appliedBySkillId: skillId,
+    }));
+    if (existingIdx >= 0) {
+      const d = debuffs[existingIdx];
+      const instances = [...(d.instances ?? []), ...newInstances];
+      debuffs[existingIdx] = {
+        ...d,
+        instances,
+        stacks: instances.length,
+        remainingDuration: Math.max(duration, d.remainingDuration),
+        appliedBySkillId: skillId,
+        stackSnapshots: instances.map(i => i.snapshot),
+      };
+    } else {
+      debuffs.push({
+        debuffId, stacks, remainingDuration: duration,
+        appliedBySkillId: skillId,
+        stackSnapshots: newInstances.map(i => i.snapshot),
+        instances: newInstances,
+        dotTickAccumulator: 0,
+      });
+    }
+    return debuffs;
+  }
+
+  // Path 2: Stackable — increment stacks, FIFO snapshots at maxStacks
+  if (existingIdx >= 0 && debuffDef?.stackable) {
+    const d = debuffs[existingIdx];
+    const newStacks = Math.min(d.stacks + stacks, debuffDef.maxStacks);
+    let snapshots = d.stackSnapshots ? [...d.stackSnapshots] : undefined;
+    if (isSnapshotDebuff) {
+      snapshots = snapshots ?? [];
+      for (let i = 0; i < stacks; i++) {
+        if (snapshots.length >= debuffDef.maxStacks) snapshots.shift(); // FIFO
+        snapshots.push(snapshotDamage);
+      }
+    }
+    debuffs[existingIdx] = {
+      ...d,
+      stacks: newStacks,
+      remainingDuration: duration,
+      appliedBySkillId: skillId,
+      stackSnapshots: snapshots,
+    };
+    return debuffs;
+  }
+
+  // Path 3: Non-stackable existing — refresh duration
+  if (existingIdx >= 0) {
+    debuffs[existingIdx] = {
+      ...debuffs[existingIdx],
+      remainingDuration: duration,
+      appliedBySkillId: skillId,
+    };
+    return debuffs;
+  }
+
+  // Path 4: New debuff (first application)
+  debuffs.push({
+    debuffId, stacks, remainingDuration: duration,
+    appliedBySkillId: skillId,
+    stackSnapshots: isSnapshotDebuff ? Array(stacks).fill(snapshotDamage) as number[] : undefined,
+  });
+  return debuffs;
+}
+
+/**
+ * Merge a proc-generated temp buff into the active buff list.
+ * If buff already exists, refresh expiry and increment stacks (up to max).
+ * Otherwise, append it. Returns the updated array.
+ */
+export function mergeProcTempBuff(
+  buffs: TempBuff[],
+  newBuff: TempBuff,
+): TempBuff[] {
+  const existingIdx = buffs.findIndex(b => b.id === newBuff.id);
+  if (existingIdx >= 0) {
+    const existing = buffs[existingIdx];
+    return [
+      ...buffs.slice(0, existingIdx),
+      { ...existing, expiresAt: newBuff.expiresAt, stacks: Math.min(existing.stacks + 1, existing.maxStacks) },
+      ...buffs.slice(existingIdx + 1),
+    ];
+  }
+  return [...buffs, newBuff];
+}
 
 /** Human-readable labels for proc IDs (used in combat log / floaters). */
 export const PROC_LABEL: Record<string, string> = {
@@ -166,4 +280,44 @@ export function getFullEffect(
     overrides?.skillProgress ?? state.skillProgress,
   );
   return mergeEffect(mergeEffect(skillEffect, talentEffect), graphGlobalEffect);
+}
+
+/**
+ * Spread matching debuffs from a dead mob to a target mob's debuff list.
+ * Instance-based debuffs copy instances with refreshed durations; others just copy.
+ * Returns true if any debuffs were spread.
+ */
+export function spreadDebuffsToTarget(
+  targetDebuffs: ActiveDebuff[],
+  sourceDebuffs: ActiveDebuff[],
+  config: { debuffIds: string[]; refreshDuration: number },
+): boolean {
+  const matching = config.debuffIds.includes('all')
+    ? sourceDebuffs
+    : sourceDebuffs.filter(d => config.debuffIds.includes(d.debuffId));
+  if (matching.length === 0) return false;
+
+  for (const srcDebuff of matching) {
+    const spreadDef = getDebuffDef(srcDebuff.debuffId);
+    if (spreadDef?.instanceBased && srcDebuff.instances) {
+      const spreadInstances = srcDebuff.instances.map(inst => ({
+        ...inst,
+        remainingDuration: config.refreshDuration > 0 ? config.refreshDuration : inst.remainingDuration,
+      }));
+      targetDebuffs.push({
+        ...srcDebuff,
+        instances: spreadInstances,
+        stacks: spreadInstances.length,
+        remainingDuration: Math.max(...spreadInstances.map(i => i.remainingDuration)),
+        stackSnapshots: spreadInstances.map(i => i.snapshot),
+        dotTickAccumulator: 0,
+      });
+    } else {
+      targetDebuffs.push({
+        ...srcDebuff,
+        remainingDuration: config.refreshDuration > 0 ? config.refreshDuration : srcDebuff.remainingDuration,
+      });
+    }
+  }
+  return true;
 }

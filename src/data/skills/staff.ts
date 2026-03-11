@@ -1,0 +1,163 @@
+import type { ActiveSkillDef, AbilityDef } from '../../types';
+
+export const STAFF_ACTIVE_SKILLS: ActiveSkillDef[] = [
+  {
+    id: 'staff_arcane_bolt',
+    name: 'Arcane Bolt',
+    description: 'A basic bolt of arcane energy.',
+    weaponType: 'staff',
+    tags: ['Spell', 'Physical', 'Projectile'],
+    baseDamage: 8,
+    weaponDamagePercent: 0,
+    spellPowerRatio: 1.0,
+    castTime: 1.0,
+    cooldown: 3,
+    levelRequired: 1,
+    icon: '\uD83D\uDD2E',
+  },
+  {
+    id: 'staff_spark',
+    name: 'Spark',
+    description: 'Release a crackling bolt of lightning.',
+    weaponType: 'staff',
+    tags: ['Spell', 'Lightning', 'Projectile'],
+    baseDamage: 5,
+    weaponDamagePercent: 0,
+    spellPowerRatio: 0.8,
+    castTime: 0.8,
+    cooldown: 4,
+    levelRequired: 4,
+    icon: '\u26A1',
+    baseConversion: { from: 'physical', to: 'lightning', percent: 90 },
+  },
+  {
+    id: 'staff_fireball',
+    name: 'Fireball',
+    description: 'Hurl an explosive ball of fire at enemies.',
+    weaponType: 'staff',
+    tags: ['Spell', 'Fire', 'Projectile', 'AoE'],
+    baseDamage: 10,
+    weaponDamagePercent: 0,
+    spellPowerRatio: 1.1,
+    castTime: 1.2,
+    cooldown: 5,
+    levelRequired: 8,
+    icon: '\uD83D\uDD25',
+    baseConversion: { from: 'physical', to: 'fire', percent: 90 },
+  },
+  {
+    id: 'staff_ice_shard',
+    name: 'Ice Shard',
+    description: 'Launch a shard of ice that pierces through enemies.',
+    weaponType: 'staff',
+    tags: ['Spell', 'Cold', 'Projectile'],
+    baseDamage: 7,
+    weaponDamagePercent: 0,
+    spellPowerRatio: 0.9,
+    castTime: 0.9,
+    cooldown: 4,
+    levelRequired: 6,
+    icon: '\u2744\uFE0F',
+    baseConversion: { from: 'physical', to: 'cold', percent: 90 },
+  },
+  {
+    id: 'staff_arcane_shield',
+    name: 'Arcane Shield',
+    description: 'Channel arcane energy into a protective barrier that deals damage.',
+    weaponType: 'staff',
+    tags: ['Spell', 'Physical'],
+    baseDamage: 4,
+    weaponDamagePercent: 0,
+    spellPowerRatio: 0.6,
+    castTime: 1.3,
+    cooldown: 5,
+    levelRequired: 10,
+    icon: '\uD83D\uDEE1\uFE0F',
+  },
+  {
+    id: 'staff_meteor',
+    name: 'Meteor',
+    description: 'Call down a meteor from the sky. Devastating AoE.',
+    weaponType: 'staff',
+    tags: ['Spell', 'Fire', 'AoE'],
+    baseDamage: 30,
+    weaponDamagePercent: 0,
+    spellPowerRatio: 1.8,
+    castTime: 2.0,
+    cooldown: 12,
+    levelRequired: 14,
+    icon: '\u2604\uFE0F',
+    baseConversion: { from: 'physical', to: 'fire', percent: 90 },
+  },
+];
+
+export const STAFF_ABILITIES: AbilityDef[] = [
+  {
+    id: 'staff_arcane_blast', name: 'Arcane Blast', description: '2.5x damage for 12s.',
+    weaponType: 'staff', kind: 'buff', icon: '\u2728',
+    duration: 12, cooldown: 75,
+    effect: { damageMult: 2.5 },
+    skillTree: {
+      paths: [
+        { id: 'A', name: 'Sustained Blast', description: 'Extend Arcane Blast.', nodes: [
+          { id: 'staff_ab_a1', name: 'Resonance', description: '+3s duration', tier: 1, effect: {}, durationBonus: 3 },
+          { id: 'staff_ab_a2', name: 'Sustained Blast', description: '+6s duration', tier: 2, effect: {}, durationBonus: 6, isPathPayoff: true, requiresNodeId: 'staff_ab_a1' },
+        ]},
+        { id: 'B', name: 'Enlightened Blast', description: 'Add XP bonus.', nodes: [
+          { id: 'staff_ab_b1', name: 'Insight', description: '+12% XP', tier: 1, effect: { xpMult: 1.12 } },
+          { id: 'staff_ab_b2', name: 'Enlightened Blast', description: '+25% XP', tier: 2, effect: { xpMult: 1.25 }, isPathPayoff: true, requiresNodeId: 'staff_ab_b1' },
+        ]},
+        { id: 'C', name: 'Overcharge', description: 'Push damage higher.', nodes: [
+          { id: 'staff_ab_c1', name: 'Empowered', description: '+25% damage', tier: 1, effect: { damageMult: 1.25 } },
+          { id: 'staff_ab_c2', name: 'Overcharge', description: '+50% damage', tier: 2, effect: { damageMult: 1.5 }, isPathPayoff: true, requiresNodeId: 'staff_ab_c1' },
+        ]},
+      ],
+      maxPoints: 4,
+    },
+  },
+  {
+    id: 'staff_elemental_ward', name: 'Elemental Ward', description: '+50 all resists for 15s.',
+    weaponType: 'staff', kind: 'buff', icon: '\uD83D\uDD2E',
+    duration: 15, cooldown: 60,
+    effect: { resistBonus: 50 },
+    skillTree: {
+      paths: [
+        { id: 'A', name: 'Lasting Ward', description: 'Extend Elemental Ward.', nodes: [
+          { id: 'staff_ew_a1', name: 'Persistent Aura', description: '+4s duration', tier: 1, effect: {}, durationBonus: 4 },
+          { id: 'staff_ew_a2', name: 'Lasting Ward', description: '+8s duration', tier: 2, effect: {}, durationBonus: 8, isPathPayoff: true, requiresNodeId: 'staff_ew_a1' },
+        ]},
+        { id: 'B', name: 'Barrier Ward', description: 'Add defense.', nodes: [
+          { id: 'staff_ew_b1', name: 'Shielded', description: '+50% defense', tier: 1, effect: { defenseMult: 1.5 } },
+          { id: 'staff_ew_b2', name: 'Barrier Ward', description: '+2x defense', tier: 2, effect: { defenseMult: 2.0 }, isPathPayoff: true, requiresNodeId: 'staff_ew_b1' },
+        ]},
+        { id: 'C', name: 'Arcane Shield', description: 'Boost resist even higher.', nodes: [
+          { id: 'staff_ew_c1', name: 'Enhanced Ward', description: '+15 resists', tier: 1, effect: { resistBonus: 15 } },
+          { id: 'staff_ew_c2', name: 'Arcane Shield', description: '+30 resists', tier: 2, effect: { resistBonus: 30 }, isPathPayoff: true, requiresNodeId: 'staff_ew_c1' },
+        ]},
+      ],
+      maxPoints: 4,
+    },
+  },
+  {
+    id: 'staff_wisdom', name: 'Wisdom', description: '+15% XP gain (passive).',
+    weaponType: 'staff', kind: 'passive', icon: '\uD83D\uDCD6',
+    effect: { xpMult: 1.15 },
+    skillTree: {
+      paths: [
+        { id: 'A', name: 'Scholar\'s Insight', description: 'Convert to item drops.', nodes: [
+          { id: 'staff_wi_a1', name: 'Perceptive', description: '+5% item drops', tier: 1, effect: { itemDropMult: 1.05 } },
+          { id: 'staff_wi_a2', name: 'Scholar\'s Insight', description: 'Swap to +10% item drops', tier: 2, effect: { xpMult: 1.0, itemDropMult: 1.1 }, isPathPayoff: true, requiresNodeId: 'staff_wi_a1' },
+        ]},
+        { id: 'B', name: 'Balanced Wisdom', description: 'Mix of XP and drops.', nodes: [
+          { id: 'staff_wi_b1', name: 'Quick Learner', description: '+4% XP', tier: 1, effect: { xpMult: 1.04 } },
+          { id: 'staff_wi_b2', name: 'Balanced Wisdom', description: '+8% XP + 5% item drops', tier: 2, effect: { xpMult: 1.08, itemDropMult: 1.05 }, isPathPayoff: true, requiresNodeId: 'staff_wi_b1' },
+        ]},
+        { id: 'C', name: 'Deep Knowledge', description: 'Pure XP stacking.', nodes: [
+          { id: 'staff_wi_c1', name: 'Studious', description: '+8% XP', tier: 1, effect: { xpMult: 1.08 } },
+          { id: 'staff_wi_c2', name: 'Deep Knowledge', description: '+25% XP total', tier: 2, effect: { xpMult: 1.25 }, isPathPayoff: true, requiresNodeId: 'staff_wi_c1' },
+        ]},
+      ],
+      maxPoints: 4,
+    },
+  },
+];

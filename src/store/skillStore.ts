@@ -12,7 +12,7 @@ import type {
   GameState,
 } from '../types';
 import { useGameStore } from './gameStore';
-import { getUnifiedSkillDef, getAbilityDef, getSkillDef } from '../data/unifiedSkills';
+import { getUnifiedSkillDef, getAbilityDef, getSkillDef } from '../data/skills';
 import {
   canAllocateNode, allocateNode, respecAbility as respecAbilityEngine, getRespecCost,
   getSkillEffectiveDuration, getSkillEffectiveCooldown,

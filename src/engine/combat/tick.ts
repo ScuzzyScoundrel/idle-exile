@@ -46,6 +46,9 @@ import {
   calcBleedTriggerDamage,
   calcFortifyDR,
   getFullEffect,
+  applyDebuffToList,
+  spreadDebuffsToTarget,
+  mergeProcTempBuff,
 } from './helpers';
 import { isSkillAoE, spawnPack } from '../packs';
 import { isZoneInvaded } from '../invasions';
@@ -58,7 +61,6 @@ import {
   ZONE_DMG_BASE,
   ZONE_DMG_ILVL_SCALE,
   ZONE_PHYS_RATIO,
-  MAX_REGEN_CAP_RATIO,
   FORTIFY_MAX_STACKS,
   INVASION_DIFFICULTY_MULT,
   DEATH_STREAK_WINDOW,
@@ -66,271 +68,16 @@ import {
 import { ZONE_DEFS } from '../../data/zones';
 import { getClassDef } from '../../data/classes';
 import { getDebuffDef } from '../../data/debuffs';
-import { getUnifiedSkillDef } from '../../data/unifiedSkills';
+import { getUnifiedSkillDef } from '../../data/skills';
 import { getMobTypeDef } from '../../data/mobTypes';
 import { pickCurrentMob } from '../zones/helpers';
 
-// ── Output type ──
-
-export interface CombatTickOutput {
-  patch: Partial<GameState>;
-  result: CombatTickResult;
-}
-
-// ── Constants ──
-
-const noResult: CombatTickResult = {
-  mobKills: 0,
-  skillFired: false,
-  damageDealt: 0,
-  skillId: null,
-  isCrit: false,
-  isHit: false,
-};
-
-// ── Inner helpers (nested closures converted to plain functions) ──
-
-/** Apply boss per-hit attacks + passive regen to player.
- *  Returns merged patch + result instead of calling set(). */
-function applyBossDamage(
-  state: GameState,
-  dtSec: number,
-  now: number,
-): CombatTickOutput {
-  if (state.combatPhase === 'boss_fight' && state.bossState) {
-    const bs = state.bossState;
-    const bossStats = resolveStats(state.character);
-    const abilEff = getFullEffect(state, now, false);
-    const defStats = applyAbilityResists(bossStats, abilEff);
-    let playerHp = state.currentHp;
-    let bossCurrentEs = state.currentEs;
-    let bossAttackResult: CombatTickResult['bossAttack'] = null;
-    let helperBleedDmg = 0;
-
-    // Check if boss attack is due
-    const helperEnemyMods = calcEnemyDebuffMods(state.activeDebuffs);
-    let nextAttack = bs.bossNextAttackAt;
-    let helperBossHp = bs.bossCurrentHp;
-    if (now >= nextAttack) {
-      // Bleed trigger: enemy attacked (hit or miss — boss still swung)
-      helperBleedDmg = calcBleedTriggerDamage(state.activeDebuffs, 1, bossStats.incDoTDamage ?? 0);
-      if (helperBleedDmg > 0) helperBossHp -= helperBleedDmg;
-
-      // Miss chance from debuffs (e.g. Blinded)
-      if (Math.random() * 100 < helperEnemyMods.missChance) {
-        bossAttackResult = { damage: 0, isDodged: true, isBlocked: false, isCrit: false };
-        nextAttack = now + bs.bossAttackInterval * helperEnemyMods.atkSpeedSlowMult * 1000;
-      } else {
-        // Boss damage smoothing: variance + crit
-        const isBossCrit = Math.random() < BOSS_CRIT_CHANCE;
-        const variance = 0.6 + Math.random() * 0.4; // 60%-100% normal
-        const rawDmg = bs.bossDamagePerHit * (isBossCrit ? BOSS_CRIT_MULTIPLIER : variance);
-
-        const roll = rollZoneAttack(rawDmg, bs.bossPhysRatio, bs.bossAccuracy, defStats, bs.dodgeEntropy);
-        bs.dodgeEntropy = roll.newDodgeEntropy;
-
-        // Damage cap: never exceed BOSS_MAX_DMG_RATIO of maxHP per hit
-        let cappedDmg = Math.min(roll.damage * helperEnemyMods.damageMult, bossStats.maxLife * BOSS_MAX_DMG_RATIO);
-        // Fortify DR (use previous tick's state)
-        const helperBossFortifyDR = calcFortifyDR(state.fortifyStacks, state.fortifyExpiresAt, state.fortifyDRPerStack, now, bossStats.fortifyEffect);
-        if (helperBossFortifyDR > 0) cappedDmg *= (1 - helperBossFortifyDR);
-        if (bossStats.damageTakenReduction > 0) cappedDmg *= (1 - bossStats.damageTakenReduction / 100);
-        // ES absorbs boss damage before HP
-        if (bossCurrentEs > 0 && cappedDmg > 0) {
-          const esAbsorbed = Math.min(bossCurrentEs, cappedDmg);
-          bossCurrentEs -= esAbsorbed;
-          cappedDmg -= esAbsorbed;
-        }
-        playerHp -= cappedDmg;
-        bossAttackResult = { damage: cappedDmg, isDodged: roll.isDodged, isBlocked: roll.isBlocked, isCrit: isBossCrit };
-        nextAttack = now + bs.bossAttackInterval * helperEnemyMods.atkSpeedSlowMult * 1000;
-        // ES recharge per tick during boss
-        if (bossStats.esRecharge > 0) {
-          bossCurrentEs = Math.min(bossStats.energyShield, bossCurrentEs + bossStats.esRecharge * dtSec);
-        }
-        // ES patch merged below — not a separate set() anymore
-      }
-    }
-
-    // Passive regen per tick
-    playerHp = Math.min(bossStats.maxLife, playerHp + bossStats.lifeRegen * dtSec);
-
-    // Tick DoT damage every frame against boss (poison/burning)
-    let helperDotDamage = 0;
-    let helperPoisonCount: number | undefined;
-    let updatedDebuffs = state.activeDebuffs;
-    if (state.activeDebuffs.length > 0) {
-      const dot = tickDebuffDoT(state.activeDebuffs, dtSec, 1, bossStats.incDoTDamage, bs.bossMaxHp);
-      helperDotDamage = dot.damage;
-      helperPoisonCount = dot.poisonInstanceCount;
-      helperBossHp -= dot.damage;
-      updatedDebuffs = dot.updatedDebuffs;
-    }
-
-    if (playerHp <= 0) {
-      return {
-        patch: {
-          currentHp: 0,
-          currentEs: 0,
-          dodgeEntropy: Math.floor(Math.random() * 100),
-          bossState: { ...bs, bossNextAttackAt: nextAttack, bossCurrentHp: helperBossHp },
-          activeDebuffs: updatedDebuffs,
-        },
-        result: { ...noResult, bossOutcome: 'defeat', bossAttack: bossAttackResult, bleedTriggerDamage: helperBleedDmg, dotDamage: helperDotDamage, poisonInstanceCount: helperPoisonCount },
-      };
-    }
-
-    return {
-      patch: {
-        currentHp: playerHp,
-        currentEs: bossCurrentEs,
-        bossState: { ...bs, bossNextAttackAt: nextAttack, bossCurrentHp: helperBossHp },
-        activeDebuffs: updatedDebuffs,
-      },
-      result: { ...noResult, bossOutcome: 'ongoing', bossAttack: bossAttackResult, bleedTriggerDamage: helperBleedDmg, dotDamage: helperDotDamage, poisonInstanceCount: helperPoisonCount },
-    };
-  }
-  return { patch: {}, result: noResult };
-}
-
-/** Apply zone per-hit attacks + passive regen during normal clearing.
- *  Per-mob: each mob attacks independently, each has own debuffs/regen.
- *  Returns merged patch + result instead of calling set(). */
-function applyZoneDamage(
-  state: GameState,
-  dt: number,
-  now: number,
-  zone: { band: number; iLvlMin: number },
-): CombatTickOutput {
-  if (state.combatPhase !== 'clearing') return { patch: {}, result: noResult };
-  let playerHp = state.currentHp;
-  let zoneAttackResult: CombatTickResult['zoneAttack'] = null;
-  let helperBleedDmg = 0;
-  let helperDotDamage = 0;
-  const updatedMobs = state.packMobs.map(m => ({ ...m, debuffs: [...m.debuffs] }));
-  const packSize = updatedMobs.length;
-  // Per-mob damage scaling: divide per-mob zone damage by sqrt(packSize)
-  const packDmgScale = packSize > 1 ? 1 / Math.sqrt(packSize) : 1;
-
-  // --- Per-mob attack timers ---
-  let currentDodgeEntropy = state.dodgeEntropy;
-  let anyAttacked = false;
-  let currentEs = state.currentEs;
-  for (const mob of updatedMobs) {
-    if (mob.nextAttackAt <= 0 || now < mob.nextAttackAt) continue;
-    anyAttacked = true;
-    const mobEnemyMods = calcEnemyDebuffMods(mob.debuffs);
-
-    // Bleed trigger: mob attacked (hit or miss — mob still swung)
-    const mobBleedDmg = calcBleedTriggerDamage(mob.debuffs, 1, resolveStats(state.character).incDoTDamage);
-    if (mobBleedDmg > 0) {
-      mob.hp = Math.max(0, mob.hp - mobBleedDmg);
-      helperBleedDmg += mobBleedDmg;
-    }
-
-    // Rare mob attack speed multiplier (Frenzied)
-    const mobRareAtkMult = mob.rare?.combinedAtkSpeedMult ?? 1;
-
-    // Miss chance from debuffs (e.g. Blinded)
-    if (Math.random() * 100 < mobEnemyMods.missChance) {
-      if (!zoneAttackResult) zoneAttackResult = { damage: 0, isDodged: true, isBlocked: false };
-      mob.nextAttackAt = now + ZONE_ATTACK_INTERVAL * mobEnemyMods.atkSpeedSlowMult * mobRareAtkMult * 1000;
-    } else {
-      const playerStats = resolveStats(state.character);
-      const abilEff = getFullEffect(state, now, false);
-      const defStats = applyAbilityResists(playerStats, abilEff);
-      const buffedStats: ResolvedStats = abilEff.defenseMult
-        ? { ...defStats, armor: defStats.armor * abilEff.defenseMult, evasion: defStats.evasion * abilEff.defenseMult }
-        : defStats;
-
-      const levelMult = calcLevelDamageMult(state.character.level, zone.iLvlMin);
-      const zoneAccuracy = calcZoneAccuracy(zone.band, state.character.level, zone.iLvlMin);
-      const variance = 0.8 + Math.random() * 0.4;
-      const mobRareDmgMult = mob.rare?.combinedDamageMult ?? 1;
-      const rawDmg = (ZONE_DMG_BASE * zone.band + ZONE_DMG_ILVL_SCALE * zone.iLvlMin) * levelMult * variance * mobRareDmgMult * packDmgScale;
-
-      const roll = rollZoneAttack(rawDmg, ZONE_PHYS_RATIO, zoneAccuracy, buffedStats, currentDodgeEntropy);
-      currentDodgeEntropy = roll.newDodgeEntropy;
-      let mobZoneDmg = roll.damage * mobEnemyMods.damageMult;
-      const helperZoneFortifyDR = calcFortifyDR(state.fortifyStacks, state.fortifyExpiresAt, state.fortifyDRPerStack, now, resolveStats(state.character).fortifyEffect);
-      if (helperZoneFortifyDR > 0) mobZoneDmg *= (1 - helperZoneFortifyDR);
-      if (playerStats.damageTakenReduction > 0) mobZoneDmg *= (1 - playerStats.damageTakenReduction / 100);
-      if (currentEs > 0 && mobZoneDmg > 0) {
-        const esAbsorbed = Math.min(currentEs, mobZoneDmg);
-        currentEs -= esAbsorbed;
-        mobZoneDmg -= esAbsorbed;
-      }
-      playerHp -= mobZoneDmg;
-      // Report last attacking mob's roll as the zone attack result
-      zoneAttackResult = roll;
-      mob.nextAttackAt = now + ZONE_ATTACK_INTERVAL * mobEnemyMods.atkSpeedSlowMult * mobRareAtkMult * 1000;
-
-      const zoneStats = resolveStats(state.character);
-      if (zoneStats.esRecharge > 0) {
-        currentEs = Math.min(zoneStats.energyShield, currentEs + zoneStats.esRecharge * dt);
-      }
-    }
-  }
-
-  // Passive player regen per tick (only if any mob attacked — keeps original behavior)
-  if (anyAttacked) {
-    const maxLife = resolveStats(state.character).maxLife;
-    const regenCap = maxLife * MAX_REGEN_CAP_RATIO;
-    const regen = Math.min(resolveStats(state.character).lifeRegen * dt, regenCap);
-    playerHp = Math.min(maxLife, playerHp + regen);
-
-    if (playerHp <= 0) {
-      const deathNow = now;
-      const streakReset = deathNow - state.lastDeathTime > DEATH_STREAK_WINDOW * 1000;
-      const newStreak = streakReset ? 0 : state.deathStreak + 1;
-      return {
-        patch: {
-          currentHp: 0,
-          currentEs: 0,
-          dodgeEntropy: Math.floor(Math.random() * 100),
-          packMobs: updatedMobs,
-          combatPhase: 'zone_defeat' as CombatPhase,
-          combatPhaseStartedAt: deathNow,
-          deathStreak: newStreak,
-          lastDeathTime: deathNow,
-        },
-        result: { ...noResult, zoneAttack: zoneAttackResult, zoneDeath: true, bleedTriggerDamage: helperBleedDmg },
-      };
-    }
-    // Fold currentHp + dodgeEntropy into patch
-  }
-
-  // --- Per-mob DoT and regen ---
-  const zonePlayerStats = resolveStats(state.character);
-  let helperPoisonCount: number | undefined;
-  for (const mob of updatedMobs) {
-    if (mob.debuffs.length > 0) {
-      const enemyMaxHp = mob.maxHp > 0 ? mob.maxHp : 1;
-      const dot = tickDebuffDoT(mob.debuffs, dt, 1, zonePlayerStats.incDoTDamage, enemyMaxHp);
-      const mobDamageTakenMult = mob.rare?.combinedDamageTakenMult ?? 1;
-      const dotDmg = dot.damage * mobDamageTakenMult;
-      helperDotDamage += dotDmg;
-      mob.hp = Math.max(0, mob.hp - dotDmg);
-      mob.debuffs = dot.updatedDebuffs;
-      if (dot.poisonInstanceCount) helperPoisonCount = (helperPoisonCount ?? 0) + dot.poisonInstanceCount;
-    }
-    // Rare mob regen (Regenerating)
-    const regenRate = mob.rare?.combinedRegenPerSec ?? 0;
-    if (regenRate > 0 && mob.maxHp > 0) {
-      mob.hp = Math.min(mob.maxHp, mob.hp + mob.maxHp * regenRate * dt);
-    }
-  }
-
-  return {
-    patch: {
-      packMobs: updatedMobs,
-      currentHp: playerHp,
-      currentEs: currentEs,
-      dodgeEntropy: currentDodgeEntropy,
-    },
-    result: { ...noResult, zoneAttack: zoneAttackResult, bleedTriggerDamage: helperBleedDmg, dotDamage: helperDotDamage, poisonInstanceCount: helperPoisonCount },
-  };
-}
+// ── Subsystem imports ──
+import { applyBossDamage } from './bossAttack';
+import { applyZoneDamage } from './zoneAttack';
+import { noResult } from './types';
+import type { CombatTickOutput } from './types';
+export type { CombatTickOutput } from './types';
 
 // ── Main pure function ──
 
@@ -621,60 +368,7 @@ export function runCombatTick(
         if (effectiveStats.ailmentDuration > 0) {
           duration *= (1 + effectiveStats.ailmentDuration / 100);
         }
-        const existing = newDebuffs.findIndex(d => d.debuffId === debuffInfo.debuffId);
-        const debuffDef = getDebuffDef(debuffInfo.debuffId);
-        const isSnapshotDebuff = debuffDef?.dotType === 'snapshot';
-
-        // Instance-based path (poison): push independent instance, no cap
-        if (debuffDef?.instanceBased) {
-          const newInstance = { snapshot: roll.damage, remainingDuration: duration, appliedBySkillId: skill.id };
-          if (existing >= 0) {
-            const d = newDebuffs[existing];
-            const instances = [...(d.instances ?? []), newInstance];
-            newDebuffs[existing] = {
-              ...d,
-              instances,
-              stacks: instances.length,
-              remainingDuration: Math.max(duration, d.remainingDuration),
-              appliedBySkillId: skill.id,
-              stackSnapshots: instances.map(i => i.snapshot),
-            };
-          } else {
-            newDebuffs.push({
-              debuffId: debuffInfo.debuffId, stacks: 1, remainingDuration: duration,
-              appliedBySkillId: skill.id,
-              stackSnapshots: [roll.damage],
-              instances: [newInstance],
-              dotTickAccumulator: 0,
-            });
-          }
-        } else if (existing >= 0 && debuffDef?.stackable) {
-          const d = newDebuffs[existing];
-          const newStacks = Math.min(d.stacks + 1, debuffDef.maxStacks);
-          // Snapshot: track hit damage per stack (FIFO at max)
-          let snapshots = d.stackSnapshots ? [...d.stackSnapshots] : undefined;
-          if (isSnapshotDebuff) {
-            snapshots = snapshots ?? [];
-            if (snapshots.length >= debuffDef.maxStacks) snapshots.shift(); // FIFO
-            snapshots.push(roll.damage);
-          }
-          newDebuffs[existing] = {
-            ...d,
-            stacks: newStacks,
-            remainingDuration: duration,
-            appliedBySkillId: skill.id,
-            stackSnapshots: snapshots,
-          };
-        } else if (existing >= 0) {
-          // Refresh duration (non-stackable)
-          newDebuffs[existing] = { ...newDebuffs[existing], remainingDuration: duration, appliedBySkillId: skill.id };
-        } else {
-          newDebuffs.push({
-            debuffId: debuffInfo.debuffId, stacks: 1, remainingDuration: duration,
-            appliedBySkillId: skill.id,
-            stackSnapshots: isSnapshotDebuff ? [roll.damage] : undefined,
-          });
-        }
+        applyDebuffToList(newDebuffs, debuffInfo.debuffId, 1, duration, skill.id, roll.damage);
       }
     }
   }
@@ -689,61 +383,7 @@ export function runCombatTick(
     if (effectiveStats.ailmentDuration > 0) {
       duration *= (1 + effectiveStats.ailmentDuration / 100);
     }
-    const existing = newDebuffs.findIndex(d => d.debuffId === doc.debuffId);
-    const debuffDef = getDebuffDef(doc.debuffId);
-    const isSnapshotDebuff = debuffDef?.dotType === 'snapshot';
-
-    // Instance-based path (poison): push N independent instances
-    if (debuffDef?.instanceBased) {
-      const newInstances = Array.from({ length: doc.stacks }, () => ({
-        snapshot: roll.damage, remainingDuration: duration, appliedBySkillId: skill.id,
-      }));
-      if (existing >= 0) {
-        const d = newDebuffs[existing];
-        const instances = [...(d.instances ?? []), ...newInstances];
-        newDebuffs[existing] = {
-          ...d,
-          instances,
-          stacks: instances.length,
-          remainingDuration: Math.max(duration, d.remainingDuration),
-          appliedBySkillId: skill.id,
-          stackSnapshots: instances.map(i => i.snapshot),
-        };
-      } else {
-        newDebuffs.push({
-          debuffId: doc.debuffId, stacks: doc.stacks, remainingDuration: duration,
-          appliedBySkillId: skill.id,
-          stackSnapshots: newInstances.map(i => i.snapshot),
-          instances: newInstances,
-          dotTickAccumulator: 0,
-        });
-      }
-    } else if (existing >= 0 && debuffDef?.stackable) {
-      const d = newDebuffs[existing];
-      let snapshots = d.stackSnapshots ? [...d.stackSnapshots] : undefined;
-      if (isSnapshotDebuff) {
-        snapshots = snapshots ?? [];
-        for (let i = 0; i < doc.stacks; i++) {
-          if (snapshots.length >= debuffDef.maxStacks) snapshots.shift();
-          snapshots.push(roll.damage);
-        }
-      }
-      newDebuffs[existing] = {
-        ...d,
-        stacks: Math.min(d.stacks + doc.stacks, debuffDef.maxStacks),
-        remainingDuration: duration,
-        appliedBySkillId: skill.id,
-        stackSnapshots: snapshots,
-      };
-    } else if (existing >= 0) {
-      newDebuffs[existing] = { ...newDebuffs[existing], remainingDuration: duration, appliedBySkillId: skill.id };
-    } else {
-      const initSnapshots = isSnapshotDebuff ? Array(doc.stacks).fill(roll.damage) as number[] : undefined;
-      newDebuffs.push({
-        debuffId: doc.debuffId, stacks: doc.stacks, remainingDuration: duration,
-        appliedBySkillId: skill.id, stackSnapshots: initSnapshots,
-      });
-    }
+    applyDebuffToList(newDebuffs, doc.debuffId, doc.stacks, duration, skill.id, roll.damage);
   }
 
   // consumeDebuff: consume all stacks, deal burst damage
@@ -798,76 +438,12 @@ export function runCombatTick(
 
       // Merge proc temp buffs (stack or add)
       for (const buff of pr.newTempBuffs) {
-        const existingIdx = activeTempBuffs.findIndex(b => b.id === buff.id);
-        if (existingIdx >= 0) {
-          const existing = activeTempBuffs[existingIdx];
-          activeTempBuffs = [
-            ...activeTempBuffs.slice(0, existingIdx),
-            { ...existing, expiresAt: buff.expiresAt, stacks: Math.min(existing.stacks + 1, existing.maxStacks) },
-            ...activeTempBuffs.slice(existingIdx + 1),
-          ];
-        } else {
-          activeTempBuffs = [...activeTempBuffs, buff];
-        }
+        activeTempBuffs = mergeProcTempBuff(activeTempBuffs, buff);
       }
 
-      // Merge proc debuffs (standard stacking logic + snapshot support)
+      // Merge proc debuffs
       for (const pd of pr.newDebuffs) {
-        const existingIdx = newDebuffs.findIndex(d => d.debuffId === pd.debuffId);
-        const debuffDef = getDebuffDef(pd.debuffId);
-        const isSnapshotDebuff = debuffDef?.dotType === 'snapshot';
-
-        // Instance-based path (poison): push N independent instances
-        if (debuffDef?.instanceBased) {
-          const newInstances = Array.from({ length: pd.stacks }, () => ({
-            snapshot: roll.damage, remainingDuration: pd.duration, appliedBySkillId: pd.skillId,
-          }));
-          if (existingIdx >= 0) {
-            const d = newDebuffs[existingIdx];
-            const instances = [...(d.instances ?? []), ...newInstances];
-            newDebuffs[existingIdx] = {
-              ...d,
-              instances,
-              stacks: instances.length,
-              remainingDuration: Math.max(pd.duration, d.remainingDuration),
-              appliedBySkillId: pd.skillId,
-              stackSnapshots: instances.map(i => i.snapshot),
-            };
-          } else {
-            newDebuffs.push({
-              debuffId: pd.debuffId, stacks: pd.stacks, remainingDuration: pd.duration,
-              appliedBySkillId: pd.skillId,
-              stackSnapshots: newInstances.map(i => i.snapshot),
-              instances: newInstances,
-              dotTickAccumulator: 0,
-            });
-          }
-        } else if (existingIdx >= 0 && debuffDef?.stackable) {
-          const d = newDebuffs[existingIdx];
-          let snapshots = d.stackSnapshots ? [...d.stackSnapshots] : undefined;
-          if (isSnapshotDebuff) {
-            snapshots = snapshots ?? [];
-            for (let i = 0; i < pd.stacks; i++) {
-              if (snapshots.length >= debuffDef.maxStacks) snapshots.shift();
-              snapshots.push(roll.damage);
-            }
-          }
-          newDebuffs[existingIdx] = {
-            ...d,
-            stacks: Math.min(d.stacks + pd.stacks, debuffDef.maxStacks),
-            remainingDuration: pd.duration,
-            appliedBySkillId: pd.skillId,
-            stackSnapshots: snapshots,
-          };
-        } else if (existingIdx >= 0) {
-          newDebuffs[existingIdx] = { ...newDebuffs[existingIdx], remainingDuration: pd.duration, appliedBySkillId: pd.skillId };
-        } else {
-          const initSnapshots = isSnapshotDebuff ? Array(pd.stacks).fill(roll.damage) as number[] : undefined;
-          newDebuffs.push({
-            debuffId: pd.debuffId, stacks: pd.stacks, remainingDuration: pd.duration,
-            appliedBySkillId: pd.skillId, stackSnapshots: initSnapshots,
-          });
-        }
+        applyDebuffToList(newDebuffs, pd.debuffId, pd.stacks, pd.duration, pd.skillId, roll.damage);
       }
     }
   }
@@ -1054,29 +630,10 @@ export function runCombatTick(
           procHeal += pr.healAmount;
           procCooldownResets.push(...pr.cooldownResets);
           for (const buff of pr.newTempBuffs) {
-            const existingIdx = activeTempBuffs.findIndex(b => b.id === buff.id);
-            if (existingIdx >= 0) {
-              const existing = activeTempBuffs[existingIdx];
-              activeTempBuffs = [
-                ...activeTempBuffs.slice(0, existingIdx),
-                { ...existing, expiresAt: buff.expiresAt, stacks: Math.min(existing.stacks + 1, existing.maxStacks) },
-                ...activeTempBuffs.slice(existingIdx + 1),
-              ];
-            } else {
-              activeTempBuffs = [...activeTempBuffs, buff];
-            }
+            activeTempBuffs = mergeProcTempBuff(activeTempBuffs, buff);
           }
           for (const pd of pr.newDebuffs) {
-            const existingIdx = newDebuffs.findIndex(d => d.debuffId === pd.debuffId);
-            const debuffDef = getDebuffDef(pd.debuffId);
-            if (existingIdx >= 0 && debuffDef?.stackable) {
-              const d = newDebuffs[existingIdx];
-              newDebuffs[existingIdx] = { ...d, stacks: Math.min(d.stacks + pd.stacks, debuffDef.maxStacks), remainingDuration: pd.duration, appliedBySkillId: pd.skillId };
-            } else if (existingIdx >= 0) {
-              newDebuffs[existingIdx] = { ...newDebuffs[existingIdx], remainingDuration: pd.duration, appliedBySkillId: pd.skillId };
-            } else {
-              newDebuffs.push({ debuffId: pd.debuffId, stacks: pd.stacks, remainingDuration: pd.duration, appliedBySkillId: pd.skillId });
-            }
+            applyDebuffToList(newDebuffs, pd.debuffId, pd.stacks, pd.duration, pd.skillId);
           }
         }
       }
@@ -1334,79 +891,14 @@ export function runCombatTick(
 
       // spreadDebuffOnKill: re-apply matching debuffs to new front mob
       if (graphMod?.debuffInteraction?.spreadDebuffOnKill) {
-        const sdk = graphMod.debuffInteraction.spreadDebuffOnKill;
-        const matching = sdk.debuffIds.includes('all')
-          ? preDeathDebuffs
-          : preDeathDebuffs.filter(d => sdk.debuffIds.includes(d.debuffId));
-        if (matching.length > 0) didSpreadDebuffs = true;
-        for (const srcDebuff of matching) {
-          const spreadDef = getDebuffDef(srcDebuff.debuffId);
-          if (spreadDef?.instanceBased && srcDebuff.instances) {
-            // Copy instances with refreshed durations + reset tick accumulator
-            const spreadInstances = srcDebuff.instances.map(inst => ({
-              ...inst,
-              remainingDuration: sdk.refreshDuration > 0 ? sdk.refreshDuration : inst.remainingDuration,
-            }));
-            updatedPackMobs[0].debuffs.push({
-              ...srcDebuff,
-              instances: spreadInstances,
-              stacks: spreadInstances.length,
-              remainingDuration: Math.max(...spreadInstances.map(i => i.remainingDuration)),
-              stackSnapshots: spreadInstances.map(i => i.snapshot),
-              dotTickAccumulator: 0,
-            });
-          } else {
-            updatedPackMobs[0].debuffs.push({
-              ...srcDebuff,
-              remainingDuration: sdk.refreshDuration > 0 ? sdk.refreshDuration : srcDebuff.remainingDuration,
-            });
-          }
+        if (spreadDebuffsToTarget(updatedPackMobs[0].debuffs, preDeathDebuffs, graphMod.debuffInteraction.spreadDebuffOnKill)) {
+          didSpreadDebuffs = true;
         }
       }
 
       // Apply onKill proc debuffs to new front mob
       for (const pd of killProcDebuffs) {
-        const existing = updatedPackMobs[0].debuffs.findIndex(d => d.debuffId === pd.debuffId);
-        const procDebuffDef = getDebuffDef(pd.debuffId);
-        if (procDebuffDef?.instanceBased) {
-          // Instance-based: push new instances
-          const newInstances = Array.from({ length: pd.stacks }, () => ({
-            snapshot: 0, remainingDuration: pd.duration, appliedBySkillId: pd.skillId,
-          }));
-          if (existing >= 0) {
-            const d = updatedPackMobs[0].debuffs[existing];
-            const instances = [...(d.instances ?? []), ...newInstances];
-            updatedPackMobs[0].debuffs[existing] = {
-              ...d,
-              instances,
-              stacks: instances.length,
-              remainingDuration: Math.max(pd.duration, d.remainingDuration),
-              stackSnapshots: instances.map(i => i.snapshot),
-            };
-          } else {
-            updatedPackMobs[0].debuffs.push({
-              debuffId: pd.debuffId, stacks: pd.stacks, remainingDuration: pd.duration,
-              appliedBySkillId: pd.skillId,
-              instances: newInstances,
-              stackSnapshots: newInstances.map(i => i.snapshot),
-              dotTickAccumulator: 0,
-            });
-          }
-        } else if (existing >= 0) {
-          const d = updatedPackMobs[0].debuffs[existing];
-          updatedPackMobs[0].debuffs[existing] = {
-            ...d,
-            stacks: d.stacks + pd.stacks,
-            remainingDuration: Math.max(d.remainingDuration, pd.duration),
-          };
-        } else {
-          updatedPackMobs[0].debuffs.push({
-            debuffId: pd.debuffId,
-            stacks: pd.stacks,
-            remainingDuration: pd.duration,
-            appliedBySkillId: pd.skillId,
-          });
-        }
+        applyDebuffToList(updatedPackMobs[0].debuffs, pd.debuffId, pd.stacks, pd.duration, pd.skillId);
       }
     } else {
       // Pack fully dead — roll NEW encounter (new mob type, new pack)
@@ -1431,78 +923,15 @@ export function runCombatTick(
 
       // spreadDebuffOnKill: apply to new pack's front mob
       if (graphMod?.debuffInteraction?.spreadDebuffOnKill && updatedPackMobs.length > 0) {
-        const sdk = graphMod.debuffInteraction.spreadDebuffOnKill;
-        const matching = sdk.debuffIds.includes('all')
-          ? preDeathDebuffs
-          : preDeathDebuffs.filter(d => sdk.debuffIds.includes(d.debuffId));
-        if (matching.length > 0) didSpreadDebuffs = true;
-        for (const srcDebuff of matching) {
-          const spreadDef = getDebuffDef(srcDebuff.debuffId);
-          if (spreadDef?.instanceBased && srcDebuff.instances) {
-            const spreadInstances = srcDebuff.instances.map(inst => ({
-              ...inst,
-              remainingDuration: sdk.refreshDuration > 0 ? sdk.refreshDuration : inst.remainingDuration,
-            }));
-            updatedPackMobs[0].debuffs.push({
-              ...srcDebuff,
-              instances: spreadInstances,
-              stacks: spreadInstances.length,
-              remainingDuration: Math.max(...spreadInstances.map(i => i.remainingDuration)),
-              stackSnapshots: spreadInstances.map(i => i.snapshot),
-              dotTickAccumulator: 0,
-            });
-          } else {
-            updatedPackMobs[0].debuffs.push({
-              ...srcDebuff,
-              remainingDuration: sdk.refreshDuration > 0 ? sdk.refreshDuration : srcDebuff.remainingDuration,
-            });
-          }
+        if (spreadDebuffsToTarget(updatedPackMobs[0].debuffs, preDeathDebuffs, graphMod.debuffInteraction.spreadDebuffOnKill)) {
+          didSpreadDebuffs = true;
         }
       }
 
       // Apply onKill proc debuffs to new front mob
       if (updatedPackMobs.length > 0) {
         for (const pd of killProcDebuffs) {
-          const existing = updatedPackMobs[0].debuffs.findIndex(d => d.debuffId === pd.debuffId);
-          const procDebuffDef = getDebuffDef(pd.debuffId);
-          if (procDebuffDef?.instanceBased) {
-            const newInstances = Array.from({ length: pd.stacks }, () => ({
-              snapshot: 0, remainingDuration: pd.duration, appliedBySkillId: pd.skillId,
-            }));
-            if (existing >= 0) {
-              const d = updatedPackMobs[0].debuffs[existing];
-              const instances = [...(d.instances ?? []), ...newInstances];
-              updatedPackMobs[0].debuffs[existing] = {
-                ...d,
-                instances,
-                stacks: instances.length,
-                remainingDuration: Math.max(pd.duration, d.remainingDuration),
-                stackSnapshots: instances.map(i => i.snapshot),
-              };
-            } else {
-              updatedPackMobs[0].debuffs.push({
-                debuffId: pd.debuffId, stacks: pd.stacks, remainingDuration: pd.duration,
-                appliedBySkillId: pd.skillId,
-                instances: newInstances,
-                stackSnapshots: newInstances.map(i => i.snapshot),
-                dotTickAccumulator: 0,
-              });
-            }
-          } else if (existing >= 0) {
-            const d = updatedPackMobs[0].debuffs[existing];
-            updatedPackMobs[0].debuffs[existing] = {
-              ...d,
-              stacks: d.stacks + pd.stacks,
-              remainingDuration: Math.max(d.remainingDuration, pd.duration),
-            };
-          } else {
-            updatedPackMobs[0].debuffs.push({
-              debuffId: pd.debuffId,
-              stacks: pd.stacks,
-              remainingDuration: pd.duration,
-              appliedBySkillId: pd.skillId,
-            });
-          }
+          applyDebuffToList(updatedPackMobs[0].debuffs, pd.debuffId, pd.stacks, pd.duration, pd.skillId);
         }
       }
     }
@@ -1636,30 +1065,11 @@ export function runCombatTick(
         procHeal += pr.healAmount;
         procCooldownResets.push(...pr.cooldownResets);
         for (const buff of pr.newTempBuffs) {
-          const existingIdx = activeTempBuffs.findIndex(b => b.id === buff.id);
-          if (existingIdx >= 0) {
-            const existing = activeTempBuffs[existingIdx];
-            activeTempBuffs = [
-              ...activeTempBuffs.slice(0, existingIdx),
-              { ...existing, expiresAt: buff.expiresAt, stacks: Math.min(existing.stacks + 1, existing.maxStacks) },
-              ...activeTempBuffs.slice(existingIdx + 1),
-            ];
-          } else {
-            activeTempBuffs = [...activeTempBuffs, buff];
-          }
+          activeTempBuffs = mergeProcTempBuff(activeTempBuffs, buff);
         }
         if (updatedPackMobs.length > 0) {
           for (const pd of pr.newDebuffs) {
-            const existingIdx = updatedPackMobs[0].debuffs.findIndex(d => d.debuffId === pd.debuffId);
-            const debuffDef = getDebuffDef(pd.debuffId);
-            if (existingIdx >= 0 && debuffDef?.stackable) {
-              const d = updatedPackMobs[0].debuffs[existingIdx];
-              updatedPackMobs[0].debuffs[existingIdx] = { ...d, stacks: Math.min(d.stacks + pd.stacks, debuffDef.maxStacks), remainingDuration: pd.duration, appliedBySkillId: pd.skillId };
-            } else if (existingIdx >= 0) {
-              updatedPackMobs[0].debuffs[existingIdx] = { ...updatedPackMobs[0].debuffs[existingIdx], remainingDuration: pd.duration, appliedBySkillId: pd.skillId };
-            } else {
-              updatedPackMobs[0].debuffs.push({ debuffId: pd.debuffId, stacks: pd.stacks, remainingDuration: pd.duration, appliedBySkillId: pd.skillId });
-            }
+            applyDebuffToList(updatedPackMobs[0].debuffs, pd.debuffId, pd.stacks, pd.duration, pd.skillId);
           }
         }
       }

@@ -6,7 +6,7 @@ import { Rarity } from '../../types';
 import { calcBagCapacity } from '../../data/items';
 import SkillBar from '../components/SkillBar';
 import { DamageFloaters, FloaterEntry } from '../components/DamageFloater';
-import { getUnifiedSkillDef } from '../../data/unifiedSkills';
+import { getUnifiedSkillDef } from '../../data/skills';
 import { BOSS_INTERVAL } from '../../data/balance';
 import { getMobTypeDef } from '../../data/mobTypes';
 import { resolveStats } from '../../engine/character';

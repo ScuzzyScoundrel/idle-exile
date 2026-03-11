@@ -13,7 +13,7 @@ import { addXp, resolveStats } from '../engine/character';
 import { getBagDef, BAG_SLOT_COUNT } from '../data/items';
 import { addItemsWithOverflow, getInventoryCapacity } from '../engine/inventory/helpers';
 import { ZONE_DEFS } from '../data/zones';
-import { getUnifiedSkillDef, ABILITY_ID_MIGRATION } from '../data/unifiedSkills';
+import { getUnifiedSkillDef, ABILITY_ID_MIGRATION } from '../data/skills';
 import {
   createAbilityProgress, addAbilityXp, getAbilityXpPerClear,
 } from '../engine/unifiedSkills';
