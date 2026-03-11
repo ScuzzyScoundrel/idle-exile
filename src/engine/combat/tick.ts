@@ -49,6 +49,7 @@ import {
   applyDebuffToList,
   spreadDebuffsToTarget,
   mergeProcTempBuff,
+  type SpreadResult,
 } from './helpers';
 import { isSkillAoE, spawnPack } from '../packs';
 import { isZoneInvaded } from '../invasions';
@@ -78,6 +79,40 @@ import { applyZoneDamage } from './zoneAttack';
 import { noResult } from './types';
 import type { CombatTickOutput } from './types';
 export type { CombatTickOutput } from './types';
+
+// ── Structured proc event type (mirrors CombatTickResult.procEvents element) ──
+type ProcEvent = {
+  procId: string;
+  label: string;
+  damage: number;
+  sourceSkillId: string;
+  type: 'damage' | 'buff' | 'debuff' | 'heal' | 'cdReset' | 'cast';
+};
+
+import type { ProcResult } from '../combatHelpers';
+
+/** Build structured ProcEvent entries from an evaluateProcs result. */
+function buildProcEvents(pr: ProcResult, sourceSkillId: string): ProcEvent[] {
+  const events: ProcEvent[] = [];
+  for (const procId of pr.procsFired) {
+    const label = prettifyProcId(procId);
+    // Classify: damage procs get damage type, others get the most specific type
+    if (pr.bonusDamage > 0) {
+      events.push({ procId, label, damage: pr.bonusDamage, sourceSkillId, type: 'damage' });
+    } else if (pr.healAmount > 0) {
+      events.push({ procId, label, damage: 0, sourceSkillId, type: 'heal' });
+    } else if (pr.cooldownResets.length > 0) {
+      events.push({ procId, label, damage: 0, sourceSkillId, type: 'cdReset' });
+    } else if (pr.newTempBuffs.length > 0) {
+      events.push({ procId, label, damage: 0, sourceSkillId, type: 'buff' });
+    } else if (pr.newDebuffs.length > 0) {
+      events.push({ procId, label, damage: 0, sourceSkillId, type: 'debuff' });
+    } else {
+      events.push({ procId, label, damage: 0, sourceSkillId, type: 'cast' });
+    }
+  }
+  return events;
+}
 
 // ── Main pure function ──
 
@@ -441,6 +476,7 @@ export function runCombatTick(
   let procCooldownResets: string[] = [];
   let procGcdWasReset = false;
   const allProcsFired: string[] = [];
+  const allProcEvents: ProcEvent[] = [];
   let newLastProcTriggerAt = { ...state.lastProcTriggerAt };
   if (graphMod?.skillProcs?.length) {
     const procCtx: ProcContext = {
@@ -463,6 +499,7 @@ export function runCombatTick(
       procHeal += pr.healAmount;
       procCooldownResets.push(...pr.cooldownResets);
       allProcsFired.push(...pr.procsFired);
+      allProcEvents.push(...buildProcEvents(pr, skill.id));
       Object.assign(newLastProcTriggerAt, pr.procTriggeredAt);
 
       // Merge proc temp buffs (stack or add)
@@ -719,6 +756,9 @@ export function runCombatTick(
       procDamage: procDamage > 0 ? procDamage : undefined,
       procLabel: allProcsFired.length > 0 ? (prettifyProcId(allProcsFired[0])) : undefined,
       cooldownWasReset: procCooldownResets.length > 0,
+      // Structured events
+      procEvents: allProcEvents.length > 0 ? allProcEvents : undefined,
+      cooldownResets: procCooldownResets.length > 0 ? procCooldownResets : undefined,
     };
 
     // Check outcomes
@@ -777,6 +817,7 @@ export function runCombatTick(
   let bleedTriggerDamage = 0;
   let shatterDamage = 0;
   let didSpreadDebuffs = false;
+  const allSpreadEvents: SpreadResult[] = [];
   const skillIsAoE = isSkillAoE(state.skillBar, skill.id, state.skillProgress);
 
   // Compute total damage to apply (before per-mob DR)
@@ -879,8 +920,10 @@ export function runCombatTick(
       const killPr = evaluateProcs(graphMod.skillProcs, 'onKill', killProcCtx);
       Object.assign(newLastProcTriggerAt, killPr.procTriggeredAt);
       allProcsFired.push(...killPr.procsFired);
+      allProcEvents.push(...buildProcEvents(killPr, skill.id));
       procDamage += killPr.bonusDamage;
       procHeal += killPr.healAmount;
+      procCooldownResets.push(...killPr.cooldownResets);
       for (const buff of killPr.newTempBuffs) {
         activeTempBuffs = [...activeTempBuffs, buff];
       }
@@ -920,8 +963,10 @@ export function runCombatTick(
 
       // spreadDebuffOnKill: re-apply matching debuffs to new front mob
       if (graphMod?.debuffInteraction?.spreadDebuffOnKill) {
-        if (spreadDebuffsToTarget(updatedPackMobs[0].debuffs, preDeathDebuffs, graphMod.debuffInteraction.spreadDebuffOnKill)) {
+        const spreads = spreadDebuffsToTarget(updatedPackMobs[0].debuffs, preDeathDebuffs, graphMod.debuffInteraction.spreadDebuffOnKill);
+        if (spreads.length > 0) {
           didSpreadDebuffs = true;
+          allSpreadEvents.push(...spreads);
         }
       }
 
@@ -952,8 +997,10 @@ export function runCombatTick(
 
       // spreadDebuffOnKill: apply to new pack's front mob
       if (graphMod?.debuffInteraction?.spreadDebuffOnKill && updatedPackMobs.length > 0) {
-        if (spreadDebuffsToTarget(updatedPackMobs[0].debuffs, preDeathDebuffs, graphMod.debuffInteraction.spreadDebuffOnKill)) {
+        const spreads = spreadDebuffsToTarget(updatedPackMobs[0].debuffs, preDeathDebuffs, graphMod.debuffInteraction.spreadDebuffOnKill);
+        if (spreads.length > 0) {
           didSpreadDebuffs = true;
+          allSpreadEvents.push(...spreads);
         }
       }
 
@@ -994,8 +1041,10 @@ export function runCombatTick(
       const aoeKillPr = evaluateProcs(graphMod.skillProcs, 'onKill', aoeKillCtx);
       Object.assign(newLastProcTriggerAt, aoeKillPr.procTriggeredAt);
       allProcsFired.push(...aoeKillPr.procsFired);
+      allProcEvents.push(...buildProcEvents(aoeKillPr, skill.id));
       procDamage += aoeKillPr.bonusDamage;
       procHeal += aoeKillPr.healAmount;
+      procCooldownResets.push(...aoeKillPr.cooldownResets);
       for (const buff of aoeKillPr.newTempBuffs) {
         activeTempBuffs = mergeProcTempBuff(activeTempBuffs, buff);
       }
@@ -1115,6 +1164,7 @@ export function runCombatTick(
         const pr = evaluateProcs(graphMod.skillProcs, trigger, defProcCtx);
         Object.assign(newLastProcTriggerAt, pr.procTriggeredAt);
         allProcsFired.push(...pr.procsFired);
+        allProcEvents.push(...buildProcEvents(pr, skill.id));
         if (pr.bonusDamage > 0 && updatedPackMobs.length > 0) {
           updatedPackMobs[0].hp -= pr.bonusDamage;
           totalDamage += pr.bonusDamage;
@@ -1170,6 +1220,10 @@ export function runCombatTick(
     didSpreadDebuffs,
     packSize: newCurrentPackSize,
     encounterLootMult,
+    // Structured events
+    procEvents: allProcEvents.length > 0 ? allProcEvents : undefined,
+    spreadEvents: allSpreadEvents.length > 0 ? allSpreadEvents : undefined,
+    cooldownResets: procCooldownResets.length > 0 ? procCooldownResets : undefined,
   };
 
   // Zone death check

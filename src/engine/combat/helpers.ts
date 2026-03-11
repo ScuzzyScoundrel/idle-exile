@@ -282,21 +282,27 @@ export function getFullEffect(
   return mergeEffect(mergeEffect(skillEffect, talentEffect), graphGlobalEffect);
 }
 
+export interface SpreadResult {
+  debuffId: string;
+  stacks: number;
+}
+
 /**
  * Spread matching debuffs from a dead mob to a target mob's debuff list.
  * Instance-based debuffs copy instances with refreshed durations; others just copy.
- * Returns true if any debuffs were spread.
+ * Returns array of spread details (empty if nothing spread).
  */
 export function spreadDebuffsToTarget(
   targetDebuffs: ActiveDebuff[],
   sourceDebuffs: ActiveDebuff[],
   config: { debuffIds: string[]; refreshDuration: number },
-): boolean {
+): SpreadResult[] {
   const matching = config.debuffIds.includes('all')
     ? sourceDebuffs
     : sourceDebuffs.filter(d => config.debuffIds.includes(d.debuffId));
-  if (matching.length === 0) return false;
+  if (matching.length === 0) return [];
 
+  const results: SpreadResult[] = [];
   for (const srcDebuff of matching) {
     const spreadDef = getDebuffDef(srcDebuff.debuffId);
     if (spreadDef?.instanceBased && srcDebuff.instances) {
@@ -312,12 +318,14 @@ export function spreadDebuffsToTarget(
         stackSnapshots: spreadInstances.map(i => i.snapshot),
         dotTickAccumulator: 0,
       });
+      results.push({ debuffId: srcDebuff.debuffId, stacks: spreadInstances.length });
     } else {
       targetDebuffs.push({
         ...srcDebuff,
         remainingDuration: config.refreshDuration > 0 ? config.refreshDuration : srcDebuff.remainingDuration,
       });
+      results.push({ debuffId: srcDebuff.debuffId, stacks: srcDebuff.stacks });
     }
   }
-  return true;
+  return results;
 }

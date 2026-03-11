@@ -26,13 +26,81 @@ import BossFightDisplay from './BossFightDisplay';
 import SkillPicker from './SkillPicker';
 
 const BUFF_DISPLAY: Record<string, { label: string; color: string }> = {
-  st_blade_sense:      { label: 'PREDATOR',    color: 'text-yellow-300 bg-yellow-900/60' },
-  st_opportunist:      { label: 'FIRST BLOOD', color: 'text-yellow-300 bg-yellow-900/60' },
-  st_deep_wounds:      { label: 'FRENZY',      color: 'text-green-300 bg-green-900/60' },
-  st_ghost_step_form:  { label: 'SHADOW',      color: 'text-violet-300 bg-violet-900/60' },
-  st_evasive_recovery: { label: 'EVASION+',    color: 'text-teal-300 bg-teal-900/60' },
-  st_counter_stance:   { label: 'COUNTER',     color: 'text-orange-300 bg-orange-900/60' },
-  st_reactive:         { label: 'REACT',       color: 'text-blue-300 bg-blue-900/60' },
+  // ── Shared / cross-skill buffs ──
+  predator:           { label: 'PREDATOR',     color: 'text-yellow-300 bg-yellow-900/60' },
+  venomFrenzy:        { label: 'VENOM FRENZY', color: 'text-green-300 bg-green-900/60' },
+  venomSurge:         { label: 'VENOM SURGE',  color: 'text-green-300 bg-green-900/60' },
+
+  // ── Stab ──
+  honedInstincts:     { label: 'HONED',        color: 'text-yellow-300 bg-yellow-900/60' },
+  st_opportunist:     { label: 'FIRST BLOOD',  color: 'text-yellow-300 bg-yellow-900/60' },
+  st_deep_wounds:     { label: 'FRENZY',       color: 'text-green-300 bg-green-900/60' },
+  st_ghost_step_form: { label: 'SHADOW',       color: 'text-violet-300 bg-violet-900/60' },
+  st_evasive_recovery:{ label: 'EVASION+',     color: 'text-teal-300 bg-teal-900/60' },
+  st_reactive:        { label: 'REACT',        color: 'text-blue-300 bg-blue-900/60' },
+  st_secondwind:      { label: 'SECOND WIND',  color: 'text-teal-300 bg-teal-900/60' },
+
+  // ── Blade Flurry ──
+  bf_flurry_of_steel: { label: 'FLURRY',       color: 'text-yellow-300 bg-yellow-900/60' },
+  stormState:         { label: 'STORM',        color: 'text-blue-300 bg-blue-900/60' },
+  precisionCuts:      { label: 'PRECISION',    color: 'text-yellow-300 bg-yellow-900/60' },
+  cascadeKiller:      { label: 'CASCADE',      color: 'text-red-300 bg-red-900/60' },
+  crimsonBarrage:     { label: 'BARRAGE',      color: 'text-red-300 bg-red-900/60' },
+  flickerCharge:      { label: 'FLICKER',      color: 'text-violet-300 bg-violet-900/60' },
+  phantomEdge:        { label: 'PHANTOM',      color: 'text-violet-300 bg-violet-900/60' },
+  bladeShield:        { label: 'BLADE SHLD',   color: 'text-teal-300 bg-teal-900/60' },
+  bf_mirage_flurry:   { label: 'MIRAGE',       color: 'text-violet-300 bg-violet-900/60' },
+
+  // ── Frost Fan ──
+  glacialFocus:       { label: 'GLACIAL',      color: 'text-cyan-300 bg-cyan-900/60' },
+  frozenCarnage:      { label: 'FROZEN',       color: 'text-cyan-300 bg-cyan-900/60' },
+  miasma:             { label: 'MIASMA',       color: 'text-green-300 bg-green-900/60' },
+  mistVeil:           { label: 'MIST VEIL',    color: 'text-teal-300 bg-teal-900/60' },
+  evasiveScatter:     { label: 'EVASIVE',      color: 'text-teal-300 bg-teal-900/60' },
+  iceBarrier:         { label: 'ICE BARRIER',  color: 'text-cyan-300 bg-cyan-900/60' },
+  ff_aurora_shield:   { label: 'AURORA',       color: 'text-cyan-300 bg-cyan-900/60' },
+
+  // ── Viper Strike ──
+  serpentClarity:     { label: 'CLARITY',      color: 'text-green-300 bg-green-900/60' },
+  cobrasMomentum:     { label: 'COBRA',        color: 'text-green-300 bg-green-900/60' },
+  serpentForm:        { label: 'SERPENT',       color: 'text-teal-300 bg-teal-900/60' },
+  serpentDodge:       { label: 'SERPENT DG',    color: 'text-teal-300 bg-teal-900/60' },
+  lethalFocus:        { label: 'LETHAL',       color: 'text-red-300 bg-red-900/60' },
+  vs_serpent_patience_mult: { label: 'PATIENCE', color: 'text-green-300 bg-green-900/60' },
+  vs_shedding_scales: { label: 'SHEDDING',     color: 'text-teal-300 bg-teal-900/60' },
+
+  // ── Shadow Step ──
+  ghostPredator:      { label: 'GHOST PRED',   color: 'text-violet-300 bg-violet-900/60' },
+  phantomStealth:     { label: 'STEALTH',      color: 'text-violet-300 bg-violet-900/60' },
+  shadowVenomFrenzy:  { label: 'SHADOW FRNZ',  color: 'text-green-300 bg-green-900/60' },
+  umbralForm:         { label: 'UMBRAL',       color: 'text-violet-300 bg-violet-900/60' },
+  shadowCounter:      { label: 'COUNTER',      color: 'text-orange-300 bg-orange-900/60' },
+  flickeringShadow:   { label: 'FLICKER',      color: 'text-violet-300 bg-violet-900/60' },
+  vanishingAct:       { label: 'VANISH',       color: 'text-violet-300 bg-violet-900/60' },
+  ss_penumbral_grace_cast: { label: 'PENUMBRAL', color: 'text-violet-300 bg-violet-900/60' },
+
+  // ── Assassinate ──
+  executionMomentum:  { label: 'MOMENTUM',     color: 'text-red-300 bg-red-900/60' },
+  deathsOpportunity:  { label: 'DEATH OPP',    color: 'text-red-300 bg-red-900/60' },
+  executionChain:     { label: 'EXEC CHAIN',   color: 'text-red-300 bg-red-900/60' },
+  venomApex:          { label: 'VENOM APEX',   color: 'text-green-300 bg-green-900/60' },
+  coiledPatience:     { label: 'COILED',       color: 'text-teal-300 bg-teal-900/60' },
+  assassinsShroud:    { label: 'SHROUD',       color: 'text-violet-300 bg-violet-900/60' },
+  patientCounter:     { label: 'PATIENT',      color: 'text-orange-300 bg-orange-900/60' },
+  shadowCharge:       { label: 'SHADOW CHG',   color: 'text-violet-300 bg-violet-900/60' },
+  as_inevitable_end:  { label: 'INEVITABLE',   color: 'text-red-300 bg-red-900/60' },
+  as_patience_shadows:{ label: 'PATIENCE',     color: 'text-violet-300 bg-violet-900/60' },
+
+  // ── Lightning Lunge ──
+  stormcaller:        { label: 'STORMCALL',    color: 'text-blue-300 bg-blue-900/60' },
+  conductingCharge:   { label: 'CONDUCTING',   color: 'text-blue-300 bg-blue-900/60' },
+  flickeringChains:   { label: 'CHAINS',       color: 'text-blue-300 bg-blue-900/60' },
+  shadowForm:         { label: 'SHADOW FM',    color: 'text-violet-300 bg-violet-900/60' },
+  evasiveLunge:       { label: 'EVASIVE LG',   color: 'text-teal-300 bg-teal-900/60' },
+  stormTempo:         { label: 'TEMPO',        color: 'text-blue-300 bg-blue-900/60' },
+  stormweaveGuard:    { label: 'STORMWEAVE',   color: 'text-blue-300 bg-blue-900/60' },
+  chainDamageStack:   { label: 'CHAIN DMG',    color: 'text-blue-300 bg-blue-900/60' },
+  ll_surge_overcharge:{ label: 'SURGE',        color: 'text-blue-300 bg-blue-900/60' },
 };
 
 export default function CombatPanel() {
@@ -82,11 +150,11 @@ export default function CombatPanel() {
   const floaterIdRef = useRef(0);
   const lastFiredTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const [combatLog, setCombatLog] = useState<Array<{
-    id: number; type: 'skill' | 'shatter' | 'enemy' | 'proc' | 'spread' | 'free';
+    id: number; type: 'skill' | 'shatter' | 'enemy' | 'proc' | 'spread' | 'free' | 'heal' | 'cdReset';
     label: string; damage: number; isCrit?: boolean; isHit?: boolean;
   }>>([]);
   const logIdRef = useRef(0);
-  const [cdResetFlash, setCdResetFlash] = useState(false);
+  const [cdResetSkillId, setCdResetSkillId] = useState<string | null>(null);
   const cdResetTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const nextCastIsFreeRef = useRef(false);
 
@@ -134,10 +202,38 @@ export default function CombatPanel() {
             if (combatResult.shatterDamage && combatResult.shatterDamage > 0) {
               setCombatLog(prev => [...prev, {
                 id: logIdRef.current++, type: 'shatter' as const,
-                label: 'Shatter → next', damage: combatResult.shatterDamage!,
+                label: `Shatter → next`, damage: combatResult.shatterDamage!,
               }].slice(-20));
             }
-            if (combatResult.procDamage && combatResult.procDamage > 0) {
+            // Proc events: use structured data when available, fall back to legacy
+            if (combatResult.procEvents && combatResult.procEvents.length > 0) {
+              for (const pe of combatResult.procEvents) {
+                const srcName = getUnifiedSkillDef(pe.sourceSkillId)?.name ?? '???';
+                if (pe.type === 'damage' && pe.damage > 0) {
+                  setCombatLog(prev => [...prev, {
+                    id: logIdRef.current++, type: 'proc' as const,
+                    label: `${srcName} → ${pe.label}`,
+                    damage: pe.damage,
+                  }].slice(-20));
+                } else if (pe.type === 'heal') {
+                  setCombatLog(prev => [...prev, {
+                    id: logIdRef.current++, type: 'heal' as const,
+                    label: `+${pe.label}`,
+                    damage: 0,
+                  }].slice(-20));
+                }
+                // buff/debuff/cdReset/cast procs → icon feedback only (no log line)
+              }
+              // Floater for total proc damage
+              if (combatResult.procDamage && combatResult.procDamage > 0) {
+                setFloaters(prev => [...prev, {
+                  id: floaterIdRef.current++,
+                  damage: combatResult.procDamage!,
+                  isCrit: false, isHit: true, isProc: true,
+                }].slice(-8));
+              }
+            } else if (combatResult.procDamage && combatResult.procDamage > 0) {
+              // Legacy fallback
               setCombatLog(prev => [...prev, {
                 id: logIdRef.current++, type: 'proc' as const,
                 label: combatResult.procLabel ?? 'Proc',
@@ -149,15 +245,30 @@ export default function CombatPanel() {
                 isCrit: false, isHit: true, isProc: true,
               }].slice(-8));
             }
-            if (combatResult.cooldownWasReset) {
-              setCdResetFlash(true);
+            // CD reset flash — use specific skill ID when available
+            if (combatResult.cooldownResets && combatResult.cooldownResets.length > 0) {
+              setCdResetSkillId(combatResult.cooldownResets[0]);
               clearTimeout(cdResetTimerRef.current);
-              cdResetTimerRef.current = setTimeout(() => setCdResetFlash(false), 500);
+              cdResetTimerRef.current = setTimeout(() => setCdResetSkillId(null), 500);
+            } else if (combatResult.cooldownWasReset) {
+              setCdResetSkillId('__all__');
+              clearTimeout(cdResetTimerRef.current);
+              cdResetTimerRef.current = setTimeout(() => setCdResetSkillId(null), 500);
             }
             if (combatResult.gcdWasReset) {
               nextCastIsFreeRef.current = true;
             }
-            if (combatResult.didSpreadDebuffs) {
+            // Spread events: use structured data when available
+            if (combatResult.spreadEvents && combatResult.spreadEvents.length > 0) {
+              for (const se of combatResult.spreadEvents) {
+                const debuffName = se.debuffId.charAt(0).toUpperCase() + se.debuffId.slice(1);
+                setCombatLog(prev => [...prev, {
+                  id: logIdRef.current++, type: 'spread' as const,
+                  label: `${debuffName} (x${se.stacks}) → next`,
+                  damage: 0,
+                }].slice(-20));
+              }
+            } else if (combatResult.didSpreadDebuffs) {
               setCombatLog(prev => [...prev, {
                 id: logIdRef.current++, type: 'spread' as const,
                 label: 'Poison spread', damage: 0,
@@ -236,7 +347,26 @@ export default function CombatPanel() {
             isCrit: bossResult.isCrit,
             isHit: bossResult.isHit,
           }].slice(-20));
-          if (bossResult.procDamage && bossResult.procDamage > 0) {
+          // Proc events: use structured data when available
+          if (bossResult.procEvents && bossResult.procEvents.length > 0) {
+            for (const pe of bossResult.procEvents) {
+              const srcName = getUnifiedSkillDef(pe.sourceSkillId)?.name ?? '???';
+              if (pe.type === 'damage' && pe.damage > 0) {
+                setCombatLog(prev => [...prev, {
+                  id: logIdRef.current++, type: 'proc' as const,
+                  label: `${srcName} → ${pe.label}`,
+                  damage: pe.damage,
+                }].slice(-20));
+              }
+            }
+            if (bossResult.procDamage && bossResult.procDamage > 0) {
+              setFloaters(prev => [...prev, {
+                id: floaterIdRef.current++,
+                damage: bossResult.procDamage!,
+                isCrit: false, isHit: true, isProc: true,
+              }].slice(-8));
+            }
+          } else if (bossResult.procDamage && bossResult.procDamage > 0) {
             setCombatLog(prev => [...prev, {
               id: logIdRef.current++, type: 'proc' as const,
               label: bossResult.procLabel ?? 'Proc',
@@ -248,10 +378,14 @@ export default function CombatPanel() {
               isCrit: false, isHit: true, isProc: true,
             }].slice(-8));
           }
-          if (bossResult.cooldownWasReset) {
-            setCdResetFlash(true);
+          if (bossResult.cooldownResets && bossResult.cooldownResets.length > 0) {
+            setCdResetSkillId(bossResult.cooldownResets[0]);
             clearTimeout(cdResetTimerRef.current);
-            cdResetTimerRef.current = setTimeout(() => setCdResetFlash(false), 500);
+            cdResetTimerRef.current = setTimeout(() => setCdResetSkillId(null), 500);
+          } else if (bossResult.cooldownWasReset) {
+            setCdResetSkillId('__all__');
+            clearTimeout(cdResetTimerRef.current);
+            cdResetTimerRef.current = setTimeout(() => setCdResetSkillId(null), 500);
           }
         }
         if (bossResult.bossAttack) {
@@ -530,6 +664,8 @@ export default function CombatPanel() {
                     </>
                   ) : entry.type === 'spread' ? (
                     <span className="text-teal-400">{entry.label}</span>
+                  ) : entry.type === 'heal' ? (
+                    <span className="text-green-400">{entry.label}</span>
                   ) : (
                     <>
                       <span className={
@@ -557,7 +693,7 @@ export default function CombatPanel() {
       {/* Skill Bar + Picker (combat mode only) */}
       {idleMode === 'combat' && (combatPhase === 'clearing' || combatPhase === 'boss_fight') && (
         <>
-          <SkillBar lastFiredSkillId={lastFiredSkillId} cdResetFlash={cdResetFlash} />
+          <SkillBar lastFiredSkillId={lastFiredSkillId} cdResetSkillId={cdResetSkillId} />
           <SkillPicker />
         </>
       )}

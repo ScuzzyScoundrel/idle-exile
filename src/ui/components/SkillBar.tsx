@@ -28,7 +28,7 @@ const KIND_BG: Record<string, string> = {
   ultimate: 'bg-yellow-950',
 };
 
-export default function SkillBar({ lastFiredSkillId, cdResetFlash }: { lastFiredSkillId?: string | null; cdResetFlash?: boolean }) {
+export default function SkillBar({ lastFiredSkillId, cdResetSkillId }: { lastFiredSkillId?: string | null; cdResetSkillId?: string | null }) {
   const skillBar = useGameStore(s => s.skillBar);
   const skillProgress = useGameStore(s => s.skillProgress);
   const skillTimers = useGameStore(s => s.skillTimers);
@@ -39,7 +39,7 @@ export default function SkillBar({ lastFiredSkillId, cdResetFlash }: { lastFired
   const flashKeyRef = useRef(0);
   const cdResetKeyRef = useRef(0);
   const prevFiredRef = useRef<string | null | undefined>(undefined);
-  const prevCdResetRef = useRef(false);
+  const prevCdResetRef = useRef<string | null | undefined>(undefined);
 
   // Refresh every 250ms for smooth countdown display
   useEffect(() => {
@@ -53,11 +53,11 @@ export default function SkillBar({ lastFiredSkillId, cdResetFlash }: { lastFired
     if (lastFiredSkillId) flashKeyRef.current++;
   }
 
-  // Increment CD reset key when cdResetFlash transitions to true (re-triggers blue flash)
-  if (cdResetFlash && !prevCdResetRef.current) {
+  // Increment CD reset key when cdResetSkillId transitions to a value (re-triggers blue flash)
+  if (cdResetSkillId && cdResetSkillId !== prevCdResetRef.current) {
     cdResetKeyRef.current++;
   }
-  prevCdResetRef.current = !!cdResetFlash;
+  prevCdResetRef.current = cdResetSkillId ?? null;
 
   const unlockedSlots = getUnlockedSlotCount(character.level);
 
@@ -123,7 +123,8 @@ export default function SkillBar({ lastFiredSkillId, cdResetFlash }: { lastFired
           const activeCdPct = isOnCooldown && effectiveActiveCd > 0
             ? Math.max(0, Math.min(1, remainingCd / effectiveActiveCd))
             : 0;
-          const showCdResetFlash = cdResetFlash && !isOnCooldown && !isFlashing;
+          const showCdResetFlash = !isOnCooldown && !isFlashing &&
+            (cdResetSkillId === equipped.skillId || cdResetSkillId === '__all__');
           return (
             <div
               key={isFlashing ? `${idx}-f${flashKeyRef.current}` : showCdResetFlash ? `${idx}-r${cdResetKeyRef.current}` : idx}

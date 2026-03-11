@@ -40,6 +40,20 @@ export interface CombatTickResult {
   packSize?: number;             // pack size of current encounter (for UI)
   encounterLootMult?: number;    // rare mob loot multiplier for this encounter
   poisonInstanceCount?: number;  // number of active poison instances (for "Poison (x8)" log label)
+
+  // Structured event data (Sprint 1 — combat readability)
+  procEvents?: Array<{
+    procId: string;           // e.g. 'st_venomburst'
+    label: string;            // e.g. 'Venom Burst'
+    damage: number;           // bonus damage (0 if non-damage proc)
+    sourceSkillId: string;    // which skill triggered it
+    type: 'damage' | 'buff' | 'debuff' | 'heal' | 'cdReset' | 'cast';
+  }>;
+  spreadEvents?: Array<{
+    debuffId: string;         // e.g. 'poisoned'
+    stacks: number;           // how many stacks spread
+  }>;
+  cooldownResets?: string[];  // skill IDs that had CD reset
 }
 
 export type CombatPhase = 'clearing' | 'boss_fight' | 'boss_victory' | 'boss_defeat' | 'zone_defeat';
