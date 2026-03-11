@@ -556,12 +556,17 @@ export default function CombatPanel() {
 
           {/* Mob display (combat) or progress bar (gathering) */}
           {idleMode === 'combat' && runningZone ? (
-            <MobDisplay
-              mobName={currentMobTypeId ? (getMobTypeDef(currentMobTypeId)?.name ?? runningZone.mobName) : runningZone.mobName}
-              mobs={packMobs}
-              bossIn={BOSS_INTERVAL - ((zoneClearCounts[currentZoneId!] || 0) % BOSS_INTERVAL)}
-              signatureDrop={currentMobTypeId ? (getMobTypeDef(currentMobTypeId)?.drops.find(d => d.rarity === 'rare') ?? getMobTypeDef(currentMobTypeId)?.drops[0]) : undefined}
-            />
+            <div
+              className="transition-[max-height] duration-300 ease-out overflow-hidden"
+              style={{ maxHeight: `${packMobs.length * 4.5 + 3}rem` }}
+            >
+              <MobDisplay
+                mobName={currentMobTypeId ? (getMobTypeDef(currentMobTypeId)?.name ?? runningZone.mobName) : runningZone.mobName}
+                mobs={packMobs}
+                bossIn={BOSS_INTERVAL - ((zoneClearCounts[currentZoneId!] || 0) % BOSS_INTERVAL)}
+                signatureDrop={currentMobTypeId ? (getMobTypeDef(currentMobTypeId)?.drops.find(d => d.rarity === 'rare') ?? getMobTypeDef(currentMobTypeId)?.drops[0]) : undefined}
+              />
+            </div>
           ) : (
             <div className="bg-gray-800 rounded-lg p-3">
               <div className="flex justify-between text-sm mb-1">
