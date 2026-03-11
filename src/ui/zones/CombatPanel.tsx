@@ -144,16 +144,6 @@ export default function CombatPanel() {
   const [bossLootItems, setBossLootItems] = useState<{ name: string; rarity: Rarity }[]>([]);
   const [bossFightStats, setBossFightStats] = useState<{ duration: number; playerDps: number; bossDps: number; bossMaxHp: number } | null>(null);
 
-  // Lock mob display height to initial pack size per encounter — prevents layout
-  // shift as mobs die. Only resizes at the natural break between encounters.
-  const packSizeLockRef = useRef(0);
-  if (packMobs.length > 0 && packMobs.length > packSizeLockRef.current) {
-    packSizeLockRef.current = packMobs.length;
-  } else if (packMobs.length === 0) {
-    packSizeLockRef.current = 0;
-  }
-  const lockedPackSize = Math.max(packMobs.length, packSizeLockRef.current);
-
   // Visual feedback state — "Last Hit" dashboard (replaces scrolling combat log)
   const [lastFiredSkillId, setLastFiredSkillId] = useState<string | null>(null);
   const lastFiredTimerRef = useRef<ReturnType<typeof setTimeout>>();
@@ -566,13 +556,28 @@ export default function CombatPanel() {
 
           {/* Mob display (combat) or progress bar (gathering) */}
           {idleMode === 'combat' && runningZone ? (
-            <div className="overflow-hidden" style={{ height: lockedPackSize > 0 ? `${lockedPackSize * 3.5 + 2.5}rem` : undefined }}>
-              <MobDisplay
-                mobName={currentMobTypeId ? (getMobTypeDef(currentMobTypeId)?.name ?? runningZone.mobName) : runningZone.mobName}
-                mobs={packMobs}
-                bossIn={BOSS_INTERVAL - ((zoneClearCounts[currentZoneId!] || 0) % BOSS_INTERVAL)}
-                signatureDrop={currentMobTypeId ? (getMobTypeDef(currentMobTypeId)?.drops.find(d => d.rarity === 'rare') ?? getMobTypeDef(currentMobTypeId)?.drops[0]) : undefined}
+            <div
+              className="rounded-lg overflow-hidden relative"
+              style={{
+                height: '20rem',
+                background: `radial-gradient(ellipse at 50% 30%, rgb(var(--theme-accent) / 0.08) 0%, rgb(var(--theme-bg-tint)) 70%)`,
+              }}
+            >
+              {/* Subtle zone accent border glow */}
+              <div
+                className="absolute inset-0 rounded-lg pointer-events-none"
+                style={{
+                  boxShadow: `inset 0 0 30px 8px rgb(var(--theme-accent) / 0.06)`,
+                }}
               />
+              <div className="relative z-10 p-0.5">
+                <MobDisplay
+                  mobName={currentMobTypeId ? (getMobTypeDef(currentMobTypeId)?.name ?? runningZone.mobName) : runningZone.mobName}
+                  mobs={packMobs}
+                  bossIn={BOSS_INTERVAL - ((zoneClearCounts[currentZoneId!] || 0) % BOSS_INTERVAL)}
+                  signatureDrop={currentMobTypeId ? (getMobTypeDef(currentMobTypeId)?.drops.find(d => d.rarity === 'rare') ?? getMobTypeDef(currentMobTypeId)?.drops[0]) : undefined}
+                />
+              </div>
             </div>
           ) : (
             <div className="bg-gray-800 rounded-lg p-3">
