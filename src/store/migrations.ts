@@ -506,6 +506,40 @@ export function runMigrations(
     raw.zoneMasteryClaimed = claimed;
   }
 
+  if (version < 54) {
+    // v54: Dagger buff skill rework — remap old skill IDs to new archetype buffs.
+    // dagger_flurry → dagger_venom_covenant, dagger_shadow_strike → dagger_predators_mark,
+    // dagger_lethality → dagger_shadow_covenant
+    const SKILL_REMAP: Record<string, string> = {
+      'dagger_flurry': 'dagger_venom_covenant',
+      'dagger_shadow_strike': 'dagger_predators_mark',
+      'dagger_lethality': 'dagger_shadow_covenant',
+    };
+    // Remap skill bar
+    const bar54 = (raw.skillBar ?? []) as (Record<string, unknown> | null)[];
+    for (let i = 0; i < bar54.length; i++) {
+      const slot = bar54[i];
+      if (slot && typeof slot.skillId === 'string' && SKILL_REMAP[slot.skillId]) {
+        slot.skillId = SKILL_REMAP[slot.skillId];
+      }
+    }
+    // Remap skill timers
+    const timers54 = (raw.skillTimers ?? []) as Record<string, unknown>[];
+    for (const t of timers54) {
+      if (typeof t.skillId === 'string' && SKILL_REMAP[t.skillId]) {
+        t.skillId = SKILL_REMAP[t.skillId];
+      }
+    }
+    // Remap skill progress (transfer XP/level, reset allocations)
+    const sp54 = (raw.skillProgress ?? {}) as Record<string, Record<string, unknown>>;
+    for (const [oldId, newId] of Object.entries(SKILL_REMAP)) {
+      if (sp54[oldId]) {
+        sp54[newId] = { ...sp54[oldId], skillId: newId, allocatedNodes: [], allocatedRanks: {} };
+        delete sp54[oldId];
+      }
+    }
+  }
+
   if (version < 53) {
     // v53: Level 60 cap + zone iLvl compression (1-95 → 1-60)
     // Clamp existing characters above level 60 to 60, reset XP.

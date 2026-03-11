@@ -111,70 +111,80 @@ export const DAGGER_ACTIVE_SKILLS: ActiveSkillDef[] = [
 ];
 
 export const DAGGER_ABILITIES: AbilityDef[] = [
-  // ==================== Dagger — Fast, crit-focused ====================
+  // ==================== Dagger — Archetype Buffs ====================
+
+  // --- Assassination archetype buff ---
   {
-    id: 'dagger_flurry', name: 'Flurry', description: '3x attack speed for 10s.',
-    weaponType: 'dagger', kind: 'buff', icon: '\u26A1',
-    duration: 10, cooldown: 45,
-    effect: { attackSpeedMult: 3.0 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Critical Flurry', description: 'Add crit chance during Flurry.', nodes: [
-          { id: 'dagger_fl_a1', name: 'Precise Strikes', description: '+8% crit chance', tier: 1, effect: { critChanceBonus: 8 } },
-          { id: 'dagger_fl_a2', name: 'Critical Flurry', description: '+15% crit chance', tier: 2, effect: { critChanceBonus: 15 }, isPathPayoff: true, requiresNodeId: 'dagger_fl_a1' },
-        ]},
-        { id: 'B', name: 'Extended Flurry', description: 'Extend Flurry duration.', nodes: [
-          { id: 'dagger_fl_b1', name: 'Momentum', description: '+2s duration', tier: 1, effect: {}, durationBonus: 2 },
-          { id: 'dagger_fl_b2', name: 'Extended Flurry', description: '+5s duration', tier: 2, effect: {}, durationBonus: 5, isPathPayoff: true, requiresNodeId: 'dagger_fl_b1' },
-        ]},
-        { id: 'C', name: 'Blade Storm', description: 'Add damage to Flurry.', nodes: [
-          { id: 'dagger_fl_c1', name: 'Sharp Edges', description: '+15% damage', tier: 1, effect: { damageMult: 1.15 } },
-          { id: 'dagger_fl_c2', name: 'Blade Storm', description: '+30% damage', tier: 2, effect: { damageMult: 1.3 }, isPathPayoff: true, requiresNodeId: 'dagger_fl_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
-  },
-  {
-    id: 'dagger_shadow_strike', name: 'Shadow Strike', description: '+50% crit + 100% crit damage for 8s.',
+    id: 'dagger_predators_mark', name: "Predator's Mark",
+    description: 'Mark yourself as a predator. +20% crit chance, +40% crit multiplier for 10s.',
     weaponType: 'dagger', kind: 'buff', icon: '\uD83C\uDF11',
-    duration: 8, cooldown: 60,
-    effect: { critChanceBonus: 50, critMultiplierBonus: 100 },
+    duration: 10, cooldown: 45,
+    effect: { critChanceBonus: 20, critMultiplierBonus: 40 },
     skillTree: {
       paths: [
-        { id: 'A', name: 'Lingering Shadow', description: 'Extend Shadow Strike.', nodes: [
-          { id: 'dagger_ss_a1', name: 'Dark Veil', description: '+2s duration', tier: 1, effect: {}, durationBonus: 2 },
-          { id: 'dagger_ss_a2', name: 'Lingering Shadow', description: '+5s duration', tier: 2, effect: {}, durationBonus: 5, isPathPayoff: true, requiresNodeId: 'dagger_ss_a1' },
+        { id: 'A', name: 'Precision', description: 'Enhanced crit during the mark.', nodes: [
+          { id: 'dagger_pm_a1', name: 'Honed Senses', description: '+10% crit chance during buff', tier: 1, effect: { critChanceBonus: 10 } },
+          { id: 'dagger_pm_a2', name: 'Apex Predator', description: '+20% crit multiplier during buff', tier: 2, effect: { critMultiplierBonus: 20 }, isPathPayoff: true, requiresNodeId: 'dagger_pm_a1' },
         ]},
-        { id: 'B', name: 'Assassinate', description: 'Add raw damage.', nodes: [
-          { id: 'dagger_ss_b1', name: 'Exploit Weakness', description: '+25% damage', tier: 1, effect: { damageMult: 1.25 } },
-          { id: 'dagger_ss_b2', name: 'Assassinate', description: '+50% damage', tier: 2, effect: { damageMult: 1.5 }, isPathPayoff: true, requiresNodeId: 'dagger_ss_b1' },
+        { id: 'B', name: 'Lethality', description: 'First strike guaranteed crit.', nodes: [
+          { id: 'dagger_pm_b1', name: 'Opening Strike', description: '+15% damage during buff', tier: 1, effect: { damageMult: 1.15 } },
+          { id: 'dagger_pm_b2', name: 'Death Sentence', description: '+25% crit multiplier during buff', tier: 2, effect: { critMultiplierBonus: 25 }, isPathPayoff: true, requiresNodeId: 'dagger_pm_b1' },
         ]},
-        { id: 'C', name: 'Death Mark', description: 'Push crit even higher.', nodes: [
-          { id: 'dagger_ss_c1', name: 'Marked Target', description: '+25% crit damage', tier: 1, effect: { critMultiplierBonus: 25 } },
-          { id: 'dagger_ss_c2', name: 'Death Mark', description: '+50% crit damage', tier: 2, effect: { critMultiplierBonus: 50 }, isPathPayoff: true, requiresNodeId: 'dagger_ss_c1' },
+        { id: 'C', name: 'Hunt', description: 'Kills extend duration.', nodes: [
+          { id: 'dagger_pm_c1', name: 'Blood Scent', description: '+3s duration', tier: 1, effect: {}, durationBonus: 3 },
+          { id: 'dagger_pm_c2', name: 'Endless Hunt', description: '+5s duration, -10% cooldown', tier: 2, effect: {}, durationBonus: 5, cooldownReduction: 10, isPathPayoff: true, requiresNodeId: 'dagger_pm_c1' },
         ]},
       ],
       maxPoints: 4,
     },
   },
+
+  // --- Venomcraft archetype buff ---
   {
-    id: 'dagger_lethality', name: 'Lethality', description: '+25% crit damage (passive).',
-    weaponType: 'dagger', kind: 'passive', icon: '\uD83D\uDDE1\uFE0F',
-    effect: { critMultiplierBonus: 25 },
+    id: 'dagger_venom_covenant', name: 'Venom Covenant',
+    description: 'Invoke a toxic pact. +50% attack speed, +15% damage for 12s.',
+    weaponType: 'dagger', kind: 'buff', icon: '\uD83D\uDC0D',
+    duration: 12, cooldown: 50,
+    effect: { attackSpeedMult: 1.5, damageMult: 1.15 },
     skillTree: {
       paths: [
-        { id: 'A', name: 'Precision', description: 'Convert to crit chance.', nodes: [
-          { id: 'dagger_le_a1', name: 'Keen Eye', description: '+5% crit chance', tier: 1, effect: { critChanceBonus: 5 } },
-          { id: 'dagger_le_a2', name: 'Precision', description: 'Swap to +10% crit chance', tier: 2, effect: { critMultiplierBonus: 0, critChanceBonus: 10 }, isPathPayoff: true, requiresNodeId: 'dagger_le_a1' },
+        { id: 'A', name: 'Toxic Haste', description: 'More speed, longer duration.', nodes: [
+          { id: 'dagger_vc_a1', name: 'Accelerated Toxins', description: '+3s duration', tier: 1, effect: {}, durationBonus: 3 },
+          { id: 'dagger_vc_a2', name: 'Toxic Frenzy', description: '+10% attack speed during buff', tier: 2, effect: { attackSpeedMult: 1.1 }, isPathPayoff: true, requiresNodeId: 'dagger_vc_a1' },
         ]},
-        { id: 'B', name: 'Quick Hands', description: 'Add attack speed.', nodes: [
-          { id: 'dagger_le_b1', name: 'Nimble Fingers', description: '+5% attack speed', tier: 1, effect: { attackSpeedMult: 1.05 } },
-          { id: 'dagger_le_b2', name: 'Quick Hands', description: '+15% crit dmg + 10% attack speed', tier: 2, effect: { critMultiplierBonus: 15, attackSpeedMult: 1.1 }, isPathPayoff: true, requiresNodeId: 'dagger_le_b1' },
+        { id: 'B', name: 'Virulence', description: 'Amplify poison damage.', nodes: [
+          { id: 'dagger_vc_b1', name: 'Potent Venom', description: '+10% damage during buff', tier: 1, effect: { damageMult: 1.10 } },
+          { id: 'dagger_vc_b2', name: 'Virulent Surge', description: '+20% damage during buff', tier: 2, effect: { damageMult: 1.20 }, isPathPayoff: true, requiresNodeId: 'dagger_vc_b1' },
         ]},
-        { id: 'C', name: 'Lethality Mastery', description: 'Pure crit damage.', nodes: [
-          { id: 'dagger_le_c1', name: 'Deep Cuts', description: '+10% crit damage', tier: 1, effect: { critMultiplierBonus: 10 } },
-          { id: 'dagger_le_c2', name: 'Lethality Mastery', description: '+35% crit damage total', tier: 2, effect: { critMultiplierBonus: 35 }, isPathPayoff: true, requiresNodeId: 'dagger_le_c1' },
+        { id: 'C', name: 'Pandemic', description: 'Kills spread the covenant.', nodes: [
+          { id: 'dagger_vc_c1', name: 'Spreading Contagion', description: '+3s duration', tier: 1, effect: {}, durationBonus: 3 },
+          { id: 'dagger_vc_c2', name: 'Pandemic', description: '+5s duration, -10% cooldown', tier: 2, effect: {}, durationBonus: 5, cooldownReduction: 10, isPathPayoff: true, requiresNodeId: 'dagger_vc_c1' },
+        ]},
+      ],
+      maxPoints: 4,
+    },
+  },
+
+  // --- Shadow Dance archetype buff ---
+  {
+    id: 'dagger_shadow_covenant', name: 'Shadow Covenant',
+    description: 'Embrace the shadows. +25% defense, +10% damage, +15% crit multiplier for 8s.',
+    weaponType: 'dagger', kind: 'buff', icon: '\uD83D\uDC7E',
+    duration: 8, cooldown: 55,
+    effect: { defenseMult: 1.25, damageMult: 1.10, critMultiplierBonus: 15 },
+    skillTree: {
+      paths: [
+        { id: 'A', name: 'Evasion', description: 'Defensive synergy extends duration.', nodes: [
+          { id: 'dagger_sc_a1', name: 'Shadow Veil', description: '+3s duration', tier: 1, effect: {}, durationBonus: 3 },
+          { id: 'dagger_sc_a2', name: 'Lingering Shadows', description: '+5s duration, +10% defense', tier: 2, effect: { defenseMult: 1.10 }, durationBonus: 5, isPathPayoff: true, requiresNodeId: 'dagger_sc_a1' },
+        ]},
+        { id: 'B', name: 'Counter', description: 'Dodge triggers counter-crits.', nodes: [
+          { id: 'dagger_sc_b1', name: 'Counter Stance', description: '+15% crit multiplier during buff', tier: 1, effect: { critMultiplierBonus: 15 } },
+          { id: 'dagger_sc_b2', name: 'Shadow Counter', description: '+10% crit chance during buff', tier: 2, effect: { critChanceBonus: 10 }, isPathPayoff: true, requiresNodeId: 'dagger_sc_b1' },
+        ]},
+        { id: 'C', name: 'Fortress', description: 'Defense becomes offense.', nodes: [
+          { id: 'dagger_sc_c1', name: 'Iron Shadow', description: '+15% defense during buff', tier: 1, effect: { defenseMult: 1.15 } },
+          { id: 'dagger_sc_c2', name: 'Shadow Fortress', description: '+15% damage during buff', tier: 2, effect: { damageMult: 1.15 }, isPathPayoff: true, requiresNodeId: 'dagger_sc_c1' },
         ]},
       ],
       maxPoints: 4,

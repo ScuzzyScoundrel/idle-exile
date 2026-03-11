@@ -236,10 +236,10 @@ const SMOKE_SCREEN_GRAPH     = createCompactTree({ skillId: 'dagger_smoke_screen
 const ASSASSINATE_GRAPH      = createCompactTree({ skillId: 'dagger_assassinate',      prefix: 'as',  branches: DG_BRANCHES, bridges: DG_BRIDGES, overrides: ASSASSINATE_OVERRIDES, startName: 'Death\'s Point' });
 const LIGHTNING_LUNGE_GRAPH  = createCompactTree({ skillId: 'dagger_lightning_lunge',  prefix: 'll',  branches: DG_BRANCHES, bridges: DG_BRIDGES, overrides: LIGHTNING_LUNGE_OVERRIDES, startName: 'Storm Point' });
 
-const FLURRY_GRAPH           = createCompactTree({ skillId: 'dagger_flurry',           prefix: 'flu', branches: BUFF_BRANCHES, bridges: BUFF_BRIDGES, overrides: FLURRY_OVERRIDES, startName: 'Speed Core' });
-const SHADOW_STRIKE_BUFF     = createCompactTree({ skillId: 'dagger_shadow_strike',    prefix: 'sst', branches: BUFF_BRANCHES, bridges: BUFF_BRIDGES, overrides: SHADOW_STRIKE_OVERRIDES, startName: 'Shadow Core' });
+const PREDATORS_MARK_GRAPH   = createCompactTree({ skillId: 'dagger_predators_mark',   prefix: 'pm',  branches: BUFF_BRANCHES, bridges: BUFF_BRIDGES, overrides: SHADOW_STRIKE_OVERRIDES, startName: 'Predator Core' });
+const VENOM_COVENANT_GRAPH   = createCompactTree({ skillId: 'dagger_venom_covenant',   prefix: 'vc',  branches: BUFF_BRANCHES, bridges: BUFF_BRIDGES, overrides: FLURRY_OVERRIDES, startName: 'Venom Core' });
 
-const LETHALITY_GRAPH        = createCompactTree({ skillId: 'dagger_lethality',        prefix: 'le',  branches: PASSIVE_BRANCHES, bridges: PASSIVE_BRIDGES, overrides: LETHALITY_OVERRIDES, startName: 'Lethal Focus' });
+const SHADOW_COVENANT_GRAPH  = createCompactTree({ skillId: 'dagger_shadow_covenant',  prefix: 'sc',  branches: PASSIVE_BRANCHES, bridges: PASSIVE_BRIDGES, overrides: LETHALITY_OVERRIDES, startName: 'Shadow Core' });
 
 // ─── Export ────────────────────────────────────────────────
 
@@ -251,7 +251,7 @@ export const DAGGER_SKILL_GRAPHS: Record<string, SkillGraph> = {
   'dagger_smoke_screen':     SMOKE_SCREEN_GRAPH,
   'dagger_assassinate':      ASSASSINATE_GRAPH,
   'dagger_lightning_lunge':  LIGHTNING_LUNGE_GRAPH,
-  'dagger_flurry':           FLURRY_GRAPH,
-  'dagger_shadow_strike':    SHADOW_STRIKE_BUFF,
-  'dagger_lethality':        LETHALITY_GRAPH,
+  'dagger_predators_mark':   PREDATORS_MARK_GRAPH,
+  'dagger_venom_covenant':   VENOM_COVENANT_GRAPH,
+  'dagger_shadow_covenant':  SHADOW_COVENANT_GRAPH,
 };
