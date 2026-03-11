@@ -1,14 +1,17 @@
 import type { ActiveDebuff } from '../../types';
 import DebuffBadge from './DebuffBadge';
 
-export default function BossFightDisplay({ bossName, bossHp, bossMaxHp, playerHp, maxHp, bossDps, nextBossAttackAt, bossAtkIntervalMs, activeDebuffs, fortifyStacks, fortifyDR, playerEs, maxEs }: {
+export default function BossFightDisplay({ bossName, bossHp, bossMaxHp, playerHp, maxHp, startedAt, nextBossAttackAt, bossAtkIntervalMs, activeDebuffs, fortifyStacks, fortifyDR, playerEs, maxEs }: {
   bossName: string; bossHp: number; bossMaxHp: number;
-  playerHp: number; maxHp: number; bossDps: number;
+  playerHp: number; maxHp: number; startedAt: number;
   nextBossAttackAt: number; bossAtkIntervalMs: number;
   activeDebuffs: ActiveDebuff[]; fortifyStacks: number; fortifyDR: number;
   playerEs?: number; maxEs?: number;
 }) {
   const bossPct = bossMaxHp > 0 ? Math.max(0, (bossHp / bossMaxHp) * 100) : 0;
+  const elapsedSec = Math.max(0.1, (Date.now() - startedAt) / 1000);
+  const damageDealt = bossMaxHp - bossHp;
+  const playerDps = damageDealt / elapsedSec;
   const playerPct = maxHp > 0 ? Math.max(0, (playerHp / maxHp) * 100) : 0;
   const playerColor = playerPct > 60 ? 'bg-green-500' : playerPct > 30 ? 'bg-yellow-500' : 'bg-red-500';
   const hasDebuffs = activeDebuffs.length > 0;
@@ -87,8 +90,9 @@ export default function BossFightDisplay({ bossName, bossHp, bossMaxHp, playerHp
                style={{ width: `${playerPct}%` }} />
         </div>
       </div>
-      <div className="text-xs text-gray-400 text-center">
-        <span>Boss DPS: <span className="text-red-400 font-mono">{bossDps.toFixed(1)}</span></span>
+      <div className="text-xs text-gray-400 text-center space-x-3">
+        <span>Your DPS: <span className="text-green-400 font-mono">{playerDps.toFixed(1)}</span></span>
+        <span className="font-mono">{elapsedSec.toFixed(0)}s</span>
       </div>
     </div>
   );

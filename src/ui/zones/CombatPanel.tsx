@@ -231,11 +231,11 @@ export default function CombatPanel() {
               isFree,
               timestamp: now,
             }}));
-            // Shatter → events feed
+            // Shatter → events feed (frost overkill burst to next mob)
             if (combatResult.shatterDamage && combatResult.shatterDamage > 0) {
               setEvents(prev => [...prev, {
                 id: eventIdRef.current++, type: 'shatter' as const,
-                label: `Shatter → next`, damage: combatResult.shatterDamage!, timestamp: now,
+                label: `Frost shatter`, damage: combatResult.shatterDamage!, timestamp: now,
               }].slice(-6));
             }
             // CD reset flash
@@ -251,13 +251,13 @@ export default function CombatPanel() {
             if (combatResult.gcdWasReset) {
               nextCastIsFreeRef.current = true;
             }
-            // Spread → events feed
+            // Spread → events feed (debuffs jumping to next mob on kill)
             if (combatResult.spreadEvents && combatResult.spreadEvents.length > 0) {
               for (const se of combatResult.spreadEvents) {
                 const debuffName = se.debuffId.charAt(0).toUpperCase() + se.debuffId.slice(1);
                 setEvents(prev => [...prev, {
                   id: eventIdRef.current++, type: 'spread' as const,
-                  label: `${debuffName} (x${se.stacks}) → next`, damage: 0, timestamp: now,
+                  label: `${debuffName} x${se.stacks} spread`, damage: 0, timestamp: now,
                 }].slice(-6));
               }
             } else if (combatResult.didSpreadDebuffs) {
@@ -307,7 +307,7 @@ export default function CombatPanel() {
             }].slice(-3));
           }
           if (combatResult.zoneDeath) {
-            setLastHits({});
+            // Keep lastHits across mobs so damage stays visible
             setEvents([]);
             setIncoming([]);
           }
@@ -469,7 +469,7 @@ export default function CombatPanel() {
           bossMaxHp={bossState.bossMaxHp}
           playerHp={currentHp}
           maxHp={maxHp}
-          bossDps={bossState.bossDps}
+          startedAt={bossState.startedAt}
           nextBossAttackAt={bossState.bossNextAttackAt}
           bossAtkIntervalMs={bossState.bossAttackInterval * 1000}
           activeDebuffs={activeDebuffs}
@@ -608,87 +608,99 @@ export default function CombatPanel() {
         </div>
       )}
 
-      {/* Last Hit Dashboard — per-skill rows + events feed + incoming */}
+      {/* Last Hit Dashboard — fixed-height: skills + incoming | events */}
       {idleMode === 'combat' && (combatPhase === 'clearing' || combatPhase === 'boss_fight') && (
-        <div className="text-[11px] bg-gray-900/50 rounded px-2 py-1.5 font-mono space-y-1.5">
-          {/* Per-skill rows */}
-          <div className="space-y-0.5">
-            <div className="text-gray-600 text-[10px]">Last Hits</div>
-            {skillBar.map((slot) => {
-              if (!slot) return null;
-              const def = getUnifiedSkillDef(slot.skillId);
-              if (!def) return null;
-              const hit = lastHits[slot.skillId];
-              const timer = skillTimers.find(t => t.skillId === slot.skillId);
-              const isOnCd = timer?.cooldownUntil ? timer.cooldownUntil > Date.now() : false;
-              const cdRemaining = isOnCd && timer?.cooldownUntil
-                ? Math.max(0, (timer.cooldownUntil - Date.now()) / 1000)
-                : 0;
-              return (
-                <div key={slot.skillId} className="flex items-center gap-1.5">
-                  <span className={`w-24 truncate ${hit?.isFree ? 'text-blue-300' : 'text-gray-400'}`}>
-                    {hit?.isFree ? 'FREE ' : ''}{def.name}
-                  </span>
-                  {isOnCd ? (
-                    <span className="text-gray-600">(cd {cdRemaining.toFixed(0)}s)</span>
-                  ) : hit ? (
-                    <span className="flex items-center gap-1">
-                      {hit.isHit ? (
-                        <>
-                          <span
-                            key={hit.timestamp}
-                            className={`animate-pop ${hit.isCrit ? 'text-yellow-300 font-bold' : 'text-white'}`}
-                          >
-                            {Math.round(hit.damage)}
-                          </span>
-                          {hit.isCrit && <span className="text-yellow-400 text-[10px]">CRIT</span>}
-                          {hit.procDamage > 0 && (
-                            <span className="text-purple-400">+{Math.round(hit.procDamage)}</span>
-                          )}
-                        </>
-                      ) : (
-                        <span className="text-red-400">MISS</span>
-                      )}
+        <div className="text-[11px] bg-gray-900/50 rounded px-2 py-1.5 font-mono min-h-[7rem]">
+          <div className="grid grid-cols-[1fr_auto] gap-x-3">
+            {/* Left column: skill rows */}
+            <div className="space-y-0.5">
+              <div className="text-gray-600 text-[10px]">Last Hits</div>
+              {skillBar.map((slot) => {
+                if (!slot) return null;
+                const def = getUnifiedSkillDef(slot.skillId);
+                if (!def) return null;
+                const hit = lastHits[slot.skillId];
+                const timer = skillTimers.find(t => t.skillId === slot.skillId);
+                const isOnCd = timer?.cooldownUntil ? timer.cooldownUntil > Date.now() : false;
+                const cdRemaining = isOnCd && timer?.cooldownUntil
+                  ? Math.max(0, (timer.cooldownUntil - Date.now()) / 1000)
+                  : 0;
+                return (
+                  <div key={slot.skillId} className="flex items-center gap-1.5">
+                    <span className={`w-24 truncate ${hit?.isFree ? 'text-blue-300' : 'text-gray-400'}`}>
+                      {hit?.isFree ? 'FREE ' : ''}{def.name}
                     </span>
-                  ) : (
-                    <span className="text-gray-700">--</span>
-                  )}
+                    {/* Always show last hit damage (persists across mobs) */}
+                    {hit ? (
+                      <span className="flex items-center gap-1">
+                        {hit.isHit ? (
+                          <>
+                            <span
+                              key={hit.timestamp}
+                              className={`animate-pop ${hit.isCrit ? 'text-yellow-300 font-bold' : 'text-white'}`}
+                            >
+                              {Math.round(hit.damage)}
+                            </span>
+                            {hit.isCrit && <span className="text-yellow-400 text-[10px]">CRIT</span>}
+                            {hit.procDamage > 0 && (
+                              <span className="text-purple-400">+{Math.round(hit.procDamage)}</span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-red-400">MISS</span>
+                        )}
+                        {isOnCd && <span className="text-gray-600 ml-1">cd {cdRemaining.toFixed(0)}s</span>}
+                      </span>
+                    ) : (
+                      <span className="text-gray-700">--{isOnCd ? <span className="text-gray-600 ml-1">cd {cdRemaining.toFixed(0)}s</span> : ''}</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {/* Right column: incoming attacks */}
+            <div className="space-y-0.5 border-l border-gray-700/40 pl-2 min-w-[5.5rem]">
+              <div className="text-gray-600 text-[10px]">Incoming</div>
+              {incoming.length > 0 ? incoming.map(entry => (
+                <div key={entry.id} className={
+                  entry.isDodged ? 'text-blue-400'
+                  : entry.isBlocked ? 'text-orange-400'
+                  : 'text-red-400'
+                }>
+                  {entry.isDodged ? 'Dodged!'
+                    : entry.isBlocked ? `Blocked ${Math.round(entry.damage)}`
+                    : `${combatPhase === 'boss_fight' ? 'Boss' : 'Mob'} ${Math.round(entry.damage)}`}
+                  {entry.isCrit && !entry.isDodged && <span className="text-red-300 ml-1">!</span>}
                 </div>
-              );
-            })}
+              )) : (
+                <div className="text-gray-700">--</div>
+              )}
+            </div>
           </div>
-          {/* Bottom row: events + incoming side by side */}
-          {(events.length > 0 || incoming.length > 0) && (
-            <div className="grid grid-cols-2 gap-1 border-t border-gray-700/40 pt-1">
-              {/* Events feed */}
-              <div className="space-y-0.5">
-                <div className="text-gray-600 text-[10px]">Events</div>
-                {events.slice(-4).map(evt => (
-                  <div key={evt.id} className={
-                    evt.type === 'shatter' ? 'text-cyan-300'
-                    : evt.type === 'spread' ? 'text-teal-400'
-                    : 'text-green-400'
-                  }>
-                    {evt.label}{evt.damage > 0 ? ` ${Math.round(evt.damage)}` : ''}
-                  </div>
-                ))}
-              </div>
-              {/* Incoming */}
-              <div className="space-y-0.5 pl-1">
-                <div className="text-gray-600 text-[10px]">Incoming</div>
-                {incoming.map(entry => (
-                  <div key={entry.id} className={
-                    entry.isDodged ? 'text-blue-400'
-                    : entry.isBlocked ? 'text-orange-400'
-                    : 'text-red-400'
-                  }>
-                    {entry.isDodged ? 'Dodged!'
-                      : entry.isBlocked ? `Blocked ${Math.round(entry.damage)}`
-                      : `${combatPhase === 'boss_fight' ? 'Boss' : 'Mob'} swing ${Math.round(entry.damage)}`}
-                    {entry.isCrit && !entry.isDodged && <span className="text-red-300 ml-1">CRIT</span>}
-                  </div>
-                ))}
-              </div>
+          {/* Events feed (below, full width) */}
+          {events.length > 0 && (
+            <div className="border-t border-gray-700/40 mt-1.5 pt-1 space-y-0.5">
+              <div className="text-gray-600 text-[10px]">Events</div>
+              {events.slice(-4).map(evt => {
+                const evtTooltip = evt.type === 'shatter'
+                  ? 'Chill shatter: when a Chilled mob dies, a % of overkill damage carries to the next mob as cold burst damage'
+                  : evt.type === 'spread'
+                  ? 'Debuff spread: when a mob dies, its active debuffs (poison, bleed, etc.) jump to the next mob in the pack'
+                  : evt.type === 'heal'
+                  ? 'Proc heal: a skill or talent triggered a heal effect'
+                  : '';
+                return (
+                  <Tooltip key={evt.id} content={<span className="text-[11px]">{evtTooltip}</span>}>
+                    <div className={`cursor-help ${
+                      evt.type === 'shatter' ? 'text-cyan-300'
+                      : evt.type === 'spread' ? 'text-teal-400'
+                      : 'text-green-400'
+                    }`}>
+                      {evt.label}{evt.damage > 0 ? ` ${Math.round(evt.damage)}` : ''}
+                    </div>
+                  </Tooltip>
+                );
+              })}
             </div>
           )}
         </div>
