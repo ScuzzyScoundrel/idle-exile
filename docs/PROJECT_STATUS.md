@@ -1,15 +1,16 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-11 (Dagger Rework Phase 2: Sprints 1-2 complete)
+> Last updated: 2026-03-11 (Dagger Rework Phase 2: Sprints 1-3 complete)
 
 ## Current Phase
 **Dagger Rework Phase 2 — IN PROGRESS.** Elevating talent tree quality before templating for other weapons. See `docs/DAGGER_REWORK_PLAN.md` for full plan.
 
 - **Sprint 1 COMPLETE**: Added 7 multiplicative offense stats to `SkillModifier` (`firePenetration`, `coldPenetration`, `lightningPenetration`, `chaosPenetration`, `dotMultiplier`, `weaponMastery`, `ailmentDuration`). Wired into `ResolvedSkillModifier`, `resolveDamageBuckets`, `calcSkillDps`, and `effectiveStats` in tick.ts.
 - **Sprint 2 COMPLETE**: Replaced 3 legacy buff/passive skills with archetype-themed buffs: `dagger_predators_mark` (Assassination), `dagger_venom_covenant` (Venomcraft), `dagger_shadow_covenant` (Shadow Dance). Save migration v54.
-- **Save version**: v54
-- **Next**: Sprint 3 — Venomcraft branch rework (all 7 active skills, ~60 node changes in `dagger_talents.ts`)
+- **Sprint 3 COMPLETE**: Reworked Venomcraft branch (branch index 1) across all 7 dagger active skills. Each skill now has unique per-skill identity with new stats. Stab=ailmentDuration, Blade Flurry=dotMultiplier, Frost Fan=coldPenetration, Viper Strike=dotMultiplier+chaosPenetration+ailmentDuration, Shadow Step=chaosPenetration, Assassinate=dotMultiplier+weaponMastery, Lightning Lunge=lightningPenetration. T3 nodes renamed for differentiation. ~60 nodes changed.
+- **Save version**: v54 (no save migration needed — data-only changes to talent node definitions)
+- **Next**: Sprint 4 — Assassination branch rework (all 7 active skills, ~50 node changes)
 
 **Previous: Balance v3.0 — COMPLETE.** Multiplicative offense affixes, economy rebalancing, XP hard cutoff, and bot crafting.
 
