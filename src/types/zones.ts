@@ -78,4 +78,7 @@ export interface OfflineProgressSummary {
   currencyDrops: Record<CurrencyType, number>;
   bagDrops: Record<string, number>;
   bestItem: Item | null;
+  totalDeaths?: number;
+  bossVictories?: number;
+  deathLoopDetected?: boolean;
 }

@@ -55,6 +55,7 @@ import { getUnifiedSkillDef } from '../data/unifiedSkills';
 // canAllocateGraphNode, allocateGraphNode, respecGraphNodes, getGraphRespecCost imports moved to skillStore
 import { getFullEffect } from '../engine/combat/helpers';
 import { runCombatTick } from '../engine/combat/tick';
+import { simulateOfflineCombat } from '../engine/combat/offlineSim';
 import { RARITY_ORDER, ESSENCE_REWARD, SELL_GOLD, addItemsWithOverflow, getInventoryCapacity } from '../engine/inventory/helpers';
 import { pickCurrentMob, computeNextClear } from '../engine/zones/helpers';
 import { getMobTypeDef } from '../data/mobTypes';
@@ -1322,26 +1323,21 @@ export const useGameStore = create<GameState & GameActions>()(
             return;
           }
 
-          // Combat mode offline simulation — use same DPS path as real-time
+          // Combat mode offline simulation — headless combat engine
+          const simResult = simulateOfflineCombat(state as GameState, elapsedSeconds);
+          console.log(`[Offline] Headless sim: ${simResult.totalMobKills} kills, ${simResult.totalDeaths} deaths, ${simResult.bossVictories} boss kills in ${simResult.elapsedSimMs.toFixed(0)}ms (${simResult.ticksSimulated} ticks)`);
+
+          // Use headless kill count to drive loot generation via existing simulateIdleRun
           const passiveEffect = getFullEffect(state, Date.now(), true);
-          const offlineClassDef = getClassDef(state.character.class);
-          const offlineClassDmgMult = getClassDamageModifier(state.classResource, offlineClassDef);
-          const offlineClassSpdMult = getClassClearSpeedModifier(state.classResource, offlineClassDef);
-          let offlineSim = computeNextClear(state, zone, passiveEffect, offlineClassDmgMult, offlineClassSpdMult);
+          const syntheticClearTime = simResult.totalMobKills > 0
+            ? elapsedSeconds / simResult.totalMobKills : 999;
+          const result = simulateIdleRun(character, zone, elapsedSeconds, syntheticClearTime, passiveEffect);
+          // Append boss loot from headless sim
+          result.items.push(...simResult.bossLoot);
 
-          // Safety: ensure clearTime is valid for offline sim
-          if (!offlineSim.clearTime || !isFinite(offlineSim.clearTime) || offlineSim.clearTime <= 0) {
-            console.warn('[Offline] Invalid clearTime:', offlineSim.clearTime,
-              'zone:', zone.id, 'skillBar:', state.skillBar?.map(s => s?.skillId));
-            const fallbackClear = calcClearTime(character, zone, passiveEffect, offlineClassDmgMult, offlineClassSpdMult);
-            offlineSim = { clearTime: fallbackClear, clearResult: null };
-          }
-
-          const result = simulateIdleRun(character, zone, elapsedSeconds, offlineSim.clearTime, passiveEffect);
-
-          if (result.clearsCompleted === 0 && elapsedSeconds >= 60) {
-            console.warn('[Offline] 0 clears despite', Math.round(elapsedSeconds), 's elapsed.',
-              'clearTime:', offlineSim.clearTime, 'zone:', zone.id);
+          if (simResult.totalMobKills === 0 && elapsedSeconds >= 60) {
+            console.warn('[Offline] 0 kills despite', Math.round(elapsedSeconds), 's elapsed.',
+              'deathLoop:', simResult.deathLoopDetected, 'zone:', zone.id);
           }
 
           // Dry run to estimate auto-salvage/auto-sell stats for display
@@ -1361,7 +1357,7 @@ export const useGameStore = create<GameState & GameActions>()(
             zoneId: zone.id,
             zoneName: zone.name,
             elapsedSeconds,
-            clearsCompleted: result.clearsCompleted,
+            clearsCompleted: simResult.totalMobKills,
             items: result.items,
             autoSalvagedCount: salvageStats.itemsSalvaged,
             autoSalvagedDust: salvageStats.dustGained,
@@ -1373,6 +1369,9 @@ export const useGameStore = create<GameState & GameActions>()(
             currencyDrops: result.currencyDrops,
             bagDrops: result.bagDrops,
             bestItem: best,
+            totalDeaths: simResult.totalDeaths,
+            bossVictories: simResult.bossVictories,
+            deathLoopDetected: simResult.deathLoopDetected,
           };
 
           state.offlineProgress = summary;

@@ -87,7 +87,20 @@ export default function OfflineProgressModal() {
             <StatCard label="Clears" value={formatNumber(progress.clearsCompleted)} icon={'\u2694\uFE0F'} />
             <StatCard label="Gold" value={formatNumber(progress.goldGained)} icon={'\u{1FA99}'} />
             <StatCard label="XP" value={formatNumber(progress.xpGained)} icon={'\u2B50'} />
+            {(progress.totalDeaths ?? 0) > 0 && (
+              <StatCard label="Deaths" value={formatNumber(progress.totalDeaths!)} icon={'\uD83D\uDC80'} />
+            )}
+            {(progress.bossVictories ?? 0) > 0 && (
+              <StatCard label="Bosses" value={formatNumber(progress.bossVictories!)} icon={'\uD83D\uDC51'} />
+            )}
           </div>
+
+          {/* Death loop warning */}
+          {progress.deathLoopDetected && (
+            <p className="text-xs text-red-400 bg-red-950/30 rounded-lg px-3 py-2 border border-red-500/20">
+              Your character couldn't survive this zone — consider easier content or better gear.
+            </p>
+          )}
 
           {/* Best drop highlight */}
           {progress.bestItem && (

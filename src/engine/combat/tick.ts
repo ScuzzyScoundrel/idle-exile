@@ -280,7 +280,7 @@ function applyZoneDamage(
     playerHp = Math.min(maxLife, playerHp + regen);
 
     if (playerHp <= 0) {
-      const deathNow = Date.now();
+      const deathNow = now;
       const streakReset = deathNow - state.lastDeathTime > DEATH_STREAK_WINDOW * 1000;
       const newStreak = streakReset ? 0 : state.deathStreak + 1;
       return {
@@ -337,6 +337,7 @@ function applyZoneDamage(
 export function runCombatTick(
   state: GameState,
   dtSec: number,
+  now: number = Date.now(),
 ): CombatTickOutput {
   const phase = state.combatPhase;
   if (phase !== 'clearing' && phase !== 'boss_fight') return { patch: {}, result: noResult };
@@ -345,8 +346,6 @@ export function runCombatTick(
 
   const zone = ZONE_DEFS.find(z => z.id === state.currentZoneId);
   if (!zone) return { patch: {}, result: noResult };
-
-  const now = Date.now();
 
   // For clearing, debuffs are per-mob (front mob); for boss, shared state
   const targetDebuffs: ActiveDebuff[] = (phase === 'clearing' && state.packMobs.length > 0)
@@ -1708,7 +1707,7 @@ export function runCombatTick(
 
   // Zone death check
   if (playerHp <= 0) {
-    const deathNow2 = Date.now();
+    const deathNow2 = now;
     const streakReset2 = deathNow2 - state.lastDeathTime > DEATH_STREAK_WINDOW * 1000;
     const newStreak2 = streakReset2 ? 0 : state.deathStreak + 1;
     return {
