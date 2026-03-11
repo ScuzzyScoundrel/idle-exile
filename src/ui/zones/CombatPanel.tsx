@@ -144,6 +144,16 @@ export default function CombatPanel() {
   const [bossLootItems, setBossLootItems] = useState<{ name: string; rarity: Rarity }[]>([]);
   const [bossFightStats, setBossFightStats] = useState<{ duration: number; playerDps: number; bossDps: number; bossMaxHp: number } | null>(null);
 
+  // Lock mob display height to initial pack size per encounter — prevents layout
+  // shift as mobs die. Only resizes at the natural break between encounters.
+  const packSizeLockRef = useRef(0);
+  if (packMobs.length > 0 && packMobs.length > packSizeLockRef.current) {
+    packSizeLockRef.current = packMobs.length;
+  } else if (packMobs.length === 0) {
+    packSizeLockRef.current = 0;
+  }
+  const lockedPackSize = Math.max(packMobs.length, packSizeLockRef.current);
+
   // Visual feedback state — "Last Hit" dashboard (replaces scrolling combat log)
   const [lastFiredSkillId, setLastFiredSkillId] = useState<string | null>(null);
   const lastFiredTimerRef = useRef<ReturnType<typeof setTimeout>>();
@@ -556,10 +566,7 @@ export default function CombatPanel() {
 
           {/* Mob display (combat) or progress bar (gathering) */}
           {idleMode === 'combat' && runningZone ? (
-            <div
-              className="transition-[max-height] duration-300 ease-out overflow-hidden"
-              style={{ maxHeight: `${packMobs.length * 4.5 + 3}rem` }}
-            >
+            <div style={{ minHeight: lockedPackSize > 0 ? `${lockedPackSize * 3.5 + 2.5}rem` : undefined }}>
               <MobDisplay
                 mobName={currentMobTypeId ? (getMobTypeDef(currentMobTypeId)?.name ?? runningZone.mobName) : runningZone.mobName}
                 mobs={packMobs}
