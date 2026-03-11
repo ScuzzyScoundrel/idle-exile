@@ -558,12 +558,24 @@ export default function CombatPanel() {
           {idleMode === 'combat' && runningZone ? (
             <div
               className="rounded-lg overflow-hidden relative"
-              style={{
-                height: '20rem',
-                background: `radial-gradient(ellipse at 50% 30%, rgb(var(--theme-accent) / 0.08) 0%, rgb(var(--theme-bg-tint)) 70%)`,
-              }}
+              style={{ height: '20rem' }}
             >
-              {/* Subtle zone accent border glow */}
+              {/* Zone background image */}
+              <div
+                className="absolute inset-0 bg-cover bg-center"
+                style={{
+                  backgroundImage: `url(/images/zones/${runningZone.id}.webp)`,
+                  opacity: 0.15,
+                }}
+              />
+              {/* Gradient overlay: darken top for readability, fade to theme tint at bottom */}
+              <div
+                className="absolute inset-0"
+                style={{
+                  background: `linear-gradient(to bottom, rgb(var(--theme-bg-tint) / 0.85) 0%, rgb(var(--theme-bg-tint) / 0.4) 40%, rgb(var(--theme-bg-tint) / 0.7) 100%)`,
+                }}
+              />
+              {/* Accent glow */}
               <div
                 className="absolute inset-0 rounded-lg pointer-events-none"
                 style={{
