@@ -557,7 +557,7 @@ export default function CombatPanel() {
           {/* Mob display (combat) or progress bar (gathering) */}
           {idleMode === 'combat' && runningZone ? (
             <div
-              className="rounded-lg overflow-hidden relative"
+              className="rounded-lg overflow-hidden relative border border-gray-700/50"
               style={{ height: '20rem' }}
             >
               {/* Zone background image */}
@@ -565,14 +565,14 @@ export default function CombatPanel() {
                 className="absolute inset-0 bg-cover bg-center"
                 style={{
                   backgroundImage: `url(/images/zones/${runningZone.id}.webp)`,
-                  opacity: 0.15,
+                  opacity: 0.3,
                 }}
               />
-              {/* Gradient overlay: darken top for readability, fade to theme tint at bottom */}
+              {/* Gradient overlay: dark top for readability, image shows through bottom half */}
               <div
                 className="absolute inset-0"
                 style={{
-                  background: `linear-gradient(to bottom, rgb(var(--theme-bg-tint) / 0.85) 0%, rgb(var(--theme-bg-tint) / 0.4) 40%, rgb(var(--theme-bg-tint) / 0.7) 100%)`,
+                  background: `linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.5) 45%, rgba(0,0,0,0.3) 100%)`,
                 }}
               />
               {/* Accent glow */}

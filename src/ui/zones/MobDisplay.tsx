@@ -13,23 +13,15 @@ export default function MobDisplay({ mobName, mobs, bossIn, signatureDrop }: {
 }) {
   const packSize = mobs.length;
   const hasAnyRare = mobs.some(m => m.rare !== null);
-  const hasAnyDebuffs = mobs.some(m => m.debuffs.length > 0);
 
   // Build display name — show pack count, star if any rare
   const namePrefix = hasAnyRare ? '\u2605 ' : '';
   const packCount = packSize > 1 ? ` (${packSize})` : '';
   const displayName = `${namePrefix}${mobName}${packCount}`;
 
-  // Border style: rare > debuff > normal
-  const borderClass = hasAnyRare
-    ? 'border-yellow-500/60 shadow-lg shadow-yellow-500/20'
-    : hasAnyDebuffs ? 'border-red-500/40' : 'border-gray-700';
-
   return (
-    <div
-      className={`bg-gray-800/60 rounded-lg border p-2 ${borderClass}`}
-      style={hasAnyDebuffs && !hasAnyRare ? { animation: 'debuff-glow 2s ease-in-out infinite' } : undefined}
-    >
+    <div className="bg-gray-900/70 rounded-lg p-2">
+
       {/* Header row */}
       <div className="flex justify-between text-xs mb-1">
         <span className={`font-semibold ${hasAnyRare ? 'text-yellow-300' : 'text-gray-200'}`}>{displayName}</span>
