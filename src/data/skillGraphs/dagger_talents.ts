@@ -39,7 +39,7 @@ export const STAB_TALENT_TREE = createTalentTree({
       description: 'Critical strikes and weapon mastery through precision',
       t2Notable: {
         name: 'Blade Sense',
-        description: '10% on hit: Predator (+50% crit mult 3s). +4%/consec. hit (max 30%). +10% crit. +5% wpn mastery.',
+        description: '10% on hit: Predator (+50% critical multiplier 3s). +4%/consecutive hit (max 30%). +10% crit. +5% weapon mastery.',
         nodeType: 'notable', maxRank: 1, procPattern: 'escalating',
         modifier: {
           incCritChance: 10,
@@ -50,7 +50,7 @@ export const STAB_TALENT_TREE = createTalentTree({
       },
       t4Notable: {
         name: 'Exploit Weakness',
-        description: 'Crits apply Vulnerable (2s). While Vulnerable: +15% crit chance. +5% wpn mastery.',
+        description: 'Crits apply Vulnerable (2s). While target is Vulnerable: +15% crit chance. +5% weapon mastery.',
         nodeType: 'notable', maxRank: 1, procPattern: 'gated',
         modifier: {
           weaponMastery: 5,
@@ -60,41 +60,41 @@ export const STAB_TALENT_TREE = createTalentTree({
         },
       },
       behaviorNodes: {
-        t1a: bh('Puncture', '3+ consecutive hits: guaranteed crit. R2: 2+ consecutive hits, +3% wpn mastery.',
+        t1a: bh('Puncture', '3+ consecutive hits: guaranteed crit. Rank 2: 2+ consecutive hits, +3% weapon mastery.',
           { conditionalMods: [{ condition: 'afterConsecutiveHits', threshold: 3, modifier: { incCritChance: 100 } }] },
           { 1: { conditionalMods: [{ condition: 'afterConsecutiveHits', threshold: 3, modifier: { incCritChance: 100 } }] },
             2: { conditionalMods: [{ condition: 'afterConsecutiveHits', threshold: 2, modifier: { incCritChance: 100 } }], weaponMastery: 3 } }),
-        t1b: bh('Tunnel Vision', '+5% crit after 2+ consecutive hits. R2: +7%, +3% wpn mastery.',
+        t1b: bh('Tunnel Vision', '+5% crit after 2+ consecutive hits. Rank 2: +7%, +3% weapon mastery.',
           { conditionalMods: [{ condition: 'afterConsecutiveHits', threshold: 2, modifier: { incCritChance: 5 } }] },
           { 1: { conditionalMods: [{ condition: 'afterConsecutiveHits', threshold: 2, modifier: { incCritChance: 5 } }] },
             2: { conditionalMods: [{ condition: 'afterConsecutiveHits', threshold: 2, modifier: { incCritChance: 7 } }], weaponMastery: 3 } }),
-        t2b: bh('Honed Instincts', 'After crit: +4% crit mult 2s. R2: 3s duration, +5% wpn mastery.',
+        t2b: bh('Honed Instincts', 'After crit: +4% critical multiplier 2s. Rank 2: 3s duration, +5% weapon mastery.',
           { procs: [{ id: 'st_honed', chance: 1.0, trigger: 'onCrit',
             applyBuff: { buffId: 'honedInstincts', effect: { critMultiplierBonus: 4 }, duration: 2 } }] },
           { 1: { procs: [{ id: 'st_honed', chance: 1.0, trigger: 'onCrit',
             applyBuff: { buffId: 'honedInstincts', effect: { critMultiplierBonus: 4 }, duration: 2 } }] },
             2: { procs: [{ id: 'st_honed', chance: 1.0, trigger: 'onCrit',
             applyBuff: { buffId: 'honedInstincts', effect: { critMultiplierBonus: 4 }, duration: 3 } }], weaponMastery: 5 } }),
-        t3a: bh('Relentless Edge', '+15% crit vs Vulnerable, +3% wpn mastery. R2: +18% crit, +5% wpn mastery.',
+        t3a: bh('Relentless Edge', '+15% crit vs Vulnerable, +3% weapon mastery. Rank 2: +18% crit, +5% weapon mastery.',
           { conditionalMods: [{ condition: 'whileDebuffActive', modifier: { incCritChance: 15 } }], weaponMastery: 3 },
           { 1: { conditionalMods: [{ condition: 'whileDebuffActive', modifier: { incCritChance: 15 } }], weaponMastery: 3 },
             2: { conditionalMods: [{ condition: 'whileDebuffActive', modifier: { incCritChance: 18 } }], weaponMastery: 5 } }),
-        t3b: bh('Relentless Pursuit', 'On kill: reset Stab cooldown. R2: instant (skip GCD), +5% wpn mastery.',
+        t3b: bh('Relentless Pursuit', 'When this skill kills: reset Stab cooldown. Rank 2: instant (skip GCD), +5% weapon mastery.',
           { procs: [{ id: 'st_relentless', chance: 1.0, trigger: 'onKill', resetCooldown: 'self' }] },
           { 1: { },
             2: { procs: [{ id: 'st_relentless', chance: 1.0, trigger: 'onKill', resetCooldown: 'self', resetGcd: true }], weaponMastery: 5 } }),
-        t3c: bh('Lethal Rhythm', 'Every 3rd hit: +30% damage, +3% wpn mastery. R2: every 2nd, +5% wpn mastery.',
+        t3c: bh('Lethal Rhythm', 'Every 3rd hit: +30% damage, +3% weapon mastery. Rank 2: every 2nd, +5% weapon mastery.',
           { rampingDamage: { perHit: 10, maxStacks: 3, decayAfter: 5 }, weaponMastery: 3 },
           { 1: { rampingDamage: { perHit: 10, maxStacks: 3, decayAfter: 5 }, weaponMastery: 3 },
             2: { rampingDamage: { perHit: 15, maxStacks: 2, decayAfter: 5 }, weaponMastery: 5 } }),
-        t4b: bh('Predator\'s Mark', 'In Predator: +20% damage. R2: +35% damage, +5% wpn mastery.',
+        t4b: bh('Predator\'s Mark', 'While Predator is active: +20% damage. Rank 2: +35% damage, +5% weapon mastery.',
           { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'predator', modifier: { incDamage: 20 } }] },
           { 1: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'predator', modifier: { incDamage: 20 } }] },
             2: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'predator', modifier: { incDamage: 35 } }], weaponMastery: 5 } }),
       },
       t5a: {
         name: 'Precision Killer',
-        description: 'Crits on Vulnerable: 30% free instant cast. Crit cap 60%. +8% wpn mastery.',
+        description: 'Crits on Vulnerable: 30% free instant cast. Crit cap 60%. +8% weapon mastery.',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: {
           critChanceCap: 60,
@@ -105,7 +105,7 @@ export const STAB_TALENT_TREE = createTalentTree({
       },
       t5b: {
         name: 'Opportunist',
-        description: 'On kill: First Blood (+60% damage next enemy). -15% vs 3+ hit targets.',
+        description: 'When this skill kills: First Blood (+60% damage next enemy). -15% vs 3+ hit targets.',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: {
           procs: [{ id: 'st_opportunist', chance: 1.0, trigger: 'onKill',
@@ -115,7 +115,7 @@ export const STAB_TALENT_TREE = createTalentTree({
       },
       t6Notable: {
         name: 'Death Mark',
-        description: 'On crit: 15% Death Mark (10s). Marked: next hit +100%, consumes Mark. +5% wpn mastery.',
+        description: 'When this skill crits: 15% Death Mark (10s). Marked: next hit +100%, consumes Mark. +5% weapon mastery.',
         nodeType: 'notable', maxRank: 1, procPattern: 'catastrophic',
         modifier: {
           weaponMastery: 5,
@@ -126,7 +126,7 @@ export const STAB_TALENT_TREE = createTalentTree({
       },
       t7Keystone: {
         name: 'DEATHBLOW',
-        description: 'Execute at 25% HP (500% wpn). Crits = Mark delivery only. -20% base damage.',
+        description: 'Execute at 25% HP (500% weapon). Crits = Mark delivery only. -20% base damage.',
         nodeType: 'keystone', maxRank: 1,
         tensionWith: 'st_0_6_0',
         modifier: {
@@ -143,7 +143,7 @@ export const STAB_TALENT_TREE = createTalentTree({
       description: 'Rapid poison injection and extended toxin duration',
       t2Notable: {
         name: 'Envenom',
-        description: 'Guaranteed Poison (3s). At 3+ stacks: 25% Toxic Burst (50% DoT instant). +10% poison dur. +8% ailment dur.',
+        description: 'Guaranteed Poison (3s). At 3+ stacks: 25% Toxic Burst (50% damage over time instant). +10% poison duration. +8% ailment duration.',
         nodeType: 'notable', maxRank: 1, procPattern: 'gated',
         modifier: {
           debuffInteraction: { debuffDurationBonus: 10 },
@@ -158,7 +158,7 @@ export const STAB_TALENT_TREE = createTalentTree({
       },
       t4Notable: {
         name: 'Deep Wounds',
-        description: 'Poison +25%. At 8+ stacks: Venom Frenzy (5s, +30% speed, +1 poison/hit). +10% ailment dur. 20s ICD.',
+        description: 'Poison +25%. At 8+ stacks: Venom Frenzy (5s, +30% speed, +1 poison/hit). +10% ailment duration. 20s internal cooldown.',
         nodeType: 'notable', maxRank: 1, procPattern: 'state-shift',
         modifier: {
           debuffInteraction: { debuffEffectBonus: 25 },
@@ -169,19 +169,19 @@ export const STAB_TALENT_TREE = createTalentTree({
         },
       },
       behaviorNodes: {
-        t1a: bh('Envenomed Blade', 'Each Stab applies 1 poison. R2: 2 per hit + 5% ailment dur.',
+        t1a: bh('Envenomed Blade', 'Each Stab applies 1 poison. Rank 2: 2 per hit + 5% ailment duration.',
           { procs: [{ id: 'st_envblade', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'poisoned', stacks: 1, duration: 3 } }] },
           { 1: { procs: [{ id: 'st_envblade', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'poisoned', stacks: 1, duration: 3 } }] },
             2: { procs: [{ id: 'st_envblade', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'poisoned', stacks: 2, duration: 3 } }], ailmentDuration: 5 } }),
-        t1b: bh('Toxic Strikes', '+10% damage vs poisoned. R2: +15% and +5% ailment dur.',
+        t1b: bh('Toxic Strikes', '+10% damage vs poisoned. Rank 2: +15% and +5% ailment duration.',
           { conditionalMods: [{ condition: 'whileDebuffActive', modifier: { incDamage: 10 } }] },
           { 1: { conditionalMods: [{ condition: 'whileDebuffActive', modifier: { incDamage: 10 } }] },
             2: { conditionalMods: [{ condition: 'whileDebuffActive', modifier: { incDamage: 15 } }], ailmentDuration: 5 } }),
-        t2b: bh('Lingering Venom', '+8% ailment duration. R2: +15% ailment dur.',
+        t2b: bh('Lingering Venom', '+8% ailment durationation. Rank 2: +15% ailment duration.',
           { ailmentDuration: 8 },
           { 1: { ailmentDuration: 8 },
             2: { ailmentDuration: 15 } }),
-        t3a: bh('Rapid Injection', 'Consec. hits: ramping damage + extra poison. R2: +5% ailment dur.',
+        t3a: bh('Rapid Injection', 'Consecutive hits: ramping damage + extra poison. Rank 2: +5% ailment duration.',
           { rampingDamage: { perHit: 5, maxStacks: 5, decayAfter: 3 },
             procs: [{ id: 'st_rapidinj', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'poisoned', stacks: 1, duration: 3 } }] },
           { 1: { rampingDamage: { perHit: 5, maxStacks: 5, decayAfter: 3 },
@@ -189,11 +189,11 @@ export const STAB_TALENT_TREE = createTalentTree({
             2: { rampingDamage: { perHit: 7, maxStacks: 5, decayAfter: 3 },
             procs: [{ id: 'st_rapidinj', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'poisoned', stacks: 1, duration: 3 } }],
             ailmentDuration: 5 } }),
-        t3b: bh('Persistent Venom', 'Kill: spread poison + 5% ailment dur. R2: refresh + 10% ailment dur.',
+        t3b: bh('Persistent Venom', 'When this skill kills: spread poison + 5% ailment duration. Rank 2: refresh + 10% ailment duration.',
           { debuffInteraction: { spreadDebuffOnKill: { debuffIds: ['poisoned'], refreshDuration: 0 } }, ailmentDuration: 5 },
           { 1: { debuffInteraction: { spreadDebuffOnKill: { debuffIds: ['poisoned'], refreshDuration: 0 } }, ailmentDuration: 5 },
             2: { debuffInteraction: { spreadDebuffOnKill: { debuffIds: ['poisoned'], refreshDuration: 1 } }, ailmentDuration: 10 } }),
-        t3c: bh('Venomous Rhythm', 'At 8+ stacks: 25% burst (40% DoT). R2: 30% + 8% ailment dur.',
+        t3c: bh('Venomous Rhythm', 'At 8+ stacks: 25% burst (40% damage over time). Rank 2: 30% + 8% ailment duration.',
           { procs: [{ id: 'st_venrhythm', chance: 0.25, trigger: 'onHit',
             instantDamage: { flatDamage: 0, element: 'Chaos', scaleStat: 'debuffDamage', scaleRatio: 0.40 } }] },
           { 1: { procs: [{ id: 'st_venrhythm', chance: 0.25, trigger: 'onHit',
@@ -201,14 +201,14 @@ export const STAB_TALENT_TREE = createTalentTree({
             2: { procs: [{ id: 'st_venrhythm', chance: 0.30, trigger: 'onHit',
             instantDamage: { flatDamage: 0, element: 'Chaos', scaleStat: 'debuffDamage', scaleRatio: 0.40 } }],
             ailmentDuration: 8 } }),
-        t4b: bh('Frenzy Strikes', 'During Venom Frenzy: +20% speed. R2: +8% ailment dur.',
+        t4b: bh('Frenzy Strikes', 'While Venom Frenzy is active: +20% speed. Rank 2: +8% ailment duration.',
           { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'venomFrenzy', modifier: { incCastSpeed: 20 } }] },
           { 1: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'venomFrenzy', modifier: { incCastSpeed: 20 } }] },
             2: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'venomFrenzy', modifier: { incCastSpeed: 20 } }], ailmentDuration: 8 } }),
       },
       t5a: {
         name: 'Toxic Mastery',
-        description: 'Poison +10%/stack (mult Deep Wounds). Duration +25%. +15% ailment dur.',
+        description: 'Poison +10%/stack (mult Deep Wounds). Duration +25%. +15% ailment duration.',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: { debuffInteraction: { debuffEffectBonus: 10, debuffDurationBonus: 25 }, ailmentDuration: 15 },
       },
@@ -223,7 +223,7 @@ export const STAB_TALENT_TREE = createTalentTree({
       },
       t6Notable: {
         name: 'Pandemic',
-        description: 'On kill: spread all debuffs to next enemy. Retain duration.',
+        description: 'When this skill kills: spread all debuffs to next enemy. Retain duration.',
         nodeType: 'notable', maxRank: 1, procPattern: 'gated',
         modifier: {
           debuffInteraction: { spreadDebuffOnKill: { debuffIds: ['all'], refreshDuration: 1 } },
@@ -243,7 +243,7 @@ export const STAB_TALENT_TREE = createTalentTree({
       description: 'Evasive combat and weapon mastery through counters',
       t2Notable: {
         name: 'Shadow Guard',
-        description: 'Fortify on hit. Dodge: 60% wpn counter + Weakened (2s). 35% CD reset. +5 resist. +5% weapon mastery.',
+        description: 'Fortify on hit. Dodge: 60% weapon counter-attack + Weakened (2s). 35% cooldown reset. +5 resist. +5% weapon mastery.',
         nodeType: 'notable', maxRank: 1, procPattern: 'cooldown',
         modifier: {
           weaponMastery: 5,
@@ -257,7 +257,7 @@ export const STAB_TALENT_TREE = createTalentTree({
       },
       t4Notable: {
         name: 'Ghost Step',
-        description: 'Dodge: heal 5% + Shadow Form (4s, 30% DR). 15s cooldown. +5% weapon mastery.',
+        description: 'Dodge: heal 5% + Shadow Form (4s, 30% damage reduction). 15s cooldown. +5% weapon mastery.',
         nodeType: 'notable', maxRank: 1, procPattern: 'state-shift',
         modifier: {
           weaponMastery: 5,
@@ -270,33 +270,33 @@ export const STAB_TALENT_TREE = createTalentTree({
         },
       },
       behaviorNodes: {
-        t1a: bh('Riposte', 'Dodge: 50% wpn counter. +1 LoH. R2: 70% counter, +3% weapon mastery.',
+        t1a: bh('Riposte', 'Dodge: 50% weapon counter-attack. +1 life on hit. Rank 2: 70% counter, +3% weapon mastery.',
           { lifeOnHit: 1, procs: [{ id: 'st_riposte', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Physical', scaleStat: 'weaponDamage', scaleRatio: 0.50 } }] },
           { 1: { lifeOnHit: 1, procs: [{ id: 'st_riposte', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Physical', scaleStat: 'weaponDamage', scaleRatio: 0.50 } }] },
             2: { lifeOnHit: 1, weaponMastery: 3, procs: [{ id: 'st_riposte', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Physical', scaleStat: 'weaponDamage', scaleRatio: 0.70 } }] } }),
-        t1b: bh('Combat Leech', '3% damage leeched as life. R2: 5%, +3% weapon mastery.',
+        t1b: bh('Combat Leech', '3% damage leeched as life. Rank 2: 5%, +3% weapon mastery.',
           { leechPercent: 3 },
           { 1: { leechPercent: 3 }, 2: { leechPercent: 5, weaponMastery: 3 } }),
-        t2b: bh('Reactive Footwork', 'Dodge after Stab: free cast. R2: +15% damage, +5% weapon mastery.',
+        t2b: bh('Reactive Footwork', 'Dodge after Stab: free cast. Rank 2: +15% damage, +5% weapon mastery.',
           { procs: [{ id: 'st_reactive', chance: 1.0, trigger: 'onDodge', resetCooldown: 'self' }] },
           { 1: { },
             2: { weaponMastery: 5, procs: [{ id: 'st_reactive', chance: 1.0, trigger: 'onDodge', resetCooldown: 'self',
               applyBuff: { effect: { damageMult: 1.15 }, duration: 3 } }] } }),
-        t3a: bh('Counter Stab', 'Dodge: 80% wpn counter, +3% weapon mastery. R2: counter always crits, +5% weapon mastery.',
+        t3a: bh('Counter Stab', 'Dodge: 80% weapon counter-attack, +3% weapon mastery. Rank 2: counter always crits, +5% weapon mastery.',
           { procs: [{ id: 'st_counter', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Physical', scaleStat: 'weaponDamage', scaleRatio: 0.80 } }] },
           { 1: { weaponMastery: 3, procs: [{ id: 'st_counter', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Physical', scaleStat: 'weaponDamage', scaleRatio: 0.80 } }] },
             2: { weaponMastery: 5, procs: [{ id: 'st_counter', chance: 1.0, trigger: 'onDodge',
               instantDamage: { flatDamage: 0, element: 'Physical', scaleStat: 'weaponDamage', scaleRatio: 0.80 } }],
               incCritChance: 100 } }),
-        t3b: bh('Second Wind', 'Dodge: heal 2% HP. R2: +10% evasion 3s, +5% weapon mastery.',
+        t3b: bh('Second Wind', 'Dodge: heal 2% HP. Rank 2: +10% evasion 3s, +5% weapon mastery.',
           { procs: [{ id: 'st_secondwind', chance: 1.0, trigger: 'onDodge', healPercent: 2 }] },
           { 1: { procs: [{ id: 'st_secondwind', chance: 1.0, trigger: 'onDodge', healPercent: 2 }] },
             2: { weaponMastery: 5, procs: [{ id: 'st_secondwind', chance: 1.0, trigger: 'onDodge', healPercent: 2,
               applyBuff: { effect: { defenseMult: 1.10 }, duration: 3 } }] } }),
-        t3c: bh('Combat Flow', 'Dodge: reduce Stab CD 0.5s, +3% weapon mastery. R2: reduce 1s, +5% weapon mastery.',
+        t3c: bh('Combat Flow', 'Dodge: reduce Stab cooldown 0.5s, +3% weapon mastery. Rank 2: reduce 1s, +5% weapon mastery.',
           { cooldownReduction: 5 },
           { 1: { cooldownReduction: 5, weaponMastery: 3 }, 2: { cooldownReduction: 10, weaponMastery: 5 } }),
-        t4b: bh('Shadow Strikes', 'In Shadow Form: +15% dmg and apply Blind (1s). R2: +Fortify on hit, +5% weapon mastery.',
+        t4b: bh('Shadow Strikes', 'While Shadow Form is active: +15% damage and apply Blind (1s). Rank 2: +Fortify on hit, +5% weapon mastery.',
           { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'shadowForm', modifier: { incDamage: 15 } }],
             procs: [{ id: 'st_shadow_blind', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'blinded', stacks: 1, duration: 1 } }] },
           { 1: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'shadowForm', modifier: { incDamage: 15 } }],
@@ -328,7 +328,7 @@ export const STAB_TALENT_TREE = createTalentTree({
       },
       t6Notable: {
         name: 'Phantom Stride',
-        description: 'Dodge: 75% wpn counter. Counter kill: CD reset. +5% weapon mastery.',
+        description: 'Dodge: 75% weapon counter-attack. Counter kill: cooldown reset. +5% weapon mastery.',
         nodeType: 'notable', maxRank: 1, procPattern: 'cooldown',
         modifier: {
           weaponMastery: 5,
@@ -342,7 +342,7 @@ export const STAB_TALENT_TREE = createTalentTree({
       },
       t7Keystone: {
         name: 'SHADOW SOVEREIGN',
-        description: 'Counter = 200% wpn. No heal. Dodge procs doubled. -10% max life.',
+        description: 'Counter = 200% weapon. No heal. Dodge procs doubled. -10% max life.',
         nodeType: 'keystone', maxRank: 1,
         tensionWith: 'st_2_6_0',
         modifier: {
@@ -368,7 +368,7 @@ export const BLADE_FLURRY_TALENT_TREE = createTalentTree({
       description: 'Critical strikes and combo weapon mastery',
       t2Notable: {
         name: 'Cascade Instinct',
-        description: 'Full-hit cast: 20% Storm (+40% crit mult 4s). +15%/consec. full cast (max 65%). +8% crit. +5% wpn mastery.',
+        description: 'Full-hit cast: 20% Storm (+40% critical multiplier 4s). +15%/consecutive full cast (max 65%). +8% crit. +5% weapon mastery.',
         nodeType: 'notable', maxRank: 1, procPattern: 'escalating',
         modifier: {
           incCritChance: 8,
@@ -379,7 +379,7 @@ export const BLADE_FLURRY_TALENT_TREE = createTalentTree({
       },
       t4Notable: {
         name: 'Lethal Threshold',
-        description: 'All 3 hits crit: Vulnerable (3s) +20% final hit. While Vulnerable: +5% crit/hit in cast. +5% wpn mastery.',
+        description: 'All 3 hits crit: Vulnerable (3s) +20% final hit. While target is Vulnerable: +5% crit/hit in cast. +5% weapon mastery.',
         nodeType: 'notable', maxRank: 1, procPattern: 'gated',
         modifier: {
           weaponMastery: 5,
@@ -389,38 +389,38 @@ export const BLADE_FLURRY_TALENT_TREE = createTalentTree({
         },
       },
       behaviorNodes: {
-        t1a: bh('Accelerating Cuts', '+4% crit per hit in cast. R2: +6%, +3% wpn mastery.',
+        t1a: bh('Accelerating Cuts', '+4% crit per hit in cast. Rank 2: +6%, +3% weapon mastery.',
           { incCritChance: 4 },
           { 1: { incCritChance: 4 }, 2: { incCritChance: 6, weaponMastery: 3 } }),
-        t1b: bh('Blade Dance', 'Cast within 2s of last BF = Combo: +15% crit. R2: +5% crit mult, +3% wpn mastery.',
+        t1b: bh('Blade Dance', 'Cast within 2s of last BF = Combo: +15% crit. Rank 2: +5% critical multiplier, +3% weapon mastery.',
           { incCritChance: 15 },
           { 1: { incCritChance: 15 }, 2: { incCritChance: 15, incCritMultiplier: 5, weaponMastery: 3 } }),
-        t2b: bh('Precision Cuts', 'On hit: +2% crit mult buff 3s. R2: 5s duration, +5% wpn mastery.',
+        t2b: bh('Precision Cuts', 'When this skill hits: +2% critical multiplier buff 3s. Rank 2: 5s duration, +5% weapon mastery.',
           { procs: [{ id: 'bf_preccuts', chance: 1.0, trigger: 'onHit',
             applyBuff: { buffId: 'precisionCuts', effect: { critMultiplierBonus: 2 }, duration: 3 } }] },
           { 1: { procs: [{ id: 'bf_preccuts', chance: 1.0, trigger: 'onHit',
             applyBuff: { buffId: 'precisionCuts', effect: { critMultiplierBonus: 2 }, duration: 3 } }] },
             2: { procs: [{ id: 'bf_preccuts', chance: 1.0, trigger: 'onHit',
             applyBuff: { buffId: 'precisionCuts', effect: { critMultiplierBonus: 2 }, duration: 5 } }], weaponMastery: 5 } }),
-        t3a: bh('Surgical Cascade', 'Hits apply Vulnerable (1s), +3% wpn mastery. R2: +25% damage, +5% wpn mastery.',
+        t3a: bh('Surgical Cascade', 'Hits apply Vulnerable (1s), +3% weapon mastery. Rank 2: +25% damage, +5% weapon mastery.',
           { procs: [{ id: 'bf_fullflurry', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'vulnerable', stacks: 1, duration: 1 } }], weaponMastery: 3 },
           { 1: { procs: [{ id: 'bf_fullflurry', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'vulnerable', stacks: 1, duration: 1 } }], weaponMastery: 3 },
             2: { procs: [{ id: 'bf_fullflurry', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'vulnerable', stacks: 1, duration: 1 } }], incDamage: 25, weaponMastery: 5 } }),
-        t3b: bh('Whirlwind Combo', 'Rapid combo (1.5s): +1 bonus hit. R2: bonus hit 80% wpn dmg, +5% wpn mastery.',
+        t3b: bh('Whirlwind Combo', 'Rapid combo (1.5s): +1 bonus hit. Rank 2: bonus hit 80% weapon damage, +5% weapon mastery.',
           { extraHits: 1 },
           { 1: { extraHits: 1 }, 2: { extraHits: 1, weaponMastery: 5 } }),
-        t3c: bh('Escalating Cuts', '+8% damage per hit in cast, +3% wpn mastery. R2: carries to next cast 3s, +5% wpn mastery.',
+        t3c: bh('Escalating Cuts', '+8% damage per hit in cast, +3% weapon mastery. Rank 2: carries to next cast 3s, +5% weapon mastery.',
           { rampingDamage: { perHit: 8, maxStacks: 5, decayAfter: 3 }, weaponMastery: 3 },
           { 1: { rampingDamage: { perHit: 8, maxStacks: 5, decayAfter: 3 }, weaponMastery: 3 },
             2: { rampingDamage: { perHit: 8, maxStacks: 5, decayAfter: 6 }, weaponMastery: 5 } }),
-        t4b: bh('Predator\'s Flurry', 'In Predator: +1 extra hit. R2: extra hit +20% crit, +5% wpn mastery.',
+        t4b: bh('Predator\'s Flurry', 'While Predator is active: +1 extra hit. Rank 2: extra hit +20% crit, +5% weapon mastery.',
           { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'predator', modifier: { extraHits: 1 } }] },
           { 1: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'predator', modifier: { extraHits: 1 } }] },
             2: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'predator', modifier: { extraHits: 1, incCritChance: 20 } }], weaponMastery: 5 } }),
       },
       t5a: {
         name: 'Flurry of Steel',
-        description: 'Per-crit in cast: +15% crit mult (4s). 3+ crits: next BF +1 hit. Crit mult cap +150%. +8% wpn mastery.',
+        description: 'Per-crit in cast: +15% critical multiplier (4s). 3+ crits: next BF +1 hit. Crit mult cap +150%. +8% weapon mastery.',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: {
           critChanceCap: 75,
@@ -431,7 +431,7 @@ export const BLADE_FLURRY_TALENT_TREE = createTalentTree({
       },
       t5b: {
         name: 'Cascade Killer',
-        description: 'On kill: next BF +2 hits +30% dmg, -10% crit. No kill = lose combo, -20% 3s.',
+        description: 'When this skill kills: next BF +2 hits +30% damage, -10% crit. No kill = lose combo, -20% 3s.',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: {
           procs: [{ id: 'bf_cascade_killer', chance: 1.0, trigger: 'onKill',
@@ -441,7 +441,7 @@ export const BLADE_FLURRY_TALENT_TREE = createTalentTree({
       },
       t6Notable: {
         name: 'Crimson Barrage',
-        description: '3+ crits in cast: 12% Crimson Barrage — next cast all guaranteed crits +40% dmg. +5% wpn mastery.',
+        description: '3+ crits in cast: 12% Crimson Barrage — next cast all guaranteed crits +40% damage. +5% weapon mastery.',
         nodeType: 'notable', maxRank: 1, procPattern: 'catastrophic',
         modifier: {
           weaponMastery: 5,
@@ -451,7 +451,7 @@ export const BLADE_FLURRY_TALENT_TREE = createTalentTree({
       },
       t7Keystone: {
         name: 'TEMPEST OF BLADES',
-        description: 'BF +2 perm hits (5 base). -15%/hit. Crits = no bonus dmg, Barrage delivery only. Barrage 25% at 4+ crits.',
+        description: 'BF +2 perm hits (5 base). -15%/hit. Crits = no bonus damage, Barrage delivery only. Barrage 25% at 4+ crits.',
         nodeType: 'keystone', maxRank: 1,
         tensionWith: 'bf_0_6_0',
         modifier: {
@@ -464,10 +464,10 @@ export const BLADE_FLURRY_TALENT_TREE = createTalentTree({
     // --- Venomcraft ---
     {
       name: 'Venomcraft',
-      description: 'Combo poison amplification and DoT multipliers',
+      description: 'Combo poison amplification and damage over time multiplieripliers',
       t2Notable: {
         name: 'Venomous Cascade',
-        description: 'Per-hit on poisoned: 3% double stacks (+3%/stack, max 18%). 5+ stacks in cast: 40% DoT burst. +8% DoT mult.',
+        description: 'Per-hit on poisoned: 3% double stacks (+3%/stack, max 18%). 5+ stacks in cast: 40% damage over time burst. +8% damage over time multiplier.',
         nodeType: 'notable', maxRank: 1, procPattern: 'gated',
         modifier: {
           dotMultiplier: 8,
@@ -481,7 +481,7 @@ export const BLADE_FLURRY_TALENT_TREE = createTalentTree({
       },
       t4Notable: {
         name: 'Toxic Crescendo',
-        description: '4+ poison stacks applied in one cast: Venom Surge (5s, +1 poison/hit, +25% poison). +10% DoT mult. 15s ICD.',
+        description: '4+ poison stacks applied in one cast: Venom Surge (5s, +1 poison/hit, +25% poison). +10% damage over time multiplier. 15s internal cooldown.',
         nodeType: 'notable', maxRank: 1, procPattern: 'state-shift',
         modifier: {
           dotMultiplier: 10,
@@ -491,39 +491,39 @@ export const BLADE_FLURRY_TALENT_TREE = createTalentTree({
         },
       },
       behaviorNodes: {
-        t1a: bh('Toxic Flurry', 'Each hit applies 1 poison. R2: 2 per hit + 5% DoT mult.',
+        t1a: bh('Toxic Flurry', 'Each hit applies 1 poison. Rank 2: 2 per hit + 5% damage over time multiplier.',
           { procs: [{ id: 'bf_toxflurry', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'poisoned', stacks: 1, duration: 3 } }] },
           { 1: { procs: [{ id: 'bf_toxflurry', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'poisoned', stacks: 1, duration: 3 } }] },
             2: { procs: [{ id: 'bf_toxflurry', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'poisoned', stacks: 2, duration: 3 } }], dotMultiplier: 5 } }),
-        t1b: bh('Corroding Cuts', 'Each hit vs poisoned extends poison +0.5s. R2: +0.3s + 5% DoT mult.',
+        t1b: bh('Corroding Cuts', 'Each hit vs poisoned extends poison +0.5s. Rank 2: +0.3s + 5% damage over time multiplier.',
           { debuffInteraction: { debuffDurationBonus: 5 } },
           { 1: { debuffInteraction: { debuffDurationBonus: 5 } },
             2: { debuffInteraction: { debuffDurationBonus: 8 }, dotMultiplier: 5 } }),
-        t2b: bh('Compound Toxin', '+5% DoT multiplier. R2: +10% DoT mult + 3% cast speed.',
+        t2b: bh('Compound Toxin', '+5% damage over time multiplieriplier. Rank 2: +10% damage over time multiplier + 3% cast speed.',
           { dotMultiplier: 5 },
           { 1: { dotMultiplier: 5 },
             2: { dotMultiplier: 10, incCastSpeed: 3 } }),
-        t3a: bh('Compound Venom', 'Hits apply Weakened (2s) + 5% DoT mult. R2: +10% vs poisoned + 8% DoT mult.',
+        t3a: bh('Compound Venom', 'Hits apply Weakened (2s) + 5% damage over time multiplier. Rank 2: +10% vs poisoned + 8% damage over time multiplier.',
           { procs: [{ id: 'bf_compound', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'weakened', stacks: 1, duration: 2 } }], dotMultiplier: 5 },
           { 1: { procs: [{ id: 'bf_compound', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'weakened', stacks: 1, duration: 2 } }], dotMultiplier: 5 },
             2: { procs: [{ id: 'bf_compound', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'weakened', stacks: 1, duration: 2 } }],
             conditionalMods: [{ condition: 'whileDebuffActive', debuffId: 'poisoned', threshold: 3, modifier: { incDamage: 10 } }], dotMultiplier: 8 } }),
-        t3b: bh('Hemorrhagic Cascade', 'Kill: spread poison + 5% DoT mult. R2: refresh + 8% DoT mult.',
+        t3b: bh('Hemorrhagic Cascade', 'When this skill kills: spread poison + 5% damage over time multiplier. Rank 2: refresh + 8% damage over time multiplier.',
           { debuffInteraction: { spreadDebuffOnKill: { debuffIds: ['poisoned'], refreshDuration: 0 } }, dotMultiplier: 5 },
           { 1: { debuffInteraction: { spreadDebuffOnKill: { debuffIds: ['poisoned'], refreshDuration: 0 } }, dotMultiplier: 5 },
             2: { debuffInteraction: { spreadDebuffOnKill: { debuffIds: ['poisoned'], refreshDuration: 1 } }, dotMultiplier: 8 } }),
-        t3c: bh('Chain Reaction', '8+ poison stacks: +1 extra hit + 5% DoT mult. R2: threshold 6 + 10% DoT mult.',
+        t3c: bh('Chain Reaction', '8+ poison stacks: +1 extra hit + 5% damage over time multiplier. Rank 2: threshold 6 + 10% damage over time multiplier.',
           { conditionalMods: [{ condition: 'whileDebuffActive', debuffId: 'poisoned', threshold: 8, modifier: { extraHits: 1 } }], dotMultiplier: 5 },
           { 1: { conditionalMods: [{ condition: 'whileDebuffActive', debuffId: 'poisoned', threshold: 8, modifier: { extraHits: 1 } }], dotMultiplier: 5 },
             2: { conditionalMods: [{ condition: 'whileDebuffActive', debuffId: 'poisoned', threshold: 6, modifier: { extraHits: 1 } }], dotMultiplier: 10 } }),
-        t4b: bh('Venom Whirlwind', 'Venom Frenzy: +1 hit per cast. R2: +8% DoT mult.',
+        t4b: bh('Venom Whirlwind', 'While Venom Frenzy is active: +1 hit per cast. Rank 2: +8% damage over time multiplier.',
           { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'venomFrenzy', modifier: { extraHits: 1 } }] },
           { 1: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'venomFrenzy', modifier: { extraHits: 1 } }] },
             2: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'venomFrenzy', modifier: { extraHits: 1 } }], dotMultiplier: 8 } }),
       },
       t5a: {
         name: 'Festering Barrage',
-        description: 'Per hit: +5% dmg per poison stack (cap +50%). BF poison +2s dur. +12% DoT mult.',
+        description: 'Per hit: +5% damage per poison stack (cap +50%). BF poison +2s duration. +12% damage over time multiplier.',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: {
           debuffInteraction: { debuffEffectBonus: 5, debuffDurationBonus: 20 },
@@ -532,7 +532,7 @@ export const BLADE_FLURRY_TALENT_TREE = createTalentTree({
       },
       t5b: {
         name: 'Venomous Detonation',
-        description: '5+ stacks applied in one cast: 30% detonate ALL for 150% DoT instant. Resets to 0.',
+        description: '5+ stacks applied in one cast: 30% detonate ALL for 150% damage over time instant. Resets to 0.',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: {
           procs: [{ id: 'bf_venomous_detonation', chance: 0.30, trigger: 'onCastComplete',
@@ -541,7 +541,7 @@ export const BLADE_FLURRY_TALENT_TREE = createTalentTree({
       },
       t6Notable: {
         name: 'Plague Cascade',
-        description: 'On kill with BF: spread poison = hits in kill cast. 4+ hits: spread all debuffs. +5% DoT mult.',
+        description: 'On kill with BF: spread poison = hits in kill cast. 4+ hits: spread all debuffs. +5% damage over time multiplier.',
         nodeType: 'notable', maxRank: 1, procPattern: 'gated',
         modifier: {
           debuffInteraction: { spreadDebuffOnKill: { debuffIds: ['poisoned'], refreshDuration: 1 } },
@@ -551,7 +551,7 @@ export const BLADE_FLURRY_TALENT_TREE = createTalentTree({
       },
       t7Keystone: {
         name: 'PLAGUE FLURRY',
-        description: 'BF direct dmg → poison stacks. +2 hits. Poison +50%. -25% cast speed.',
+        description: 'BF direct damage → poison stacks. +2 hits. Poison +50%. -25% cast speed.',
         nodeType: 'keystone', maxRank: 1,
         tensionWith: 'bf_1_6_0',
         modifier: {
@@ -567,7 +567,7 @@ export const BLADE_FLURRY_TALENT_TREE = createTalentTree({
       description: 'Evasive combat and combo weapon mastery',
       t2Notable: {
         name: 'Flickering Guard',
-        description: 'After BF: Flicker Charge (3s). Dodge w/ charge: 50% wpn counter + Blind (2s), -2s CD, +1 Fortify. 5s ICD. +5 resist. +5% weapon mastery.',
+        description: 'After BF: Flicker Charge (3s). Dodge w/ charge: 50% weapon counter-attack + Blind (2s), -2s cooldown, +1 Fortify. 5s internal cooldown. +5 resist. +5% weapon mastery.',
         nodeType: 'notable', maxRank: 1, procPattern: 'cooldown',
         modifier: {
           weaponMastery: 5,
@@ -585,7 +585,7 @@ export const BLADE_FLURRY_TALENT_TREE = createTalentTree({
       },
       t4Notable: {
         name: 'Flickering Counter',
-        description: 'Dodge within 3s of BF: Phantom Edge (4s) — +1 hit, Blind on all hits, +15% evasion. Dodge extends +2s (once). 12s ICD. +5% weapon mastery.',
+        description: 'Dodge within 3s of BF: Phantom Edge (4s) — +1 hit, Blind on all hits, +15% evasion. Dodge extends +2s (once). 12s internal cooldown. +5% weapon mastery.',
         nodeType: 'notable', maxRank: 1, procPattern: 'state-shift',
         modifier: {
           weaponMastery: 5,
@@ -595,26 +595,26 @@ export const BLADE_FLURRY_TALENT_TREE = createTalentTree({
         },
       },
       behaviorNodes: {
-        t1a: bh('Retaliating Cuts', 'Dodge: 45% wpn counter + Blind (2s). +1 LoH. R2: 60% counter, +3% weapon mastery.',
+        t1a: bh('Retaliating Cuts', 'Dodge: 45% weapon counter-attack + Blind (2s). +1 life on hit. Rank 2: 60% counter, +3% weapon mastery.',
           { lifeOnHit: 1, procs: [{ id: 'bf_retaliate', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Physical', scaleStat: 'weaponDamage', scaleRatio: 0.45 }, applyDebuff: { debuffId: 'blinded', stacks: 1, duration: 2 } }] },
           { 1: { lifeOnHit: 1, procs: [{ id: 'bf_retaliate', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Physical', scaleStat: 'weaponDamage', scaleRatio: 0.45 }, applyDebuff: { debuffId: 'blinded', stacks: 1, duration: 2 } }] },
             2: { lifeOnHit: 1, weaponMastery: 3, procs: [{ id: 'bf_retaliate', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Physical', scaleStat: 'weaponDamage', scaleRatio: 0.60 }, applyDebuff: { debuffId: 'blinded', stacks: 1, duration: 2 } }] } }),
-        t1b: bh('Momentum Leech', '+3% leech vs debuffed enemies. R2: +5% leech, +3% weapon mastery.',
+        t1b: bh('Momentum Leech', '+3% leech vs debuffed enemies. Rank 2: +5% leech, +3% weapon mastery.',
           { leechPercent: 3, conditionalMods: [{ condition: 'whileDebuffActive', modifier: { incDamage: 5 } }] },
           { 1: { leechPercent: 3, conditionalMods: [{ condition: 'whileDebuffActive', modifier: { incDamage: 5 } }] },
             2: { leechPercent: 5, weaponMastery: 3, conditionalMods: [{ condition: 'whileDebuffActive', modifier: { incDamage: 8 } }] } }),
-        t2b: bh('Blade Shield', 'Dodge: +15% damage buff 3s. R2: +25% damage, +5% weapon mastery.',
+        t2b: bh('Blade Shield', 'Dodge: +15% damage buff 3s. Rank 2: +25% damage, +5% weapon mastery.',
           { procs: [{ id: 'bf_bladeshield', chance: 1.0, trigger: 'onDodge',
             applyBuff: { buffId: 'bladeShield', effect: { damageMult: 1.15 }, duration: 3 } }] },
           { 1: { procs: [{ id: 'bf_bladeshield', chance: 1.0, trigger: 'onDodge',
             applyBuff: { buffId: 'bladeShield', effect: { damageMult: 1.15 }, duration: 3 } }] },
             2: { weaponMastery: 5, procs: [{ id: 'bf_bladeshield', chance: 1.0, trigger: 'onDodge',
             applyBuff: { buffId: 'bladeShield', effect: { damageMult: 1.25 }, duration: 3 } }] } }),
-        t3a: bh('Whirling Counter', 'Dodge: 100% wpn counter + Blind (2s), +3% weapon mastery. R2: chains to 1 nearby mob at 50%, +5% weapon mastery.',
+        t3a: bh('Whirling Counter', 'Dodge: 100% weapon counter-attack + Blind (2s), +3% weapon mastery. Rank 2: chains to 1 nearby mob at 50%, +5% weapon mastery.',
           { procs: [{ id: 'bf_whirlcounter', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Physical', scaleStat: 'weaponDamage', scaleRatio: 1.00 }, applyDebuff: { debuffId: 'blinded', stacks: 1, duration: 2 } }] },
           { 1: { weaponMastery: 3, procs: [{ id: 'bf_whirlcounter', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Physical', scaleStat: 'weaponDamage', scaleRatio: 1.00 }, applyDebuff: { debuffId: 'blinded', stacks: 1, duration: 2 } }] },
             2: { weaponMastery: 5, procs: [{ id: 'bf_whirlcounter', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Physical', scaleStat: 'weaponDamage', scaleRatio: 1.00 }, applyDebuff: { debuffId: 'blinded', stacks: 1, duration: 2 } }] } }),
-        t3b: bh('Defensive Rhythm', 'Dodge: +1 Fortify (3% DR, 4s). R2: 5s duration, +5% weapon mastery.',
+        t3b: bh('Defensive Rhythm', 'Dodge: +1 Fortify (3% damage reduction, 4s). Rank 2: 5s duration, +5% weapon mastery.',
           { procs: [{ id: 'bf_defrhythm', chance: 1.0, trigger: 'onDodge',
             healPercent: 1 }],
             fortifyOnHit: { stacks: 1, duration: 4, damageReduction: 3 } },
@@ -622,17 +622,17 @@ export const BLADE_FLURRY_TALENT_TREE = createTalentTree({
             fortifyOnHit: { stacks: 1, duration: 4, damageReduction: 3 } },
             2: { weaponMastery: 5, procs: [{ id: 'bf_defrhythm', chance: 1.0, trigger: 'onDodge', healPercent: 1 }],
             fortifyOnHit: { stacks: 1, duration: 5, damageReduction: 3 } } }),
-        t3c: bh('Rapid Recovery', 'Dodge: reduce BF CD 0.8s, +3% weapon mastery. R2: 1.2s, +5% weapon mastery.',
+        t3c: bh('Rapid Recovery', 'Dodge: reduce BF cooldown 0.8s, +3% weapon mastery. Rank 2: 1.2s, +5% weapon mastery.',
           { cooldownReduction: 8 },
           { 1: { cooldownReduction: 8, weaponMastery: 3 }, 2: { cooldownReduction: 12, weaponMastery: 5 } }),
-        t4b: bh('Shadow Flurry', 'Shadow Form: BF cast speed +25%. R2: +10% crit, +5% weapon mastery.',
+        t4b: bh('Shadow Flurry', 'Shadow Form: BF cast speed +25%. Rank 2: +10% crit, +5% weapon mastery.',
           { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'shadowForm', modifier: { incCastSpeed: 25 } }] },
           { 1: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'shadowForm', modifier: { incCastSpeed: 25 } }] },
             2: { weaponMastery: 5, conditionalMods: [{ condition: 'whileBuffActive', buffId: 'shadowForm', modifier: { incCastSpeed: 25, incCritChance: 10 } }] } }),
       },
       t5a: {
         name: 'Mirage Flurry',
-        description: 'Dodge: heal 2%/recent BF hit (max 6%). In Phantom Edge: +5% evasion/hit. +5 all resist. +8% weapon mastery.',
+        description: 'Dodge: heal 2%/recent BF hit (max 6%). While Phantom Edge is active: +5% evasion/hit. +5 all resist. +8% weapon mastery.',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: {
           weaponMastery: 8,
@@ -643,7 +643,7 @@ export const BLADE_FLURRY_TALENT_TREE = createTalentTree({
       },
       t5b: {
         name: 'Phantom Blitz',
-        description: 'Dodge: 20% wpn per recent BF hit (max 100%). Below 35%: doubled. No evasion bonus. +10% dmg taken.',
+        description: 'Dodge: 20% weapon per recent BF hit (max 100%). Below 35%: doubled. No evasion bonus. +10% damage taken.',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: {
           increasedDamageTaken: 10,
@@ -653,7 +653,7 @@ export const BLADE_FLURRY_TALENT_TREE = createTalentTree({
       },
       t6Notable: {
         name: 'Ghost Barrage',
-        description: 'Dodge: phantom BF (30% wpn/recent hit, max 3 phantom hits). 3 phantom hits: reset BF CD. 6s ICD. +5% weapon mastery.',
+        description: 'Dodge: phantom BF (30% weapon/recent hit, max 3 phantom hits). 3 phantom hits: reset BF cooldown. 6s internal cooldown. +5% weapon mastery.',
         nodeType: 'notable', maxRank: 1, procPattern: 'cooldown',
         modifier: {
           weaponMastery: 5,
@@ -668,7 +668,7 @@ export const BLADE_FLURRY_TALENT_TREE = createTalentTree({
       },
       t7Keystone: {
         name: 'SPECTRAL TEMPEST',
-        description: 'Ghost Barrage: always 3 hits at 60% (180%). No CD reset. Per phantom hit: 25% dodge check. No Fortify. -10% max HP. ICD 4s.',
+        description: 'Ghost Barrage: always 3 hits at 60% (180%). No cooldown reset. Per phantom hit: 25% dodge check. No Fortify. -10% max HP. internal cooldown 4s.',
         nodeType: 'keystone', maxRank: 1,
         tensionWith: 'bf_2_6_0',
         modifier: {
@@ -692,10 +692,10 @@ export const FROST_FAN_TALENT_TREE = createTalentTree({
     // --- Assassination ---
     {
       name: 'Assassination',
-      description: 'Critical strikes and glacial cold penetration',
+      description: 'Critical strikes and glacial cold penetrationetration',
       t2Notable: {
         name: 'Glacial Focus',
-        description: 'Hit 3+ targets: Frost Intensity stack (max 5, 6s). At 5: Glacial Focus (4s, +60% crit mult, +1 pierce). +8% crit. +5% cold pen.',
+        description: 'Hit 3+ targets: Frost Intensity stack (max 5, 6s). At 5: Glacial Focus (4s, +60% critical multiplier, +1 pierce). +8% crit. +5% cold penetration.',
         nodeType: 'notable', maxRank: 1, procPattern: 'escalating',
         modifier: {
           incCritChance: 8,
@@ -706,7 +706,7 @@ export const FROST_FAN_TALENT_TREE = createTalentTree({
       },
       t4Notable: {
         name: 'Rime Exploit',
-        description: 'Crits apply Vulnerable (2s). Hit 3+ Vulnerable in cast: +20% dmg, refresh Vulnerable. +5% cold pen.',
+        description: 'Crits apply Vulnerable (2s). Hit 3+ Vulnerable in cast: +20% damage, refresh Vulnerable. +5% cold penetration.',
         nodeType: 'notable', maxRank: 1, procPattern: 'gated',
         modifier: {
           coldPenetration: 5,
@@ -716,32 +716,32 @@ export const FROST_FAN_TALENT_TREE = createTalentTree({
         },
       },
       behaviorNodes: {
-        t1a: bh('Spreading Chill', '+4% crit per target hit (max +20%). R2: +6%, +3% cold pen.',
+        t1a: bh('Spreading Chill', '+4% crit per target hit (max +20%). Rank 2: +6%, +3% cold penetration.',
           { incCritChance: 4 },
           { 1: { incCritChance: 4 }, 2: { incCritChance: 6, coldPenetration: 3 } }),
-        t1b: bh('Piercing Toxin', 'After 2+ pierces: final target +25% crit. R2: threshold 1, +3% cold pen.',
+        t1b: bh('Piercing Toxin', 'After 2+ pierces: final target +25% crit. Rank 2: threshold 1, +3% cold penetration.',
           { incCritChance: 25 },
           { 1: { incCritChance: 25 }, 2: { incCritChance: 25, coldPenetration: 3 } }),
-        t2b: bh('Frozen Focus', '+8% crit mult vs Chilled. R2: +12%, crits extend Chill 1s, +5% cold pen.',
+        t2b: bh('Frozen Focus', '+8% critical multiplier vs Chilled. Rank 2: +12%, crits extend Chill 1s, +5% cold penetration.',
           { incCritMultiplier: 8 },
           { 1: { incCritMultiplier: 8 }, 2: { incCritMultiplier: 12, coldPenetration: 5 } }),
-        t3a: bh('Frozen Precision', 'Guaranteed crit, +5% cold pen. R2: +10% crit mult, +8% cold pen.',
+        t3a: bh('Frozen Precision', 'Guaranteed crit, +5% cold penetration. Rank 2: +10% critical multiplier, +8% cold penetration.',
           { incCritChance: 100, coldPenetration: 5 },
           { 1: { incCritChance: 100, coldPenetration: 5 }, 2: { incCritChance: 100, incCritMultiplier: 10, coldPenetration: 8 } }),
-        t3b: bh('Glacial Crossfire', '2+ projectiles on same enemy: guaranteed crit, +3% cold pen. R2: +20% damage, +5% cold pen.',
+        t3b: bh('Glacial Crossfire', '2+ projectiles on same enemy: guaranteed crit, +3% cold penetration. Rank 2: +20% damage, +5% cold penetration.',
           { incCritChance: 100, coldPenetration: 3 },
           { 1: { coldPenetration: 3 }, 2: { incDamage: 20, coldPenetration: 5 } }),
-        t3c: bh('Blizzard Barrage', '+5% damage per enemy hit, +3% cold pen. R2: +8% damage, Chilled count as 2, +5% cold pen.',
+        t3c: bh('Blizzard Barrage', '+5% damage per enemy hit, +3% cold penetration. Rank 2: +8% damage, Chilled count as 2, +5% cold penetration.',
           { incDamage: 5, coldPenetration: 3 },
           { 1: { incDamage: 5, coldPenetration: 3 }, 2: { incDamage: 8, coldPenetration: 5 } }),
-        t4b: bh('Predator\'s Frost', 'In Predator: +1 pierce. R2: pierced gain Vulnerable (1s), +5% cold pen.',
+        t4b: bh('Predator\'s Frost', 'While Predator is active: +1 pierce. Rank 2: pierced gain Vulnerable (1s), +5% cold penetration.',
           { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'predator', modifier: { pierceCount: 1 } }] },
           { 1: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'predator', modifier: { pierceCount: 1 } }] },
             2: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'predator', modifier: { pierceCount: 1 } }], coldPenetration: 5 } }),
       },
       t5a: {
         name: 'Glacial Precision',
-        description: 'Crits on Chilled: 25% bonus piercing projectile (50% dmg). Crit cap 55%. +8% cold pen.',
+        description: 'Crits on Chilled: 25% bonus piercing projectile (50% damage). Crit cap 55%. +8% cold penetration.',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: {
           critChanceCap: 55,
@@ -752,7 +752,7 @@ export const FROST_FAN_TALENT_TREE = createTalentTree({
       },
       t5b: {
         name: 'Frozen Carnage',
-        description: 'On kill: next FF fires double projectiles (4s). -20% vs already-hit targets (stacks 3x).',
+        description: 'When this skill kills: next FF fires double projectiles (4s). -20% vs already-hit targets (stacks 3x).',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: {
           procs: [{ id: 'ff_frozen_carnage', chance: 1.0, trigger: 'onKill',
@@ -762,7 +762,7 @@ export const FROST_FAN_TALENT_TREE = createTalentTree({
       },
       t6Notable: {
         name: 'Shatter Mark',
-        description: 'On crit: 12% Shatter Mark (8s). Kill marked: frost nova 80% Cold dmg to AoE. Can crit. +5% cold pen.',
+        description: 'When this skill crits: 12% Shatter Mark (8s). Killing a marked enemy: frost nova 80% Cold damage to AoE. Can crit. +5% cold penetration.',
         nodeType: 'notable', maxRank: 1, procPattern: 'catastrophic',
         modifier: {
           coldPenetration: 5,
@@ -773,7 +773,7 @@ export const FROST_FAN_TALENT_TREE = createTalentTree({
       },
       t7Keystone: {
         name: 'AVALANCHE',
-        description: 'Shatter Mark chains (max 3). No pierce. Crits = no bonus dmg, Mark delivery only. -15% base dmg.',
+        description: 'Shatter Mark chains (max 3). No pierce. Crits = no bonus damage, Mark delivery only. -15% base damage.',
         nodeType: 'keystone', maxRank: 1,
         tensionWith: 'ff_0_6_0',
         modifier: {
@@ -786,10 +786,10 @@ export const FROST_FAN_TALENT_TREE = createTalentTree({
     // --- Venomcraft ---
     {
       name: 'Venomcraft',
-      description: 'Frost-poison hybrid debuffs and cold penetration',
+      description: 'Frost-poison hybrid debuffs and cold penetrationetration',
       t2Notable: {
         name: 'Blight Surge',
-        description: 'Guaranteed poison (3s). Poison 4+ targets: 30% Blight Pulse (40% DoT to all). +5% cold pen.',
+        description: 'Guaranteed poison (3s). Poison 4+ targets: 30% Blight Pulse (40% damage over time to all). +5% cold penetration.',
         nodeType: 'notable', maxRank: 1, procPattern: 'gated',
         modifier: {
           coldPenetration: 5,
@@ -803,7 +803,7 @@ export const FROST_FAN_TALENT_TREE = createTalentTree({
       },
       t4Notable: {
         name: 'Miasma Cascade',
-        description: 'Poison +20%. 5+ targets: Miasma (5s, +2 poison/hit, 15% tick spread). +8% cold pen. 18s ICD.',
+        description: 'Poison +20%. 5+ targets: Miasma (5s, +2 poison/hit, 15% tick spread). +8% cold penetration. 18s internal cooldown.',
         nodeType: 'notable', maxRank: 1, procPattern: 'state-shift',
         modifier: {
           debuffInteraction: { debuffEffectBonus: 20 },
@@ -814,41 +814,41 @@ export const FROST_FAN_TALENT_TREE = createTalentTree({
         },
       },
       behaviorNodes: {
-        t1a: bh('Toxic Frost', 'Each hit applies 1 poison. R2: 2 per hit + 3% cold pen.',
+        t1a: bh('Toxic Frost', 'Each hit applies 1 poison. Rank 2: 2 per hit + 3% cold penetration.',
           { procs: [{ id: 'ff_toxfrost', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'poisoned', stacks: 1, duration: 3 } }] },
           { 1: { procs: [{ id: 'ff_toxfrost', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'poisoned', stacks: 1, duration: 3 } }] },
             2: { procs: [{ id: 'ff_toxfrost', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'poisoned', stacks: 2, duration: 3 } }], coldPenetration: 3 } }),
-        t1b: bh('Plague Scatter', 'On kill: spread poison. R2: refresh dur + 3% cold pen.',
+        t1b: bh('Plague Scatter', 'When this skill kills: spread poison. Rank 2: refresh duration + 3% cold penetration.',
           { debuffInteraction: { spreadDebuffOnKill: { debuffIds: ['poisoned'], refreshDuration: 0 } } },
           { 1: { debuffInteraction: { spreadDebuffOnKill: { debuffIds: ['poisoned'], refreshDuration: 0 } } },
             2: { debuffInteraction: { spreadDebuffOnKill: { debuffIds: ['poisoned'], refreshDuration: 1 } }, coldPenetration: 3 } }),
-        t2b: bh('Festering Chill', 'Hits apply Chilled (2s) + 5% cold pen. R2: 3s + 8% cold pen.',
+        t2b: bh('Festering Chill', 'Hits apply Chilled (2s) + 5% cold penetration. Rank 2: 3s + 8% cold penetration.',
           { procs: [{ id: 'ff_festchill', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'chilled', stacks: 1, duration: 2 } }], coldPenetration: 5 },
           { 1: { procs: [{ id: 'ff_festchill', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'chilled', stacks: 1, duration: 2 } }], coldPenetration: 5 },
             2: { procs: [{ id: 'ff_festchill', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'chilled', stacks: 1, duration: 3 } }], coldPenetration: 8 } }),
-        t3a: bh('Frost Plague', 'Chilled+poisoned: +15% damage + 5% cold pen. R2: +25% + 8% cold pen.',
+        t3a: bh('Frost Plague', 'Chilled+poisoned: +15% damage + 5% cold penetration. Rank 2: +25% + 8% cold penetration.',
           { conditionalMods: [{ condition: 'whileDebuffActive', debuffId: 'poisoned', threshold: 3, modifier: { incDamage: 15 } }], coldPenetration: 5 },
           { 1: { conditionalMods: [{ condition: 'whileDebuffActive', debuffId: 'poisoned', threshold: 3, modifier: { incDamage: 15 } }], coldPenetration: 5 },
             2: { conditionalMods: [{ condition: 'whileDebuffActive', debuffId: 'poisoned', threshold: 3, modifier: { incDamage: 25 } }], coldPenetration: 8 } }),
-        t3b: bh('Frozen Pandemic', 'Kill: spread poison + Chill (2s) + 3% cold pen. R2: refresh + 6% cold pen.',
+        t3b: bh('Frozen Pandemic', 'When this skill kills: spread poison + Chill (2s) + 3% cold penetration. Rank 2: refresh + 6% cold penetration.',
           { debuffInteraction: { spreadDebuffOnKill: { debuffIds: ['poisoned'], refreshDuration: 0 } }, coldPenetration: 3,
             procs: [{ id: 'ff_frozenpandemic', chance: 1.0, trigger: 'onKill', applyDebuff: { debuffId: 'chilled', stacks: 1, duration: 2 } }] },
           { 1: { debuffInteraction: { spreadDebuffOnKill: { debuffIds: ['poisoned'], refreshDuration: 0 } }, coldPenetration: 3,
             procs: [{ id: 'ff_frozenpandemic', chance: 1.0, trigger: 'onKill', applyDebuff: { debuffId: 'chilled', stacks: 1, duration: 2 } }] },
             2: { debuffInteraction: { spreadDebuffOnKill: { debuffIds: ['poisoned'], refreshDuration: 1 } }, coldPenetration: 6,
             procs: [{ id: 'ff_frozenpandemic', chance: 1.0, trigger: 'onKill', applyDebuff: { debuffId: 'chilled', stacks: 1, duration: 2 } }] } }),
-        t3c: bh('Frostbite Burst', 'Consume poison for Cold burst (15/stack) + 5% cold pen. R2: 20/stack + 8% cold pen.',
+        t3c: bh('Frostbite Burst', 'Consume poison for Cold burst (15/stack) + 5% cold penetration. Rank 2: 20/stack + 8% cold penetration.',
           { debuffInteraction: { consumeDebuff: { debuffId: 'poisoned', damagePerStack: 15, element: 'Cold' } }, coldPenetration: 5 },
           { 1: { debuffInteraction: { consumeDebuff: { debuffId: 'poisoned', damagePerStack: 15, element: 'Cold' } }, coldPenetration: 5 },
             2: { debuffInteraction: { consumeDebuff: { debuffId: 'poisoned', damagePerStack: 20, element: 'Cold' } }, coldPenetration: 8 } }),
-        t4b: bh('Venom Gale', 'Venom Frenzy: +1 pierce. R2: +5% cold pen.',
+        t4b: bh('Venom Gale', 'While Venom Frenzy is active: +1 pierce. Rank 2: +5% cold penetration.',
           { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'venomFrenzy', modifier: { pierceCount: 1 } }] },
           { 1: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'venomFrenzy', modifier: { pierceCount: 1 } }] },
             2: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'venomFrenzy', modifier: { pierceCount: 1 } }], coldPenetration: 5 } }),
       },
       t5a: {
         name: 'Creeping Frost',
-        description: 'Poison +8% per poisoned target (max +40%). Poison duration +30%. +10% cold pen.',
+        description: 'Poison +8% per poisoned target (max +40%). Poison duration +30%. +10% cold penetration.',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: {
           debuffInteraction: { debuffEffectBonus: 8, debuffDurationBonus: 30 },
@@ -866,7 +866,7 @@ export const FROST_FAN_TALENT_TREE = createTalentTree({
       },
       t6Notable: {
         name: 'Contagion Burst',
-        description: 'Kill poisoned (5+ stacks): explode half stacks to AoE. Inherit duration. +5% cold pen.',
+        description: 'Kill poisoned (5+ stacks): explode half stacks to AoE. Inherit duration. +5% cold penetration.',
         nodeType: 'notable', maxRank: 1, procPattern: 'gated',
         modifier: {
           procs: [{ id: 'ff_contagion_burst', chance: 1.0, trigger: 'onKill' }],
@@ -888,10 +888,10 @@ export const FROST_FAN_TALENT_TREE = createTalentTree({
     // --- Shadow Dance ---
     {
       name: 'Shadow Dance',
-      description: 'Evasive combat and glacial cold penetration',
+      description: 'Evasive combat and glacial cold penetrationetration',
       t2Notable: {
         name: 'Hailguard',
-        description: 'FF hits: Frost Fortify. Dodge: 70% cold counter + Chill (3s). 30% reset FF CD. +5 cold resist. +5% cold pen.',
+        description: 'FF hits: Frost Fortify. Dodge: 70% cold counter + Chill (3s). 30% reset FF cooldown. +5 cold resist. +5% cold penetration.',
         nodeType: 'notable', maxRank: 1, procPattern: 'cooldown',
         modifier: {
           coldPenetration: 5,
@@ -904,7 +904,7 @@ export const FROST_FAN_TALENT_TREE = createTalentTree({
       },
       t4Notable: {
         name: 'Mist Veil',
-        description: 'Dodge: heal 4%. 3 dodges in 6s: Mist Veil (4s, 25% DR, FF +2 targets, FF Chills 2s). 15s ICD. +5% cold pen.',
+        description: 'Dodge: heal 4%. 3 dodges in 6s: Mist Veil (4s, 25% damage reduction, FF +2 targets, FF Chills 2s). 15s internal cooldown. +5% cold penetration.',
         nodeType: 'notable', maxRank: 1, procPattern: 'state-shift',
         modifier: {
           coldPenetration: 5,
@@ -917,35 +917,35 @@ export const FROST_FAN_TALENT_TREE = createTalentTree({
         },
       },
       behaviorNodes: {
-        t1a: bh('Frost Retaliation', 'Dodge: 40% cold counter + Chill (2s). +2 LoH. R2: 55% counter, Chill 3s, +3% cold pen.',
+        t1a: bh('Frost Retaliation', 'Dodge: 40% cold counter + Chill (2s). +2 life on hit. Rank 2: 55% counter, Chill 3s, +3% cold penetration.',
           { lifeOnHit: 2, procs: [{ id: 'ff_frostretaliate', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Cold', scaleStat: 'weaponDamage', scaleRatio: 0.40 }, applyDebuff: { debuffId: 'chilled', stacks: 1, duration: 2 } }] },
           { 1: { lifeOnHit: 2, procs: [{ id: 'ff_frostretaliate', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Cold', scaleStat: 'weaponDamage', scaleRatio: 0.40 }, applyDebuff: { debuffId: 'chilled', stacks: 1, duration: 2 } }] },
             2: { lifeOnHit: 2, coldPenetration: 3, procs: [{ id: 'ff_frostretaliate', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Cold', scaleStat: 'weaponDamage', scaleRatio: 0.55 }, applyDebuff: { debuffId: 'chilled', stacks: 1, duration: 3 } }] } }),
-        t1b: bh('Chilling Defense', '-5% enemy damage. R2: -8%, +3% cold pen.',
+        t1b: bh('Chilling Defense', '-5% enemy damage. Rank 2: -8%, +3% cold penetration.',
           { incDamage: -5 },
           { 1: { incDamage: -5 }, 2: { incDamage: -8, coldPenetration: 3 } }),
-        t2b: bh('Evasive Scatter', 'Dodge: +15% damage buff 3s. R2: +20% damage, +5% cold pen.',
+        t2b: bh('Evasive Scatter', 'Dodge: +15% damage buff 3s. Rank 2: +20% damage, +5% cold penetration.',
           { procs: [{ id: 'ff_evscatter', chance: 1.0, trigger: 'onDodge',
             applyBuff: { buffId: 'evasiveScatter', effect: { damageMult: 1.15 }, duration: 3 } }] },
           { 1: { procs: [{ id: 'ff_evscatter', chance: 1.0, trigger: 'onDodge',
             applyBuff: { buffId: 'evasiveScatter', effect: { damageMult: 1.15 }, duration: 3 } }] },
             2: { coldPenetration: 5, procs: [{ id: 'ff_evscatter', chance: 1.0, trigger: 'onDodge',
             applyBuff: { buffId: 'evasiveScatter', effect: { damageMult: 1.20 }, duration: 3 } }] } }),
-        t3a: bh('Frozen Counter', 'Dodge: 80% cold counter + Chill (3s), +3% cold pen. R2: shatter on kill = 50% overkill AoE, +5% cold pen.',
+        t3a: bh('Frozen Counter', 'Dodge: 80% cold counter + Chill (3s), +3% cold penetration. Rank 2: shatter on kill = 50% overkill AoE, +5% cold penetration.',
           { procs: [{ id: 'ff_frozenctr', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Cold', scaleStat: 'weaponDamage', scaleRatio: 0.80 }, applyDebuff: { debuffId: 'chilled', stacks: 1, duration: 3 } }] },
           { 1: { coldPenetration: 3, procs: [{ id: 'ff_frozenctr', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Cold', scaleStat: 'weaponDamage', scaleRatio: 0.80 }, applyDebuff: { debuffId: 'chilled', stacks: 1, duration: 3 } }] },
             2: { coldPenetration: 5, procs: [{ id: 'ff_frozenctr', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Cold', scaleStat: 'weaponDamage', scaleRatio: 0.80 }, applyDebuff: { debuffId: 'chilled', stacks: 1, duration: 3 } }] } }),
-        t3b: bh('Ice Barrier', 'Dodge: +25% DR buff 3s. R2: 5s + heal 2%, +5% cold pen.',
+        t3b: bh('Ice Barrier', 'Dodge: +25% damage reduction buff 3s. Rank 2: 5s + heal 2%, +5% cold penetration.',
           { procs: [{ id: 'ff_icebarrier', chance: 1.0, trigger: 'onDodge',
             applyBuff: { buffId: 'iceBarrier', effect: { defenseMult: 1.25 }, duration: 3 } }] },
           { 1: { procs: [{ id: 'ff_icebarrier', chance: 1.0, trigger: 'onDodge',
             applyBuff: { buffId: 'iceBarrier', effect: { defenseMult: 1.25 }, duration: 3 } }] },
             2: { coldPenetration: 5, procs: [{ id: 'ff_icebarrier', chance: 1.0, trigger: 'onDodge', healPercent: 2,
             applyBuff: { buffId: 'iceBarrier', effect: { defenseMult: 1.25 }, duration: 5 } }] } }),
-        t3c: bh('Blizzard Step', 'Dodge: reduce Frost Fan CD 1s, +3% cold pen. R2: +1 target count, +5% cold pen.',
+        t3c: bh('Blizzard Step', 'Dodge: reduce Frost Fan cooldown 1s, +3% cold penetration. Rank 2: +1 target count, +5% cold penetration.',
           { cooldownReduction: 10 },
           { 1: { cooldownReduction: 10, coldPenetration: 3 }, 2: { cooldownReduction: 10, coldPenetration: 5 } }),
-        t4b: bh('Shadow Frost', 'Shadow Form: +15% damage and apply Chill (2s). R2: +25% vs Chilled, +5% cold pen.',
+        t4b: bh('Shadow Frost', 'Shadow Form: +15% damage and apply Chill (2s). Rank 2: +25% vs Chilled, +5% cold penetration.',
           { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'shadowForm', modifier: { incDamage: 15 } }],
             procs: [{ id: 'ff_shadowfrost', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'chilled', stacks: 1, duration: 2 } }] },
           { 1: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'shadowForm', modifier: { incDamage: 15 } }],
@@ -955,7 +955,7 @@ export const FROST_FAN_TALENT_TREE = createTalentTree({
       },
       t5a: {
         name: 'Aurora Shield',
-        description: 'Dodge: heal 3% + FF dmg +10%/Frost Fortify stack. +5 all resist. Mist Veil: +1 Fortify/3 targets. +8% cold pen.',
+        description: 'Dodge: heal 3% + FF damage +10%/Frost Fortify stack. +5 all resist. Mist Veil: +1 Fortify/3 targets. +8% cold penetration.',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: {
           coldPenetration: 8,
@@ -966,7 +966,7 @@ export const FROST_FAN_TALENT_TREE = createTalentTree({
       },
       t5b: {
         name: 'Frost Retaliation',
-        description: 'Dodge: full FF at 60%. Below 35%: 150%. No Mist Veil heal. +10% dmg taken.',
+        description: 'Dodge: full FF at 60%. Below 35%: 150%. No Mist Veil heal. +10% damage taken.',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: {
           increasedDamageTaken: 10,
@@ -976,7 +976,7 @@ export const FROST_FAN_TALENT_TREE = createTalentTree({
       },
       t6Notable: {
         name: 'Frost Riposte',
-        description: 'Dodge: piercing frost bolt (70% Cold, Chill 2s). Hit 3+ targets: reset FF CD. +5% cold pen.',
+        description: 'Dodge: piercing frost bolt (70% Cold, Chill 2s). Hit 3+ targets: reset FF cooldown. +5% cold penetration.',
         nodeType: 'notable', maxRank: 1, procPattern: 'cooldown',
         modifier: {
           coldPenetration: 5,
@@ -1013,10 +1013,10 @@ export const VIPER_STRIKE_TALENT_TREE = createTalentTree({
     // --- Assassination ---
     {
       name: 'Assassination',
-      description: 'Critical strikes and venomous chaos penetration',
+      description: 'Critical strikes and venomous chaos penetrationetration',
       t2Notable: {
         name: "Viper's Focus",
-        description: 'Poison tick: 8% Serpent Clarity (+40% crit mult 4s, +4%/stack max 48%). +8% crit. +5% chaos pen.',
+        description: 'Poison tick: 8% Serpent Clarity (+40% critical multiplier 4s, +4%/stack max 48%). +8% crit. +5% chaos penetration.',
         nodeType: 'notable', maxRank: 1, procPattern: 'escalating',
         modifier: {
           incCritChance: 8,
@@ -1027,7 +1027,7 @@ export const VIPER_STRIKE_TALENT_TREE = createTalentTree({
       },
       t4Notable: {
         name: 'Fang of Vulnerability',
-        description: 'Crit at 5+ poison: Vulnerable (3s). +20% crit vs Vulnerable+Poisoned. +5% chaos pen.',
+        description: 'Crit at 5+ poison: Vulnerable (3s). +20% crit vs Vulnerable+Poisoned. +5% chaos penetration.',
         nodeType: 'notable', maxRank: 1, procPattern: 'gated',
         modifier: {
           chaosPenetration: 5,
@@ -1037,42 +1037,42 @@ export const VIPER_STRIKE_TALENT_TREE = createTalentTree({
         },
       },
       behaviorNodes: {
-        t1a: bh('Toxic Precision', '+8% crit at 3+ poison stacks. R2: threshold 2, +3% chaos pen.',
+        t1a: bh('Toxic Precision', '+8% crit at 3+ poison stacks. Rank 2: threshold 2, +3% chaos penetration.',
           { conditionalMods: [{ condition: 'whileDebuffActive', debuffId: 'poisoned', threshold: 3, modifier: { incCritChance: 8 } }] },
           { 1: { conditionalMods: [{ condition: 'whileDebuffActive', debuffId: 'poisoned', threshold: 3, modifier: { incCritChance: 8 } }] },
             2: { conditionalMods: [{ condition: 'whileDebuffActive', debuffId: 'poisoned', threshold: 2, modifier: { incCritChance: 8 } }], chaosPenetration: 3 } }),
-        t1b: bh('Venom Surge', '15% on hit: +5% crit buff 2s. R2: 3s duration, +3% chaos pen.',
+        t1b: bh('Venom Surge', '15% on hit: +5% crit buff 2s. Rank 2: 3s duration, +3% chaos penetration.',
           { procs: [{ id: 'vs_venomsurge', chance: 0.15, trigger: 'onHit',
             applyBuff: { buffId: 'venomSurge', effect: { critChanceBonus: 5 }, duration: 2 } }] },
           { 1: { procs: [{ id: 'vs_venomsurge', chance: 0.15, trigger: 'onHit',
             applyBuff: { buffId: 'venomSurge', effect: { critChanceBonus: 5 }, duration: 2 } }] },
             2: { procs: [{ id: 'vs_venomsurge', chance: 0.15, trigger: 'onHit',
             applyBuff: { buffId: 'venomSurge', effect: { critChanceBonus: 5 }, duration: 3 } }], chaosPenetration: 3 } }),
-        t2b: bh('Critical Infection', 'Crits: +1 poison stack. R2: also Weakened (1s), +5% chaos pen.',
+        t2b: bh('Critical Infection', 'Crits: +1 poison stack. Rank 2: also Weakened (1s), +5% chaos penetration.',
           { procs: [{ id: 'vs_critinfect', chance: 1.0, trigger: 'onCrit', applyDebuff: { debuffId: 'poisoned', stacks: 1, duration: 3 } }] },
           { 1: { procs: [{ id: 'vs_critinfect', chance: 1.0, trigger: 'onCrit', applyDebuff: { debuffId: 'poisoned', stacks: 1, duration: 3 } }] },
             2: { procs: [
               { id: 'vs_critinfect', chance: 1.0, trigger: 'onCrit', applyDebuff: { debuffId: 'poisoned', stacks: 1, duration: 3 } },
               { id: 'vs_critinfect_weak', chance: 1.0, trigger: 'onCrit', applyDebuff: { debuffId: 'weakened', stacks: 1, duration: 1 } }], chaosPenetration: 5 } }),
-        t3a: bh('Critical Venom', 'Crits empower poison: +20% DoT snapshot, +3% chaos pen. R2: threshold 3 stacks, +5% chaos pen.',
+        t3a: bh('Critical Venom', 'Crits empower poison: +20% damage over time snapshot, +3% chaos penetration. Rank 2: threshold 3 stacks, +5% chaos penetration.',
           { conditionalMods: [{ condition: 'whileDebuffActive', debuffId: 'poisoned', threshold: 5, modifier: { incDamage: 20 } }], chaosPenetration: 3 },
           { 1: { conditionalMods: [{ condition: 'whileDebuffActive', debuffId: 'poisoned', threshold: 5, modifier: { incDamage: 20 } }], chaosPenetration: 3 },
             2: { conditionalMods: [{ condition: 'whileDebuffActive', debuffId: 'poisoned', threshold: 3, modifier: { incDamage: 20 } }], chaosPenetration: 5, dotMultiplier: 5 } }),
-        t3b: bh('Expiring Venom', '25% on hit: consume poison for chaos burst, +3% chaos pen. R2: 30% chance, +5% chaos pen.',
+        t3b: bh('Expiring Venom', '25% on hit: consume poison for chaos burst, +3% chaos penetration. Rank 2: 30% chance, +5% chaos penetration.',
           { debuffInteraction: { consumeDebuff: { debuffId: 'poisoned', damagePerStack: 12, element: 'Chaos' } }, chaosPenetration: 3 },
           { 1: { debuffInteraction: { consumeDebuff: { debuffId: 'poisoned', damagePerStack: 12, element: 'Chaos' } }, chaosPenetration: 3 },
             2: { debuffInteraction: { consumeDebuff: { debuffId: 'poisoned', damagePerStack: 15, element: 'Chaos' } }, chaosPenetration: 5 } }),
-        t3c: bh('Venomous Precision', '+4% damage per poison stack, +3% chaos pen. R2: also applies to DoT ticks, +5% chaos pen.',
+        t3c: bh('Venomous Precision', '+4% damage per poison stack, +3% chaos penetration. Rank 2: also applies to damage over time ticks, +5% chaos penetration.',
           { incDamage: 4, chaosPenetration: 3 },
           { 1: { incDamage: 4, chaosPenetration: 3 }, 2: { incDamage: 4, chaosPenetration: 5 } }),
-        t4b: bh('Predator\'s Venom', 'In Serpent Clarity: poison +30%. R2: also +10% poison duration, +5% chaos pen.',
+        t4b: bh('Predator\'s Venom', 'While Serpent Clarity is active: poison +30%. Rank 2: also +10% poison durationation, +5% chaos penetration.',
           { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'serpentClarity', modifier: { debuffInteraction: { debuffEffectBonus: 30 } } }] },
           { 1: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'serpentClarity', modifier: { debuffInteraction: { debuffEffectBonus: 30 } } }] },
             2: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'serpentClarity', modifier: { debuffInteraction: { debuffEffectBonus: 30, debuffDurationBonus: 10 } } }], chaosPenetration: 5 } }),
       },
       t5a: {
         name: "Serpent's Patience",
-        description: 'DoT tick on Vulnerable: 20% free VS charge (max 1). Miss: +3% crit mult (10x). Cap 55%. +8% chaos pen.',
+        description: 'damage over time tick on Vulnerable: 20% free VS charge (max 1). Miss: +3% critical multiplier (10x). Cap 55%. +8% chaos penetration.',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: {
           critChanceCap: 55,
@@ -1098,7 +1098,7 @@ export const VIPER_STRIKE_TALENT_TREE = createTalentTree({
       },
       t6Notable: {
         name: 'Cobra Mark',
-        description: '8+ stacks: 20%/tick Cobra Mark (15s). Detonates during Serpent Clarity for 120% DoT. +5% chaos pen.',
+        description: '8+ stacks: 20%/tick Cobra Mark (15s). Detonates during Serpent Clarity for 120% damage over time. +5% chaos penetration.',
         nodeType: 'notable', maxRank: 1, procPattern: 'catastrophic',
         modifier: {
           chaosPenetration: 5,
@@ -1109,7 +1109,7 @@ export const VIPER_STRIKE_TALENT_TREE = createTalentTree({
       },
       t7Keystone: {
         name: 'SERPENT APOTHEOSIS',
-        description: 'Hits → poison stacks. Crits: no bonus dmg, guarantee Mark + Clarity. +50% DoT, -25% dur.',
+        description: 'Hits → poison stacks. Crits: no bonus damage, guarantee Mark + Clarity. +50% damage over time, -25% duration.',
         nodeType: 'keystone', maxRank: 1,
         tensionWith: 'vs_0_6_0',
         modifier: {
@@ -1122,10 +1122,10 @@ export const VIPER_STRIKE_TALENT_TREE = createTalentTree({
     // --- Venomcraft ---
     {
       name: 'Venomcraft',
-      description: 'Master poisoner — deepest DoT specialization with penetration',
+      description: 'Master poisoner — deepest damage over time specialization with penetration',
       t2Notable: {
         name: 'Necrotic Infusion',
-        description: 'DoT snapshot +15%. 5+ stacks: 30%/tick Corroded (4s ICD). +8% DoT mult. +5% chaos pen.',
+        description: 'damage over time snapshot +15%. 5+ stacks: 30%/tick Corroded (4s internal cooldown). +8% damage over time multiplier. +5% chaos penetration.',
         nodeType: 'notable', maxRank: 1, procPattern: 'gated',
         modifier: {
           dotMultiplier: 8,
@@ -1139,7 +1139,7 @@ export const VIPER_STRIKE_TALENT_TREE = createTalentTree({
       },
       t4Notable: {
         name: 'Putrid Bloom',
-        description: 'Poison +20%. On kill: Venom Frenzy (5s, +25% speed). +10% DoT mult. +8% ailment dur. 15s ICD.',
+        description: 'Poison +20%. When this skill kills: Venom Frenzy (5s, +25% speed). +10% damage over time multiplier. +8% ailment duration. 15s internal cooldown.',
         nodeType: 'notable', maxRank: 1, procPattern: 'state-shift',
         modifier: {
           debuffInteraction: { debuffEffectBonus: 20 },
@@ -1151,47 +1151,47 @@ export const VIPER_STRIKE_TALENT_TREE = createTalentTree({
         },
       },
       behaviorNodes: {
-        t1a: bh('Deep Injection', '+1 extra poison per hit (total 2). R2: total 3 + 3% chaos pen.',
+        t1a: bh('Deep Injection', '+1 extra poison per hit (total 2). Rank 2: total 3 + 3% chaos penetration.',
           { procs: [{ id: 'vs_deepinj', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'poisoned', stacks: 2, duration: 3 } }] },
           { 1: { procs: [{ id: 'vs_deepinj', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'poisoned', stacks: 2, duration: 3 } }] },
             2: { procs: [{ id: 'vs_deepinj', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'poisoned', stacks: 3, duration: 3 } }], chaosPenetration: 3 } }),
-        t1b: bh('Concentrated Toxin', 'Poison +3% per stack. R2: +5% + 3% DoT mult.',
+        t1b: bh('Concentrated Toxin', 'Poison +3% per stack. Rank 2: +5% + 3% damage over time multiplier.',
           { debuffInteraction: { debuffEffectBonus: 3 } },
           { 1: { debuffInteraction: { debuffEffectBonus: 3 } },
             2: { debuffInteraction: { debuffEffectBonus: 5 }, dotMultiplier: 3 } }),
-        t2b: bh('Venomous Mastery', '+5% DoT mult + 5% ailment dur. R2: +8% DoT mult + 8% ailment dur.',
+        t2b: bh('Venomous Mastery', '+5% damage over time multiplier + 5% ailment duration. Rank 2: +8% damage over time multiplier + 8% ailment duration.',
           { dotMultiplier: 5, ailmentDuration: 5 },
           { 1: { dotMultiplier: 5, ailmentDuration: 5 },
             2: { dotMultiplier: 8, ailmentDuration: 8 } }),
-        t3a: bh('Necrotic Amplification', 'Hits apply Weakened. +8% DoT mult. R2: also Cursed + 5% chaos pen.',
+        t3a: bh('Necrotic Amplification', 'Hits apply Weakened. +8% damage over time multiplier. Rank 2: also Cursed + 5% chaos penetration.',
           { procs: [{ id: 'vs_necroamp', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'weakened', stacks: 1, duration: 1 } }], dotMultiplier: 8 },
           { 1: { procs: [{ id: 'vs_necroamp', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'weakened', stacks: 1, duration: 1 } }], dotMultiplier: 8 },
             2: { procs: [
               { id: 'vs_necroamp', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'weakened', stacks: 1, duration: 1 } },
               { id: 'vs_necroamp_curse', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'cursed', stacks: 1, duration: 1 } }],
               dotMultiplier: 12, chaosPenetration: 5 } }),
-        t3b: bh('Toxic Legacy', 'Kill: transfer poison + 5% ailment dur. R2: +20% damage + 8% ailment dur.',
+        t3b: bh('Toxic Legacy', 'When this skill kills: transfer poison + 5% ailment duration. Rank 2: +20% damage + 8% ailment duration.',
           { debuffInteraction: { spreadDebuffOnKill: { debuffIds: ['poisoned'], refreshDuration: 1 } }, ailmentDuration: 5 },
           { 1: { debuffInteraction: { spreadDebuffOnKill: { debuffIds: ['poisoned'], refreshDuration: 1 } }, ailmentDuration: 5 },
             2: { debuffInteraction: { spreadDebuffOnKill: { debuffIds: ['poisoned'], refreshDuration: 1 } }, incDamage: 20, ailmentDuration: 8 } }),
-        t3c: bh('Corrosive Eruption', 'Consume poison (15/stack) + 3% chaos pen. R2: 20/stack + 5% chaos pen + 5% DoT mult.',
+        t3c: bh('Corrosive Eruption', 'Consume poison (15/stack) + 3% chaos penetration. Rank 2: 20/stack + 5% chaos penetration + 5% damage over time multiplier.',
           { debuffInteraction: { consumeDebuff: { debuffId: 'poisoned', damagePerStack: 15, element: 'Chaos' } }, chaosPenetration: 3 },
           { 1: { debuffInteraction: { consumeDebuff: { debuffId: 'poisoned', damagePerStack: 15, element: 'Chaos' } }, chaosPenetration: 3 },
             2: { debuffInteraction: { consumeDebuff: { debuffId: 'poisoned', damagePerStack: 20, element: 'Chaos' } }, chaosPenetration: 5, dotMultiplier: 5 } }),
-        t4b: bh('Venomous Frenzy', 'Venom Frenzy: +40% damage. R2: +50% + 5% chaos pen.',
+        t4b: bh('Venomous Frenzy', 'While Venom Frenzy is active: +40% damage. Rank 2: +50% + 5% chaos penetration.',
           { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'venomFrenzy', modifier: { incDamage: 40 } }] },
           { 1: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'venomFrenzy', modifier: { incDamage: 40 } }] },
             2: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'venomFrenzy', modifier: { incDamage: 50 } }], chaosPenetration: 5 } }),
       },
       t5a: {
         name: 'Creeping Rot',
-        description: 'No stack cap. +2% per stack beyond 10. +30% dur. +20% ailment dur. +10% DoT mult.',
+        description: 'No stack cap. +2% per stack beyond 10. +30% duration. +20% ailment duration. +10% damage over time multiplier.',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: { debuffInteraction: { debuffEffectBonus: 2, debuffDurationBonus: 30 }, ailmentDuration: 20, dotMultiplier: 10 },
       },
       t5b: {
         name: 'Virulent Detonation',
-        description: '8+ stacks: 25% detonate all for 100% DoT. +8% chaos pen. Post-detonation -30% (3s).',
+        description: '8+ stacks: 25% detonate all for 100% damage over time. +8% chaos penetration. Post-detonation -30% (3s).',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: {
           chaosPenetration: 8,
@@ -1201,7 +1201,7 @@ export const VIPER_STRIKE_TALENT_TREE = createTalentTree({
       },
       t6Notable: {
         name: 'Necrotic Cascade',
-        description: '10+ stacks: convert 3 to Blight (150% DoT, 8s ICD). +25% poison while Blighted. +8% DoT mult.',
+        description: '10+ stacks: convert 3 to Blight (150% damage over time, 8s internal cooldown). +25% poison while Blighted. +8% damage over time multiplier.',
         nodeType: 'notable', maxRank: 1, procPattern: 'gated',
         modifier: {
           procs: [{ id: 'vs_necrotic_cascade', chance: 1.0, trigger: 'onHit',
@@ -1213,7 +1213,7 @@ export const VIPER_STRIKE_TALENT_TREE = createTalentTree({
       },
       t7Keystone: {
         name: 'NECROTIC SOVEREIGN',
-        description: 'All poison → Blight (2x dmg, 50% dur). No stack transfer. -15% base damage.',
+        description: 'All poison → Blight (2x damage, 50% duration). No stack transfer. -15% base damage.',
         nodeType: 'keystone', maxRank: 1,
         tensionWith: 'vs_1_6_0',
         modifier: { debuffInteraction: { debuffEffectBonus: 100 }, incDamage: -15 },
@@ -1222,10 +1222,10 @@ export const VIPER_STRIKE_TALENT_TREE = createTalentTree({
     // --- Shadow Dance ---
     {
       name: 'Shadow Dance',
-      description: 'Evasive combat and serpent chaos penetration',
+      description: 'Evasive combat and serpent chaos penetrationetration',
       t2Notable: {
         name: 'Coiling Ward',
-        description: '10%/tick Fortify. Dodge: 30% wpn counter + 2 poison (3s). Dodge w/Fortify: -1s VS CD. +5 resist. +5% chaos pen.',
+        description: '10%/tick Fortify. Dodge: 30% weapon counter-attack + 2 poison (3s). Dodge w/Fortify: -1s VS cooldown. +5 resist. +5% chaos penetration.',
         nodeType: 'notable', maxRank: 1, procPattern: 'cooldown',
         modifier: {
           chaosPenetration: 5,
@@ -1239,7 +1239,7 @@ export const VIPER_STRIKE_TALENT_TREE = createTalentTree({
       },
       t4Notable: {
         name: 'Coiling Serpent',
-        description: 'Dodge: heal 4%. Dodge w/5+ stacks: Serpent Form (5s, 25% DR, +2% evasion/tick 10x). 15s ICD. +5% chaos pen.',
+        description: 'Dodge: heal 4%. Dodge w/5+ stacks: Serpent Form (5s, 25% damage reduction, +2% evasion/tick 10x). 15s internal cooldown. +5% chaos penetration.',
         nodeType: 'notable', maxRank: 1, procPattern: 'state-shift',
         modifier: {
           chaosPenetration: 5,
@@ -1252,15 +1252,15 @@ export const VIPER_STRIKE_TALENT_TREE = createTalentTree({
         },
       },
       behaviorNodes: {
-        t1a: bh('Serpent Recoil', 'Dodge: 35% wpn counter + 2 poison (3s). +1 LoH. R2: 3 poison, +3% chaos pen.',
+        t1a: bh('Serpent Recoil', 'Dodge: 35% weapon counter-attack + 2 poison (3s). +1 life on hit. Rank 2: 3 poison, +3% chaos penetration.',
           { lifeOnHit: 1, procs: [{ id: 'vs_recoil', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Physical', scaleStat: 'weaponDamage', scaleRatio: 0.35 }, applyDebuff: { debuffId: 'poisoned', stacks: 2, duration: 3 } }] },
           { 1: { lifeOnHit: 1, procs: [{ id: 'vs_recoil', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Physical', scaleStat: 'weaponDamage', scaleRatio: 0.35 }, applyDebuff: { debuffId: 'poisoned', stacks: 2, duration: 3 } }] },
             2: { lifeOnHit: 1, chaosPenetration: 3, procs: [{ id: 'vs_recoil', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Physical', scaleStat: 'weaponDamage', scaleRatio: 0.35 }, applyDebuff: { debuffId: 'poisoned', stacks: 3, duration: 3 } }] } }),
-        t1b: bh('Toxic Resilience', '3+ poison stacks: +5% evasion. R2: +8% evasion, +3% chaos pen.',
+        t1b: bh('Toxic Resilience', '3+ poison stacks: +5% evasion. Rank 2: +8% evasion, +3% chaos penetration.',
           { conditionalMods: [{ condition: 'whileDebuffActive', debuffId: 'poisoned', threshold: 3, modifier: { damageFromEvasion: 5 } }] },
           { 1: { conditionalMods: [{ condition: 'whileDebuffActive', debuffId: 'poisoned', threshold: 3, modifier: { damageFromEvasion: 5 } }] },
             2: { chaosPenetration: 3, conditionalMods: [{ condition: 'whileDebuffActive', debuffId: 'poisoned', threshold: 3, modifier: { damageFromEvasion: 8 } }] } }),
-        t2b: bh('Serpent\'s Dodge', 'Dodge: apply 2 poison (3s) + +15% damage buff 3s. R2: 3 poison, +5% chaos pen.',
+        t2b: bh('Serpent\'s Dodge', 'Dodge: apply 2 poison (3s) + +15% damage buff 3s. Rank 2: 3 poison, +5% chaos penetration.',
           { procs: [{ id: 'vs_serpdodge', chance: 1.0, trigger: 'onDodge',
             applyDebuff: { debuffId: 'poisoned', stacks: 2, duration: 3 },
             applyBuff: { buffId: 'serpentDodge', effect: { damageMult: 1.15 }, duration: 3 } }] },
@@ -1270,18 +1270,18 @@ export const VIPER_STRIKE_TALENT_TREE = createTalentTree({
             2: { chaosPenetration: 5, procs: [{ id: 'vs_serpdodge', chance: 1.0, trigger: 'onDodge',
             applyDebuff: { debuffId: 'poisoned', stacks: 3, duration: 3 },
             applyBuff: { buffId: 'serpentDodge', effect: { damageMult: 1.15 }, duration: 3 } }] } }),
-        t3a: bh('Venomous Counter', 'Dodge: 50% wpn counter + 2 poison (3s), +3% chaos pen. R2: 3 poison, +5% chaos pen.',
+        t3a: bh('Venomous Counter', 'Dodge: 50% weapon counter-attack + 2 poison (3s), +3% chaos penetration. Rank 2: 3 poison, +5% chaos penetration.',
           { procs: [{ id: 'vs_vencounter', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Physical', scaleStat: 'weaponDamage', scaleRatio: 0.50 }, applyDebuff: { debuffId: 'poisoned', stacks: 2, duration: 3 } }] },
           { 1: { chaosPenetration: 3, procs: [{ id: 'vs_vencounter', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Physical', scaleStat: 'weaponDamage', scaleRatio: 0.50 }, applyDebuff: { debuffId: 'poisoned', stacks: 2, duration: 3 } }] },
             2: { chaosPenetration: 5, procs: [{ id: 'vs_vencounter', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Physical', scaleStat: 'weaponDamage', scaleRatio: 0.50 }, applyDebuff: { debuffId: 'poisoned', stacks: 3, duration: 3 } }] } }),
-        t3b: bh('Regenerative Toxin', 'Dodge: heal 3% HP. R2: heal 5%, +5% chaos pen.',
+        t3b: bh('Regenerative Toxin', 'Dodge: heal 3% HP. Rank 2: heal 5%, +5% chaos penetration.',
           { procs: [{ id: 'vs_regentox', chance: 1.0, trigger: 'onDodge', healPercent: 3 }] },
           { 1: { procs: [{ id: 'vs_regentox', chance: 1.0, trigger: 'onDodge', healPercent: 3 }] },
             2: { chaosPenetration: 5, procs: [{ id: 'vs_regentox', chance: 1.0, trigger: 'onDodge', healPercent: 5 }] } }),
-        t3c: bh('Serpent Flow', 'Dodge: reduce VS CD 0.5s, +3% chaos pen. R2: also extend poison +0.5s, +5% chaos pen.',
+        t3c: bh('Serpent Flow', 'Dodge: reduce VS cooldown 0.5s, +3% chaos penetration. Rank 2: also extend poison +0.5s, +5% chaos penetration.',
           { cooldownReduction: 5 },
           { 1: { cooldownReduction: 5, chaosPenetration: 3 }, 2: { cooldownReduction: 5, chaosPenetration: 5 } }),
-        t4b: bh('Serpent\'s Shadow', 'Serpent Form: +15% damage and Blind (1s). R2: +25% damage, +5% chaos pen.',
+        t4b: bh('Serpent\'s Shadow', 'While Serpent Form is active: +15% damage and Blind (1s). Rank 2: +25% damage, +5% chaos penetration.',
           { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'serpentForm', modifier: { incDamage: 15 } }],
             procs: [{ id: 'vs_serpshad_blind', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'blinded', stacks: 1, duration: 1 } }] },
           { 1: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'serpentForm', modifier: { incDamage: 15 } }],
@@ -1291,7 +1291,7 @@ export const VIPER_STRIKE_TALENT_TREE = createTalentTree({
       },
       t5a: {
         name: 'Shedding Scales',
-        description: 'Dodge: heal 2% + evasion per poison stack (max +10%, 4s). DoT tick extends +0.3s. +5 resist. +8% chaos pen.',
+        description: 'Dodge: heal 2% + evasion per poison stack (max +10%, 4s). damage over time tick extends +0.3s. +5 resist. +8% chaos penetration.',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: {
           chaosPenetration: 8,
@@ -1316,7 +1316,7 @@ export const VIPER_STRIKE_TALENT_TREE = createTalentTree({
       },
       t6Notable: {
         name: "Serpent's Reprisal",
-        description: 'Dodge: 70% counter + 2 poison (+25% snapshot). 8+ total stacks: reset VS CD. +5% chaos pen.',
+        description: 'Dodge: 70% counter + 2 poison (+25% snapshot). 8+ total stacks: reset VS cooldown. +5% chaos penetration.',
         nodeType: 'notable', maxRank: 1, procPattern: 'cooldown',
         modifier: {
           chaosPenetration: 5,
@@ -1330,7 +1330,7 @@ export const VIPER_STRIKE_TALENT_TREE = createTalentTree({
       },
       t7Keystone: {
         name: "SERPENT'S SHED",
-        description: '150% counter + 4 stacks + 50% snap. No heal/Fortify. Dodge extends DoT +1s. 2x dodge procs. -10% HP.',
+        description: '150% counter + 4 stacks + 50% snap. No heal/Fortify. Dodge extends damage over time +1s. 2x dodge procs. -10% HP.',
         nodeType: 'keystone', maxRank: 1,
         tensionWith: 'vs_2_6_0',
         modifier: {
@@ -1353,10 +1353,10 @@ export const SHADOW_STEP_TALENT_TREE = createTalentTree({
     // --- Assassination ---
     {
       name: 'Assassination',
-      description: 'Critical strikes and shadow chaos penetration',
+      description: 'Critical strikes and shadow chaos penetrationetration',
       t2Notable: {
         name: 'Creeping Menace',
-        description: 'Stealth charge consume: +1 Shadowstrike (max 5). At 5: Lethal Focus (3s, +60% crit, +40% mult). +8% crit. +5% chaos pen.',
+        description: 'Stealth charge consume: +1 Shadowstrike (max 5). At 5: Lethal Focus (3s, +60% crit, +40% mult). +8% crit. +5% chaos penetration.',
         nodeType: 'notable', maxRank: 1, procPattern: 'escalating',
         modifier: {
           incCritChance: 8,
@@ -1367,7 +1367,7 @@ export const SHADOW_STEP_TALENT_TREE = createTalentTree({
       },
       t4Notable: {
         name: 'Ambush Execution',
-        description: 'From Stealth vs Vulnerable: guaranteed crit +80%. Consume Vulnerable. Kill: +2 charges. +5% chaos pen.',
+        description: 'From Stealth vs Vulnerable: guaranteed crit +80%. Consume Vulnerable. When this skill kills: +2 charges. +5% chaos penetration.',
         nodeType: 'notable', maxRank: 1, procPattern: 'gated',
         modifier: {
           chaosPenetration: 5,
@@ -1377,38 +1377,38 @@ export const SHADOW_STEP_TALENT_TREE = createTalentTree({
         },
       },
       behaviorNodes: {
-        t1a: bh('Shadow Surge', 'Stealth charge: +15% crit 2s. R2: +10% crit mult per charge, +3% chaos pen.',
+        t1a: bh('Shadow Surge', 'Stealth charge: +15% crit 2s. Rank 2: +10% critical multiplier per charge, +3% chaos penetration.',
           { incCritChance: 15 },
           { 1: { incCritChance: 15 }, 2: { incCritChance: 15, incCritMultiplier: 10, chaosPenetration: 3 } }),
-        t1b: bh('Lurking Death', '+5% damage per second in Stealth (max +25%). R2: max +40%, +3% chaos pen.',
+        t1b: bh('Lurking Death', '+5% damage per second in Stealth (max +25%). Rank 2: max +40%, +3% chaos penetration.',
           { rampingDamage: { perHit: 5, maxStacks: 5, decayAfter: 0 } },
           { 1: { rampingDamage: { perHit: 5, maxStacks: 5, decayAfter: 0 } },
             2: { rampingDamage: { perHit: 5, maxStacks: 8, decayAfter: 0 }, chaosPenetration: 3 } }),
-        t2b: bh('Unseen Blade', 'From Stealth: +20% crit. R2: guaranteed crit from Stealth, +5% chaos pen.',
+        t2b: bh('Unseen Blade', 'From Stealth: +20% crit. Rank 2: guaranteed crit from Stealth, +5% chaos penetration.',
           { incCritChance: 20 },
           { 1: { incCritChance: 20 }, 2: { incCritChance: 100, chaosPenetration: 5 } }),
-        t3a: bh('Ambush Protocol', 'Stealth charge: 30% Vulnerable (2s), +3% chaos pen. R2: 50%, +5% chaos pen.',
+        t3a: bh('Ambush Protocol', 'Stealth charge: 30% Vulnerable (2s), +3% chaos penetration. Rank 2: 50%, +5% chaos penetration.',
           { procs: [{ id: 'ss_ambush', chance: 0.30, trigger: 'onHit', applyDebuff: { debuffId: 'vulnerable', stacks: 1, duration: 2 } }], chaosPenetration: 3 },
           { 1: { procs: [{ id: 'ss_ambush', chance: 0.30, trigger: 'onHit', applyDebuff: { debuffId: 'vulnerable', stacks: 1, duration: 2 } }], chaosPenetration: 3 },
             2: { procs: [{ id: 'ss_ambush', chance: 0.50, trigger: 'onHit', applyDebuff: { debuffId: 'vulnerable', stacks: 1, duration: 2 } }], chaosPenetration: 5 } }),
-        t3b: bh('Ghost Predator', 'On kill: +15% damage buff 3s. R2: +20% damage, +5% chaos pen.',
+        t3b: bh('Ghost Predator', 'When this skill kills: +15% damage buff 3s. Rank 2: +20% damage, +5% chaos penetration.',
           { procs: [{ id: 'ss_ghostpred', chance: 1.0, trigger: 'onKill',
             applyBuff: { buffId: 'ghostPredator', effect: { damageMult: 1.15 }, duration: 3 } }] },
           { 1: { procs: [{ id: 'ss_ghostpred', chance: 1.0, trigger: 'onKill',
             applyBuff: { buffId: 'ghostPredator', effect: { damageMult: 1.15 }, duration: 3 } }] },
             2: { procs: [{ id: 'ss_ghostpred', chance: 1.0, trigger: 'onKill',
             applyBuff: { buffId: 'ghostPredator', effect: { damageMult: 1.20 }, duration: 3 } }], chaosPenetration: 5 } }),
-        t3c: bh('Patient Shadow', 'Each second in Stealth: +8% crit mult (max +40%), +3% chaos pen. R2: max +60%, +5% chaos pen.',
+        t3c: bh('Patient Shadow', 'Each second in Stealth: +8% critical multiplier (max +40%), +3% chaos penetration. Rank 2: max +60%, +5% chaos penetration.',
           { incCritMultiplier: 8, chaosPenetration: 3 },
           { 1: { incCritMultiplier: 8, chaosPenetration: 3 }, 2: { incCritMultiplier: 8, chaosPenetration: 5 } }),
-        t4b: bh('Predator\'s Cloak', 'In Predator: +15% damage. R2: +25% damage, +5% chaos pen.',
+        t4b: bh('Predator\'s Cloak', 'While Predator is active: +15% damage. Rank 2: +25% damage, +5% chaos penetration.',
           { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'predator', modifier: { incDamage: 15 } }] },
           { 1: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'predator', modifier: { incDamage: 15 } }] },
             2: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'predator', modifier: { incDamage: 25 } }], chaosPenetration: 5 } }),
       },
       t5a: {
         name: 'Shrouded Certainty',
-        description: 'Guaranteed crit from Stealth. +25% crit mult stealth. -30% charge regen. Cap 40% non-stealth. +8% chaos pen.',
+        description: 'Guaranteed crit from Stealth. +25% critical multiplier stealth. -30% charge regen. Cap 40% non-stealth. +8% chaos penetration.',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: {
           critChanceCap: 40,
@@ -1419,7 +1419,7 @@ export const SHADOW_STEP_TALENT_TREE = createTalentTree({
       },
       t5b: {
         name: 'One Strike, One Kill',
-        description: 'Consume ALL charges: +40%/charge. Kill: Phantom Stealth (3s, +50%). Survive: -25% 5s.',
+        description: 'Consume ALL charges: +40%/charge. When this skill kills: Phantom Stealth (3s, +50%). Survive: -25% 5s.',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: {
           procs: [{ id: 'ss_one_strike_kill', chance: 1.0, trigger: 'onKill',
@@ -1428,7 +1428,7 @@ export const SHADOW_STEP_TALENT_TREE = createTalentTree({
       },
       t6Notable: {
         name: "Executioner's Mark",
-        description: '12% stealth crit: Mark (8s). +150% on Mark (+200% at 3+ charges). Unmitigatable. +5% chaos pen.',
+        description: '12% stealth crit: Mark (8s). +150% on Mark (+200% at 3+ charges). Unmitigatable. +5% chaos penetration.',
         nodeType: 'notable', maxRank: 1, procPattern: 'catastrophic',
         modifier: {
           chaosPenetration: 5,
@@ -1448,10 +1448,10 @@ export const SHADOW_STEP_TALENT_TREE = createTalentTree({
     // --- Venomcraft ---
     {
       name: 'Venomcraft',
-      description: 'Lethal ambush poison with chaos penetration',
+      description: 'Lethal ambush poison with chaos penetrationetration',
       t2Notable: {
         name: 'Nightshade Infusion',
-        description: 'Stealth: 3 poison (ignore resist). 4+ stacks: Cursed (3s) + charge. +15% poison. +5% chaos pen.',
+        description: 'Stealth: 3 poison (ignore resist). 4+ stacks: Cursed (3s) + charge. +15% poison. +5% chaos penetration.',
         nodeType: 'notable', maxRank: 1, procPattern: 'gated',
         modifier: {
           debuffInteraction: { debuffEffectBonus: 15 },
@@ -1466,7 +1466,7 @@ export const SHADOW_STEP_TALENT_TREE = createTalentTree({
       },
       t4Notable: {
         name: 'Nightfall Frenzy',
-        description: 'Stealth at 6+ stacks: Shadow Venom Frenzy (5s, +25% speed, +2 stacks/hit). +8% chaos pen. 18s ICD.',
+        description: 'Stealth at 6+ stacks: Shadow Venom Frenzy (5s, +25% speed, +2 stacks/hit). +8% chaos penetration. 18s internal cooldown.',
         nodeType: 'notable', maxRank: 1, procPattern: 'state-shift',
         modifier: {
           chaosPenetration: 8,
@@ -1476,46 +1476,46 @@ export const SHADOW_STEP_TALENT_TREE = createTalentTree({
         },
       },
       behaviorNodes: {
-        t1a: bh('Shadow Venom', 'Shadow Step applies 2 poison. R2: from Stealth = 4 + 3% chaos pen.',
+        t1a: bh('Shadow Venom', 'Shadow Step applies 2 poison. Rank 2: from Stealth = 4 + 3% chaos penetration.',
           { procs: [{ id: 'ss_shadvenom', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'poisoned', stacks: 2, duration: 3 } }] },
           { 1: { procs: [{ id: 'ss_shadvenom', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'poisoned', stacks: 2, duration: 3 } }] },
             2: { procs: [{ id: 'ss_shadvenom', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'poisoned', stacks: 4, duration: 3 } }], chaosPenetration: 3 } }),
-        t1b: bh('Insidious Strike', '+12% damage vs poisoned. R2: +18% + 3% chaos pen.',
+        t1b: bh('Insidious Strike', '+12% damage vs poisoned. Rank 2: +18% + 3% chaos penetration.',
           { conditionalMods: [{ condition: 'whileDebuffActive', modifier: { incDamage: 12 } }] },
           { 1: { conditionalMods: [{ condition: 'whileDebuffActive', modifier: { incDamage: 12 } }] },
             2: { conditionalMods: [{ condition: 'whileDebuffActive', modifier: { incDamage: 18 } }], chaosPenetration: 3 } }),
-        t2b: bh('Creeping Darkness', '+5% chaos pen + poison dur +20%. R2: +8% chaos pen + 30% dur.',
+        t2b: bh('Creeping Darkness', '+5% chaos penetration + poison duration +20%. Rank 2: +8% chaos penetration + 30% duration.',
           { debuffInteraction: { debuffDurationBonus: 20 }, chaosPenetration: 5 },
           { 1: { debuffInteraction: { debuffDurationBonus: 20 }, chaosPenetration: 5 },
             2: { debuffInteraction: { debuffDurationBonus: 30 }, chaosPenetration: 8 } }),
-        t3a: bh('Lethal Injection', '5+ stacks: +30% damage + 5% chaos pen. R2: threshold 3 + 8% chaos pen.',
+        t3a: bh('Lethal Injection', '5+ stacks: +30% damage + 5% chaos penetration. Rank 2: threshold 3 + 8% chaos penetration.',
           { conditionalMods: [{ condition: 'whileDebuffActive', debuffId: 'poisoned', threshold: 5, modifier: { incDamage: 30 } }], chaosPenetration: 5 },
           { 1: { conditionalMods: [{ condition: 'whileDebuffActive', debuffId: 'poisoned', threshold: 5, modifier: { incDamage: 30 } }], chaosPenetration: 5 },
             2: { conditionalMods: [{ condition: 'whileDebuffActive', debuffId: 'poisoned', threshold: 3, modifier: { incDamage: 30 } }], chaosPenetration: 8 } }),
-        t3b: bh('Shadow Plague', 'Kill: spread poison + 3% chaos pen. R2: refresh + 6% chaos pen.',
+        t3b: bh('Shadow Plague', 'When this skill kills: spread poison + 3% chaos penetration. Rank 2: refresh + 6% chaos penetration.',
           { debuffInteraction: { spreadDebuffOnKill: { debuffIds: ['poisoned'], refreshDuration: 0 } }, chaosPenetration: 3 },
           { 1: { debuffInteraction: { spreadDebuffOnKill: { debuffIds: ['poisoned'], refreshDuration: 0 } }, chaosPenetration: 3 },
             2: { debuffInteraction: { spreadDebuffOnKill: { debuffIds: ['poisoned'], refreshDuration: 1 } }, chaosPenetration: 6 } }),
-        t3c: bh('Corrosive Shadow', 'Vulnerable (2s) + 5% chaos pen. R2: also Cursed + 8% chaos pen.',
+        t3c: bh('Corrosive Shadow', 'Vulnerable (2s) + 5% chaos penetration. Rank 2: also Cursed + 8% chaos penetration.',
           { procs: [{ id: 'ss_corrshad', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'vulnerable', stacks: 1, duration: 2 } }], chaosPenetration: 5 },
           { 1: { procs: [{ id: 'ss_corrshad', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'vulnerable', stacks: 1, duration: 2 } }], chaosPenetration: 5 },
             2: { procs: [
               { id: 'ss_corrshad', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'vulnerable', stacks: 1, duration: 2 } },
               { id: 'ss_corrshad_curse', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'cursed', stacks: 1, duration: 2 } }], chaosPenetration: 8 } }),
-        t4b: bh('Shadow Frenzy', 'Venom Frenzy: CD -1s. R2: +15% damage + 5% chaos pen.',
+        t4b: bh('Shadow Frenzy', 'While Venom Frenzy is active: cooldown -1s. Rank 2: +15% damage + 5% chaos penetration.',
           { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'venomFrenzy', modifier: { cooldownReduction: 10 } }] },
           { 1: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'venomFrenzy', modifier: { cooldownReduction: 10 } }] },
             2: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'venomFrenzy', modifier: { cooldownReduction: 10, incDamage: 15 } }], chaosPenetration: 5 } }),
       },
       t5a: {
         name: 'Venomous Shroud',
-        description: 'Stealth: +15%/stack poison, +50% dur. +12% chaos pen.',
+        description: 'Stealth: +15%/stack poison, +50% duration. +12% chaos penetration.',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: { debuffInteraction: { debuffEffectBonus: 15, debuffDurationBonus: 50 }, chaosPenetration: 12 },
       },
       t5b: {
         name: 'Blight Detonation',
-        description: 'Consume ALL charges + stacks. 25%/charge of DoT. 3+ charges: Vulnerable+Cursed. +5% chaos pen.',
+        description: 'Consume ALL charges + stacks. 25%/charge of damage over time. 3+ charges: Vulnerable+Cursed. +5% chaos penetration.',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: {
           chaosPenetration: 5,
@@ -1525,7 +1525,7 @@ export const SHADOW_STEP_TALENT_TREE = createTalentTree({
       },
       t6Notable: {
         name: 'Miasma Shroud',
-        description: 'Stealth kill: spread ALL debuffs +50% dur +2 poison. +5% chaos pen. 3+ types: +2 charges.',
+        description: 'When this skill kills from stealth: spread ALL debuffs +50% duration +2 poison. +5% chaos penetration. 3+ types: +2 charges.',
         nodeType: 'notable', maxRank: 1, procPattern: 'gated',
         modifier: {
           debuffInteraction: { spreadDebuffOnKill: { debuffIds: ['all'], refreshDuration: 1 } },
@@ -1537,7 +1537,7 @@ export const SHADOW_STEP_TALENT_TREE = createTalentTree({
       },
       t7Keystone: {
         name: 'PLAGUE WRAITH',
-        description: 'Stealth dmg only. +80% poison. No cap. -0.1s CD/stack (max -3s). Single target. -20% non-poison.',
+        description: 'Stealth damage only. +80% poison. No cap. -0.1s cooldown/stack (max -3s). Single target. -20% non-poison.',
         nodeType: 'keystone', maxRank: 1,
         tensionWith: 'ss_1_6_0',
         modifier: { debuffInteraction: { debuffEffectBonus: 80 }, incDamage: -20 },
@@ -1546,10 +1546,10 @@ export const SHADOW_STEP_TALENT_TREE = createTalentTree({
     // --- Shadow Dance ---
     {
       name: 'Shadow Dance',
-      description: 'Evasive combat and shadow chaos penetration',
+      description: 'Evasive combat and shadow chaos penetrationetration',
       t2Notable: {
         name: 'Umbral Shield',
-        description: 'Cast: 1 Fortify. Dodge in 3s: 50% wpn counter + Blind (2s), +2 Fortify + 3% heal. 6s ICD. +5 resist. +5% chaos pen.',
+        description: 'Cast: 1 Fortify. Dodge in 3s: 50% weapon counter-attack + Blind (2s), +2 Fortify + 3% heal. 6s internal cooldown. +5 resist. +5% chaos penetration.',
         nodeType: 'notable', maxRank: 1, procPattern: 'cooldown',
         modifier: {
           chaosPenetration: 5,
@@ -1564,7 +1564,7 @@ export const SHADOW_STEP_TALENT_TREE = createTalentTree({
       },
       t4Notable: {
         name: 'Umbral Form',
-        description: 'Dodge: heal 4%. 3 dodges in 6s w/charges: Umbral Form (4s, 25% DR, instant SS, +1 charge/dodge). 16s ICD. +5% chaos pen.',
+        description: 'Dodge: heal 4%. 3 dodges in 6s w/charges: Umbral Form (4s, 25% damage reduction, instant SS, +1 charge/dodge). 16s internal cooldown. +5% chaos penetration.',
         nodeType: 'notable', maxRank: 1, procPattern: 'state-shift',
         modifier: {
           chaosPenetration: 5,
@@ -1577,11 +1577,11 @@ export const SHADOW_STEP_TALENT_TREE = createTalentTree({
         },
       },
       behaviorNodes: {
-        t1a: bh('Phase Strike', 'Dodge: 45% wpn counter + 1 poison (3s). Evasion→dmg. R2: 2 poison, +3% chaos pen.',
+        t1a: bh('Phase Strike', 'Dodge: 45% weapon counter-attack + 1 poison (3s). Evasion→damage. Rank 2: 2 poison, +3% chaos penetration.',
           { damageFromEvasion: 5, procs: [{ id: 'ss_phasestrike', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Physical', scaleStat: 'weaponDamage', scaleRatio: 0.45 }, applyDebuff: { debuffId: 'poisoned', stacks: 1, duration: 3 } }] },
           { 1: { damageFromEvasion: 5, procs: [{ id: 'ss_phasestrike', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Physical', scaleStat: 'weaponDamage', scaleRatio: 0.45 }, applyDebuff: { debuffId: 'poisoned', stacks: 1, duration: 3 } }] },
             2: { damageFromEvasion: 5, chaosPenetration: 3, procs: [{ id: 'ss_phasestrike', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Physical', scaleStat: 'weaponDamage', scaleRatio: 0.45 }, applyDebuff: { debuffId: 'poisoned', stacks: 2, duration: 3 } }] } }),
-        t1b: bh('Shadow Counter', 'Dodge: +25% damage buff 2s. R2: +40% and Blind (1s), +3% chaos pen.',
+        t1b: bh('Shadow Counter', 'Dodge: +25% damage buff 2s. Rank 2: +40% and Blind (1s), +3% chaos penetration.',
           { procs: [{ id: 'ss_shadcounter', chance: 1.0, trigger: 'onDodge',
             applyBuff: { buffId: 'shadowCounter', effect: { damageMult: 1.25 }, duration: 2 } }] },
           { 1: { procs: [{ id: 'ss_shadcounter', chance: 1.0, trigger: 'onDodge',
@@ -1589,36 +1589,36 @@ export const SHADOW_STEP_TALENT_TREE = createTalentTree({
             2: { chaosPenetration: 3, procs: [{ id: 'ss_shadcounter', chance: 1.0, trigger: 'onDodge',
             applyBuff: { buffId: 'shadowCounter', effect: { damageMult: 1.40 }, duration: 2 },
             applyDebuff: { debuffId: 'blinded', stacks: 1, duration: 1 } }] } }),
-        t2b: bh('Flickering Shadow', 'Dodge: +15% damage buff 3s. R2: +20% damage, +5% chaos pen.',
+        t2b: bh('Flickering Shadow', 'Dodge: +15% damage buff 3s. Rank 2: +20% damage, +5% chaos penetration.',
           { procs: [{ id: 'ss_flickshad', chance: 1.0, trigger: 'onDodge',
             applyBuff: { buffId: 'flickeringShadow', effect: { damageMult: 1.15 }, duration: 3 } }] },
           { 1: { procs: [{ id: 'ss_flickshad', chance: 1.0, trigger: 'onDodge',
             applyBuff: { buffId: 'flickeringShadow', effect: { damageMult: 1.15 }, duration: 3 } }] },
             2: { chaosPenetration: 5, procs: [{ id: 'ss_flickshad', chance: 1.0, trigger: 'onDodge',
             applyBuff: { buffId: 'flickeringShadow', effect: { damageMult: 1.20 }, duration: 3 } }] } }),
-        t3a: bh('Phantom Strike', 'Dodge: 65% wpn from stealth + 1 poison + Blind (2s), +3% chaos pen. R2: crits + 2 poison, +5% chaos pen.',
+        t3a: bh('Phantom Strike', 'Dodge: 65% weapon from stealth + 1 poison + Blind (2s), +3% chaos penetration. Rank 2: crits + 2 poison, +5% chaos penetration.',
           { procs: [{ id: 'ss_phantstrike', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Physical', scaleStat: 'weaponDamage', scaleRatio: 0.65 }, applyDebuff: { debuffId: 'poisoned', stacks: 1, duration: 3 } }] },
           { 1: { chaosPenetration: 3, procs: [{ id: 'ss_phantstrike', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Physical', scaleStat: 'weaponDamage', scaleRatio: 0.65 }, applyDebuff: { debuffId: 'poisoned', stacks: 1, duration: 3 } }] },
             2: { chaosPenetration: 5, procs: [{ id: 'ss_phantstrike', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Physical', scaleStat: 'weaponDamage', scaleRatio: 0.65 }, applyDebuff: { debuffId: 'poisoned', stacks: 2, duration: 3 } }],
               incCritChance: 100 } }),
-        t3b: bh('Vanishing Act', 'Dodge: +20% DR buff 3s. R2: 5s duration, +5% chaos pen.',
+        t3b: bh('Vanishing Act', 'Dodge: +20% damage reduction buff 3s. Rank 2: 5s duration, +5% chaos penetration.',
           { procs: [{ id: 'ss_vanishact', chance: 1.0, trigger: 'onDodge',
             applyBuff: { buffId: 'vanishingAct', effect: { defenseMult: 1.20 }, duration: 3 } }] },
           { 1: { procs: [{ id: 'ss_vanishact', chance: 1.0, trigger: 'onDodge',
             applyBuff: { buffId: 'vanishingAct', effect: { defenseMult: 1.20 }, duration: 3 } }] },
             2: { chaosPenetration: 5, procs: [{ id: 'ss_vanishact', chance: 1.0, trigger: 'onDodge',
             applyBuff: { buffId: 'vanishingAct', effect: { defenseMult: 1.20 }, duration: 5 } }] } }),
-        t3c: bh('Shadow Tempo', 'Dodge: reduce SS CD 0.8s, +3% chaos pen. R2: 1.2s, +5% chaos pen.',
+        t3c: bh('Shadow Tempo', 'Dodge: reduce SS cooldown 0.8s, +3% chaos penetration. Rank 2: 1.2s, +5% chaos penetration.',
           { cooldownReduction: 8 },
           { 1: { cooldownReduction: 8, chaosPenetration: 3 }, 2: { cooldownReduction: 12, chaosPenetration: 5 } }),
-        t4b: bh('Spectral Shadow', 'Umbral Form: CD -50%. R2: also +20% damage, +5% chaos pen.',
+        t4b: bh('Spectral Shadow', 'While Umbral Form is active: cooldown -50%. Rank 2: also +20% damage, +5% chaos penetration.',
           { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'umbralForm', modifier: { cooldownReduction: 50 } }] },
           { 1: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'umbralForm', modifier: { cooldownReduction: 50 } }] },
             2: { chaosPenetration: 5, conditionalMods: [{ condition: 'whileBuffActive', buffId: 'umbralForm', modifier: { cooldownReduction: 50, incDamage: 20 } }] } }),
       },
       t5a: {
         name: 'Penumbral Grace',
-        description: 'Dodge: heal 3% + charge. SS: +10% evasion 4s (3x). +5 resist. Charge cap 5. +8% chaos pen.',
+        description: 'Dodge: heal 3% + charge. SS: +10% evasion 4s (3x). +5 resist. Charge cap 5. +8% chaos penetration.',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: {
           chaosPenetration: 8,
@@ -1647,7 +1647,7 @@ export const SHADOW_STEP_TALENT_TREE = createTalentTree({
       },
       t6Notable: {
         name: 'Umbral Riposte',
-        description: '70% stealth counter (counts as SS hit, 4s ICD). Kill: reset SS CD + 2 charges. +5% chaos pen.',
+        description: '70% stealth counter (counts as SS hit, 4s internal cooldown). When this skill kills: reset SS cooldown + 2 charges. +5% chaos penetration.',
         nodeType: 'notable', maxRank: 1, procPattern: 'cooldown',
         modifier: {
           chaosPenetration: 5,
@@ -1688,7 +1688,7 @@ export const ASSASSINATE_TALENT_TREE = createTalentTree({
       description: 'Critical strikes and executioner weapon mastery',
       t2Notable: {
         name: 'Marked for Death',
-        description: 'Full-CD cast: +1 Execution Momentum (max 3, +20% crit mult each). At 3: guaranteed crit, consume. +10% crit. +5% wpn mastery.',
+        description: 'Full-cooldown cast: +1 Execution Momentum (max 3, +20% critical multiplier each). At 3: guaranteed crit, consume. +10% crit. +5% weapon mastery.',
         nodeType: 'notable', maxRank: 1, procPattern: 'escalating',
         modifier: {
           incCritChance: 10,
@@ -1699,7 +1699,7 @@ export const ASSASSINATE_TALENT_TREE = createTalentTree({
       },
       t4Notable: {
         name: 'Fatal Opening',
-        description: 'Assassinate vs Vulnerable: +50% damage. Crit on Vulnerable: Condemned (8s, +30% taken). Consumed on next hit. +5% wpn mastery.',
+        description: 'Assassinate vs Vulnerable: +50% damage. Crit on Vulnerable: Condemned (8s, +30% taken). Consumed on next hit. +5% weapon mastery.',
         nodeType: 'notable', maxRank: 1, procPattern: 'gated',
         modifier: {
           weaponMastery: 5,
@@ -1709,37 +1709,37 @@ export const ASSASSINATE_TALENT_TREE = createTalentTree({
         },
       },
       behaviorNodes: {
-        t1a: bh('Finishing Blow', '+15% crit vs low HP. R2: +20% crit, +3% wpn mastery.',
+        t1a: bh('Finishing Blow', '+15% crit vs low HP. Rank 2: +20% crit, +3% weapon mastery.',
           { conditionalMods: [{ condition: 'whileLowHp', modifier: { incCritChance: 15 } }] },
           { 1: { conditionalMods: [{ condition: 'whileLowHp', modifier: { incCritChance: 15 } }] },
             2: { conditionalMods: [{ condition: 'whileLowHp', modifier: { incCritChance: 20 } }], weaponMastery: 3 } }),
-        t1b: bh('Patient Predator', '+10% crit per second of cast time (max +20%). R2: +8% crit mult/s, +3% wpn mastery.',
+        t1b: bh('Patient Predator', '+10% crit per second of cast time (max +20%). Rank 2: +8% critical multiplier/s, +3% weapon mastery.',
           { incCritChance: 10 },
           { 1: { incCritChance: 10 }, 2: { incCritChance: 10, incCritMultiplier: 8, weaponMastery: 3 } }),
-        t2b: bh('Executioner\'s Focus', 'After Assassinate crits: +6% crit mult 4s. R2: 6s, stacks 2x, +5% wpn mastery.',
+        t2b: bh('Executioner\'s Focus', 'After Assassinate crits: +6% critical multiplier 4s. Rank 2: 6s, stacks 2x, +5% weapon mastery.',
           { incCritMultiplier: 6 },
           { 1: { incCritMultiplier: 6 }, 2: { incCritMultiplier: 6, weaponMastery: 5 } }),
-        t3a: bh('Executioner\'s Mastery', '+5% wpn mastery, +15% damage vs below 35% HP. R2: +8% wpn mastery, +20% vs below 35%.',
+        t3a: bh('Executioner\'s Mastery', '+5% weapon mastery, +15% damage vs below 35% HP. Rank 2: +8% weapon mastery, +20% vs below 35%.',
           { weaponMastery: 5, executeThreshold: 35, incDamage: 15 },
           { 1: { weaponMastery: 5, executeThreshold: 35, incDamage: 15 },
             2: { weaponMastery: 8, executeThreshold: 35, incDamage: 20 } }),
-        t3b: bh('Death\'s Opportunity', 'On kill: reset cooldown. R2: also +15% damage buff 3s, +5% wpn mastery.',
+        t3b: bh('Death\'s Opportunity', 'When this skill kills: reset cooldown. Rank 2: also +15% damage buff 3s, +5% weapon mastery.',
           { procs: [{ id: 'as_deathsopp', chance: 1.0, trigger: 'onKill', resetCooldown: 'self' }] },
           { 1: { procs: [{ id: 'as_deathsopp', chance: 1.0, trigger: 'onKill', resetCooldown: 'self' }] },
             2: { procs: [{ id: 'as_deathsopp', chance: 1.0, trigger: 'onKill', resetCooldown: 'self',
             applyBuff: { buffId: 'deathsOpportunity', effect: { damageMult: 1.15 }, duration: 3 } }], weaponMastery: 5 } }),
-        t3c: bh('Mercy Threshold', '+25% damage vs below 40% HP, +3% wpn mastery. R2: threshold 50%, +5% wpn mastery.',
+        t3c: bh('Mercy Threshold', '+25% damage vs below 40% HP, +3% weapon mastery. Rank 2: threshold 50%, +5% weapon mastery.',
           { executeThreshold: 40, incDamage: 25, weaponMastery: 3 },
           { 1: { executeThreshold: 40, incDamage: 25, weaponMastery: 3 },
             2: { executeThreshold: 50, incDamage: 25, weaponMastery: 5 } }),
-        t4b: bh('Predator\'s Judgment', 'In Predator: 20% faster Assassinate. R2: +0.3 weapon%, +5% wpn mastery.',
+        t4b: bh('Predator\'s Judgment', 'While Predator is active: 20% faster Assassinate. Rank 2: +0.3 weapon%, +5% weapon mastery.',
           { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'predator', modifier: { incCastSpeed: 20 } }] },
           { 1: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'predator', modifier: { incCastSpeed: 20 } }] },
             2: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'predator', modifier: { incCastSpeed: 20, incDamage: 30 } }], weaponMastery: 5 } }),
       },
       t5a: {
         name: 'Inevitable End',
-        description: '+8% crit mult per CD second (max +64%). Crits extend debuff durations 2s. CD floor 6s. +8% wpn mastery.',
+        description: '+8% critical multiplier per cooldown second (max +64%). Crits extend debuff durations 2s. cooldown floor 6s. +8% weapon mastery.',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: {
           weaponMastery: 8,
@@ -1749,7 +1749,7 @@ export const ASSASSINATE_TALENT_TREE = createTalentTree({
       },
       t5b: {
         name: 'Chain Executioner',
-        description: 'Kill: instant CD reset, +40% damage 3s (chains 3x). Break: 4s disable. -15% when not chaining.',
+        description: 'When this skill kills: instant cooldown reset, +40% damage 3s (chains 3x). Break: 4s disable. -15% when not chaining.',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: {
           incDamage: -15,
@@ -1759,7 +1759,7 @@ export const ASSASSINATE_TALENT_TREE = createTalentTree({
       },
       t6Notable: {
         name: 'Guillotine Mark',
-        description: '25% on crit: Guillotine Mark (12s). Below 20% HP: execute 500% wpn. Kill: 50% overkill spreads. +5% wpn mastery.',
+        description: '25% on crit: Guillotine Mark (12s). Below 20% HP: execute 500% weapon. When this skill kills: 50% overkill spreads. +5% weapon mastery.',
         nodeType: 'notable', maxRank: 1, procPattern: 'catastrophic',
         modifier: {
           weaponMastery: 5,
@@ -1770,7 +1770,7 @@ export const ASSASSINATE_TALENT_TREE = createTalentTree({
       },
       t7Keystone: {
         name: 'FINAL JUDGMENT',
-        description: 'Cast only below 35% HP. Weapon% doubled (2.2→4.4). CD→4s. Auto Guillotine Mark above 35%. +0.4s cast.',
+        description: 'Cast only below 35% HP. Weapon% doubled (2.2→4.4). cooldown→4s. Auto Guillotine Mark above 35%. +0.4s cast.',
         nodeType: 'keystone', maxRank: 1,
         tensionWith: 'as_0_6_0',
         modifier: { executeThreshold: 35, incDamage: 100 },
@@ -1779,10 +1779,10 @@ export const ASSASSINATE_TALENT_TREE = createTalentTree({
     // --- Venomcraft ---
     {
       name: 'Venomcraft',
-      description: 'Sovereign poison — single massive DoT with weapon mastery',
+      description: 'Sovereign poison — single massive damage over time with weapon mastery',
       t2Notable: {
         name: 'Virulent Impact',
-        description: '+30% poison snapshot. 5+ stacks: 40% Venom Eruption (80% DoT instant). +8% DoT mult. +5% wpn mastery.',
+        description: '+30% poison snapshot. 5+ stacks: 40% Venom Eruption (80% damage over time instant). +8% damage over time multiplier. +5% weapon mastery.',
         nodeType: 'notable', maxRank: 1, procPattern: 'gated',
         modifier: {
           dotMultiplier: 8,
@@ -1797,7 +1797,7 @@ export const ASSASSINATE_TALENT_TREE = createTalentTree({
       },
       t4Notable: {
         name: 'Venom Apex',
-        description: '8+ stacks: Venom Apex (6s, +50% weapon%). +10% DoT mult. +5% wpn mastery. 16s ICD.',
+        description: '8+ stacks: Venom Apex (6s, +50% weapon%). +10% damage over time multiplier. +5% weapon mastery. 16s internal cooldown.',
         nodeType: 'notable', maxRank: 1, procPattern: 'state-shift',
         modifier: {
           dotMultiplier: 10,
@@ -1808,44 +1808,44 @@ export const ASSASSINATE_TALENT_TREE = createTalentTree({
         },
       },
       behaviorNodes: {
-        t1a: bh('Toxic Execution', 'Assassinate applies 3 poison. R2: 5 stacks + 3% DoT mult.',
+        t1a: bh('Toxic Execution', 'Assassinate applies 3 poison. Rank 2: 5 stacks + 3% damage over time multiplier.',
           { procs: [{ id: 'as_toxexec', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'poisoned', stacks: 3, duration: 3 } }] },
           { 1: { procs: [{ id: 'as_toxexec', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'poisoned', stacks: 3, duration: 3 } }] },
             2: { procs: [{ id: 'as_toxexec', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'poisoned', stacks: 5, duration: 3 } }], dotMultiplier: 3 } }),
-        t1b: bh('Venom Amplifier', '+15% damage vs poisoned. R2: +25% + 3% wpn mastery.',
+        t1b: bh('Venom Amplifier', '+15% damage vs poisoned. Rank 2: +25% + 3% weapon mastery.',
           { conditionalMods: [{ condition: 'whileDebuffActive', modifier: { incDamage: 15 } }] },
           { 1: { conditionalMods: [{ condition: 'whileDebuffActive', modifier: { incDamage: 15 } }] },
             2: { conditionalMods: [{ condition: 'whileDebuffActive', modifier: { incDamage: 25 } }], weaponMastery: 3 } }),
-        t2b: bh('Envenom Strike', '+5% wpn mastery + 15% snapshot. R2: +8% wpn mastery + 25% snapshot.',
+        t2b: bh('Envenom Strike', '+5% weapon mastery + 15% snapshot. Rank 2: +8% weapon mastery + 25% snapshot.',
           { debuffInteraction: { debuffEffectBonus: 15 }, weaponMastery: 5 },
           { 1: { debuffInteraction: { debuffEffectBonus: 15 }, weaponMastery: 5 },
             2: { debuffInteraction: { debuffEffectBonus: 25 }, weaponMastery: 8 } }),
-        t3a: bh('Sovereign Concentration', '5+ stacks: +20% dmg + 5% DoT mult + 3% wpn mastery. R2: threshold 3 + 8% DoT mult + 5% wpn mastery.',
+        t3a: bh('Sovereign Concentration', '5+ stacks: +20% damage + 5% damage over time multiplier + 3% weapon mastery. Rank 2: threshold 3 + 8% damage over time multiplier + 5% weapon mastery.',
           { conditionalMods: [{ condition: 'whileDebuffActive', debuffId: 'poisoned', threshold: 5, modifier: { incDamage: 20 } }], dotMultiplier: 5, weaponMastery: 3 },
           { 1: { conditionalMods: [{ condition: 'whileDebuffActive', debuffId: 'poisoned', threshold: 5, modifier: { incDamage: 20 } }], dotMultiplier: 5, weaponMastery: 3 },
             2: { conditionalMods: [{ condition: 'whileDebuffActive', debuffId: 'poisoned', threshold: 3, modifier: { incDamage: 20 } }], dotMultiplier: 8, weaponMastery: 5 } }),
-        t3b: bh('Plague Executioner', 'Kill: spread all debuffs + 3% wpn mastery. R2: refresh + 5% wpn mastery + 5% DoT mult.',
+        t3b: bh('Plague Executioner', 'When this skill kills: spread all debuffs + 3% weapon mastery. Rank 2: refresh + 5% weapon mastery + 5% damage over time multiplier.',
           { debuffInteraction: { spreadDebuffOnKill: { debuffIds: ['all'], refreshDuration: 0 } }, weaponMastery: 3 },
           { 1: { debuffInteraction: { spreadDebuffOnKill: { debuffIds: ['all'], refreshDuration: 0 } }, weaponMastery: 3 },
             2: { debuffInteraction: { spreadDebuffOnKill: { debuffIds: ['all'], refreshDuration: 1 } }, weaponMastery: 5, dotMultiplier: 5 } }),
-        t3c: bh('Toxic Overload', 'Consume poison (8/stack) + 5% DoT mult. R2: 12/stack + 8% DoT mult + 3% wpn mastery.',
+        t3c: bh('Toxic Overload', 'Consume poison (8/stack) + 5% damage over time multiplier. Rank 2: 12/stack + 8% damage over time multiplier + 3% weapon mastery.',
           { debuffInteraction: { consumeDebuff: { debuffId: 'poisoned', damagePerStack: 8, element: 'Chaos' } }, dotMultiplier: 5 },
           { 1: { debuffInteraction: { consumeDebuff: { debuffId: 'poisoned', damagePerStack: 8, element: 'Chaos' } }, dotMultiplier: 5 },
             2: { debuffInteraction: { consumeDebuff: { debuffId: 'poisoned', damagePerStack: 12, element: 'Chaos' } }, dotMultiplier: 8, weaponMastery: 3 } }),
-        t4b: bh('Venomous Judgment', 'Venom Frenzy: CD -2s. R2: +20% damage + 8% DoT mult.',
+        t4b: bh('Venomous Judgment', 'While Venom Frenzy is active: cooldown -2s. Rank 2: +20% damage + 8% damage over time multiplier.',
           { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'venomFrenzy', modifier: { cooldownReduction: 20 } }] },
           { 1: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'venomFrenzy', modifier: { cooldownReduction: 20 } }] },
             2: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'venomFrenzy', modifier: { cooldownReduction: 20, incDamage: 20 } }], dotMultiplier: 8 } }),
       },
       t5a: {
         name: 'Sovereign Venom',
-        description: '+15% per stack (mult). +50% dur. +15% DoT mult. +10% wpn mastery.',
+        description: '+15% per stack (mult). +50% duration. +15% damage over time multiplier. +10% weapon mastery.',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: { debuffInteraction: { debuffEffectBonus: 15, debuffDurationBonus: 50 }, dotMultiplier: 15, weaponMastery: 10 },
       },
       t5b: {
         name: 'Cataclysmic Toxin',
-        description: 'Consume ALL stacks → 200% DoT over 3s. 10+ consumed: 100% as instant chaos. 4s poison lockout.',
+        description: 'Consume ALL stacks → 200% damage over time over 3s. 10+ consumed: 100% as instant chaos. 4s poison lockout.',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: {
           procs: [{ id: 'as_cataclysmic_toxin', chance: 1.0, trigger: 'onHit',
@@ -1854,7 +1854,7 @@ export const ASSASSINATE_TALENT_TREE = createTalentTree({
       },
       t6Notable: {
         name: 'Plague Eruption',
-        description: 'Kill w/ 5+ stacks: 60% poison as AoE chaos. Apply half stacks. +5% DoT mult.',
+        description: 'Kill w/ 5+ stacks: 60% poison as AoE chaos. Apply half stacks. +5% damage over time multiplier.',
         nodeType: 'notable', maxRank: 1, procPattern: 'gated',
         modifier: {
           debuffInteraction: { spreadDebuffOnKill: { debuffIds: ['poisoned'], refreshDuration: 1 } },
@@ -1864,7 +1864,7 @@ export const ASSASSINATE_TALENT_TREE = createTalentTree({
       },
       t7Keystone: {
         name: 'SOVEREIGN BLIGHT',
-        description: 'Replace poison with Sovereign Blight (5x dmg, infinite dur, max 1 globally, transfers). -20% damage.',
+        description: 'Replace poison with Sovereign Blight (5x damage, infinite duration, max 1 globally, transfers). -20% damage.',
         nodeType: 'keystone', maxRank: 1,
         tensionWith: 'as_1_6_0',
         modifier: { debuffInteraction: { debuffEffectBonus: 400 }, incDamage: -20 },
@@ -1876,7 +1876,7 @@ export const ASSASSINATE_TALENT_TREE = createTalentTree({
       description: 'Evasive combat and executioner weapon mastery',
       t2Notable: {
         name: 'Coiled Patience',
-        description: 'Dodge during CD: 40% wpn counter + DR stack (max 4). CD expiry: consume for +10% dmg/stack. +5% evasion. +5% weapon mastery.',
+        description: 'Dodge during cooldown: 40% weapon counter-attack + damage reduction stack (max 4). cooldown expiry: consume for +10% damage/stack. +5% evasion. +5% weapon mastery.',
         nodeType: 'notable', maxRank: 1, procPattern: 'cooldown',
         modifier: {
           weaponMastery: 5,
@@ -1890,7 +1890,7 @@ export const ASSASSINATE_TALENT_TREE = createTalentTree({
       },
       t4Notable: {
         name: "Assassin's Shroud",
-        description: '4 dodges during CD: Assassin\'s Shroud (5s) — +25% DR, +30% weapon% (2.2→2.86), -30% cast time. 20s ICD. +5% weapon mastery.',
+        description: '4 dodges during cooldown: Assassin\'s Shroud (5s) — +25% damage reduction, +30% weapon% (2.2→2.86), -30% cast time. 20s internal cooldown. +5% weapon mastery.',
         nodeType: 'notable', maxRank: 1, procPattern: 'state-shift',
         modifier: {
           weaponMastery: 5,
@@ -1902,37 +1902,37 @@ export const ASSASSINATE_TALENT_TREE = createTalentTree({
         },
       },
       behaviorNodes: {
-        t1a: bh('Calculated Counter', 'Dodge: 55% wpn counter. +2 LoH. R2: 75% counter, +3% weapon mastery.',
+        t1a: bh('Calculated Counter', 'Dodge: 55% weapon counter-attack. +2 life on hit. Rank 2: 75% counter, +3% weapon mastery.',
           { lifeOnHit: 2, procs: [{ id: 'as_calcstrike', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Physical', scaleStat: 'weaponDamage', scaleRatio: 0.55 } }] },
           { 1: { lifeOnHit: 2, procs: [{ id: 'as_calcstrike', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Physical', scaleStat: 'weaponDamage', scaleRatio: 0.55 } }] },
             2: { lifeOnHit: 2, weaponMastery: 3, procs: [{ id: 'as_calcstrike', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Physical', scaleStat: 'weaponDamage', scaleRatio: 0.75 } }] } }),
-        t1b: bh('Fortified Execution', 'Assassinate hit: +2 Fortify (5s). R2: +3, duration +2s, +3% weapon mastery.',
+        t1b: bh('Fortified Execution', 'Assassinate hit: +2 Fortify (5s). Rank 2: +3, duration +2s, +3% weapon mastery.',
           { fortifyOnHit: { stacks: 2, duration: 5, damageReduction: 3 } },
           { 1: { fortifyOnHit: { stacks: 2, duration: 5, damageReduction: 3 } },
             2: { weaponMastery: 3, fortifyOnHit: { stacks: 3, duration: 7, damageReduction: 3 } } }),
-        t2b: bh('Patient Counter', 'Dodge: +10% damage buff 4s. R2: +15% damage, +5% weapon mastery.',
+        t2b: bh('Patient Counter', 'Dodge: +10% damage buff 4s. Rank 2: +15% damage, +5% weapon mastery.',
           { procs: [{ id: 'as_patcounter', chance: 1.0, trigger: 'onDodge', applyBuff: { buffId: 'patientCounter', effect: { damageMult: 1.10 }, duration: 4 } }] },
           { 1: { procs: [{ id: 'as_patcounter', chance: 1.0, trigger: 'onDodge', applyBuff: { buffId: 'patientCounter', effect: { damageMult: 1.10 }, duration: 4 } }] },
             2: { weaponMastery: 5, procs: [{ id: 'as_patcounter', chance: 1.0, trigger: 'onDodge', applyBuff: { buffId: 'patientCounter', effect: { damageMult: 1.15 }, duration: 4 } }] } }),
-        t3a: bh('Executioner\'s Counter', 'Dodge: 65% wpn counter (+100% vs below 25%), +3% weapon mastery. R2: threshold 30%, +5% weapon mastery.',
+        t3a: bh('Executioner\'s Counter', 'Dodge: 65% weapon counter-attack (+100% vs below 25%), +3% weapon mastery. Rank 2: threshold 30%, +5% weapon mastery.',
           { procs: [{ id: 'as_execcounter', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Physical', scaleStat: 'weaponDamage', scaleRatio: 0.65 } }] },
           { 1: { weaponMastery: 3, procs: [{ id: 'as_execcounter', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Physical', scaleStat: 'weaponDamage', scaleRatio: 0.65 } }] },
             2: { weaponMastery: 5, procs: [{ id: 'as_execcounter', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Physical', scaleStat: 'weaponDamage', scaleRatio: 0.65 } }] } }),
-        t3b: bh('Death\'s Reprieve', 'Dodge: heal 4% HP +10% DR 2s. R2: heal 6%, reduce Assassinate CD 1s, +5% weapon mastery.',
+        t3b: bh('Death\'s Reprieve', 'Dodge: heal 4% HP +10% damage reduction 2s. Rank 2: heal 6%, reduce Assassinate cooldown 1s, +5% weapon mastery.',
           { procs: [{ id: 'as_deathreprv', chance: 1.0, trigger: 'onDodge', healPercent: 4 }] },
           { 1: { procs: [{ id: 'as_deathreprv', chance: 1.0, trigger: 'onDodge', healPercent: 4 }] },
             2: { weaponMastery: 5, procs: [{ id: 'as_deathreprv', chance: 1.0, trigger: 'onDodge', healPercent: 6 }] } }),
-        t3c: bh('Shadow Execution', 'Dodge: reduce Assassinate CD 1s, +3% weapon mastery. R2: 1.5s, +5% weapon mastery.',
+        t3c: bh('Shadow Execution', 'Dodge: reduce Assassinate cooldown 1s, +3% weapon mastery. Rank 2: 1.5s, +5% weapon mastery.',
           { cooldownReduction: 10 },
           { 1: { cooldownReduction: 10, weaponMastery: 3 }, 2: { cooldownReduction: 15, weaponMastery: 5 } }),
-        t4b: bh('Shadow Executioner', 'Shadow Form: Assassinate 20% faster. R2: +0.3 weapon%, +5% weapon mastery.',
+        t4b: bh('Shadow Executioner', 'Shadow Form: Assassinate 20% faster. Rank 2: +0.3 weapon%, +5% weapon mastery.',
           { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'shadowForm', modifier: { incCastSpeed: 20 } }] },
           { 1: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'shadowForm', modifier: { incCastSpeed: 20 } }] },
             2: { weaponMastery: 5, conditionalMods: [{ condition: 'whileBuffActive', buffId: 'shadowForm', modifier: { incCastSpeed: 20, incDamage: 30 } }] } }),
       },
       t5a: {
         name: 'Patience of Shadows',
-        description: 'Dodge: heal 3%. While on CD: +15% evasion, +10% DR. CD expiry: 15% HP shield 4s. Dodge cap 60%. +8% weapon mastery.',
+        description: 'Dodge: heal 3%. While on cooldown: +15% evasion, +10% damage reduction. cooldown expiry: 15% HP shield 4s. Dodge cap 60%. +8% weapon mastery.',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: {
           weaponMastery: 8,
@@ -1943,7 +1943,7 @@ export const ASSASSINATE_TALENT_TREE = createTalentTree({
       },
       t5b: {
         name: 'Umbral Assault',
-        description: 'Dodge during CD: Shadow Charge (max 6). Cast: consume for +12% weapon%/charge (max +72%). 4+: +15% taken. -50% dodge heal.',
+        description: 'Dodge during cooldown: Shadow Charge (max 6). Cast: consume for +12% weapon%/charge (max +72%). 4+: +15% taken. -50% dodge heal.',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: {
           increasedDamageTaken: 15,
@@ -1953,7 +1953,7 @@ export const ASSASSINATE_TALENT_TREE = createTalentTree({
       },
       t6Notable: {
         name: 'Vengeful Counter',
-        description: 'Dodge during CD: 60% wpn counter. Last 3s of CD: 150% wpn + -1s CD. +5% weapon mastery.',
+        description: 'Dodge during cooldown: 60% weapon counter-attack. Last 3s of cooldown: 150% weapon + -1s cooldown. +5% weapon mastery.',
         nodeType: 'notable', maxRank: 1, procPattern: 'cooldown',
         modifier: {
           weaponMastery: 5,
@@ -1990,10 +1990,10 @@ export const LIGHTNING_LUNGE_TALENT_TREE = createTalentTree({
     // --- Assassination ---
     {
       name: 'Assassination',
-      description: 'Critical strikes and storm lightning penetration',
+      description: 'Critical strikes and storm lightning penetrationetration',
       t2Notable: {
         name: 'Stormcaller',
-        description: 'Full chain: 15% Stormcaller (+45% crit mult 3s). +10%/Shock stack on final target (max 55%). Resets on incomplete. +8% crit. +5% lightning pen.',
+        description: 'Full chain: 15% Stormcaller (+45% critical multiplier 3s). +10%/Shock stack on final target (max 55%). Resets on incomplete. +8% crit. +5% lightning penetration.',
         nodeType: 'notable', maxRank: 1, procPattern: 'escalating',
         modifier: {
           incCritChance: 8,
@@ -2004,7 +2004,7 @@ export const LIGHTNING_LUNGE_TALENT_TREE = createTalentTree({
       },
       t4Notable: {
         name: 'Storm Exploit',
-        description: 'Chain to Vulnerable: +25% damage, apply Shocked (1 stack). 2+ Shock on Vulnerable: guaranteed crit. +5% lightning pen.',
+        description: 'Chain to Vulnerable: +25% damage, apply Shocked (1 stack). 2+ Shock on Vulnerable: guaranteed crit. +5% lightning penetration.',
         nodeType: 'notable', maxRank: 1, procPattern: 'gated',
         modifier: {
           lightningPenetration: 5,
@@ -2014,35 +2014,35 @@ export const LIGHTNING_LUNGE_TALENT_TREE = createTalentTree({
         },
       },
       behaviorNodes: {
-        t1a: bh('Voltaic Precision', '+4% crit per chain jump (max +12%). R2: max +16%, +3% lightning pen.',
+        t1a: bh('Voltaic Precision', '+4% crit per chain jump (max +12%). Rank 2: max +16%, +3% lightning penetration.',
           { incCritChance: 4 },
           { 1: { incCritChance: 4 }, 2: { incCritChance: 4, lightningPenetration: 3 } }),
-        t1b: bh('Overload', '+10% crit vs Shocked. R2: also +8% crit mult vs Shocked, +3% lightning pen.',
+        t1b: bh('Overload', '+10% crit vs Shocked. Rank 2: also +8% critical multiplier vs Shocked, +3% lightning penetration.',
           { conditionalMods: [{ condition: 'whileDebuffActive', modifier: { incCritChance: 10 } }] },
           { 1: { conditionalMods: [{ condition: 'whileDebuffActive', modifier: { incCritChance: 10 } }] },
             2: { conditionalMods: [{ condition: 'whileDebuffActive', modifier: { incCritChance: 10, incCritMultiplier: 8 } }], lightningPenetration: 3 } }),
-        t2b: bh('Storm\'s Edge', 'Crits apply Shocked (1 stack). R2: 2 stacks, +5% lightning pen.',
+        t2b: bh('Storm\'s Edge', 'Crits apply Shocked (1 stack). Rank 2: 2 stacks, +5% lightning penetration.',
           { procs: [{ id: 'll_stormsedge', chance: 1.0, trigger: 'onCrit', applyDebuff: { debuffId: 'shocked', stacks: 1, duration: 3 } }] },
           { 1: { procs: [{ id: 'll_stormsedge', chance: 1.0, trigger: 'onCrit', applyDebuff: { debuffId: 'shocked', stacks: 1, duration: 3 } }] },
             2: { procs: [{ id: 'll_stormsedge', chance: 1.0, trigger: 'onCrit', applyDebuff: { debuffId: 'shocked', stacks: 2, duration: 3 } }], lightningPenetration: 5 } }),
-        t3a: bh('Voltaic Cascade', '+10% damage per chain jump, +3% lightning pen. R2: final target +25% bonus, +5% lightning pen.',
+        t3a: bh('Voltaic Cascade', '+10% damage per chain jump, +3% lightning penetration. Rank 2: final target +25% bonus, +5% lightning penetration.',
           { incDamage: 10, lightningPenetration: 3 },
           { 1: { incDamage: 10, lightningPenetration: 3 }, 2: { incDamage: 10, lightningPenetration: 5 } }),
-        t3b: bh('Arc Return', '+1 chain target. R2: also +15% crit chance, +5% lightning pen.',
+        t3b: bh('Arc Return', '+1 chain target. Rank 2: also +15% crit chance, +5% lightning penetration.',
           { chainCount: 1 },
           { 1: { chainCount: 1 }, 2: { chainCount: 1, incCritChance: 15, lightningPenetration: 5 } }),
-        t3c: bh('Galvanic Surge', '+6% damage per Shock stack, +3% lightning pen. R2: +8%, +1 chain at 3+ Shock, +5% lightning pen.',
+        t3c: bh('Galvanic Surge', '+6% damage per Shock stack, +3% lightning penetration. Rank 2: +8%, +1 chain at 3+ Shock, +5% lightning penetration.',
           { incDamage: 6, lightningPenetration: 3 },
           { 1: { incDamage: 6, lightningPenetration: 3 },
             2: { incDamage: 8, lightningPenetration: 5, conditionalMods: [{ condition: 'whileDebuffActive', debuffId: 'shocked', threshold: 3, modifier: { chainCount: 1 } }] } }),
-        t4b: bh('Predator\'s Current', 'In Predator: +1 chain target. R2: chain jumps +15% damage, +5% lightning pen.',
+        t4b: bh('Predator\'s Current', 'While Predator is active: +1 chain target. Rank 2: chain jumps +15% damage, +5% lightning penetration.',
           { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'predator', modifier: { chainCount: 1 } }] },
           { 1: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'predator', modifier: { chainCount: 1 } }] },
             2: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'predator', modifier: { chainCount: 1, incDamage: 15 } }], lightningPenetration: 5 } }),
       },
       t5a: {
         name: 'Conducting Fury',
-        description: 'Per chain: Charge stack (max 5, 8s, +6% crit +8% mult each). At 5: +1 chain, crits +1 Shock. Crit cap 65%. +8% lightning pen.',
+        description: 'Per chain: Charge stack (max 5, 8s, +6% crit +8% mult each). At 5: +1 chain, crits +1 Shock. Crit cap 65%. +8% lightning penetration.',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: {
           critChanceCap: 65,
@@ -2053,7 +2053,7 @@ export const LIGHTNING_LUNGE_TALENT_TREE = createTalentTree({
       },
       t5b: {
         name: 'Surge Overcharge',
-        description: '+2 chains, 20% faster decay. 5+ targets: final explodes 150% wpn lightning AoE. Chain crits: 30% fork. -20% damage.',
+        description: '+2 chains, 20% faster decay. 5+ targets: final explodes 150% weapon lightning AoE. Chain crits: 30% fork. -20% damage.',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: {
           chainCount: 2,
@@ -2064,7 +2064,7 @@ export const LIGHTNING_LUNGE_TALENT_TREE = createTalentTree({
       },
       t6Notable: {
         name: 'Thunderous Mark',
-        description: 'Chain crit: 12% Thunderous Mark (8s). Chain hit on marked: ALL Shock on ALL chained detonates (80% as lightning AoE). +5% lightning pen.',
+        description: 'Chain crit: 12% Thunderous Mark (8s). Chain hit on marked: ALL Shock on ALL chained detonates (80% as lightning AoE). +5% lightning penetration.',
         nodeType: 'notable', maxRank: 1, procPattern: 'catastrophic',
         modifier: {
           lightningPenetration: 5,
@@ -2075,7 +2075,7 @@ export const LIGHTNING_LUNGE_TALENT_TREE = createTalentTree({
       },
       t7Keystone: {
         name: 'LIVING LIGHTNING',
-        description: 'No CD — costs 8% HP/cast. Base chain 1. Crit extends chain +1 (no cap). Non-crit ends chain. Consume Shock: +15%/stack. -25% crit.',
+        description: 'No cooldown — costs 8% HP/cast. Base chain 1. Crit extends chain +1 (no cap). Non-crit ends chain. Consume Shock: +15%/stack. -25% crit.',
         nodeType: 'keystone', maxRank: 1,
         tensionWith: 'll_0_6_0',
         modifier: { selfDamagePercent: 8, incCritChance: -25, chainCount: 1 },
@@ -2084,10 +2084,10 @@ export const LIGHTNING_LUNGE_TALENT_TREE = createTalentTree({
     // --- Venomcraft ---
     {
       name: 'Venomcraft',
-      description: 'Galvanic plague — chain-spread poison with lightning penetration',
+      description: 'Galvanic plague — chain-spread poison with lightning penetrationetration',
       t2Notable: {
         name: 'Conductive Venom',
-        description: '3+ poisoned in chain: Conductive Burst (40% DoT as lightning). 10+ stacks: Shock. +5% lightning pen.',
+        description: '3+ poisoned in chain: Conductive Burst (40% damage over time as lightning). 10+ stacks: Shock. +5% lightning penetration.',
         nodeType: 'notable', maxRank: 1, procPattern: 'gated',
         modifier: {
           lightningPenetration: 5,
@@ -2101,7 +2101,7 @@ export const LIGHTNING_LUNGE_TALENT_TREE = createTalentTree({
       },
       t4Notable: {
         name: 'Chain Contagion',
-        description: '15+ total poison across chain: Venom Frenzy (5s, +25% speed, +1 poison/jump). +8% lightning pen. 18s ICD.',
+        description: '15+ total poison across chain: Venom Frenzy (5s, +25% speed, +1 poison/jump). +8% lightning penetration. 18s internal cooldown.',
         nodeType: 'notable', maxRank: 1, procPattern: 'state-shift',
         modifier: {
           lightningPenetration: 8,
@@ -2111,45 +2111,45 @@ export const LIGHTNING_LUNGE_TALENT_TREE = createTalentTree({
         },
       },
       behaviorNodes: {
-        t1a: bh('Voltaic Venom', 'Each hit applies 1 poison. R2: 2 per hit + 3% lightning pen.',
+        t1a: bh('Voltaic Venom', 'Each hit applies 1 poison. Rank 2: 2 per hit + 3% lightning penetration.',
           { procs: [{ id: 'll_voltvenom', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'poisoned', stacks: 1, duration: 3 } }] },
           { 1: { procs: [{ id: 'll_voltvenom', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'poisoned', stacks: 1, duration: 3 } }] },
             2: { procs: [{ id: 'll_voltvenom', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'poisoned', stacks: 2, duration: 3 } }], lightningPenetration: 3 } }),
-        t1b: bh('Corrosive Current', 'Hits apply Corroded (2s). R2: 3s + 3% lightning pen.',
+        t1b: bh('Corrosive Current', 'Hits apply Corroded (2s). Rank 2: 3s + 3% lightning penetration.',
           { procs: [{ id: 'll_corrcurrent', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'corroded', stacks: 1, duration: 2 } }] },
           { 1: { procs: [{ id: 'll_corrcurrent', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'corroded', stacks: 1, duration: 2 } }] },
             2: { procs: [{ id: 'll_corrcurrent', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'corroded', stacks: 1, duration: 3 } }], lightningPenetration: 3 } }),
-        t2b: bh('Conducting Toxin', 'Chain to poisoned: +10% dmg + 5% lightning pen. R2: +15% + 8% lightning pen.',
+        t2b: bh('Conducting Toxin', 'Chain to poisoned: +10% damage + 5% lightning penetration. Rank 2: +15% + 8% lightning penetration.',
           { incDamage: 10, lightningPenetration: 5 },
           { 1: { incDamage: 10, lightningPenetration: 5 },
             2: { incDamage: 15, lightningPenetration: 8 } }),
-        t3a: bh('Galvanic Poison', '5+ stacks: +1 chain + 5% lightning pen. R2: +2 chains + 8% lightning pen.',
+        t3a: bh('Galvanic Poison', '5+ stacks: +1 chain + 5% lightning penetration. Rank 2: +2 chains + 8% lightning penetration.',
           { chainCount: 1, lightningPenetration: 5 },
           { 1: { chainCount: 1, lightningPenetration: 5 },
             2: { chainCount: 2, lightningPenetration: 8 } }),
-        t3b: bh('Chain Infection', 'Kill: spread poison + 3% lightning pen. R2: refresh + 6% lightning pen.',
+        t3b: bh('Chain Infection', 'When this skill kills: spread poison + 3% lightning penetration. Rank 2: refresh + 6% lightning penetration.',
           { debuffInteraction: { spreadDebuffOnKill: { debuffIds: ['poisoned'], refreshDuration: 0 } }, lightningPenetration: 3 },
           { 1: { debuffInteraction: { spreadDebuffOnKill: { debuffIds: ['poisoned'], refreshDuration: 0 } }, lightningPenetration: 3 },
             2: { debuffInteraction: { spreadDebuffOnKill: { debuffIds: ['poisoned'], refreshDuration: 1 } }, lightningPenetration: 6 } }),
-        t3c: bh('Voltaic Burst', 'Consume poison for lightning (12/stack) + 5% lightning pen. R2: 16/stack + 8% lightning pen + Shock.',
+        t3c: bh('Voltaic Burst', 'Consume poison for lightning (12/stack) + 5% lightning penetration. Rank 2: 16/stack + 8% lightning penetration + Shock.',
           { debuffInteraction: { consumeDebuff: { debuffId: 'poisoned', damagePerStack: 12, element: 'Lightning' } }, lightningPenetration: 5 },
           { 1: { debuffInteraction: { consumeDebuff: { debuffId: 'poisoned', damagePerStack: 12, element: 'Lightning' } }, lightningPenetration: 5 },
             2: { debuffInteraction: { consumeDebuff: { debuffId: 'poisoned', damagePerStack: 16, element: 'Lightning' } }, lightningPenetration: 8,
             procs: [{ id: 'll_voltburst_shock', chance: 1.0, trigger: 'onHit', applyDebuff: { debuffId: 'shocked', stacks: 1, duration: 3 } }] } }),
-        t4b: bh('Storm Frenzy', 'Venom Frenzy: +20% cast speed. R2: +15% damage + 5% lightning pen.',
+        t4b: bh('Storm Frenzy', 'While Venom Frenzy is active: +20% cast speed. Rank 2: +15% damage + 5% lightning penetration.',
           { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'venomFrenzy', modifier: { incCastSpeed: 20 } }] },
           { 1: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'venomFrenzy', modifier: { incCastSpeed: 20 } }] },
             2: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'venomFrenzy', modifier: { incCastSpeed: 20, incDamage: 15 } }], lightningPenetration: 5 } }),
       },
       t5a: {
         name: 'Venomous Conductor',
-        description: 'Chain poison +8% more per target (mult). Poisoned extend +1s. +20% dur. +10% lightning pen.',
+        description: 'Chain poison +8% more per target (mult). Poisoned extend +1s. +20% duration. +10% lightning penetration.',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: { debuffInteraction: { debuffEffectBonus: 8, debuffDurationBonus: 20 }, lightningPenetration: 10 },
       },
       t5b: {
         name: 'Volatile Chain',
-        description: '4+ poisoned: 25% detonate ALL (120% DoT as lightning AoE). Deaths spread 3 stacks. +5% lightning pen. -15% poison dur.',
+        description: '4+ poisoned: 25% detonate ALL (120% damage over time as lightning AoE). Deaths spread 3 stacks. +5% lightning penetration. -15% poison duration.',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: {
           debuffInteraction: { debuffDurationBonus: -15 },
@@ -2160,7 +2160,7 @@ export const LIGHTNING_LUNGE_TALENT_TREE = createTalentTree({
       },
       t6Notable: {
         name: 'Plague Arc',
-        description: 'Chain jumps propagate ALL debuffs (retain stacks+dur). +20% as bonus lightning. +5% lightning pen.',
+        description: 'Chain jumps propagate ALL debuffs (retain stacks+duration). +20% as bonus lightning. +5% lightning penetration.',
         nodeType: 'notable', maxRank: 1, procPattern: 'gated',
         modifier: {
           debuffInteraction: { spreadDebuffOnKill: { debuffIds: ['poisoned', 'shocked'], refreshDuration: 1 } },
@@ -2170,7 +2170,7 @@ export const LIGHTNING_LUNGE_TALENT_TREE = createTalentTree({
       },
       t7Keystone: {
         name: 'PLAGUE CONDUIT',
-        description: 'Chain ONLY to poisoned. No chain cap. Each jump consumes 1 stack for +20% wpn as lightning. -30% poison dur. -25% range.',
+        description: 'Chain ONLY to poisoned. No chain cap. Each jump consumes 1 stack for +20% weapon as lightning. -30% poison duration. -25% range.',
         nodeType: 'keystone', maxRank: 1,
         tensionWith: 'll_1_6_0',
         modifier: { debuffInteraction: { debuffDurationBonus: -30 } },
@@ -2179,10 +2179,10 @@ export const LIGHTNING_LUNGE_TALENT_TREE = createTalentTree({
     // --- Shadow Dance ---
     {
       name: 'Shadow Dance',
-      description: 'Evasive combat and storm lightning penetration',
+      description: 'Evasive combat and storm lightning penetrationetration',
       t2Notable: {
         name: 'Flickering Chains',
-        description: 'Dodge: 45% lightning counter + Shock (3s). 30% Flickering (3s) — next LL +2 chains, free cast. Heal 4%/target. +8% evasion. +5% lightning pen.',
+        description: 'Dodge: 45% lightning counter + Shock (3s). 30% Flickering (3s) — next LL +2 chains, free cast. Heal 4%/target. +8% evasion. +5% lightning penetration.',
         nodeType: 'notable', maxRank: 1, procPattern: 'cooldown',
         modifier: {
           lightningPenetration: 5,
@@ -2196,7 +2196,7 @@ export const LIGHTNING_LUNGE_TALENT_TREE = createTalentTree({
       },
       t4Notable: {
         name: 'Storm Shadow',
-        description: 'Dodge within 2s of chain: Shadow Form (4s) — 25% DR, no chain decay, jumps Blind (1s). 4+ targets: extend +2s. 15s ICD. +5% lightning pen.',
+        description: 'Dodge within 2s of chain: Shadow Form (4s) — 25% damage reduction, no chain decay, jumps Blind (1s). 4+ targets: extend +2s. 15s internal cooldown. +5% lightning penetration.',
         nodeType: 'notable', maxRank: 1, procPattern: 'state-shift',
         modifier: {
           lightningPenetration: 5,
@@ -2208,34 +2208,34 @@ export const LIGHTNING_LUNGE_TALENT_TREE = createTalentTree({
         },
       },
       behaviorNodes: {
-        t1a: bh('Voltaic Reflex', 'Dodge: 40% lightning counter + Shock (3s). Evasion→dmg. R2: 55% counter, +3% lightning pen.',
+        t1a: bh('Voltaic Reflex', 'Dodge: 40% lightning counter + Shock (3s). Evasion→damage. Rank 2: 55% counter, +3% lightning penetration.',
           { damageFromEvasion: 10, procs: [{ id: 'll_voltreflex', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Lightning', scaleStat: 'weaponDamage', scaleRatio: 0.40 }, applyDebuff: { debuffId: 'shocked', stacks: 1, duration: 3 } }] },
           { 1: { damageFromEvasion: 10, procs: [{ id: 'll_voltreflex', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Lightning', scaleStat: 'weaponDamage', scaleRatio: 0.40 }, applyDebuff: { debuffId: 'shocked', stacks: 1, duration: 3 } }] },
             2: { damageFromEvasion: 15, lightningPenetration: 3, procs: [{ id: 'll_voltreflex', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Lightning', scaleStat: 'weaponDamage', scaleRatio: 0.55 }, applyDebuff: { debuffId: 'shocked', stacks: 1, duration: 3 } }] } }),
-        t1b: bh('Storm Dodge', 'Dodge within 3s of lunge: CD -0.5s. R2: -0.8s, +3% lightning pen.',
+        t1b: bh('Storm Dodge', 'Dodge within 3s of lunge: cooldown -0.5s. Rank 2: -0.8s, +3% lightning penetration.',
           { cooldownReduction: 5 },
           { 1: { cooldownReduction: 5 }, 2: { cooldownReduction: 8, lightningPenetration: 3 } }),
-        t2b: bh('Evasive Lunge', 'Dodge: +15% damage buff 3s. R2: +20% damage, +5% lightning pen.',
+        t2b: bh('Evasive Lunge', 'Dodge: +15% damage buff 3s. Rank 2: +20% damage, +5% lightning penetration.',
           { procs: [{ id: 'll_evaslunge', chance: 1.0, trigger: 'onDodge',
             applyBuff: { buffId: 'evasiveLunge', effect: { damageMult: 1.15 }, duration: 3 } }] },
           { 1: { procs: [{ id: 'll_evaslunge', chance: 1.0, trigger: 'onDodge',
             applyBuff: { buffId: 'evasiveLunge', effect: { damageMult: 1.15 }, duration: 3 } }] },
             2: { lightningPenetration: 5, procs: [{ id: 'll_evaslunge', chance: 1.0, trigger: 'onDodge',
             applyBuff: { buffId: 'evasiveLunge', effect: { damageMult: 1.20 }, duration: 3 } }] } }),
-        t3a: bh('Voltaic Counter', 'Dodge: 55% lightning counter + Shock (3s), +3% lightning pen. R2: 2 Shock stacks, +5% lightning pen.',
+        t3a: bh('Voltaic Counter', 'Dodge: 55% lightning counter + Shock (3s), +3% lightning penetration. Rank 2: 2 Shock stacks, +5% lightning penetration.',
           { procs: [{ id: 'll_voltcounter', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Lightning', scaleStat: 'weaponDamage', scaleRatio: 0.55 }, applyDebuff: { debuffId: 'shocked', stacks: 1, duration: 3 } }] },
           { 1: { lightningPenetration: 3, procs: [{ id: 'll_voltcounter', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Lightning', scaleStat: 'weaponDamage', scaleRatio: 0.55 }, applyDebuff: { debuffId: 'shocked', stacks: 1, duration: 3 } }] },
             2: { lightningPenetration: 5, procs: [{ id: 'll_voltcounter', chance: 1.0, trigger: 'onDodge', instantDamage: { flatDamage: 0, element: 'Lightning', scaleStat: 'weaponDamage', scaleRatio: 0.55 }, applyDebuff: { debuffId: 'shocked', stacks: 2, duration: 3 } }] } }),
-        t3b: bh('Grounding Step', 'Dodge: +10 lightning resist, heal 2% HP. R2: +15, heal 3%, +5% lightning pen.',
+        t3b: bh('Grounding Step', 'Dodge: +10 lightning resist, heal 2% HP. Rank 2: +15, heal 3%, +5% lightning penetration.',
           { procs: [{ id: 'll_grounding', chance: 1.0, trigger: 'onDodge', healPercent: 2 }] },
           { 1: { procs: [{ id: 'll_grounding', chance: 1.0, trigger: 'onDodge', healPercent: 2 }] },
             2: { lightningPenetration: 5, procs: [{ id: 'll_grounding', chance: 1.0, trigger: 'onDodge', healPercent: 3 }] } }),
-        t3c: bh('Storm Tempo', 'Dodge: reduce LL CD 0.5s, +3% lightning pen. R2: 0.8s + +10% cast speed buff 2s, +5% lightning pen.',
+        t3c: bh('Storm Tempo', 'Dodge: reduce LL cooldown 0.5s, +3% lightning penetration. Rank 2: 0.8s + +10% cast speed buff 2s, +5% lightning penetration.',
           { cooldownReduction: 5 },
           { 1: { cooldownReduction: 5, lightningPenetration: 3 },
             2: { cooldownReduction: 8, lightningPenetration: 5, procs: [{ id: 'll_stormtempo_speed', chance: 1.0, trigger: 'onDodge',
             applyBuff: { buffId: 'stormTempo', effect: { attackSpeedMult: 1.10 }, duration: 2 } }] } }),
-        t4b: bh('Shadow Lightning', 'Shadow Form: +15% damage. R2: also Blind (1s) on hit, +5% lightning pen.',
+        t4b: bh('Shadow Lightning', 'Shadow Form: +15% damage. Rank 2: also Blind (1s) on hit, +5% lightning penetration.',
           { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'shadowForm', modifier: { incDamage: 15 } }] },
           { 1: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'shadowForm', modifier: { incDamage: 15 } }] },
             2: { lightningPenetration: 5, conditionalMods: [{ condition: 'whileBuffActive', buffId: 'shadowForm', modifier: { incDamage: 15 } }],
@@ -2243,7 +2243,7 @@ export const LIGHTNING_LUNGE_TALENT_TREE = createTalentTree({
       },
       t5a: {
         name: 'Stormweave Guard',
-        description: 'Per chain target: +3% DR 4s (stacks, max 5=15%). Dodge during: heal 2%/DR stack. +10% evasion on CD. +5 resist. +8% lightning pen.',
+        description: 'Per chain target: +3% damage reduction 4s (stacks, max 5=15%). Dodge during: heal 2%/damage reduction stack. +10% evasion on cooldown. +5 resist. +8% lightning penetration.',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: {
           lightningPenetration: 8,
@@ -2254,7 +2254,7 @@ export const LIGHTNING_LUNGE_TALENT_TREE = createTalentTree({
       },
       t5b: {
         name: 'Tempest Riposte',
-        description: 'Dodge: chain lightning counter (3 targets, 50% wpn each). <35% HP: 5 targets, 100%. -50% dodge heal. +15% taken.',
+        description: 'Dodge: chain lightning counter (3 targets, 50% weapon each). <35% HP: 5 targets, 100%. -50% dodge heal. +15% taken.',
         nodeType: 'keystoneChoice', maxRank: 1,
         modifier: {
           increasedDamageTaken: 15,
@@ -2264,7 +2264,7 @@ export const LIGHTNING_LUNGE_TALENT_TREE = createTalentTree({
       },
       t6Notable: {
         name: 'Arcing Riposte',
-        description: 'Dodge: chain lightning counter (4 targets, 60% wpn lightning). Each hit: -0.3s LL CD. Kill: full CD reset. +5% lightning pen.',
+        description: 'Dodge: chain lightning counter (4 targets, 60% weapon lightning). Each hit: -0.3s LL cooldown. When this skill kills: full cooldown reset. +5% lightning penetration.',
         nodeType: 'notable', maxRank: 1, procPattern: 'cooldown',
         modifier: {
           lightningPenetration: 5,
@@ -2278,7 +2278,7 @@ export const LIGHTNING_LUNGE_TALENT_TREE = createTalentTree({
       },
       t7Keystone: {
         name: 'TEMPEST INCARNATE',
-        description: 'Remove evasion bonuses. Per chain hit: +5% damage 6s (no cap). Dodge: 40% wpn bolt to all chained. Storm Incarnate at 8+ (+40%, +25% taken). -15% HP.',
+        description: 'Remove evasion bonuses. Per chain hit: +5% damage 6s (no cap). Dodge: 40% weapon bolt to all chained. Storm Incarnate at 8+ (+40%, +25% taken). -15% HP.',
         nodeType: 'keystone', maxRank: 1,
         tensionWith: 'll_2_6_0',
         modifier: {

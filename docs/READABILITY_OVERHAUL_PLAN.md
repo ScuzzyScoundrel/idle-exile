@@ -20,7 +20,7 @@ After completing the Dagger Rework Phase 2 (all 273 talent nodes differentiated)
 ### Sprint Status
 - [x] **Sprint 1**: Combat Event System — engine enrichment + combat log + skill icon feedback
 - [x] **Sprint 2**: Buff/Debuff Tooltips + Stat Glossary tooltips in talent tree
-- [ ] **Sprint 3**: Talent Description Rewrite (all 273 dagger nodes)
+- [x] **Sprint 3**: Talent Description Rewrite (all 273 dagger nodes)
 
 ---
 

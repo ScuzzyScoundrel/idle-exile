@@ -1,14 +1,14 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-11 (Readability Overhaul Sprint 2 COMPLETE)
+> Last updated: 2026-03-11 (Readability Overhaul ALL 3 SPRINTS COMPLETE)
 
 ## Current Phase
-**Talent & Combat Readability Overhaul — IN PROGRESS (Sprint 2/3 done).** See `docs/READABILITY_OVERHAUL_PLAN.md` for full plan.
+**Talent & Combat Readability Overhaul — COMPLETE (all 3 sprints done).** See `docs/READABILITY_OVERHAUL_PLAN.md` for full plan.
 
 - **Sprint 1 COMPLETE**: Combat Event System — enriched `CombatTickResult` with `procEvents`, `spreadEvents`, `cooldownResets` arrays. Combat log shows source skill for procs ("Stab → Venom Burst"), spread events show debuff type + count ("Poison (x3) → next"). CD reset flash targets specific skill icon. BUFF_DISPLAY expanded from 7 to 70+ entries covering all 7 skill prefixes. `spreadDebuffsToTarget()` returns `SpreadResult[]` instead of `boolean`.
-- **Sprint 2 COMPLETE**: Buff/Debuff Tooltips + Stat Glossary — `DEBUFF_META` now has `fullName` + `description` for player-friendly tooltips on debuff badges (+ 7 new mark debuffs). `BUFF_DISPLAY` gains `description` for all 70+ buff entries; buff pills wrapped in `<Tooltip>` showing effect + remaining duration. `TalentTreeView` gains `STAT_GLOSSARY` with dotted-underline `<Tooltip>` on recognized stat terms (weapon mastery, penetration, DoT mult, etc.) in expanded node descriptions.
-- **Sprint 3 TODO**: Talent Description Rewrite (all 273 dagger nodes)
+- **Sprint 2 COMPLETE**: Buff/Debuff Tooltips + Stat Glossary — `DEBUFF_META` now has `fullName` + `description` for player-friendly tooltips on debuff badges (+ 7 new mark debuffs). `BUFF_DISPLAY` gains `description` for all 70+ buff entries; buff pills wrapped in `<Tooltip>` showing effect + remaining duration. `TalentTreeView` gains `STAT_GLOSSARY` with dotted-underline `<Tooltip>` on recognized stat terms in expanded node descriptions.
+- **Sprint 3 COMPLETE**: Talent Description Rewrite — all 273 dagger talent node descriptions rewritten. Expanded abbreviations (wpn→weapon, pen→penetration, CD→cooldown, ICD→internal cooldown, DoT→damage over time, LoH→life on hit, DR→damage reduction, R2:→Rank 2:, dmg→damage, dur→duration, crit mult→critical multiplier). Clarified per-skill triggers (On kill→When this skill kills). Buff references (In Predator→While Predator is active). 683 total text changes.
 - **Save version**: v54 (no save migration — UI-only changes)
 - **Modified files (Sprint 2)**: `src/ui/zones/zoneConstants.ts`, `src/ui/zones/DebuffBadge.tsx`, `src/ui/zones/CombatPanel.tsx`, `src/ui/components/TalentTreeView.tsx`
 
