@@ -474,6 +474,34 @@ export default function InventoryScreen() {
             })()}
           </div>
 
+          {/* Sockets */}
+          {selectedItem.sockets && selectedItem.sockets.length > 0 && (
+            <div className="border-t border-gray-700 pt-1.5 space-y-1">
+              <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Sockets</div>
+              {selectedItem.sockets.map((gem, i) => (
+                <div key={i} className="flex items-center gap-1.5 text-xs">
+                  {gem ? (
+                    <>
+                      <span className={`text-sm ${GEM_TIER_COLORS[gem.tier]}`}>{'\u25C6'}</span>
+                      <span>{getGemDef(gem.type).icon}</span>
+                      <span className={GEM_TIER_COLORS[gem.tier]}>
+                        {GEM_TIER_NAMES[gem.tier]} {getGemDef(gem.type).name}
+                      </span>
+                      <span className="text-gray-500">
+                        (+{getGemDef(gem.type).tiers[gem.tier]} {getGemDef(gem.type).description})
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-sm text-gray-600">{'\u25C7'}</span>
+                      <span className="text-gray-500 italic">Empty Socket</span>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="flex gap-2 pt-1">
             {isSelectedEquipped ? (
               <button
@@ -1035,6 +1063,7 @@ export default function InventoryScreen() {
                 <div key={i} className="text-sm flex items-center gap-1">
                   {gem ? (
                     <>
+                      <span className={GEM_TIER_COLORS[gem.tier]}>{'\u25C6'}</span>
                       <span>{getGemDef(gem.type).icon}</span>
                       <span className={GEM_TIER_COLORS[gem.tier]}>
                         {GEM_TIER_NAMES[gem.tier]} {getGemDef(gem.type).name}
@@ -1044,7 +1073,10 @@ export default function InventoryScreen() {
                       </span>
                     </>
                   ) : (
-                    <span className="text-gray-500 italic">Empty Socket</span>
+                    <>
+                      <span className="text-gray-600">{'\u25C7'}</span>
+                      <span className="text-gray-500 italic">Empty Socket</span>
+                    </>
                   )}
                 </div>
               ))}
