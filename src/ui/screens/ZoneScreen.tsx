@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { ZONE_DEFS, BAND_NAMES } from '../../data/zones';
+import { BAND_RESIST_PENALTY } from '../../data/balance';
 import { canGatherInZone, getGatheringSkillRequirement, calcGatheringXpRequired } from '../../engine/gathering';
 import { GATHERING_PROFESSION_DEFS } from '../../data/gatheringProfessions';
 import { IdleMode } from '../../types';
@@ -181,6 +182,9 @@ export default function ZoneScreen() {
           <div className="text-xs text-gray-500 -mt-1 px-1">
             {BAND_NAMES[selectedBand]}
             <span className="text-gray-600 ml-2">iLvl {bandZones[0]?.iLvlMin}-{bandZones[bandZones.length - 1]?.iLvlMax}</span>
+            {(BAND_RESIST_PENALTY[selectedBand] ?? 0) < 0 && (
+              <span className="text-red-400 ml-2">{BAND_RESIST_PENALTY[selectedBand]}% all res</span>
+            )}
           </div>
 
           {/* Void Invasion Tracker */}

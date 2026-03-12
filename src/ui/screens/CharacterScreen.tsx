@@ -447,7 +447,9 @@ const STAT_LABELS: Partial<Record<StatKey, string>> = {
 function DefensePanel() {
   const { character, currentZoneId } = useGameStore();
   const currentZone = currentZoneId ? ZONE_DEFS.find(z => z.id === currentZoneId) : null;
-  const band = currentZone?.band ?? 1;
+  const currentBand = currentZone?.band ?? 1;
+  const [previewBand, setPreviewBand] = useState<number | null>(null);
+  const band = previewBand ?? currentBand;
   const defEff = calcDefensiveEfficiency(character.stats, band, currentZone?.iLvlMin);
   const setBonuses = calcSetBonuses(character.equipment);
 
@@ -457,6 +459,29 @@ function DefensePanel() {
   return (
     <div className="bg-gray-800 rounded-lg p-3 space-y-3">
       <h3 className="text-sm font-bold text-gray-300">Defense</h3>
+
+      {/* Band selector */}
+      <div className="flex items-center gap-1">
+        {[1, 2, 3, 4, 5, 6].map(b => {
+          const penalty = BAND_RESIST_PENALTY[b] ?? 0;
+          return (
+            <button
+              key={b}
+              onClick={() => setPreviewBand(b === currentBand && previewBand === null ? null : b)}
+              className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all
+                ${b === band
+                  ? 'bg-gray-600 text-white ring-1 ring-gray-400'
+                  : 'bg-gray-900 text-gray-500 hover:text-gray-300'
+                }
+                ${b === currentBand && previewBand === null ? 'ring-1 ring-yellow-500/50' : ''}`}
+              title={penalty < 0 ? `${penalty}% all resistances` : 'No resist penalty'}
+            >
+              B{b}
+              {penalty < 0 && <span className="text-red-400 ml-0.5">{penalty}%</span>}
+            </button>
+          );
+        })}
+      </div>
 
       <div className="flex items-center justify-between">
         <div className="text-xs text-gray-400">Defensive Efficiency (Band {band})</div>
