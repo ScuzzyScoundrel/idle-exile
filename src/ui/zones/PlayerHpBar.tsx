@@ -69,13 +69,20 @@ export default function PlayerHpBar({ currentHp, maxHp, trailHp, fortifyStacks, 
           );
         })}
         {(rampingStacks ?? 0) > 0 && (
-          <div className="w-6 h-6 rounded flex items-center justify-center text-[8px] font-bold leading-none bg-amber-900/60 text-amber-300"
-               title={`Ramping damage: ${rampingStacks} stacks`}>
-            <div className="text-center">
-              <div>RHY</div>
-              <div className="text-[7px] opacity-70">x{rampingStacks}</div>
+          <Tooltip content={
+            <div className="space-y-0.5">
+              <div className="font-bold">Lethal Rhythm</div>
+              <div className="text-gray-400">Each consecutive hit builds momentum, increasing damage per stack. Resets on miss or after a short delay.</div>
+              <div>Stacks: {rampingStacks}</div>
             </div>
-          </div>
+          }>
+            <div className="w-6 h-6 rounded flex items-center justify-center text-[8px] font-bold leading-none bg-amber-900/60 text-amber-300 cursor-help">
+              <div className="text-center">
+                <div>RHY</div>
+                <div className="text-[7px] opacity-70">x{rampingStacks}</div>
+              </div>
+            </div>
+          </Tooltip>
         )}
       </div>
 
