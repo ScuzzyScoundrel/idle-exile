@@ -100,134 +100,17 @@ export function resolveAbilityEffectLegacy(equipped: EquippedAbility): AbilityEf
 
 /**
  * Get the resolved graph modifier for a skill, or null if no graph tree.
- * When a talent tree exists, also merges the branch template (root/minor)
- * nodes from the old skill graph for each branch the player has invested in.
+ * Talent tree is self-contained — legacy skill graph nodes are NOT merged.
  */
 export function getSkillGraphModifier(
   skill: SkillDef,
   progress: SkillProgress | undefined,
 ): ResolvedSkillModifier | null {
   if (skill.talentTree && progress?.allocatedRanks) {
-    const talentMod = resolveTalentModifiers(skill.talentTree, progress.allocatedRanks);
-
-    // Merge branch template nodes from old skill graph for invested branches
-    if (skill.skillGraph) {
-      const investedBranches = getInvestedBranchIndices(skill.talentTree, progress.allocatedRanks);
-      if (investedBranches.size > 0) {
-        const templateNodeIds = getBranchTemplateNodeIds(skill.skillGraph, investedBranches);
-        if (templateNodeIds.length > 0) {
-          const templateMod = resolveSkillGraphModifiers(skill.skillGraph, templateNodeIds);
-          mergeResolvedModifiers(talentMod, templateMod);
-        }
-      }
-    }
-
-    return talentMod;
+    return resolveTalentModifiers(skill.talentTree, progress.allocatedRanks);
   }
   if (!skill.skillGraph || !progress) return null;
   return resolveSkillGraphModifiers(skill.skillGraph, progress.allocatedNodes);
-}
-
-/**
- * Find which branch indices (0, 1, 2) have at least one allocated talent rank.
- */
-function getInvestedBranchIndices(
-  tree: import('../../types').TalentTree,
-  ranks: Record<string, number>,
-): Set<number> {
-  const invested = new Set<number>();
-  for (let bi = 0; bi < tree.branches.length; bi++) {
-    for (const node of tree.branches[bi].nodes) {
-      if ((ranks[node.id] ?? 0) > 0) {
-        invested.add(bi);
-        break;
-      }
-    }
-  }
-  return invested;
-}
-
-/**
- * Get skill graph node IDs for branch template root/minor nodes.
- * Branch index 0 → b1_root/b1_m1, index 1 → b2_root/b2_m1, etc.
- */
-function getBranchTemplateNodeIds(
-  graph: import('../../types').SkillGraph,
-  branchIndices: Set<number>,
-): string[] {
-  const ids: string[] = [];
-  for (const bi of branchIndices) {
-    const bNum = bi + 1; // branchIndex 0 → b1
-    const rootSuffix = `_b${bNum}_root`;
-    const minorSuffix = `_b${bNum}_m1`;
-    for (const node of graph.nodes) {
-      if (node.id.endsWith(rootSuffix) || node.id.endsWith(minorSuffix)) {
-        ids.push(node.id);
-      }
-    }
-  }
-  return ids;
-}
-
-/**
- * Merge source resolved modifiers into target (mutates target).
- * Additive fields sum, arrays concat, debuffInteraction merges.
- */
-function mergeResolvedModifiers(target: ResolvedSkillModifier, source: ResolvedSkillModifier): void {
-  target.incDamage += source.incDamage;
-  target.flatDamage += source.flatDamage;
-  target.incCritChance += source.incCritChance;
-  target.incCritMultiplier += source.incCritMultiplier;
-  target.incCastSpeed += source.incCastSpeed;
-  target.extraHits += source.extraHits;
-  target.durationBonus += source.durationBonus;
-  target.cooldownReduction += source.cooldownReduction;
-  target.damageFromArmor += source.damageFromArmor;
-  target.damageFromEvasion += source.damageFromEvasion;
-  target.damageFromMaxLife += source.damageFromMaxLife;
-  target.leechPercent += source.leechPercent;
-  target.lifeOnHit += source.lifeOnHit;
-  target.lifeOnKill += source.lifeOnKill;
-  target.chainCount += source.chainCount;
-  target.forkCount += source.forkCount;
-  target.pierceCount += source.pierceCount;
-  target.overkillDamage += source.overkillDamage;
-  target.firePenetration += source.firePenetration;
-  target.coldPenetration += source.coldPenetration;
-  target.lightningPenetration += source.lightningPenetration;
-  target.chaosPenetration += source.chaosPenetration;
-  target.dotMultiplier += source.dotMultiplier;
-  target.weaponMastery += source.weaponMastery;
-  target.ailmentDuration += source.ailmentDuration;
-
-  // Array fields
-  target.debuffs.push(...source.debuffs);
-  target.procs.push(...source.procs);
-  target.flags.push(...source.flags);
-  target.conditionalMods.push(...source.conditionalMods);
-  target.skillProcs.push(...source.skillProcs);
-  target.splitDamage.push(...source.splitDamage);
-
-  // Debuff interaction: merge fields (talent tree takes priority for conflicts)
-  if (source.debuffInteraction) {
-    if (!target.debuffInteraction) {
-      target.debuffInteraction = source.debuffInteraction;
-    } else {
-      target.debuffInteraction = {
-        ...source.debuffInteraction,
-        ...target.debuffInteraction,
-        // Additive fields: sum where both exist
-        debuffDurationBonus: (target.debuffInteraction.debuffDurationBonus ?? 0) +
-          (source.debuffInteraction.debuffDurationBonus ?? 0) || undefined,
-        debuffEffectBonus: (target.debuffInteraction.debuffEffectBonus ?? 0) +
-          (source.debuffInteraction.debuffEffectBonus ?? 0) || undefined,
-      };
-    }
-  }
-
-  // AbilityEffect merge (mult × mult, add + add)
-  target.abilityEffect = mergeEffect(target.abilityEffect, source.abilityEffect);
-  target.globalEffect = mergeEffect(target.globalEffect, source.globalEffect);
 }
 
 /**

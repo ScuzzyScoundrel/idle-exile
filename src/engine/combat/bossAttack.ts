@@ -78,12 +78,12 @@ export function applyBossDamage(
         playerHp -= cappedDmg;
         bossAttackResult = { damage: cappedDmg, isDodged: roll.isDodged, isBlocked: roll.isBlocked, isCrit: isBossCrit };
         nextAttack = now + bs.bossAttackInterval * helperEnemyMods.atkSpeedSlowMult * 1000;
-        // ES recharge per tick during boss
-        if (bossStats.esRecharge > 0) {
-          bossCurrentEs = Math.min(bossStats.energyShield, bossCurrentEs + bossStats.esRecharge * dtSec);
-        }
-        // ES patch merged below — not a separate set() anymore
       }
+    }
+
+    // ES recharge per tick (AFTER attack resolution, not inside attack block)
+    if (bossStats.esRecharge > 0) {
+      bossCurrentEs = Math.min(bossStats.energyShield, bossCurrentEs + bossStats.esRecharge * dtSec);
     }
 
     // Passive regen per tick

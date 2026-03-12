@@ -103,11 +103,14 @@ export function applyZoneDamage(
       // Report last attacking mob's roll as the zone attack result
       zoneAttackResult = roll;
       mob.nextAttackAt = now + ZONE_ATTACK_INTERVAL * mobEnemyMods.atkSpeedSlowMult * mobRareAtkMult * 1000;
+    }
+  }
 
-      const zoneStats = resolveStats(state.character);
-      if (zoneStats.esRecharge > 0) {
-        currentEs = Math.min(zoneStats.energyShield, currentEs + zoneStats.esRecharge * dt);
-      }
+  // ES recharge AFTER all mobs have attacked (not per-mob)
+  if (anyAttacked) {
+    const zoneStats = resolveStats(state.character);
+    if (zoneStats.esRecharge > 0) {
+      currentEs = Math.min(zoneStats.energyShield, currentEs + zoneStats.esRecharge * dt);
     }
   }
 
