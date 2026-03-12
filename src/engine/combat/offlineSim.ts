@@ -23,14 +23,14 @@ import {
 
 // ── Tuning constants ──
 
-/** Coarser tick than real-time (0.25s) — good enough for offline. */
-const TICK_DT = 1.0;
+/** Match real-time tick granularity so ES recharge doesn't prevent deaths. */
+const TICK_DT = 0.25;
 /** Cap virtual time to 24 hours regardless of actual elapsed. */
 const MAX_VIRTUAL_SECONDS = 86_400;
 /** Consecutive deaths without a kill → abort. */
 const DEATH_LOOP_THRESHOLD = 50;
-/** Max ticks per single boss fight (10 min at 1 tick/sec). */
-const BOSS_FIGHT_TICK_CAP = 600;
+/** Max ticks per single boss fight (10 min at 4 ticks/sec). */
+const BOSS_FIGHT_TICK_CAP = 2400;
 
 // ── Result type ──
 
@@ -181,6 +181,8 @@ export function simulateOfflineCombat(
         if (result.bossOutcome === 'defeat') {
           totalDeaths++;
           consecutiveDeathsWithoutKill++;
+          s.deathStreak++;
+          s.lastDeathTime = virtualNow;
           if (consecutiveDeathsWithoutKill >= DEATH_LOOP_THRESHOLD) {
             deathLoopDetected = true;
           }
@@ -195,6 +197,8 @@ export function simulateOfflineCombat(
       if (bossTicks >= BOSS_FIGHT_TICK_CAP && s.combatPhase === 'boss_fight' as CombatPhase) {
         totalDeaths++;
         consecutiveDeathsWithoutKill++;
+        s.deathStreak++;
+        s.lastDeathTime = virtualNow;
         if (consecutiveDeathsWithoutKill >= DEATH_LOOP_THRESHOLD) {
           deathLoopDetected = true;
         }
@@ -232,6 +236,8 @@ export function simulateOfflineCombat(
       if (result.zoneDeath) {
         totalDeaths++;
         consecutiveDeathsWithoutKill++;
+        s.deathStreak++;
+        s.lastDeathTime = virtualNow;
         clearsSinceBoss = 0; // Death resets boss progress
         if (consecutiveDeathsWithoutKill >= DEATH_LOOP_THRESHOLD) {
           deathLoopDetected = true;

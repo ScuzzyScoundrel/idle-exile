@@ -18,6 +18,8 @@ import {
   ZONE_PHYS_RATIO,
   MAX_REGEN_CAP_RATIO,
   DEATH_STREAK_WINDOW,
+  MOB_CRIT_CHANCE,
+  MOB_CRIT_MULTIPLIER,
 } from '../../data/balance';
 import {
   tickDebuffDoT,
@@ -84,7 +86,8 @@ export function applyZoneDamage(
 
       const levelMult = calcLevelDamageMult(state.character.level, zone.iLvlMin);
       const zoneAccuracy = calcZoneAccuracy(zone.band, state.character.level, zone.iLvlMin);
-      const variance = 0.8 + Math.random() * 0.4;
+      const isMobCrit = Math.random() < MOB_CRIT_CHANCE;
+      const variance = isMobCrit ? MOB_CRIT_MULTIPLIER : (0.8 + Math.random() * 0.4);
       const mobRareDmgMult = mob.rare?.combinedDamageMult ?? 1;
       const rawDmg = (ZONE_DMG_BASE * zone.band + ZONE_DMG_ILVL_SCALE * zone.iLvlMin) * levelMult * variance * mobRareDmgMult * packDmgScale;
 

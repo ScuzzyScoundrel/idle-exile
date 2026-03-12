@@ -9,7 +9,7 @@ import { GATHERING_AFFIX_DEFS } from '../data/gatheringAffixes';
 import { PROFESSION_AFFIX_DEFS } from '../data/professionAffixes';
 import { PROFESSION_BASE_DEFS } from '../data/professionBases';
 import { ITEM_BASE_DEFS } from '../data/items';
-import { TIER_LOW_WEIGHTS, TIER_HIGH_WEIGHTS, TIER_ILVL_CAP, AFFIX_COUNT_WEIGHTS, AFFIX_COUNT_WEIGHTS_BY_BAND } from '../data/balance';
+import { TIER_LOW_WEIGHTS, TIER_HIGH_WEIGHTS, TIER_ILVL_CAP, AFFIX_TIER_FLOOR_BY_ILVL, AFFIX_COUNT_WEIGHTS, AFFIX_COUNT_WEIGHTS_BY_BAND } from '../data/balance';
 
 /** Unified affix lookup across all pools (combat + gathering + profession). */
 const ALL_AFFIX_DEFS: AffixDef[] = [...AFFIX_DEFS, ...GATHERING_AFFIX_DEFS, ...PROFESSION_AFFIX_DEFS];
@@ -59,12 +59,21 @@ export function getBestTierForILvl(iLvl: number): AffixTier {
 
 /**
  * Roll a random affix tier using iLvl-scaled weighted selection across all 10 tiers.
+ * Applies hard floor: tiers below the floor for this iLvl range get zero weight.
  */
 export function rollAffixTier(iLvl: number): AffixTier {
   const weights = getWeightedTiers(iLvl);
+
+  // Hard floor: zero out tiers below the minimum allowed for this iLvl
+  let minTier = 1;
+  for (const [maxILvl, floor] of AFFIX_TIER_FLOOR_BY_ILVL) {
+    if (iLvl <= maxILvl) { minTier = floor; break; }
+  }
+
   const entries = [];
   for (let i = 1; i <= 10; i++) {
-    entries.push({ tier: i as AffixTier, weight: weights[i as AffixTier] });
+    const tier = i as AffixTier;
+    entries.push({ tier, weight: tier < minTier ? 0 : weights[tier] });
   }
   const totalWeight = entries.reduce((sum, e) => sum + e.weight, 0);
   let roll = Math.random() * totalWeight;

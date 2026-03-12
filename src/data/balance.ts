@@ -10,7 +10,7 @@ import type { CurrencyType, AffixTier, ResolvedStats, RareMaterialRarity, Rarity
 // =============================================
 
 /** Base probability of an item dropping per zone clear. */
-export const BASE_ITEM_DROP_CHANCE = 0.08;
+export const BASE_ITEM_DROP_CHANCE = 0.06;
 
 /** Multiplier applied to item drop chance when zone is mastered. */
 export const MASTERY_DROP_BONUS = 1.15;
@@ -26,7 +26,7 @@ export const COMBAT_MATERIAL_DROP_MAX = 2;
 
 /** Per-clear probability for each currency type. */
 export const CURRENCY_DROP_CHANCES: Record<CurrencyType, number> = {
-  augment:        0.035,
+  augment:        0.02,
   chaos:          0.018,
   divine:         0.008,
   annul:          0.008,
@@ -258,6 +258,17 @@ export const TIER_HIGH_WEIGHTS: Record<AffixTier, number> = {
   10: 3, 9: 5, 8: 8, 7: 12, 6: 15, 5: 13, 4: 10, 3: 6, 2: 3, 1: 1.5,
 };
 
+/** Hard floor on affix tiers by iLvl — prevents absurdly high tiers at low levels.
+ *  Each entry: [maxILvl, minTier]. E.g. iLvl 1-9 can only roll T8+. */
+export const AFFIX_TIER_FLOOR_BY_ILVL: [number, number][] = [
+  [9,  8],   // iLvl 1-9:   T8+ only
+  [19, 6],   // iLvl 10-19: T6+ only
+  [29, 4],   // iLvl 20-29: T4+ only
+  [39, 3],   // iLvl 30-39: T3+ only
+  [49, 2],   // iLvl 40-49: T2+ only
+  // iLvl 50+: no floor
+];
+
 /** How many affixes an item rolls (weighted). Default/Band 1 weights. */
 export const AFFIX_COUNT_WEIGHTS: { count: number; weight: number }[] = [
   { count: 2, weight: 35 },
@@ -364,11 +375,13 @@ export const ZONE_ILVL_PRESSURE_SCALE = 0.04;
 /** Normal clears between boss encounters. */
 export const BOSS_INTERVAL = 10;
 /** Base boss HP (band 1). Scales with linear ramp + iLvl component. */
-export const BOSS_BASE_HP = 100;
+export const BOSS_BASE_HP = 400;
 /** Boss HP ramp: HP = base * band * (1 + BOSS_HP_RAMP * (band - 1)) + BOSS_HP_ILVL_SCALE * iLvlMin * band. */
 export const BOSS_HP_RAMP = 0.40;
 /** iLvl-based boss HP scaling — makes bosses harder within each band. */
 export const BOSS_HP_ILVL_SCALE = 3.0;
+/** Intra-band boss HP scaling: each bandIndex adds this fraction more HP. */
+export const BOSS_BAND_INDEX_SCALE = 0.08;
 /** @deprecated Use BOSS_DAMAGE_MULT instead. Kept for reference. */
 export const BOSS_DMG_RAMP = 0.30;
 /** Each unresisted hazard adds this fraction of base boss damage as bonus elemental damage. */
@@ -393,7 +406,7 @@ export const ZONE_ATTACK_INTERVAL = 2.0;
 /** Base zone damage per hit at band 1. Scales linearly with band. */
 export const ZONE_DMG_BASE = 9;
 /** Per-iLvl damage scaling so zones get harder within a band. */
-export const ZONE_DMG_ILVL_SCALE = 0.8;
+export const ZONE_DMG_ILVL_SCALE = 1.2;
 /** Fraction of zone damage that's physical (rest is elemental). */
 export const ZONE_PHYS_RATIO = 0.5;
 /** @deprecated Use BOSS_DAMAGE_MULT instead. Boss damage now mirrors mob damage * multiplier. */
@@ -404,6 +417,10 @@ export const BOSS_DAMAGE_MULT = 2.25;
 export const BOSS_CRIT_CHANCE = 0.15;
 /** Boss crit damage multiplier. */
 export const BOSS_CRIT_MULTIPLIER = 1.5;
+/** Mob crit chance per attack (5%). */
+export const MOB_CRIT_CHANCE = 0.05;
+/** Mob crit damage multiplier. */
+export const MOB_CRIT_MULTIPLIER = 1.3;
 /** Max boss damage per hit as fraction of player maxHP (prevents one-shots). */
 export const BOSS_MAX_DMG_RATIO = 99.0;
 /** Seconds between boss attacks. */

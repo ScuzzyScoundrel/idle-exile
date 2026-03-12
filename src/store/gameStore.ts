@@ -224,10 +224,10 @@ function createInitialState(): GameState {
     prefixes: [],
     suffixes: [],
     weaponType: 'dagger',
-    baseStats: { spellPower: 4, baseAttackSpeed: 12, baseCritChance: 3 },
-    baseDamageMin: 5,
-    baseDamageMax: 11,
-    baseSpellPower: 4,
+    baseStats: { spellPower: 2, baseAttackSpeed: 10, baseCritChance: 2 },
+    baseDamageMin: 3,
+    baseDamageMax: 7,
+    baseSpellPower: 2,
   };
   return {
     character: { ...char, stats: resolveStats(char) },

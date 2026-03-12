@@ -5,7 +5,7 @@
 
 import type { Character, ZoneDef, BossState, Item, AbilityEffect, EquippedSkill, SkillProgress } from '../../types';
 import {
-  BOSS_BASE_HP, BOSS_HP_RAMP, BOSS_HP_ILVL_SCALE, BOSS_DAMAGE_MULT,
+  BOSS_BASE_HP, BOSS_HP_RAMP, BOSS_HP_ILVL_SCALE, BOSS_BAND_INDEX_SCALE, BOSS_DAMAGE_MULT,
   BOSS_ATTACK_INTERVAL, BOSS_HAZARD_DAMAGE_RATIO,
   BOSS_ILVL_BONUS, BOSS_DROP_COUNT_MIN, BOSS_DROP_COUNT_MAX,
   ZONE_PHYS_RATIO, ZONE_DMG_BASE, ZONE_DMG_ILVL_SCALE,
@@ -18,10 +18,11 @@ import { applyAbilityResists, calcZoneAccuracy, HAZARD_STAT_MAP, GEAR_SLOTS } fr
 import { calcLevelDamageMult } from './scaling';
 import { calcPlayerDps } from './dps';
 
-/** Boss HP pool. Linear ramp + iLvl scaling. */
+/** Boss HP pool. Linear ramp + iLvl scaling + intra-band bandIndex scaling. */
 export function calcBossMaxHp(zone: ZoneDef): number {
-  return (BOSS_BASE_HP * zone.band * (1 + BOSS_HP_RAMP * (zone.band - 1)))
+  const base = (BOSS_BASE_HP * zone.band * (1 + BOSS_HP_RAMP * (zone.band - 1)))
     + (BOSS_HP_ILVL_SCALE * zone.iLvlMin * zone.band);
+  return base * (1 + zone.bandIndex * BOSS_BAND_INDEX_SCALE);
 }
 
 /**
