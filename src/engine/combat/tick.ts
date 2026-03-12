@@ -61,7 +61,6 @@ import {
   ZONE_ATTACK_INTERVAL,
   ZONE_DMG_BASE,
   ZONE_DMG_ILVL_SCALE,
-  ZONE_PHYS_RATIO,
   FORTIFY_MAX_STACKS,
   INVASION_DIFFICULTY_MULT,
   DEATH_STREAK_WINDOW,
@@ -645,7 +644,7 @@ export function runCombatTick(
         const bossVariance = 0.6 + Math.random() * 0.4; // 60%-100% normal
         const rawBossDmg = bs.bossDamagePerHit * (isBossCrit ? BOSS_CRIT_MULTIPLIER : bossVariance);
 
-        const bossRoll = rollZoneAttack(rawBossDmg, bs.bossPhysRatio, bs.bossAccuracy, effectiveStats, bs.dodgeEntropy);
+        const bossRoll = rollZoneAttack(rawBossDmg, bs.bossPhysRatio, bs.bossAccuracy, effectiveStats, bs.dodgeEntropy, bs.bossDamageElement, zone.band);
         bs.dodgeEntropy = bossRoll.newDodgeEntropy;
 
         // Incoming damage multiplier (increasedDamageTaken keystone + berserk)
@@ -977,10 +976,11 @@ export function runCombatTick(
     } else {
       // Pack fully dead — roll NEW encounter (new mob type, new pack)
       newMobTypeId = pickCurrentMob(zone.id, state.targetedMobId);
-      const hpMult = newMobTypeId ? (getMobTypeDef(newMobTypeId)?.hpMultiplier ?? 1.0) : 1.0;
+      const tickMobDef = newMobTypeId ? getMobTypeDef(newMobTypeId) : undefined;
+      const hpMult = tickMobDef?.hpMultiplier ?? 1.0;
       const invHpMult = isZoneInvaded(state.invasionState, zone.id, zone.band) ? INVASION_DIFFICULTY_MULT : 1.0;
 
-      updatedPackMobs = spawnPack(zone, hpMult, invHpMult, now);
+      updatedPackMobs = spawnPack(zone, hpMult, invHpMult, now, tickMobDef?.damageElement, tickMobDef?.physRatio);
       newCurrentPackSize = updatedPackMobs.length;
 
       // Compute new encounter loot mult
@@ -1093,7 +1093,7 @@ export function runCombatTick(
       const mobRareDmgMult = mob.rare?.combinedDamageMult ?? 1;
       const rawDmg = (ZONE_DMG_BASE * zone.band + ZONE_DMG_ILVL_SCALE * zone.iLvlMin) * levelMult * variance * mobRareDmgMult * packDmgScale;
 
-      const zoneRoll = rollZoneAttack(rawDmg, ZONE_PHYS_RATIO, zoneAccuracy, buffedStats, currentDodgeEntropy);
+      const zoneRoll = rollZoneAttack(rawDmg, mob.physRatio, zoneAccuracy, buffedStats, currentDodgeEntropy, mob.damageElement, zone.band);
       currentDodgeEntropy = zoneRoll.newDodgeEntropy;
 
       let clearIncomingMult = mobEnemyMods.damageMult;

@@ -283,10 +283,11 @@ function emptyResult(elapsedMs: number): OfflineSimResult {
 /** Spawn a fresh pack on the working state. */
 function ensurePack(s: GameState, zone: typeof ZONE_DEFS[number], virtualNow: number): void {
   const mobId = pickCurrentMob(zone.id, s.targetedMobId);
-  const hpMult = mobId ? (getMobTypeDef(mobId)?.hpMultiplier ?? 1.0) : 1.0;
+  const mobDef = mobId ? getMobTypeDef(mobId) : undefined;
+  const hpMult = mobDef?.hpMultiplier ?? 1.0;
   const invMult = s.currentZoneId && isZoneInvaded(s.invasionState, s.currentZoneId, zone.band)
     ? INVASION_DIFFICULTY_MULT : 1.0;
-  s.packMobs = spawnPack(zone, hpMult, invMult, virtualNow);
+  s.packMobs = spawnPack(zone, hpMult, invMult, virtualNow, mobDef?.damageElement, mobDef?.physRatio);
   s.currentPackSize = s.packMobs.length;
   s.currentMobTypeId = mobId;
 }

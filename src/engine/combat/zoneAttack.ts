@@ -15,7 +15,6 @@ import {
   ZONE_ATTACK_INTERVAL,
   ZONE_DMG_BASE,
   ZONE_DMG_ILVL_SCALE,
-  ZONE_PHYS_RATIO,
   MAX_REGEN_CAP_RATIO,
   DEATH_STREAK_WINDOW,
   MOB_CRIT_CHANCE,
@@ -91,7 +90,7 @@ export function applyZoneDamage(
       const mobRareDmgMult = mob.rare?.combinedDamageMult ?? 1;
       const rawDmg = (ZONE_DMG_BASE * zone.band + ZONE_DMG_ILVL_SCALE * zone.iLvlMin) * levelMult * variance * mobRareDmgMult * packDmgScale;
 
-      const roll = rollZoneAttack(rawDmg, ZONE_PHYS_RATIO, zoneAccuracy, buffedStats, currentDodgeEntropy);
+      const roll = rollZoneAttack(rawDmg, mob.physRatio, zoneAccuracy, buffedStats, currentDodgeEntropy, mob.damageElement, zone.band);
       currentDodgeEntropy = roll.newDodgeEntropy;
       let mobZoneDmg = roll.damage * mobEnemyMods.damageMult;
       const helperZoneFortifyDR = calcFortifyDR(state.fortifyStacks, state.fortifyExpiresAt, state.fortifyDRPerStack, now, resolveStats(state.character).fortifyEffect);

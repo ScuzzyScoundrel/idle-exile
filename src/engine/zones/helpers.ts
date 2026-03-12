@@ -2,7 +2,7 @@ import type { GameState, AbilityEffect, ResolvedStats, CombatClearResult, ZoneDe
 import { getZoneMobTypes, weightedRandomMob } from '../../data/mobTypes';
 import { calcMobHp, getPrimaryDamageSkill, getDefaultSkillForWeapon } from '../../engine/unifiedSkills';
 import { resolveStats, getWeaponDamageInfo } from '../../engine/character';
-import { calcClearTime, simulateCombatClear, applyAbilityResists, calcHazardPenalty, calcOutgoingDamageMult } from '../../engine/zones';
+import { calcClearTime, simulateCombatClear, calcOutgoingDamageMult } from '../../engine/zones';
 import { isZoneInvaded } from '../../engine/invasions';
 import { LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO, INVASION_DIFFICULTY_MULT } from '../../data/balance';
 
@@ -50,12 +50,8 @@ export function computeNextClear(
   const invasionMult = isZoneInvaded(state.invasionState, zone.id, zone.band) ? INVASION_DIFFICULTY_MULT : 1.0;
   const mobHp = calcMobHp(zone) * invasionMult;
 
-  // Hazard penalty: unresisted hazards make effective mob HP higher
-  const hazardMult = abilityEffect?.ignoreHazards ? 1.0 : calcHazardPenalty(
-    applyAbilityResists(stats, abilityEffect), zone,
-  );
-
-  let effectiveMobHp = mobHp / hazardMult;
+  // Hazards removed — per-mob elemental damage replaces this system.
+  let effectiveMobHp = mobHp;
 
   // Level penalty: underleveled = mob effectively tougher
   const levelDelta = Math.max(0, zone.iLvlMin - state.character.level);

@@ -223,6 +223,8 @@ export const BASE_STATS: ResolvedStats = {
   cooldownRecovery: 0,
   fortifyEffect: 0,
   damageTakenReduction: 0,
+  // Armor-to-Elemental (plate exclusive)
+  armorToElemental: 0,
 };
 
 /** Flat physical damage gained per level beyond 1. */

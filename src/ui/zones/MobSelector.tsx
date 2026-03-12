@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { getZoneMobTypes } from '../../data/mobTypes';
-import { MOB_DROP_RARITY_COLOR } from './zoneConstants';
+import { MOB_DROP_RARITY_COLOR, ELEMENT_ICONS, ELEMENT_COLORS } from './zoneConstants';
 import { formatMatName } from './zoneHelpers';
 
 export default function MobSelector({ zoneId, targetedMobId, mobKillCounts, onTargetMob }: {
@@ -60,6 +60,11 @@ export default function MobSelector({ zoneId, targetedMobId, mobKillCounts, onTa
               >
                 <div className="flex justify-between items-center">
                   <div>
+                    {mob.damageElement && mob.damageElement !== 'physical' && (
+                      <span className={`${ELEMENT_COLORS[mob.damageElement]} mr-0.5`} title={mob.damageElement}>
+                        {ELEMENT_ICONS[mob.damageElement]}
+                      </span>
+                    )}
                     <span className="font-semibold">{mob.name}</span>
                     {mob.hpMultiplier && mob.hpMultiplier !== 1.0 && (
                       <span className={`ml-1 ${mob.hpMultiplier > 1 ? 'text-red-400' : 'text-green-400'}`}>

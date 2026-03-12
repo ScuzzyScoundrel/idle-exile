@@ -318,6 +318,15 @@ export const AFFIX_DEFS: AffixDef[] = [
     weight: 50, displayTemplate: '-{value}% Damage Taken',
     armorTypeRestriction: 'plate',
   },
+  // Plate-exclusive: armor-to-elemental mitigation
+  {
+    id: 'plate_armor_to_ele', name: 'Warded', category: 'plate_armor_to_ele',
+    slot: 'suffix', stat: 'armorToElemental',
+    allowedSlots: ['chest', 'main_armor', 'shields'],
+    tiers: buildTiers(2, 4, 3, 6, 5, 10, 8, 15, 12, 20, 18, 30),
+    weight: 40, displayTemplate: '+{value}% Armor to Elemental',
+    armorTypeRestriction: 'plate',
+  },
   // Leather-exclusive: % increased evasion
   {
     id: 'inc_evasion', name: 'Flickering', category: 'inc_evasion',

@@ -1,4 +1,4 @@
-import type { Rarity, GatheringProfession, WeaponType, MobDropRarity } from '../../types';
+import type { Rarity, GatheringProfession, WeaponType, MobDropRarity, MobDamageElement } from '../../types';
 
 // Band visual theming
 export const BAND_GRADIENTS: Record<number, string> = {
@@ -28,21 +28,36 @@ export const BAND_EMOJIS: Record<number, string> = {
   6: '\u{1F311}',
 };
 
-// Hazard display config
-export const HAZARD_COLORS: Record<string, string> = {
+// Element display config (per-mob damage types)
+export const ELEMENT_COLORS: Record<MobDamageElement, string> = {
+  physical: 'text-gray-400',
   fire: 'text-red-400',
   cold: 'text-blue-400',
   lightning: 'text-yellow-400',
   chaos: 'text-purple-400',
 };
 
-export const HAZARD_ICONS: Record<string, string> = {
+export const ELEMENT_ICONS: Record<MobDamageElement, string> = {
+  physical: '\u2694\uFE0F',
   fire: '\u{1F525}',
   cold: '\u2744\uFE0F',
   lightning: '\u26A1',
   chaos: '\u{1F480}',
 };
 
+export const ELEMENT_LABELS: Record<MobDamageElement, string> = {
+  physical: 'Physical',
+  fire: 'Fire',
+  cold: 'Cold',
+  lightning: 'Lightning',
+  chaos: 'Chaos',
+};
+
+/** @deprecated Hazards removed — kept for any straggling references. */
+export const HAZARD_COLORS = ELEMENT_COLORS;
+/** @deprecated Hazards removed — kept for any straggling references. */
+export const HAZARD_ICONS = ELEMENT_ICONS;
+/** @deprecated Hazards removed. */
 export const HAZARD_STAT_MAP: Record<string, string> = {
   fire: 'fireResist',
   cold: 'coldResist',

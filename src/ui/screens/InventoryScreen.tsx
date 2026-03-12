@@ -1108,6 +1108,7 @@ const STAT_LABELS: Record<StatKey, string> = {
   cooldownRecovery: 'CD Recovery',
   fortifyEffect: 'Fortify Effect',
   damageTakenReduction: 'Damage Reduction',
+  armorToElemental: 'Armor to Elemental',
 };
 
 function ComparisonPanel({ selected, equipped }: { selected: Item; equipped: Item }) {

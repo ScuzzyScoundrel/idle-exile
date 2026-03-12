@@ -3,6 +3,7 @@
 // ============================================================
 
 import type { AbilityEffect } from './skills';
+import type { MobDamageElement } from './zones';
 
 // --- Combat Results ---
 
@@ -69,6 +70,7 @@ export interface BossState {
   bossNextAttackAt: number;    // timestamp of next boss attack (ms)
   bossAccuracy: number;        // boss accuracy for dodge calc
   bossPhysRatio: number;       // physical vs elemental split (0-1)
+  bossDamageElement: MobDamageElement; // element of boss attacks
   startedAt: number;           // timestamp
   dodgeEntropy: number;        // entropy counter for POE-style deterministic evasion
 }
@@ -108,6 +110,8 @@ export interface MobInPack {
   debuffs: ActiveDebuff[];
   nextAttackAt: number;           // ms timestamp, each mob swings independently
   rare: RareMobState | null;      // null = normal mob
+  damageElement: MobDamageElement;   // element of this mob's attacks
+  physRatio: number;              // physical vs elemental split (0-1)
 }
 
 // --- Debuffs & Buffs ---

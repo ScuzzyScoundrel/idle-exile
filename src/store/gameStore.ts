@@ -570,9 +570,10 @@ export const useGameStore = create<GameState & GameActions>()(
         let initialPackSize = 1;
         if (zone && state.idleMode === 'combat') {
           initialMobTypeId = pickCurrentMob(zoneId, state.targetedMobId);
-          const hpMult = initialMobTypeId ? (getMobTypeDef(initialMobTypeId)?.hpMultiplier ?? 1.0) : 1.0;
+          const initialMobDef = initialMobTypeId ? getMobTypeDef(initialMobTypeId) : undefined;
+          const hpMult = initialMobDef?.hpMultiplier ?? 1.0;
           const invMult = isZoneInvaded(state.invasionState, zoneId, zone.band) ? INVASION_DIFFICULTY_MULT : 1.0;
-          initialPackMobs = spawnPack(zone, hpMult, invMult, now);
+          initialPackMobs = spawnPack(zone, hpMult, invMult, now, initialMobDef?.damageElement, initialMobDef?.physRatio);
           initialPackSize = initialPackMobs.length;
         }
 
@@ -626,9 +627,10 @@ export const useGameStore = create<GameState & GameActions>()(
           const zone = ZONE_DEFS.find(z => z.id === state.currentZoneId);
           if (zone) {
             const currentMob = pickCurrentMob(state.currentZoneId, mobTypeId);
-            const hpMult = currentMob ? (getMobTypeDef(currentMob)?.hpMultiplier ?? 1.0) : 1.0;
+            const targetMobDef = currentMob ? getMobTypeDef(currentMob) : undefined;
+            const hpMult = targetMobDef?.hpMultiplier ?? 1.0;
             const invMult = isZoneInvaded(state.invasionState, state.currentZoneId, zone.band) ? INVASION_DIFFICULTY_MULT : 1.0;
-            const newPack = spawnPack(zone, hpMult, invMult, Date.now());
+            const newPack = spawnPack(zone, hpMult, invMult, Date.now(), targetMobDef?.damageElement, targetMobDef?.physRatio);
             set({ targetedMobId: mobTypeId, currentMobTypeId: currentMob, packMobs: newPack, currentPackSize: newPack.length });
             return;
           }
@@ -1034,10 +1036,11 @@ export const useGameStore = create<GameState & GameActions>()(
 
           // Spawn new pack for real-time combat (10K-A)
           const recoveryMobId = zone ? pickCurrentMob(zone.id, state.targetedMobId) : null;
-          const recoveryHpMult = recoveryMobId ? (getMobTypeDef(recoveryMobId)?.hpMultiplier ?? 1.0) : 1.0;
+          const recoveryMobDef = recoveryMobId ? getMobTypeDef(recoveryMobId) : undefined;
+          const recoveryHpMult = recoveryMobDef?.hpMultiplier ?? 1.0;
           const recoveryInvMult = zone && state.currentZoneId && isZoneInvaded(state.invasionState, state.currentZoneId, zone.band) ? INVASION_DIFFICULTY_MULT : 1.0;
           const recoveryNow = Date.now();
-          const recoveryPack = zone ? spawnPack(zone, recoveryHpMult, recoveryInvMult, recoveryNow) : [];
+          const recoveryPack = zone ? spawnPack(zone, recoveryHpMult, recoveryInvMult, recoveryNow, recoveryMobDef?.damageElement, recoveryMobDef?.physRatio) : [];
 
           // Reset boss progress on any death (zone or boss defeat)
           const recoveryZoneClearCounts = isDefeat && state.currentZoneId
@@ -1248,7 +1251,8 @@ if (typeof document !== 'undefined') {
     // Reset idleStartTime so real-time tick resumes from now
     // Respawn pack for fresh combat
     const catchupMobId = pickCurrentMob(state.currentZoneId!, state.targetedMobId);
-    const catchupHpMult = catchupMobId ? (getMobTypeDef(catchupMobId)?.hpMultiplier ?? 1.0) : 1.0;
+    const catchupMobDef = catchupMobId ? getMobTypeDef(catchupMobId) : undefined;
+    const catchupHpMult = catchupMobDef?.hpMultiplier ?? 1.0;
     const catchupInvMult = isZoneInvaded(state.invasionState, state.currentZoneId!, zone.band)
       ? INVASION_DIFFICULTY_MULT : 1.0;
     const catchupNow = Date.now();
@@ -1259,7 +1263,7 @@ if (typeof document !== 'undefined') {
     useGameStore.setState({
       offlineProgress: summary,
       idleStartTime: catchupNow,
-      packMobs: spawnPack(zone, catchupHpMult, catchupInvMult, catchupNow),
+      packMobs: spawnPack(zone, catchupHpMult, catchupInvMult, catchupNow, catchupMobDef?.damageElement, catchupMobDef?.physRatio),
       currentPackSize: state.currentPackSize,
       currentMobTypeId: catchupMobId,
       currentHp: catchupStats.maxLife,

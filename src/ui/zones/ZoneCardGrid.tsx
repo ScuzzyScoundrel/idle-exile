@@ -81,7 +81,6 @@ export default function ZoneCardGrid({
               isActive={isRunning && currentZoneId === z.id}
               isUnlocked={isZoneUnlocked(z)}
               hasMastery={z.hazards.length > 0 && checkZoneMastery(characterStats, z)}
-              playerStats={characterStats as Record<string, number>}
               charLevel={charLevel}
               idleMode={idleMode}
               selectedProfession={selectedProfession}

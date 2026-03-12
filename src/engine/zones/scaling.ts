@@ -5,13 +5,11 @@
 
 import type { ResolvedStats, ZoneDef, GearSlot, AbilityEffect } from '../../types';
 import {
-  HAZARD_PENALTY_FLOOR, HAZARD_OVERCAP_MULT,
   LEVEL_DAMAGE_BASE, OVERLEVEL_DAMAGE_REDUCTION, OVERLEVEL_DAMAGE_FLOOR,
   UNDERLEVEL_SOFTCAP,
   OUTGOING_DAMAGE_PENALTY_BASE, OUTGOING_DAMAGE_PENALTY_FLOOR,
   ZONE_ACCURACY_BASE, UNDERLEVEL_ACCURACY_SCALE,
   ZONE_DMG_BASE, ZONE_DMG_ILVL_SCALE,
-  BAND_RESIST_PENALTY,
 } from '../../data/balance';
 
 // --- Gear slots used for random item drops ---
@@ -51,38 +49,17 @@ export function applyAbilityResists(stats: ResolvedStats, abilityEffect?: Abilit
 
 /**
  * Calculate hazard penalty multiplier for a zone.
+ * @deprecated Hazards removed — always returns 1.0. Per-mob elemental damage replaces this system.
  */
-export function calcHazardPenalty(stats: ResolvedStats, zone: ZoneDef): number {
-  if (zone.hazards.length === 0) return 1.0;
-
-  const bandPenalty = BAND_RESIST_PENALTY[zone.band] ?? 0;
-  let combined = 1.0;
-  for (const hazard of zone.hazards) {
-    const rawResist = stats[HAZARD_STAT_MAP[hazard.type]] ?? 0;
-    const resist = Math.max(0, rawResist + bandPenalty);
-    let mult: number;
-    if (resist >= hazard.threshold) {
-      mult = HAZARD_OVERCAP_MULT;
-    } else {
-      const ratio = resist / hazard.threshold;
-      mult = HAZARD_PENALTY_FLOOR + (1 - HAZARD_PENALTY_FLOOR) * ratio * ratio;
-    }
-    combined *= mult;
-  }
-  return combined;
+export function calcHazardPenalty(_stats: ResolvedStats, _zone: ZoneDef): number {
+  return 1.0;
 }
 
 /**
  * Check if character meets ALL hazard thresholds for zone mastery.
+ * @deprecated Hazards removed — always returns true. Per-mob elemental damage replaces this system.
  */
-export function checkZoneMastery(stats: ResolvedStats, zone: ZoneDef): boolean {
-  if (zone.hazards.length === 0) return true;
-  const bandPenalty = BAND_RESIST_PENALTY[zone.band] ?? 0;
-  for (const hazard of zone.hazards) {
-    const rawResist = stats[HAZARD_STAT_MAP[hazard.type]] ?? 0;
-    const resist = Math.max(0, rawResist + bandPenalty);
-    if (resist < hazard.threshold) return false;
-  }
+export function checkZoneMastery(_stats: ResolvedStats, _zone: ZoneDef): boolean {
   return true;
 }
 

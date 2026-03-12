@@ -3,7 +3,7 @@
 // Extracted from engine/zones.ts (Phase C2)
 // ============================================================
 
-import type { ResolvedStats, ZoneDef } from '../../types';
+import type { ResolvedStats, ZoneDef, MobDamageElement } from '../../types';
 import {
   BLOCK_CAP, BLOCK_REDUCTION, DODGE_CAP, EVASION_MIN_HIT_CHANCE, EVASION_DR_EXPONENT,
   ARMOR_COEFFICIENT, ARMOR_FLAT_DR_RATIO, ARMOR_FLAT_DR_CAP,
@@ -11,8 +11,17 @@ import {
   CLEAR_REGEN_RATIO, LEECH_PERCENT, BASE_REGEN_CAP_RATIO, REGEN_CAP_PER_MITIGATED, MAX_REGEN_CAP_RATIO,
   UNDERLEVEL_MIN_NET_DAMAGE,
   DODGE_DAMAGE_FLOOR,
+  BAND_RESIST_PENALTY,
 } from '../../data/balance';
 import { calcLevelDamageMult, calcZoneAccuracy } from './scaling';
+
+/** Map MobDamageElement to the relevant resist stat key. */
+const RESIST_MAP: Record<string, keyof ResolvedStats> = {
+  fire: 'fireResist',
+  cold: 'coldResist',
+  lightning: 'lightningResist',
+  chaos: 'chaosResist',
+};
 
 /** POE-style entropy evasion roll. Deterministic over N attacks. */
 export function rollEntropicEvasion(
@@ -38,6 +47,8 @@ export function rollZoneAttack(
   zoneAccuracy: number,
   stats: ResolvedStats,
   dodgeEntropy?: number,
+  damageElement?: MobDamageElement,
+  band?: number,
 ): { damage: number; isDodged: boolean; isBlocked: boolean; newDodgeEntropy: number } {
   // 1. Dodge check — entropy-based with diminishing returns
   const rawDodge = stats.evasion / (stats.evasion + zoneAccuracy);
@@ -71,8 +82,22 @@ export function rollZoneAttack(
     physDmg *= (1 - armorReduction);
   }
 
-  // 4. Resist mitigation (elemental, average of capped resists)
-  if (eleDmg > 0) {
+  // 4. Resist mitigation (element-specific when provided, fallback to averaged)
+  if (eleDmg > 0 && damageElement && damageElement !== 'physical') {
+    const resistKey = RESIST_MAP[damageElement];
+    const bandPenalty = band != null ? (BAND_RESIST_PENALTY[band] ?? 0) : 0;
+    const rawResist = resistKey ? (stats[resistKey] ?? 0) : 0;
+    const effectiveResist = Math.min(Math.max(0, rawResist + bandPenalty), 75);
+    eleDmg *= (1 - effectiveResist / 100);
+
+    // Armor-to-Elemental conversion (plate exclusive)
+    if (stats.armorToElemental > 0 && stats.armor > 0) {
+      const eleArmor = stats.armor * (stats.armorToElemental / 100);
+      const eleArmorReduction = eleArmor / (eleArmor + ARMOR_COEFFICIENT * eleDmg);
+      eleDmg *= (1 - eleArmorReduction);
+    }
+  } else if (eleDmg > 0) {
+    // Fallback: old averaged resist for callers that don't pass element yet
     const avgResist = (
       Math.min(stats.fireResist, 75) +
       Math.min(stats.coldResist, 75) +
@@ -105,7 +130,7 @@ export function rollZoneAttack(
  * refDamage: reference hit size (armor is hit-size-dependent). Default 50 = mid-range zone hit.
  * refAccuracy: reference zone accuracy for dodge calc. Default 200 = mid-band zone.
  */
-export function calcEhp(stats: ResolvedStats, refDamage: number = 50, refAccuracy: number = 200): number {
+export function calcEhp(stats: ResolvedStats, refDamage: number = 50, refAccuracy: number = 200, damageElement?: MobDamageElement, band?: number): number {
   // Dodge (expected value of entropy-based system)
   const rawDodge = stats.evasion / (stats.evasion + refAccuracy);
   const dodgeChance = Math.min(Math.pow(rawDodge, EVASION_DR_EXPONENT), DODGE_CAP / 100);
@@ -119,13 +144,27 @@ export function calcEhp(stats: ResolvedStats, refDamage: number = 50, refAccurac
   function mitigate(rawPhys: number, rawEle: number): number {
     const armorRed = rawPhys > 0 ? stats.armor / (stats.armor + ARMOR_COEFFICIENT * rawPhys) : 0;
     const physAfter = rawPhys * (1 - armorRed);
-    const avgResist = (
-      Math.min(stats.fireResist, 75) +
-      Math.min(stats.coldResist, 75) +
-      Math.min(stats.lightningResist, 75) +
-      Math.min(stats.chaosResist, 75)
-    ) / 4;
-    const eleAfter = rawEle * (1 - avgResist / 100);
+    let eleAfter = rawEle;
+    if (rawEle > 0 && damageElement && damageElement !== 'physical') {
+      const resistKey = RESIST_MAP[damageElement];
+      const bandPenalty = band != null ? (BAND_RESIST_PENALTY[band] ?? 0) : 0;
+      const rawResist = resistKey ? (stats[resistKey] ?? 0) : 0;
+      const effectiveResist = Math.min(Math.max(0, rawResist + bandPenalty), 75);
+      eleAfter *= (1 - effectiveResist / 100);
+      if (stats.armorToElemental > 0 && stats.armor > 0) {
+        const eleArmor = stats.armor * (stats.armorToElemental / 100);
+        const eleArmorReduction = eleArmor / (eleArmor + ARMOR_COEFFICIENT * eleAfter);
+        eleAfter *= (1 - eleArmorReduction);
+      }
+    } else if (rawEle > 0) {
+      const avgResist = (
+        Math.min(stats.fireResist, 75) +
+        Math.min(stats.coldResist, 75) +
+        Math.min(stats.lightningResist, 75) +
+        Math.min(stats.chaosResist, 75)
+      ) / 4;
+      eleAfter *= (1 - avgResist / 100);
+    }
     const total = physAfter + eleAfter;
     const flatDR = Math.min(stats.armor / ARMOR_FLAT_DR_RATIO / 100, ARMOR_FLAT_DR_CAP);
     return total * (1 - flatDR);
@@ -155,12 +194,14 @@ export function simulateClearDefense(
   zone: ZoneDef, playerLevel: number, clearTime: number,
   playerDamageDealt: number,
   packMods?: { damageMult: number; hitCountMult: number },
+  damageElement?: MobDamageElement,
+  mobPhysRatio?: number,
 ): { newHp: number; totalDamage: number; dodges: number; blocks: number; hits: number; totalMitigated: number; regenCapUsed: number } {
   const levelMult = calcLevelDamageMult(playerLevel, zone.iLvlMin);
   const hitsPerClear = Math.min(50, Math.max(1, Math.floor(clearTime / ZONE_ATTACK_INTERVAL * (packMods?.hitCountMult ?? 1))));
   const baseDmgPerHit = (ZONE_DMG_BASE * zone.band + ZONE_DMG_ILVL_SCALE * zone.iLvlMin) * levelMult * (packMods?.damageMult ?? 1);
   const zoneAccuracy = calcZoneAccuracy(zone.band, playerLevel, zone.iLvlMin);
-  const physRatio = ZONE_PHYS_RATIO;
+  const physRatio = mobPhysRatio ?? ZONE_PHYS_RATIO;
 
   let totalDamage = 0;
   let totalRawDamage = 0;
@@ -177,7 +218,7 @@ export function simulateClearDefense(
   for (let i = 0; i < hitsPerClear; i++) {
     const variance = 0.8 + Math.random() * 0.4; // 80%-120%
     const rawHit = baseDmgPerHit * variance;
-    const roll = rollZoneAttack(rawHit, physRatio, zoneAccuracy, stats, dodgeEntropy);
+    const roll = rollZoneAttack(rawHit, physRatio, zoneAccuracy, stats, dodgeEntropy, damageElement, zone.band);
     dodgeEntropy = roll.newDodgeEntropy;
     if (roll.isDodged) {
       dodges++;

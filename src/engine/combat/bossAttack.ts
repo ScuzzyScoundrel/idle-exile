@@ -6,6 +6,7 @@
 import type { GameState, CombatTickResult } from '../../types';
 import { resolveStats } from '../character';
 import { rollZoneAttack, applyAbilityResists } from '../zones';
+import { ZONE_DEFS } from '../../data/zones';
 import {
   BOSS_CRIT_CHANCE,
   BOSS_CRIT_MULTIPLIER,
@@ -60,7 +61,8 @@ export function applyBossDamage(
         const variance = 0.6 + Math.random() * 0.4; // 60%-100% normal
         const rawDmg = bs.bossDamagePerHit * (isBossCrit ? BOSS_CRIT_MULTIPLIER : variance);
 
-        const roll = rollZoneAttack(rawDmg, bs.bossPhysRatio, bs.bossAccuracy, defStats, bs.dodgeEntropy);
+        const bossZone = state.currentZoneId ? ZONE_DEFS.find(z => z.id === state.currentZoneId) : undefined;
+        const roll = rollZoneAttack(rawDmg, bs.bossPhysRatio, bs.bossAccuracy, defStats, bs.dodgeEntropy, bs.bossDamageElement, bossZone?.band);
         bs.dodgeEntropy = roll.newDodgeEntropy;
 
         // Damage cap: never exceed BOSS_MAX_DMG_RATIO of maxHP per hit

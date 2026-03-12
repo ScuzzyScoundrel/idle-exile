@@ -65,6 +65,7 @@ export type AffixCategory =
   | 'fire_penetration' | 'cold_penetration' | 'lightning_penetration' | 'chaos_penetration'
   | 'dot_multiplier' | 'weapon_mastery'
   | 'plate_dr'
+  | 'plate_armor_to_ele'
   | 'leather_speed';
 
 export type AffixTier = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;

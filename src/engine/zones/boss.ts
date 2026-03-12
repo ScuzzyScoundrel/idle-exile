@@ -6,7 +6,7 @@
 import type { Character, ZoneDef, BossState, Item, AbilityEffect, EquippedSkill, SkillProgress } from '../../types';
 import {
   BOSS_BASE_HP, BOSS_HP_RAMP, BOSS_HP_ILVL_SCALE, BOSS_BAND_INDEX_SCALE, BOSS_DAMAGE_MULT,
-  BOSS_ATTACK_INTERVAL, BOSS_HAZARD_DAMAGE_RATIO,
+  BOSS_ATTACK_INTERVAL,
   BOSS_ILVL_BONUS, BOSS_DROP_COUNT_MIN, BOSS_DROP_COUNT_MAX,
   ZONE_PHYS_RATIO, ZONE_DMG_BASE, ZONE_DMG_ILVL_SCALE,
   DEATH_RESPAWN_BASE, DEATH_RESPAWN_PER_BAND, DEATH_RESPAWN_CAP,
@@ -14,7 +14,7 @@ import {
   OFFLINE_DEATH_PENALTY_MULT, OFFLINE_DEATH_UNDERLEVEL_PER_LEVEL,
 } from '../../data/balance';
 import { generateItem } from '../items';
-import { applyAbilityResists, calcZoneAccuracy, HAZARD_STAT_MAP, GEAR_SLOTS } from './scaling';
+import { calcZoneAccuracy, GEAR_SLOTS } from './scaling';
 import { calcLevelDamageMult } from './scaling';
 import { calcPlayerDps } from './dps';
 
@@ -29,25 +29,18 @@ export function calcBossMaxHp(zone: ZoneDef): number {
  * Calculate boss per-hit attack profile for the defense pipeline.
  * Returns raw damage per hit, attack interval, accuracy, and phys ratio.
  */
-export function calcBossAttackProfile(char: Character, zone: ZoneDef, abilityEffect?: AbilityEffect): {
+export function calcBossAttackProfile(char: Character, zone: ZoneDef, _abilityEffect?: AbilityEffect): {
   damagePerHit: number; attackInterval: number; accuracy: number; physRatio: number;
 } {
-  const effectiveStats = applyAbilityResists(char.stats, abilityEffect);
   const levelMult = calcLevelDamageMult(char.level, zone.iLvlMin);
   const baseDmg = (ZONE_DMG_BASE * zone.band + ZONE_DMG_ILVL_SCALE * zone.iLvlMin) * BOSS_DAMAGE_MULT * levelMult;
 
-  // Hazard bonus: each unresisted hazard adds elemental damage
-  let hazardBonus = 0;
-  for (const hazard of zone.hazards) {
-    const resist = effectiveStats[HAZARD_STAT_MAP[hazard.type]] ?? 0;
-    if (resist < hazard.threshold) hazardBonus += baseDmg * BOSS_HAZARD_DAMAGE_RATIO;
-  }
-
+  // Hazards removed — per-mob elemental damage replaces hazard bonus system.
   return {
-    damagePerHit: baseDmg + hazardBonus,
+    damagePerHit: baseDmg,
     attackInterval: BOSS_ATTACK_INTERVAL,
     accuracy: calcZoneAccuracy(zone.band, char.level, zone.iLvlMin) * 1.5, // bosses are more accurate
-    physRatio: ZONE_PHYS_RATIO,
+    physRatio: zone.bossPhysRatio ?? ZONE_PHYS_RATIO,
   };
 }
 
@@ -72,6 +65,7 @@ export function createBossEncounter(
     bossNextAttackAt: Date.now(),
     bossAccuracy: profile.accuracy,
     bossPhysRatio: profile.physRatio,
+    bossDamageElement: zone.bossDamageElement ?? 'physical',
     startedAt: Date.now(),
     dodgeEntropy: Math.floor(Math.random() * 100),
   };

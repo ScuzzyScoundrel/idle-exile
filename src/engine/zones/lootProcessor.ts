@@ -18,7 +18,7 @@ import type {
 } from '../../types';
 
 import { ZONE_DEFS } from '../../data/zones';
-import { simulateSingleClear, simulateGatheringClear, calcClearTime, simulateCombatClear, calcHazardPenalty, applyAbilityResists, calcOutgoingDamageMult, getClaimableMilestones, getMasteryBonus } from '../../engine/zones';
+import { simulateSingleClear, simulateGatheringClear, calcClearTime, simulateCombatClear, calcOutgoingDamageMult, getClaimableMilestones, getMasteryBonus } from '../../engine/zones';
 import { resolveProfessionBonuses } from '../../engine/professionBonuses';
 import { calcRareFindBonus } from '../../engine/rareMaterials';
 import { addGatheringXp, calcGatherClearTime } from '../../engine/gathering';
@@ -136,11 +136,8 @@ function computeNextClear(
   const invasionMult = isZoneInvaded(state.invasionState, zone.id, zone.band) ? INVASION_DIFFICULTY_MULT : 1.0;
   const mobHp = calcMobHp(zone) * invasionMult;
 
-  const hazardMult = abilityEffect?.ignoreHazards ? 1.0 : calcHazardPenalty(
-    applyAbilityResists(stats, abilityEffect), zone,
-  );
-
-  let effectiveMobHp = mobHp / hazardMult;
+  // Hazards removed — per-mob elemental damage replaces this system.
+  let effectiveMobHp = mobHp;
 
   const levelDelta = Math.max(0, zone.iLvlMin - state.character.level);
   if (levelDelta > 0) effectiveMobHp *= Math.pow(LEVEL_PENALTY_BASE, levelDelta);

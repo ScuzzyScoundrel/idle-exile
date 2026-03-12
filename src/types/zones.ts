@@ -7,6 +7,7 @@ import type { CurrencyType } from './currencies';
 import type { GatheringProfession } from './crafting';
 
 export type HazardType = 'fire' | 'cold' | 'lightning' | 'chaos';
+export type MobDamageElement = 'physical' | 'fire' | 'cold' | 'lightning' | 'chaos';
 
 export interface ZoneHazard {
   type: HazardType;
@@ -30,6 +31,8 @@ export interface MobTypeDef {
   drops: MobDrop[];        // 2-5 drops with independent roll chances
   hpMultiplier?: number;   // 0.8-1.2, defaults 1.0
   description?: string;    // flavor text
+  damageElement?: MobDamageElement;  // default 'physical'
+  physRatio?: number;             // 1.0=pure phys, 0.0=pure ele, 0.5=hybrid
 }
 
 export interface ZoneDef {
@@ -48,6 +51,8 @@ export interface ZoneDef {
   unlockRequirement?: string; // id of zone that must be accessible first
   mobName: string;
   bossName: string;
+  bossDamageElement?: MobDamageElement;
+  bossPhysRatio?: number;         // default 0.5 (hybrid)
 }
 
 export interface IdleRunResult {

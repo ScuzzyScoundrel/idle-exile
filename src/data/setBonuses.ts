@@ -6,7 +6,7 @@ export const SET_BONUS_DEFS: Record<ArmorType, SetBonusDef> = {
     name: 'Juggernaut',
     thresholds: {
       2: { flatPhysDamage: 8, lifeLeechPercent: 1 },
-      4: { incMaxLife: 20 },
+      4: { incMaxLife: 15, armorToElemental: 15 },
       6: { damageTakenReduction: 10, lifeRecoveryPerHit: 0.8 },
     },
   },

@@ -3,7 +3,7 @@
 // Pure TS, no React dependencies.
 // ============================================================
 
-import type { RareAffixId, RareMobState, MobInPack, EquippedSkill, SkillProgress, ZoneDef } from '../types';
+import type { RareAffixId, RareMobState, MobInPack, EquippedSkill, SkillProgress, ZoneDef, MobDamageElement } from '../types';
 import { PACK_SIZE_WEIGHTS, RARE_CHANCE_BY_BAND, RARE_AFFIX_COUNT, ZONE_ATTACK_INTERVAL } from '../data/balance';
 import { RARE_AFFIX_DEFS } from '../data/rareAffixes';
 import { getUnifiedSkillDef } from '../data/skills';
@@ -73,8 +73,10 @@ export function rollRareAffixes(band: number): RareAffixId[] {
  *  @param hpMult   Mob-type HP multiplier (e.g. from mob def)
  *  @param invMult  Invasion difficulty multiplier (1.0 if not invaded)
  *  @param startAttackAt  Timestamp (ms) for initial attack window start
+ *  @param mobElement  Damage element from MobTypeDef (default 'physical')
+ *  @param mobPhysRatio  Physical ratio from MobTypeDef (default 1.0 for physical, 0.5 for elemental)
  */
-export function spawnPack(zone: ZoneDef, hpMult: number, invMult: number, startAttackAt: number): MobInPack[] {
+export function spawnPack(zone: ZoneDef, hpMult: number, invMult: number, startAttackAt: number, mobElement?: MobDamageElement, mobPhysRatio?: number): MobInPack[] {
   const packSize = rollPackSize(zone.band);
   const baseInterval = ZONE_ATTACK_INTERVAL * 1000; // ms
   const mobs: MobInPack[] = [];
@@ -95,12 +97,18 @@ export function spawnPack(zone: ZoneDef, hpMult: number, invMult: number, startA
     const atkSpeedMult = rare?.combinedAtkSpeedMult ?? 1;
     const staggerOffset = baseInterval * atkSpeedMult * (i + 1) / packSize;
 
+    const element = mobElement ?? 'physical';
+    // Default physRatio: physical=1.0, elemental=0.5 unless explicitly set
+    const pRatio = mobPhysRatio ?? (element === 'physical' ? 1.0 : 0.5);
+
     mobs.push({
       hp: mobHp,
       maxHp: mobHp,
       debuffs: [],
       nextAttackAt: startAttackAt + staggerOffset,
       rare,
+      damageElement: element,
+      physRatio: pRatio,
     });
   }
 

@@ -84,6 +84,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 35,
       drops: buildMobDropTable('pollen_sprite_dust', 1, 35, 'elemental'),
       hpMultiplier: 0.9,
+      damageElement: 'lightning',
       description: 'Shimmering fey creature born from wildflower nectar.',
     },
     {
@@ -110,6 +111,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 35,
       drops: buildMobDropTable('mud_leech_gland', 1, 35, 'insectoid'),
       hpMultiplier: 0.9,
+      damageElement: 'chaos',
       description: 'Bloated parasite that lurks in the creek shallows.',
     },
     {
@@ -118,6 +120,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 15,
       drops: buildMobDropTable('river_toad_toxin', 1, 15, 'beast'),
       hpMultiplier: 1.15,
+      damageElement: 'chaos',
       description: 'Massive amphibian whose croak rattles the riverbed.',
     },
   ],
@@ -136,6 +139,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 35,
       drops: buildMobDropTable('briar_imp_claw', 1, 35, 'humanoid'),
       hpMultiplier: 0.9,
+      damageElement: 'fire',
       description: 'Mischievous creature that weaves traps from living thorns.',
     },
     {
@@ -172,6 +176,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 15,
       drops: buildMobDropTable('crag_golem_core', 2, 15, 'construct'),
       hpMultiplier: 1.15,
+      damageElement: 'fire',
       description: 'A walking pile of ore-veined boulders animated by latent magic.',
     },
   ],
@@ -182,6 +187,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       name: 'Bog Horror',
       weight: 50,
       drops: buildMobDropTable('bog_horror_mucus', 2, 50, 'elemental'),
+      damageElement: 'chaos',
       description: 'Amorphous mass of rotting vegetation and dark swamp water.',
     },
     {
@@ -216,6 +222,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 35,
       drops: buildMobDropTable('dust_hawk_plume', 2, 35, 'beast'),
       hpMultiplier: 0.9,
+      damageElement: 'lightning',
       description: 'Raptor that rides the updrafts to strike with blinding speed.',
     },
     {
@@ -234,6 +241,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       name: 'Crystal Fiend',
       weight: 50,
       drops: buildMobDropTable('crystal_fiend_shard', 2, 50, 'elemental'),
+      damageElement: 'lightning',
       description: 'Jagged elemental born from fractured crystal veins.',
     },
     {
@@ -250,6 +258,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 15,
       drops: buildMobDropTable('geode_worm_segment', 2, 15, 'insectoid'),
       hpMultiplier: 1.15,
+      damageElement: 'cold',
       description: 'Burrowing annelid that leaves tunnels lined with gemstone.',
     },
   ],
@@ -260,6 +269,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       name: 'Blighted Stalker',
       weight: 50,
       drops: buildMobDropTable('blighted_stalker_eye', 2, 50, 'beast'),
+      damageElement: 'chaos',
       description: 'Fungal-infested predator that sees through spore clouds.',
     },
     {
@@ -268,6 +278,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 35,
       drops: buildMobDropTable('sporecap_membrane', 2, 35, 'elemental'),
       hpMultiplier: 0.9,
+      damageElement: 'chaos',
       description: 'Ambulatory mushroom that releases toxic spore bursts.',
     },
     {
@@ -288,6 +299,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       name: 'Magma Hound',
       weight: 50,
       drops: buildMobDropTable('magma_hound_fang', 3, 50, 'beast'),
+      damageElement: 'fire',
       description: 'Canine wreathed in molten rock that prowls the lava flows.',
     },
     {
@@ -296,6 +308,8 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 35,
       drops: buildMobDropTable('cinder_imp_ember', 3, 35, 'humanoid'),
       hpMultiplier: 0.9,
+      damageElement: 'fire',
+      physRatio: 0.0,
       description: 'Diminutive fire sprite that hurls globs of magma.',
     },
     {
@@ -322,6 +336,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 35,
       drops: buildMobDropTable('canopy_viper_venom', 3, 35, 'beast'),
       hpMultiplier: 0.9,
+      damageElement: 'chaos',
       description: 'Arboreal serpent with camouflage that mirrors the leaves.',
     },
     {
@@ -330,6 +345,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 15,
       drops: buildMobDropTable('web_matriarch_egg', 3, 15, 'insectoid'),
       hpMultiplier: 1.15,
+      damageElement: 'chaos',
       description: 'Ancient brood-mother whose web stretches between the tallest trees.',
     },
   ],
@@ -340,6 +356,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       name: 'Frost Wraith',
       weight: 50,
       drops: buildMobDropTable('frost_wraith_essence', 3, 50, 'undead'),
+      damageElement: 'cold',
       description: 'Spectral being of condensed cold that drains warmth from the living.',
     },
     {
@@ -348,6 +365,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 35,
       drops: buildMobDropTable('ice_crawler_mandible', 3, 35, 'insectoid'),
       hpMultiplier: 0.9,
+      damageElement: 'cold',
       description: 'Chitinous arthropod encased in a shell of perpetual frost.',
     },
     {
@@ -392,6 +410,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       name: 'Fen Lurcher',
       weight: 50,
       drops: buildMobDropTable('fen_lurcher_tendril', 3, 50, 'elemental'),
+      damageElement: 'lightning',
       description: 'Shambling swamp creature that drags victims beneath the mire.',
     },
     {
@@ -400,6 +419,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 35,
       drops: buildMobDropTable('wisp_lantern_glow', 3, 35, 'elemental'),
       hpMultiplier: 0.9,
+      damageElement: 'fire',
       description: 'Deceptive light that lures travellers deeper into the bog.',
     },
     {
@@ -408,6 +428,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 15,
       drops: buildMobDropTable('bog_hydra_fang', 3, 15, 'beast'),
       hpMultiplier: 1.15,
+      damageElement: 'chaos',
       description: 'Multi-headed reptile that regenerates lost heads from the swamp.',
     },
   ],
@@ -428,6 +449,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 35,
       drops: buildMobDropTable('slag_elemental_residue', 4, 35, 'elemental'),
       hpMultiplier: 0.9,
+      damageElement: 'fire',
       description: 'Molten waste given form, seeping heat and toxic fumes.',
     },
     {
@@ -436,6 +458,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 15,
       drops: buildMobDropTable('anvil_guardian_plate', 4, 15, 'construct'),
       hpMultiplier: 1.15,
+      damageElement: 'fire',
       description: 'Sentinel forged from black iron to protect the ancient smithy.',
     },
   ],
@@ -446,6 +469,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       name: 'Shadow Revenant',
       weight: 50,
       drops: buildMobDropTable('shadow_revenant_wisp', 4, 50, 'undead'),
+      damageElement: 'cold',
       description: 'Undead shade bound to the twisted trees by lingering hatred.',
     },
     {
@@ -454,6 +478,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 35,
       drops: buildMobDropTable('grave_moth_dust', 4, 35, 'insectoid'),
       hpMultiplier: 0.9,
+      damageElement: 'chaos',
       description: 'Ghostly insect that feeds on the residual soul energy of the dead.',
     },
     {
@@ -472,6 +497,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       name: 'Venomspire Cultist',
       weight: 50,
       drops: buildMobDropTable('cultist_venom_vial', 4, 50, 'humanoid'),
+      damageElement: 'chaos',
       description: 'Fanatical devotee who weaponises distilled toxins.',
     },
     {
@@ -480,6 +506,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 35,
       drops: buildMobDropTable('plague_rat_tail', 4, 35, 'beast'),
       hpMultiplier: 0.9,
+      damageElement: 'chaos',
       description: 'Disease-ridden rodent the size of a large dog.',
     },
     {
@@ -488,6 +515,8 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 15,
       drops: buildMobDropTable('toxic_golem_sludge', 4, 15, 'construct'),
       hpMultiplier: 1.15,
+      damageElement: 'chaos',
+      physRatio: 0.0,
       description: 'Alchemical construct oozing corrosive fluid from every joint.',
     },
   ],
@@ -498,6 +527,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       name: 'Abyssal Terror',
       weight: 50,
       drops: buildMobDropTable('abyssal_terror_tentacle', 4, 50, 'beast'),
+      damageElement: 'cold',
       description: 'Deep-sea horror with barbed tentacles and a gaping maw.',
     },
     {
@@ -506,6 +536,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 35,
       drops: buildMobDropTable('lantern_angler_lure', 4, 35, 'beast'),
       hpMultiplier: 0.9,
+      damageElement: 'lightning',
       description: 'Bioluminescent predator that dangles a false light to attract prey.',
     },
     {
@@ -524,6 +555,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       name: 'Ashborn Ravager',
       weight: 50,
       drops: buildMobDropTable('ashborn_ravager_cinder', 4, 50, 'beast'),
+      damageElement: 'fire',
       description: 'Charred beast reborn from the embers of wildfire.',
     },
     {
@@ -532,6 +564,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 35,
       drops: buildMobDropTable('heat_viper_scale', 4, 35, 'beast'),
       hpMultiplier: 0.9,
+      damageElement: 'fire',
       description: 'Serpent whose body radiates waves of searing heat.',
     },
     {
@@ -540,6 +573,8 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 15,
       drops: buildMobDropTable('ember_colossus_core', 4, 15, 'elemental'),
       hpMultiplier: 1.15,
+      damageElement: 'fire',
+      physRatio: 0.0,
       description: 'Walking volcano that leaves trails of molten footprints.',
     },
   ],
@@ -552,6 +587,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       name: 'Celestine Golem',
       weight: 50,
       drops: buildMobDropTable('celestine_golem_prism', 5, 50, 'construct'),
+      damageElement: 'lightning',
       description: 'Construct of living crystal attuned to celestial frequencies.',
     },
     {
@@ -568,6 +604,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 15,
       drops: buildMobDropTable('prism_sentinel_lens', 5, 15, 'construct'),
       hpMultiplier: 1.15,
+      damageElement: 'cold',
       description: 'Ancient warden that refracts light into devastating beams.',
     },
   ],
@@ -586,6 +623,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 35,
       drops: buildMobDropTable('tunnel_creeper_silk', 5, 35, 'insectoid'),
       hpMultiplier: 0.9,
+      damageElement: 'chaos',
       description: 'Multi-legged predator that scuttles silently through tight passages.',
     },
     {
@@ -594,6 +632,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 15,
       drops: buildMobDropTable('gullet_behemoth_bile', 5, 15, 'beast'),
       hpMultiplier: 1.15,
+      damageElement: 'chaos',
       description: 'Bloated subterranean beast that dissolves prey in stomach acid.',
     },
   ],
@@ -604,6 +643,8 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       name: 'Storm Elemental',
       weight: 50,
       drops: buildMobDropTable('storm_elemental_spark', 5, 50, 'elemental'),
+      damageElement: 'lightning',
+      physRatio: 0.0,
       description: 'Living vortex of wind and lightning raging atop the peaks.',
     },
     {
@@ -612,6 +653,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 35,
       drops: buildMobDropTable('thunder_roc_pinion', 5, 35, 'beast'),
       hpMultiplier: 0.9,
+      damageElement: 'lightning',
       description: 'Enormous bird of prey that summons thunder with each wingbeat.',
     },
     {
@@ -620,6 +662,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 15,
       drops: buildMobDropTable('gale_wraith_essence', 5, 15, 'undead'),
       hpMultiplier: 1.15,
+      damageElement: 'cold',
       description: 'Spectral wind spirit that howls with the fury of a hurricane.',
     },
   ],
@@ -630,6 +673,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       name: 'Void Acolyte',
       weight: 50,
       drops: buildMobDropTable('void_acolyte_sigil', 5, 50, 'humanoid'),
+      damageElement: 'chaos',
       description: 'Zealot who channels the emptiness between worlds.',
     },
     {
@@ -638,6 +682,8 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 35,
       drops: buildMobDropTable('null_shade_fragment', 5, 35, 'undead'),
       hpMultiplier: 0.9,
+      damageElement: 'chaos',
+      physRatio: 0.0,
       description: 'Shadow cast by nothing, existing as pure absence.',
     },
     {
@@ -656,6 +702,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       name: 'Ashenmaw Drake',
       weight: 50,
       drops: buildMobDropTable('ashenmaw_drake_fang', 5, 50, 'beast'),
+      damageElement: 'fire',
       description: 'Fire-breathing wyrm that nests in the superheated crater.',
     },
     {
@@ -664,6 +711,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 35,
       drops: buildMobDropTable('pyreling_ember_sac', 5, 35, 'beast'),
       hpMultiplier: 0.9,
+      damageElement: 'fire',
       description: 'Juvenile drake that spits volatile fireballs.',
     },
     {
@@ -672,6 +720,8 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 15,
       drops: buildMobDropTable('magma_wyrm_scale', 5, 15, 'beast'),
       hpMultiplier: 1.15,
+      damageElement: 'fire',
+      physRatio: 0.0,
       description: 'Serpentine dragon that swims through rivers of liquid rock.',
     },
   ],
@@ -684,6 +734,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       name: 'Starborn Aberration',
       weight: 50,
       drops: buildMobDropTable('starborn_aberration_cortex', 6, 50, 'elemental'),
+      damageElement: 'fire',
       description: 'Entity of alien geometry that fell from the heavens.',
     },
     {
@@ -692,6 +743,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 35,
       drops: buildMobDropTable('cosmic_parasite_tendril', 6, 35, 'insectoid'),
       hpMultiplier: 0.9,
+      damageElement: 'cold',
       description: 'Extraplanar organism that feeds on ambient starlight.',
     },
     {
@@ -700,6 +752,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 15,
       drops: buildMobDropTable('nebula_hulk_fragment', 6, 15, 'elemental'),
       hpMultiplier: 1.15,
+      damageElement: 'lightning',
       description: 'Enormous astral beast wreathed in clouds of ionised gas.',
     },
   ],
@@ -710,6 +763,8 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       name: 'Null Entity',
       weight: 50,
       drops: buildMobDropTable('null_entity_residue', 6, 50, 'elemental'),
+      damageElement: 'chaos',
+      physRatio: 0.0,
       description: 'A wound in reality that consumes everything it touches.',
     },
     {
@@ -718,6 +773,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 35,
       drops: buildMobDropTable('void_mite_husk', 6, 35, 'insectoid'),
       hpMultiplier: 0.9,
+      damageElement: 'chaos',
       description: 'Swarming nothingness that erodes matter at the atomic level.',
     },
     {
@@ -726,6 +782,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 15,
       drops: buildMobDropTable('entropy_titan_shard', 6, 15, 'elemental'),
       hpMultiplier: 1.15,
+      damageElement: 'cold',
       description: 'Avatar of decay whose presence accelerates the heat death of all things.',
     },
   ],
@@ -744,6 +801,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 35,
       drops: buildMobDropTable('marrow_worm_secretion', 6, 35, 'insectoid'),
       hpMultiplier: 0.9,
+      damageElement: 'chaos',
       description: 'Parasitic worm that burrows through fossilised titan bones.',
     },
     {
@@ -752,6 +810,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 15,
       drops: buildMobDropTable('ossuary_sentinel_skull', 6, 15, 'construct'),
       hpMultiplier: 1.15,
+      damageElement: 'fire',
       description: 'Guardian built from the fused bones of a thousand lesser creatures.',
     },
   ],
@@ -762,6 +821,8 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       name: 'Tempest Incarnate',
       weight: 50,
       drops: buildMobDropTable('tempest_incarnate_eye', 6, 50, 'elemental'),
+      damageElement: 'lightning',
+      physRatio: 0.0,
       description: 'Living storm that has raged since before recorded history.',
     },
     {
@@ -770,6 +831,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 35,
       drops: buildMobDropTable('lightning_wraith_arc', 6, 35, 'undead'),
       hpMultiplier: 0.9,
+      damageElement: 'lightning',
       description: 'Spectral remnant of a mage struck down by the eternal storm.',
     },
     {
@@ -778,6 +840,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 15,
       drops: buildMobDropTable('thunder_colossus_conduit', 6, 15, 'elemental'),
       hpMultiplier: 1.15,
+      damageElement: 'lightning',
       description: 'Titanic elemental whose footsteps create shockwaves of raw thunder.',
     },
   ],
@@ -788,6 +851,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       name: 'Edge Walker',
       weight: 50,
       drops: buildMobDropTable('edge_walker_echo', 6, 50, 'elemental'),
+      damageElement: 'chaos',
       description: 'Being that exists at the boundary between existence and oblivion.',
     },
     {
@@ -804,6 +868,7 @@ export const ZONE_MOB_TYPES: Record<string, MobTypeDef[]> = {
       weight: 15,
       drops: buildMobDropTable('terminus_guardian_keystone', 6, 15, 'construct'),
       hpMultiplier: 1.15,
+      damageElement: 'cold',
       description: 'Final sentinel standing watch where the world simply ends.',
     },
   ],

@@ -95,9 +95,10 @@ export function handleRehydrate(
     // Respawn pack if combat mode (packMobs is ephemeral, not persisted correctly)
     if (idleMode === 'combat') {
       const shortMobId = pickCurrentMob(currentZoneId, state.targetedMobId);
-      const shortHpMult = shortMobId ? (getMobTypeDef(shortMobId)?.hpMultiplier ?? 1.0) : 1.0;
+      const shortMobDef = shortMobId ? getMobTypeDef(shortMobId) : undefined;
+      const shortHpMult = shortMobDef?.hpMultiplier ?? 1.0;
       const shortInvMult = isZoneInvaded(state.invasionState, currentZoneId, zone.band) ? INVASION_DIFFICULTY_MULT : 1.0;
-      state.packMobs = spawnPack(zone, shortHpMult, shortInvMult, Date.now());
+      state.packMobs = spawnPack(zone, shortHpMult, shortInvMult, Date.now(), shortMobDef?.damageElement, shortMobDef?.physRatio);
       state.currentPackSize = state.packMobs.length;
       state.currentMobTypeId = shortMobId;
     }
@@ -269,9 +270,10 @@ export function handleRehydrate(
   // Respawn pack for real-time combat after offline catchup
   if (idleMode === 'combat') {
     const offMobId = pickCurrentMob(currentZoneId, state.targetedMobId);
-    const offHpMult = offMobId ? (getMobTypeDef(offMobId)?.hpMultiplier ?? 1.0) : 1.0;
+    const offMobDef = offMobId ? getMobTypeDef(offMobId) : undefined;
+    const offHpMult = offMobDef?.hpMultiplier ?? 1.0;
     const offInvMult = isZoneInvaded(state.invasionState, currentZoneId, zone.band) ? INVASION_DIFFICULTY_MULT : 1.0;
-    state.packMobs = spawnPack(zone, offHpMult, offInvMult, Date.now());
+    state.packMobs = spawnPack(zone, offHpMult, offInvMult, Date.now(), offMobDef?.damageElement, offMobDef?.physRatio);
     state.currentPackSize = state.packMobs.length;
     state.currentMobTypeId = offMobId;
   }

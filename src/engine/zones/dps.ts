@@ -9,7 +9,7 @@ import { getWeaponDamageInfo, calcHitChance } from '../character';
 import { calcSkillDps, calcSkillDamagePerCast, getDefaultSkillForWeapon, calcRotationDps } from '../skills';
 import type { CombatContext } from '../procEstimation';
 import { getSkillDef } from '../../data/skills';
-import { applyAbilityResists, calcHazardPenalty, calcOutgoingDamageMult } from './scaling';
+import { calcOutgoingDamageMult } from './scaling';
 
 /**
  * Calculate player's total DPS using cooldown-aware rotation formula.
@@ -83,14 +83,10 @@ export function calcClearTime(
 ): number {
   const playerDps = calcPlayerDps(char, abilityEffect, equippedSkills, skillBar, skillProgress, combatCtx) * classDamageMult;
 
-  // Apply ability resist bonus to stats for hazard calculations
-  const effectiveStats = applyAbilityResists(char.stats, abilityEffect);
-
   // Defense does NOT affect clear speed (8E philosophy: offense=speed, defense=survivability).
-  // Only hazards slow you down if resists are lacking.
-  const hazardMult = abilityEffect?.ignoreHazards ? 1.0 : calcHazardPenalty(effectiveStats, zone);
+  // Hazards removed — per-mob elemental damage replaces this system.
   const outgoingMult = calcOutgoingDamageMult(char.level, zone.iLvlMin);
-  const charPower = playerDps * hazardMult * outgoingMult;
+  const charPower = playerDps * outgoingMult;
 
   let clearTime = zone.baseClearTime / (charPower / POWER_DIVISOR);
 

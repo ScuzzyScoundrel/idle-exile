@@ -1,10 +1,11 @@
 import { ZONE_DEFS } from '../../data/zones';
 import { getGatheringSkillRequirement } from '../../engine/gathering';
+import { getZoneMobTypes } from '../../data/mobTypes';
 import { MASTERY_MILESTONES } from '../../data/balance';
-import type { ZoneDef, IdleMode, GatheringProfession } from '../../types';
+import type { ZoneDef, IdleMode, GatheringProfession, MobDamageElement } from '../../types';
 import {
   BAND_GRADIENTS, BAND_BORDERS,
-  HAZARD_COLORS, HAZARD_ICONS, HAZARD_STAT_MAP,
+  ELEMENT_COLORS, ELEMENT_ICONS, ELEMENT_LABELS,
   PROFESSION_ICONS, MASTERY_ICONS,
 } from './zoneConstants';
 
@@ -16,7 +17,6 @@ export interface ZoneCardProps {
   isActive: boolean;
   isUnlocked: boolean;
   hasMastery: boolean;
-  playerStats: Record<string, number>;
   charLevel: number;
   idleMode: IdleMode;
   selectedProfession: GatheringProfession | null;
@@ -30,7 +30,7 @@ export interface ZoneCardProps {
 
 export default function ZoneCard({
   zone, band, isBoss, isSelected, isActive, isUnlocked, hasMastery,
-  playerStats, charLevel, idleMode, selectedProfession, gatheringSkillLevel,
+  charLevel, idleMode, selectedProfession, gatheringSkillLevel,
   zoneClears, zoneMasteryTier, isInvaded, invasionEndTime, onSelect,
 }: ZoneCardProps) {
   const underleveled = charLevel < zone.recommendedLevel;
@@ -82,19 +82,24 @@ export default function ZoneCard({
             {hasMastery && idleMode === 'combat' && (
               <span className="text-green-400 text-xs font-bold px-1 bg-green-400/10 rounded" title="Zone Mastery">{'\u2713'}</span>
             )}
-            {idleMode === 'combat' && zone.hazards.map((h, i) => {
-              const resist = playerStats[HAZARD_STAT_MAP[h.type]] ?? 0;
-              const below = resist < h.threshold;
-              return (
+            {idleMode === 'combat' && (() => {
+              // Show unique non-physical elements present in this zone's mobs
+              const mobs = getZoneMobTypes(zone.id);
+              const elements = [...new Set(
+                mobs
+                  .map(m => m.damageElement ?? 'physical')
+                  .filter((e): e is MobDamageElement => e !== 'physical')
+              )];
+              return elements.map(e => (
                 <span
-                  key={i}
-                  className={`text-sm ${below ? HAZARD_COLORS[h.type] + ' animate-pulse' : 'opacity-40'}`}
-                  title={`${h.type} ${h.threshold}% (you: ${Math.floor(resist)}%)`}
+                  key={e}
+                  className={`text-sm ${ELEMENT_COLORS[e]}`}
+                  title={`${ELEMENT_LABELS[e]} damage mobs in this zone`}
                 >
-                  {HAZARD_ICONS[h.type]}
+                  {ELEMENT_ICONS[e]}
                 </span>
-              );
-            })}
+              ));
+            })()}
           </div>
           {underleveled && (
             <div className="text-xs text-red-400 mt-0.5">Underleveled</div>

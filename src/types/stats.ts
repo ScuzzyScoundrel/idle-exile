@@ -80,6 +80,8 @@ export type StatKey =
   // Build depth
   | 'cooldownRecovery'
   | 'fortifyEffect'
-  | 'damageTakenReduction';
+  | 'damageTakenReduction'
+  // Armor-to-Elemental (plate exclusive)
+  | 'armorToElemental';
 
 export type ResolvedStats = Record<StatKey, number>;
