@@ -67,13 +67,8 @@ export default function GemPanel({ collapsed: initialCollapsed }: GemPanelProps)
       showFeedback(`${getGemDef(gem.type).name} gems can't go in ${socketTarget.slot}!`);
       return;
     }
-    // If socket already has a gem, require confirmation (overwrite destroys old gem)
-    const existingGem = socketTarget.item.sockets?.[socketTarget.socketIndex];
-    if (existingGem) {
-      setConfirmOverwrite({ gemIndex, gem });
-      return;
-    }
-    doSocketGem(gemIndex, gem);
+    // Always require confirmation before socketing
+    setConfirmOverwrite({ gemIndex, gem });
   };
 
   const doSocketGem = (gemIndex: number, gem: Gem) => {
@@ -183,31 +178,39 @@ export default function GemPanel({ collapsed: initialCollapsed }: GemPanelProps)
             </div>
           )}
 
-          {/* Overwrite confirmation dialog */}
+          {/* Socket confirmation dialog */}
           {confirmOverwrite && socketTarget && (() => {
             const oldGem = socketTarget.item.sockets?.[socketTarget.socketIndex];
-            if (!oldGem) return null;
-            const oldDef = getGemDef(oldGem.type);
             const newDef = getGemDef(confirmOverwrite.gem.type);
+            const isOverwrite = !!oldGem;
             return (
-              <div className="text-xs bg-red-950/60 border border-red-700/60 rounded-lg p-2.5 space-y-2">
-                <div className="text-red-300 font-semibold text-center">Overwrite Gem?</div>
+              <div className={`text-xs rounded-lg p-2.5 space-y-2 ${isOverwrite ? 'bg-red-950/60 border border-red-700/60' : 'bg-blue-950/60 border border-blue-700/60'}`}>
+                <div className={`font-semibold text-center ${isOverwrite ? 'text-red-300' : 'text-blue-300'}`}>
+                  {isOverwrite ? 'Overwrite Gem?' : 'Socket Gem?'}
+                </div>
                 <div className="text-gray-300 text-center">
-                  <span className={GEM_TIER_COLORS[oldGem.tier]}>
-                    {oldDef.icon} {GEM_TIER_NAMES[oldGem.tier]} {oldDef.name}
-                  </span>
-                  <span className="text-gray-500 mx-1.5">{'\u2192'}</span>
+                  {isOverwrite && oldGem && (
+                    <>
+                      <span className={GEM_TIER_COLORS[oldGem.tier]}>
+                        {getGemDef(oldGem.type).icon} {GEM_TIER_NAMES[oldGem.tier]} {getGemDef(oldGem.type).name}
+                      </span>
+                      <span className="text-gray-500 mx-1.5">{'\u2192'}</span>
+                    </>
+                  )}
                   <span className={GEM_TIER_COLORS[confirmOverwrite.gem.tier]}>
                     {newDef.icon} {GEM_TIER_NAMES[confirmOverwrite.gem.tier]} {newDef.name}
                   </span>
+                  <span className="text-gray-500 ml-1.5">{'\u2192'} {socketTarget.slot}</span>
                 </div>
-                <div className="text-red-400/80 text-center">The old gem will be destroyed.</div>
+                {isOverwrite && <div className="text-red-400/80 text-center">The old gem will be destroyed.</div>}
                 <div className="flex gap-2 justify-center">
                   <button
-                    className="px-3 py-1 rounded bg-red-800 hover:bg-red-700 text-red-100 transition-colors"
+                    className={`px-3 py-1 rounded transition-colors ${isOverwrite
+                      ? 'bg-red-800 hover:bg-red-700 text-red-100'
+                      : 'bg-blue-800 hover:bg-blue-700 text-blue-100'}`}
                     onClick={() => doSocketGem(confirmOverwrite.gemIndex, confirmOverwrite.gem)}
                   >
-                    Overwrite
+                    {isOverwrite ? 'Overwrite' : 'Socket'}
                   </button>
                   <button
                     className="px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors"
