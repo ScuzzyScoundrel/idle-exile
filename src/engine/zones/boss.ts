@@ -11,6 +11,7 @@ import {
   ZONE_PHYS_RATIO, ZONE_DMG_BASE, ZONE_DMG_ILVL_SCALE,
   DEATH_RESPAWN_BASE, DEATH_RESPAWN_PER_BAND, DEATH_RESPAWN_CAP,
   DEATH_STREAK_MULT, DEATH_STREAK_CAP,
+  OFFLINE_DEATH_PENALTY_MULT, OFFLINE_DEATH_UNDERLEVEL_PER_LEVEL,
 } from '../../data/balance';
 import { generateItem } from '../items';
 import { applyAbilityResists, calcZoneAccuracy, HAZARD_STAT_MAP, GEAR_SLOTS } from './scaling';
@@ -77,12 +78,27 @@ export function createBossEncounter(
 
 /**
  * Calculate death penalty duration in seconds.
- * Scales with band and consecutive death streak.
+ * Scales with band, consecutive death streak, and optionally offline + underlevel.
  */
-export function calcDeathPenalty(band: number, deathStreak: number): number {
+export function calcDeathPenalty(
+  band: number,
+  deathStreak: number,
+  opts?: { offline?: boolean; levelDelta?: number },
+): number {
   const base = Math.min(DEATH_RESPAWN_BASE + (band - 1) * DEATH_RESPAWN_PER_BAND, DEATH_RESPAWN_CAP);
   const streakMult = Math.min(1 + deathStreak * DEATH_STREAK_MULT, DEATH_STREAK_CAP);
-  return base * streakMult;
+  let penalty = base * streakMult;
+
+  if (opts?.offline) {
+    penalty *= OFFLINE_DEATH_PENALTY_MULT;
+    // Extra penalty per level below zone minimum
+    const delta = Math.max(0, opts.levelDelta ?? 0);
+    if (delta > 0) {
+      penalty *= 1 + delta * OFFLINE_DEATH_UNDERLEVEL_PER_LEVEL;
+    }
+  }
+
+  return penalty;
 }
 
 /** Generate boss loot at boosted iLvl. */

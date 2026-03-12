@@ -433,6 +433,11 @@ export const DEATH_STREAK_CAP = 3.0;
 /** Death streak: streak resets after this many seconds without dying. */
 export const DEATH_STREAK_WINDOW = 60.0;
 
+/** Offline idle: death penalty multiplier (stacks with streak/band). */
+export const OFFLINE_DEATH_PENALTY_MULT = 5.0;
+/** Offline idle: extra penalty per level below zone iLvlMin. */
+export const OFFLINE_DEATH_UNDERLEVEL_PER_LEVEL = 0.15;
+
 // =============================================
 // SKILL AUTO-CAST
 // =============================================

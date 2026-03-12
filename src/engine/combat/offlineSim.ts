@@ -104,8 +104,9 @@ export function simulateOfflineCombat(
     // ─── Recovery phases: fast-forward ───
     if (phase === 'zone_defeat' || phase === 'boss_defeat' || phase === 'boss_victory') {
       const isDefeat = phase === 'zone_defeat' || phase === 'boss_defeat';
+      const levelDelta = Math.max(0, zone.iLvlMin - s.character.level);
       const recoveryDuration = isDefeat
-        ? calcDeathPenalty(zone.band, s.deathStreak)
+        ? calcDeathPenalty(zone.band, s.deathStreak, { offline: true, levelDelta })
         : BOSS_VICTORY_DURATION;
 
       // Jump virtual clock to end of recovery
