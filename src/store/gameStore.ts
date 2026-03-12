@@ -901,14 +901,12 @@ export const useGameStore = create<GameState & GameActions>()(
         if (!zone) return;
         const abilityEffect = getFullEffect(state, Date.now(), false);
         const boss = createBossEncounter(state.character, zone, abilityEffect, undefined, state.skillBar, state.skillProgress);
-        const bossStartStats = resolveStats(state.character);
         set({
           combatPhase: 'boss_fight' as CombatPhase,
           bossState: boss,
           combatPhaseStartedAt: Date.now(),
           nextActiveSkillAt: Date.now(),
           packMobs: [],
-          currentEs: bossStartStats.energyShield,
         });
       },
 
