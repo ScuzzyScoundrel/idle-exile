@@ -350,7 +350,7 @@ export default function CombatPanel() {
             const duration = (Date.now() - bState.startedAt) / 1000;
             setBossFightStats({
               duration,
-              playerDps: bState.playerDps,
+              playerDps: duration > 0 ? bState.bossMaxHp / duration : 0,
               bossDps: bState.bossDps,
               bossMaxHp: bState.bossMaxHp,
             });
