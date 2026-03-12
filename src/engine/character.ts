@@ -5,6 +5,7 @@
 
 import type { Character, CharacterClass, ResolvedStats, StatKey, GearSlot, Item, ConversionSpec } from '../types';
 import { getAffixDef } from './items';
+import { getGemStat } from './gems';
 import { CLASS_DEFS } from '../data/classes';
 import { calcSetBonuses } from './setBonus';
 import { WEAPON_TYPE_META } from '../data/weapons';
@@ -82,6 +83,16 @@ export function resolveStats(char: Character): ResolvedStats {
       if (!def) continue;
       // Each affix def has a direct `stat` field now
       stats[def.stat] += affix.value;
+    }
+
+    // Process socketed gems
+    if (item.sockets) {
+      for (const gem of item.sockets) {
+        if (gem) {
+          const { stat, value } = getGemStat(gem);
+          stats[stat] += value;
+        }
+      }
     }
   }
 

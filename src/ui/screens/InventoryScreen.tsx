@@ -8,6 +8,8 @@ import { slotLabel, DROPPABLE_SLOTS } from '../slotConfig';
 import { ItemIcon, SlotIcon, getSlotEmoji } from '../itemIcon';
 import { CraftIcon } from '../craftIcon';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { getGemDef, GEM_TIER_NAMES, GEM_TIER_COLORS } from '../../data/gems';
+import GemPanel from '../components/GemPanel';
 
 const SLOT_ORDER: GearSlot[] = DROPPABLE_SLOTS;
 
@@ -636,6 +638,9 @@ export default function InventoryScreen() {
         ))}
       </div>
 
+      {/* Gem Inventory */}
+      <GemPanel />
+
       {/* Inventory Header + Filters */}
       <div>
         <div className="flex items-center justify-between mb-1">
@@ -1003,6 +1008,28 @@ export default function InventoryScreen() {
             </div>
           ) : (
             <div className="text-sm text-gray-600 italic">No affixes</div>
+          )}
+
+          {tooltip.item.sockets && tooltip.item.sockets.length > 0 && (
+            <div className="border-t border-gray-700 pt-1 space-y-0.5">
+              {tooltip.item.sockets.map((gem, i) => (
+                <div key={i} className="text-sm flex items-center gap-1">
+                  {gem ? (
+                    <>
+                      <span>{getGemDef(gem.type).icon}</span>
+                      <span className={GEM_TIER_COLORS[gem.tier]}>
+                        {GEM_TIER_NAMES[gem.tier]} {getGemDef(gem.type).name}
+                      </span>
+                      <span className="text-gray-500">
+                        (+{getGemDef(gem.type).tiers[gem.tier]} {getGemDef(gem.type).description})
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-gray-500 italic">Empty Socket</span>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
 
           {/* Inline stat comparison for inventory items */}

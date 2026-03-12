@@ -1,4 +1,4 @@
-import type { Rarity } from '../../types';
+import type { Rarity, Gem } from '../../types';
 import type { ProcessClearsResult } from '../../store/gameStore';
 
 /** Format seconds into a human-readable duration. */
@@ -41,6 +41,7 @@ export interface SessionSummary {
   dustEarned: number;
   gatheringXp: number;
   patternDrops: string[];
+  gemDrops: Gem[];
 }
 
 export function emptySession(): SessionSummary {
@@ -55,6 +56,7 @@ export function emptySession(): SessionSummary {
     dustEarned: 0,
     gatheringXp: 0,
     patternDrops: [],
+    gemDrops: [],
   };
 }
 
@@ -90,6 +92,10 @@ export function accumulateSession(session: SessionSummary, result: ProcessClears
 
   if (result.patternDrops && result.patternDrops.length > 0) {
     s.patternDrops = [...s.patternDrops, ...result.patternDrops];
+  }
+
+  if (result.gemDrops && result.gemDrops.length > 0) {
+    s.gemDrops = [...s.gemDrops, ...result.gemDrops];
   }
 
   return s;

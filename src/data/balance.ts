@@ -3,7 +3,7 @@
 // All tunable game constants in one file.
 // ============================================================
 
-import type { CurrencyType, AffixTier, ResolvedStats, RareMaterialRarity, Rarity } from '../types';
+import type { CurrencyType, AffixTier, ResolvedStats, RareMaterialRarity, Rarity, GemTier } from '../types';
 
 // =============================================
 // LOOT & DROP RATES
@@ -86,6 +86,22 @@ export const BAND_RESIST_PENALTY: Record<number, number> = {
   4: -30,   // Dark Reaches — resist is tight (median ~70 raw → ~40 effective)
   5: -40,   // Shattered Realm — resist is a real constraint
   6: -75,   // Endlands — every resist roll matters
+};
+
+/** Minimum effective resistance (at -100% you take 200% ele damage). */
+export const RESIST_FLOOR = -100;
+
+/** Maximum effective resistance (extract existing magic number). */
+export const RESIST_CAP = 75;
+
+/** Per-band multiplier on elemental damage portion — makes ele damage scale with progression. */
+export const BAND_ELE_DAMAGE_MULT: Record<number, number> = {
+  1: 1.0,   // no amplification
+  2: 1.15,  // slight pressure
+  3: 1.4,   // ele damage becoming real
+  4: 1.8,   // must invest in resists
+  5: 2.2,   // resist is life
+  6: 3.0,   // uncapped = death
 };
 
 // =============================================
@@ -642,3 +658,38 @@ export const RARE_AFFIX_COUNT: Record<number, { min: number; max: number }> = {
   5: { min: 2, max: 3 },
   6: { min: 2, max: 4 },
 };
+
+// =============================================
+// SOCKET GEMS
+// =============================================
+
+/** Base chance per zone clear to drop a gem. */
+export const GEM_DROP_CHANCE = 0.04;
+
+/** Gem drop chance multiplier by band (higher bands = more gems). */
+export const GEM_DROP_BAND_MULT: Record<number, number> = {
+  1: 1.0, 2: 1.1, 3: 1.2, 4: 1.3, 5: 1.5, 6: 1.8,
+};
+
+/** Gem tier drop weights by band. Higher bands unlock better tiers. */
+export const GEM_TIER_WEIGHTS_BY_BAND: Record<number, Record<GemTier, number>> = {
+  1: { 5: 90, 4: 10, 3: 0, 2: 0, 1: 0 },
+  2: { 5: 70, 4: 25, 3: 5, 2: 0, 1: 0 },
+  3: { 5: 45, 4: 35, 3: 15, 2: 5, 1: 0 },
+  4: { 5: 25, 4: 35, 3: 25, 2: 12, 1: 3 },
+  5: { 5: 10, 4: 25, 3: 35, 2: 20, 1: 10 },
+  6: { 5: 5, 4: 15, 3: 30, 2: 30, 1: 20 },
+};
+
+/** Boss kill: guaranteed gem drop at minimum this tier (by band). */
+export const BOSS_GEM_MIN_TIER: Record<number, GemTier> = {
+  1: 5, 2: 4, 3: 4, 4: 3, 5: 3, 6: 2,
+};
+
+/** Gold cost for 3-to-1 gem upgrade by output tier. */
+export const GEM_UPGRADE_GOLD_COST: Record<GemTier, number> = {
+  5: 0, 4: 50, 3: 200, 2: 800, 1: 3000,
+};
+
+/** Maximum gems in player's gem inventory. */
+export const GEM_INVENTORY_CAP = 50;

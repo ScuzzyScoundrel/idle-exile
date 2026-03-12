@@ -4,6 +4,7 @@
 // ============================================================
 
 import type { Item, CurrencyType, CraftResult, Affix, AffixTier, GearSlot, WeaponType, OffhandType, ArmorType } from '../types';
+import { SOCKETABLE_SLOTS } from '../types';
 import { rollAffixes, rollAffixValue, getAffixDef, classifyRarity, buildItemName, getBestTierForILvl } from './items';
 import { getAffixesForSlot } from '../data/affixes';
 
@@ -24,6 +25,7 @@ function cloneItem(item: Item): Item {
     prefixes: [...item.prefixes],
     suffixes: [...item.suffixes],
     baseStats: { ...item.baseStats },
+    sockets: item.sockets ? [...item.sockets] : undefined,
   };
 }
 
@@ -368,10 +370,20 @@ export function applyCurrency(item: Item, currency: CurrencyType): CraftResult {
     }
 
     // -----------------------------------------------------------------
-    // SOCKET: Placeholder — coming soon
+    // SOCKET: Add an empty socket to a socketable item
     // -----------------------------------------------------------------
     case 'socket': {
-      return { success: false, item, message: 'Socket crafting coming soon!' };
+      if (!SOCKETABLE_SLOTS.includes(item.slot)) {
+        return { success: false, item, message: 'This item cannot have sockets.' };
+      }
+      const currentSockets = item.sockets?.length ?? 0;
+      const maxSockets = 1; // MVP: 1 socket per item
+      if (currentSockets >= maxSockets) {
+        return { success: false, item, message: 'Item already has a socket.' };
+      }
+      const newItem = cloneItem(item);
+      newItem.sockets = [...(item.sockets ?? []), null];
+      return { success: true, item: newItem, message: 'Added a socket to the item.' };
     }
 
     default:

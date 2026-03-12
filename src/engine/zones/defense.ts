@@ -12,6 +12,7 @@ import {
   UNDERLEVEL_MIN_NET_DAMAGE,
   DODGE_DAMAGE_FLOOR,
   BAND_RESIST_PENALTY,
+  RESIST_FLOOR, RESIST_CAP, BAND_ELE_DAMAGE_MULT,
 } from '../../data/balance';
 import { calcLevelDamageMult, calcZoneAccuracy } from './scaling';
 
@@ -68,6 +69,10 @@ export function rollZoneAttack(
   let physDmg = rawDamage * physRatio;
   let eleDmg = rawDamage * (1 - physRatio);
 
+  // Band elemental damage amplification (higher bands hit harder with ele)
+  const eleMult = band != null ? (BAND_ELE_DAMAGE_MULT[band] ?? 1) : 1;
+  eleDmg *= eleMult;
+
   // 2. Block check
   const blockChance = Math.min(stats.blockChance, BLOCK_CAP) / 100;
   const isBlocked = Math.random() < blockChance;
@@ -87,7 +92,7 @@ export function rollZoneAttack(
     const resistKey = RESIST_MAP[damageElement];
     const bandPenalty = band != null ? (BAND_RESIST_PENALTY[band] ?? 0) : 0;
     const rawResist = resistKey ? (stats[resistKey] ?? 0) : 0;
-    const effectiveResist = Math.min(Math.max(0, rawResist + bandPenalty), 75);
+    const effectiveResist = Math.min(Math.max(RESIST_FLOOR, rawResist + bandPenalty), RESIST_CAP);
     eleDmg *= (1 - effectiveResist / 100);
 
     // Armor-to-Elemental conversion (plate exclusive)
@@ -99,10 +104,10 @@ export function rollZoneAttack(
   } else if (eleDmg > 0) {
     // Fallback: old averaged resist for callers that don't pass element yet
     const avgResist = (
-      Math.min(stats.fireResist, 75) +
-      Math.min(stats.coldResist, 75) +
-      Math.min(stats.lightningResist, 75) +
-      Math.min(stats.chaosResist, 75)
+      Math.min(stats.fireResist, RESIST_CAP) +
+      Math.min(stats.coldResist, RESIST_CAP) +
+      Math.min(stats.lightningResist, RESIST_CAP) +
+      Math.min(stats.chaosResist, RESIST_CAP)
     ) / 4;
     eleDmg *= (1 - avgResist / 100);
   }
@@ -138,7 +143,8 @@ export function calcEhp(stats: ResolvedStats, refDamage: number = 50, refAccurac
   const blockChance = Math.min(stats.blockChance, BLOCK_CAP) / 100;
 
   const physDmg = refDamage * ZONE_PHYS_RATIO;
-  const eleDmg = refDamage * (1 - ZONE_PHYS_RATIO);
+  const eleMult = band != null ? (BAND_ELE_DAMAGE_MULT[band] ?? 1) : 1;
+  const eleDmg = refDamage * (1 - ZONE_PHYS_RATIO) * eleMult;
 
   // Mitigation helper: armor (phys only) → resist (ele only) → flat DR (total)
   function mitigate(rawPhys: number, rawEle: number): number {
@@ -149,7 +155,7 @@ export function calcEhp(stats: ResolvedStats, refDamage: number = 50, refAccurac
       const resistKey = RESIST_MAP[damageElement];
       const bandPenalty = band != null ? (BAND_RESIST_PENALTY[band] ?? 0) : 0;
       const rawResist = resistKey ? (stats[resistKey] ?? 0) : 0;
-      const effectiveResist = Math.min(Math.max(0, rawResist + bandPenalty), 75);
+      const effectiveResist = Math.min(Math.max(RESIST_FLOOR, rawResist + bandPenalty), RESIST_CAP);
       eleAfter *= (1 - effectiveResist / 100);
       if (stats.armorToElemental > 0 && stats.armor > 0) {
         const eleArmor = stats.armor * (stats.armorToElemental / 100);
@@ -158,10 +164,10 @@ export function calcEhp(stats: ResolvedStats, refDamage: number = 50, refAccurac
       }
     } else if (rawEle > 0) {
       const avgResist = (
-        Math.min(stats.fireResist, 75) +
-        Math.min(stats.coldResist, 75) +
-        Math.min(stats.lightningResist, 75) +
-        Math.min(stats.chaosResist, 75)
+        Math.min(stats.fireResist, RESIST_CAP) +
+        Math.min(stats.coldResist, RESIST_CAP) +
+        Math.min(stats.lightningResist, RESIST_CAP) +
+        Math.min(stats.chaosResist, RESIST_CAP)
       ) / 4;
       eleAfter *= (1 - avgResist / 100);
     }

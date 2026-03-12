@@ -3,7 +3,7 @@
 // Extracted from engine/zones.ts (Phase C4)
 // ============================================================
 
-import type { Character, ZoneDef, IdleRunResult, Item, CurrencyType, AbilityEffect, GatheringProfession, MobTypeDef } from '../../types';
+import type { Character, ZoneDef, IdleRunResult, Item, CurrencyType, AbilityEffect, GatheringProfession, MobTypeDef, Gem } from '../../types';
 import { PROFESSION_GEAR_SLOTS } from '../../types';
 import { generateItem, generateProfessionItem } from '../items';
 import {
@@ -24,6 +24,7 @@ import { rollRareMaterialDrop } from '../rareMaterials';
 import { rollPatternDrop } from '../../data/craftingPatterns';
 import { calcXpToNext } from '../character';
 import { checkZoneMastery, calcXpScale, GEAR_SLOTS } from './scaling';
+import { rollGemDrop } from '../gems';
 
 // --- Mob Drop Rolling ---
 
@@ -168,6 +169,7 @@ export interface SingleClearResult {
   bagDrop: string | null;
   mobTypeId: string | null;
   patternDrop: string | null;
+  gemDrop: Gem | null;
 }
 
 /**
@@ -274,6 +276,9 @@ export function simulateSingleClear(
     if (pattern) patternDrop = pattern.id;
   }
 
+  // Roll for gem drop (uses its own internal drop chance)
+  const gemDrop = rollGemDrop(zone.band);
+
   const xpScale = calcXpScale(char.level, zone.iLvlMin);
   return {
     item,
@@ -285,6 +290,7 @@ export function simulateSingleClear(
     bagDrop,
     mobTypeId,
     patternDrop,
+    gemDrop,
   };
 }
 

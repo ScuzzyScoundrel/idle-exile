@@ -13,8 +13,9 @@ import SkillPanel from '../components/SkillPanel';
 import { calcSkillDps, calcRotationDps, getDefaultSkillForWeapon } from '../../engine/unifiedSkills';
 import { resolveStats, getWeaponDamageInfo } from '../../engine/character';
 import { SET_BONUS_DEFS } from '../../data/setBonuses';
-import { BAND_RESIST_PENALTY } from '../../data/balance';
+import { BAND_RESIST_PENALTY, BAND_ELE_DAMAGE_MULT, RESIST_FLOOR, RESIST_CAP } from '../../data/balance';
 import { ZONE_DEFS } from '../../data/zones';
+import { getGemDef, GEM_TIER_NAMES, GEM_TIER_COLORS } from '../../data/gems';
 
 const CLASS_ICONS_HERO: Record<CharacterClass, string> = {
   warrior: '\u2694\uFE0F',
@@ -58,10 +59,10 @@ const STAT_TOOLTIPS: Partial<Record<StatKey, string>> = {
   armorToElemental: '% of armor applied to elemental damage mitigation (plate exclusive).',
   evasion: 'Chance to evade attacks.',
   blockChance: 'Chance to block with shield.',
-  fireResist: 'Reduces fire damage from mobs (cap 75%).',
-  coldResist: 'Reduces cold damage from mobs (cap 75%).',
-  lightningResist: 'Reduces lightning damage from mobs (cap 75%).',
-  chaosResist: 'Reduces chaos damage from mobs (cap 75%).',
+  fireResist: 'Reduces fire damage from mobs (cap 75%). Band penalties can push below 0% for amplified damage.',
+  coldResist: 'Reduces cold damage from mobs (cap 75%). Band penalties can push below 0% for amplified damage.',
+  lightningResist: 'Reduces lightning damage from mobs (cap 75%). Band penalties can push below 0% for amplified damage.',
+  chaosResist: 'Reduces chaos damage from mobs (cap 75%). Band penalties can push below 0% for amplified damage.',
   // Utility
   movementSpeed: 'Increases movement speed.',
   itemQuantity: '% increased item quantity from drops.',
@@ -474,6 +475,17 @@ function DefensePanel() {
         Armor reduces {physReduction}% physical damage at Band {band}
       </div>
 
+      {/* Band ele damage multiplier */}
+      {(() => {
+        const eleMult = BAND_ELE_DAMAGE_MULT[band] ?? 1;
+        if (eleMult <= 1) return null;
+        return (
+          <div className="text-xs text-orange-400 font-semibold">
+            Ele damage x{eleMult.toFixed(1)} at Band {band}
+          </div>
+        );
+      })()}
+
       {/* Band resist penalty + effective resists */}
       {(() => {
         const penalty = BAND_RESIST_PENALTY[band] ?? 0;
@@ -492,7 +504,7 @@ function DefensePanel() {
             )}
             <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
               {resists.map(r => {
-                const effective = Math.min(Math.max(0, r.raw + penalty), 75);
+                const effective = Math.min(Math.max(RESIST_FLOOR, r.raw + penalty), RESIST_CAP);
                 return (
                   <div key={r.label} className="flex items-center gap-1 text-xs">
                     <span>{r.icon}</span>
@@ -500,7 +512,7 @@ function DefensePanel() {
                     <span className="text-gray-500 ml-auto">
                       {Math.floor(r.raw)}{penalty < 0 ? <span className="text-red-400">{penalty}</span> : ''}
                       {' = '}
-                      <span className={effective >= 50 ? 'text-green-400' : effective >= 25 ? 'text-yellow-400' : 'text-red-400'}>
+                      <span className={effective >= 50 ? 'text-green-400' : effective >= 25 ? 'text-yellow-400' : effective < 0 ? 'font-bold text-red-500' : 'text-red-400'}>
                         {effective}%
                       </span>
                     </span>
@@ -508,6 +520,36 @@ function DefensePanel() {
                 );
               })}
             </div>
+          </div>
+        );
+      })()}
+
+      {/* Socketed gem summary */}
+      {(() => {
+        const gemEntries: { slot: string; gemName: string; value: number; desc: string; icon: string; tierColor: string }[] = [];
+        for (const [slot, item] of Object.entries(character.equipment)) {
+          if (!item?.sockets) continue;
+          for (const gem of item.sockets) {
+            if (!gem) continue;
+            const def = getGemDef(gem.type);
+            gemEntries.push({
+              slot, gemName: `${GEM_TIER_NAMES[gem.tier]} ${def.name}`,
+              value: def.tiers[gem.tier], desc: def.description,
+              icon: def.icon, tierColor: GEM_TIER_COLORS[gem.tier],
+            });
+          }
+        }
+        if (gemEntries.length === 0) return null;
+        return (
+          <div className="space-y-0.5 pt-1 border-t border-gray-700">
+            <div className="text-xs font-semibold text-gray-400">Socketed Gems</div>
+            {gemEntries.map((g, i) => (
+              <div key={i} className="flex items-center gap-1 text-xs">
+                <span>{g.icon}</span>
+                <span className={g.tierColor}>{g.gemName}</span>
+                <span className="text-gray-500 ml-auto">+{g.value} {g.desc}</span>
+              </div>
+            ))}
           </div>
         );
       })()}
@@ -665,6 +707,28 @@ function ItemTooltip({ item }: { item: Item }) {
           <div className="text-xs text-gray-600 italic">No affixes</div>
         )}
       </div>
+
+      {item.sockets && item.sockets.length > 0 && (
+        <div className="border-t border-gray-700 pt-1 space-y-0.5">
+          {item.sockets.map((gem, i) => (
+            <div key={i} className="text-xs flex items-center gap-1">
+              {gem ? (
+                <>
+                  <span>{getGemDef(gem.type).icon}</span>
+                  <span className={GEM_TIER_COLORS[gem.tier]}>
+                    {GEM_TIER_NAMES[gem.tier]} {getGemDef(gem.type).name}
+                  </span>
+                  <span className="text-gray-500">
+                    (+{getGemDef(gem.type).tiers[gem.tier]} {getGemDef(gem.type).description})
+                  </span>
+                </>
+              ) : (
+                <span className="text-gray-500 italic">Empty Socket</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

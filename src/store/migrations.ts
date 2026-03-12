@@ -506,6 +506,11 @@ export function runMigrations(
     raw.zoneMasteryClaimed = claimed;
   }
 
+  if (version < 55) {
+    // v55: Socket gem system — add gemInventory
+    raw.gemInventory = [];
+  }
+
   if (version < 54) {
     // v54: Dagger buff skill rework — remap old skill IDs to new archetype buffs.
     // dagger_flurry → dagger_venom_covenant, dagger_shadow_strike → dagger_predators_mark,

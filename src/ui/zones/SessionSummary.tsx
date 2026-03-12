@@ -1,6 +1,7 @@
 import type { Rarity } from '../../types';
 import { getRareMaterialDef } from '../../data/rareMaterials';
 import { getPatternDef } from '../../data/craftingPatterns';
+import { getGemDef, GEM_TIER_NAMES, GEM_TIER_COLORS } from '../../data/gems';
 import { RARITY_TEXT, RARITY_BORDER, RARITY_BG } from './zoneConstants';
 import type { SessionSummary as SessionSummaryType } from './zoneHelpers';
 
@@ -82,6 +83,23 @@ export default function SessionSummaryPanel({ session }: { session: SessionSumma
               return (
                 <span key={`${patId}-${idx}`} className="bg-yellow-900/30 border border-yellow-600/50 rounded-md px-2 py-1 text-xs text-yellow-300 animate-pulse">
                   {'\uD83D\uDCDC'} {patDef?.name ?? patId}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Gems Found */}
+      {session.gemDrops.length > 0 && (
+        <div>
+          <div className="text-xs text-cyan-400 font-semibold mb-1">Gems Found</div>
+          <div className="flex flex-wrap gap-1">
+            {session.gemDrops.map((gem, idx) => {
+              const def = getGemDef(gem.type);
+              return (
+                <span key={`gem-${idx}`} className={`bg-gray-800/80 border border-cyan-700/50 rounded-md px-2 py-1 text-xs ${GEM_TIER_COLORS[gem.tier]}`}>
+                  {def.icon} {GEM_TIER_NAMES[gem.tier]} {def.name}
                 </span>
               );
             })}

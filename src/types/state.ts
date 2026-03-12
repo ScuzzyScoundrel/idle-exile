@@ -3,7 +3,7 @@
 // ============================================================
 
 import type { Character } from './character';
-import type { GearSlot, Item, Rarity } from './items';
+import type { Gem, GearSlot, Item, Rarity } from './items';
 import type { CurrencyType } from './currencies';
 import type { IdleMode, AbilityProgress, EquippedSkill, SkillProgress, SkillTimerState } from './skills';
 import type { CombatPhase, BossState, ActiveDebuff, TempBuff, MobInPack, CombatClearResult } from './combat';
@@ -136,6 +136,9 @@ export interface GameState {
 
   // Craft output buffer (persisted — staging area for crafted gear)
   craftOutputBuffer: Item[];
+
+  /** Player's gem stash. */
+  gemInventory: Gem[];
 
   // Zone mastery milestones
   zoneMasteryClaimed: Record<string, number>;  // zoneId → highest claimed threshold (0/25/100/500)

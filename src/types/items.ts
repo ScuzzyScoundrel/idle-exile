@@ -89,6 +89,24 @@ export interface Affix {
   value: number;
 }
 
+// --- Socket Gems ---
+
+export type GemType =
+  // Defensive (armor slots)
+  | 'ruby' | 'sapphire' | 'topaz' | 'amethyst'   // fire/cold/lightning/chaos resist
+  | 'jade' | 'emerald' | 'garnet' | 'opal'        // armor/evasion/life/ES
+  // Offensive (weapon + ring slots)
+  | 'crimson' | 'ember' | 'frost' | 'storm' | 'blight'  // flat phys/fire/cold/lightning/chaos
+  | 'amber' | 'diamond' | 'obsidian' | 'prism';          // atkspd/crit/critmulti/%ele
+
+export type GemTier = 1 | 2 | 3 | 4 | 5;
+
+export interface Gem {
+  id: string;         // unique instance ID
+  type: GemType;
+  tier: GemTier;
+}
+
 // --- Items ---
 
 export type GearSlot =
@@ -144,7 +162,13 @@ export interface Item {
   isCrafted?: boolean;
   implicit?: Affix;          // corruption implicit from void invasions
   isCorrupted?: boolean;     // flagged for purple UI treatment
+  sockets?: (Gem | null)[];  // undefined = no sockets. null = empty socket. Gem = filled.
 }
+
+export const SOCKETABLE_SLOTS: GearSlot[] = [
+  'helmet', 'shoulders', 'chest', 'gloves', 'pants', 'boots',
+  'mainhand', 'ring1', 'ring2',
+];
 
 // --- Profession Gear ---
 

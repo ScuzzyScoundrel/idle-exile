@@ -19,6 +19,9 @@ import {
   CraftLogEntry,
   MobInPack,
   OfflineProgressSummary,
+  Gem,
+  GemType,
+  GemTier,
 } from '../types';
 import { createCharacter, resolveStats, addXp } from '../engine/character';
 import { calcClearTime, createBossEncounter, generateBossLoot, calcDeathPenalty, simulateIdleRun } from '../engine/zones';
@@ -60,6 +63,9 @@ import { RARITY_ORDER, ESSENCE_REWARD, SELL_GOLD, addItemsWithOverflow, getInven
 import { pickCurrentMob, computeNextClear } from '../engine/zones/helpers';
 import { getMobTypeDef } from '../data/mobTypes';
 import { spawnPack } from '../engine/packs';
+import { isGemValidForSlot } from '../data/gems';
+import { canUpgradeGem, upgradeGem as upgradeGemEngine, rollGemForBoss } from '../engine/gems';
+import { GEM_UPGRADE_GOLD_COST, GEM_INVENTORY_CAP } from '../data/balance';
 import { tickInvasions as tickInvasionsPure, isZoneInvaded } from '../engine/invasions';
 import {
   updateQuestProgressForBossKill,
@@ -208,6 +214,12 @@ interface GameActions {
   setAutoDisposalAction: (action: 'salvage' | 'sell') => void;
   setCraftAutoSalvageRarity: (rarity: Rarity) => void;
 
+  // Socket Gems
+  socketGem: (itemSlot: GearSlot, gemIndex: number, socketIndex: number) => boolean;
+  addGemToInventory: (gem: Gem) => boolean;
+  upgradeGems: (type: GemType, tier: GemTier) => boolean;
+  unsocketGem: (itemSlot: GearSlot, socketIndex: number) => void;
+
   // Utility
   resetGame: () => void;
 }
@@ -295,6 +307,7 @@ function createInitialState(): GameState {
     dailyQuests: { questDate: '', quests: [], progress: {} },
     craftLog: [],
     craftOutputBuffer: [],
+    gemInventory: [],
     zoneMasteryClaimed: {},
     invasionState: { activeInvasions: {}, bandCooldowns: {} },
     tutorialStep: 1,
@@ -954,6 +967,16 @@ export const useGameStore = create<GameState & GameActions>()(
           newOwnedPatterns.push({ defId: patId, charges, discoveredAt: Date.now() });
         }
 
+        // Guaranteed boss gem drop
+        const bossGem = rollGemForBoss(zone.band);
+        const bossGemDrops: Gem[] = [bossGem];
+        const newGemInventory = [...state.gemInventory];
+        for (const gem of bossGemDrops) {
+          if (newGemInventory.length < GEM_INVENTORY_CAP) {
+            newGemInventory.push(gem);
+          }
+        }
+
         // Update daily quest progress for boss kill
         const bossQuestProgress = updateQuestProgressForBossKill(
           state.dailyQuests.quests, state.dailyQuests.progress, state.currentZoneId,
@@ -969,6 +992,7 @@ export const useGameStore = create<GameState & GameActions>()(
           bossKillCounts: newBossKillCounts,
           dailyQuests: { ...state.dailyQuests, progress: bossQuestProgress },
           ownedPatterns: newOwnedPatterns,
+          gemInventory: newGemInventory,
         });
 
         return {
@@ -982,6 +1006,7 @@ export const useGameStore = create<GameState & GameActions>()(
           autoSoldCount: bossAutoSoldCount,
           autoSoldGold: bossAutoSoldGold,
           patternDrops: bossPatternDrops,
+          gemDrops: bossGemDrops,
         };
       },
 
@@ -1139,13 +1164,103 @@ export const useGameStore = create<GameState & GameActions>()(
         return useQuestStore.getState().claimQuestReward(questId);
       },
 
+      // --- Socket Gems ---
+      socketGem: (itemSlot: GearSlot, gemIndex: number, socketIndex: number) => {
+        const state = get();
+        const gem = state.gemInventory[gemIndex];
+        if (!gem) return false;
+
+        const item = state.character.equipment[itemSlot];
+        if (!item || !item.sockets || socketIndex >= item.sockets.length) return false;
+
+        // Validate gem category matches slot
+        if (!isGemValidForSlot(gem.type, item.slot)) return false;
+
+        // Clone item and socket the gem (old gem destroyed — free overwrite)
+        const newSockets = [...item.sockets];
+        newSockets[socketIndex] = gem;
+        const newItem: Item = {
+          ...item,
+          prefixes: [...item.prefixes],
+          suffixes: [...item.suffixes],
+          baseStats: { ...item.baseStats },
+          sockets: newSockets,
+        };
+
+        // Remove gem from inventory
+        const newGemInventory = [...state.gemInventory];
+        newGemInventory.splice(gemIndex, 1);
+
+        // Update equipment and re-resolve stats
+        const newEquipment = { ...state.character.equipment, [itemSlot]: newItem };
+        const newChar = { ...state.character, equipment: newEquipment };
+        newChar.stats = resolveStats(newChar);
+
+        set({ character: newChar, gemInventory: newGemInventory });
+        return true;
+      },
+
+      addGemToInventory: (gem: Gem) => {
+        const state = get();
+        if (state.gemInventory.length >= GEM_INVENTORY_CAP) return false;
+        set({ gemInventory: [...state.gemInventory, gem] });
+        return true;
+      },
+
+      upgradeGems: (type: GemType, tier: GemTier) => {
+        const state = get();
+        if (tier <= 1) return false; // T1 is max
+        if (!canUpgradeGem(state.gemInventory, type, tier)) return false;
+
+        const outputTier = (tier - 1) as GemTier;
+        const cost = GEM_UPGRADE_GOLD_COST[outputTier];
+        if (state.gold < cost) return false;
+
+        const { newGem, remainingGems } = upgradeGemEngine(state.gemInventory, type, tier);
+        set({
+          gemInventory: [...remainingGems, newGem],
+          gold: state.gold - cost,
+        });
+        return true;
+      },
+
+      unsocketGem: (itemSlot: GearSlot, socketIndex: number) => {
+        const state = get();
+        const item = state.character.equipment[itemSlot];
+        if (!item || !item.sockets || socketIndex >= item.sockets.length) return;
+        const gem = item.sockets[socketIndex];
+        if (!gem) return;
+
+        // Remove gem from socket
+        const unsocketSockets = [...item.sockets];
+        unsocketSockets[socketIndex] = null;
+        const newItem: Item = {
+          ...item,
+          prefixes: [...item.prefixes],
+          suffixes: [...item.suffixes],
+          baseStats: { ...item.baseStats },
+          sockets: unsocketSockets,
+        };
+
+        // Add gem back to inventory (if room)
+        const newGemInventory = state.gemInventory.length < GEM_INVENTORY_CAP
+          ? [...state.gemInventory, gem]
+          : state.gemInventory; // gem lost if inventory full
+
+        const newEquipment = { ...state.character.equipment, [itemSlot]: newItem };
+        const newChar = { ...state.character, equipment: newEquipment };
+        newChar.stats = resolveStats(newChar);
+
+        set({ character: newChar, gemInventory: newGemInventory });
+      },
+
       resetGame: () => {
         set(createInitialState());
       },
     })) as import('zustand').StateCreator<GameState & GameActions, [['zustand/persist', unknown]], []>,
     {
       name: 'idle-exile-save',
-      version: 54,
+      version: 55,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;

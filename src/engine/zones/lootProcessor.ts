@@ -15,6 +15,7 @@ import type {
   SkillProgress,
   SkillTimerState,
   ZoneDef,
+  Gem,
 } from '../../types';
 
 import { ZONE_DEFS } from '../../data/zones';
@@ -51,6 +52,7 @@ import {
   PATTERN_CHARGES,
   INVASION_PATTERN_DROP_BONUS, INVASION_DIFFICULTY_MULT,
   LEVEL_PENALTY_BASE, CLEAR_TIME_FLOOR_RATIO,
+  GEM_INVENTORY_CAP,
 } from '../../data/balance';
 import { CRAFTING_MILESTONES } from '../../data/craftingProfessions';
 
@@ -174,6 +176,7 @@ export interface ProcessClearsResult {
   rareMaterialDrops?: Record<string, number>;
   patternDrops?: string[];
   gatheringXpGained?: number;
+  gemDrops?: Gem[];
 }
 
 /**
@@ -310,6 +313,7 @@ export function processClears(
   const invasionMobs = zoneInvaded ? getInvasionMobs(zone.band) : [];
 
   const accPatternDrops: string[] = [];
+  const accGemDrops: Gem[] = [];
 
   const accMobKills: Record<string, number> = {};
   for (let i = 0; i < totalClears; i++) {
@@ -354,6 +358,11 @@ export function processClears(
 
     if (clear.patternDrop) {
       accPatternDrops.push(clear.patternDrop);
+    }
+
+    // Collect gem drops
+    if (clear.gemDrop) {
+      accGemDrops.push(clear.gemDrop);
     }
 
     // During invasions: extra chance for invasion-source pattern
@@ -509,6 +518,14 @@ export function processClears(
     masteryCharUpdate.character = newChar;
   }
 
+  // Add gem drops to player's gem inventory (cap at max)
+  const newGemInventory = [...state.gemInventory];
+  for (const gem of accGemDrops) {
+    if (newGemInventory.length < GEM_INVENTORY_CAP) {
+      newGemInventory.push(gem);
+    }
+  }
+
   const patch: Partial<GameState> = {
     ...masteryCharUpdate,
     inventory: newInventory,
@@ -530,6 +547,7 @@ export function processClears(
     zoneMasteryClaimed: newZoneMasteryClaimed,
     dailyQuests: { ...state.dailyQuests, progress: questProgress },
     ownedPatterns: newOwnedPatterns,
+    gemInventory: newGemInventory,
   };
 
   const summary: ProcessClearsResult = {
@@ -543,6 +561,7 @@ export function processClears(
     autoSoldCount,
     autoSoldGold,
     patternDrops: accPatternDrops,
+    gemDrops: accGemDrops.length > 0 ? accGemDrops : undefined,
   };
 
   return { patch, summary };
