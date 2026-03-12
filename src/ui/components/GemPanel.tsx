@@ -39,11 +39,11 @@ export default function GemPanel({ collapsed: initialCollapsed }: GemPanelProps)
   const gold = useGameStore(s => s.gold);
   const socketGem = useGameStore(s => s.socketGem);
   const upgradeGems = useGameStore(s => s.upgradeGems);
-  const unsocketGem = useGameStore(s => s.unsocketGem);
 
   const [collapsed, setCollapsed] = useState(initialCollapsed ?? true);
   const [socketTarget, setSocketTarget] = useState<SocketTarget | null>(null);
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
+  const [confirmOverwrite, setConfirmOverwrite] = useState<{ gemIndex: number; gem: Gem } | null>(null);
 
   const grouped = groupGems(gemInventory);
 
@@ -67,10 +67,22 @@ export default function GemPanel({ collapsed: initialCollapsed }: GemPanelProps)
       showFeedback(`${getGemDef(gem.type).name} gems can't go in ${socketTarget.slot}!`);
       return;
     }
+    // If socket already has a gem, require confirmation (overwrite destroys old gem)
+    const existingGem = socketTarget.item.sockets?.[socketTarget.socketIndex];
+    if (existingGem) {
+      setConfirmOverwrite({ gemIndex, gem });
+      return;
+    }
+    doSocketGem(gemIndex, gem);
+  };
+
+  const doSocketGem = (gemIndex: number, gem: Gem) => {
+    if (!socketTarget) return;
     const success = socketGem(socketTarget.slot, gemIndex, socketTarget.socketIndex);
     if (success) {
       showFeedback(`Socketed ${GEM_TIER_NAMES[gem.tier]} ${getGemDef(gem.type).name}!`);
       setSocketTarget(null);
+      setConfirmOverwrite(null);
     }
   };
 
@@ -122,9 +134,16 @@ export default function GemPanel({ collapsed: initialCollapsed }: GemPanelProps)
                       <div key={si} className="flex items-center gap-1">
                         {gem ? (
                           <button
-                            className="flex items-center gap-0.5 hover:bg-gray-700 rounded px-1 py-0.5 transition-colors"
-                            title="Click to unsocket"
-                            onClick={() => unsocketGem(slot, si)}
+                            className={`flex items-center gap-0.5 rounded px-1 py-0.5 transition-colors
+                              ${socketTarget?.slot === slot && socketTarget?.socketIndex === si
+                                ? 'bg-blue-800 ring-1 ring-blue-400'
+                                : 'hover:bg-gray-700'}`}
+                            title="Click to select socket (overwrites gem)"
+                            onClick={() => setSocketTarget(
+                              socketTarget?.slot === slot && socketTarget?.socketIndex === si
+                                ? null
+                                : { slot, socketIndex: si, item }
+                            )}
                           >
                             <span>{getGemDef(gem.type).icon}</span>
                             <span className={GEM_TIER_COLORS[gem.tier]}>
@@ -156,11 +175,50 @@ export default function GemPanel({ collapsed: initialCollapsed }: GemPanelProps)
           )}
 
           {/* Socket target hint */}
-          {socketTarget && (
+          {socketTarget && !confirmOverwrite && (
             <div className="text-xs text-blue-400 text-center py-1 bg-blue-900/30 rounded">
-              Select a gem below to socket into {socketTarget.slot}
+              {socketTarget.item.sockets?.[socketTarget.socketIndex]
+                ? `Select a gem below to replace the gem in ${socketTarget.slot} (old gem will be destroyed)`
+                : `Select a gem below to socket into ${socketTarget.slot}`}
             </div>
           )}
+
+          {/* Overwrite confirmation dialog */}
+          {confirmOverwrite && socketTarget && (() => {
+            const oldGem = socketTarget.item.sockets?.[socketTarget.socketIndex];
+            if (!oldGem) return null;
+            const oldDef = getGemDef(oldGem.type);
+            const newDef = getGemDef(confirmOverwrite.gem.type);
+            return (
+              <div className="text-xs bg-red-950/60 border border-red-700/60 rounded-lg p-2.5 space-y-2">
+                <div className="text-red-300 font-semibold text-center">Overwrite Gem?</div>
+                <div className="text-gray-300 text-center">
+                  <span className={GEM_TIER_COLORS[oldGem.tier]}>
+                    {oldDef.icon} {GEM_TIER_NAMES[oldGem.tier]} {oldDef.name}
+                  </span>
+                  <span className="text-gray-500 mx-1.5">{'\u2192'}</span>
+                  <span className={GEM_TIER_COLORS[confirmOverwrite.gem.tier]}>
+                    {newDef.icon} {GEM_TIER_NAMES[confirmOverwrite.gem.tier]} {newDef.name}
+                  </span>
+                </div>
+                <div className="text-red-400/80 text-center">The old gem will be destroyed.</div>
+                <div className="flex gap-2 justify-center">
+                  <button
+                    className="px-3 py-1 rounded bg-red-800 hover:bg-red-700 text-red-100 transition-colors"
+                    onClick={() => doSocketGem(confirmOverwrite.gemIndex, confirmOverwrite.gem)}
+                  >
+                    Overwrite
+                  </button>
+                  <button
+                    className="px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors"
+                    onClick={() => setConfirmOverwrite(null)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Gem Inventory Grid */}
           {grouped.length > 0 ? (
