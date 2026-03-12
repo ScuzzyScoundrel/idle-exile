@@ -1,28 +1,14 @@
 // ============================================================
-// Dagger Archetype Definitions (7 archetypes)
-// Each defines a skill bar and graph node allocation paths.
+// Dagger Archetype Definitions (6 archetypes)
+// 3 pure specs (Assassination/Venomcraft/Shadow Dance) x 2 skill bar variants (AoE/ST)
+// All use the talent tree system (not legacy skill graphs).
 // ============================================================
 
 import type { ArchetypeDef, BranchChoice } from './types';
 
-// Node ID pattern from treeBuilder.ts: {prefix}_{branch}_{position}
-// Full B1 path: {p}_start → {p}_b1_root → {p}_b1_m1 → {p}_b1_n1 → {p}_b1_k
-// Full B2 path: {p}_start → {p}_b2_root → {p}_b2_m1 → {p}_b2_n1 → {p}_b2_k
-// Full B3 path: {p}_start → {p}_b3_root → {p}_b3_m1 → {p}_b3_n1 → {p}_b3_k
-// Bridge nodes: {p}_x12, {p}_x23, {p}_x31
-
-// Skill prefixes from dagger.ts:
-// dagger_stab:            st
-// dagger_blade_flurry:    dbf
-// dagger_fan_of_knives:   fk
-// dagger_viper_strike:    vs
-// dagger_smoke_screen:    ssc
-// dagger_assassinate:     as
-// dagger_lightning_lunge: ll
-// dagger_flurry (buff):   flu
-// dagger_shadow_strike:   sst
-// dagger_lethality:       le
-
+// Prefixes only needed for skills that still use the legacy skill graph getBranchPath().
+// Daggers use the talent tree system exclusively, so this map only covers
+// skills that have both a graph AND a tree. Dead entries removed.
 const PREFIXES: Record<string, string> = {
   'dagger_stab': 'st',
   'dagger_blade_flurry': 'dbf',
@@ -31,12 +17,9 @@ const PREFIXES: Record<string, string> = {
   'dagger_smoke_screen': 'ssc',
   'dagger_assassinate': 'as',
   'dagger_lightning_lunge': 'll',
-  'dagger_flurry': 'flu',
-  'dagger_shadow_strike': 'sst',
-  'dagger_lethality': 'le',
 };
 
-/** Get the ordered node IDs for a branch path (start → root → minor → notable → keystone). */
+/** Get the ordered node IDs for a branch path (start -> root -> minor -> notable -> keystone). */
 export function getBranchPath(skillId: string, branch: BranchChoice): string[] {
   const p = PREFIXES[skillId];
   if (!p) return [];
@@ -50,24 +33,14 @@ export function getBranchPath(skillId: string, branch: BranchChoice): string[] {
   ];
 }
 
-// ─── 7 Archetype Definitions ─────────────────────────────
+// ─── 6 Archetype Definitions ─────────────────────────────
+// 3 pure specs x 2 skill bar variants (AoE vs Single-Target)
+// All skills allocated to the same branch for pure-spec testing.
 
 export const ARCHETYPES: ArchetypeDef[] = [
+  // ── Assassination (b1) ──
   {
-    name: 'Poison',
-    charClass: 'rogue',
-    weaponType: 'dagger',
-    armorAffinity: 'leather',
-    skillBar: ['dagger_viper_strike', 'dagger_fan_of_knives', 'dagger_blade_flurry', 'dagger_smoke_screen'],
-    allocations: [
-      { skillId: 'dagger_viper_strike',    branch: 'b2' },
-      { skillId: 'dagger_fan_of_knives',   branch: 'b2' },
-      { skillId: 'dagger_blade_flurry',    branch: 'b2' },
-      { skillId: 'dagger_smoke_screen',    branch: 'b2' },
-    ],
-  },
-  {
-    name: 'Crit Assassin',
+    name: 'Assassination ST',
     charClass: 'rogue',
     weaponType: 'dagger',
     armorAffinity: 'leather',
@@ -80,7 +53,50 @@ export const ARCHETYPES: ArchetypeDef[] = [
     ],
   },
   {
-    name: 'Shadow Dodge',
+    name: 'Assassination AoE',
+    charClass: 'rogue',
+    weaponType: 'dagger',
+    armorAffinity: 'leather',
+    skillBar: ['dagger_assassinate', 'dagger_fan_of_knives', 'dagger_blade_flurry', 'dagger_lightning_lunge'],
+    allocations: [
+      { skillId: 'dagger_assassinate',     branch: 'b1' },
+      { skillId: 'dagger_fan_of_knives',   branch: 'b1' },
+      { skillId: 'dagger_blade_flurry',    branch: 'b1' },
+      { skillId: 'dagger_lightning_lunge', branch: 'b1' },
+    ],
+  },
+
+  // ── Venomcraft (b2) ──
+  {
+    name: 'Venomcraft AoE',
+    charClass: 'rogue',
+    weaponType: 'dagger',
+    armorAffinity: 'leather',
+    skillBar: ['dagger_viper_strike', 'dagger_fan_of_knives', 'dagger_blade_flurry', 'dagger_smoke_screen'],
+    allocations: [
+      { skillId: 'dagger_viper_strike',    branch: 'b2' },
+      { skillId: 'dagger_fan_of_knives',   branch: 'b2' },
+      { skillId: 'dagger_blade_flurry',    branch: 'b2' },
+      { skillId: 'dagger_smoke_screen',    branch: 'b2' },
+    ],
+  },
+  {
+    name: 'Venomcraft ST',
+    charClass: 'rogue',
+    weaponType: 'dagger',
+    armorAffinity: 'leather',
+    skillBar: ['dagger_viper_strike', 'dagger_blade_flurry', 'dagger_smoke_screen', 'dagger_stab'],
+    allocations: [
+      { skillId: 'dagger_viper_strike',    branch: 'b2' },
+      { skillId: 'dagger_blade_flurry',    branch: 'b2' },
+      { skillId: 'dagger_smoke_screen',    branch: 'b2' },
+      { skillId: 'dagger_stab',            branch: 'b2' },
+    ],
+  },
+
+  // ── Shadow Dance (b3) ──
+  {
+    name: 'Shadow Dance AoE',
     charClass: 'rogue',
     weaponType: 'dagger',
     armorAffinity: 'leather',
@@ -93,56 +109,16 @@ export const ARCHETYPES: ArchetypeDef[] = [
     ],
   },
   {
-    name: 'Poison-Crit',
+    name: 'Shadow Dance ST',
     charClass: 'rogue',
     weaponType: 'dagger',
     armorAffinity: 'leather',
-    skillBar: ['dagger_viper_strike', 'dagger_assassinate', 'dagger_fan_of_knives', 'dagger_blade_flurry'],
+    skillBar: ['dagger_smoke_screen', 'dagger_viper_strike', 'dagger_stab', 'dagger_lightning_lunge'],
     allocations: [
-      { skillId: 'dagger_viper_strike',    branch: 'b2' },
-      { skillId: 'dagger_assassinate',     branch: 'b1' },
-      { skillId: 'dagger_fan_of_knives',   branch: 'b2' },
-      { skillId: 'dagger_blade_flurry',    branch: 'b1' },
-    ],
-  },
-  {
-    name: 'Poison-Dodge',
-    charClass: 'rogue',
-    weaponType: 'dagger',
-    armorAffinity: 'leather',
-    skillBar: ['dagger_viper_strike', 'dagger_fan_of_knives', 'dagger_smoke_screen', 'dagger_stab'],
-    allocations: [
-      { skillId: 'dagger_viper_strike',    branch: 'b2' },
-      { skillId: 'dagger_fan_of_knives',   branch: 'b2' },
       { skillId: 'dagger_smoke_screen',    branch: 'b3' },
+      { skillId: 'dagger_viper_strike',    branch: 'b3' },
       { skillId: 'dagger_stab',            branch: 'b3' },
-    ],
-  },
-  {
-    name: 'Crit-Dodge',
-    charClass: 'rogue',
-    weaponType: 'dagger',
-    armorAffinity: 'leather',
-    skillBar: ['dagger_assassinate', 'dagger_lightning_lunge', 'dagger_smoke_screen', 'dagger_blade_flurry'],
-    allocations: [
-      { skillId: 'dagger_assassinate',     branch: 'b1' },
-      { skillId: 'dagger_lightning_lunge', branch: 'b1' },
-      { skillId: 'dagger_smoke_screen',    branch: 'b3' },
-      { skillId: 'dagger_blade_flurry',    branch: 'b3' },
-    ],
-  },
-  {
-    name: 'Full Hybrid',
-    charClass: 'rogue',
-    weaponType: 'dagger',
-    armorAffinity: 'leather',
-    skillBar: ['dagger_assassinate', 'dagger_viper_strike', 'dagger_smoke_screen', 'dagger_blade_flurry'],
-    allocations: [
-      { skillId: 'dagger_assassinate',     branch: 'b1' },
-      { skillId: 'dagger_viper_strike',    branch: 'b2' },
-      { skillId: 'dagger_smoke_screen',    branch: 'b3' },
-      // Bridge path for blade flurry: start → x12 (bridge between b1 and b2)
-      { skillId: 'dagger_blade_flurry',    branch: 'b1' },
+      { skillId: 'dagger_lightning_lunge', branch: 'b3' },
     ],
   },
 ];

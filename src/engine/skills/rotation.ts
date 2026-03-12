@@ -6,6 +6,7 @@
 import type {
   SkillDef, EquippedSkill, SkillProgress, SkillTimerState,
   ResolvedStats, ActiveSkillDef, WeaponType, ZoneDef, ConversionSpec,
+  SkillProcEffect,
 } from '../../types';
 import { POWER_DIVISOR } from '../../data/balance';
 import { getUnifiedSkillDef, getSkillsForWeapon } from '../../data/skills';
@@ -29,16 +30,6 @@ export function calcRotationDps(
 ): number {
   let totalDps = 0;
 
-  // Collect proc data across all skills for steady-state estimation
-  const allProcs: import('../../types').SkillProcEffect[] = [];
-  const allConditionalMods: import('../../types').ConditionalModifier[] = [];
-  let mergedDebuffInteraction: import('../../types/skills').DebuffInteraction | null = null;
-  let totalCycleTime = 0;
-  let skillCount = 0;
-  let totalBaseIncDamage = 0;
-  let maxGraphCritChance = 0;
-  let maxGraphCritMult = 0;
-
   for (const equipped of skillBar) {
     if (!equipped) continue;
     const skill = getUnifiedSkillDef(equipped.skillId);
@@ -46,37 +37,41 @@ export function calcRotationDps(
 
     const progress = skillProgress[equipped.skillId];
     const graphMod = getSkillGraphModifier(skill, progress);
-    totalDps += calcSkillDps(skill, stats, weaponAvgDmg, weaponSpellPower, graphMod ?? undefined, atkSpeedMult, weaponConversion);
+    let skillDps = calcSkillDps(skill, stats, weaponAvgDmg, weaponSpellPower, graphMod ?? undefined, atkSpeedMult, weaponConversion);
 
-    // Collect proc/conditional data from graph modifiers
-    if (graphMod) {
-      if (graphMod.skillProcs.length > 0) allProcs.push(...graphMod.skillProcs);
-      if (graphMod.conditionalMods.length > 0) allConditionalMods.push(...graphMod.conditionalMods);
-      if (graphMod.debuffInteraction && !mergedDebuffInteraction) {
-        mergedDebuffInteraction = graphMod.debuffInteraction;
+    // Apply proc/conditional estimation scoped to THIS skill only
+    if (graphMod && skillDps > 0 && (
+      graphMod.skillProcs.length > 0 ||
+      graphMod.debuffs.length > 0 ||
+      graphMod.conditionalMods.length > 0 ||
+      graphMod.debuffInteraction
+    )) {
+      // Synthesize procs from guaranteed debuff applications (graphMod.debuffs)
+      // so estimateProcDps can account for their DoT damage (e.g., poison ticks)
+      let allProcs = graphMod.skillProcs;
+      if (graphMod.debuffs.length > 0) {
+        const syntheticProcs: SkillProcEffect[] = graphMod.debuffs.map((d, i) => ({
+          id: `_synth_debuff_${equipped.skillId}_${i}`,
+          chance: d.chance,
+          trigger: 'onHit' as const,
+          applyDebuff: { debuffId: d.debuffId, stacks: 1, duration: d.duration },
+        }));
+        allProcs = [...graphMod.skillProcs, ...syntheticProcs];
       }
-      totalBaseIncDamage += graphMod.incDamage;
-      if (graphMod.incCritChance > maxGraphCritChance) maxGraphCritChance = graphMod.incCritChance;
-      if (graphMod.incCritMultiplier > maxGraphCritMult) maxGraphCritMult = graphMod.incCritMultiplier;
+
+      const graphSpeedMult = graphMod.incCastSpeed ? (1 + graphMod.incCastSpeed / 100) : 1;
+      const cycleTime = calcSkillCastInterval(skill, stats, atkSpeedMult * graphSpeedMult);
+      const procEst = estimateProcDps(
+        allProcs, graphMod.conditionalMods, graphMod.debuffInteraction,
+        stats, weaponAvgDmg, cycleTime, combatCtx,
+        graphMod.incDamage, graphMod.incCritChance, graphMod.incCritMultiplier,
+      );
+      skillDps += procEst.instantDamageDps;
+      skillDps *= procEst.buffDpsMult * procEst.conditionalDpsMult * procEst.debuffInteractionMult;
+      skillDps += procEst.debuffTickDps;
     }
 
-    // Accumulate cycle time for averaging
-    const graphSpeedMult = graphMod?.incCastSpeed ? (1 + graphMod.incCastSpeed / 100) : 1;
-    totalCycleTime += calcSkillCastInterval(skill, stats, atkSpeedMult * graphSpeedMult);
-    skillCount++;
-  }
-
-  // Apply proc estimation if any proc/conditional data exists
-  if (totalDps > 0 && (allProcs.length > 0 || allConditionalMods.length > 0 || mergedDebuffInteraction)) {
-    const avgCycleTime = skillCount > 0 ? totalCycleTime / skillCount : 1;
-    const procEst = estimateProcDps(
-      allProcs, allConditionalMods, mergedDebuffInteraction,
-      stats, weaponAvgDmg, avgCycleTime, combatCtx,
-      totalBaseIncDamage, maxGraphCritChance, maxGraphCritMult,
-    );
-    totalDps += procEst.instantDamageDps;
-    totalDps *= procEst.buffDpsMult * procEst.conditionalDpsMult * procEst.debuffInteractionMult;
-    totalDps += procEst.debuffTickDps;
+    totalDps += skillDps;
   }
 
   return totalDps;

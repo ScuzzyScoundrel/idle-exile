@@ -238,6 +238,7 @@ export interface AggregateResult {
   totalClears: PercentileStats;
   totalDeaths: PercentileStats;
   finalDps: PercentileStats;
+  avgAffixTier: PercentileStats;
   longestWallZone: string;
   zones: ZoneAggregate[];
 }

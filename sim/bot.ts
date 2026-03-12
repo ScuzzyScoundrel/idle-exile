@@ -167,7 +167,7 @@ export class Bot {
     this.char = createCharacter('Bot', charClass);
 
     // Give starting weapon (matches archetype's weapon type)
-    const startWeapon = generateItem('mainhand', 1, undefined);
+    const startWeapon = generateItem('mainhand', 1, config.archetype.weaponType === 'dagger' ? 'crude_dagger' : undefined);
     this.char = equipItem(this.char, startWeapon);
 
     this.currentHp = this.char.stats.maxLife;
@@ -532,6 +532,11 @@ export class Bot {
   }
 
   private tryEquipUpgrade(item: Item): boolean {
+    // Reject mainhand drops that don't match the archetype's weapon type
+    if (item.slot === 'mainhand' && item.weaponType && item.weaponType !== this.config.archetype.weaponType) {
+      return false;
+    }
+
     const { refDamage, refAccuracy } = this.getZoneEhpParams();
     if (isUpgrade(this.char, item, this.config.gearWeights, this.config.armorPreference, this.skillBar, this.skillProgress, refDamage, refAccuracy)) {
       const oldItem = this.char.equipment[item.slot];

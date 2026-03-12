@@ -201,9 +201,9 @@ export function estimateProcDps(
       effectiveRate = Math.min(effectiveRate, 1 / proc.internalCooldown);
     }
 
-    // Snapshot = expected hit damage (weapon base × crit expectation)
+    // Snapshot = expected hit damage (weapon base × incDamage × crit expectation)
     // onHit procs imply the hit already landed, so no hitChance factor on snapshot
-    const avgSnapshot = weaponAvgDmg * critMult;
+    const avgSnapshot = weaponAvgDmg * (1 + baseIncDamage / 100) * critMult;
 
     // Duration with debuff interaction bonus
     let duration = proc.applyDebuff.duration;

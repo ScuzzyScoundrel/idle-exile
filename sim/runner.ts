@@ -156,9 +156,9 @@ console.log('\n');
 // ─── Print Summary Tables ────────────────────────────────
 
 // 1. Archetype Performance Matrix
-console.log('┌──────────────────┬────────────┬─────────┬───────┬──────────┬────────┬────────┬────────┬─────────┬──────────────────┐');
-console.log('│ Archetype        │ Gear       │ Armor   │ Bots  │ Med.Zone │ Med.Lv │ Deaths │ Clears │ Med.DPS │ Longest Wall     │');
-console.log('├──────────────────┼────────────┼─────────┼───────┼──────────┼────────┼────────┼────────┼─────────┼──────────────────┤');
+console.log('┌──────────────────┬────────────┬─────────┬───────┬──────────┬────────┬────────┬────────┬─────────┬─────────┬──────────────────┐');
+console.log('│ Archetype        │ Gear       │ Armor   │ Bots  │ Med.Zone │ Med.Lv │ Deaths │ Clears │ Med.DPS │ AvgTier │ Longest Wall     │');
+console.log('├──────────────────┼────────────┼─────────┼───────┼──────────┼────────┼────────┼────────┼─────────┼─────────┼──────────────────┤');
 
 for (const agg of aggregates) {
   const wallZone = ZONE_DEFS.find(z => z.id === agg.longestWallZone);
@@ -168,11 +168,11 @@ for (const agg of aggregates) {
   const armorLabel = agg.armorPreference;
 
   console.log(
-    `│ ${pad(agg.archetypeName, 16)} │ ${pad(agg.gearStrategy, 10)} │ ${pad(armorLabel, 7)} │ ${pad(String(agg.botCount), 5)} │ ${pad(medZoneName.slice(0, 8), 8)} │ ${pad(String(Math.round(agg.finalLevel.median)), 6)} │ ${pad(String(Math.round(agg.totalDeaths.median)), 6)} │ ${pad(String(Math.round(agg.totalClears.median)), 6)} │ ${pad(String(Math.round(agg.finalDps.median)), 7)} │ ${pad(wallName, 16)} │`
+    `│ ${pad(agg.archetypeName, 16)} │ ${pad(agg.gearStrategy, 10)} │ ${pad(armorLabel, 7)} │ ${pad(String(agg.botCount), 5)} │ ${pad(medZoneName.slice(0, 8), 8)} │ ${pad(String(Math.round(agg.finalLevel.median)), 6)} │ ${pad(String(Math.round(agg.totalDeaths.median)), 6)} │ ${pad(String(Math.round(agg.totalClears.median)), 6)} │ ${pad(String(Math.round(agg.finalDps.median)), 7)} │ ${pad(agg.avgAffixTier.median.toFixed(1), 7)} │ ${pad(wallName, 16)} │`
   );
 }
 
-console.log('└──────────────────┴────────────┴─────────┴───────┴──────────┴────────┴────────┴────────┴─────────┴──────────────────┘');
+console.log('└──────────────────┴────────────┴─────────┴───────┴──────────┴────────┴────────┴────────┴─────────┴─────────┴──────────────────┘');
 
 // 2. Gear Wall Report
 const gearWalls = aggregates.flatMap(agg =>

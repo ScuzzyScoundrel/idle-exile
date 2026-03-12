@@ -224,6 +224,7 @@ export function aggregateBots(summaries: BotSummary[]): AggregateResult {
       totalClears: { median: 0, p10: 0, p90: 0 },
       totalDeaths: { median: 0, p10: 0, p90: 0 },
       finalDps: { median: 0, p10: 0, p90: 0 },
+      avgAffixTier: { median: 0, p10: 0, p90: 0 },
       longestWallZone: '',
       zones: [],
     };
@@ -283,7 +284,25 @@ export function aggregateBots(summaries: BotSummary[]): AggregateResult {
     totalClears: calcPercentiles(summaries.map(s => s.totalClears)),
     totalDeaths: calcPercentiles(summaries.map(s => s.totalDeaths)),
     finalDps: calcPercentiles(summaries.map(s => s.finalDps)),
+    avgAffixTier: calcPercentiles(summaries.map(s => calcAvgAffixTier(s))),
     longestWallZone,
     zones,
   };
+}
+
+/** Compute average affix tier across a bot's final equipped gear. Lower = better (T1 is best). */
+function calcAvgAffixTier(summary: BotSummary): number {
+  // Use the last zone's gear snapshot (most progressed)
+  const lastZone = summary.zoneSummaries[summary.zoneSummaries.length - 1];
+  if (!lastZone?.gearSnapshot?.length) return 10;
+
+  let totalTier = 0;
+  let count = 0;
+  for (const item of lastZone.gearSnapshot) {
+    for (const affix of item.affixes) {
+      totalTier += affix.tier;
+      count++;
+    }
+  }
+  return count > 0 ? totalTier / count : 10;
 }
