@@ -65,9 +65,9 @@ export function addAbilityXp(progress: AbilityProgress, xpGained: number): Abili
   return { ...progress, xp, level };
 }
 
-/** Get XP gained per clear: 10 + floor(zoneBand * 2). */
+/** Get XP gained per clear: 6 + floor(zoneBand * 2). */
 export function getAbilityXpPerClear(zoneBand: number): number {
-  return 10 + Math.floor(zoneBand * 2);
+  return 6 + Math.floor(zoneBand * 2);
 }
 
 /** Can a tree node be allocated? */
