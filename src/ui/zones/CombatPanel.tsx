@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useGameStore, useHasHydrated, calcFortifyDR, isTabHidden } from '../../store/gameStore';
 import { ZONE_DEFS } from '../../data/zones';
 import { calcXpScale } from '../../engine/zones';
-import { Rarity } from '../../types';
+import { Rarity, Gem } from '../../types';
 import { calcBagCapacity } from '../../data/items';
 import { getUnifiedSkillDef } from '../../data/skills';
 import { BOSS_INTERVAL } from '../../data/balance';
@@ -139,6 +139,8 @@ export default function CombatPanel() {
   const [salvageTally, setSalvageTally] = useState({ count: 0, essence: 0 });
   const lastTickTimeRef = useRef(Date.now());
   const [bossLootItems, setBossLootItems] = useState<{ name: string; rarity: Rarity }[]>([]);
+  const [bossGemDrops, setBossGemDrops] = useState<Gem[]>([]);
+  const [bossPatternDrops, setBossPatternDrops] = useState<string[]>([]);
   const [bossFightStats, setBossFightStats] = useState<{ duration: number; playerDps: number; bossDps: number; bossMaxHp: number } | null>(null);
 
   // Visual feedback state — "Last Hit" dashboard (replaces scrolling combat log)
@@ -358,6 +360,8 @@ export default function CombatPanel() {
           const lootResult = handleBossVictory();
           if (lootResult) {
             setBossLootItems(lootResult.items);
+            setBossGemDrops(lootResult.gemDrops ?? []);
+            setBossPatternDrops(lootResult.patternDrops ?? []);
             setSession(prev => accumulateSession(prev, lootResult, 0));
           }
         } else if (bossResult.bossOutcome === 'defeat') {
@@ -475,6 +479,8 @@ export default function CombatPanel() {
         <BossVictoryOverlay
           bossName={bossState.bossName}
           items={bossLootItems}
+          gemDrops={bossGemDrops}
+          patternDrops={bossPatternDrops}
           fightDuration={bossFightStats?.duration ?? 0}
           playerDps={bossFightStats?.playerDps ?? 0}
           bossDps={bossFightStats?.bossDps ?? 0}

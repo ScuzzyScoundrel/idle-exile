@@ -64,7 +64,7 @@ import { pickCurrentMob, computeNextClear } from '../engine/zones/helpers';
 import { getMobTypeDef } from '../data/mobTypes';
 import { spawnPack } from '../engine/packs';
 import { isGemValidForSlot } from '../data/gems';
-import { canUpgradeGem, upgradeGem as upgradeGemEngine, rollGemForBoss } from '../engine/gems';
+import { canUpgradeGem, upgradeGem as upgradeGemEngine, rollGemDrop } from '../engine/gems';
 import { GEM_UPGRADE_GOLD_COST, GEM_INVENTORY_CAP } from '../data/balance';
 import { tickInvasions as tickInvasionsPure, isZoneInvaded } from '../engine/invasions';
 import {
@@ -967,9 +967,9 @@ export const useGameStore = create<GameState & GameActions>()(
           newOwnedPatterns.push({ defId: patId, charges, discoveredAt: Date.now() });
         }
 
-        // Guaranteed boss gem drop
-        const bossGem = rollGemForBoss(zone.band);
-        const bossGemDrops: Gem[] = [bossGem];
+        // Chance-based boss gem drop (same rate as normal clears)
+        const bossGemDrop = rollGemDrop(zone.band);
+        const bossGemDrops: Gem[] = bossGemDrop ? [bossGemDrop] : [];
         const newGemInventory = [...state.gemInventory];
         for (const gem of bossGemDrops) {
           if (newGemInventory.length < GEM_INVENTORY_CAP) {

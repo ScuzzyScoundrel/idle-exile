@@ -1,16 +1,19 @@
-import type { Rarity } from '../../types';
+import type { Rarity, Gem } from '../../types';
 import { RARITY_TEXT } from './zoneConstants';
+import { getGemDef, GEM_TIER_NAMES, GEM_TIER_COLORS } from '../../data/gems';
 
 interface BossVictoryProps {
   bossName: string;
   items: { name: string; rarity: Rarity }[];
+  gemDrops?: Gem[];
+  patternDrops?: string[];
   fightDuration: number;
   playerDps: number;
   bossDps: number;
   bossMaxHp: number;
 }
 
-export default function BossVictoryOverlay({ bossName, items, fightDuration, playerDps, bossDps, bossMaxHp }: BossVictoryProps) {
+export default function BossVictoryOverlay({ bossName, items, gemDrops, patternDrops, fightDuration, playerDps, bossDps, bossMaxHp }: BossVictoryProps) {
   return (
     <div className="bg-gradient-to-br from-yellow-950 via-gray-900 to-yellow-950 rounded-lg border-2 border-yellow-500 p-4 text-center space-y-3">
       <div className="text-2xl">{'\u{1F451}'}</div>
@@ -50,6 +53,35 @@ export default function BossVictoryOverlay({ bossName, items, fightDuration, pla
           </div>
         </div>
       )}
+
+      {/* Gem Drops */}
+      {gemDrops && gemDrops.length > 0 && (
+        <div>
+          <div className="text-xs text-gray-500 mb-1">Gems</div>
+          <div className="flex flex-wrap gap-1 justify-center">
+            {gemDrops.map((gem, i) => (
+              <span key={i} className={`text-xs bg-gray-800 border border-cyan-700/50 rounded-md px-2 py-0.5 ${GEM_TIER_COLORS[gem.tier]}`}>
+                {getGemDef(gem.type).icon} {GEM_TIER_NAMES[gem.tier]} {getGemDef(gem.type).name}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Pattern Drops */}
+      {patternDrops && patternDrops.length > 0 && (
+        <div>
+          <div className="text-xs text-gray-500 mb-1">Patterns</div>
+          <div className="flex flex-wrap gap-1 justify-center">
+            {patternDrops.map((patId, i) => (
+              <span key={i} className="text-xs bg-gray-800 border border-amber-700/50 rounded-md px-2 py-0.5 text-amber-400">
+                {'\uD83D\uDCDC'} {patId}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="text-gray-500 text-xs">Resuming shortly...</div>
     </div>
   );
