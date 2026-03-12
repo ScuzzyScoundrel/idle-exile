@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useLayoutEffect, useMemo } from 'react';
 import { useGameStore, SELL_GOLD } from '../../store/gameStore';
-import { Item, Affix, GearSlot, CurrencyType, Rarity, StatKey, ArmorType, GemType } from '../../types';
+import { Item, Affix, GearSlot, CurrencyType, Rarity, StatKey, ArmorType } from '../../types';
 import { CURRENCY_DEFS, calcBagCapacity, getBagDef } from '../../data/items';
 import { formatAffix, getBestTierForILvl, isUpgradeOver, getComparisonTarget, calcItemStatContribution } from '../../engine/items';
 import { formatCorruptionAffix } from '../../data/corruptionAffixes';
@@ -9,7 +9,6 @@ import { ItemIcon, SlotIcon, getSlotEmoji } from '../itemIcon';
 import { CraftIcon } from '../craftIcon';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { getGemDef, GEM_TIER_NAMES, GEM_TIER_COLORS } from '../../data/gems';
-import { GEM_INVENTORY_CAP } from '../../data/balance';
 import GemPanel from '../components/GemPanel';
 
 const SLOT_ORDER: GearSlot[] = DROPPABLE_SLOTS;
@@ -129,7 +128,7 @@ const AUTO_SALVAGE_OPTIONS: { value: Rarity; label: string }[] = [
 
 export default function InventoryScreen() {
   const {
-    character, inventory, currencies, gold, gemInventory,
+    character, inventory, currencies, gold,
     bagSlots, bagStash, equipBag, sellBag, salvageBag,
     equipItem, unequipSlot, disenchantItem, sellItem, craft,
     autoSalvageMinRarity, setAutoSalvageRarity,
@@ -163,13 +162,6 @@ export default function InventoryScreen() {
     return set;
   }, [inventory, character.equipment]);
 
-  const gemsByType = useMemo(() => {
-    const map = new Map<GemType, number>();
-    for (const g of gemInventory) map.set(g.type, (map.get(g.type) ?? 0) + 1);
-    return Array.from(map.entries())
-      .map(([type, count]) => ({ type, count, def: getGemDef(type) }))
-      .sort((a, b) => b.count - a.count);
-  }, [gemInventory]);
 
   const [craftDiff, setCraftDiff] = useState<{
     itemId: string;
@@ -655,36 +647,6 @@ export default function InventoryScreen() {
           </div>
         ))}
       </div>
-
-      {/* Gem Stash Strip */}
-      {gemInventory.length > 0 && (
-        <div className="flex flex-wrap gap-2 bg-gray-800 rounded-lg px-3 py-2 items-center">
-          <span className="text-xs font-semibold text-cyan-400">
-            {'\u{1F48E}'} {gemInventory.length}/{GEM_INVENTORY_CAP}
-          </span>
-          {gemsByType.map(({ type, count, def }) => (
-            <div key={type} className="relative group">
-              <div className="text-xs flex items-center gap-1 text-gray-300">
-                <span>{def.icon}</span>
-                <span className="font-semibold">{count}</span>
-                <span className="text-[10px] text-gray-500 hidden sm:inline">{def.name}</span>
-              </div>
-              {/* Tooltip: tier breakdown */}
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 w-40 bg-gray-900 border border-gray-600 rounded-lg p-2 shadow-xl z-50 pointer-events-none text-left hidden group-hover:block">
-                <div className="text-xs font-bold text-white">{def.icon} {def.name}</div>
-                <div className="text-[11px] text-gray-400 mt-0.5">
-                  {([5, 4, 3, 2, 1] as const).map(tier => {
-                    const tc = gemInventory.filter(g => g.type === type && g.tier === tier).length;
-                    return tc > 0 ? (
-                      <div key={tier} className={GEM_TIER_COLORS[tier]}>{tc}x {GEM_TIER_NAMES[tier]}</div>
-                    ) : null;
-                  })}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Gem Inventory */}
       <GemPanel />
