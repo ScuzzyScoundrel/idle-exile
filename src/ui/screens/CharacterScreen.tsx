@@ -13,6 +13,7 @@ import SkillPanel from '../components/SkillPanel';
 import { calcSkillDps, calcRotationDps, getDefaultSkillForWeapon } from '../../engine/unifiedSkills';
 import { resolveStats, getWeaponDamageInfo } from '../../engine/character';
 import { SET_BONUS_DEFS } from '../../data/setBonuses';
+import { BAND_RESIST_PENALTY } from '../../data/balance';
 import { ZONE_DEFS } from '../../data/zones';
 
 const CLASS_ICONS_HERO: Record<CharacterClass, string> = {
@@ -472,6 +473,44 @@ function DefensePanel() {
       <div className="text-xs text-gray-500">
         Armor reduces {physReduction}% physical damage at Band {band}
       </div>
+
+      {/* Band resist penalty + effective resists */}
+      {(() => {
+        const penalty = BAND_RESIST_PENALTY[band] ?? 0;
+        const resists = [
+          { label: 'Fire', icon: '\uD83D\uDD25', raw: character.stats.fireResist, color: 'text-red-400' },
+          { label: 'Cold', icon: '\u2744\uFE0F', raw: character.stats.coldResist, color: 'text-blue-400' },
+          { label: 'Lightning', icon: '\u26A1', raw: character.stats.lightningResist, color: 'text-yellow-400' },
+          { label: 'Chaos', icon: '\uD83D\uDC80', raw: character.stats.chaosResist, color: 'text-purple-400' },
+        ];
+        return (
+          <div className="space-y-1">
+            {penalty < 0 && (
+              <div className="text-xs text-red-400">
+                Band {band} resist penalty: {penalty}%
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+              {resists.map(r => {
+                const effective = Math.min(Math.max(0, r.raw + penalty), 75);
+                return (
+                  <div key={r.label} className="flex items-center gap-1 text-xs">
+                    <span>{r.icon}</span>
+                    <span className={r.color}>{r.label}</span>
+                    <span className="text-gray-500 ml-auto">
+                      {Math.floor(r.raw)}{penalty < 0 ? <span className="text-red-400">{penalty}</span> : ''}
+                      {' = '}
+                      <span className={effective >= 50 ? 'text-green-400' : effective >= 25 ? 'text-yellow-400' : 'text-red-400'}>
+                        {effective}%
+                      </span>
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {setBonuses.length > 0 && (
         <div className="space-y-2 pt-1 border-t border-gray-700">
