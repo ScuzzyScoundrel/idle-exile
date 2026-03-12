@@ -42,7 +42,7 @@ export default function ZoneCard({
       disabled={!isUnlocked}
       className={`
         relative w-full text-left rounded-lg border overflow-hidden transition-all
-        ${isBoss ? 'h-44 border-2' : 'h-36'}
+        h-36 ${isBoss ? 'border-2' : ''}
         ${!isUnlocked
           ? 'border-gray-700 opacity-40 cursor-not-allowed'
           : isInvaded

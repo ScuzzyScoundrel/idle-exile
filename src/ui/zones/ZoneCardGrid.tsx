@@ -30,7 +30,13 @@ export default function ZoneCardGrid({
   idleMode, characterStats, charLevel, selectedProfession, gatheringSkillLevel,
   totalZoneClears, zoneMasteryClaimed, invasionState, bossKillCounts, onSelectZone,
 }: ZoneCardGridProps) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(() =>
+    localStorage.getItem('ie-zones-collapsed') !== 'true'
+  );
+  const toggleExpanded = (val: boolean) => {
+    setExpanded(val);
+    localStorage.setItem('ie-zones-collapsed', String(!val));
+  };
 
   const isZoneUnlocked = (z: ZoneDef): boolean => {
     if (idleMode === 'gathering') return true; // gathering uses skill level gating instead
@@ -43,7 +49,7 @@ export default function ZoneCardGrid({
     const activeZone = [...gridZones, bossZone].find(z => z && z.id === currentZoneId);
     return (
       <button
-        onClick={() => setExpanded(true)}
+        onClick={() => toggleExpanded(true)}
         className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition-all ${BAND_GRADIENTS[selectedBand]} text-white/90 hover:brightness-110`}
       >
         <span>{BAND_EMOJIS[selectedBand]}</span>
@@ -57,59 +63,38 @@ export default function ZoneCardGrid({
     <div className="space-y-3">
       {isRunning && (
         <button
-          onClick={() => setExpanded(false)}
+          onClick={() => toggleExpanded(false)}
           className="w-full text-xs text-gray-500 hover:text-gray-300 text-right pr-1 transition-colors"
         >
           collapse zones
         </button>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-        {gridZones.map((z) => (
-          <ZoneCard
-            key={z.id}
-            zone={z}
-            band={selectedBand}
-            isBoss={false}
-            isSelected={selectedZone === z.id}
-            isActive={isRunning && currentZoneId === z.id}
-            isUnlocked={isZoneUnlocked(z)}
-            hasMastery={z.hazards.length > 0 && checkZoneMastery(characterStats, z)}
-            playerStats={characterStats as Record<string, number>}
-            charLevel={charLevel}
-            idleMode={idleMode}
-            selectedProfession={selectedProfession}
-            gatheringSkillLevel={gatheringSkillLevel}
-            zoneClears={totalZoneClears[z.id] ?? 0}
-            zoneMasteryTier={zoneMasteryClaimed[z.id] ?? 0}
-            isInvaded={!!getZoneInvasion(invasionState, z.id, z.band)}
-            invasionEndTime={getZoneInvasion(invasionState, z.id, z.band)?.endTime ?? 0}
-            onSelect={() => isZoneUnlocked(z) && onSelectZone(z.id)}
-          />
+      <div className="flex flex-wrap justify-center gap-3">
+        {(bossZone ? [...gridZones, bossZone] : gridZones).map((z) => (
+          <div key={z.id} className="w-full sm:w-[calc(50%-6px)] xl:w-[calc(33.333%-8px)]">
+            <ZoneCard
+              zone={z}
+              band={selectedBand}
+              isBoss={z === bossZone}
+              isSelected={selectedZone === z.id}
+              isActive={isRunning && currentZoneId === z.id}
+              isUnlocked={isZoneUnlocked(z)}
+              hasMastery={z.hazards.length > 0 && checkZoneMastery(characterStats, z)}
+              playerStats={characterStats as Record<string, number>}
+              charLevel={charLevel}
+              idleMode={idleMode}
+              selectedProfession={selectedProfession}
+              gatheringSkillLevel={gatheringSkillLevel}
+              zoneClears={totalZoneClears[z.id] ?? 0}
+              zoneMasteryTier={zoneMasteryClaimed[z.id] ?? 0}
+              isInvaded={!!getZoneInvasion(invasionState, z.id, z.band)}
+              invasionEndTime={getZoneInvasion(invasionState, z.id, z.band)?.endTime ?? 0}
+              onSelect={() => isZoneUnlocked(z) && onSelectZone(z.id)}
+            />
+          </div>
         ))}
       </div>
-
-      {bossZone && (
-        <ZoneCard
-          zone={bossZone}
-          band={selectedBand}
-          isBoss={true}
-          isSelected={selectedZone === bossZone.id}
-          isActive={isRunning && currentZoneId === bossZone.id}
-          isUnlocked={isZoneUnlocked(bossZone)}
-          hasMastery={bossZone.hazards.length > 0 && checkZoneMastery(characterStats, bossZone)}
-          playerStats={characterStats}
-          charLevel={charLevel}
-          idleMode={idleMode}
-          selectedProfession={selectedProfession}
-          gatheringSkillLevel={gatheringSkillLevel}
-          zoneClears={totalZoneClears[bossZone.id] ?? 0}
-          zoneMasteryTier={zoneMasteryClaimed[bossZone.id] ?? 0}
-          isInvaded={!!getZoneInvasion(invasionState, bossZone.id, bossZone.band)}
-          invasionEndTime={getZoneInvasion(invasionState, bossZone.id, bossZone.band)?.endTime ?? 0}
-          onSelect={() => isZoneUnlocked(bossZone) && onSelectZone(bossZone.id)}
-        />
-      )}
     </div>
   );
 }
