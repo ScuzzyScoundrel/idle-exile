@@ -5,7 +5,7 @@
 
 import type { Item, CurrencyType, CraftResult, Affix, AffixTier, GearSlot, WeaponType, OffhandType, ArmorType } from '../types';
 import { SOCKETABLE_SLOTS } from '../types';
-import { rollAffixes, rollAffixValue, getAffixDef, classifyRarity, buildItemName, getBestTierForILvl } from './items';
+import { rollAffixes, rollAffixCount, rollAffixValue, getAffixDef, classifyRarity, buildItemName, getBestTierForILvl } from './items';
 import { getAffixesForSlot } from '../data/affixes';
 
 // --- Helpers ---
@@ -171,43 +171,42 @@ export function applyCurrency(item: Item, currency: CurrencyType): CraftResult {
     }
 
     // -----------------------------------------------------------------
-    // CHAOS: Remove one random affix, add one of the same slot type.
+    // CHAOS: Completely re-roll all affixes (2-6 mods), like PoE chaos.
+    // Respects item level for tier selection.
     // -----------------------------------------------------------------
     case 'chaos': {
-      const totalAffixes = item.prefixes.length + item.suffixes.length;
-      if (totalAffixes === 0) {
-        return { success: false, item, message: 'Item has no affixes to reroll.' };
-      }
-
       const newItem = cloneItem(item);
 
-      // Pick a random affix from combined list
-      const allAffixes: { affix: Affix; slot: 'prefix' | 'suffix'; index: number }[] = [];
-      newItem.prefixes.forEach((a, i) => allAffixes.push({ affix: a, slot: 'prefix', index: i }));
-      newItem.suffixes.forEach((a, i) => allAffixes.push({ affix: a, slot: 'suffix', index: i }));
+      // Wipe existing affixes
+      newItem.prefixes = [];
+      newItem.suffixes = [];
 
-      const picked = allAffixes[Math.floor(Math.random() * allAffixes.length)];
-
-      // Remove the picked affix
-      if (picked.slot === 'prefix') {
-        newItem.prefixes.splice(picked.index, 1);
-      } else {
-        newItem.suffixes.splice(picked.index, 1);
+      // Roll fresh affix count (2-6) and split into prefixes/suffixes (max 3 each)
+      const totalAffixes = rollAffixCount();
+      let prefixCount = Math.min(Math.floor(totalAffixes / 2), 3);
+      let suffixCount = Math.min(totalAffixes - prefixCount, 3);
+      if (prefixCount + suffixCount < totalAffixes) {
+        prefixCount = Math.min(totalAffixes - suffixCount, 3);
+      }
+      // Add some variance to prefix/suffix split
+      if (prefixCount > 1 && suffixCount < 3 && Math.random() < 0.5) {
+        prefixCount--;
+        suffixCount++;
+      } else if (suffixCount > 1 && prefixCount < 3 && Math.random() < 0.5) {
+        suffixCount--;
+        prefixCount++;
       }
 
-      // Add one random affix of the same slot type
-      const exclude = existingDefIds(newItem);
-      const replacement = rollAffixes(picked.slot, 1, item.iLvl, item.slot, item.weaponType, item.offhandType, exclude, item.armorType);
-      if (replacement.length > 0) {
-        if (picked.slot === 'prefix') {
-          newItem.prefixes.push(replacement[0]);
-        } else {
-          newItem.suffixes.push(replacement[0]);
-        }
-      }
+      // Roll new affixes respecting item level
+      const prefixes = rollAffixes('prefix', prefixCount, item.iLvl, item.slot, item.weaponType, item.offhandType, [], item.armorType);
+      const excludeIds = prefixes.map(a => a.defId);
+      const suffixes = rollAffixes('suffix', suffixCount, item.iLvl, item.slot, item.weaponType, item.offhandType, excludeIds, item.armorType);
+
+      newItem.prefixes = prefixes;
+      newItem.suffixes = suffixes;
 
       reclassify(newItem);
-      return { success: true, item: newItem, message: `Chaos rerolled a ${picked.slot}.` };
+      return { success: true, item: newItem, message: `Chaos rerolled all affixes (${prefixes.length + suffixes.length} mods).` };
     }
 
     // -----------------------------------------------------------------

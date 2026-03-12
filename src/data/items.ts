@@ -425,7 +425,7 @@ export function calcBagCapacity(bagSlots: string[]): number {
 
 export const CURRENCY_DEFS: CurrencyDef[] = [
   { id: 'augment', name: 'Augment Shard', description: 'Add one random affix to an item with open slots', icon: '\uD83D\uDFE2', rarity: 'common' },
-  { id: 'chaos', name: 'Chaos Shard', description: 'Remove one random affix and add one random affix', icon: '\uD83D\uDD34', rarity: 'uncommon' },
+  { id: 'chaos', name: 'Chaos Shard', description: 'Reroll all affixes (2-6 random mods)', icon: '\uD83D\uDD34', rarity: 'uncommon' },
   { id: 'divine', name: 'Divine Shard', description: 'Reroll values within existing affixes', icon: '\uD83D\uDFE0', rarity: 'uncommon' },
   { id: 'annul', name: 'Annul Shard', description: 'Remove one random affix (minimum 2 affixes)', icon: '\u26AB', rarity: 'uncommon' },
   { id: 'exalt', name: 'Exalt Shard', description: 'Add one high-tier affix (top 3 tiers for item level)', icon: '\uD83D\uDFE3', rarity: 'rare' },
