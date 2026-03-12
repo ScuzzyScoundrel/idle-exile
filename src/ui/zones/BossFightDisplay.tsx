@@ -1,12 +1,14 @@
-import type { ActiveDebuff } from '../../types';
+import type { ActiveDebuff, MobDamageElement } from '../../types';
 import DebuffBadge from './DebuffBadge';
+import { ELEMENT_ICONS, ELEMENT_COLORS, ELEMENT_LABELS } from './zoneConstants';
 
-export default function BossFightDisplay({ bossName, bossHp, bossMaxHp, playerHp, maxHp, startedAt, nextBossAttackAt, bossAtkIntervalMs, activeDebuffs, fortifyStacks, fortifyDR, playerEs, maxEs }: {
+export default function BossFightDisplay({ bossName, bossHp, bossMaxHp, playerHp, maxHp, startedAt, nextBossAttackAt, bossAtkIntervalMs, activeDebuffs, fortifyStacks, fortifyDR, playerEs, maxEs, bossDamageElement }: {
   bossName: string; bossHp: number; bossMaxHp: number;
   playerHp: number; maxHp: number; startedAt: number;
   nextBossAttackAt: number; bossAtkIntervalMs: number;
   activeDebuffs: ActiveDebuff[]; fortifyStacks: number; fortifyDR: number;
   playerEs?: number; maxEs?: number;
+  bossDamageElement?: MobDamageElement;
 }) {
   const bossPct = bossMaxHp > 0 ? Math.max(0, (bossHp / bossMaxHp) * 100) : 0;
   const elapsedSec = Math.max(0.1, (Date.now() - startedAt) / 1000);
@@ -22,7 +24,14 @@ export default function BossFightDisplay({ bossName, bossHp, bossMaxHp, playerHp
   return (
     <div className="bg-gradient-to-br from-red-950 via-gray-900 to-red-950 rounded-lg border-2 border-red-700 p-3 space-y-2">
       <div className="text-center text-red-400 font-bold text-xs uppercase tracking-wider">Boss Fight</div>
-      <div className="text-center text-white font-bold text-sm">{bossName}</div>
+      <div className="text-center text-white font-bold text-sm">
+        {bossName}
+        {bossDamageElement && bossDamageElement !== 'physical' && (
+          <span className={`ml-1 ${ELEMENT_COLORS[bossDamageElement]}`} title={`${ELEMENT_LABELS[bossDamageElement]} damage`}>
+            {ELEMENT_ICONS[bossDamageElement]}
+          </span>
+        )}
+      </div>
       {hasDebuffs && (
         <div className="flex flex-wrap justify-center gap-0.5">
           {activeDebuffs.map(d => <DebuffBadge key={d.debuffId} debuff={d} />)}

@@ -1,6 +1,6 @@
 import type { MobInPack, MobDrop } from '../../types';
 import DebuffBadge from './DebuffBadge';
-import { MOB_DROP_RARITY_COLOR } from './zoneConstants';
+import { MOB_DROP_RARITY_COLOR, ELEMENT_ICONS, ELEMENT_COLORS, ELEMENT_LABELS } from './zoneConstants';
 import { formatMatName } from './zoneHelpers';
 import { RARE_AFFIX_DEFS } from '../../data/rareAffixes';
 import { ZONE_ATTACK_INTERVAL } from '../../data/balance';
@@ -24,7 +24,14 @@ export default function MobDisplay({ mobName, mobs, bossIn, signatureDrop }: {
 
       {/* Header row */}
       <div className="flex justify-between text-xs mb-1">
-        <span className={`font-semibold ${hasAnyRare ? 'text-yellow-300' : 'text-gray-200'}`}>{displayName}</span>
+        <span className={`font-semibold ${hasAnyRare ? 'text-yellow-300' : 'text-gray-200'}`}>
+          {displayName}
+          {mobs[0]?.damageElement && mobs[0].damageElement !== 'physical' && (
+            <span className={`ml-1 ${ELEMENT_COLORS[mobs[0].damageElement]}`} title={`${ELEMENT_LABELS[mobs[0].damageElement]} damage`}>
+              {ELEMENT_ICONS[mobs[0].damageElement]}
+            </span>
+          )}
+        </span>
         <div className="flex items-center gap-2">
           {signatureDrop && (
             <span className={`${MOB_DROP_RARITY_COLOR[signatureDrop.rarity]} text-[10px]`}

@@ -462,6 +462,7 @@ export default function CombatPanel() {
           startedAt={bossState.startedAt}
           nextBossAttackAt={bossState.bossNextAttackAt}
           bossAtkIntervalMs={bossState.bossAttackInterval * 1000}
+          bossDamageElement={bossState.bossDamageElement}
           activeDebuffs={activeDebuffs}
           fortifyStacks={fortifyStacks}
           playerEs={currentEs}
