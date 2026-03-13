@@ -202,7 +202,7 @@ export function handleRehydrate(
         goldGained: 0,
         xpGained: 0,
         materials: accMaterials,
-        currencyDrops: { augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, greater_exalt: 0, perfect_exalt: 0, socket: 0 },
+        currencyDrops: { chaos: 0, divine: 0, annul: 0, exalt: 0, greater_exalt: 0, perfect_exalt: 0, socket: 0 },
         bagDrops: {},
         bestItem: null,
       };

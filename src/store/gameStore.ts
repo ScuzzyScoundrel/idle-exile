@@ -74,7 +74,6 @@ import {
 
 
 const INITIAL_CURRENCIES: Record<CurrencyType, number> = {
-  augment: 0,
   chaos: 0,
   divine: 0,
   annul: 0,
@@ -497,10 +496,10 @@ export const useGameStore = create<GameState & GameActions>()(
         // Currency rewards (simplified — no transmute/alchemy/regal)
         const currReward: Partial<Record<CurrencyType, number>> = {};
         if (RARITY_ORDER[item.rarity] >= RARITY_ORDER['rare']) {
-          if (Math.random() < 0.4) currReward.augment = 1;
+          if (Math.random() < 0.4) currReward.exalt = 1;
           if (Math.random() < 0.1) currReward.chaos = 1;
         } else if (RARITY_ORDER[item.rarity] >= RARITY_ORDER['uncommon']) {
-          if (Math.random() < 0.3) currReward.augment = 1;
+          if (Math.random() < 0.3) currReward.exalt = 1;
         }
 
         const newCurrencies = { ...state.currencies };
@@ -1000,7 +999,7 @@ export const useGameStore = create<GameState & GameActions>()(
           overflowCount: salvageStats.itemsSalvaged,
           dustGained: salvageStats.dustGained,
           bagDrops: {},
-          currencyDrops: { augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, greater_exalt: 0, perfect_exalt: 0, socket: 0 },
+          currencyDrops: { chaos: 0, divine: 0, annul: 0, exalt: 0, greater_exalt: 0, perfect_exalt: 0, socket: 0 },
           materialDrops: {},
           goldGained: bossAutoSoldGold,
           autoSoldCount: bossAutoSoldCount,
@@ -1260,7 +1259,7 @@ export const useGameStore = create<GameState & GameActions>()(
     })) as import('zustand').StateCreator<GameState & GameActions, [['zustand/persist', unknown]], []>,
     {
       name: 'idle-exile-save',
-      version: 55,
+      version: 56,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;

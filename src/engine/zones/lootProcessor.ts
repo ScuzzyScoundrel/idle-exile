@@ -262,7 +262,7 @@ export function processClears(
       overflowCount: salvageStats.itemsSalvaged,
       dustGained: salvageStats.dustGained,
       bagDrops: {},
-      currencyDrops: { augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, greater_exalt: 0, perfect_exalt: 0, socket: 0 },
+      currencyDrops: { chaos: 0, divine: 0, annul: 0, exalt: 0, greater_exalt: 0, perfect_exalt: 0, socket: 0 },
       materialDrops: accMaterials,
       rareMaterialDrops: accRareMaterials,
       goldGained: autoSoldGold,
@@ -279,7 +279,7 @@ export function processClears(
   let classRes = state.classResource;
 
   const allItems: Item[] = [];
-  const accCurrencies: Record<CurrencyType, number> = { augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, greater_exalt: 0, perfect_exalt: 0, socket: 0 };
+  const accCurrencies: Record<CurrencyType, number> = { chaos: 0, divine: 0, annul: 0, exalt: 0, greater_exalt: 0, perfect_exalt: 0, socket: 0 };
   const accMaterials: Record<string, number> = {};
   let accGold = 0;
   const accBagDrops: Record<string, number> = {};

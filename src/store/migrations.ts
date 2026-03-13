@@ -506,6 +506,15 @@ export function runMigrations(
     raw.zoneMasteryClaimed = claimed;
   }
 
+  if (version < 56) {
+    // v56: Remove augment currency — convert existing augments to exalts
+    const currencies = raw.currencies as Record<string, number> | undefined;
+    if (currencies && 'augment' in currencies) {
+      currencies.exalt = (currencies.exalt ?? 0) + (currencies.augment ?? 0);
+      delete currencies.augment;
+    }
+  }
+
   if (version < 55) {
     // v55: Socket gem system — add gemInventory
     raw.gemInventory = [];

@@ -126,42 +126,6 @@ function rollBiasedTierAffix(
 export function applyCurrency(item: Item, currency: CurrencyType): CraftResult {
   switch (currency) {
     // -----------------------------------------------------------------
-    // AUGMENT: Add 1 random affix to any item with <6 affixes
-    // -----------------------------------------------------------------
-    case 'augment': {
-      const canPrefix = item.prefixes.length < 3;
-      const canSuffix = item.suffixes.length < 3;
-      const totalAffixes = item.prefixes.length + item.suffixes.length;
-
-      if (totalAffixes >= 6 || (!canPrefix && !canSuffix)) {
-        return { success: false, item, message: 'Item has no open affix slots.' };
-      }
-
-      const newItem = cloneItem(item);
-      let addSlot: 'prefix' | 'suffix';
-      if (canPrefix && canSuffix) {
-        addSlot = Math.random() < 0.5 ? 'prefix' : 'suffix';
-      } else {
-        addSlot = canPrefix ? 'prefix' : 'suffix';
-      }
-
-      const exclude = existingDefIds(newItem);
-      const newAffixes = rollAffixes(addSlot, 1, item.iLvl, item.slot, item.weaponType, item.offhandType, exclude, item.armorType);
-      if (newAffixes.length === 0) {
-        return { success: false, item, message: 'No available affixes to add.' };
-      }
-
-      if (addSlot === 'prefix') {
-        newItem.prefixes.push(newAffixes[0]);
-      } else {
-        newItem.suffixes.push(newAffixes[0]);
-      }
-
-      reclassify(newItem);
-      return { success: true, item: newItem, message: `Added a ${addSlot} to the item.` };
-    }
-
-    // -----------------------------------------------------------------
     // CHAOS: Completely re-roll all affixes (2-6 mods), like PoE chaos.
     // Respects item level for tier selection.
     // -----------------------------------------------------------------
@@ -257,9 +221,43 @@ export function applyCurrency(item: Item, currency: CurrencyType): CraftResult {
     }
 
     // -----------------------------------------------------------------
-    // EXALT: Add one affix, biased toward high tiers (can still roll low)
+    // EXALT: Add one random affix (natural tier distribution)
     // -----------------------------------------------------------------
     case 'exalt': {
+      const canPrefix = item.prefixes.length < 3;
+      const canSuffix = item.suffixes.length < 3;
+      if (!canPrefix && !canSuffix) {
+        return { success: false, item, message: 'Item has no open affix slots.' };
+      }
+
+      const newItem = cloneItem(item);
+      let addSlot: 'prefix' | 'suffix';
+      if (canPrefix && canSuffix) {
+        addSlot = Math.random() < 0.5 ? 'prefix' : 'suffix';
+      } else {
+        addSlot = canPrefix ? 'prefix' : 'suffix';
+      }
+
+      const exclude = existingDefIds(newItem);
+      const newAffixes = rollAffixes(addSlot, 1, item.iLvl, item.slot, item.weaponType, item.offhandType, exclude, item.armorType);
+      if (newAffixes.length === 0) {
+        return { success: false, item, message: 'No available affixes to add.' };
+      }
+
+      if (addSlot === 'prefix') {
+        newItem.prefixes.push(newAffixes[0]);
+      } else {
+        newItem.suffixes.push(newAffixes[0]);
+      }
+
+      reclassify(newItem);
+      return { success: true, item: newItem, message: `Exalted a T${newAffixes[0].tier} ${addSlot}.` };
+    }
+
+    // -----------------------------------------------------------------
+    // GREATER EXALT: Add one affix, biased toward high tiers
+    // -----------------------------------------------------------------
+    case 'greater_exalt': {
       const canPrefix = item.prefixes.length < 3;
       const canSuffix = item.suffixes.length < 3;
       if (!canPrefix && !canSuffix) {
@@ -287,45 +285,11 @@ export function applyCurrency(item: Item, currency: CurrencyType): CraftResult {
       }
 
       reclassify(newItem);
-      return { success: true, item: newItem, message: `Exalted a T${newAffix.tier} ${addSlot}.` };
-    }
-
-    // -----------------------------------------------------------------
-    // GREATER EXALT: Add one affix, strongly biased toward high tiers
-    // -----------------------------------------------------------------
-    case 'greater_exalt': {
-      const canPrefix = item.prefixes.length < 3;
-      const canSuffix = item.suffixes.length < 3;
-      if (!canPrefix && !canSuffix) {
-        return { success: false, item, message: 'Item has no open affix slots.' };
-      }
-
-      const newItem = cloneItem(item);
-      let addSlot: 'prefix' | 'suffix';
-      if (canPrefix && canSuffix) {
-        addSlot = Math.random() < 0.5 ? 'prefix' : 'suffix';
-      } else {
-        addSlot = canPrefix ? 'prefix' : 'suffix';
-      }
-
-      const exclude = existingDefIds(newItem);
-      const newAffix = rollBiasedTierAffix(addSlot, item.iLvl, item.slot, item.weaponType, item.offhandType, exclude, 8, item.armorType);
-      if (!newAffix) {
-        return { success: false, item, message: 'No available affixes to add.' };
-      }
-
-      if (addSlot === 'prefix') {
-        newItem.prefixes.push(newAffix);
-      } else {
-        newItem.suffixes.push(newAffix);
-      }
-
-      reclassify(newItem);
       return { success: true, item: newItem, message: `Greater Exalted a T${newAffix.tier} ${addSlot}.` };
     }
 
     // -----------------------------------------------------------------
-    // PERFECT EXALT: Add one affix, massive T1 bias but any tier possible
+    // PERFECT EXALT: Add one affix, strongly biased toward top tiers
     // -----------------------------------------------------------------
     case 'perfect_exalt': {
       const canPrefix = item.prefixes.length < 3;
@@ -343,7 +307,7 @@ export function applyCurrency(item: Item, currency: CurrencyType): CraftResult {
       }
 
       const exclude = existingDefIds(newItem);
-      const newAffix = rollBiasedTierAffix(addSlot, item.iLvl, item.slot, item.weaponType, item.offhandType, exclude, 20, item.armorType);
+      const newAffix = rollBiasedTierAffix(addSlot, item.iLvl, item.slot, item.weaponType, item.offhandType, exclude, 12, item.armorType);
       if (!newAffix) {
         return { success: false, item, message: 'No available affixes to add.' };
       }

@@ -123,9 +123,9 @@ export function generateDailyQuests(
 function buildReward(gold: number, xp: number, band: number): QuestReward {
   const reward: QuestReward = { gold, xp };
 
-  // Band 3+ quests also award augment orbs
+  // Band 3+ quests also award exalt shards
   if (band >= 3) {
-    reward.currencies = { augment: band >= 5 ? 3 : 2 };
+    reward.currencies = { exalt: band >= 5 ? 3 : 2 };
   }
 
   // Band 5+ add chaos orbs

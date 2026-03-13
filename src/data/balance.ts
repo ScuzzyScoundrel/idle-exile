@@ -26,13 +26,12 @@ export const COMBAT_MATERIAL_DROP_MAX = 2;
 
 /** Per-clear probability for each currency type. */
 export const CURRENCY_DROP_CHANCES: Record<CurrencyType, number> = {
-  augment:        0.02,
   chaos:          0.018,
   divine:         0.008,
   annul:          0.008,
-  exalt:          0.005,
-  greater_exalt:  0.0007,
-  perfect_exalt:  0.0001,
+  exalt:          0.02,
+  greater_exalt:  0.005,
+  perfect_exalt:  0.0007,
   socket:         0.012,
 };
 

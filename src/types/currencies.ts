@@ -5,7 +5,6 @@
 import type { Item } from './items';
 
 export type CurrencyType =
-  | 'augment'
   | 'chaos'
   | 'divine'
   | 'annul'
