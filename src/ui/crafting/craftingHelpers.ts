@@ -5,7 +5,8 @@ import { getRareMaterialDef } from '../../data/rareMaterials';
 import { CATALYST_RARITY_MAP, CATALYST_BEST_TIER } from '../../data/balance';
 import { ZONE_DEFS } from '../../data/zones';
 import { ITEM_BASE_DEFS } from '../../data/items';
-import type { CraftingRecipeDef, RefinementTrack } from '../../types';
+import { CRAFTING_RECIPES } from '../../data/craftingRecipes';
+import type { CraftingProfession, CraftingRecipeDef, RefinementTrack } from '../../types';
 
 // Build track lookups from refinement recipes (static, computed once)
 export const rawToTrack = new Map<string, RefinementTrack>();
@@ -90,4 +91,104 @@ export function getCategoryForRecipe(recipe: CraftingRecipeDef): string {
   if (recipe.profession === 'weaponsmith' && base.weaponType) return base.weaponType;
   if (recipe.profession === 'weaponsmith' && base.slot === 'offhand') return 'offhand';
   return base.slot;
+}
+
+// ---------------------------------------------------------------------------
+// Workbench helpers — slot→recipe mapping, profession lookup, inline refine
+// ---------------------------------------------------------------------------
+
+/** Canonical slot keys used by the workbench SlotPicker.
+ *  Weapon types are split out from the generic 'mainhand' GearSlot so the
+ *  picker can show individual weapon buttons (Sword, Dagger, Bow, etc.).
+ *  Accessories that share a GearSlot (ring1/ring2, trinket1/trinket2) are
+ *  collapsed to a single key.  'catalyst' covers alchemist output recipes. */
+export type WorkbenchSlot =
+  // Weapons (split by weaponType)
+  | 'sword' | 'axe' | 'mace' | 'dagger' | 'bow' | 'crossbow' | 'wand' | 'staff'
+  // Offhand (split by offhandType)
+  | 'shield'
+  // Defense
+  | 'helmet' | 'chest' | 'shoulders' | 'gloves' | 'pants' | 'boots' | 'cloak'
+  // Accessories
+  | 'ring' | 'amulet' | 'belt' | 'trinket'
+  // Other
+  | 'catalyst';
+
+/** Map a CraftingRecipeDef to its WorkbenchSlot key. */
+export function getWorkbenchSlot(recipe: CraftingRecipeDef): WorkbenchSlot {
+  if (recipe.outputMaterialId) return 'catalyst';
+  if (recipe.isGatheringGear || recipe.isProfessionGear) return 'catalyst'; // profession gear goes in "Other"
+  const base = ITEM_BASE_DEFS.find(b => b.id === recipe.outputBaseId);
+  if (!base) return 'catalyst';
+  // Weapons: use weaponType for fine-grained picker
+  if (base.weaponType) return base.weaponType as WorkbenchSlot;
+  // Offhand: only shields are craftable for now
+  if (base.slot === 'offhand') return 'shield';
+  // Accessories: collapse ring1/ring2 → ring, trinket1/trinket2 → trinket
+  if (base.slot === 'ring1' || base.slot === 'ring2') return 'ring';
+  if (base.slot === 'trinket1' || base.slot === 'trinket2') return 'trinket';
+  if (base.slot === 'neck') return 'amulet';
+  return base.slot as WorkbenchSlot;
+}
+
+// Pre-built slot→recipes map (computed once at import time)
+const _slotRecipeMap = new Map<WorkbenchSlot, CraftingRecipeDef[]>();
+for (const r of CRAFTING_RECIPES) {
+  const slot = getWorkbenchSlot(r);
+  let list = _slotRecipeMap.get(slot);
+  if (!list) {
+    list = [];
+    _slotRecipeMap.set(slot, list);
+  }
+  list.push(r);
+}
+
+/** Get all recipes grouped by WorkbenchSlot. Computed once, returns cached map. */
+export function getRecipesBySlot(): Map<WorkbenchSlot, CraftingRecipeDef[]> {
+  return _slotRecipeMap;
+}
+
+// Pre-built slot→profession(s) map
+const _slotProfessionMap = new Map<WorkbenchSlot, CraftingProfession>();
+for (const [slot, recipes] of _slotRecipeMap) {
+  // Use the first recipe's profession — each slot is handled by exactly one profession
+  if (recipes.length > 0) _slotProfessionMap.set(slot, recipes[0].profession);
+}
+
+/** Get the primary crafting profession for a given workbench slot. */
+export function getProfessionForSlot(slot: WorkbenchSlot): CraftingProfession {
+  return _slotProfessionMap.get(slot) ?? 'weaponsmith';
+}
+
+// Pre-built refined→refinement recipe lookup (outputId → recipe)
+const _refinedToRecipe = new Map<string, typeof REFINEMENT_RECIPES[number]>();
+for (const r of REFINEMENT_RECIPES) {
+  _refinedToRecipe.set(r.outputId, r);
+}
+
+/** Check if a material can be refined inline and return the info needed. */
+export function getInlineRefineInfo(
+  materialId: string,
+  playerMaterials: Record<string, number>,
+): {
+  canRefine: boolean;
+  rawMaterialId: string;
+  rawHave: number;
+  rawNeed: number;
+  recipeId: string;
+} | null {
+  // Only refined materials have an inline refine button
+  const recipe = _refinedToRecipe.get(materialId);
+  if (!recipe) return null;
+
+  const rawHave = playerMaterials[recipe.rawMaterialId] ?? 0;
+  const rawNeed = recipe.rawAmount;
+
+  return {
+    canRefine: rawHave >= rawNeed,
+    rawMaterialId: recipe.rawMaterialId,
+    rawHave,
+    rawNeed,
+    recipeId: recipe.id,
+  };
 }
