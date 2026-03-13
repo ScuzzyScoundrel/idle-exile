@@ -12,6 +12,15 @@ import type { ClassResourceState } from './character';
 import type { OfflineProgressSummary } from './zones';
 import type { DailyQuestState } from './quests';
 
+export interface BankTab {
+  label: string;              // "Tab 1", "Tab 2", etc.
+  items: (Item | null)[];     // fixed-length array of BANK_TAB_CAPACITY slots
+}
+
+export interface BankState {
+  tabs: BankTab[];            // starts empty [], max BANK_MAX_TABS
+}
+
 export interface GameState {
   character: Character;
   inventory: Item[];
@@ -22,6 +31,9 @@ export interface GameState {
   // Bag system
   bagSlots: string[];                    // exactly 5 bag def IDs
   bagStash: Record<string, number>;      // collected but unequipped bags
+
+  // Bank system
+  bank: BankState;
 
   // Idle state
   currentZoneId: string | null;

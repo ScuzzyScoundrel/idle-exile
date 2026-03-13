@@ -7,7 +7,7 @@
  * UI components import actions from here, state from gameStore.
  */
 import { create } from 'zustand';
-import type { CurrencyType, GearSlot } from '../types';
+import type { CurrencyType, GearSlot, BankTab } from '../types';
 import { useGameStore } from './gameStore';
 import { addXp, resolveStats } from '../engine/character';
 import { getBagDef, BAG_SLOT_COUNT } from '../data/items';
@@ -20,6 +20,9 @@ import {
 import {
   updateQuestProgressForClears, updateQuestProgressForBossKill,
 } from '../engine/dailyQuests';
+import {
+  BANK_TAB_CAPACITY, BANK_MAX_TABS, getBankTabCost,
+} from '../data/balance';
 
 interface UiActions {
   // Offline progress
@@ -37,6 +40,11 @@ interface UiActions {
   // Profession gear
   equipProfessionGear: (itemId: string) => void;
   unequipProfessionSlot: (slot: GearSlot) => void;
+
+  // Bank
+  buyBankTab: () => boolean;
+  depositItem: (itemId: string, tabIndex: number) => boolean;
+  withdrawItem: (tabIndex: number, slotIndex: number) => boolean;
 }
 
 export const useUiStore = create<UiActions>()(() => ({
@@ -248,6 +256,88 @@ export const useUiStore = create<UiActions>()(() => ({
       inventory: [...state.inventory, item],
       professionEquipment: newEquip,
     });
+  },
+
+  // ─── Bank ────────────────────────────────────────────────────
+
+  buyBankTab: () => {
+    const state = useGameStore.getState();
+    const tabCount = state.bank.tabs.length;
+    if (tabCount >= BANK_MAX_TABS) return false;
+    const cost = getBankTabCost(tabCount);
+    if (state.gold < cost) return false;
+    const newTab: BankTab = {
+      label: `Tab ${tabCount + 1}`,
+      items: Array(BANK_TAB_CAPACITY).fill(null),
+    };
+    useGameStore.setState({
+      gold: state.gold - cost,
+      bank: { tabs: [...state.bank.tabs, newTab] },
+    });
+    return true;
+  },
+
+  depositItem: (itemId: string, tabIndex: number) => {
+    const state = useGameStore.getState();
+    const { bank, inventory } = state;
+    if (tabIndex < 0 || tabIndex >= bank.tabs.length) return false;
+
+    // Find item in inventory (not equipped)
+    const itemIdx = inventory.findIndex(i => i.id === itemId);
+    if (itemIdx === -1) return false;
+    const item = inventory[itemIdx];
+
+    // Find first empty slot in target tab, fallback to other tabs
+    let targetTab = tabIndex;
+    let slotIdx = bank.tabs[targetTab].items.indexOf(null);
+    if (slotIdx === -1) {
+      // Try other tabs
+      for (let t = 0; t < bank.tabs.length; t++) {
+        if (t === tabIndex) continue;
+        const s = bank.tabs[t].items.indexOf(null);
+        if (s !== -1) { targetTab = t; slotIdx = s; break; }
+      }
+    }
+    if (slotIdx === -1) return false; // All tabs full
+
+    const newTabs = bank.tabs.map((tab, i) => {
+      if (i !== targetTab) return tab;
+      const newItems = [...tab.items];
+      newItems[slotIdx] = item;
+      return { ...tab, items: newItems };
+    });
+
+    useGameStore.setState({
+      inventory: inventory.filter((_, i) => i !== itemIdx),
+      bank: { tabs: newTabs },
+    });
+    return true;
+  },
+
+  withdrawItem: (tabIndex: number, slotIndex: number) => {
+    const state = useGameStore.getState();
+    const { bank, inventory } = state;
+    if (tabIndex < 0 || tabIndex >= bank.tabs.length) return false;
+    const tab = bank.tabs[tabIndex];
+    if (slotIndex < 0 || slotIndex >= tab.items.length) return false;
+    const item = tab.items[slotIndex];
+    if (!item) return false;
+
+    // Check bag capacity
+    if (inventory.length >= getInventoryCapacity(state)) return false;
+
+    const newTabs = bank.tabs.map((t, i) => {
+      if (i !== tabIndex) return t;
+      const newItems = [...t.items];
+      newItems[slotIndex] = null;
+      return { ...t, items: newItems };
+    });
+
+    useGameStore.setState({
+      inventory: [...inventory, item],
+      bank: { tabs: newTabs },
+    });
+    return true;
   },
 
 }));

@@ -6,6 +6,24 @@
 import type { CurrencyType, AffixTier, ResolvedStats, RareMaterialRarity, Rarity, GemTier } from '../types';
 
 // =============================================
+// BANK
+// =============================================
+
+/** Number of item slots per bank tab. */
+export const BANK_TAB_CAPACITY = 20;
+/** Maximum number of purchasable bank tabs. */
+export const BANK_MAX_TABS = 10;
+/** Gold cost of the first bank tab (doubles each tab). */
+export const BANK_TAB_BASE_COST = 500;
+/** Exponential cost multiplier per tab. */
+export const BANK_TAB_COST_MULT = 2;
+
+/** Gold cost to buy the next bank tab (0-indexed tabCount = tabs already owned). */
+export function getBankTabCost(tabCount: number): number {
+  return BANK_TAB_BASE_COST * Math.pow(BANK_TAB_COST_MULT, tabCount);
+}
+
+// =============================================
 // LOOT & DROP RATES
 // =============================================
 

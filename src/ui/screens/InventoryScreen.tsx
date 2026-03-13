@@ -10,6 +10,8 @@ import { CraftIcon } from '../craftIcon';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { getGemDef, GEM_TIER_NAMES, GEM_TIER_COLORS } from '../../data/gems';
 import GemPanel from '../components/GemPanel';
+import BankPanel from '../components/BankPanel';
+import { useUiStore } from '../../store/uiStore';
 
 const SLOT_ORDER: GearSlot[] = DROPPABLE_SLOTS;
 
@@ -133,8 +135,9 @@ export default function InventoryScreen() {
     equipItem, unequipSlot, disenchantItem, sellItem, craft,
     autoSalvageMinRarity, setAutoSalvageRarity,
     autoDisposalAction, setAutoDisposalAction,
-    tutorialStep,
+    tutorialStep, bank,
   } = useGameStore();
+  const { depositItem, withdrawItem } = useUiStore();
   const isMobile = useIsMobile();
   const inventoryCapacity = calcBagCapacity(bagSlots);
   const detailRef = useRef<HTMLDivElement>(null);
@@ -148,6 +151,8 @@ export default function InventoryScreen() {
   const [equippedOpen, setEquippedOpen] = useState(true);
   const [bagsExpanded, setBagsExpanded] = useState(false);
   const [currencyTip, setCurrencyTip] = useState<CurrencyType | null>(null);
+  const [activeBankTab, setActiveBankTab] = useState(0);
+  const [selectedBankSlot, setSelectedBankSlot] = useState<{ item: Item; tabIndex: number; slotIndex: number } | null>(null);
 
   const [tooltip, setTooltip] = useState<{ item: Item; slot: GearSlot; x: number; y: number; rectHeight: number } | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -370,6 +375,7 @@ export default function InventoryScreen() {
   };
 
   const handleItemTileClick = (item: Item) => {
+    setSelectedBankSlot(null);
     if (selectedCurrency) {
       handleCraft(item);
     } else {
@@ -531,6 +537,18 @@ export default function InventoryScreen() {
                 >
                   {calcSellValue(selectedItem)}g
                 </button>
+                {bank.tabs.length > 0 && (
+                  <button
+                    onClick={() => {
+                      depositItem(selectedItem.id, activeBankTab);
+                      setSelectedItem(null);
+                    }}
+                    className="py-2 px-3 bg-cyan-800 hover:bg-cyan-700 text-cyan-200 text-sm rounded-lg font-semibold"
+                    title="Deposit to bank"
+                  >
+                    Bank
+                  </button>
+                )}
                 <button
                   onClick={() => handleDisenchant(selectedItem)}
                   className="flex-1 py-2 bg-red-900 hover:bg-red-800 text-red-300 text-sm rounded-lg font-semibold"
@@ -941,8 +959,50 @@ export default function InventoryScreen() {
         ))}
       </div>
 
+      {/* Bank */}
+      <BankPanel
+        onSelectBankItem={(item, tabIndex, slotIndex) => {
+          setSelectedItem(null);
+          setSelectedCurrency(null);
+          setSelectedBankSlot({ item, tabIndex, slotIndex });
+        }}
+        selectedBankSlot={selectedBankSlot}
+        activeBankTab={activeBankTab}
+        setActiveBankTab={setActiveBankTab}
+      />
+
+      {/* Bank item detail panel */}
+      {!isMobile && selectedBankSlot && (
+        <div className="mt-2 bg-gray-800/60 rounded-lg p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <ItemIcon item={selectedBankSlot.item} size="lg" />
+            <div>
+              <div className="font-bold text-white text-sm">{selectedBankSlot.item.name}</div>
+              <div className="text-xs text-gray-400">iLvl {selectedBankSlot.item.iLvl} &middot; {selectedBankSlot.item.rarity}</div>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                const ok = withdrawItem(selectedBankSlot.tabIndex, selectedBankSlot.slotIndex);
+                if (ok) setSelectedBankSlot(null);
+              }}
+              className="flex-1 py-2 bg-cyan-800 hover:bg-cyan-700 text-cyan-200 text-sm rounded-lg font-semibold"
+            >
+              Withdraw
+            </button>
+            <button
+              onClick={() => setSelectedBankSlot(null)}
+              className="py-2 px-3 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded-lg"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Inline detail panel below grid (desktop only) */}
-      {!isMobile && selectedItem && renderDetailPanel()}
+      {!isMobile && selectedItem && !selectedBankSlot && renderDetailPanel()}
     </div>
   );
 
@@ -963,6 +1023,43 @@ export default function InventoryScreen() {
         {renderEquippedGear()}
         {renderLootColumn()}
       </div>
+
+      {/* Mobile bottom sheet overlay — bank item */}
+      {isMobile && selectedBankSlot && (
+        <div className="lg:hidden fixed inset-x-0 bottom-0 z-[9998] flex flex-col max-h-[60vh]">
+          <div
+            className="fixed inset-0 bg-black/40"
+            onClick={() => setSelectedBankSlot(null)}
+          />
+          <div className="relative bg-gray-900 border-t border-gray-600 rounded-t-2xl overflow-y-auto p-3 shadow-2xl">
+            <div className="w-10 h-1 bg-gray-600 rounded-full mx-auto mb-2" />
+            <div className="flex items-center gap-2 mb-2">
+              <ItemIcon item={selectedBankSlot.item} size="lg" />
+              <div>
+                <div className="font-bold text-white text-sm">{selectedBankSlot.item.name}</div>
+                <div className="text-xs text-gray-400">iLvl {selectedBankSlot.item.iLvl} &middot; {selectedBankSlot.item.rarity}</div>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  const ok = withdrawItem(selectedBankSlot.tabIndex, selectedBankSlot.slotIndex);
+                  if (ok) setSelectedBankSlot(null);
+                }}
+                className="flex-1 py-2 bg-cyan-800 hover:bg-cyan-700 text-cyan-200 text-sm rounded-lg font-semibold"
+              >
+                Withdraw
+              </button>
+              <button
+                onClick={() => setSelectedBankSlot(null)}
+                className="py-2 px-3 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded-lg"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Mobile bottom sheet overlay */}
       {isMobile && selectedItem && (

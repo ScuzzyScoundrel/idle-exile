@@ -703,6 +703,11 @@ export function runMigrations(
     raw.ownedPatterns = [];
   }
 
+  if (version < 57) {
+    // v57: Bank system — purchasable item stash tabs
+    raw.bank = { tabs: [] };
+  }
+
   if (version < 37) {
     // v37: All-weapon skill-tree rollout (compact 16-node trees).
     // Reset allocatedNodes for all skills with new graph trees.
