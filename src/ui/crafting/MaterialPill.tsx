@@ -1,4 +1,5 @@
 import Tooltip from '../components/Tooltip';
+import { CraftIcon, resolveMaterialIcon } from '../craftIcon';
 import { formatMatName, getMatTooltip, getMatIcon } from './craftingHelpers';
 
 interface MaterialPillProps {
@@ -19,16 +20,23 @@ export default function MaterialPill({ materialId, have, need, variant = 'defaul
     colorClass = met ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400';
   }
 
-  const icon = variant === 'gold' ? '\uD83D\uDCB0' : getMatIcon(materialId);
   const displayName = variant === 'gold' ? `${need}` : formatMatName(materialId);
   const tooltipText = variant === 'gold' ? 'Gold cost' : (getMatTooltip(materialId) ?? displayName);
 
+  // Resolve icon: use CraftIcon (webp with emoji fallback) for materials, emoji for gold
+  const resolved = variant === 'gold' ? null : resolveMaterialIcon(materialId);
+  const iconElement = variant === 'gold'
+    ? <span>{'\uD83D\uDCB0'}</span>
+    : resolved
+      ? <CraftIcon category={resolved.category} id={materialId} fallback={resolved.emoji} size="sm" className="inline-block -my-0.5" />
+      : <span>{getMatIcon(materialId)}</span>;
+
   const pill = (
     <span
-      className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs cursor-help ${colorClass} ${onMaterialClick ? 'hover:ring-1 hover:ring-white/30' : ''}`}
+      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs cursor-help ${colorClass} ${onMaterialClick ? 'hover:ring-1 hover:ring-white/30' : ''}`}
       onClick={onMaterialClick ? (e) => { e.stopPropagation(); onMaterialClick(materialId); } : undefined}
     >
-      {icon} {variant === 'gold' ? null : <>{displayName} </>}{have}/{need}
+      {iconElement} {variant === 'gold' ? null : <>{displayName} </>}{have}/{need}
     </span>
   );
 
