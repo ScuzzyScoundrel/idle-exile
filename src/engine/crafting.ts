@@ -5,8 +5,9 @@
 
 import type { Item, CurrencyType, CraftResult, Affix, AffixTier, GearSlot, WeaponType, OffhandType, ArmorType } from '../types';
 import { SOCKETABLE_SLOTS } from '../types';
-import { rollAffixes, rollAffixCount, rollAffixValue, getAffixDef, classifyRarity, buildItemName, getBestTierForILvl } from './items';
+import { rollAffixes, rollAffixCount, rollAffixValue, getAffixDef, classifyRarity, buildItemName, getWeightedTiers } from './items';
 import { getAffixesForSlot } from '../data/affixes';
+import { AFFIX_TIER_FLOOR_BY_ILVL } from '../data/balance';
 
 // --- Helpers ---
 
@@ -61,65 +62,55 @@ function pickRandomAffixDef(
 }
 
 /**
- * Roll a single affix from the top N realistic tiers for the item's iLvl.
- * topN=3: Exalt (15% best, 35% 2nd, 50% 3rd)
- * topN=2: Greater Exalt (40% best, 60% 2nd)
+ * Roll a single affix with a biased tier distribution.
+ * Uses the natural iLvl-weighted tier curve but applies a power-law bias
+ * that shifts weight toward better (lower-numbered) tiers.
+ *   bias=1  → natural distribution (Augment)
+ *   bias=3  → moderate high-tier bias (Exalt)
+ *   bias=8  → strong high-tier bias (Greater Exalt)
+ *   bias=20 → massive T1 bias but can still hit T10 (Perfect Exalt)
+ * All tiers remain possible — nothing is hard-capped.
  */
-function rollForcedHighTierAffix(
+function rollBiasedTierAffix(
   slot: 'prefix' | 'suffix',
   iLvl: number,
   gearSlot: GearSlot,
   weaponType?: WeaponType,
   offhandType?: OffhandType,
   exclude: string[] = [],
-  topN: 2 | 3 = 3,
+  bias: number = 1,
   armorType?: ArmorType,
 ): Affix | null {
   const chosen = pickRandomAffixDef(slot, gearSlot, weaponType, offhandType, exclude, armorType);
   if (!chosen) return null;
 
-  const bestTier = getBestTierForILvl(iLvl);
-  const tiers: AffixTier[] = [];
-  for (let t = bestTier; t <= 10 && tiers.length < topN; t++) {
-    tiers.push(t as AffixTier);
+  const weights = getWeightedTiers(iLvl);
+
+  // Apply hard floor (same as rollAffixTier)
+  let minTier = 1;
+  for (const [maxILvl, floor] of AFFIX_TIER_FLOOR_BY_ILVL) {
+    if (iLvl <= maxILvl) { minTier = floor; break; }
   }
 
-  let tier: AffixTier;
-  if (tiers.length === 1) {
-    tier = tiers[0];
-  } else if (topN === 2 || tiers.length === 2) {
-    // Greater Exalt: 40% best, 60% second-best
-    tier = Math.random() < 0.40 ? tiers[0] : tiers[1];
-  } else {
-    // Exalt: 15% best, 35% second-best, 50% third-best
-    const tierRoll = Math.random();
-    if (tierRoll < 0.15) tier = tiers[0];
-    else if (tierRoll < 0.50) tier = tiers[1];
-    else tier = tiers[2];
+  // Build biased weights: multiply each tier's weight by (11 - tier)^bias
+  // This makes T1 dramatically more likely at high bias values
+  const entries: { tier: AffixTier; weight: number }[] = [];
+  for (let i = 1; i <= 10; i++) {
+    const tier = i as AffixTier;
+    const baseWeight = tier < minTier ? 0 : weights[tier];
+    // (11 - tier) gives T1=10, T2=9, ... T10=1, then raise to bias power
+    const biasMultiplier = Math.pow(11 - tier, bias);
+    entries.push({ tier, weight: baseWeight * biasMultiplier });
   }
 
-  const tierData = chosen.tiers[tier];
-  const value = rollAffixValue(tierData.min, tierData.max);
-  return { defId: chosen.id, tier, value };
-}
+  const totalWeight = entries.reduce((sum, e) => sum + e.weight, 0);
+  let roll = Math.random() * totalWeight;
+  let tier: AffixTier = 10 as AffixTier;
+  for (const entry of entries) {
+    roll -= entry.weight;
+    if (roll <= 0) { tier = entry.tier; break; }
+  }
 
-/**
- * Roll a single affix at the best tier for the item's iLvl.
- * Low-iLvl items get their best realistic tier, not guaranteed T1.
- */
-function rollPerfectAffix(
-  slot: 'prefix' | 'suffix',
-  iLvl: number,
-  gearSlot: GearSlot,
-  weaponType?: WeaponType,
-  offhandType?: OffhandType,
-  exclude: string[] = [],
-  armorType?: ArmorType,
-): Affix | null {
-  const chosen = pickRandomAffixDef(slot, gearSlot, weaponType, offhandType, exclude, armorType);
-  if (!chosen) return null;
-
-  const tier = getBestTierForILvl(iLvl);
   const tierData = chosen.tiers[tier];
   const value = rollAffixValue(tierData.min, tierData.max);
   return { defId: chosen.id, tier, value };
@@ -266,7 +257,7 @@ export function applyCurrency(item: Item, currency: CurrencyType): CraftResult {
     }
 
     // -----------------------------------------------------------------
-    // EXALT: Add one random affix guaranteed T1-T3.
+    // EXALT: Add one affix, biased toward high tiers (can still roll low)
     // -----------------------------------------------------------------
     case 'exalt': {
       const canPrefix = item.prefixes.length < 3;
@@ -276,7 +267,6 @@ export function applyCurrency(item: Item, currency: CurrencyType): CraftResult {
       }
 
       const newItem = cloneItem(item);
-
       let addSlot: 'prefix' | 'suffix';
       if (canPrefix && canSuffix) {
         addSlot = Math.random() < 0.5 ? 'prefix' : 'suffix';
@@ -285,7 +275,7 @@ export function applyCurrency(item: Item, currency: CurrencyType): CraftResult {
       }
 
       const exclude = existingDefIds(newItem);
-      const newAffix = rollForcedHighTierAffix(addSlot, item.iLvl, item.slot, item.weaponType, item.offhandType, exclude, 3, item.armorType);
+      const newAffix = rollBiasedTierAffix(addSlot, item.iLvl, item.slot, item.weaponType, item.offhandType, exclude, 3, item.armorType);
       if (!newAffix) {
         return { success: false, item, message: 'No available affixes to add.' };
       }
@@ -301,7 +291,7 @@ export function applyCurrency(item: Item, currency: CurrencyType): CraftResult {
     }
 
     // -----------------------------------------------------------------
-    // GREATER EXALT: Add one affix from top 2 tiers (40/60 weight)
+    // GREATER EXALT: Add one affix, strongly biased toward high tiers
     // -----------------------------------------------------------------
     case 'greater_exalt': {
       const canPrefix = item.prefixes.length < 3;
@@ -319,7 +309,7 @@ export function applyCurrency(item: Item, currency: CurrencyType): CraftResult {
       }
 
       const exclude = existingDefIds(newItem);
-      const newAffix = rollForcedHighTierAffix(addSlot, item.iLvl, item.slot, item.weaponType, item.offhandType, exclude, 2, item.armorType);
+      const newAffix = rollBiasedTierAffix(addSlot, item.iLvl, item.slot, item.weaponType, item.offhandType, exclude, 8, item.armorType);
       if (!newAffix) {
         return { success: false, item, message: 'No available affixes to add.' };
       }
@@ -335,7 +325,7 @@ export function applyCurrency(item: Item, currency: CurrencyType): CraftResult {
     }
 
     // -----------------------------------------------------------------
-    // PERFECT EXALT: Add one guaranteed T1 affix
+    // PERFECT EXALT: Add one affix, massive T1 bias but any tier possible
     // -----------------------------------------------------------------
     case 'perfect_exalt': {
       const canPrefix = item.prefixes.length < 3;
@@ -353,7 +343,7 @@ export function applyCurrency(item: Item, currency: CurrencyType): CraftResult {
       }
 
       const exclude = existingDefIds(newItem);
-      const newAffix = rollPerfectAffix(addSlot, item.iLvl, item.slot, item.weaponType, item.offhandType, exclude, item.armorType);
+      const newAffix = rollBiasedTierAffix(addSlot, item.iLvl, item.slot, item.weaponType, item.offhandType, exclude, 20, item.armorType);
       if (!newAffix) {
         return { success: false, item, message: 'No available affixes to add.' };
       }
