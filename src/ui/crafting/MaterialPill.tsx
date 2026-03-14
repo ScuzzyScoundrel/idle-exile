@@ -28,7 +28,7 @@ export default function MaterialPill({ materialId, have, need, variant = 'defaul
   const iconElement = variant === 'gold'
     ? <span>{'\uD83D\uDCB0'}</span>
     : resolved
-      ? <CraftIcon category={resolved.category} id={materialId} fallback={resolved.emoji} size="sm" className="inline-block -my-0.5" />
+      ? <CraftIcon category={resolved.category} id={materialId} fallback={resolved.emoji} size="md" className="inline-block -my-1" />
       : <span>{getMatIcon(materialId)}</span>;
 
   const pill = (

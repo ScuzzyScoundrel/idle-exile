@@ -25,36 +25,36 @@ const GROUPS: SlotGroup[] = [
   {
     label: 'Weapons',
     slots: [
-      { key: 'sword',    gearIcon: 'sword',    emoji: '\u2694\uFE0F',       name: 'Sword' },
-      { key: 'dagger',   gearIcon: 'dagger',   emoji: '\uD83D\uDDE1\uFE0F', name: 'Dagger' },
-      { key: 'axe',      gearIcon: 'axe',      emoji: '\uD83E\uDE93',       name: 'Axe' },
-      { key: 'mace',     gearIcon: 'mace',     emoji: '\uD83D\uDD28',       name: 'Mace' },
-      { key: 'bow',      gearIcon: 'bow',      emoji: '\uD83C\uDFF9',       name: 'Bow' },
-      { key: 'crossbow', gearIcon: 'crossbow', emoji: '\uD83C\uDFAF',       name: 'Xbow' },
-      { key: 'wand',     gearIcon: 'wand',     emoji: '\uD83E\uDE84',       name: 'Wand' },
-      { key: 'staff',    gearIcon: 'staff',    emoji: '\uD83D\uDCD6',       name: 'Staff' },
+      { key: 'sword',    gearIcon: 'sword_t3',    emoji: '\u2694\uFE0F',       name: 'Sword' },
+      { key: 'dagger',   gearIcon: 'dagger_t3',   emoji: '\uD83D\uDDE1\uFE0F', name: 'Dagger' },
+      { key: 'axe',      gearIcon: 'axe_t3',      emoji: '\uD83E\uDE93',       name: 'Axe' },
+      { key: 'mace',     gearIcon: 'mace_t3',     emoji: '\uD83D\uDD28',       name: 'Mace' },
+      { key: 'bow',      gearIcon: 'bow_t3',      emoji: '\uD83C\uDFF9',       name: 'Bow' },
+      { key: 'crossbow', gearIcon: 'crossbow_t3', emoji: '\uD83C\uDFAF',       name: 'Xbow' },
+      { key: 'wand',     gearIcon: 'wand_t3',     emoji: '\uD83E\uDE84',       name: 'Wand' },
+      { key: 'staff',    gearIcon: 'staff_t3',    emoji: '\uD83D\uDCD6',       name: 'Staff' },
     ],
   },
   {
     label: 'Defense',
     slots: [
-      { key: 'shield',    gearIcon: 'shield',          emoji: '\uD83D\uDEE1\uFE0F', name: 'Shield' },
-      { key: 'helmet',    gearIcon: 'plate_helmet',    emoji: '\u26D1\uFE0F',       name: 'Helm' },
-      { key: 'chest',     gearIcon: 'plate_chest',     emoji: '\uD83D\uDC55',       name: 'Chest' },
-      { key: 'gloves',    gearIcon: 'plate_gloves',    emoji: '\uD83E\uDDE4',       name: 'Gloves' },
-      { key: 'pants',     gearIcon: 'plate_pants',     emoji: '\uD83D\uDC56',       name: 'Pants' },
-      { key: 'boots',     gearIcon: 'plate_boots',     emoji: '\uD83E\uDD7E',       name: 'Boots' },
-      { key: 'cloak',     gearIcon: 'cloak',           emoji: '\uD83E\uDDE5',       name: 'Cloak' },
-      { key: 'shoulders', gearIcon: 'plate_shoulders', emoji: '\uD83E\uDDB6',       name: 'Shoulders' },
+      { key: 'shield',    gearIcon: 'shield_t3',          emoji: '\uD83D\uDEE1\uFE0F', name: 'Shield' },
+      { key: 'helmet',    gearIcon: 'plate_helmet_t3',    emoji: '\u26D1\uFE0F',       name: 'Helm' },
+      { key: 'chest',     gearIcon: 'plate_chest_t3',     emoji: '\uD83D\uDC55',       name: 'Chest' },
+      { key: 'gloves',    gearIcon: 'plate_gloves_t3',    emoji: '\uD83E\uDDE4',       name: 'Gloves' },
+      { key: 'pants',     gearIcon: 'plate_pants_t3',     emoji: '\uD83D\uDC56',       name: 'Pants' },
+      { key: 'boots',     gearIcon: 'plate_boots_t3',     emoji: '\uD83E\uDD7E',       name: 'Boots' },
+      { key: 'cloak',     gearIcon: 'cloak_t3',           emoji: '\uD83E\uDDE5',       name: 'Cloak' },
+      { key: 'shoulders', gearIcon: 'plate_shoulders_t3', emoji: '\uD83E\uDDB6',       name: 'Shoulders' },
     ],
   },
   {
     label: 'Accessory',
     slots: [
-      { key: 'ring',    gearIcon: 'ring',    emoji: '\uD83D\uDC8D', name: 'Ring' },
-      { key: 'amulet',  gearIcon: 'neck',    emoji: '\uD83D\uDCFF', name: 'Neck' },
-      { key: 'belt',    gearIcon: 'belt',    emoji: '\u{1F4FF}',    name: 'Belt' },
-      { key: 'trinket', gearIcon: 'trinket', emoji: '\uD83D\uDD2E', name: 'Trinket' },
+      { key: 'ring',    gearIcon: 'ring_t3',    emoji: '\uD83D\uDC8D', name: 'Ring' },
+      { key: 'amulet',  gearIcon: 'neck_t3',    emoji: '\uD83D\uDCFF', name: 'Neck' },
+      { key: 'belt',    gearIcon: 'belt_t3',    emoji: '\u{1F4FF}',    name: 'Belt' },
+      { key: 'trinket', gearIcon: 'trinket_t3', emoji: '\uD83D\uDD2E', name: 'Trinket' },
     ],
   },
   {
@@ -80,7 +80,7 @@ function SlotIcon({ gearIcon, emoji }: { gearIcon: string; emoji: string }) {
       src={`/icons/gear/${gearIcon}.webp`}
       alt={gearIcon}
       loading="lazy"
-      className="w-7 h-7 object-contain"
+      className="w-9 h-9 object-contain"
       onError={() => { brokenIcons.add(gearIcon); setIsBroken(true); }}
     />
   );
@@ -113,7 +113,7 @@ export function SlotPicker({ selected, onSelect }: SlotPickerProps) {
                 key={key}
                 onClick={() => onSelect(key)}
                 title={CATEGORY_LABELS[key] ?? name}
-                className={`flex flex-col items-center justify-center w-11 h-11 rounded transition-colors text-center ${
+                className={`flex flex-col items-center justify-center w-14 h-14 rounded transition-colors text-center ${
                   selected === key
                     ? 'bg-amber-700/60 ring-2 ring-amber-400 text-white'
                     : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200'
