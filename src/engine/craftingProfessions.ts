@@ -381,13 +381,12 @@ export function executePatternCraft(pattern: CraftingPatternDef): Item {
 
 /**
  * Craft a unique item from a unique pattern.
- * Generates a base item, removes one affix to make room,
- * attaches the unique affix, sets rarity to 'unique', and overrides name.
+ * Always generates exactly 5 random affixes + 1 unique affix = 6 total.
+ * Cannot be modified with currency — you reforge or craft again.
  */
 function executeUniquePatternCraft(pattern: CraftingPatternDef): Item {
   const uniqueDef = getUniqueItemDef(pattern.uniqueDefId!);
   if (!uniqueDef) {
-    // Fallback: generate a normal item (should never happen)
     const slot = getSlotFromBaseId(pattern.outputBaseId);
     return generateItem(slot, pattern.outputILvl, pattern.outputBaseId);
   }
@@ -395,21 +394,8 @@ function executeUniquePatternCraft(pattern: CraftingPatternDef): Item {
   const slot = getSlotFromBaseId(pattern.outputBaseId);
   const item = generateItem(slot, pattern.outputILvl, pattern.outputBaseId);
 
-  // Remove one affix from the same slot as the unique affix to make room
-  if (uniqueDef.uniqueAffix.slot === 'prefix' && item.prefixes.length > 0) {
-    // Remove weakest prefix (highest tier number)
-    let worstIdx = 0;
-    for (let i = 1; i < item.prefixes.length; i++) {
-      if (item.prefixes[i].tier > item.prefixes[worstIdx].tier) worstIdx = i;
-    }
-    item.prefixes.splice(worstIdx, 1);
-  } else if (uniqueDef.uniqueAffix.slot === 'suffix' && item.suffixes.length > 0) {
-    let worstIdx = 0;
-    for (let i = 1; i < item.suffixes.length; i++) {
-      if (item.suffixes[i].tier > item.suffixes[worstIdx].tier) worstIdx = i;
-    }
-    item.suffixes.splice(worstIdx, 1);
-  }
+  // Force exactly 5 random affixes (unique affix takes the 6th slot)
+  forceUniqueAffixCount(item, uniqueDef.uniqueAffix.slot, slot, pattern.outputILvl, pattern.outputBaseId);
 
   // Attach unique affix
   item.uniqueAffix = {
@@ -477,8 +463,50 @@ export function canReforge(
   return true;
 }
 
+/** Force an item to have exactly 5 random affixes for unique crafting. */
+function forceUniqueAffixCount(item: Item, uniqueSlot: 'prefix' | 'suffix', slot: import('../types').GearSlot, iLvl: number, baseId: string): void {
+  const TARGET = 5;
+  const maxPrefixes = uniqueSlot === 'prefix' ? 2 : 3;
+  const maxSuffixes = uniqueSlot === 'suffix' ? 2 : 3;
+
+  // Trim excess (remove weakest first)
+  while (item.prefixes.length > maxPrefixes) {
+    let worstIdx = 0;
+    for (let i = 1; i < item.prefixes.length; i++) {
+      if (item.prefixes[i].tier > item.prefixes[worstIdx].tier) worstIdx = i;
+    }
+    item.prefixes.splice(worstIdx, 1);
+  }
+  while (item.suffixes.length > maxSuffixes) {
+    let worstIdx = 0;
+    for (let i = 1; i < item.suffixes.length; i++) {
+      if (item.suffixes[i].tier > item.suffixes[worstIdx].tier) worstIdx = i;
+    }
+    item.suffixes.splice(worstIdx, 1);
+  }
+
+  // Pad if total < TARGET
+  let total = item.prefixes.length + item.suffixes.length;
+  for (let attempt = 0; attempt < 5 && total < TARGET; attempt++) {
+    const padItem = generateItem(slot, iLvl, baseId);
+    for (const affix of padItem.prefixes) {
+      if (item.prefixes.length < maxPrefixes && total < TARGET && !item.prefixes.some(a => a.defId === affix.defId)) {
+        item.prefixes.push(affix);
+        total++;
+      }
+    }
+    for (const affix of padItem.suffixes) {
+      if (item.suffixes.length < maxSuffixes && total < TARGET && !item.suffixes.some(a => a.defId === affix.defId)) {
+        item.suffixes.push(affix);
+        total++;
+      }
+    }
+  }
+}
+
 /**
  * Reforge a unique item: re-generate at new iLvl, preserve unique affix, re-roll random affixes.
+ * Always produces exactly 5 random affixes + 1 unique affix.
  * Returns a new item (does not mutate the original).
  */
 export function executeReforge(item: Item, targetILvl: number): Item {
@@ -497,20 +525,8 @@ export function executeReforge(item: Item, targetILvl: number): Item {
   const baseId = targetBase?.id ?? uniqueDef.baseItemId;
   const newItem = generateItem(slot, targetILvl, baseId);
 
-  // Remove one affix to make room for unique affix
-  if (uniqueDef.uniqueAffix.slot === 'prefix' && newItem.prefixes.length > 0) {
-    let worstIdx = 0;
-    for (let i = 1; i < newItem.prefixes.length; i++) {
-      if (newItem.prefixes[i].tier > newItem.prefixes[worstIdx].tier) worstIdx = i;
-    }
-    newItem.prefixes.splice(worstIdx, 1);
-  } else if (uniqueDef.uniqueAffix.slot === 'suffix' && newItem.suffixes.length > 0) {
-    let worstIdx = 0;
-    for (let i = 1; i < newItem.suffixes.length; i++) {
-      if (newItem.suffixes[i].tier > newItem.suffixes[worstIdx].tier) worstIdx = i;
-    }
-    newItem.suffixes.splice(worstIdx, 1);
-  }
+  // Force exactly 5 random affixes
+  forceUniqueAffixCount(newItem, uniqueDef.uniqueAffix.slot, slot, targetILvl, baseId);
 
   // Preserve unique properties
   newItem.uniqueAffix = { ...item.uniqueAffix };

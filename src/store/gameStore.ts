@@ -768,6 +768,12 @@ export const useGameStore = create<GameState & GameActions>()(
         const item = equippedSlot
           ? state.character.equipment[equippedSlot]!
           : state.inventory[itemIndex];
+
+        // Block currency use on unique items — reforge or craft again instead
+        if (item.isUnique) {
+          return { success: false, item, message: 'Unique items cannot be modified with currency.' };
+        }
+
         const result = applyCurrency(item, currency);
 
         if (result.success) {
