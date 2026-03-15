@@ -4,7 +4,7 @@ import { useCraftingStore } from '../../store/craftingStore';
 import { getReforgeCost, canReforge } from '../../engine/craftingProfessions';
 import { getUniqueItemDef } from '../../data/uniqueItems';
 import { resolveMaterialMeta } from '../craftIcon';
-import { formatMatName } from './craftingHelpers';
+import { formatMatName, getMatTooltip } from './craftingHelpers';
 import type { Item } from '../../types';
 
 /** Band → target iLvl for reforging (midpoint of band's iLvl range). */
@@ -129,8 +129,9 @@ export default function ReforgePanel() {
                   const have = materials[m.materialId] ?? 0;
                   const meta = resolveMaterialMeta(m.materialId);
                   const name = meta?.name ?? formatMatName(m.materialId);
+                  const tip = getMatTooltip(m.materialId);
                   return (
-                    <span key={m.materialId} className={`px-1.5 py-0.5 rounded bg-gray-700 ${have >= m.amount ? 'text-gray-300' : 'text-red-400'}`}>
+                    <span key={m.materialId} className={`px-1.5 py-0.5 rounded bg-gray-700 cursor-default ${have >= m.amount ? 'text-gray-300' : 'text-red-400'}`} title={tip ?? undefined}>
                       {meta?.emoji ? `${meta.emoji} ` : ''}{name} {have}/{m.amount}
                     </span>
                   );

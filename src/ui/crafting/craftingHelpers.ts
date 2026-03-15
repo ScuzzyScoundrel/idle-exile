@@ -6,6 +6,7 @@ import { CATALYST_RARITY_MAP, CATALYST_BEST_TIER } from '../../data/balance';
 import { ZONE_DEFS } from '../../data/zones';
 import { ITEM_BASE_DEFS } from '../../data/items';
 import { CRAFTING_RECIPES } from '../../data/craftingRecipes';
+import { getBossTrophyDef } from '../../data/bossTrophies';
 import type { CraftingProfession, CraftingRecipeDef, RefinementTrack } from '../../types';
 
 // Build track lookups from refinement recipes (static, computed once)
@@ -66,6 +67,15 @@ export function getMatTooltip(id: string): string | null {
     let tip = `Refined from ${rawName}. Used in crafting recipes.`;
     if (rawZones && rawZones.length > 0) tip += `\nSource: ${rawZones.join(', ')}`;
     return tip;
+  }
+
+  // Boss trophy
+  const trophyDef = getBossTrophyDef(id);
+  if (trophyDef) {
+    const zone = ZONE_DEFS.find(z => z.id === trophyDef.bossZoneId);
+    const bossName = zone?.bossName ?? 'Unknown Boss';
+    const zoneName = zone?.name ?? 'Unknown Zone';
+    return `${trophyDef.description}\nDrops from: ${bossName} (${zoneName}, Band ${zone?.band ?? '?'})\nUsed to craft and reforge unique items.`;
   }
 
   return null;

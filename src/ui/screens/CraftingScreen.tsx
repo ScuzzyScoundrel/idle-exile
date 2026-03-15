@@ -7,7 +7,8 @@ import { getPatternDef } from '../../data/craftingPatterns';
 import { getPatternMaterialCost, canCraftPattern } from '../../engine/craftingProfessions';
 import { ITEM_BASE_DEFS } from '../../data/items';
 import { CRAFT_AUTO_SALVAGE_OPTIONS, RARITY_TEXT } from '../crafting/craftingConstants';
-import { getRecipesBySlot, getProfessionForSlot, getWorkbenchSlot, formatMatName } from '../crafting/craftingHelpers';
+import { getRecipesBySlot, getProfessionForSlot, getWorkbenchSlot, formatMatName, getMatTooltip } from '../crafting/craftingHelpers';
+import { resolveMaterialMeta } from '../craftIcon';
 import { SlotPicker } from '../crafting/SlotPicker';
 import { WorkbenchRecipeCard } from '../crafting/WorkbenchRecipeCard';
 import { CraftingDrawer } from '../crafting/CraftingDrawer';
@@ -273,9 +274,12 @@ export default function CraftingScreen() {
                   <div className="flex flex-wrap items-center gap-1 text-[10px] text-gray-500">
                     {cost.materials.map(m => {
                       const have = materials[m.materialId] ?? 0;
+                      const meta = resolveMaterialMeta(m.materialId);
+                      const displayName = meta?.name ?? formatMatName(m.materialId);
+                      const tip = getMatTooltip(m.materialId);
                       return (
-                        <span key={m.materialId} className={have >= m.amount ? 'text-gray-400' : 'text-red-400'}>
-                          {formatMatName(m.materialId)} {have}/{m.amount}
+                        <span key={m.materialId} className={`cursor-default ${have >= m.amount ? 'text-gray-400' : 'text-red-400'}`} title={tip ?? undefined}>
+                          {meta?.emoji ? `${meta.emoji} ` : ''}{displayName} {have}/{m.amount}
                         </span>
                       );
                     })}
