@@ -18,12 +18,13 @@ import CraftLog from '../crafting/CraftLog';
 import MaterialsPanel from '../crafting/MaterialsPanel';
 import RefinePanel from '../crafting/RefinePanel';
 import ProfessionGearPanel from '../crafting/ProfessionGearPanel';
+import ReforgePanel from '../crafting/ReforgePanel';
 import MaterialDetailModal from '../crafting/MaterialDetailModal';
 import type { WorkbenchSlot } from '../crafting/craftingHelpers';
 import type { CraftingRecipeDef, Rarity, OwnedPattern, CraftingPatternDef } from '../../types';
 import { getUniqueItemDef } from '../../data/uniqueItems';
 
-type DrawerKind = 'bag' | 'refine' | 'gear' | null;
+type DrawerKind = 'bag' | 'refine' | 'gear' | 'reforge' | null;
 
 export default function CraftingScreen() {
   const { craftingSkills, materials, gold, ownedPatterns, craftAutoSalvageMinRarity } = useGameStore();
@@ -163,6 +164,13 @@ export default function CraftingScreen() {
             title="Profession Gear"
           >
             {'\u2699\uFE0F'} Gear
+          </button>
+          <button
+            onClick={() => setDrawer('reforge')}
+            className="px-2 py-1.5 rounded bg-gray-700 text-amber-400 hover:bg-gray-600 text-xs font-semibold"
+            title="Reforge Uniques"
+          >
+            {'\uD83D\uDD28'} Reforge
           </button>
         </div>
       </div>
@@ -358,6 +366,9 @@ export default function CraftingScreen() {
       </CraftingDrawer>
       <CraftingDrawer open={drawer === 'gear'} onClose={() => setDrawer(null)} title="Profession Gear">
         <ProfessionGearPanel />
+      </CraftingDrawer>
+      <CraftingDrawer open={drawer === 'reforge'} onClose={() => setDrawer(null)} title="Reforge Unique">
+        <ReforgePanel />
       </CraftingDrawer>
 
       {/* Material traceability modal */}
