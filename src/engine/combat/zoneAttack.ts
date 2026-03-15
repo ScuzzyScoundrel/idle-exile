@@ -20,12 +20,14 @@ import {
   MOB_CRIT_CHANCE,
   MOB_CRIT_MULTIPLIER,
 } from '../../data/balance';
+import type { TempBuff } from '../../types';
 import {
   tickDebuffDoT,
   calcEnemyDebuffMods,
   calcBleedTriggerDamage,
   calcFortifyDR,
   getFullEffect,
+  mergeProcTempBuff,
 } from './helpers';
 import type { CombatTickOutput } from './types';
 import { noResult } from './types';
@@ -108,6 +110,42 @@ export function applyZoneDamage(
     }
   }
 
+  // Unique temp buffs from dodge/hit events
+  let updatedTempBuffs = [...state.tempBuffs];
+  const playerStatsForUnique = resolveStats(state.character);
+
+  // Unique: dodgeGrantsAttackSpeedPercent — on dodge, stack attack speed buff (Windsworn Greaves)
+  if (zoneAttackResult?.isDodged && playerStatsForUnique.dodgeGrantsAttackSpeedPercent > 0) {
+    const dodgeBuff: TempBuff = {
+      id: 'unique_dodge_atkspd',
+      effect: { attackSpeedMult: 1 + playerStatsForUnique.dodgeGrantsAttackSpeedPercent / 100 },
+      expiresAt: now + 3000,
+      sourceSkillId: 'unique',
+      stacks: 1,
+      maxStacks: playerStatsForUnique.dodgeAttackSpeedMaxStacks || 3,
+    };
+    updatedTempBuffs = mergeProcTempBuff(updatedTempBuffs, dodgeBuff);
+  }
+
+  // Unique: onHitGainDamagePercent — when hit (not dodged/blocked), stack damage buff (Brambleback's Hide)
+  if (zoneAttackResult && !zoneAttackResult.isDodged && zoneAttackResult.damage > 0 && playerStatsForUnique.onHitGainDamagePercent > 0) {
+    const hitDmgBuff: TempBuff = {
+      id: 'unique_onhit_damage',
+      effect: { damageMult: 1 + playerStatsForUnique.onHitGainDamagePercent / 100 },
+      expiresAt: now + 5000,
+      sourceSkillId: 'unique',
+      stacks: 1,
+      maxStacks: playerStatsForUnique.onHitGainDamageMaxStacks || 5,
+    };
+    updatedTempBuffs = mergeProcTempBuff(updatedTempBuffs, hitDmgBuff);
+
+    // Brambleback's Hide: lose 1% current Life per stack
+    const hitDmgBuffEntry = updatedTempBuffs.find(b => b.id === 'unique_onhit_damage');
+    if (hitDmgBuffEntry) {
+      playerHp -= playerHp * 0.01 * hitDmgBuffEntry.stacks;
+    }
+  }
+
   // ES recharge AFTER all mobs have attacked (not per-mob)
   if (anyAttacked) {
     const zoneStats = resolveStats(state.character);
@@ -137,6 +175,7 @@ export function applyZoneDamage(
           combatPhaseStartedAt: deathNow,
           deathStreak: newStreak,
           lastDeathTime: deathNow,
+          tempBuffs: updatedTempBuffs,
         },
         result: { ...noResult, zoneAttack: zoneAttackResult, zoneDeath: true, bleedTriggerDamage: helperBleedDmg },
       };
@@ -171,6 +210,7 @@ export function applyZoneDamage(
       currentHp: playerHp,
       currentEs: currentEs,
       dodgeEntropy: currentDodgeEntropy,
+      tempBuffs: updatedTempBuffs,
     },
     result: { ...noResult, zoneAttack: zoneAttackResult, bleedTriggerDamage: helperBleedDmg, dotDamage: helperDotDamage, poisonInstanceCount: helperPoisonCount },
   };

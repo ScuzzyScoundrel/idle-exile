@@ -13,6 +13,7 @@ import type {
   SkillDef,
   ActiveSkillDef,
   TriggerCondition,
+  ConversionSpec,
 } from '../../types';
 
 import { resolveStats, getWeaponDamageInfo } from '../character';
@@ -176,6 +177,7 @@ export function runCombatTick(
   const abilityEffect = getFullEffect(state, now, false);
 
   // Expire old temp buffs and fold active ones into ability effect
+  const expiredBuffs = state.tempBuffs.filter(b => b.expiresAt <= now);
   let activeTempBuffs = state.tempBuffs.filter(b => b.expiresAt > now);
   const tempBuffEffect = aggregateTempBuffEffects(activeTempBuffs, now);
   const combinedAbilityEffect = mergeEffect(abilityEffect, tempBuffEffect);
@@ -300,7 +302,18 @@ export function runCombatTick(
 
   // Fire skill
   const { avgDamage, spellPower, weaponConversion } = getWeaponDamageInfo(state.character.equipment);
-  const roll = rollSkillCast(skill, effectiveStats, avgDamage, spellPower, damageMult, graphMod ?? undefined, weaponConversion);
+  // Unique: physToFireConversion merges with weapon conversion
+  let effectiveConversion = weaponConversion;
+  if (effectiveStats.physToFireConversion > 0) {
+    const uniqueConv: ConversionSpec = { from: 'physical', to: 'fire', percent: effectiveStats.physToFireConversion };
+    if (effectiveConversion && effectiveConversion.to === 'fire') {
+      effectiveConversion = { ...effectiveConversion, percent: Math.min(effectiveConversion.percent + uniqueConv.percent, 100) };
+    } else if (!effectiveConversion) {
+      effectiveConversion = uniqueConv;
+    }
+    // Different target: unique conversion takes effect alongside weapon (both feed into bucket system)
+  }
+  const roll = rollSkillCast(skill, effectiveStats, avgDamage, spellPower, damageMult, graphMod ?? undefined, effectiveConversion);
 
   // Post-roll conditional modifiers (on conditions)
   if (graphMod?.conditionalMods?.length && roll.isHit) {
@@ -371,6 +384,27 @@ export function runCombatTick(
       debuffCritBonusMult += (debuffDef.effect.incCritDamageTaken * debuff.stacks * effectBonus) / 100;
     }
   }
+  // Unique: incDamageVsChilled — bonus damage vs chilled targets (Frostbite Loop)
+  if (effectiveStats.incDamageVsChilled > 0 && targetDebuffs.some(d => d.debuffId === 'chilled')) {
+    debuffDamageMult += effectiveStats.incDamageVsChilled / 100;
+  }
+
+  // Unique: enhancedCurseEffect — double the curse resist reduction (Marsh King's Crown)
+  if (effectiveStats.enhancedCurseEffect > 0) {
+    for (const debuff of targetDebuffs) {
+      if (debuff.debuffId === 'cursed') {
+        // Add another round of curse resist reduction (effectively doubling it)
+        const curseDef = getDebuffDef('cursed');
+        if (curseDef?.effect.reducedResists) {
+          debuffDamageMult += (curseDef.effect.reducedResists * debuff.stacks * effectBonus) / 100;
+        }
+      }
+    }
+  }
+
+  // Unique: moreDotVsCursed — more DoT damage vs cursed targets (Marsh King's Crown)
+  // (Applied later in DoT calculation sections)
+
   // bonusDamageVsDebuffed: extra damage when specific debuff is active
   let consumeMarkId: string | null = null;
   if (graphMod?.debuffInteraction?.bonusDamageVsDebuffed) {
@@ -438,7 +472,8 @@ export function runCombatTick(
         if (effectiveStats.ailmentDuration > 0) {
           duration *= (1 + effectiveStats.ailmentDuration / 100);
         }
-        applyDebuffToList(newDebuffs, debuffInfo.debuffId, 1, duration, skill.id, roll.damage);
+        const isDoublePoisonHalf = effectiveStats.doublePoisonHalfDamage > 0 && debuffInfo.debuffId === 'poison';
+        applyDebuffToList(newDebuffs, debuffInfo.debuffId, 1, duration, skill.id, roll.damage, isDoublePoisonHalf);
       }
     }
   }
@@ -453,7 +488,14 @@ export function runCombatTick(
     if (effectiveStats.ailmentDuration > 0) {
       duration *= (1 + effectiveStats.ailmentDuration / 100);
     }
-    applyDebuffToList(newDebuffs, doc.debuffId, doc.stacks, duration, skill.id, roll.damage);
+    const isDoublePoisonHalfCrit = effectiveStats.doublePoisonHalfDamage > 0 && doc.debuffId === 'poison';
+    applyDebuffToList(newDebuffs, doc.debuffId, doc.stacks, duration, skill.id, roll.damage, isDoublePoisonHalfCrit);
+  }
+
+  // Unique: alwaysChill — hits always apply Chill debuff (Frostbite Loop)
+  if (roll.isHit && effectiveStats.alwaysChill > 0) {
+    const chillDuration = 5 * (1 + effectiveStats.ailmentDuration / 100);
+    applyDebuffToList(newDebuffs, 'chilled', 1, chillDuration, skill.id);
   }
 
   // consumeDebuff: consume all stacks, deal burst damage
@@ -472,7 +514,10 @@ export function runCombatTick(
     ? state.bossState.bossMaxHp
     : (frontMobMaxHp > 0 ? frontMobMaxHp : 1);
   const dotResult = tickDebuffDoT(newDebuffs, dtSec, effectBonus, stats.incDoTDamage, enemyMaxHp);
-  const debuffDotDamage = dotResult.damage;
+  // Unique: moreDotVsCursed — more DoT damage vs cursed targets (Marsh King's Crown)
+  const isCursed = newDebuffs.some(d => d.debuffId === 'cursed');
+  const dotVsCursedMult = (isCursed && effectiveStats.moreDotVsCursed > 0) ? (1 + effectiveStats.moreDotVsCursed / 100) : 1;
+  const debuffDotDamage = dotResult.damage * dotVsCursedMult;
   const mainPoisonInstanceCount = dotResult.poisonInstanceCount;
   newDebuffs = dotResult.updatedDebuffs;
 
@@ -578,6 +623,19 @@ export function runCombatTick(
     newTimers = newTimers.map(t =>
       procCooldownResets.includes(t.skillId) ? { ...t, cooldownUntil: null } : t,
     );
+  }
+
+  // Unique: buffExpiryResetCd — when a buff expires, reset lowest-CD skill (Shadowlord's Veil)
+  if (effectiveStats.buffExpiryResetCd > 0 && expiredBuffs.length > 0) {
+    // Find the skill timer with the lowest remaining cooldown (still on cooldown)
+    const onCd = newTimers.filter(t => t.cooldownUntil && t.cooldownUntil > now);
+    if (onCd.length > 0) {
+      onCd.sort((a, b) => (a.cooldownUntil! - now) - (b.cooldownUntil! - now));
+      const lowestCd = onCd[0];
+      newTimers = newTimers.map(t =>
+        t.skillId === lowestCd.skillId ? { ...t, cooldownUntil: null } : t,
+      );
+    }
   }
 
   // ── Ephemeral state tracking ──
@@ -969,6 +1027,13 @@ export function runCombatTick(
       killProcDebuffs = killPr.newDebuffs;
     }
 
+    // Unique: burnExplosionPercent — burning enemies explode on kill (Emberheart Pendant)
+    let burnExplosionDmg = 0;
+    if (effectiveStats.burnExplosionPercent > 0 && preDeathDebuffs.some(d => d.debuffId === 'burning')) {
+      const deadMobMaxHp = updatedPackMobs[0].maxHp;
+      burnExplosionDmg = deadMobMaxHp * effectiveStats.burnExplosionPercent / 100;
+    }
+
     // Overkill damage carry + bonus
     const overkillAmount = Math.abs(updatedPackMobs[0].hp);
     newLastOverkillDamage = overkillAmount;
@@ -984,9 +1049,9 @@ export function runCombatTick(
     // Remove dead front mob
     updatedPackMobs.shift();
 
-    // Pack progression: if mobs remain, carry overkill + shatter to new front
+    // Pack progression: if mobs remain, carry overkill + shatter + burn explosion to new front
     if (updatedPackMobs.length > 0) {
-      updatedPackMobs[0].hp -= (overkillAmount + overkillBonus + shatterDmg);
+      updatedPackMobs[0].hp -= (overkillAmount + overkillBonus + shatterDmg + burnExplosionDmg);
       if (updatedPackMobs[0].hp <= 0 && updatedPackMobs[0].hp > -updatedPackMobs[0].maxHp) {
         // Will loop again to kill this mob too
       }
@@ -1020,9 +1085,9 @@ export function runCombatTick(
         if (m.rare) encounterLootMult = Math.max(encounterLootMult, m.rare.combinedLootMult);
       }
 
-      // Apply overkill + shatter to new front mob
+      // Apply overkill + shatter + burn explosion to new front mob
       if (updatedPackMobs.length > 0) {
-        updatedPackMobs[0].hp -= (overkillAmount + overkillBonus + shatterDmg);
+        updatedPackMobs[0].hp -= (overkillAmount + overkillBonus + shatterDmg + burnExplosionDmg);
         if (updatedPackMobs[0].hp <= 0) updatedPackMobs[0].hp = updatedPackMobs[0].maxHp; // safety
       }
 

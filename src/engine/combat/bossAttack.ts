@@ -3,7 +3,7 @@
 // Extracted from combat/tick.ts (Phase D2)
 // ============================================================
 
-import type { GameState, CombatTickResult } from '../../types';
+import type { GameState, CombatTickResult, TempBuff } from '../../types';
 import { resolveStats } from '../character';
 import { rollZoneAttack, applyAbilityResists } from '../zones';
 import { ZONE_DEFS } from '../../data/zones';
@@ -18,6 +18,7 @@ import {
   calcBleedTriggerDamage,
   calcFortifyDR,
   getFullEffect,
+  mergeProcTempBuff,
 } from './helpers';
 import type { CombatTickOutput } from './types';
 import { noResult } from './types';
@@ -83,6 +84,39 @@ export function applyBossDamage(
       }
     }
 
+    // Unique temp buffs from dodge/hit events during boss fight
+    let updatedTempBuffs = [...state.tempBuffs];
+
+    // Unique: dodgeGrantsAttackSpeedPercent — on dodge, stack attack speed buff (Windsworn Greaves)
+    if (bossAttackResult?.isDodged && bossStats.dodgeGrantsAttackSpeedPercent > 0) {
+      const dodgeBuff: TempBuff = {
+        id: 'unique_dodge_atkspd',
+        effect: { attackSpeedMult: 1 + bossStats.dodgeGrantsAttackSpeedPercent / 100 },
+        expiresAt: now + 3000,
+        sourceSkillId: 'unique',
+        stacks: 1,
+        maxStacks: bossStats.dodgeAttackSpeedMaxStacks || 3,
+      };
+      updatedTempBuffs = mergeProcTempBuff(updatedTempBuffs, dodgeBuff);
+    }
+
+    // Unique: onHitGainDamagePercent — when hit, stack damage buff (Brambleback's Hide)
+    if (bossAttackResult && !bossAttackResult.isDodged && bossAttackResult.damage > 0 && bossStats.onHitGainDamagePercent > 0) {
+      const hitDmgBuff: TempBuff = {
+        id: 'unique_onhit_damage',
+        effect: { damageMult: 1 + bossStats.onHitGainDamagePercent / 100 },
+        expiresAt: now + 5000,
+        sourceSkillId: 'unique',
+        stacks: 1,
+        maxStacks: bossStats.onHitGainDamageMaxStacks || 5,
+      };
+      updatedTempBuffs = mergeProcTempBuff(updatedTempBuffs, hitDmgBuff);
+      const hitDmgBuffEntry = updatedTempBuffs.find(b => b.id === 'unique_onhit_damage');
+      if (hitDmgBuffEntry) {
+        playerHp -= playerHp * 0.01 * hitDmgBuffEntry.stacks;
+      }
+    }
+
     // ES recharge per tick (AFTER attack resolution, not inside attack block)
     if (bossStats.esRecharge > 0) {
       bossCurrentEs = Math.min(bossStats.energyShield, bossCurrentEs + bossStats.esRecharge * dtSec);
@@ -111,6 +145,7 @@ export function applyBossDamage(
           dodgeEntropy: Math.floor(Math.random() * 100),
           bossState: { ...bs, bossNextAttackAt: nextAttack, bossCurrentHp: helperBossHp },
           activeDebuffs: updatedDebuffs,
+          tempBuffs: updatedTempBuffs,
         },
         result: { ...noResult, bossOutcome: 'defeat', bossAttack: bossAttackResult, bleedTriggerDamage: helperBleedDmg, dotDamage: helperDotDamage, poisonInstanceCount: helperPoisonCount },
       };
@@ -122,6 +157,7 @@ export function applyBossDamage(
         currentEs: bossCurrentEs,
         bossState: { ...bs, bossNextAttackAt: nextAttack, bossCurrentHp: helperBossHp },
         activeDebuffs: updatedDebuffs,
+        tempBuffs: updatedTempBuffs,
       },
       result: { ...noResult, bossOutcome: 'ongoing', bossAttack: bossAttackResult, bleedTriggerDamage: helperBleedDmg, dotDamage: helperDotDamage, poisonInstanceCount: helperPoisonCount },
     };

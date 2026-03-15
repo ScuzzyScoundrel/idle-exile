@@ -20,6 +20,7 @@ export function applyDebuffToList(
   duration: number,
   skillId: string,
   snapshotDamage: number = 0,
+  doublePoisonHalfDamage: boolean = false,
 ): ActiveDebuff[] {
   const debuffDef = getDebuffDef(debuffId);
   const existingIdx = debuffs.findIndex(d => d.debuffId === debuffId);
@@ -27,8 +28,11 @@ export function applyDebuffToList(
 
   // Path 1: Instance-based (poison) — each stack is an independent instance
   if (debuffDef?.instanceBased) {
-    const newInstances: PoisonInstance[] = Array.from({ length: stacks }, () => ({
-      snapshot: snapshotDamage,
+    // Unique: doublePoisonHalfDamage — 2x instances at 50% snapshot (Adder's Fang)
+    const instanceCount = doublePoisonHalfDamage ? stacks * 2 : stacks;
+    const instanceSnapshot = doublePoisonHalfDamage ? snapshotDamage * 0.5 : snapshotDamage;
+    const newInstances: PoisonInstance[] = Array.from({ length: instanceCount }, () => ({
+      snapshot: instanceSnapshot,
       remainingDuration: duration,
       appliedBySkillId: skillId,
     }));
