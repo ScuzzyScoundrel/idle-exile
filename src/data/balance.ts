@@ -742,12 +742,41 @@ export const GEM_INVENTORY_CAP = 50;
 // UNIQUE ITEM REFORGING
 // =============================================
 
-/** Reforge cost per target band: gold + refined materials needed. */
-export const REFORGE_COST_PER_BAND: Record<number, { goldCost: number; refinedMatAmount: number }> = {
-  1: { goldCost: 100, refinedMatAmount: 5 },
-  2: { goldCost: 300, refinedMatAmount: 8 },
-  3: { goldCost: 800, refinedMatAmount: 12 },
-  4: { goldCost: 2000, refinedMatAmount: 18 },
-  5: { goldCost: 5000, refinedMatAmount: 25 },
-  6: { goldCost: 12000, refinedMatAmount: 35 },
+/** Reforge cost per target band. Uses refined mats of the target band + alchemist catalyst + essence + gold. */
+export const REFORGE_COST_PER_BAND: Record<number, {
+  goldCost: number;
+  essenceCost: number;
+  refinedMats: { materialId: string; amount: number }[];
+  alchemistCatalyst: string;
+}> = {
+  1: {
+    goldCost: 150,
+    essenceCost: 10,
+    refinedMats: [
+      { materialId: 'cindite_ingot', amount: 5 },
+      { materialId: 'cured_leather', amount: 5 },
+      { materialId: 'wispbloom_extract', amount: 3 },
+    ],
+    alchemistCatalyst: 'vitality_essence',
+  },
+  2: {
+    goldCost: 500,
+    essenceCost: 25,
+    refinedMats: [
+      { materialId: 'ferrite_ingot', amount: 6 },
+      { materialId: 'hardened_leather', amount: 6 },
+      { materialId: 'potent_tincture', amount: 4 },
+    ],
+    alchemistCatalyst: 'vitality_essence',
+  },
+  3: {
+    goldCost: 1500,
+    essenceCost: 50,
+    refinedMats: [
+      { materialId: 'forged_alloy', amount: 8 },
+      { materialId: 'reinforced_leather', amount: 8 },
+      { materialId: 'lustral_essence', amount: 5 },
+    ],
+    alchemistCatalyst: 'vitality_essence',
+  },
 };

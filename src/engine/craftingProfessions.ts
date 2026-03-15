@@ -419,6 +419,7 @@ function executeUniquePatternCraft(pattern: CraftingPatternDef): Item {
 
 /**
  * Get the cost to reforge a unique item to a target band's iLvl.
+ * Cost: boss trophy + band-tier refined mats + alchemist catalyst + enchanting essence + gold.
  */
 export function getReforgeCost(
   uniqueDefId: string,
@@ -429,17 +430,16 @@ export function getReforgeCost(
   const bandCost = REFORGE_COST_PER_BAND[targetBand];
   if (!bandCost) return undefined;
 
-  // Reforge costs: trophy + band-appropriate refined materials + gold
   const materials: { materialId: string; amount: number }[] = [
+    // Boss trophy
     { materialId: uniqueDef.craftCost.trophyId, amount: 1 },
+    // Band-tier refined materials (ingot + leather + herb)
+    ...bandCost.refinedMats,
+    // Alchemist catalyst
+    { materialId: bandCost.alchemistCatalyst, amount: 1 },
+    // Enchanting essence
+    { materialId: 'enchanting_essence', amount: bandCost.essenceCost },
   ];
-  // Use the same base materials from the unique's original craft cost, scaled by target band
-  for (const mat of uniqueDef.craftCost.materials) {
-    materials.push({
-      materialId: mat.materialId,
-      amount: Math.ceil(mat.amount * (targetBand / uniqueDef.band)),
-    });
-  }
 
   return { materials, goldCost: bandCost.goldCost };
 }
