@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { AFFIX_CATALYST_DEFS } from '../data/affixCatalysts';
 import { RARE_MATERIAL_DEFS } from '../data/rareMaterials';
 import { REFINEMENT_RECIPES } from '../data/refinement';
+import { getBossTrophyDef } from '../data/bossTrophies';
 import type { RareMaterialRarity } from '../types';
 
 /**
@@ -72,6 +73,16 @@ export function resolveMaterialMeta(id: string): MaterialMeta | null {
       rarity: null,
       category: 'material',
       emoji: '\uD83E\uDEA8',
+    };
+  }
+  // Boss trophies
+  const trophy = getBossTrophyDef(id);
+  if (trophy) {
+    return {
+      name: trophy.name,
+      rarity: null,
+      category: 'material',
+      emoji: trophy.icon,
     };
   }
   return null;

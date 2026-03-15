@@ -59,9 +59,9 @@ export function addItemsWithOverflow(
   const keptItems: Item[] = [];
 
   for (const item of items) {
-    // Never auto-salvage corrupted items (void invasion drops are always valuable)
+    // Never auto-salvage corrupted or unique items
     // Auto-dispose by rarity threshold
-    if (!item.isCorrupted && minOrder > 0 && RARITY_ORDER[item.rarity] < minOrder) {
+    if (!item.isCorrupted && !item.isUnique && minOrder > 0 && RARITY_ORDER[item.rarity] < minOrder) {
       if (autoDisposalAction === 'sell') {
         autoSoldGold += SELL_GOLD[item.rarity] + Math.floor(item.iLvl / 5);
         autoSoldCount++;
@@ -71,10 +71,16 @@ export function addItemsWithOverflow(
       }
       continue;
     }
-    // Overflow: always salvage for essence (emergency)
+    // Overflow: salvage for essence (emergency) — but never auto-salvage uniques
     if (newInventory.length >= inventoryCapacity) {
-      dustGained += ESSENCE_REWARD[item.rarity];
-      itemsSalvaged++;
+      if (item.isUnique) {
+        // Force-keep unique even at overflow — player must manually deal with it
+        newInventory.push(item);
+        keptItems.push(item);
+      } else {
+        dustGained += ESSENCE_REWARD[item.rarity];
+        itemsSalvaged++;
+      }
       continue;
     }
     newInventory.push(item);

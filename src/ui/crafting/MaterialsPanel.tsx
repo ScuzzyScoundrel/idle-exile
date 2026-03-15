@@ -2,6 +2,7 @@ import { useGameStore } from '../../store/gameStore';
 import { REFINEMENT_TRACK_DEFS } from '../../data/refinement';
 import { AFFIX_CATALYST_DEFS } from '../../data/affixCatalysts';
 import { RARE_MATERIAL_DEFS, getRareMaterialDef } from '../../data/rareMaterials';
+import { getBossTrophyDef } from '../../data/bossTrophies';
 import { CraftIcon, resolveMaterialMeta } from '../craftIcon';
 import Tooltip from '../components/Tooltip';
 import { RARITY_TEXT, RARITY_BORDER, RARITY_GRADIENT } from './craftingConstants';
@@ -33,6 +34,7 @@ export default function MaterialsPanel({ onMaterialClick }: MaterialsPanelProps)
   const trackGroups = new Map<RefinementTrack, MatItem[]>();
   const affixCats: MatItem[] = [];
   const rare: MatItem[] = [];
+  const trophies: MatItem[] = [];
   const misc: MatItem[] = [];
 
   for (const [id, count] of Object.entries(materials)) {
@@ -55,6 +57,14 @@ export default function MaterialsPanel({ onMaterialClick }: MaterialsPanelProps)
         color: def ? RARITY_TEXT[def.rarity as Rarity] : undefined,
         subtitle: def ? `${def.rarity} catalyst` : undefined,
         rarity: def?.rarity as Rarity,
+      });
+    } else if (id.startsWith('trophy_')) {
+      const tDef = getBossTrophyDef(id);
+      trophies.push({
+        id, count,
+        icon: tDef?.icon,
+        color: 'text-orange-300',
+        subtitle: tDef?.description,
       });
     } else if (miscIds.has(id)) {
       misc.push({ id, count });
@@ -79,6 +89,7 @@ export default function MaterialsPanel({ onMaterialClick }: MaterialsPanelProps)
       sections.push({ label: trackDef.name, icon: trackDef.icon, items });
     }
   }
+  if (trophies.length > 0) sections.push({ label: 'Boss Trophies', icon: '\uD83C\uDFC6', items: trophies });
   if (affixCats.length > 0) sections.push({ label: 'Affix Catalysts', icon: '\u2697\uFE0F', items: affixCats });
   if (rare.length > 0) sections.push({ label: 'Rare Materials', icon: '\uD83D\uDC8E', items: rare });
   if (misc.length > 0) sections.push({ label: 'Misc', icon: '\uD83D\uDCE6', items: misc });
