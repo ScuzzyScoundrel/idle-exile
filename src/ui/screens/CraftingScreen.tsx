@@ -9,6 +9,7 @@ import { ITEM_BASE_DEFS } from '../../data/items';
 import { CRAFT_AUTO_SALVAGE_OPTIONS, RARITY_TEXT } from '../crafting/craftingConstants';
 import { getRecipesBySlot, getProfessionForSlot, getWorkbenchSlot, formatMatName, getMatTooltip } from '../crafting/craftingHelpers';
 import { resolveMaterialMeta } from '../craftIcon';
+import Tooltip from '../components/Tooltip';
 import { SlotPicker } from '../crafting/SlotPicker';
 import { WorkbenchRecipeCard } from '../crafting/WorkbenchRecipeCard';
 import { CraftingDrawer } from '../crafting/CraftingDrawer';
@@ -277,10 +278,15 @@ export default function CraftingScreen() {
                       const meta = resolveMaterialMeta(m.materialId);
                       const displayName = meta?.name ?? formatMatName(m.materialId);
                       const tip = getMatTooltip(m.materialId);
-                      return (
-                        <span key={m.materialId} className={`cursor-default ${have >= m.amount ? 'text-gray-400' : 'text-red-400'}`} title={tip ?? undefined}>
+                      const pill = (
+                        <span className={`cursor-default ${have >= m.amount ? 'text-gray-400' : 'text-red-400'}`}>
                           {meta?.emoji ? `${meta.emoji} ` : ''}{displayName} {have}/{m.amount}
                         </span>
+                      );
+                      return tip ? (
+                        <Tooltip key={m.materialId} content={tip}>{pill}</Tooltip>
+                      ) : (
+                        <span key={m.materialId}>{pill}</span>
                       );
                     })}
                     <span className={gold >= cost.goldCost ? 'text-yellow-400' : 'text-red-400'}>

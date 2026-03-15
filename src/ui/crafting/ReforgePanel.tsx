@@ -5,14 +5,30 @@ import { getReforgeCost, canReforge } from '../../engine/craftingProfessions';
 import { getUniqueItemDef } from '../../data/uniqueItems';
 import { resolveMaterialMeta } from '../craftIcon';
 import { formatMatName, getMatTooltip } from './craftingHelpers';
+import Tooltip from '../components/Tooltip';
 import type { Item } from '../../types';
 
 /** Band → target iLvl for reforging (midpoint of band's iLvl range). */
 const BAND_ILVL: Record<number, { label: string; iLvl: number }> = {
-  1: { label: 'Band 1 (iLvl 5)', iLvl: 5 },
-  2: { label: 'Band 2 (iLvl 15)', iLvl: 15 },
-  3: { label: 'Band 3 (iLvl 25)', iLvl: 25 },
+  1: { label: 'B1 (iLvl 5)', iLvl: 5 },
+  2: { label: 'B2 (iLvl 15)', iLvl: 15 },
+  3: { label: 'B3 (iLvl 25)', iLvl: 25 },
+  4: { label: 'B4 (iLvl 38)', iLvl: 38 },
+  5: { label: 'B5 (iLvl 50)', iLvl: 50 },
+  6: { label: 'B6 (iLvl 60)', iLvl: 60 },
 };
+
+function MatCostPill({ materialId, have, need }: { materialId: string; have: number; need: number }) {
+  const meta = resolveMaterialMeta(materialId);
+  const name = meta?.name ?? formatMatName(materialId);
+  const tip = getMatTooltip(materialId);
+  const pill = (
+    <span className={`inline-block px-1.5 py-0.5 rounded bg-gray-700 cursor-default ${have >= need ? 'text-gray-300' : 'text-red-400'}`}>
+      {meta?.emoji ? `${meta.emoji} ` : ''}{name} {have}/{need}
+    </span>
+  );
+  return tip ? <Tooltip content={tip}>{pill}</Tooltip> : pill;
+}
 
 export default function ReforgePanel() {
   const { inventory, character, materials, gold } = useGameStore();
@@ -100,15 +116,15 @@ export default function ReforgePanel() {
           <div className="text-sm font-bold text-amber-300">{selectedItem.name}</div>
           <div className="text-[10px] text-gray-500">Current iLvl: {selectedItem.iLvl} | {selectedItem.prefixes.length + selectedItem.suffixes.length} affixes</div>
 
-          {/* Target band selector */}
+          {/* Target band selector — 2 rows of 3 */}
           <div className="space-y-1">
             <div className="text-xs font-semibold text-gray-400">Target Band</div>
-            <div className="flex gap-1">
+            <div className="grid grid-cols-3 gap-1">
               {Object.entries(BAND_ILVL).map(([band, info]) => (
                 <button
                   key={band}
                   onClick={() => setTargetBand(Number(band))}
-                  className={`flex-1 px-2 py-1.5 rounded text-xs font-bold transition-colors ${
+                  className={`px-2 py-1.5 rounded text-xs font-bold transition-colors ${
                     targetBand === Number(band)
                       ? 'bg-amber-700 text-white'
                       : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
@@ -125,19 +141,11 @@ export default function ReforgePanel() {
             <div className="space-y-1">
               <div className="text-xs font-semibold text-gray-400">Cost</div>
               <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                {cost.materials.map(m => {
-                  const have = materials[m.materialId] ?? 0;
-                  const meta = resolveMaterialMeta(m.materialId);
-                  const name = meta?.name ?? formatMatName(m.materialId);
-                  const tip = getMatTooltip(m.materialId);
-                  return (
-                    <span key={m.materialId} className={`px-1.5 py-0.5 rounded bg-gray-700 cursor-default ${have >= m.amount ? 'text-gray-300' : 'text-red-400'}`} title={tip ?? undefined}>
-                      {meta?.emoji ? `${meta.emoji} ` : ''}{name} {have}/{m.amount}
-                    </span>
-                  );
-                })}
+                {cost.materials.map(m => (
+                  <MatCostPill key={m.materialId} materialId={m.materialId} have={materials[m.materialId] ?? 0} need={m.amount} />
+                ))}
                 <span className={`px-1.5 py-0.5 rounded bg-gray-700 ${gold >= cost.goldCost ? 'text-yellow-400' : 'text-red-400'}`}>
-                  {cost.goldCost}g ({gold}g)
+                  {cost.goldCost.toLocaleString()}g
                 </span>
               </div>
             </div>

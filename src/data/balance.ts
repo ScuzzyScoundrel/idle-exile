@@ -779,4 +779,34 @@ export const REFORGE_COST_PER_BAND: Record<number, {
     ],
     alchemistCatalyst: 'vitality_essence',
   },
+  4: {
+    goldCost: 4000,
+    essenceCost: 80,
+    refinedMats: [
+      { materialId: 'voidsteel_ingot', amount: 10 },
+      { materialId: 'shadowleather', amount: 10 },
+      { materialId: 'shadow_elixir', amount: 6 },
+    ],
+    alchemistCatalyst: 'vitality_essence',
+  },
+  5: {
+    goldCost: 10000,
+    essenceCost: 120,
+    refinedMats: [
+      { materialId: 'celesteel_ingot', amount: 12 },
+      { materialId: 'dreadleather', amount: 12 },
+      { materialId: 'tempest_distillate', amount: 8 },
+    ],
+    alchemistCatalyst: 'vitality_essence',
+  },
+  6: {
+    goldCost: 25000,
+    essenceCost: 200,
+    refinedMats: [
+      { materialId: 'primordial_ingot', amount: 15 },
+      { materialId: 'primordial_leather', amount: 15 },
+      { materialId: 'primordial_essence', amount: 10 },
+    ],
+    alchemistCatalyst: 'vitality_essence',
+  },
 };
