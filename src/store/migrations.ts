@@ -783,5 +783,10 @@ export function runMigrations(
     }
   }
 
+  // v58: Unique item system — all new fields are optional on Item, no data migration needed.
+  // Boss trophies stored in materials bag (same as other materials).
+  // Unique patterns stored in ownedPatterns (same as other patterns).
+  // Version bump only.
+
   return state;
 }

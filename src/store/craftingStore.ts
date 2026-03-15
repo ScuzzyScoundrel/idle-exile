@@ -19,6 +19,7 @@ import { canRefine, refine, canDeconstruct, deconstruct } from '../engine/refine
 import {
   canCraftRecipe, executeCraft, addCraftingXp, getCraftingXpForTier,
   canCraftPattern, executePatternCraft, getPatternMaterialCost,
+  canReforge, executeReforge, getReforgeCost,
 } from '../engine/craftingProfessions';
 import { resolveProfessionBonuses } from '../engine/professionBonuses';
 import { getPatternDef } from '../data/craftingPatterns';
@@ -50,6 +51,9 @@ interface CraftingActions {
   claimAllCraftOutput: () => void;
   salvageCraftOutput: (itemId: string) => void;
   salvageAllCraftOutput: () => void;
+
+  // Unique reforging
+  reforgeUnique: (itemId: string, targetBand: number, targetILvl: number) => Item | null;
 
   // Settings
   setCraftAutoSalvageRarity: (rarity: Rarity) => void;
@@ -465,6 +469,65 @@ export const useCraftingStore = create<CraftingActions>()((_set, get) => ({
     for (const item of state.craftOutputBuffer) dust += ESSENCE_REWARD[item.rarity];
     newMaterials['enchanting_essence'] = (newMaterials['enchanting_essence'] ?? 0) + dust;
     useGameStore.setState({ craftOutputBuffer: [], materials: newMaterials });
+  },
+
+  // ─── Unique Reforging ──────────────────────────────────────
+
+  reforgeUnique: (itemId: string, targetBand: number, targetILvl: number) => {
+    const state = useGameStore.getState();
+
+    // Find the item (could be in inventory or equipped)
+    let item: Item | undefined;
+    let itemLocation: 'inventory' | 'equipment' = 'inventory';
+    let inventoryIdx = -1;
+    let equipSlot: string | undefined;
+
+    inventoryIdx = state.inventory.findIndex(i => i.id === itemId);
+    if (inventoryIdx >= 0) {
+      item = state.inventory[inventoryIdx];
+    } else {
+      // Check equipped items
+      for (const [slot, eq] of Object.entries(state.character.equipment)) {
+        if (eq?.id === itemId) {
+          item = eq;
+          itemLocation = 'equipment';
+          equipSlot = slot;
+          break;
+        }
+      }
+    }
+
+    if (!item || !item.isUnique || !item.uniqueDefId) return null;
+    if (!canReforge(item, targetBand, state.materials, state.gold)) return null;
+
+    const cost = getReforgeCost(item.uniqueDefId, targetBand);
+    if (!cost) return null;
+
+    // Consume materials
+    const newMaterials = { ...state.materials };
+    for (const { materialId, amount } of cost.materials) {
+      newMaterials[materialId] = (newMaterials[materialId] ?? 0) - amount;
+    }
+    const newGold = state.gold - cost.goldCost;
+
+    // Execute reforge
+    const reforgedItem = executeReforge(item, targetILvl);
+
+    // Replace the item in its original location
+    if (itemLocation === 'inventory' && inventoryIdx >= 0) {
+      const newInventory = [...state.inventory];
+      newInventory[inventoryIdx] = reforgedItem;
+      useGameStore.setState({ inventory: newInventory, materials: newMaterials, gold: newGold });
+    } else if (itemLocation === 'equipment' && equipSlot) {
+      const newEquipment = { ...state.character.equipment, [equipSlot]: reforgedItem };
+      useGameStore.setState({
+        character: { ...state.character, equipment: newEquipment },
+        materials: newMaterials,
+        gold: newGold,
+      });
+    }
+
+    return reforgedItem;
   },
 
   // ─── Settings ──────────────────────────────────────────────

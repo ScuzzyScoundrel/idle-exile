@@ -1,19 +1,23 @@
 import type { Rarity, Gem } from '../../types';
 import { RARITY_TEXT } from './zoneConstants';
 import { getGemDef, GEM_TIER_NAMES, GEM_TIER_COLORS } from '../../data/gems';
+import { getBossTrophyDef } from '../../data/bossTrophies';
+import { getPatternDef } from '../../data/craftingPatterns';
 
 interface BossVictoryProps {
   bossName: string;
   items: { name: string; rarity: Rarity }[];
   gemDrops?: Gem[];
   patternDrops?: string[];
+  uniquePatternDrops?: string[];
+  trophyDrops?: Record<string, number>;
   fightDuration: number;
   playerDps: number;
   bossDps: number;
   bossMaxHp: number;
 }
 
-export default function BossVictoryOverlay({ bossName, items, gemDrops, patternDrops, fightDuration, playerDps, bossDps, bossMaxHp }: BossVictoryProps) {
+export default function BossVictoryOverlay({ bossName, items, gemDrops, patternDrops, uniquePatternDrops, trophyDrops, fightDuration, playerDps, bossDps, bossMaxHp }: BossVictoryProps) {
   return (
     <div className="bg-gradient-to-br from-yellow-950 via-gray-900 to-yellow-950 rounded-lg border-2 border-yellow-500 p-4 text-center space-y-3">
       <div className="text-2xl">{'\u{1F451}'}</div>
@@ -68,16 +72,53 @@ export default function BossVictoryOverlay({ bossName, items, gemDrops, patternD
         </div>
       )}
 
+      {/* Trophy Drops */}
+      {trophyDrops && Object.keys(trophyDrops).length > 0 && (
+        <div>
+          <div className="text-xs text-gray-500 mb-1">Trophies</div>
+          <div className="flex flex-wrap gap-1 justify-center">
+            {Object.entries(trophyDrops).map(([trophyId, count]) => {
+              const trophy = getBossTrophyDef(trophyId);
+              return (
+                <span key={trophyId} className="text-xs bg-gray-800 border border-orange-600/50 rounded-md px-2 py-0.5 text-orange-300">
+                  {trophy?.icon ?? ''} {trophy?.name ?? trophyId}{count > 1 ? ` x${count}` : ''}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Pattern Drops */}
       {patternDrops && patternDrops.length > 0 && (
         <div>
           <div className="text-xs text-gray-500 mb-1">Patterns</div>
           <div className="flex flex-wrap gap-1 justify-center">
-            {patternDrops.map((patId, i) => (
-              <span key={i} className="text-xs bg-gray-800 border border-amber-700/50 rounded-md px-2 py-0.5 text-amber-400">
-                {'\uD83D\uDCDC'} {patId}
-              </span>
-            ))}
+            {patternDrops.map((patId, i) => {
+              const pat = getPatternDef(patId);
+              return (
+                <span key={i} className="text-xs bg-gray-800 border border-amber-700/50 rounded-md px-2 py-0.5 text-amber-400">
+                  {'\uD83D\uDCDC'} {pat?.name ?? patId}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Unique Pattern Drops */}
+      {uniquePatternDrops && uniquePatternDrops.length > 0 && (
+        <div>
+          <div className="text-xs text-gray-500 mb-1">Unique Patterns</div>
+          <div className="flex flex-wrap gap-1 justify-center">
+            {uniquePatternDrops.map((patId, i) => {
+              const pat = getPatternDef(patId);
+              return (
+                <span key={i} className="text-xs bg-gray-800 border border-amber-500 rounded-md px-2 py-0.5 text-amber-300 font-bold animate-pulse">
+                  {'\u2B50'} {pat?.name ?? patId}
+                </span>
+              );
+            })}
           </div>
         </div>
       )}

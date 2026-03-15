@@ -21,6 +21,7 @@ import ProfessionGearPanel from '../crafting/ProfessionGearPanel';
 import MaterialDetailModal from '../crafting/MaterialDetailModal';
 import type { WorkbenchSlot } from '../crafting/craftingHelpers';
 import type { CraftingRecipeDef, Rarity, OwnedPattern, CraftingPatternDef } from '../../types';
+import { getUniqueItemDef } from '../../data/uniqueItems';
 
 type DrawerKind = 'bag' | 'refine' | 'gear' | null;
 
@@ -218,37 +219,48 @@ export default function CraftingScreen() {
           {slotPatterns.map(({ owned, def, index }) => {
             const cost = getPatternMaterialCost(def);
             const canCraft = canCraftPattern(def, owned.charges, craftingSkills, materials, gold);
+            const isUnique = !!def.uniqueDefId;
+            const uniqueDef = isUnique ? getUniqueItemDef(def.uniqueDefId!) : undefined;
             return (
               <div
                 key={`${owned.defId}-${index}`}
-                className={`bg-gray-800 rounded-lg border ${canCraft ? 'border-yellow-600/50' : 'border-gray-700'} p-3 space-y-1.5`}
+                className={`bg-gray-800 rounded-lg border ${isUnique ? (canCraft ? 'border-amber-500/60' : 'border-amber-900/50') : (canCraft ? 'border-yellow-600/50' : 'border-gray-700')} p-3 space-y-1.5`}
               >
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-yellow-900/50 text-yellow-300">Pattern</span>
-                  <span className="text-sm font-bold text-yellow-200 truncate flex-1">{def.name}</span>
-                  <span className="text-xs text-gray-400">{owned.charges} charges</span>
+                  <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${isUnique ? 'bg-amber-900/60 text-amber-300' : 'bg-yellow-900/50 text-yellow-300'}`}>
+                    {isUnique ? 'Unique' : 'Pattern'}
+                  </span>
+                  <span className={`text-sm font-bold truncate flex-1 ${isUnique ? 'text-amber-200' : 'text-yellow-200'}`}>{def.name}</span>
+                  <span className="text-xs text-gray-400">{owned.charges} charge{owned.charges !== 1 ? 's' : ''}</span>
                   <button
                     onClick={() => handlePatternCraft(index)}
                     disabled={!canCraft}
                     className={`px-2.5 py-1 rounded text-xs font-bold ${
                       canCraft
-                        ? 'bg-yellow-600 hover:bg-yellow-500 text-white'
+                        ? (isUnique ? 'bg-amber-600 hover:bg-amber-500 text-white' : 'bg-yellow-600 hover:bg-yellow-500 text-white')
                         : 'bg-gray-700 text-gray-500 cursor-not-allowed'
                     }`}
                   >
                     Craft
                   </button>
                 </div>
-                <div className="flex flex-wrap gap-1 text-xs">
-                  {def.guaranteedAffixes.map(affix => (
-                    <span key={affix} className="px-1.5 py-0.5 rounded bg-green-900/50 text-green-300 border border-green-700/50">
-                      +{formatMatName(affix)}
+                {isUnique && uniqueDef ? (
+                  <div className="space-y-1">
+                    <div className="text-xs text-amber-400 italic">{uniqueDef.uniqueAffix.displayText}</div>
+                    <div className="text-[10px] text-gray-500 italic">{uniqueDef.lore}</div>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-1 text-xs">
+                    {def.guaranteedAffixes.map(affix => (
+                      <span key={affix} className="px-1.5 py-0.5 rounded bg-green-900/50 text-green-300 border border-green-700/50">
+                        +{formatMatName(affix)}
+                      </span>
+                    ))}
+                    <span className={`px-1.5 py-0.5 rounded ${RARITY_TEXT[def.minRarity]} bg-gray-800 border border-gray-600`}>
+                      {def.minRarity}+
                     </span>
-                  ))}
-                  <span className={`px-1.5 py-0.5 rounded ${RARITY_TEXT[def.minRarity]} bg-gray-800 border border-gray-600`}>
-                    {def.minRarity}+
-                  </span>
-                </div>
+                  </div>
+                )}
                 {cost && (
                   <div className="flex flex-wrap items-center gap-1 text-[10px] text-gray-500">
                     {cost.materials.map(m => {

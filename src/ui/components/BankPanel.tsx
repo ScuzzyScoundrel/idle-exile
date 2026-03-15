@@ -11,6 +11,7 @@ const RARITY_TILE_BORDER: Record<Rarity, string> = {
   rare: 'border-yellow-500',
   epic: 'border-purple-500',
   legendary: 'border-orange-500',
+  unique: 'border-amber-500',
 };
 
 const RARITY_GRADIENT: Record<Rarity, string> = {
@@ -19,6 +20,7 @@ const RARITY_GRADIENT: Record<Rarity, string> = {
   rare: 'from-yellow-900/50',
   epic: 'from-purple-900/50',
   legendary: 'from-orange-900/50',
+  unique: 'from-amber-900/50',
 };
 
 interface BankPanelProps {

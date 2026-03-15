@@ -370,7 +370,7 @@ export function generateGatheringItem(slot: GearSlot, iLvl: number, baseId?: str
 
 /** Rarity rank for comparison (higher = better). */
 const RARITY_RANK: Record<Rarity, number> = {
-  common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4,
+  common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4, unique: 5,
 };
 
 /**

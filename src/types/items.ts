@@ -123,7 +123,7 @@ export type WeaponType =
   | 'tool';
 export type WeaponScalingType = 'attack' | 'spell' | 'hybrid';
 export type OffhandType = 'shield' | 'focus' | 'quiver';
-export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
+export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' | 'unique';
 
 export interface ItemBaseDef {
   id: string;
@@ -163,6 +163,16 @@ export interface Item {
   implicit?: Affix;          // corruption implicit from void invasions
   isCorrupted?: boolean;     // flagged for purple UI treatment
   sockets?: (Gem | null)[];  // undefined = no sockets. null = empty socket. Gem = filled.
+  isUnique?: boolean;
+  uniqueDefId?: string;
+  uniqueAffix?: UniqueAffixInstance;
+}
+
+export interface UniqueAffixInstance {
+  uniqueDefId: string;
+  slot: AffixSlot;
+  displayText: string;
+  stats: Partial<Record<StatKey, number>>;
 }
 
 export const SOCKETABLE_SLOTS: GearSlot[] = [

@@ -141,6 +141,8 @@ export default function CombatPanel() {
   const [bossLootItems, setBossLootItems] = useState<{ name: string; rarity: Rarity }[]>([]);
   const [bossGemDrops, setBossGemDrops] = useState<Gem[]>([]);
   const [bossPatternDrops, setBossPatternDrops] = useState<string[]>([]);
+  const [bossUniquePatternDrops, setBossUniquePatternDrops] = useState<string[]>([]);
+  const [bossTrophyDrops, setBossTrophyDrops] = useState<Record<string, number>>({});
   const [bossFightStats, setBossFightStats] = useState<{ duration: number; playerDps: number; bossDps: number; bossMaxHp: number } | null>(null);
 
   // Visual feedback state — "Last Hit" dashboard (replaces scrolling combat log)
@@ -362,6 +364,8 @@ export default function CombatPanel() {
             setBossLootItems(lootResult.items);
             setBossGemDrops(lootResult.gemDrops ?? []);
             setBossPatternDrops(lootResult.patternDrops ?? []);
+            setBossUniquePatternDrops(lootResult.uniquePatternDrops ?? []);
+            setBossTrophyDrops(lootResult.trophyDrops ?? {});
             setSession(prev => accumulateSession(prev, lootResult, 0));
           }
         } else if (bossResult.bossOutcome === 'defeat') {
@@ -481,6 +485,8 @@ export default function CombatPanel() {
           items={bossLootItems}
           gemDrops={bossGemDrops}
           patternDrops={bossPatternDrops}
+          uniquePatternDrops={bossUniquePatternDrops}
+          trophyDrops={bossTrophyDrops}
           fightDuration={bossFightStats?.duration ?? 0}
           playerDps={bossFightStats?.playerDps ?? 0}
           bossDps={bossFightStats?.bossDps ?? 0}

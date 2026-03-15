@@ -175,6 +175,8 @@ export interface ProcessClearsResult {
   autoSoldGold: number;
   rareMaterialDrops?: Record<string, number>;
   patternDrops?: string[];
+  uniquePatternDrops?: string[];
+  trophyDrops?: Record<string, number>;
   gatheringXpGained?: number;
   gemDrops?: Gem[];
 }

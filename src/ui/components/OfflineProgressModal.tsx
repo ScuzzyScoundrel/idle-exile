@@ -11,6 +11,7 @@ const RARITY_COLORS: Record<Rarity, string> = {
   rare: 'text-blue-400',
   epic: 'text-purple-400',
   legendary: 'text-yellow-400',
+  unique: 'text-amber-400',
 };
 
 const RARITY_BG: Record<Rarity, string> = {
@@ -19,6 +20,7 @@ const RARITY_BG: Record<Rarity, string> = {
   rare: 'bg-blue-900/50',
   epic: 'bg-purple-900/50',
   legendary: 'bg-yellow-900/50',
+  unique: 'bg-amber-900/50',
 };
 
 function formatDuration(seconds: number): string {

@@ -120,6 +120,7 @@ export const RARITY_TEXT: Record<Rarity, string> = {
   rare: 'text-yellow-400',
   epic: 'text-purple-400',
   legendary: 'text-orange-400',
+  unique: 'text-amber-400',
 };
 
 export const RARITY_BORDER: Record<Rarity, string> = {
@@ -128,6 +129,7 @@ export const RARITY_BORDER: Record<Rarity, string> = {
   rare: 'border-blue-600',
   epic: 'border-purple-600',
   legendary: 'border-orange-600',
+  unique: 'border-amber-600',
 };
 
 export const RARITY_BG: Record<Rarity, string> = {
@@ -136,6 +138,7 @@ export const RARITY_BG: Record<Rarity, string> = {
   rare: 'bg-blue-900/40',
   epic: 'bg-purple-900/40',
   legendary: 'bg-orange-900/40',
+  unique: 'bg-amber-900/40',
 };
 
 // Gathering profession icons

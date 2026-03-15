@@ -5,10 +5,11 @@
 
 import type { CraftingSkills, CraftingProfession, CraftingRecipeDef, CraftingMilestone, CraftingPatternDef, Item, Rarity, RareMaterialRarity, AffixTier } from '../types';
 import { CRAFTING_MILESTONES } from '../data/craftingProfessions';
-import { CRAFTING_XP_PER_TIER, CATALYST_RARITY_MAP, CATALYST_BEST_TIER, CATALYST_ILVL_BONUS } from '../data/balance';
+import { CRAFTING_XP_PER_TIER, CATALYST_RARITY_MAP, CATALYST_BEST_TIER, CATALYST_ILVL_BONUS, REFORGE_COST_PER_BAND } from '../data/balance';
 import { generateItem, generateGatheringItem, generateProfessionItem, rollAffixValue, classifyRarity, buildItemName, getAffixDef } from './items';
 import { getRareMaterialDef } from '../data/rareMaterials';
 import { getAffixCatalystDef } from '../data/affixCatalysts';
+import { getUniqueItemDef } from '../data/uniqueItems';
 
 /** XP curve for crafting professions — matches gathering curve. */
 const CRAFTING_XP_BASE = 50;
@@ -16,7 +17,7 @@ const CRAFTING_XP_GROWTH = 1.10;
 
 /** Rarity rank for comparison. */
 const RARITY_RANK: Record<Rarity, number> = {
-  common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4,
+  common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4, unique: 5,
 };
 
 /** Calculate XP required to reach the next crafting level. */
@@ -253,12 +254,29 @@ function findEquivalentRecipe(pattern: CraftingPatternDef): CraftingRecipeDef | 
 }
 
 /**
- * Get the material cost for a pattern craft (base recipe cost × materialCostMult).
- * Returns undefined if no equivalent recipe found.
+ * Get the material cost for a pattern craft.
+ * For unique patterns: uses UniqueItemDef.craftCost (trophies + mats + rare mat + gold).
+ * For normal patterns: base recipe cost × materialCostMult.
+ * Returns undefined if no cost info found.
  */
 export function getPatternMaterialCost(
   pattern: CraftingPatternDef,
 ): { materials: { materialId: string; amount: number }[]; goldCost: number } | undefined {
+  // Unique pattern: derive cost from UniqueItemDef
+  if (pattern.uniqueDefId) {
+    const uniqueDef = getUniqueItemDef(pattern.uniqueDefId);
+    if (!uniqueDef) return undefined;
+    const materials: { materialId: string; amount: number }[] = [
+      { materialId: uniqueDef.craftCost.trophyId, amount: uniqueDef.craftCost.trophyAmount },
+      ...uniqueDef.craftCost.materials,
+    ];
+    if (uniqueDef.craftCost.rareMaterialId && uniqueDef.craftCost.rareMaterialAmount) {
+      materials.push({ materialId: uniqueDef.craftCost.rareMaterialId, amount: uniqueDef.craftCost.rareMaterialAmount });
+    }
+    return { materials, goldCost: uniqueDef.craftCost.goldCost };
+  }
+
+  // Normal pattern: derive from equivalent recipe
   const recipe = findEquivalentRecipe(pattern);
   if (!recipe) return undefined;
   const materials = recipe.materials.map(m => ({
@@ -280,9 +298,11 @@ export function canCraftPattern(
   if (charges <= 0) return false;
   const cost = getPatternMaterialCost(pattern);
   if (!cost) return false;
-  // Check profession level (use tier requirement)
-  const recipe = findEquivalentRecipe(pattern);
-  if (recipe && skills[pattern.profession].level < recipe.requiredLevel) return false;
+  // Check profession level (unique patterns skip recipe level check)
+  if (!pattern.uniqueDefId) {
+    const recipe = findEquivalentRecipe(pattern);
+    if (recipe && skills[pattern.profession].level < recipe.requiredLevel) return false;
+  }
   // Check gold
   if (gold < cost.goldCost) return false;
   // Check materials
@@ -294,8 +314,12 @@ export function canCraftPattern(
 
 /**
  * Execute a pattern craft — generate an item with guaranteed affixes and minimum rarity.
+ * For unique patterns, delegates to executeUniquePatternCraft.
  */
 export function executePatternCraft(pattern: CraftingPatternDef): Item {
+  if (pattern.uniqueDefId) {
+    return executeUniquePatternCraft(pattern);
+  }
   const slot = getSlotFromBaseId(pattern.outputBaseId);
   // Generate with first guaranteed affix
   let item = generateItem(slot, pattern.outputILvl, pattern.outputBaseId, pattern.guaranteedAffixes[0]);
@@ -351,4 +375,151 @@ export function executePatternCraft(pattern: CraftingPatternDef): Item {
   item.name = buildItemName(item);
   item.isCrafted = true;
   return item;
+}
+
+// ─── Unique Pattern Crafting ────────────────────────────────────
+
+/**
+ * Craft a unique item from a unique pattern.
+ * Generates a base item, removes one affix to make room,
+ * attaches the unique affix, sets rarity to 'unique', and overrides name.
+ */
+function executeUniquePatternCraft(pattern: CraftingPatternDef): Item {
+  const uniqueDef = getUniqueItemDef(pattern.uniqueDefId!);
+  if (!uniqueDef) {
+    // Fallback: generate a normal item (should never happen)
+    const slot = getSlotFromBaseId(pattern.outputBaseId);
+    return generateItem(slot, pattern.outputILvl, pattern.outputBaseId);
+  }
+
+  const slot = getSlotFromBaseId(pattern.outputBaseId);
+  const item = generateItem(slot, pattern.outputILvl, pattern.outputBaseId);
+
+  // Remove one affix from the same slot as the unique affix to make room
+  if (uniqueDef.uniqueAffix.slot === 'prefix' && item.prefixes.length > 0) {
+    // Remove weakest prefix (highest tier number)
+    let worstIdx = 0;
+    for (let i = 1; i < item.prefixes.length; i++) {
+      if (item.prefixes[i].tier > item.prefixes[worstIdx].tier) worstIdx = i;
+    }
+    item.prefixes.splice(worstIdx, 1);
+  } else if (uniqueDef.uniqueAffix.slot === 'suffix' && item.suffixes.length > 0) {
+    let worstIdx = 0;
+    for (let i = 1; i < item.suffixes.length; i++) {
+      if (item.suffixes[i].tier > item.suffixes[worstIdx].tier) worstIdx = i;
+    }
+    item.suffixes.splice(worstIdx, 1);
+  }
+
+  // Attach unique affix
+  item.uniqueAffix = {
+    uniqueDefId: uniqueDef.id,
+    slot: uniqueDef.uniqueAffix.slot,
+    displayText: uniqueDef.uniqueAffix.displayText,
+    stats: { ...uniqueDef.uniqueAffix.stats },
+  };
+
+  // Set unique properties
+  item.isUnique = true;
+  item.uniqueDefId = uniqueDef.id;
+  item.rarity = 'unique';
+  item.name = uniqueDef.name;
+  item.isCrafted = true;
+
+  return item;
+}
+
+// ─── Reforge System ─────────────────────────────────────────────
+
+/**
+ * Get the cost to reforge a unique item to a target band's iLvl.
+ */
+export function getReforgeCost(
+  uniqueDefId: string,
+  targetBand: number,
+): { materials: { materialId: string; amount: number }[]; goldCost: number } | undefined {
+  const uniqueDef = getUniqueItemDef(uniqueDefId);
+  if (!uniqueDef) return undefined;
+  const bandCost = REFORGE_COST_PER_BAND[targetBand];
+  if (!bandCost) return undefined;
+
+  // Reforge costs: trophy + band-appropriate refined materials + gold
+  const materials: { materialId: string; amount: number }[] = [
+    { materialId: uniqueDef.craftCost.trophyId, amount: 1 },
+  ];
+  // Use the same base materials from the unique's original craft cost, scaled by target band
+  for (const mat of uniqueDef.craftCost.materials) {
+    materials.push({
+      materialId: mat.materialId,
+      amount: Math.ceil(mat.amount * (targetBand / uniqueDef.band)),
+    });
+  }
+
+  return { materials, goldCost: bandCost.goldCost };
+}
+
+/**
+ * Check if a unique item can be reforged to the target band.
+ */
+export function canReforge(
+  item: Item,
+  targetBand: number,
+  materials: Record<string, number>,
+  gold: number,
+): boolean {
+  if (!item.isUnique || !item.uniqueDefId) return false;
+  const cost = getReforgeCost(item.uniqueDefId, targetBand);
+  if (!cost) return false;
+  if (gold < cost.goldCost) return false;
+  for (const { materialId, amount } of cost.materials) {
+    if ((materials[materialId] ?? 0) < amount) return false;
+  }
+  return true;
+}
+
+/**
+ * Reforge a unique item: re-generate at new iLvl, preserve unique affix, re-roll random affixes.
+ * Returns a new item (does not mutate the original).
+ */
+export function executeReforge(item: Item, targetILvl: number): Item {
+  if (!item.isUnique || !item.uniqueDefId || !item.uniqueAffix) return item;
+
+  const uniqueDef = getUniqueItemDef(item.uniqueDefId);
+  if (!uniqueDef) return item;
+
+  const slot = getSlotFromBaseId(uniqueDef.baseItemId);
+
+  // Find the appropriate base item for the target iLvl
+  const targetBase = ITEM_BASE_DEFS
+    .filter(b => b.slot === slot && (b.armorType === item.armorType || (!b.armorType && !item.armorType)) && (b.weaponType === item.weaponType || (!b.weaponType && !item.weaponType)))
+    .sort((a, b) => Math.abs(a.iLvl - targetILvl) - Math.abs(b.iLvl - targetILvl))[0];
+
+  const baseId = targetBase?.id ?? uniqueDef.baseItemId;
+  const newItem = generateItem(slot, targetILvl, baseId);
+
+  // Remove one affix to make room for unique affix
+  if (uniqueDef.uniqueAffix.slot === 'prefix' && newItem.prefixes.length > 0) {
+    let worstIdx = 0;
+    for (let i = 1; i < newItem.prefixes.length; i++) {
+      if (newItem.prefixes[i].tier > newItem.prefixes[worstIdx].tier) worstIdx = i;
+    }
+    newItem.prefixes.splice(worstIdx, 1);
+  } else if (uniqueDef.uniqueAffix.slot === 'suffix' && newItem.suffixes.length > 0) {
+    let worstIdx = 0;
+    for (let i = 1; i < newItem.suffixes.length; i++) {
+      if (newItem.suffixes[i].tier > newItem.suffixes[worstIdx].tier) worstIdx = i;
+    }
+    newItem.suffixes.splice(worstIdx, 1);
+  }
+
+  // Preserve unique properties
+  newItem.uniqueAffix = { ...item.uniqueAffix };
+  newItem.isUnique = true;
+  newItem.uniqueDefId = item.uniqueDefId;
+  newItem.rarity = 'unique';
+  newItem.name = uniqueDef.name;
+  newItem.isCrafted = true;
+  newItem.iLvl = targetILvl;
+
+  return newItem;
 }

@@ -3,6 +3,7 @@ import type {
   CraftingProfession,
   PatternSource,
 } from '../types';
+import { getUniquesForZone } from './uniqueItems';
 
 // ---------------------------------------------------------------------------
 // Zone-drop patterns (~20) -- 1 guaranteed affix, uncommon, 5 charges, 1.0x cost
@@ -561,6 +562,26 @@ const INVASION_DROP_PATTERNS: CraftingPatternDef[] = [
 ];
 
 // ---------------------------------------------------------------------------
+// Unique-drop patterns (10) -- unique affix, 1 charge, source: unique_drop
+// ---------------------------------------------------------------------------
+
+const UNIQUE_DROP_PATTERNS: CraftingPatternDef[] = [
+  // Band 1
+  { id: 'pat_unique_adders_fang', name: "Pattern: Adder's Fang", description: 'A venomous blueprint for a legendary dagger.', band: 1, profession: 'weaponsmith', outputBaseId: 'crude_dagger', outputILvl: 5, guaranteedAffixes: [], minRarity: 'unique', maxCharges: 1, source: 'unique_drop', materialCostMult: 1.0, xpMult: 3.0, uniqueDefId: 'unique_adders_fang' },
+  { id: 'pat_unique_frostbite_loop', name: 'Pattern: Frostbite Loop', description: 'A frost-rimed ring pattern that chills all it touches.', band: 1, profession: 'jeweler', outputBaseId: 'copper_band', outputILvl: 5, guaranteedAffixes: [], minRarity: 'unique', maxCharges: 1, source: 'unique_drop', materialCostMult: 1.0, xpMult: 3.0, uniqueDefId: 'unique_frostbite_loop' },
+  { id: 'pat_unique_brambleback_hide', name: "Pattern: Brambleback's Hide", description: 'A thorned hide pattern that turns pain into power.', band: 1, profession: 'leatherworker', outputBaseId: 'rawhide_tunic', outputILvl: 5, guaranteedAffixes: [], minRarity: 'unique', maxCharges: 1, source: 'unique_drop', materialCostMult: 1.0, xpMult: 3.0, uniqueDefId: 'unique_brambleback_hide' },
+  // Band 2
+  { id: 'pat_unique_heartblood_edge', name: 'Pattern: Heartblood Edge', description: 'A blood-drinking blade design.', band: 2, profession: 'weaponsmith', outputBaseId: 'steel_stiletto', outputILvl: 15, guaranteedAffixes: [], minRarity: 'unique', maxCharges: 1, source: 'unique_drop', materialCostMult: 1.0, xpMult: 3.0, uniqueDefId: 'unique_heartblood_edge' },
+  { id: 'pat_unique_marsh_kings_crown', name: "Pattern: Marsh King's Crown", description: 'A crown that commands the swamp.', band: 2, profession: 'armorer', outputBaseId: 'steel_greathelm', outputILvl: 15, guaranteedAffixes: [], minRarity: 'unique', maxCharges: 1, source: 'unique_drop', materialCostMult: 1.0, xpMult: 3.0, uniqueDefId: 'unique_marsh_kings_crown' },
+  { id: 'pat_unique_windsworn_greaves', name: 'Pattern: Windsworn Greaves', description: 'Wind-blessed boot patterns for swift dodgers.', band: 2, profession: 'leatherworker', outputBaseId: 'studded_boots', outputILvl: 15, guaranteedAffixes: [], minRarity: 'unique', maxCharges: 1, source: 'unique_drop', materialCostMult: 1.0, xpMult: 3.0, uniqueDefId: 'unique_windsworn_greaves' },
+  // Band 3
+  { id: 'pat_unique_emberheart_pendant', name: 'Pattern: Emberheart Pendant', description: 'A pendant forged in the caldera heart.', band: 3, profession: 'jeweler', outputBaseId: 'onyx_pendant', outputILvl: 25, guaranteedAffixes: [], minRarity: 'unique', maxCharges: 1, source: 'unique_drop', materialCostMult: 1.0, xpMult: 3.0, uniqueDefId: 'unique_emberheart_pendant' },
+  { id: 'pat_unique_rothollow_grip', name: 'Pattern: Rothollow Grip', description: 'Gloves that seep with unstoppable decay.', band: 3, profession: 'leatherworker', outputBaseId: 'nightstalker_gloves', outputILvl: 25, guaranteedAffixes: [], minRarity: 'unique', maxCharges: 1, source: 'unique_drop', materialCostMult: 1.0, xpMult: 3.0, uniqueDefId: 'unique_rothollow_grip' },
+  { id: 'pat_unique_shadowlords_veil', name: "Pattern: Shadowlord's Veil", description: 'A cloak woven from shadow itself.', band: 3, profession: 'tailor', outputBaseId: 'shadowweave_cloak', outputILvl: 25, guaranteedAffixes: [], minRarity: 'unique', maxCharges: 1, source: 'unique_drop', materialCostMult: 1.0, xpMult: 3.0, uniqueDefId: 'unique_shadowlords_veil' },
+  { id: 'pat_unique_voidborn_signet', name: 'Pattern: Voidborn Signet', description: 'A ring pulled from beyond the veil.', band: 3, profession: 'jeweler', outputBaseId: 'gold_signet', outputILvl: 25, guaranteedAffixes: [], minRarity: 'unique', maxCharges: 1, source: 'unique_drop', materialCostMult: 1.0, xpMult: 3.0, uniqueDefId: 'unique_voidborn_signet' },
+];
+
+// ---------------------------------------------------------------------------
 // Combined export
 // ---------------------------------------------------------------------------
 
@@ -568,6 +589,7 @@ export const PATTERN_DEFS: CraftingPatternDef[] = [
   ...ZONE_DROP_PATTERNS,
   ...BOSS_DROP_PATTERNS,
   ...INVASION_DROP_PATTERNS,
+  ...UNIQUE_DROP_PATTERNS,
 ];
 
 // ---------------------------------------------------------------------------
@@ -609,4 +631,15 @@ export function rollPatternDrop(
   if (pool.length === 0) return undefined;
 
   return pool[Math.floor(Math.random() * pool.length)];
+}
+
+/**
+ * Roll for a unique pattern drop from a specific zone's boss.
+ * Returns a unique pattern whose UniqueItemDef.bossZoneId matches the given zoneId.
+ */
+export function rollUniquePatternDrop(zoneId: string): CraftingPatternDef | undefined {
+  const uniques = getUniquesForZone(zoneId);
+  if (uniques.length === 0) return undefined;
+  const picked = uniques[Math.floor(Math.random() * uniques.length)];
+  return UNIQUE_DROP_PATTERNS.find(p => p.uniqueDefId === picked.id);
 }

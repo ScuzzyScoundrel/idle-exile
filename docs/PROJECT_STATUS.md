@@ -1,10 +1,53 @@
 # Idle Exile — Project Status
 
 > **Read this file first at the start of every conversation.**
-> Last updated: 2026-03-11 (Readability Overhaul ALL 3 SPRINTS COMPLETE)
+> Last updated: 2026-03-14 (Unique Item System v1 COMPLETE)
 
 ## Current Phase
-**Talent & Combat Readability Overhaul — COMPLETE (all 3 sprints done).** See `docs/READABILITY_OVERHAUL_PLAN.md` for full plan.
+**Unique Item System v1 — COMPLETE.** 10 build-defining unique items with boss trophy drops, unique pattern crafting, and reforge system. Save version v58.
+
+- **What was built**: 10 unique items (POE-style) across bands 1-3 with build-defining mechanics. Boss trophies drop at 25% rate, unique patterns drop at ~6-8%. Uniques craft from trophies + zone mats + rare mats + gold. Each unique has a unique affix (mechanical effect in 1 prefix/suffix slot) with fewer random affixes. Reforge system preserves unique affix while re-rolling random affixes at higher iLvl. Combat hooks for: cannotLeech, moreDotDamage, extraChaosDamagePercent, damageOnHitSelfPercent, incDamagePerMissingLifePercent, maxLifePenaltyPercent.
+- **Key files**:
+  - `src/data/uniqueItems.ts` — 10 UniqueItemDef definitions with craft costs
+  - `src/data/bossTrophies.ts` — 13 boss trophy material definitions
+  - `src/data/craftingPatterns.ts` — 10 unique_drop patterns + rollUniquePatternDrop()
+  - `src/engine/craftingProfessions.ts` — executeUniquePatternCraft, executeReforge, canReforge, getReforgeCost
+  - `src/store/craftingStore.ts` — reforgeUnique action
+  - `src/store/gameStore.ts` — handleBossVictory trophy + unique pattern drops
+  - `src/types/stats.ts` — 18 new StatKeys for unique mechanics
+  - `src/types/items.ts` — UniqueAffixInstance, isUnique/uniqueDefId/uniqueAffix on Item, 'unique' Rarity
+  - `src/types/crafting.ts` — UniqueItemDef interface, 'unique_drop' PatternSource
+- **Save version**: v58 (no data migration needed — all new fields optional)
+
+### Unique Item System — Known Issues / Next Steps
+1. **Complex combat hooks not yet wired**: doublePoisonHalfDamage, alwaysChill, incDamageVsChilled, dodgeGrantsAttackSpeedPercent, onHitGainDamagePercent, physToFireConversion, burnExplosionPercent, enhancedCurseEffect, moreDotVsCursed, buffExpiryResetCd — these need TempBuff integration and debuff system changes.
+2. **No reforge UI** — engine + store action ready, but no UI panel/drawer yet.
+3. **Band 4+ uniques** use placeholder bosses (Emberpeak/Rothollow) until band 4-6 zones are defined.
+4. **Unique items can be salvaged** — may want to add a confirmation dialog or prevent accidental salvage.
+5. **No unique item filter** in inventory screen (no tab/filter for unique rarity).
+
+**Previous: Socket Gem System v1 — COMPLETE.** Save version v55.
+
+- **What was built**: 17 gem types (8 defensive for armor slots, 9 offensive for weapon/ring slots) with 5 tiers (Chipped→Perfect). Gems drop from zone clears (~4% base, band-scaled) and guaranteed on boss kills. Socket Shard currency adds empty socket to gear (1 per item MVP). Gems socketed via GemPanel UI, stats flow through resolveStats. 3-to-1 upgrade with gold cost.
+- **Key files**:
+  - `src/data/gems.ts` — GemDef definitions, tier names/colors, helpers
+  - `src/engine/gems.ts` — createGem, rollGemDrop, rollGemForBoss, upgradeGem, getGemStat
+  - `src/ui/components/GemPanel.tsx` — gem stash grid, socket interaction, upgrade UI
+  - `src/data/balance.ts` (bottom) — gem drop rates, tier weights by band, upgrade costs
+  - `src/store/gameStore.ts` — socketGem, unsocketGem, addGemToInventory, upgradeGems actions
+- **Save version**: v55 (migration adds `gemInventory: []`)
+- **Commit**: `4b99407`
+
+### Socket Gem System — Known Issues / Next Steps
+1. **No socket indicator on item tiles** — after using a Socket Shard, the item card/tile shows no visual difference (no socket icon, no empty/filled badge). Tooltips DO show sockets, but the grid tiles need a small badge or icon overlay.
+2. **No gem drop toast during real-time combat** — gems show in session summary but no floating notification during combat ticks.
+3. **Boss Victory Overlay** doesn't list the guaranteed gem drop (session summary does).
+4. **Inventory items (not equipped)** can't be socketed — only equipped gear has socket interaction via GemPanel. May want to support socketing from the item detail panel too.
+5. **No gem crafting from materials** — plan mentions "materials → create base gems" as future feature.
+6. **Future socket expansion** — exceptional items with 2 sockets, corruption adds 3rd socket (not MVP).
+7. **Mobile polish** — GemPanel untested on mobile, may need layout tweaks.
+
+**Previous: Talent & Combat Readability Overhaul — COMPLETE (all 3 sprints done).** See `docs/READABILITY_OVERHAUL_PLAN.md` for full plan.
 
 - **Sprint 1 COMPLETE**: Combat Event System — enriched `CombatTickResult` with `procEvents`, `spreadEvents`, `cooldownResets` arrays. Combat log shows source skill for procs ("Stab → Venom Burst"), spread events show debuff type + count ("Poison (x3) → next"). CD reset flash targets specific skill icon. BUFF_DISPLAY expanded from 7 to 70+ entries covering all 7 skill prefixes. `spreadDebuffsToTarget()` returns `SpreadResult[]` instead of `boolean`.
 - **Sprint 2 COMPLETE**: Buff/Debuff Tooltips + Stat Glossary — `DEBUFF_META` now has `fullName` + `description` for player-friendly tooltips on debuff badges (+ 7 new mark debuffs). `BUFF_DISPLAY` gains `description` for all 70+ buff entries; buff pills wrapped in `<Tooltip>` showing effect + remaining duration. `TalentTreeView` gains `STAT_GLOSSARY` with dotted-underline `<Tooltip>` on recognized stat terms in expanded node descriptions.

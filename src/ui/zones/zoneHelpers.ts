@@ -51,7 +51,7 @@ export function emptySession(): SessionSummary {
     materials: {},
     rareMaterials: {},
     currencies: {},
-    itemsByRarity: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0 },
+    itemsByRarity: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0, unique: 0 },
     itemsSalvaged: 0,
     dustEarned: 0,
     gatheringXp: 0,

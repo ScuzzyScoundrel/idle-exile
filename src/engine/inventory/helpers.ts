@@ -8,6 +8,7 @@ export const RARITY_ORDER: Record<Rarity, number> = {
   rare: 2,
   epic: 3,
   legendary: 4,
+  unique: 5,
 };
 
 /** Enchanting essence reward by rarity (from salvage/disenchant). */
@@ -17,6 +18,7 @@ export const ESSENCE_REWARD: Record<Rarity, number> = {
   rare: 3,
   epic: 4,
   legendary: 5,
+  unique: 5,
 };
 
 /** Gold received when selling gear by rarity (base — iLvl/5 added). */
@@ -26,6 +28,7 @@ export const SELL_GOLD: Record<Rarity, number> = {
   rare: 8,
   epic: 20,
   legendary: 50,
+  unique: 50,
 };
 
 /** Auto-salvage stats returned alongside state updates. */

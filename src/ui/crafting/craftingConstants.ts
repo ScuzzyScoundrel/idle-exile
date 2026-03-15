@@ -6,6 +6,7 @@ export const RARITY_TEXT: Record<Rarity, string> = {
   rare: 'text-blue-400',
   epic: 'text-purple-400',
   legendary: 'text-orange-400',
+  unique: 'text-amber-400',
 };
 
 export const AFFIX_TIER_TEXT: Record<number, string> = {
@@ -30,6 +31,7 @@ export const RARITY_BORDER: Record<Rarity, string> = {
   rare: 'border-yellow-500',
   epic: 'border-purple-500',
   legendary: 'border-orange-500',
+  unique: 'border-amber-500',
 };
 
 export const RARITY_GRADIENT: Record<Rarity, string> = {
@@ -38,6 +40,7 @@ export const RARITY_GRADIENT: Record<Rarity, string> = {
   rare: 'from-yellow-900/50',
   epic: 'from-purple-900/50',
   legendary: 'from-orange-900/50',
+  unique: 'from-amber-900/50',
 };
 
 export const VARIANT_COLORS: Record<string, string> = {

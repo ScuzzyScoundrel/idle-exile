@@ -41,8 +41,9 @@ import { handleRehydrate } from './hydrate';
 import { calcGatherClearTime, createDefaultGatheringSkills, canGatherInZone } from '../engine/gathering';
 import { createDefaultCraftingSkills, CRAFTING_MILESTONES } from '../data/craftingProfessions';
 // refinement + craftingProfessions imports moved to craftingStore
-import { BOSS_PATTERN_DROP_CHANCE, PATTERN_CHARGES } from '../data/balance';
-import { getPatternDef, rollPatternDrop } from '../data/craftingPatterns';
+import { BOSS_PATTERN_DROP_CHANCE, PATTERN_CHARGES, UNIQUE_PATTERN_DROP_CHANCE, BOSS_TROPHY_DROP_CHANCE } from '../data/balance';
+import { getPatternDef, rollPatternDrop, rollUniquePatternDrop } from '../data/craftingPatterns';
+import { getBossTrophyForZone } from '../data/bossTrophies';
 import { resolveProfessionBonuses } from '../engine/professionBonuses';
 // REFINEMENT_RECIPES + getCraftingRecipe imports moved to craftingStore
 import { getClassDef } from '../data/classes';
@@ -967,6 +968,29 @@ export const useGameStore = create<GameState & GameActions>()(
           newOwnedPatterns.push({ defId: patId, charges, discoveredAt: Date.now() });
         }
 
+        // Roll for boss trophy material
+        const trophyDrops: Record<string, number> = {};
+        const trophyDef = getBossTrophyForZone(state.currentZoneId);
+        if (trophyDef && Math.random() < BOSS_TROPHY_DROP_CHANCE) {
+          trophyDrops[trophyDef.id] = 1;
+          newMaterials[trophyDef.id] = (newMaterials[trophyDef.id] ?? 0) + 1;
+        }
+
+        // Roll for unique pattern drop
+        const uniquePatternDrops: string[] = [];
+        const uniquePatChance = UNIQUE_PATTERN_DROP_CHANCE[zone.band] ?? 0;
+        if (uniquePatChance > 0 && Math.random() < uniquePatChance) {
+          const uniquePat = rollUniquePatternDrop(state.currentZoneId);
+          if (uniquePat) uniquePatternDrops.push(uniquePat.id);
+        }
+
+        // Create OwnedPattern entries from unique pattern drops
+        for (const patId of uniquePatternDrops) {
+          const patDef = getPatternDef(patId);
+          if (!patDef) continue;
+          newOwnedPatterns.push({ defId: patId, charges: 1, discoveredAt: Date.now() });
+        }
+
         // Chance-based boss gem drop (same rate as normal clears)
         const bossGemDrop = rollGemDrop(zone.band);
         const bossGemDrops: Gem[] = bossGemDrop ? [bossGemDrop] : [];
@@ -1006,6 +1030,8 @@ export const useGameStore = create<GameState & GameActions>()(
           autoSoldCount: bossAutoSoldCount,
           autoSoldGold: bossAutoSoldGold,
           patternDrops: bossPatternDrops,
+          uniquePatternDrops: uniquePatternDrops.length > 0 ? uniquePatternDrops : undefined,
+          trophyDrops: Object.keys(trophyDrops).length > 0 ? trophyDrops : undefined,
           gemDrops: bossGemDrops,
         };
       },
@@ -1260,7 +1286,7 @@ export const useGameStore = create<GameState & GameActions>()(
     })) as import('zustand').StateCreator<GameState & GameActions, [['zustand/persist', unknown]], []>,
     {
       name: 'idle-exile-save',
-      version: 57,
+      version: 58,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;

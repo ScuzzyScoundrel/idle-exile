@@ -145,6 +145,7 @@ const RARITY_BORDER: Record<Rarity, string> = {
   rare: 'border-yellow-500',
   epic: 'border-purple-500',
   legendary: 'border-orange-500',
+  unique: 'border-amber-500',
 };
 
 const RARITY_BG: Record<Rarity, string> = {
@@ -153,6 +154,7 @@ const RARITY_BG: Record<Rarity, string> = {
   rare: 'bg-yellow-950',
   epic: 'bg-purple-950',
   legendary: 'bg-orange-950',
+  unique: 'bg-amber-950',
 };
 
 const TIER_COLORS: Record<number, string> = {

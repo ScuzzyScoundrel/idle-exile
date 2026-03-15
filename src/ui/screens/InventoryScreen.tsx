@@ -28,9 +28,11 @@ const RARITY_BG: Record<Rarity, string> = {
   rare: 'bg-yellow-950 border-yellow-600',
   epic: 'bg-purple-950 border-purple-600',
   legendary: 'bg-orange-950 border-orange-600',
+  unique: 'bg-amber-950 border-amber-600',
 };
 
 const RARITY_ORDER: Record<Rarity, number> = {
+  unique: 6,
   legendary: 5,
   epic: 4,
   rare: 3,
@@ -57,6 +59,7 @@ const RARITY_TOOLTIP_BG: Record<Rarity, string> = {
   rare: 'bg-yellow-950 border-yellow-500',
   epic: 'bg-purple-950 border-purple-500',
   legendary: 'bg-orange-950 border-orange-500',
+  unique: 'bg-amber-950 border-amber-500',
 };
 
 const RARITY_BORDER_RING: Record<Rarity, string> = {
@@ -65,6 +68,7 @@ const RARITY_BORDER_RING: Record<Rarity, string> = {
   rare: 'border-yellow-500',
   epic: 'border-purple-500',
   legendary: 'border-orange-500',
+  unique: 'border-amber-500',
 };
 
 const RARITY_TILE_BORDER: Record<Rarity, string> = {
@@ -73,6 +77,7 @@ const RARITY_TILE_BORDER: Record<Rarity, string> = {
   rare: 'border-yellow-500',
   epic: 'border-purple-500',
   legendary: 'border-orange-500',
+  unique: 'border-amber-500',
 };
 
 const RARITY_GRADIENT: Record<Rarity, string> = {
@@ -81,6 +86,7 @@ const RARITY_GRADIENT: Record<Rarity, string> = {
   rare: 'from-yellow-900/50',
   epic: 'from-purple-900/50',
   legendary: 'from-orange-900/50',
+  unique: 'from-amber-900/50',
 };
 
 /** Corrupted item tile: gradient from rarity color into fuchsia */
@@ -90,6 +96,7 @@ const CORRUPTED_TILE_GRADIENT: Record<Rarity, string> = {
   rare: 'from-yellow-900/50 via-fuchsia-900/40',
   epic: 'from-purple-900/50 via-fuchsia-900/40',
   legendary: 'from-orange-900/50 via-fuchsia-900/40',
+  unique: 'from-amber-900/50 via-fuchsia-900/40',
 };
 
 const ARMOR_TYPE_BADGE: Record<ArmorType, { label: string; cls: string }> = {
@@ -394,11 +401,14 @@ export default function InventoryScreen() {
 
     return (
       <div className="space-y-3">
-        <div className={`rounded-lg border-2 p-3 space-y-2 ${RARITY_BG[selectedItem.rarity]} ${selectedItem.isCorrupted ? 'bg-gradient-to-br from-transparent to-fuchsia-950/60 ring-1 ring-fuchsia-500/40' : ''}`}>
+        <div className={`rounded-lg border-2 p-3 space-y-2 ${RARITY_BG[selectedItem.rarity]} ${selectedItem.isUnique ? 'bg-gradient-to-br from-transparent to-amber-950/60 ring-1 ring-amber-500/40' : ''} ${selectedItem.isCorrupted ? 'bg-gradient-to-br from-transparent to-fuchsia-950/60 ring-1 ring-fuchsia-500/40' : ''}`}>
           <div className="flex items-center justify-between">
             <div className="min-w-0">
               <div className="font-bold text-white flex items-center gap-1.5">
-                <span className={selectedItem.isCorrupted ? 'text-fuchsia-300' : ''}>{selectedItem.name}</span>
+                <span className={selectedItem.isUnique ? 'text-amber-300' : selectedItem.isCorrupted ? 'text-fuchsia-300' : ''}>{selectedItem.name}</span>
+                {selectedItem.isUnique && (
+                  <span className="text-[9px] px-1 py-0.5 rounded bg-amber-800 text-amber-200 font-bold shrink-0">UNIQUE</span>
+                )}
                 {selectedItem.isCorrupted && (
                   <span className="text-[9px] px-1 py-0.5 rounded bg-fuchsia-800 text-fuchsia-200 font-bold shrink-0">VOID</span>
                 )}
@@ -443,6 +453,12 @@ export default function InventoryScreen() {
           {selectedItem.implicit && (
             <div className="text-sm text-fuchsia-400 border-t border-fuchsia-800 pt-1 pb-0.5">
               {formatCorruptionAffix(selectedItem.implicit)}
+            </div>
+          )}
+
+          {selectedItem.uniqueAffix && (
+            <div className="text-sm text-amber-400 border-t border-amber-800/50 pt-1 pb-0.5">
+              {selectedItem.uniqueAffix.displayText}
             </div>
           )}
 
@@ -1082,7 +1098,7 @@ export default function InventoryScreen() {
       {tooltip && (
         <div
           ref={tooltipRef}
-          className={`fixed z-[9999] w-64 rounded-lg border p-3 shadow-xl pointer-events-none text-left ${RARITY_TOOLTIP_BG[tooltip.item.rarity]} ${tooltip.item.isCorrupted ? 'bg-gradient-to-br from-transparent to-fuchsia-950/60 ring-1 ring-fuchsia-500/40' : ''}`}
+          className={`fixed z-[9999] w-64 rounded-lg border p-3 shadow-xl pointer-events-none text-left ${RARITY_TOOLTIP_BG[tooltip.item.rarity]} ${tooltip.item.isUnique ? 'bg-gradient-to-br from-transparent to-amber-950/60 ring-1 ring-amber-500/40' : ''} ${tooltip.item.isCorrupted ? 'bg-gradient-to-br from-transparent to-fuchsia-950/60 ring-1 ring-fuchsia-500/40' : ''}`}
           style={{
             left: `${tooltipPos.left}px`,
             top: `${tooltipPos.top}px`,
@@ -1090,7 +1106,10 @@ export default function InventoryScreen() {
           }}
         >
           <div className="font-bold text-white text-sm flex items-center gap-1.5">
-            <span className={tooltip.item.isCorrupted ? 'text-fuchsia-300' : ''}>{tooltip.item.name}</span>
+            <span className={tooltip.item.isUnique ? 'text-amber-300' : tooltip.item.isCorrupted ? 'text-fuchsia-300' : ''}>{tooltip.item.name}</span>
+            {tooltip.item.isUnique && (
+              <span className="text-[9px] px-1 py-0.5 rounded bg-amber-800 text-amber-200 font-bold shrink-0">UNIQUE</span>
+            )}
             {tooltip.item.isCorrupted && (
               <span className="text-[9px] px-1 py-0.5 rounded bg-fuchsia-800 text-fuchsia-200 font-bold shrink-0">VOID</span>
             )}
@@ -1125,6 +1144,12 @@ export default function InventoryScreen() {
           {tooltip.item.implicit && (
             <div className="text-sm text-fuchsia-400 border-t border-fuchsia-800 pt-1 pb-0.5">
               {formatCorruptionAffix(tooltip.item.implicit)}
+            </div>
+          )}
+
+          {tooltip.item.uniqueAffix && (
+            <div className="text-sm text-amber-400 border-t border-amber-800/50 pt-1 pb-0.5">
+              {tooltip.item.uniqueAffix.displayText}
             </div>
           )}
 
@@ -1284,6 +1309,24 @@ const STAT_LABELS: Record<StatKey, string> = {
   fortifyEffect: 'Fortify Effect',
   damageTakenReduction: 'Damage Reduction',
   armorToElemental: 'Armor to Elemental',
+  doublePoisonHalfDamage: 'Double Poison (50% dmg)',
+  alwaysChill: 'Always Chill',
+  incDamageVsChilled: '+% Damage vs Chilled',
+  damageOnHitSelfPercent: '% Current Life Lost on Hit',
+  incDamagePerMissingLifePercent: '+% Damage per % Life Missing',
+  onHitGainDamagePercent: '% Damage on Hit Taken',
+  onHitGainDamageMaxStacks: 'Max Damage-on-Hit Stacks',
+  enhancedCurseEffect: 'Enhanced Curse Effect',
+  moreDotVsCursed: '+% DoT vs Cursed',
+  dodgeGrantsAttackSpeedPercent: '% AtkSpd on Dodge',
+  dodgeAttackSpeedMaxStacks: 'Max Dodge AtkSpd Stacks',
+  physToFireConversion: '% Phys to Fire',
+  burnExplosionPercent: '% Burn Explosion on Kill',
+  moreDotDamage: '+% More DoT Damage',
+  cannotLeech: 'Cannot Leech',
+  buffExpiryResetCd: 'Buff Expiry Resets CD',
+  extraChaosDamagePercent: '% Extra Chaos Damage',
+  maxLifePenaltyPercent: '% Max Life Penalty',
 };
 
 function ComparisonPanel({ selected, equipped }: { selected: Item; equipped: Item }) {

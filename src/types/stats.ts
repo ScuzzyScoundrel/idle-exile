@@ -82,6 +82,25 @@ export type StatKey =
   | 'fortifyEffect'
   | 'damageTakenReduction'
   // Armor-to-Elemental (plate exclusive)
-  | 'armorToElemental';
+  | 'armorToElemental'
+  // Unique item mechanics
+  | 'doublePoisonHalfDamage'
+  | 'alwaysChill'
+  | 'incDamageVsChilled'
+  | 'damageOnHitSelfPercent'
+  | 'incDamagePerMissingLifePercent'
+  | 'onHitGainDamagePercent'
+  | 'onHitGainDamageMaxStacks'
+  | 'enhancedCurseEffect'
+  | 'moreDotVsCursed'
+  | 'dodgeGrantsAttackSpeedPercent'
+  | 'dodgeAttackSpeedMaxStacks'
+  | 'physToFireConversion'
+  | 'burnExplosionPercent'
+  | 'moreDotDamage'
+  | 'cannotLeech'
+  | 'buffExpiryResetCd'
+  | 'extraChaosDamagePercent'
+  | 'maxLifePenaltyPercent';
 
 export type ResolvedStats = Record<StatKey, number>;

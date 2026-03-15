@@ -84,7 +84,7 @@ export interface CraftingMilestone {
 
 // --- Crafting Patterns ---
 
-export type PatternSource = 'zone_drop' | 'boss_drop' | 'invasion_drop';
+export type PatternSource = 'zone_drop' | 'boss_drop' | 'invasion_drop' | 'unique_drop';
 
 export interface CraftingPatternDef {
   id: string;
@@ -100,6 +100,30 @@ export interface CraftingPatternDef {
   source: PatternSource;
   materialCostMult: number;             // 1.0 = same as normal recipe, 1.5 = 50% more
   xpMult: number;                       // 2.0 = double XP
+  uniqueDefId?: string;                 // links to UniqueItemDef for unique patterns
+}
+
+export interface UniqueItemDef {
+  id: string;
+  name: string;
+  lore: string;
+  baseItemId: string;                   // e.g. 'crude_dagger'
+  bossZoneId: string;                   // which zone's boss drops this
+  band: number;
+  uniqueAffix: {
+    slot: 'prefix' | 'suffix';
+    displayText: string;
+    stats: Partial<Record<import('./stats').StatKey, number>>;
+  };
+  craftCost: {
+    trophyId: string;
+    trophyAmount: number;
+    materials: { materialId: string; amount: number }[];
+    rareMaterialId?: string;
+    rareMaterialAmount?: number;
+    goldCost: number;
+  };
+  profession: import('./crafting').CraftingProfession;
 }
 
 export interface OwnedPattern {

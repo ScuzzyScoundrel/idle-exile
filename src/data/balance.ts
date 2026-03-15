@@ -258,6 +258,25 @@ export const BASE_STATS: ResolvedStats = {
   damageTakenReduction: 0,
   // Armor-to-Elemental (plate exclusive)
   armorToElemental: 0,
+  // Unique item mechanics
+  doublePoisonHalfDamage: 0,
+  alwaysChill: 0,
+  incDamageVsChilled: 0,
+  damageOnHitSelfPercent: 0,
+  incDamagePerMissingLifePercent: 0,
+  onHitGainDamagePercent: 0,
+  onHitGainDamageMaxStacks: 0,
+  enhancedCurseEffect: 0,
+  moreDotVsCursed: 0,
+  dodgeGrantsAttackSpeedPercent: 0,
+  dodgeAttackSpeedMaxStacks: 0,
+  physToFireConversion: 0,
+  burnExplosionPercent: 0,
+  moreDotDamage: 0,
+  cannotLeech: 0,
+  buffExpiryResetCd: 0,
+  extraChaosDamagePercent: 0,
+  maxLifePenaltyPercent: 0,
 };
 
 /** Flat physical damage gained per level beyond 1. */
@@ -599,6 +618,14 @@ export const BOSS_PATTERN_DROP_CHANCE: Record<number, number> = {
 /** Bonus drop chance for patterns during void invasions. */
 export const INVASION_PATTERN_DROP_BONUS = 0.03;
 
+/** Chance per boss kill to drop a unique pattern, by band. */
+export const UNIQUE_PATTERN_DROP_CHANCE: Record<number, number> = {
+  1: 0.06, 2: 0.06, 3: 0.07, 4: 0.08,
+};
+
+/** Chance per boss kill to drop a boss trophy material. */
+export const BOSS_TROPHY_DROP_CHANCE = 0.25;
+
 /** Charge ranges for patterns by source type. */
 export const PATTERN_CHARGES: Record<string, { min: number; max: number }> = {
   zone_drop: { min: 3, max: 6 },
@@ -710,3 +737,17 @@ export const GEM_UPGRADE_GOLD_COST: Record<GemTier, number> = {
 
 /** Maximum gems in player's gem inventory. */
 export const GEM_INVENTORY_CAP = 50;
+
+// =============================================
+// UNIQUE ITEM REFORGING
+// =============================================
+
+/** Reforge cost per target band: gold + refined materials needed. */
+export const REFORGE_COST_PER_BAND: Record<number, { goldCost: number; refinedMatAmount: number }> = {
+  1: { goldCost: 100, refinedMatAmount: 5 },
+  2: { goldCost: 300, refinedMatAmount: 8 },
+  3: { goldCost: 800, refinedMatAmount: 12 },
+  4: { goldCost: 2000, refinedMatAmount: 18 },
+  5: { goldCost: 5000, refinedMatAmount: 25 },
+  6: { goldCost: 12000, refinedMatAmount: 35 },
+};

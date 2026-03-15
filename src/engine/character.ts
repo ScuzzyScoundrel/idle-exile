@@ -94,6 +94,15 @@ export function resolveStats(char: Character): ResolvedStats {
         }
       }
     }
+
+    // Sum unique affix stats
+    if (item.uniqueAffix) {
+      for (const [key, val] of Object.entries(item.uniqueAffix.stats)) {
+        if (typeof val === 'number') {
+          stats[key as StatKey] += val;
+        }
+      }
+    }
   }
 
   // Apply set bonuses (flat additions)
@@ -111,6 +120,11 @@ export function resolveStats(char: Character): ResolvedStats {
   // Apply incMaxLife as a multiplier on maxLife (only maxLife gets pre-multiplied)
   if (stats.incMaxLife > 0) {
     stats.maxLife = Math.floor(stats.maxLife * (1 + stats.incMaxLife / 100));
+  }
+
+  // Apply maxLifePenaltyPercent (unique item downside — e.g. Voidborn Signet: -10% max Life)
+  if (stats.maxLifePenaltyPercent > 0) {
+    stats.maxLife = Math.floor(stats.maxLife * (1 - stats.maxLifePenaltyPercent / 100));
   }
 
   // Apply incEnergyShield as a multiplier on energyShield

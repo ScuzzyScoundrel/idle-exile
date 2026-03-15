@@ -245,11 +245,18 @@ export function runCombatTick(
     }
   }
 
+  // Unique: incDamagePerMissingLifePercent (e.g. Heartblood Edge: +0.5% per 1% missing)
+  let missingLifeDmgMult = 1;
+  if (effectiveStats.incDamagePerMissingLifePercent > 0) {
+    const missingLifePct = Math.max(0, 1 - (state.currentHp / effectiveMaxLife)) * 100;
+    missingLifeDmgMult = 1 + (effectiveStats.incDamagePerMissingLifePercent / 100) * missingLifePct;
+  }
+
   // Per-charge damage bonus
   const chargeDamageMult = (chargeConfig?.perChargeDamage && newSkillCharges[skill.id])
     ? 1 + (chargeConfig.perChargeDamage / 100) * newSkillCharges[skill.id].current : 1;
   const outgoingDmgMult = calcOutgoingDamageMult(state.character.level, zone.iLvlMin);
-  let damageMult = (combinedAbilityEffect.damageMult ?? 1) * getClassDamageModifier(state.classResource, classDef) * berserkMult * chargeDamageMult * outgoingDmgMult;
+  let damageMult = (combinedAbilityEffect.damageMult ?? 1) * getClassDamageModifier(state.classResource, classDef) * berserkMult * chargeDamageMult * outgoingDmgMult * missingLifeDmgMult;
 
   // executeOnly bonus damage when target is below threshold
   if (graphMod?.executeOnly) {
@@ -530,7 +537,7 @@ export function runCombatTick(
   const flagLeech = graphMod?.flags.includes('lifeLeech') ? LEECH_PERCENT : 0;
   const graphLeech = graphMod?.leechPercent ? graphMod.leechPercent / 100 : 0;
   const gearLeech = effectiveStats.lifeLeechPercent ? effectiveStats.lifeLeechPercent / 100 : 0;
-  const totalLeech = graphMod?.cannotLeech ? 0 : (LEECH_PERCENT + flagLeech + graphLeech + gearLeech);
+  const totalLeech = (graphMod?.cannotLeech || effectiveStats.cannotLeech > 0) ? 0 : (LEECH_PERCENT + flagLeech + graphLeech + gearLeech);
 
   // Update GCD: next active skill can fire after castInterval (already includes GCD floor)
   let nextActiveSkillAt = now + castInterval * 1000;
@@ -594,12 +601,21 @@ export function runCombatTick(
     if (roll.isHit) {
       newBossHp -= roll.damage;
       totalDamage = roll.damage;
+
+      // Unique: extra chaos damage as a % of total hit damage (Voidborn Signet)
+      if (effectiveStats.extraChaosDamagePercent > 0) {
+        const extraChaos = roll.damage * effectiveStats.extraChaosDamagePercent / 100;
+        newBossHp -= extraChaos;
+        totalDamage += extraChaos;
+      }
     }
 
-    // Apply debuff DoT to boss
+    // Apply debuff DoT to boss (with moreDotDamage multiplier from uniques)
     if (debuffDotDamage > 0) {
-      newBossHp -= debuffDotDamage;
-      totalDamage += debuffDotDamage;
+      const dotMult = effectiveStats.moreDotDamage > 0 ? (1 + effectiveStats.moreDotDamage / 100) : 1;
+      const adjustedDot = debuffDotDamage * dotMult;
+      newBossHp -= adjustedDot;
+      totalDamage += adjustedDot;
     }
 
     // Charge spend-all bonus damage to boss
@@ -730,6 +746,11 @@ export function runCombatTick(
       playerHp -= effectiveMaxLife * (graphMod.selfDamagePercent / 100);
     }
 
+    // Unique: damageOnHitSelfPercent — lose % of current Life on hit (Heartblood Edge)
+    if (roll.isHit && effectiveStats.damageOnHitSelfPercent > 0) {
+      playerHp -= playerHp * (effectiveStats.damageOnHitSelfPercent / 100);
+    }
+
     const trackingBoss = {
       consecutiveHits: newConsecutiveHits,
       lastSkillsCast: newLastSkillsCast,
@@ -821,8 +842,18 @@ export function runCombatTick(
 
   // Compute total damage to apply (before per-mob DR)
   let rawSkillDamage = 0;
-  if (roll.isHit) rawSkillDamage += roll.damage;
-  if (debuffDotDamage > 0) rawSkillDamage += debuffDotDamage;
+  if (roll.isHit) {
+    rawSkillDamage += roll.damage;
+    // Unique: extra chaos damage (Voidborn Signet)
+    if (effectiveStats.extraChaosDamagePercent > 0) {
+      rawSkillDamage += roll.damage * effectiveStats.extraChaosDamagePercent / 100;
+    }
+  }
+  if (debuffDotDamage > 0) {
+    // Unique: moreDotDamage multiplier (Rothollow Grip)
+    const dotMult = effectiveStats.moreDotDamage > 0 ? (1 + effectiveStats.moreDotDamage / 100) : 1;
+    rawSkillDamage += debuffDotDamage * dotMult;
+  }
   if (chargeSpendDamage > 0) rawSkillDamage += chargeSpendDamage;
   if (consumeBurstDamage > 0) rawSkillDamage += consumeBurstDamage;
   if (procDamage > 0) rawSkillDamage += procDamage;
@@ -1139,6 +1170,11 @@ export function runCombatTick(
   // Self-damage on cast
   if (graphMod?.selfDamagePercent) {
     playerHp -= effectiveMaxLife * (graphMod.selfDamagePercent / 100);
+  }
+
+  // Unique: damageOnHitSelfPercent — lose % of current Life on hit (Heartblood Edge)
+  if (roll.isHit && effectiveStats.damageOnHitSelfPercent > 0) {
+    playerHp -= playerHp * (effectiveStats.damageOnHitSelfPercent / 100);
   }
 
   // Track block/dodge from zone attack
