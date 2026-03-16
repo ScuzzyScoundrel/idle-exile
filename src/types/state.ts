@@ -6,7 +6,8 @@ import type { Character } from './character';
 import type { Gem, GearSlot, Item, Rarity } from './items';
 import type { CurrencyType } from './currencies';
 import type { IdleMode, AbilityProgress, EquippedSkill, SkillProgress, SkillTimerState } from './skills';
-import type { CombatPhase, BossState, ActiveDebuff, TempBuff, MobInPack, CombatClearResult } from './combat';
+import type { CombatPhase, BossState, ActiveDebuff, TempBuff, MobInPack, CombatClearResult, ComboState } from './combat';
+import type { DamageType } from './skills';
 import type { GatheringProfession, GatheringSkills, CraftingSkills, CraftingProfession, OwnedPattern } from './crafting';
 import type { ClassResourceState } from './character';
 import type { OfflineProgressSummary } from './zones';
@@ -114,6 +115,12 @@ export interface GameState {
   fortifyDRPerStack: number;  // copied from graphMod on hit, avoids graphMod lookup at damage sites
   deathStreak: number;        // consecutive deaths for streak penalty
   lastDeathTime: number;      // timestamp of last death for streak window
+
+  // Combo states (Dagger v2 — ephemeral, not persisted)
+  comboStates: ComboState[];
+
+  // Element transforms (Dagger v2 — persisted per-skill element choice)
+  elementTransforms: Record<string, DamageType>;
 
   // Talent tree: ephemeral combat state (not persisted, reset on rehydrate)
   lastHitMobTypeId: string | null;                    // for same-target consecutive hit tracking

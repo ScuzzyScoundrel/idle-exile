@@ -788,5 +788,46 @@ export function runMigrations(
   // Unique patterns stored in ownedPatterns (same as other patterns).
   // Version bump only.
 
+  if (version < 59) {
+    // v59: Dagger v2 — rename active skills, remove compact graphs
+    const DAGGER_V2_REMAP: Record<string, string> = {
+      'dagger_blade_flurry': 'dagger_blade_dance',
+      'dagger_lightning_lunge': 'dagger_chain_strike',
+      'dagger_smoke_screen': 'dagger_shadow_mark',
+    };
+    // Remap skill bar
+    const bar59 = (raw.skillBar ?? []) as (Record<string, unknown> | null)[];
+    for (let i = 0; i < bar59.length; i++) {
+      const slot = bar59[i];
+      if (slot && typeof slot.skillId === 'string' && DAGGER_V2_REMAP[slot.skillId]) {
+        slot.skillId = DAGGER_V2_REMAP[slot.skillId];
+      }
+    }
+    // Remap skill timers
+    const timers59 = (raw.skillTimers ?? []) as Record<string, unknown>[];
+    for (const t of timers59) {
+      if (typeof t.skillId === 'string' && DAGGER_V2_REMAP[t.skillId]) {
+        t.skillId = DAGGER_V2_REMAP[t.skillId];
+      }
+    }
+    // Remap skill progress + reset compact graph allocations for renamed skills
+    const sp59 = (raw.skillProgress ?? {}) as Record<string, Record<string, unknown>>;
+    for (const [oldId, newId] of Object.entries(DAGGER_V2_REMAP)) {
+      if (sp59[oldId]) {
+        sp59[newId] = { ...sp59[oldId], skillId: newId, allocatedNodes: [] };
+        delete sp59[oldId];
+      }
+    }
+    // Reset compact graph allocations for all remaining dagger skills
+    for (const sid of Object.keys(sp59)) {
+      if (sid.startsWith('dagger_')) {
+        sp59[sid] = { ...sp59[sid], allocatedNodes: [] };
+      }
+    }
+    // Initialize Dagger v2 state fields
+    if (!raw.comboStates) raw.comboStates = [];
+    if (!raw.elementTransforms) raw.elementTransforms = {};
+  }
+
   return state;
 }

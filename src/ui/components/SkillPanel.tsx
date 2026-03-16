@@ -9,7 +9,7 @@ import { getEquippedWeaponType } from '../../engine/items';
 import { getAbilityDef } from '../../data/skills';
 import { ABILITY_ID_MIGRATION } from '../../data/skills';
 import { ABILITY_SLOT_UNLOCKS } from '../../types';
-import type { SkillDef, SkillKind, SkillProgress, AbilityProgress } from '../../types';
+import type { SkillDef, SkillKind, SkillProgress, AbilityProgress, DamageType } from '../../types';
 import SkillGraphView from './SkillGraphView';
 import TalentTreeView from './TalentTreeView';
 
@@ -60,6 +60,8 @@ export default function SkillPanel() {
   const allocateAbilityNode = useSkillStore(s => s.allocateAbilityNode);
   const respecAbility = useSkillStore(s => s.respecAbility);
   const gold = useGameStore(s => s.gold);
+  const elementTransforms = useGameStore(s => s.elementTransforms);
+  const setElementTransform = useGameStore(s => (s as any).setElementTransform) as ((skillId: string, element: DamageType | null) => void) | undefined;
 
   const [kindFilter, setKindFilter] = useState<KindFilter>('all');
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
@@ -344,6 +346,41 @@ export default function SkillPanel() {
                     {skill.talentTree && progress.allocatedRanks && (
                       <div className="text-xs text-amber-500/70 mt-0.5">
                         Talent: {Object.values(progress.allocatedRanks).reduce((a, b) => a + b, 0)} / {progress.level} points
+                      </div>
+                    )}
+
+                    {/* Element Transform Selector (Dagger v2 — level 5+) */}
+                    {skill.kind === 'active' && skill.weaponType === 'dagger' && (
+                      <div className="mt-1.5">
+                        <div className="text-xs text-gray-500 mb-0.5">
+                          Element {progress.level < 5 ? <span className="text-gray-600">(unlocks at Lv.5)</span> : ''}
+                        </div>
+                        <div className="flex gap-1">
+                          {([
+                            { el: null, label: 'Phys', color: 'bg-gray-700 text-gray-300', active: 'bg-gray-500 text-white' },
+                            { el: 'fire' as DamageType, label: 'Fire', color: 'bg-orange-900/40 text-orange-400', active: 'bg-orange-700 text-orange-100' },
+                            { el: 'cold' as DamageType, label: 'Cold', color: 'bg-cyan-900/40 text-cyan-400', active: 'bg-cyan-700 text-cyan-100' },
+                            { el: 'lightning' as DamageType, label: 'Lit', color: 'bg-yellow-900/40 text-yellow-400', active: 'bg-yellow-700 text-yellow-100' },
+                            { el: 'chaos' as DamageType, label: 'Chaos', color: 'bg-purple-900/40 text-purple-400', active: 'bg-purple-700 text-purple-100' },
+                          ] as const).map(({ el, label, color, active }) => {
+                            const currentTransform = elementTransforms[skill.id] ?? null;
+                            const isSelected = currentTransform === el;
+                            const isDisabled = progress.level < 5;
+                            return (
+                              <button
+                                key={label}
+                                disabled={isDisabled}
+                                onClick={() => setElementTransform?.(skill.id, el)}
+                                className={`text-xs px-1.5 py-0.5 rounded transition-colors ${
+                                  isDisabled ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                                    : isSelected ? active : `${color} hover:brightness-125 cursor-pointer`
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
                   </div>

@@ -4,7 +4,7 @@
 // ============================================================
 
 import type {
-  SkillDef, ActiveSkillDef, ResolvedStats, DamageResult, DamageBucket, ConversionSpec,
+  SkillDef, ActiveSkillDef, ResolvedStats, DamageResult, DamageBucket, ConversionSpec, DamageType,
 } from '../../types';
 import { BASE_GCD, GCD_FLOOR } from '../../data/balance';
 import { calcHitChance } from '../character';
@@ -23,8 +23,9 @@ export function calcSkillDamagePerCast(
   weaponSpellPower: number,
   graphMod?: ResolvedSkillModifier,
   weaponConversion?: ConversionSpec,
+  elementTransform?: DamageType,
 ): DamageResult {
-  return resolveDamageBuckets(skill, stats, weaponAvgDmg, weaponSpellPower, graphMod, weaponConversion);
+  return resolveDamageBuckets(skill, stats, weaponAvgDmg, weaponSpellPower, graphMod, weaponConversion, elementTransform);
 }
 
 /**
@@ -40,8 +41,9 @@ export function calcSkillDps(
   graphMod?: ResolvedSkillModifier,
   atkSpeedMult: number = 1.0,
   weaponConversion?: ConversionSpec,
+  elementTransform?: DamageType,
 ): number {
-  const dmgResult = calcSkillDamagePerCast(skill, stats, weaponAvgDmg, weaponSpellPower, graphMod, weaponConversion);
+  const dmgResult = calcSkillDamagePerCast(skill, stats, weaponAvgDmg, weaponSpellPower, graphMod, weaponConversion, elementTransform);
   const dmgPerCast = dmgResult.total;
   if (dmgPerCast <= 0) return 0;
 
@@ -56,8 +58,9 @@ export function calcSkillDps(
 
   let effectiveCooldown = 0;
   if (skill.cooldown > 0) {
+    const baseCd = skill.cooldown + (graphMod?.cooldownIncrease ?? 0);
     const graphCDR = graphMod?.cooldownReduction ?? 0;
-    effectiveCooldown = skill.cooldown * (1 - graphCDR / 100);
+    effectiveCooldown = baseCd * (1 - graphCDR / 100);
     if (stats.abilityHaste > 0) {
       effectiveCooldown = effectiveCooldown / (1 + stats.abilityHaste / 100);
     }
@@ -118,8 +121,9 @@ export function rollSkillCast(
   damageMult: number,
   graphMod?: ResolvedSkillModifier,
   weaponConversion?: ConversionSpec,
+  elementTransform?: DamageType,
 ): { damage: number; isCrit: boolean; isHit: boolean; graphMod?: ResolvedSkillModifier; buckets?: DamageBucket[] } {
-  const dmgResult = calcSkillDamagePerCast(skill, stats, weaponAvgDmg, weaponSpellPower, graphMod, weaponConversion);
+  const dmgResult = calcSkillDamagePerCast(skill, stats, weaponAvgDmg, weaponSpellPower, graphMod, weaponConversion, elementTransform);
   const baseDmgPerCast = dmgResult.total * damageMult;
   if (baseDmgPerCast <= 0) return { damage: 0, isCrit: false, isHit: false };
 

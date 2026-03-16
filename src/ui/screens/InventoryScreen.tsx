@@ -1327,6 +1327,8 @@ const STAT_LABELS: Record<StatKey, string> = {
   buffExpiryResetCd: 'Buff Expiry Resets CD',
   extraChaosDamagePercent: '% Extra Chaos Damage',
   maxLifePenaltyPercent: '% Max Life Penalty',
+  ailmentPotency: 'Ailment Potency',
+  ailmentTickSpeedMult: 'Ailment Tick Speed',
 };
 
 function ComparisonPanel({ selected, equipped }: { selected: Item; equipped: Item }) {

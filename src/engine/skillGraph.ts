@@ -65,6 +65,10 @@ export interface ResolvedSkillModifier {
   dotMultiplier: number;
   weaponMastery: number;
   ailmentDuration: number;
+  // Dagger v2: combo & element
+  cooldownIncrease: number;
+  ailmentPotency: number;
+  comboStateCreation: { stateId: string; duration: number; maxStacks?: number } | null;
 }
 
 /** Empty modifier (identity). */
@@ -123,6 +127,10 @@ export const EMPTY_GRAPH_MOD: ResolvedSkillModifier = {
   dotMultiplier: 0,
   weaponMastery: 0,
   ailmentDuration: 0,
+  // Dagger v2 defaults
+  cooldownIncrease: 0,
+  ailmentPotency: 0,
+  comboStateCreation: null,
 };
 
 /**
@@ -244,6 +252,13 @@ export function resolveSkillGraphModifiers(
     if (m.dotMultiplier) result.dotMultiplier += m.dotMultiplier;
     if (m.weaponMastery) result.weaponMastery += m.weaponMastery;
     if (m.ailmentDuration) result.ailmentDuration += m.ailmentDuration;
+
+    // Dagger v2: additive scalars
+    if (m.cooldownIncrease) result.cooldownIncrease += m.cooldownIncrease;
+    if (m.ailmentPotency) result.ailmentPotency += m.ailmentPotency;
+
+    // Dagger v2: last-wins
+    if (m.comboStateCreation) result.comboStateCreation = m.comboStateCreation;
 
     // Max-wins
     if (m.executeThreshold) result.executeThreshold = Math.max(result.executeThreshold, m.executeThreshold);

@@ -154,6 +154,7 @@ export interface ActiveDebuff {
   stackSnapshots?: number[];    // hit damage that applied each stack (bleed/poison)
   instances?: PoisonInstance[];     // instance-based DoT (poison): each has own snapshot + duration
   dotTickAccumulator?: number;     // accumulates time between batched DoT ticks
+  igniteAccumulatedDamage?: number;  // Ignite: total accumulated snapshot for ramp-on-refresh
 }
 
 export interface TempBuff {
@@ -163,4 +164,24 @@ export interface TempBuff {
   sourceSkillId: string;
   stacks: number;
   maxStacks: number;
+}
+
+// --- Combo States (Dagger v2) ---
+
+export interface ComboStateEffect {
+  incDamage?: number;             // % bonus damage when consumed
+  incCritChance?: number;         // % bonus crit chance when consumed
+  incCritMultiplier?: number;     // % bonus crit multiplier when consumed
+  cooldownAcceleration?: number;  // seconds subtracted from next skill CD
+  burstDamage?: number;           // flat burst damage on consume
+  burstElement?: string;          // element of burst damage
+}
+
+export interface ComboState {
+  stateId: string;                // e.g. 'exposed', 'deep_wound', 'shadow_momentum'
+  sourceSkillId: string;          // skill that created this state
+  remainingDuration: number;      // seconds until expiry
+  stacks: number;
+  maxStacks: number;
+  effect: ComboStateEffect;
 }

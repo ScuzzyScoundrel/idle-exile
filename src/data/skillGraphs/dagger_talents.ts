@@ -2291,3 +2291,216 @@ export const LIGHTNING_LUNGE_TALENT_TREE = createTalentTree({
     },
   ],
 });
+
+
+// ════════════════════════════════════════════════════════════
+// BLADE WARD TALENT TREE (New — Dagger v2)
+// ════════════════════════════════════════════════════════════
+
+export const BLADE_WARD_TALENT_TREE = createTalentTree({
+  skillId: 'dagger_blade_ward', prefix: 'bw',
+  branches: [
+    // --- Guard ---
+    {
+      name: 'Guard',
+      description: 'Defensive mastery through blocking and damage reduction',
+      t2Notable: { name: 'Iron Guard', description: '+15% block chance while ward active. +5% damage reduction.', nodeType: 'notable', maxRank: 1, modifier: { abilityEffect: { defenseMult: 1.05 } } },
+      t4Notable: { name: 'Bulwark', description: 'Ward grants Fortify (3 stacks, 5s). +10% armor.', nodeType: 'notable', maxRank: 1, modifier: { fortifyOnHit: { stacks: 3, duration: 5, damageReduction: 3 } } },
+      behaviorNodes: {
+        t1a: bh('Steady Blade', '+5% damage reduction during ward. Rank 2: +8%.', { abilityEffect: { defenseMult: 1.05 } }),
+        t1b: bh('Patient Guard', '+3% crit chance after blocking. Rank 2: +5%.', { incCritChance: 3 }),
+        t2b: bh('Reinforced Stance', '+5% armor during ward. Rank 2: +8%, +3% evasion.', { abilityEffect: { defenseMult: 1.05 } }),
+        t3a: bh('Shield Wall', 'Gain 2 life on block. Rank 2: 4 life.', { lifeOnHit: 2 }),
+        t3b: bh('Counter Poise', '+5% crit after blocking. Rank 2: +8%.', { incCritChance: 5 }),
+        t3c: bh('Hardened Edge', '+3% damage. Rank 2: +5%.', { incDamage: 3 }),
+        t4b: bh('Enduring Guard', '+3s ward duration. Rank 2: +5s.', { durationBonus: 3 }),
+      },
+      t5a: { name: 'ABSOLUTE DEFENSE', description: '+30% damage reduction. Cannot crit. Ward lasts twice as long.', nodeType: 'keystoneChoice', maxRank: 1, modifier: { abilityEffect: { defenseMult: 1.30 }, durationBonus: 6 } },
+      t5b: { name: 'RIPOSTE MASTER', description: 'Counter-attacks always crit. +20% crit mult. Ward duration halved.', nodeType: 'keystoneChoice', maxRank: 1, modifier: { incCritMultiplier: 20, durationBonus: -3 } },
+      t6Notable: { name: 'Unyielding', description: '+10% all resists during ward. +5% weapon mastery.', nodeType: 'notable', maxRank: 1, modifier: { abilityEffect: { resistBonus: 10 }, weaponMastery: 5 } },
+      t7Keystone: { name: 'GUARDIAN', description: 'Ward grants immunity to first hit. +15% damage reduction to all dagger skills. -20% damage.', nodeType: 'keystone', maxRank: 1, modifier: { incDamage: -20, globalEffect: { defenseMult: 1.15 } } },
+    },
+    // --- Retaliation ---
+    {
+      name: 'Retaliation',
+      description: 'Counter-attack power and reactive damage',
+      t2Notable: { name: 'Sharp Retaliation', description: 'Counter-attacks deal +25% damage. +5% crit chance.', nodeType: 'notable', maxRank: 1, modifier: { incDamage: 25, incCritChance: 5 } },
+      t4Notable: { name: 'Venomous Counter', description: 'Counter-attacks apply Poison (3s). +10% damage.', nodeType: 'notable', maxRank: 1, modifier: { incDamage: 10, applyDebuff: { debuffId: 'poisoned', chance: 1.0, duration: 3 } } },
+      behaviorNodes: {
+        t1a: bh('Quick Counter', '+5% counter damage. Rank 2: +8%.', { incDamage: 5 }),
+        t1b: bh('Reactive Edge', '+3% crit on counter. Rank 2: +5%.', { incCritChance: 3 }),
+        t2b: bh('Punishing Stance', '+5% damage per counter hit. Rank 2: +8%.', { incDamage: 5 }),
+        t3a: bh('Blade Frenzy', '+5% attack speed after counter. Rank 2: +8%.', { incCastSpeed: 5 }),
+        t3b: bh('Deep Cuts', '+3% crit mult. Rank 2: +5%.', { incCritMultiplier: 3 }),
+        t3c: bh('Toxic Counter', '+10% poison damage. Rank 2: +15%.', { incDamage: 10 }),
+        t4b: bh('Relentless Counter', '+3 flat damage on counter. Rank 2: +5.', { flatDamage: 3 }),
+      },
+      t5a: { name: 'THORNS', description: 'Counter-attacks deal 200% damage. +20% increased damage taken.', nodeType: 'keystoneChoice', maxRank: 1, modifier: { incDamage: 100, increasedDamageTaken: 20 } },
+      t5b: { name: 'MIRROR BLADE', description: 'Counter-attacks apply all debuffs from ward skill. +10% weapon mastery.', nodeType: 'keystoneChoice', maxRank: 1, modifier: { weaponMastery: 10 } },
+      t6Notable: { name: 'Storm Counter', description: 'Counter-attacks chain to 2 targets. +5% weapon mastery.', nodeType: 'notable', maxRank: 1, modifier: { chainCount: 2, weaponMastery: 5 } },
+      t7Keystone: { name: 'BLADE MASTER', description: 'Counter-attacks have +50% crit chance. All daggers gain +5% crit. -15% max life.', nodeType: 'keystone', maxRank: 1, modifier: { incCritChance: 50, reducedMaxLife: 15, globalEffect: { critChanceBonus: 5 } } },
+    },
+    // --- Fortification ---
+    {
+      name: 'Fortification',
+      description: 'Sustain and team-wide defensive bonuses',
+      t2Notable: { name: 'Living Shield', description: '+5 life on hit during ward. +10 all resists.', nodeType: 'notable', maxRank: 1, modifier: { lifeOnHit: 5, abilityEffect: { resistBonus: 10 } } },
+      t4Notable: { name: 'Fortress of Blades', description: 'Ward grants +20% evasion. +5% life leech.', nodeType: 'notable', maxRank: 1, modifier: { leechPercent: 5 } },
+      behaviorNodes: {
+        t1a: bh('Resilient Edge', '+3 life on hit. Rank 2: +5.', { lifeOnHit: 3 }),
+        t1b: bh('Vital Guard', '+5 all resists. Rank 2: +8.', { abilityEffect: { resistBonus: 5 } }),
+        t2b: bh('Regenerative Ward', '+2% life leech. Rank 2: +3%.', { leechPercent: 2 }),
+        t3a: bh('Iron Skin', '+5% damage reduction. Rank 2: +8%.', { abilityEffect: { defenseMult: 1.05 } }),
+        t3b: bh('Toxic Resilience', '+5 chaos resist. Rank 2: +10.', { abilityEffect: { resistBonus: 5 } }),
+        t3c: bh('Evasive Ward', '+3% evasion scaling. Rank 2: +5%.', { damageFromEvasion: 3 }),
+        t4b: bh('Enduring Presence', '+3% life leech. Rank 2: +5%.', { leechPercent: 3 }),
+      },
+      t5a: { name: 'IMMORTAL GUARD', description: 'Ward cannot be interrupted. +30% all resists. -25% damage.', nodeType: 'keystoneChoice', maxRank: 1, modifier: { incDamage: -25, abilityEffect: { resistBonus: 30 } } },
+      t5b: { name: 'VAMPIRIC WARD', description: '+10% life leech during ward. +20% damage. Cannot block.', nodeType: 'keystoneChoice', maxRank: 1, modifier: { leechPercent: 10, incDamage: 20 } },
+      t6Notable: { name: 'Shared Defense', description: 'All dagger skills gain +5% defense. +5% weapon mastery.', nodeType: 'notable', maxRank: 1, modifier: { weaponMastery: 5, globalEffect: { defenseMult: 1.05 } } },
+      t7Keystone: { name: 'ETERNAL WARD', description: 'Ward never expires. -30% damage. All daggers gain +10 all resists.', nodeType: 'keystone', maxRank: 1, modifier: { incDamage: -30, globalEffect: { resistBonus: 10 } } },
+    },
+  ],
+});
+
+
+// ════════════════════════════════════════════════════════════
+// BLADE TRAP TALENT TREE (New — Dagger v2)
+// ════════════════════════════════════════════════════════════
+
+export const BLADE_TRAP_TALENT_TREE = createTalentTree({
+  skillId: 'dagger_blade_trap', prefix: 'bt',
+  branches: [
+    // --- Detonation ---
+    {
+      name: 'Detonation',
+      description: 'Explosive trap damage and area of effect',
+      t2Notable: { name: 'High Explosive', description: '+25% trap damage. +10% AoE radius.', nodeType: 'notable', maxRank: 1, modifier: { incDamage: 25 } },
+      t4Notable: { name: 'Cluster Bomb', description: 'Trap hits +2 additional targets. +10% damage.', nodeType: 'notable', maxRank: 1, modifier: { incDamage: 10, extraHits: 2 } },
+      behaviorNodes: {
+        t1a: bh('Packed Charge', '+5% trap damage. Rank 2: +8%.', { incDamage: 5 }),
+        t1b: bh('Shrapnel', '+3 flat damage. Rank 2: +5.', { flatDamage: 3 }),
+        t2b: bh('Volatile Mix', '+5% crit chance. Rank 2: +8%.', { incCritChance: 5 }),
+        t3a: bh('Concussive Blast', '+5% crit mult. Rank 2: +8%.', { incCritMultiplier: 5 }),
+        t3b: bh('Extended Range', '+1 extra hit. Rank 2: +2.', { extraHits: 1 }),
+        t3c: bh('Overcharge', '+8% damage, +5% self damage. Rank 2: +12%, +5%.', { incDamage: 8, selfDamagePercent: 5 }),
+        t4b: bh('Chain Reaction', '+3% crit chance per hit. Rank 2: +5%.', { incCritChance: 3 }),
+      },
+      t5a: { name: 'MEGATON', description: '+100% trap damage. +50% cooldown. Single massive hit.', nodeType: 'keystoneChoice', maxRank: 1, modifier: { incDamage: 100, cooldownIncrease: 5 } },
+      t5b: { name: 'SCATTER BOMB', description: '+4 extra hits. -30% damage per hit. Wider AoE.', nodeType: 'keystoneChoice', maxRank: 1, modifier: { extraHits: 4, incDamage: -30 } },
+      t6Notable: { name: 'Demolition Expert', description: '+15% crit mult on trap detonation. +5% weapon mastery.', nodeType: 'notable', maxRank: 1, modifier: { incCritMultiplier: 15, weaponMastery: 5 } },
+      t7Keystone: { name: 'MINEFIELD', description: 'Place 3 traps per cast. -60% damage. +5% all dagger crit.', nodeType: 'keystone', maxRank: 1, modifier: { incDamage: -60, extraHits: 2, globalEffect: { critChanceBonus: 5 } } },
+    },
+    // --- Sabotage ---
+    {
+      name: 'Sabotage',
+      description: 'Debuff application and damage-over-time from traps',
+      t2Notable: { name: 'Toxic Trap', description: 'Trap applies Poison (4s). +10% ailment potency.', nodeType: 'notable', maxRank: 1, modifier: { applyDebuff: { debuffId: 'poisoned', chance: 1.0, duration: 4 }, ailmentPotency: 10 } },
+      t4Notable: { name: 'Corrosive Payload', description: 'Trap applies Curse (3s). +25% debuff duration.', nodeType: 'notable', maxRank: 1, modifier: { applyDebuff: { debuffId: 'cursed', chance: 1.0, duration: 3 }, ailmentDuration: 25 } },
+      behaviorNodes: {
+        t1a: bh('Laced Blades', '+10% ailment potency. Rank 2: +15%.', { ailmentPotency: 10 }),
+        t1b: bh('Lingering Toxin', '+15% ailment duration. Rank 2: +25%.', { ailmentDuration: 15 }),
+        t2b: bh('Spreading Venom', 'Poison spreads on kill. Rank 2: +refresh duration.', { debuffInteraction: { spreadDebuffOnKill: { debuffIds: ['poisoned'], refreshDuration: 3 } } }),
+        t3a: bh('Crippling Trap', '+5% damage vs debuffed. Rank 2: +8%.', { incDamage: 5 }),
+        t3b: bh('Double Dose', '+10% poison damage. Rank 2: +15%.', { dotMultiplier: 10 }),
+        t3c: bh('Weakening Payload', '+5% DoT damage. Rank 2: +8%.', { dotMultiplier: 5 }),
+        t4b: bh('Pandemic Trap', '+20% ailment duration. Rank 2: +30%.', { ailmentDuration: 20 }),
+      },
+      t5a: { name: 'PLAGUE TRAP', description: 'Trap applies all ailments (3s). +20% ailment potency. -40% direct damage.', nodeType: 'keystoneChoice', maxRank: 1, modifier: { incDamage: -40, ailmentPotency: 20 } },
+      t5b: { name: 'VENOM MINE', description: 'Poison from traps deals double damage. +15% DoT mult. No direct damage.', nodeType: 'keystoneChoice', maxRank: 1, modifier: { incDamage: -100, dotMultiplier: 15, debuffInteraction: { debuffEffectBonus: 100 } } },
+      t6Notable: { name: 'Toxic Specialist', description: '+20% ailment potency. +5% weapon mastery.', nodeType: 'notable', maxRank: 1, modifier: { ailmentPotency: 20, weaponMastery: 5 } },
+      t7Keystone: { name: 'PLAGUE ENGINEER', description: 'All dagger poison deals +25% damage. +50% ailment potency. -20% HP.', nodeType: 'keystone', maxRank: 1, modifier: { ailmentPotency: 50, reducedMaxLife: 20, globalEffect: { damageMult: 1.05 } } },
+    },
+    // --- Ambush ---
+    {
+      name: 'Ambush',
+      description: 'Trap synergy with other skills and cooldown management',
+      t2Notable: { name: 'Hair Trigger', description: '-15% cooldown. Trap arms instantly.', nodeType: 'notable', maxRank: 1, modifier: { cooldownReduction: 15 } },
+      t4Notable: { name: 'Killzone', description: 'On trap kill: reset Stab cooldown. +10% damage.', nodeType: 'notable', maxRank: 1, modifier: { incDamage: 10, procs: [{ id: 'bt_killzone', chance: 1.0, trigger: 'onKill', resetCooldown: 'dagger_stab' }] } },
+      behaviorNodes: {
+        t1a: bh('Quick Deploy', '-5% cooldown. Rank 2: -8%.', { cooldownReduction: 5 }),
+        t1b: bh('Efficient Design', '+5% cast speed. Rank 2: +8%.', { incCastSpeed: 5 }),
+        t2b: bh('Tactical Placement', '+3% damage. Rank 2: +5%.', { incDamage: 3 }),
+        t3a: bh('Chain Trap', 'On kill: 25% chance reset trap CD. Rank 2: 40%.', { procs: [{ id: 'bt_chain', chance: 0.25, trigger: 'onKill', resetCooldown: 'dagger_blade_trap' }] }),
+        t3b: bh('Prepared Ground', '+5% damage per trap hit. Rank 2: +8%.', { incDamage: 5 }),
+        t3c: bh('Trap Mastery', '+3% weapon mastery. Rank 2: +5%.', { weaponMastery: 3 }),
+        t4b: bh('Perfect Timing', '+5% crit chance. Rank 2: +8%.', { incCritChance: 5 }),
+      },
+      t5a: { name: 'RAPID DEPLOYMENT', description: '-50% cooldown. -30% damage. +15% cast speed.', nodeType: 'keystoneChoice', maxRank: 1, modifier: { cooldownReduction: 50, incDamage: -30, incCastSpeed: 15 } },
+      t5b: { name: 'DEATH TRAP', description: '+50% damage. +100% cooldown. Execute below 20% HP.', nodeType: 'keystoneChoice', maxRank: 1, modifier: { incDamage: 50, cooldownIncrease: 10, executeThreshold: 20 } },
+      t6Notable: { name: 'Trap Network', description: 'All dagger skills deal +3% damage. +5% weapon mastery.', nodeType: 'notable', maxRank: 1, modifier: { weaponMastery: 5, globalEffect: { damageMult: 1.03 } } },
+      t7Keystone: { name: 'MASTER TRAPPER', description: 'Trap kills reset all dagger cooldowns. -20% damage. +5% all dagger attack speed.', nodeType: 'keystone', maxRank: 1, modifier: { incDamage: -20, globalEffect: { attackSpeedMult: 1.05 } } },
+    },
+  ],
+});
+
+
+// ════════════════════════════════════════════════════════════
+// SHADOW DASH TALENT TREE (New — Dagger v2)
+// ════════════════════════════════════════════════════════════
+
+export const SHADOW_DASH_TALENT_TREE = createTalentTree({
+  skillId: 'dagger_shadow_dash', prefix: 'sd',
+  branches: [
+    // --- Acceleration ---
+    {
+      name: 'Acceleration',
+      description: 'Speed and cooldown acceleration through momentum',
+      t2Notable: { name: 'Burst of Speed', description: 'On dash: +15% attack speed for 3s. +5% cast speed.', nodeType: 'notable', maxRank: 1, modifier: { incCastSpeed: 5, procs: [{ id: 'sd_burst', chance: 1.0, trigger: 'onCast', applyBuff: { buffId: 'burstSpeed', effect: { attackSpeedMult: 1.15 }, duration: 3 } }] } },
+      t4Notable: { name: 'Time Warp', description: 'On dash: reduce all dagger CDs by 1s. +10% cast speed.', nodeType: 'notable', maxRank: 1, modifier: { incCastSpeed: 10 } },
+      behaviorNodes: {
+        t1a: bh('Quick Step', '+5% cast speed. Rank 2: +8%.', { incCastSpeed: 5 }),
+        t1b: bh('Swift Recovery', '-5% cooldown. Rank 2: -8%.', { cooldownReduction: 5 }),
+        t2b: bh('Momentum', '+3% damage after dash. Rank 2: +5%.', { incDamage: 3 }),
+        t3a: bh('Rapid Transit', '+5% attack speed. Rank 2: +8%.', { incCastSpeed: 5 }),
+        t3b: bh('Hasty Retreat', '-5% cooldown. Rank 2: -10%.', { cooldownReduction: 5 }),
+        t3c: bh('Afterimage', '+3% evasion scaling. Rank 2: +5%.', { damageFromEvasion: 3 }),
+        t4b: bh('Temporal Rush', '+5% cast speed. Rank 2: +8%, +3% weapon mastery.', { incCastSpeed: 5 }),
+      },
+      t5a: { name: 'FLASH STEP', description: '-60% cooldown. Dash deals no damage. +20% attack speed for 4s.', nodeType: 'keystoneChoice', maxRank: 1, modifier: { cooldownReduction: 60, incDamage: -100 } },
+      t5b: { name: 'CHRONO DASH', description: 'On dash: reset lowest-CD dagger skill. +50% cooldown.', nodeType: 'keystoneChoice', maxRank: 1, modifier: { cooldownIncrease: 2 } },
+      t6Notable: { name: 'Velocity', description: 'All dagger skills +5% cast speed. +5% weapon mastery.', nodeType: 'notable', maxRank: 1, modifier: { weaponMastery: 5, globalEffect: { attackSpeedMult: 1.05 } } },
+      t7Keystone: { name: 'TEMPORAL MASTER', description: 'Every 3rd dash is free (no CD). All daggers +10% attack speed. -15% HP.', nodeType: 'keystone', maxRank: 1, modifier: { reducedMaxLife: 15, globalEffect: { attackSpeedMult: 1.10 } } },
+    },
+    // --- Phantom ---
+    {
+      name: 'Phantom',
+      description: 'Evasion-based damage and dodge synergy',
+      t2Notable: { name: 'Ghost Strike', description: '+10% of evasion as damage. +5% crit chance.', nodeType: 'notable', maxRank: 1, modifier: { damageFromEvasion: 10, incCritChance: 5 } },
+      t4Notable: { name: 'Phase Shift', description: 'On dodge: auto-cast Shadow Dash. +5% evasion scaling.', nodeType: 'notable', maxRank: 1, modifier: { damageFromEvasion: 5, procs: [{ id: 'sd_phase', chance: 1.0, trigger: 'onDodge', castSkill: 'dagger_shadow_dash' }] } },
+      behaviorNodes: {
+        t1a: bh('Shadow Step', '+3% evasion scaling. Rank 2: +5%.', { damageFromEvasion: 3 }),
+        t1b: bh('Flicker', '+3% crit chance. Rank 2: +5%.', { incCritChance: 3 }),
+        t2b: bh('Phantom Edge', '+5% crit mult. Rank 2: +8%.', { incCritMultiplier: 5 }),
+        t3a: bh('Spectral Blade', '+5% damage. Rank 2: +8%.', { incDamage: 5 }),
+        t3b: bh('Ethereal Form', '+3% evasion scaling. Rank 2: +5%.', { damageFromEvasion: 3 }),
+        t3c: bh('Shadow Clone', '+3% crit chance. Rank 2: +5%.', { incCritChance: 3 }),
+        t4b: bh('Ghost Walk', '+5 life on dodge. Rank 2: +8.', { lifeOnHit: 5 }),
+      },
+      t5a: { name: 'WRAITH', description: '+20% evasion scaling. Crits do no bonus damage. +50% crit chance.', nodeType: 'keystoneChoice', maxRank: 1, modifier: { damageFromEvasion: 20, critsDoNoBonusDamage: true, incCritChance: 50 } },
+      t5b: { name: 'SHADE', description: 'On dodge: +30% damage for 3s. +10% evasion scaling.', nodeType: 'keystoneChoice', maxRank: 1, modifier: { damageFromEvasion: 10, procs: [{ id: 'sd_shade', chance: 1.0, trigger: 'onDodge', applyBuff: { buffId: 'shadeBonus', effect: { damageMult: 1.30 }, duration: 3 } }] } },
+      t6Notable: { name: 'Phantom Mastery', description: '+10% evasion scaling. +5% weapon mastery.', nodeType: 'notable', maxRank: 1, modifier: { damageFromEvasion: 10, weaponMastery: 5 } },
+      t7Keystone: { name: 'GHOST KING', description: '+30% evasion as damage. All daggers +5% crit. -20% max life.', nodeType: 'keystone', maxRank: 1, modifier: { damageFromEvasion: 30, reducedMaxLife: 20, globalEffect: { critChanceBonus: 5 } } },
+    },
+    // --- Momentum ---
+    {
+      name: 'Momentum',
+      description: 'Building power through consecutive dashes and movement',
+      t2Notable: { name: 'Building Speed', description: '+5% damage per consecutive hit (max 5). +3% weapon mastery.', nodeType: 'notable', maxRank: 1, modifier: { rampingDamage: { perHit: 5, maxStacks: 5, decayAfter: 3 }, weaponMastery: 3 } },
+      t4Notable: { name: 'Unstoppable', description: '+15% damage. +5 life on hit. +10 all resists.', nodeType: 'notable', maxRank: 1, modifier: { incDamage: 15, lifeOnHit: 5, abilityEffect: { resistBonus: 10 } } },
+      behaviorNodes: {
+        t1a: bh('Rolling Thunder', '+5% damage. Rank 2: +8%.', { incDamage: 5 }),
+        t1b: bh('Gathering Force', '+3 flat damage. Rank 2: +5.', { flatDamage: 3 }),
+        t2b: bh('Sustained Rush', '+3 life on hit. Rank 2: +5.', { lifeOnHit: 3 }),
+        t3a: bh('Impact Force', '+5% crit mult. Rank 2: +8%.', { incCritMultiplier: 5 }),
+        t3b: bh('Endless Motion', '+3% weapon mastery. Rank 2: +5%.', { weaponMastery: 3 }),
+        t3c: bh('Battle Flow', '+5% damage. Rank 2: +8%.', { incDamage: 5 }),
+        t4b: bh('Kinetic Edge', '+3% crit chance. Rank 2: +5%.', { incCritChance: 3 }),
+      },
+      t5a: { name: 'JUGGERNAUT', description: '+30% damage. +25% increased damage taken. +10% life leech.', nodeType: 'keystoneChoice', maxRank: 1, modifier: { incDamage: 30, increasedDamageTaken: 25, leechPercent: 10 } },
+      t5b: { name: 'SHADOW DANCER', description: '+20% crit chance. +20% crit mult. Cannot leech.', nodeType: 'keystoneChoice', maxRank: 1, modifier: { incCritChance: 20, incCritMultiplier: 20, cannotLeech: true } },
+      t6Notable: { name: 'Perpetual Motion', description: 'All daggers +3% damage, +3% attack speed. +5% weapon mastery.', nodeType: 'notable', maxRank: 1, modifier: { weaponMastery: 5, globalEffect: { damageMult: 1.03, attackSpeedMult: 1.03 } } },
+      t7Keystone: { name: 'SHADOW SOVEREIGN', description: 'All dagger skills gain +10% damage, +5% crit. -20% max HP. Shadow Dash costs no CD every 5th cast.', nodeType: 'keystone', maxRank: 1, modifier: { reducedMaxLife: 20, globalEffect: { damageMult: 1.10, critChanceBonus: 5 } } },
+    },
+  ],
+});

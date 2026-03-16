@@ -50,6 +50,11 @@ const CONFLICTING_ABILITY_IDS = new Set([
 /** Map from old ability ID -> unified ID (for migration in 10G). */
 export const ABILITY_ID_MIGRATION: Record<string, string> = {};
 
+// Dagger v2: active skill ID renames
+ABILITY_ID_MIGRATION['dagger_blade_flurry'] = 'dagger_blade_dance';
+ABILITY_ID_MIGRATION['dagger_lightning_lunge'] = 'dagger_chain_strike';
+ABILITY_ID_MIGRATION['dagger_smoke_screen'] = 'dagger_shadow_mark';
+
 // Convert ActiveSkillDefs -> SkillDefs (kind: 'active')
 const convertedActiveSkills: SkillDef[] = ACTIVE_SKILL_DEFS.map(s => ({
   id: s.id,

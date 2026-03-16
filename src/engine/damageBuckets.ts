@@ -64,6 +64,7 @@ export function resolveDamageBuckets(
   weaponSpellPower: number,
   graphMod?: ResolvedSkillModifier,
   weaponConversion?: ConversionSpec,
+  elementTransform?: DamageType,      // Dagger v2: override all damage to this element
 ): DamageResult {
   const isAttack = skill.tags.includes('Attack');
   const isSpell = skill.tags.includes('Spell');
@@ -119,6 +120,12 @@ export function resolveDamageBuckets(
     conversionMap.set(weaponConversion.to, existing + weaponConversion.percent);
   }
 
+  // Element transform: override ALL conversion to target element
+  if (elementTransform && elementTransform !== 'physical') {
+    conversionMap.clear();
+    conversionMap.set(elementTransform, 100);
+  }
+
   // Cap total conversion at 100%
   let totalConvPct = 0;
   for (const pct of conversionMap.values()) totalConvPct += pct;
@@ -153,19 +160,35 @@ export function resolveDamageBuckets(
   }
 
   // ── Step 3: Add flat damage to buckets ──
-  // ALL flat affixes contribute regardless of skill tags
-  if (isAttack) {
-    buckets.fire += stats.flatAtkFireDamage;
-    buckets.cold += stats.flatAtkColdDamage;
-    buckets.lightning += stats.flatAtkLightningDamage;
-    buckets.chaos += stats.flatAtkChaosDamage;
-  }
-  if (isSpell) {
-    // Spells don't get flat phys from gear (no flatPhysDamage for spells)
-    buckets.fire += stats.flatSpellFireDamage;
-    buckets.cold += stats.flatSpellColdDamage;
-    buckets.lightning += stats.flatSpellLightningDamage;
-    buckets.chaos += stats.flatSpellChaosDamage;
+  if (elementTransform) {
+    // Element transform: only add flat affixes matching the transformed element
+    if (isAttack) {
+      if (elementTransform === 'fire') buckets.fire += stats.flatAtkFireDamage;
+      else if (elementTransform === 'cold') buckets.cold += stats.flatAtkColdDamage;
+      else if (elementTransform === 'lightning') buckets.lightning += stats.flatAtkLightningDamage;
+      else if (elementTransform === 'chaos') buckets.chaos += stats.flatAtkChaosDamage;
+    }
+    if (isSpell) {
+      if (elementTransform === 'fire') buckets.fire += stats.flatSpellFireDamage;
+      else if (elementTransform === 'cold') buckets.cold += stats.flatSpellColdDamage;
+      else if (elementTransform === 'lightning') buckets.lightning += stats.flatSpellLightningDamage;
+      else if (elementTransform === 'chaos') buckets.chaos += stats.flatSpellChaosDamage;
+    }
+  } else {
+    // ALL flat affixes contribute regardless of skill tags
+    if (isAttack) {
+      buckets.fire += stats.flatAtkFireDamage;
+      buckets.cold += stats.flatAtkColdDamage;
+      buckets.lightning += stats.flatAtkLightningDamage;
+      buckets.chaos += stats.flatAtkChaosDamage;
+    }
+    if (isSpell) {
+      // Spells don't get flat phys from gear (no flatPhysDamage for spells)
+      buckets.fire += stats.flatSpellFireDamage;
+      buckets.cold += stats.flatSpellColdDamage;
+      buckets.lightning += stats.flatSpellLightningDamage;
+      buckets.chaos += stats.flatSpellChaosDamage;
+    }
   }
 
   // ── Step 4: Apply % modifiers per bucket ──

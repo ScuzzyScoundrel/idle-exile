@@ -60,8 +60,21 @@ export default function SkillBar({ lastFiredSkillId, cdResetSkillId }: { lastFir
   prevCdResetRef.current = cdResetSkillId ?? null;
 
   const unlockedSlots = getUnlockedSlotCount(character.level);
+  const comboStates = useGameStore(s => s.comboStates);
 
   return (
+    <div>
+      {/* Combo State Display */}
+      {comboStates.length > 0 && (
+        <div className="flex gap-1 justify-center mb-1">
+          {comboStates.map(cs => (
+            <div key={cs.stateId} className="flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-900/60 text-amber-300 text-xs rounded">
+              <span className="font-semibold capitalize">{cs.stateId.replace(/_/g, ' ')}</span>
+              <span className="text-amber-500">{cs.remainingDuration.toFixed(1)}s</span>
+            </div>
+          ))}
+        </div>
+      )}
     <div className="flex gap-1.5 justify-center">
       {skillBar.map((equipped, idx) => {
         // Slots 0-4: slot 0 always unlocked (active skill), slots 1-4 use ABILITY_SLOT_UNLOCKS
@@ -338,6 +351,7 @@ export default function SkillBar({ lastFiredSkillId, cdResetSkillId }: { lastFir
           </button>
         );
       })}
+    </div>
     </div>
   );
 }

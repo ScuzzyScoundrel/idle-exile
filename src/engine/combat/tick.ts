@@ -52,6 +52,10 @@ import {
   mergeProcTempBuff,
   type SpreadResult,
 } from './helpers';
+import {
+  COMBO_STATE_CREATORS, COMBO_STATE_CONSUMERS,
+  tickComboStates, consumeComboState, createComboState,
+} from './combo';
 import { isSkillAoE, spawnPack } from '../packs';
 import { isZoneInvaded } from '../invasions';
 import {
@@ -144,7 +148,10 @@ export function runCombatTick(
   }
 
   // Find next ready skill from rotation (slot-priority order)
-  const rotationResult = getNextRotationSkill(state.skillBar ?? [], state.skillTimers, now);
+  const targetHpPct = phase === 'boss_fight' && state.bossState
+    ? (state.bossState.bossCurrentHp / state.bossState.bossMaxHp) * 100
+    : (frontMobHp / frontMobMaxHp) * 100;
+  const rotationResult = getNextRotationSkill(state.skillBar ?? [], state.skillTimers, now, state.skillProgress, targetHpPct);
 
   // Fallback: if no rotation skill ready, check why
   let skill: SkillDef | ActiveSkillDef | null = rotationResult?.skill ?? null;
@@ -313,7 +320,34 @@ export function runCombatTick(
     }
     // Different target: unique conversion takes effect alongside weapon (both feed into bucket system)
   }
-  const roll = rollSkillCast(skill, effectiveStats, avgDamage, spellPower, damageMult, graphMod ?? undefined, effectiveConversion);
+  // Element transform: per-skill element override (Dagger v2)
+  const elementTransform = state.elementTransforms[skill.id] ?? undefined;
+
+  // Combo state: tick expiry + consume before damage calc
+  let newComboStates = tickComboStates([...state.comboStates], dtSec);
+  const consumeStateId = COMBO_STATE_CONSUMERS[skill.id];
+  if (consumeStateId) {
+    const { consumed, remaining } = consumeComboState(newComboStates, consumeStateId);
+    newComboStates = remaining;
+    if (consumed?.effect.incDamage) {
+      damageMult *= (1 + consumed.effect.incDamage / 100);
+    }
+  }
+
+  // Combo state: consume cooldown acceleration (Shadow Momentum, etc.)
+  let cdAcceleration = 0;
+  const accelState = newComboStates.find(s => s.effect.cooldownAcceleration);
+  if (accelState) {
+    cdAcceleration = accelState.effect.cooldownAcceleration ?? 0;
+    const { remaining: accelRemaining } = consumeComboState(newComboStates, accelState.stateId);
+    newComboStates = accelRemaining;
+  }
+
+  const roll = rollSkillCast(skill, effectiveStats, avgDamage, spellPower, damageMult, graphMod ?? undefined, effectiveConversion, elementTransform);
+
+  // Ailment potency: scale snapshot damage for debuff application
+  const ailmentPotencyMult = 1 + ((effectiveStats.ailmentPotency ?? 0) + (graphMod?.ailmentPotency ?? 0)) / 100;
+  const ailmentSnapshot = roll.damage * ailmentPotencyMult;
 
   // Post-roll conditional modifiers (on conditions)
   if (graphMod?.conditionalMods?.length && roll.isHit) {
@@ -473,7 +507,7 @@ export function runCombatTick(
           duration *= (1 + effectiveStats.ailmentDuration / 100);
         }
         const isDoublePoisonHalf = effectiveStats.doublePoisonHalfDamage > 0 && debuffInfo.debuffId === 'poison';
-        applyDebuffToList(newDebuffs, debuffInfo.debuffId, 1, duration, skill.id, roll.damage, isDoublePoisonHalf);
+        applyDebuffToList(newDebuffs, debuffInfo.debuffId, 1, duration, skill.id, ailmentSnapshot, isDoublePoisonHalf);
       }
     }
   }
@@ -489,13 +523,40 @@ export function runCombatTick(
       duration *= (1 + effectiveStats.ailmentDuration / 100);
     }
     const isDoublePoisonHalfCrit = effectiveStats.doublePoisonHalfDamage > 0 && doc.debuffId === 'poison';
-    applyDebuffToList(newDebuffs, doc.debuffId, doc.stacks, duration, skill.id, roll.damage, isDoublePoisonHalfCrit);
+    applyDebuffToList(newDebuffs, doc.debuffId, doc.stacks, duration, skill.id, ailmentSnapshot, isDoublePoisonHalfCrit);
   }
 
   // Unique: alwaysChill — hits always apply Chill debuff (Frostbite Loop)
   if (roll.isHit && effectiveStats.alwaysChill > 0) {
     const chillDuration = 5 * (1 + effectiveStats.ailmentDuration / 100);
     applyDebuffToList(newDebuffs, 'chilled', 1, chillDuration, skill.id);
+  }
+
+  // Element transform auto-ailment: fire→ignite, cold→chill, lightning→shock, chaos→poison
+  if (elementTransform && roll.isHit) {
+    const ELEMENT_AILMENT: Record<string, string | undefined> = {
+      fire: 'burning', cold: 'chilled', lightning: 'shocked', chaos: 'poisoned',
+    };
+    const autoAilment = ELEMENT_AILMENT[elementTransform];
+    if (autoAilment) {
+      const ailmentDur = 5 * (1 + (effectiveStats.ailmentDuration ?? 0) / 100);
+      applyDebuffToList(newDebuffs, autoAilment, 1, ailmentDur, skill.id, ailmentSnapshot);
+    }
+  }
+
+  // Combo state creation: skill creates a state on cast/crit/kill
+  const comboConfig = COMBO_STATE_CREATORS[skill.id];
+  if (comboConfig && roll.isHit) {
+    const trigger = comboConfig.createOn ?? 'onCast';
+    const shouldCreate = trigger === 'onCast'
+      || (trigger === 'onCrit' && roll.isCrit);
+    // onKill handled later in kill block
+    if (shouldCreate) {
+      newComboStates = createComboState(
+        newComboStates, comboConfig.stateId, skill.id,
+        comboConfig.effect, comboConfig.duration, comboConfig.maxStacks,
+      );
+    }
   }
 
   // consumeDebuff: consume all stacks, deal burst damage
@@ -560,7 +621,7 @@ export function runCombatTick(
 
       // Merge proc debuffs
       for (const pd of pr.newDebuffs) {
-        applyDebuffToList(newDebuffs, pd.debuffId, pd.stacks, pd.duration, pd.skillId, roll.damage);
+        applyDebuffToList(newDebuffs, pd.debuffId, pd.stacks, pd.duration, pd.skillId, ailmentSnapshot);
       }
     }
   }
@@ -591,7 +652,10 @@ export function runCombatTick(
   // Apply graph CDR + ability haste for effective cooldown
   let newTimers = state.skillTimers;
   if (skill.cooldown > 0) {
-    let effectiveCD = skill.cooldown * (1 - (graphMod?.cooldownReduction ?? 0) / 100);
+    const baseCd = skill.cooldown + (graphMod?.cooldownIncrease ?? 0);
+    let effectiveCD = baseCd * (1 - (graphMod?.cooldownReduction ?? 0) / 100);
+    // Apply combo state CD acceleration (Shadow Momentum, etc.)
+    if (cdAcceleration > 0) effectiveCD = Math.max(1, effectiveCD - cdAcceleration);
     if (effectiveStats.abilityHaste > 0) {
       effectiveCD = effectiveCD / (1 + effectiveStats.abilityHaste / 100);
     }
@@ -1297,6 +1361,7 @@ export function runCombatTick(
     fortifyStacks: newFortifyStacks, fortifyExpiresAt: newFortifyExpiresAt, fortifyDRPerStack: newFortifyDRPerStack,
     lastHitMobTypeId: state.currentMobTypeId,
     lastProcTriggerAt: newLastProcTriggerAt,
+    comboStates: newComboStates,
   };
 
   // ES recharge per tick

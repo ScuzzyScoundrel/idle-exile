@@ -294,6 +294,8 @@ function createInitialState(): GameState {
     rampingStacks: 0, rampingLastHitAt: 0,
     fortifyStacks: 0, fortifyExpiresAt: 0, fortifyDRPerStack: 0,
     deathStreak: 0, lastDeathTime: 0,
+    comboStates: [],
+    elementTransforms: {},
     lastHitMobTypeId: null, freeCastUntil: {}, lastProcTriggerAt: {},
     lastClearResult: null,
     lastSkillActivation: 0,
@@ -1286,13 +1288,26 @@ export const useGameStore = create<GameState & GameActions>()(
         set({ character: newChar, gemInventory: newGemInventory });
       },
 
+      setElementTransform: (skillId: string, element: import('../types').DamageType | null) => {
+        const state = get();
+        const sp = state.skillProgress[skillId];
+        if (!sp || sp.level < 5) return; // level 5 gate
+        const transforms = { ...state.elementTransforms };
+        if (element) {
+          transforms[skillId] = element;
+        } else {
+          delete transforms[skillId];
+        }
+        set({ elementTransforms: transforms });
+      },
+
       resetGame: () => {
         set(createInitialState());
       },
     })) as import('zustand').StateCreator<GameState & GameActions, [['zustand/persist', unknown]], []>,
     {
       name: 'idle-exile-save',
-      version: 58,
+      version: 59,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;

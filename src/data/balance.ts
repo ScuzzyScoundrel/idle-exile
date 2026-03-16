@@ -277,6 +277,9 @@ export const BASE_STATS: ResolvedStats = {
   buffExpiryResetCd: 0,
   extraChaosDamagePercent: 0,
   maxLifePenaltyPercent: 0,
+  // Ailment scaling (Dagger v2)
+  ailmentPotency: 0,
+  ailmentTickSpeedMult: 0,
 };
 
 /** Flat physical damage gained per level beyond 1. */

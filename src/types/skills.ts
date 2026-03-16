@@ -281,6 +281,13 @@ export interface SkillModifier {
   dotMultiplier?: number;               // % more DoT damage
   weaponMastery?: number;               // % more total damage (weapon mastery)
   ailmentDuration?: number;             // % increased ailment/debuff duration
+
+  // --- Dagger v2: Combo & Element ---
+  castCondition?: { condition: TriggerCondition; threshold?: number };
+  cooldownIncrease?: number;            // flat seconds added to base cooldown
+  ailmentPotency?: number;              // % increase to ailment damage snapshot
+  directDamageOverride?: number;        // override base damage for direct hit
+  comboStateCreation?: { stateId: string; duration: number; maxStacks?: number };
 }
 
 export interface SkillGraphNode {
@@ -301,7 +308,7 @@ export interface SkillGraph {
 
 // --- Talent Tree (Skill Tree Overhaul v3.2) ---
 
-export type TalentNodeType = 'behavior' | 'notable' | 'keystoneChoice' | 'keystone';
+export type TalentNodeType = 'behavior' | 'notable' | 'keystoneChoice' | 'keystone' | 'conditional' | 'support';
 
 export interface TalentNode {
   id: string;
@@ -408,6 +415,7 @@ export interface SkillProgress {
   level: number;
   allocatedNodes: string[];
   allocatedRanks?: Record<string, number>;  // talent tree node ranks
+  elementTransform?: DamageType;             // per-skill element override (Dagger v2)
 }
 
 export interface SkillTimerState {

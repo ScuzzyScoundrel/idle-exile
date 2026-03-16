@@ -101,6 +101,9 @@ export type StatKey =
   | 'cannotLeech'
   | 'buffExpiryResetCd'
   | 'extraChaosDamagePercent'
-  | 'maxLifePenaltyPercent';
+  | 'maxLifePenaltyPercent'
+  // Ailment scaling (Dagger v2)
+  | 'ailmentPotency'
+  | 'ailmentTickSpeedMult';
 
 export type ResolvedStats = Record<StatKey, number>;

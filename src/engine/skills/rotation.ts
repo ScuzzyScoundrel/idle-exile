@@ -100,6 +100,8 @@ export function getNextRotationSkill(
   skillBar: (EquippedSkill | null)[],
   skillTimers: SkillTimerState[],
   now: number,
+  skillProgress?: Record<string, SkillProgress>,
+  targetHpPercent?: number,
 ): { skill: SkillDef; slotIndex: number } | null {
   for (let i = 0; i < skillBar.length; i++) {
     const equipped = skillBar[i];
@@ -110,6 +112,14 @@ export function getNextRotationSkill(
     const timer = skillTimers.find(t => t.skillId === equipped.skillId);
     if (timer && timer.cooldownUntil != null && now < timer.cooldownUntil) {
       continue;
+    }
+
+    // Execute-lock: skip skill if target HP above execute threshold
+    if (skillProgress && targetHpPercent !== undefined) {
+      const graphMod = getSkillGraphModifier(skill, skillProgress[equipped.skillId]);
+      if (graphMod?.executeOnly && targetHpPercent > graphMod.executeOnly.hpThreshold) {
+        continue;
+      }
     }
 
     return { skill, slotIndex: i };
