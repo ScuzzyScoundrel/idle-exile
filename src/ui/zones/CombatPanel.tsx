@@ -156,6 +156,7 @@ export default function CombatPanel() {
     procDamage: number;
     isFree: boolean;
     timestamp: number;
+    perHitDamages?: number[];
   }>>({});
   const [events, setEvents] = useState<Array<{
     id: number;
@@ -227,6 +228,7 @@ export default function CombatPanel() {
               isCrit: combatResult.isCrit,
               isHit: combatResult.isHit,
               procDamage: procTotal,
+              perHitDamages: combatResult.perHitDamages,
               isFree,
               timestamp: now,
             }}));
@@ -626,7 +628,12 @@ export default function CombatPanel() {
                               key={hit.timestamp}
                               className={`animate-pop ${hit.isCrit ? 'text-yellow-300 font-bold' : 'text-white'}`}
                             >
-                              {Math.round(hit.damage)}
+                              {hit.perHitDamages && hit.perHitDamages.length > 1
+                                ? hit.perHitDamages.map((d, i) => (
+                                    <span key={i}>{i > 0 && <span className="text-gray-500 mx-0.5">{'\u2192'}</span>}{Math.round(d)}</span>
+                                  ))
+                                : Math.round(hit.damage)
+                              }
                             </span>
                             {hit.isCrit && <span className="text-yellow-400 text-[10px]">CRIT</span>}
                             {hit.procDamage > 0 && (

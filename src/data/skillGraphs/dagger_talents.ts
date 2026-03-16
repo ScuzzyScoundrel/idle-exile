@@ -35,7 +35,7 @@ export const STAB_TALENT_TREE = createTalentTree({
   branches: [
     // --- Assassination ---
     {
-      name: 'Assassination',
+      name: 'Predator',
       description: 'Critical strikes and weapon mastery through precision',
       t2Notable: {
         name: 'Blade Sense',
@@ -139,7 +139,7 @@ export const STAB_TALENT_TREE = createTalentTree({
     },
     // --- Venomcraft ---
     {
-      name: 'Venomcraft',
+      name: 'Plague',
       description: 'Rapid poison injection and extended toxin duration',
       t2Notable: {
         name: 'Envenom',
@@ -239,7 +239,7 @@ export const STAB_TALENT_TREE = createTalentTree({
     },
     // --- Shadow Dance ---
     {
-      name: 'Shadow Dance',
+      name: 'Ghost',
       description: 'Evasive combat and weapon mastery through counters',
       t2Notable: {
         name: 'Shadow Guard',
@@ -364,7 +364,7 @@ export const BLADE_FLURRY_TALENT_TREE = createTalentTree({
   branches: [
     // --- Assassination ---
     {
-      name: 'Assassination',
+      name: 'Predator',
       description: 'Critical strikes and combo weapon mastery',
       t2Notable: {
         name: 'Cascade Instinct',
@@ -463,7 +463,7 @@ export const BLADE_FLURRY_TALENT_TREE = createTalentTree({
     },
     // --- Venomcraft ---
     {
-      name: 'Venomcraft',
+      name: 'Plague',
       description: 'Combo poison amplification and damage over time multiplieripliers',
       t2Notable: {
         name: 'Venomous Cascade',
@@ -563,7 +563,7 @@ export const BLADE_FLURRY_TALENT_TREE = createTalentTree({
     },
     // --- Shadow Dance ---
     {
-      name: 'Shadow Dance',
+      name: 'Ghost',
       description: 'Evasive combat and combo weapon mastery',
       t2Notable: {
         name: 'Flickering Guard',
@@ -691,7 +691,7 @@ export const FROST_FAN_TALENT_TREE = createTalentTree({
   branches: [
     // --- Assassination ---
     {
-      name: 'Assassination',
+      name: 'Predator',
       description: 'Critical strikes and glacial cold penetrationetration',
       t2Notable: {
         name: 'Glacial Focus',
@@ -785,7 +785,7 @@ export const FROST_FAN_TALENT_TREE = createTalentTree({
     },
     // --- Venomcraft ---
     {
-      name: 'Venomcraft',
+      name: 'Plague',
       description: 'Frost-poison hybrid debuffs and cold penetrationetration',
       t2Notable: {
         name: 'Blight Surge',
@@ -887,7 +887,7 @@ export const FROST_FAN_TALENT_TREE = createTalentTree({
     },
     // --- Shadow Dance ---
     {
-      name: 'Shadow Dance',
+      name: 'Ghost',
       description: 'Evasive combat and glacial cold penetrationetration',
       t2Notable: {
         name: 'Hailguard',
@@ -1012,7 +1012,7 @@ export const VIPER_STRIKE_TALENT_TREE = createTalentTree({
   branches: [
     // --- Assassination ---
     {
-      name: 'Assassination',
+      name: 'Predator',
       description: 'Critical strikes and venomous chaos penetrationetration',
       t2Notable: {
         name: "Viper's Focus",
@@ -1121,7 +1121,7 @@ export const VIPER_STRIKE_TALENT_TREE = createTalentTree({
     },
     // --- Venomcraft ---
     {
-      name: 'Venomcraft',
+      name: 'Plague',
       description: 'Master poisoner — deepest damage over time specialization with penetration',
       t2Notable: {
         name: 'Necrotic Infusion',
@@ -1221,7 +1221,7 @@ export const VIPER_STRIKE_TALENT_TREE = createTalentTree({
     },
     // --- Shadow Dance ---
     {
-      name: 'Shadow Dance',
+      name: 'Ghost',
       description: 'Evasive combat and serpent chaos penetrationetration',
       t2Notable: {
         name: 'Coiling Ward',
@@ -1352,7 +1352,7 @@ export const SHADOW_STEP_TALENT_TREE = createTalentTree({
   branches: [
     // --- Assassination ---
     {
-      name: 'Assassination',
+      name: 'Predator',
       description: 'Critical strikes and shadow chaos penetrationetration',
       t2Notable: {
         name: 'Creeping Menace',
@@ -1447,7 +1447,7 @@ export const SHADOW_STEP_TALENT_TREE = createTalentTree({
     },
     // --- Venomcraft ---
     {
-      name: 'Venomcraft',
+      name: 'Plague',
       description: 'Lethal ambush poison with chaos penetrationetration',
       t2Notable: {
         name: 'Nightshade Infusion',
@@ -1545,7 +1545,7 @@ export const SHADOW_STEP_TALENT_TREE = createTalentTree({
     },
     // --- Shadow Dance ---
     {
-      name: 'Shadow Dance',
+      name: 'Ghost',
       description: 'Evasive combat and shadow chaos penetrationetration',
       t2Notable: {
         name: 'Umbral Shield',
@@ -1684,7 +1684,7 @@ export const ASSASSINATE_TALENT_TREE = createTalentTree({
   branches: [
     // --- Assassination ---
     {
-      name: 'Assassination',
+      name: 'Predator',
       description: 'Critical strikes and executioner weapon mastery',
       t2Notable: {
         name: 'Marked for Death',
@@ -1778,7 +1778,7 @@ export const ASSASSINATE_TALENT_TREE = createTalentTree({
     },
     // --- Venomcraft ---
     {
-      name: 'Venomcraft',
+      name: 'Plague',
       description: 'Sovereign poison — single massive damage over time with weapon mastery',
       t2Notable: {
         name: 'Virulent Impact',
@@ -1872,7 +1872,7 @@ export const ASSASSINATE_TALENT_TREE = createTalentTree({
     },
     // --- Shadow Dance ---
     {
-      name: 'Shadow Dance',
+      name: 'Ghost',
       description: 'Evasive combat and executioner weapon mastery',
       t2Notable: {
         name: 'Coiled Patience',
@@ -1989,7 +1989,7 @@ export const LIGHTNING_LUNGE_TALENT_TREE = createTalentTree({
   branches: [
     // --- Assassination ---
     {
-      name: 'Assassination',
+      name: 'Predator',
       description: 'Critical strikes and storm lightning penetrationetration',
       t2Notable: {
         name: 'Stormcaller',
@@ -2083,7 +2083,7 @@ export const LIGHTNING_LUNGE_TALENT_TREE = createTalentTree({
     },
     // --- Venomcraft ---
     {
-      name: 'Venomcraft',
+      name: 'Plague',
       description: 'Galvanic plague — chain-spread poison with lightning penetrationetration',
       t2Notable: {
         name: 'Conductive Venom',
@@ -2178,7 +2178,7 @@ export const LIGHTNING_LUNGE_TALENT_TREE = createTalentTree({
     },
     // --- Shadow Dance ---
     {
-      name: 'Shadow Dance',
+      name: 'Ghost',
       description: 'Evasive combat and storm lightning penetrationetration',
       t2Notable: {
         name: 'Flickering Chains',

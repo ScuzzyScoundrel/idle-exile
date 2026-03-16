@@ -41,6 +41,7 @@ export interface CombatTickResult {
   packSize?: number;             // pack size of current encounter (for UI)
   encounterLootMult?: number;    // rare mob loot multiplier for this encounter
   poisonInstanceCount?: number;  // number of active poison instances (for "Poison (x8)" log label)
+  perHitDamages?: number[];      // sequential hit damages (Blade Dance: [23, 25, 21])
 
   // Structured event data (Sprint 1 — combat readability)
   procEvents?: Array<{

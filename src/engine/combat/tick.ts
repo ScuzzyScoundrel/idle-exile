@@ -1007,19 +1007,23 @@ export function runCombatTick(
   if (consumeBurstDamage > 0) rawSkillDamage += consumeBurstDamage;
   if (procDamage > 0) rawSkillDamage += procDamage;
 
+  // Per-hit tracking for sequential hits (Blade Dance combat log)
+  const perHitDamages: number[] = [];
+
   // Apply damage to pack mobs with per-mob DR
   if (updatedPackMobs.length > 0 && rawSkillDamage > 0) {
     const totalHits = Math.max(1, (skill.hitCount ?? 1) + (graphMod?.extraHits ?? 0));
-
     if (totalHits > 1 && roll.isHit && updatedPackMobs.length > 1) {
       // Sequential hits: hit 1→mob 0, hit 2→mob 1, hit 3→mob 2 (Blade Dance)
       const perHitBaseDmg = roll.damage / totalHits;
       for (let h = 0; h < totalHits && h < updatedPackMobs.length; h++) {
         const mob = updatedPackMobs[h];
         const dr = mob.rare?.combinedDamageTakenMult ?? 1;
-        const hitDmg = perHitBaseDmg * dr;
+        const variance = 0.9 + Math.random() * 0.2; // per-hit variance
+        const hitDmg = perHitBaseDmg * dr * variance;
         mob.hp -= hitDmg;
         totalDamage += hitDmg;
+        perHitDamages.push(hitDmg);
       }
       // DoT/proc/charge extra damage on front mob only
       const extraDmg = rawSkillDamage - roll.damage;
@@ -1428,6 +1432,7 @@ export function runCombatTick(
     zoneAttack: zoneAttackResult,
     dotDamage: debuffDotDamage, bleedTriggerDamage, shatterDamage,
     poisonInstanceCount: mainPoisonInstanceCount,
+    perHitDamages: perHitDamages.length > 1 ? perHitDamages : undefined,
     procDamage: procDamage > 0 ? procDamage : undefined,
     procLabel: allProcsFired.length > 0 ? (prettifyProcId(allProcsFired[0])) : undefined,
     cooldownWasReset: procCooldownResets.length > 0,
