@@ -1292,6 +1292,9 @@ export const useGameStore = create<GameState & GameActions>()(
         const state = get();
         const sp = state.skillProgress[skillId];
         if (!sp || sp.level < 5) return; // level 5 gate
+        const currentElement = state.elementTransforms[skillId];
+        // Already has an element — must respec first (can't freely switch)
+        if (currentElement && element && element !== currentElement) return;
         const transforms = { ...state.elementTransforms };
         if (element) {
           transforms[skillId] = element;
@@ -1299,6 +1302,19 @@ export const useGameStore = create<GameState & GameActions>()(
           delete transforms[skillId];
         }
         set({ elementTransforms: transforms });
+      },
+
+      respecElementTransform: (skillId: string) => {
+        const state = get();
+        const sp = state.skillProgress[skillId];
+        if (!sp) return;
+        const currentElement = state.elementTransforms[skillId];
+        if (!currentElement) return; // nothing to respec
+        const cost = 100 * sp.level * sp.level; // gold cost scales with level
+        if (state.gold < cost) return;
+        const transforms = { ...state.elementTransforms };
+        delete transforms[skillId];
+        set({ elementTransforms: transforms, gold: state.gold - cost });
       },
 
       resetGame: () => {

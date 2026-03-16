@@ -60,7 +60,7 @@ export const DAGGER_ACTIVE_SKILLS: ActiveSkillDef[] = [
     icon: '\uD83D\uDC0D',
     dotDuration: 5,
     dotDamagePercent: 0.25,
-    baseConversion: { from: 'physical', to: 'chaos', percent: 45 },
+    baseConversion: { from: 'physical', to: 'chaos', percent: 100 },
   },
   {
     id: 'dagger_shadow_mark',
@@ -75,7 +75,7 @@ export const DAGGER_ACTIVE_SKILLS: ActiveSkillDef[] = [
     cooldown: 5,
     levelRequired: 1,
     icon: '\uD83D\uDC7E',
-    baseConversion: { from: 'physical', to: 'chaos', percent: 45 },
+    baseConversion: { from: 'physical', to: 'chaos', percent: 100 },
   },
   {
     id: 'dagger_assassinate',
@@ -104,7 +104,7 @@ export const DAGGER_ACTIVE_SKILLS: ActiveSkillDef[] = [
     cooldown: 4,
     levelRequired: 1,
     icon: '\u26A1',
-    baseConversion: { from: 'physical', to: 'lightning', percent: 60 },
+    baseConversion: { from: 'physical', to: 'lightning', percent: 100 },
   },
   {
     id: 'dagger_blade_ward',

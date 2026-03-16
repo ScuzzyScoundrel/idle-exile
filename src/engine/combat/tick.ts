@@ -532,15 +532,29 @@ export function runCombatTick(
     applyDebuffToList(newDebuffs, 'chilled', 1, chillDuration, skill.id);
   }
 
-  // Element transform auto-ailment: fire→ignite, cold→chill, lightning→shock, chaos→poison
-  if (elementTransform && roll.isHit) {
+  // Auto-ailment: apply signature ailment based on damage element
+  // Priority: elementTransform override > skill's native element tags
+  if (roll.isHit) {
     const ELEMENT_AILMENT: Record<string, string | undefined> = {
-      fire: 'burning', cold: 'chilled', lightning: 'shocked', chaos: 'poisoned',
+      fire: 'burning', cold: 'chilled', lightning: 'shocked', chaos: 'poisoned', physical: 'bleeding',
+      Fire: 'burning', Cold: 'chilled', Lightning: 'shocked', Chaos: 'poisoned', Physical: 'bleeding',
     };
-    const autoAilment = ELEMENT_AILMENT[elementTransform];
-    if (autoAilment) {
-      const ailmentDur = 5 * (1 + (effectiveStats.ailmentDuration ?? 0) / 100);
-      applyDebuffToList(newDebuffs, autoAilment, 1, ailmentDur, skill.id, ailmentSnapshot);
+    const ailmentDur = 5 * (1 + (effectiveStats.ailmentDuration ?? 0) / 100);
+    if (elementTransform) {
+      // Element transform overrides — apply that element's ailment
+      const autoAilment = ELEMENT_AILMENT[elementTransform];
+      if (autoAilment) {
+        applyDebuffToList(newDebuffs, autoAilment, 1, ailmentDur, skill.id, ailmentSnapshot);
+      }
+    } else {
+      // Innate element: check skill tags for element, apply signature ailment
+      for (const tag of skill.tags) {
+        const ailment = ELEMENT_AILMENT[tag];
+        if (ailment) {
+          applyDebuffToList(newDebuffs, ailment, 1, ailmentDur, skill.id, ailmentSnapshot);
+          break; // only apply one innate ailment
+        }
+      }
     }
   }
 
