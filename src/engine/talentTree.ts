@@ -254,6 +254,13 @@ export function resolveTalentModifiers(
       if (m.weaponMastery) result.weaponMastery += m.weaponMastery;
       if (m.ailmentDuration) result.ailmentDuration += m.ailmentDuration;
 
+      // Dagger v2: additive scalars
+      if (m.cooldownIncrease) result.cooldownIncrease += m.cooldownIncrease;
+      if (m.ailmentPotency) result.ailmentPotency += m.ailmentPotency;
+
+      // Dagger v2: last-wins
+      if (m.comboStateCreation) result.comboStateCreation = m.comboStateCreation;
+
       // Max-wins
       if (m.executeThreshold) result.executeThreshold = Math.max(result.executeThreshold, m.executeThreshold);
 
@@ -337,5 +344,8 @@ function scaleModifier(m: SkillModifier, multiplier: number): SkillModifier {
   if (scaled.dotMultiplier) scaled.dotMultiplier *= multiplier;
   if (scaled.weaponMastery) scaled.weaponMastery *= multiplier;
   if (scaled.ailmentDuration) scaled.ailmentDuration *= multiplier;
+  // Dagger v2 fields
+  if (scaled.cooldownIncrease) scaled.cooldownIncrease *= multiplier;
+  if (scaled.ailmentPotency) scaled.ailmentPotency *= multiplier;
   return scaled;
 }

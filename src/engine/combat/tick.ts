@@ -558,6 +558,19 @@ export function runCombatTick(
     }
   }
 
+  // Innate skill debuffs: always apply regardless of element (e.g., Viper Strike always poisons)
+  const INNATE_SKILL_DEBUFFS: Record<string, { debuffId: string; duration: number }> = {
+    dagger_viper_strike: { debuffId: 'poisoned', duration: 5 },
+  };
+  const innateDebuff = INNATE_SKILL_DEBUFFS[skill.id];
+  if (innateDebuff && roll.isHit) {
+    const innateAilmentDur = innateDebuff.duration * (1 + (effectiveStats.ailmentDuration ?? 0) / 100);
+    // Only apply if not already applied by the auto-ailment system above
+    if (!newDebuffs.some(d => d.debuffId === innateDebuff.debuffId)) {
+      applyDebuffToList(newDebuffs, innateDebuff.debuffId, 1, innateAilmentDur, skill.id, ailmentSnapshot);
+    }
+  }
+
   // Combo state creation: skill creates a state on cast/crit/kill
   const comboConfig = COMBO_STATE_CREATORS[skill.id];
   if (comboConfig && roll.isHit) {
@@ -994,15 +1007,37 @@ export function runCombatTick(
   if (consumeBurstDamage > 0) rawSkillDamage += consumeBurstDamage;
   if (procDamage > 0) rawSkillDamage += procDamage;
 
-  // Apply damage to front mob (index 0) with its per-mob DR + regen
+  // Apply damage to pack mobs with per-mob DR
   if (updatedPackMobs.length > 0 && rawSkillDamage > 0) {
-    const front = updatedPackMobs[0];
-    const frontDR = front.rare?.combinedDamageTakenMult ?? 1;
-    const effectiveDmg = rawSkillDamage * frontDR;
-    front.hp -= effectiveDmg;
-    totalDamage = effectiveDmg;
-    // Apply debuffs to front mob (single-target or AoE)
-    front.debuffs = newDebuffs;
+    const totalHits = Math.max(1, (skill.hitCount ?? 1) + (graphMod?.extraHits ?? 0));
+
+    if (totalHits > 1 && roll.isHit && updatedPackMobs.length > 1) {
+      // Sequential hits: hit 1→mob 0, hit 2→mob 1, hit 3→mob 2 (Blade Dance)
+      const perHitBaseDmg = roll.damage / totalHits;
+      for (let h = 0; h < totalHits && h < updatedPackMobs.length; h++) {
+        const mob = updatedPackMobs[h];
+        const dr = mob.rare?.combinedDamageTakenMult ?? 1;
+        const hitDmg = perHitBaseDmg * dr;
+        mob.hp -= hitDmg;
+        totalDamage += hitDmg;
+      }
+      // DoT/proc/charge extra damage on front mob only
+      const extraDmg = rawSkillDamage - roll.damage;
+      if (extraDmg > 0) {
+        const dr = updatedPackMobs[0].rare?.combinedDamageTakenMult ?? 1;
+        updatedPackMobs[0].hp -= extraDmg * dr;
+        totalDamage += extraDmg * dr;
+      }
+      updatedPackMobs[0].debuffs = newDebuffs;
+    } else {
+      // Single hit — existing behavior
+      const front = updatedPackMobs[0];
+      const frontDR = front.rare?.combinedDamageTakenMult ?? 1;
+      const effectiveDmg = rawSkillDamage * frontDR;
+      front.hp -= effectiveDmg;
+      totalDamage = effectiveDmg;
+      front.debuffs = newDebuffs;
+    }
   }
 
   // AoE splash: apply to ALL mobs (including front, but front already took damage above)
