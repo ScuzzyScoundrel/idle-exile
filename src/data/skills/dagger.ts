@@ -160,23 +160,6 @@ export const DAGGER_ABILITIES: AbilityDef[] = [
     weaponType: 'dagger', kind: 'buff', icon: '\uD83C\uDF11',
     duration: 10, cooldown: 45,
     effect: { critChanceBonus: 20, critMultiplierBonus: 40 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Precision', description: 'Enhanced crit during the mark.', nodes: [
-          { id: 'dagger_pm_a1', name: 'Honed Senses', description: '+10% crit chance during buff', tier: 1, effect: { critChanceBonus: 10 } },
-          { id: 'dagger_pm_a2', name: 'Apex Predator', description: '+20% crit multiplier during buff', tier: 2, effect: { critMultiplierBonus: 20 }, isPathPayoff: true, requiresNodeId: 'dagger_pm_a1' },
-        ]},
-        { id: 'B', name: 'Lethality', description: 'First strike guaranteed crit.', nodes: [
-          { id: 'dagger_pm_b1', name: 'Opening Strike', description: '+15% damage during buff', tier: 1, effect: { damageMult: 1.15 } },
-          { id: 'dagger_pm_b2', name: 'Death Sentence', description: '+25% crit multiplier during buff', tier: 2, effect: { critMultiplierBonus: 25 }, isPathPayoff: true, requiresNodeId: 'dagger_pm_b1' },
-        ]},
-        { id: 'C', name: 'Hunt', description: 'Kills extend duration.', nodes: [
-          { id: 'dagger_pm_c1', name: 'Blood Scent', description: '+3s duration', tier: 1, effect: {}, durationBonus: 3 },
-          { id: 'dagger_pm_c2', name: 'Endless Hunt', description: '+5s duration, -10% cooldown', tier: 2, effect: {}, durationBonus: 5, cooldownReduction: 10, isPathPayoff: true, requiresNodeId: 'dagger_pm_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
 
   // --- Venomcraft archetype buff ---
@@ -186,23 +169,6 @@ export const DAGGER_ABILITIES: AbilityDef[] = [
     weaponType: 'dagger', kind: 'buff', icon: '\uD83D\uDC0D',
     duration: 12, cooldown: 50,
     effect: { attackSpeedMult: 1.5, damageMult: 1.15 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Toxic Haste', description: 'More speed, longer duration.', nodes: [
-          { id: 'dagger_vc_a1', name: 'Accelerated Toxins', description: '+3s duration', tier: 1, effect: {}, durationBonus: 3 },
-          { id: 'dagger_vc_a2', name: 'Toxic Frenzy', description: '+10% attack speed during buff', tier: 2, effect: { attackSpeedMult: 1.1 }, isPathPayoff: true, requiresNodeId: 'dagger_vc_a1' },
-        ]},
-        { id: 'B', name: 'Virulence', description: 'Amplify poison damage.', nodes: [
-          { id: 'dagger_vc_b1', name: 'Potent Venom', description: '+10% damage during buff', tier: 1, effect: { damageMult: 1.10 } },
-          { id: 'dagger_vc_b2', name: 'Virulent Surge', description: '+20% damage during buff', tier: 2, effect: { damageMult: 1.20 }, isPathPayoff: true, requiresNodeId: 'dagger_vc_b1' },
-        ]},
-        { id: 'C', name: 'Pandemic', description: 'Kills spread the covenant.', nodes: [
-          { id: 'dagger_vc_c1', name: 'Spreading Contagion', description: '+3s duration', tier: 1, effect: {}, durationBonus: 3 },
-          { id: 'dagger_vc_c2', name: 'Pandemic', description: '+5s duration, -10% cooldown', tier: 2, effect: {}, durationBonus: 5, cooldownReduction: 10, isPathPayoff: true, requiresNodeId: 'dagger_vc_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
 
   // --- Shadow Dance archetype buff ---
@@ -212,22 +178,5 @@ export const DAGGER_ABILITIES: AbilityDef[] = [
     weaponType: 'dagger', kind: 'buff', icon: '\uD83D\uDC7E',
     duration: 8, cooldown: 55,
     effect: { defenseMult: 1.25, damageMult: 1.10, critMultiplierBonus: 15 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Evasion', description: 'Defensive synergy extends duration.', nodes: [
-          { id: 'dagger_sc_a1', name: 'Shadow Veil', description: '+3s duration', tier: 1, effect: {}, durationBonus: 3 },
-          { id: 'dagger_sc_a2', name: 'Lingering Shadows', description: '+5s duration, +10% defense', tier: 2, effect: { defenseMult: 1.10 }, durationBonus: 5, isPathPayoff: true, requiresNodeId: 'dagger_sc_a1' },
-        ]},
-        { id: 'B', name: 'Counter', description: 'Dodge triggers counter-crits.', nodes: [
-          { id: 'dagger_sc_b1', name: 'Counter Stance', description: '+15% crit multiplier during buff', tier: 1, effect: { critMultiplierBonus: 15 } },
-          { id: 'dagger_sc_b2', name: 'Shadow Counter', description: '+10% crit chance during buff', tier: 2, effect: { critChanceBonus: 10 }, isPathPayoff: true, requiresNodeId: 'dagger_sc_b1' },
-        ]},
-        { id: 'C', name: 'Fortress', description: 'Defense becomes offense.', nodes: [
-          { id: 'dagger_sc_c1', name: 'Iron Shadow', description: '+15% defense during buff', tier: 1, effect: { defenseMult: 1.15 } },
-          { id: 'dagger_sc_c2', name: 'Shadow Fortress', description: '+15% damage during buff', tier: 2, effect: { damageMult: 1.15 }, isPathPayoff: true, requiresNodeId: 'dagger_sc_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
 ];
