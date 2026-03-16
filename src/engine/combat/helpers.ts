@@ -89,11 +89,6 @@ export function applyDebuffToList(
       remainingDuration: duration,
       appliedBySkillId: skillId,
     };
-    // Ignite ramp: accumulate snapshot damage on re-apply
-    if (debuffId === 'burning' && snapshotDamage > 0) {
-      debuffs[existingIdx].igniteAccumulatedDamage =
-        (existing.igniteAccumulatedDamage ?? 0) + snapshotDamage;
-    }
     return debuffs;
   }
 
@@ -103,10 +98,6 @@ export function applyDebuffToList(
     appliedBySkillId: skillId,
     stackSnapshots: isSnapshotDebuff ? Array(stacks).fill(snapshotDamage) as number[] : undefined,
   };
-  // Ignite: initialize accumulated damage
-  if (debuffId === 'burning' && snapshotDamage > 0) {
-    newDebuff.igniteAccumulatedDamage = snapshotDamage;
-  }
   debuffs.push(newDebuff);
   return debuffs;
 }
@@ -209,11 +200,7 @@ export function tickDebuffDoT(
     const d = { ...debuff, remainingDuration: debuff.remainingDuration - dtSec };
     if (d.remainingDuration <= 0) continue;
 
-    if (debuffDef.dotType === 'snapshot' && debuff.debuffId === 'burning') {
-      // Ignite ramp: use accumulated damage for DoT
-      const accumulatedDamage = d.igniteAccumulatedDamage ?? 0;
-      damage += accumulatedDamage * (debuffDef.effect.snapshotPercent ?? 0) / 100 * effectBonus * incDoTMult * dtSec;
-    } else if (debuffDef.dotType === 'snapshot' && debuff.debuffId !== 'bleeding') {
+    if (debuffDef.dotType === 'snapshot' && debuff.debuffId !== 'bleeding') {
       // Legacy snapshot (shouldn't hit for poison anymore, but kept for safety)
       const snapSum = d.stackSnapshots?.reduce((a, b) => a + b, 0) ?? 0;
       damage += snapSum * (debuffDef.effect.snapshotPercent ?? 0) / 100 * effectBonus * incDoTMult * dtSec;

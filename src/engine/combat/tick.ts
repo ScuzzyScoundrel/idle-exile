@@ -1044,8 +1044,8 @@ export function runCombatTick(
     }
   }
 
-  // AoE splash: apply to ALL mobs (including front, but front already took damage above)
-  if (skillIsAoE && updatedPackMobs.length > 1 && rawSkillDamage > 0) {
+  // AoE splash: apply to ALL mobs (skip if sequential hits already distributed damage)
+  if (skillIsAoE && perHitDamages.length <= 1 && updatedPackMobs.length > 1 && rawSkillDamage > 0) {
     for (let i = 1; i < updatedPackMobs.length; i++) {
       const mob = updatedPackMobs[i];
       const mobDR = mob.rare?.combinedDamageTakenMult ?? 1;
@@ -1076,7 +1076,7 @@ export function runCombatTick(
 
   // Count and remove dead back mobs (killed by AoE splash)
   let packMobKills = 0;
-  if (skillIsAoE && updatedPackMobs.length > 1) {
+  if (skillIsAoE && perHitDamages.length <= 1 && updatedPackMobs.length > 1) {
     const beforeCount = updatedPackMobs.length;
     // Keep front mob separate, filter dead back mobs
     const aliveBacks = updatedPackMobs.slice(1).filter(m => m.hp > 0);

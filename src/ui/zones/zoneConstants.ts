@@ -75,7 +75,7 @@ export const DEBUFF_META: Record<string, {
   shocked:    { text: 'text-yellow-300', bg: 'bg-yellow-900/60', label: 'SHK',
     fullName: 'Shocked', description: 'Enemy takes 8% increased damage per stack (max 3 stacks).' },
   burning:    { text: 'text-orange-400', bg: 'bg-orange-900/60', label: 'BRN',
-    fullName: 'Ignite', description: 'Snapshot ramp: 20% of each hit added to accumulated burn. Re-applying adds to total.' },
+    fullName: 'Ignite', description: 'Burns for 1% of enemy max HP per second per stack (max 5 stacks).' },
   poisoned:   { text: 'text-green-400',  bg: 'bg-green-900/60',  label: 'PSN',
     fullName: 'Poisoned', description: 'Deals chaos damage over time. Each hit creates a separate poison instance dealing 15% of hit damage per second.' },
   bleeding:   { text: 'text-red-400',    bg: 'bg-red-900/60',    label: 'BLD',

@@ -28,11 +28,11 @@ export const DEBUFF_DEFS: DebuffDef[] = [
   {
     id: 'burning',
     name: 'Ignite',
-    description: 'Snapshot ramp: 20% of each hit added to accumulated burn. Re-applying adds to total.',
-    stackable: false,
-    maxStacks: 1,
-    dotType: 'snapshot',
-    effect: { snapshotPercent: 20 },
+    description: 'Burns for 1% of enemy max HP per second per stack. Max 5 stacks.',
+    stackable: true,
+    maxStacks: 5,
+    dotType: 'percentMaxHp',
+    effect: { percentMaxHp: 1 },
   },
   {
     id: 'shocked',
