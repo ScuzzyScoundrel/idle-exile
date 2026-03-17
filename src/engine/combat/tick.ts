@@ -532,42 +532,21 @@ export function runCombatTick(
     applyDebuffToList(newDebuffs, 'chilled', 1, chillDuration, skill.id);
   }
 
-  // Auto-ailment: apply signature ailment based on damage element
-  // Priority: elementTransform override > skill's native element tags
+  // Auto-ailment: ALL skills apply signature ailment based on current element.
+  // Physical is default before level 5. Element transform overrides at level 5+.
+  // Viper Strike gets +50% ailment potency (1.5x snapshot).
   if (roll.isHit) {
-    const ELEMENT_AILMENT: Record<string, string | undefined> = {
-      fire: 'burning', cold: 'chilled', lightning: 'shocked', chaos: 'poisoned', physical: 'bleeding',
-      Fire: 'burning', Cold: 'chilled', Lightning: 'shocked', Chaos: 'poisoned', Physical: 'bleeding',
+    const ELEMENT_AILMENT: Record<string, string> = {
+      physical: 'bleeding', fire: 'burning', cold: 'chilled', lightning: 'shocked', chaos: 'poisoned',
     };
-    const ailmentDur = 5 * (1 + (effectiveStats.ailmentDuration ?? 0) / 100);
-    if (elementTransform) {
-      // Element transform overrides — apply that element's ailment
-      const autoAilment = ELEMENT_AILMENT[elementTransform];
-      if (autoAilment) {
-        applyDebuffToList(newDebuffs, autoAilment, 1, ailmentDur, skill.id, ailmentSnapshot);
-      }
-    } else {
-      // Innate element: check skill tags for element, apply signature ailment
-      for (const tag of skill.tags) {
-        const ailment = ELEMENT_AILMENT[tag];
-        if (ailment) {
-          applyDebuffToList(newDebuffs, ailment, 1, ailmentDur, skill.id, ailmentSnapshot);
-          break; // only apply one innate ailment
-        }
-      }
-    }
-  }
-
-  // Innate skill debuffs: always apply regardless of element (e.g., Viper Strike always poisons)
-  const INNATE_SKILL_DEBUFFS: Record<string, { debuffId: string; duration: number }> = {
-    dagger_viper_strike: { debuffId: 'poisoned', duration: 5 },
-  };
-  const innateDebuff = INNATE_SKILL_DEBUFFS[skill.id];
-  if (innateDebuff && roll.isHit) {
-    const innateAilmentDur = innateDebuff.duration * (1 + (effectiveStats.ailmentDuration ?? 0) / 100);
-    // Only apply if not already applied by the auto-ailment system above
-    if (!newDebuffs.some(d => d.debuffId === innateDebuff.debuffId)) {
-      applyDebuffToList(newDebuffs, innateDebuff.debuffId, 1, innateAilmentDur, skill.id, ailmentSnapshot);
+    const currentElement = elementTransform ?? 'physical';
+    const autoAilment = ELEMENT_AILMENT[currentElement];
+    if (autoAilment) {
+      const ailmentDur = 5 * (1 + (effectiveStats.ailmentDuration ?? 0) / 100);
+      // Viper Strike: +50% ailment potency (applies to ALL ailments, not just poison)
+      const skillPotencyBonus = skill.id === 'dagger_viper_strike' ? 1.5 : 1.0;
+      const finalSnapshot = ailmentSnapshot * skillPotencyBonus;
+      applyDebuffToList(newDebuffs, autoAilment, 1, ailmentDur, skill.id, finalSnapshot);
     }
   }
 
@@ -1024,6 +1003,15 @@ export function runCombatTick(
         mob.hp -= hitDmg;
         totalDamage += hitDmg;
         perHitDamages.push(hitDmg);
+        // Apply ailments to EACH sequential hit target independently
+        for (const debuffInfo of newDebuffs) {
+          const existingIdx = mob.debuffs.findIndex(d => d.debuffId === debuffInfo.debuffId);
+          if (existingIdx >= 0) {
+            mob.debuffs[existingIdx] = { ...debuffInfo };
+          } else {
+            mob.debuffs.push({ ...debuffInfo });
+          }
+        }
       }
       // DoT/proc/charge extra damage on front mob only
       const extraDmg = rawSkillDamage - roll.damage;
@@ -1032,7 +1020,6 @@ export function runCombatTick(
         updatedPackMobs[0].hp -= extraDmg * dr;
         totalDamage += extraDmg * dr;
       }
-      updatedPackMobs[0].debuffs = newDebuffs;
     } else {
       // Single hit — existing behavior
       const front = updatedPackMobs[0];
