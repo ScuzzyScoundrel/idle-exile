@@ -246,8 +246,8 @@ const STAT_GLOSSARY: Record<string, string> = {
   'damage reduction':           'Flat percentage reduction to all incoming damage',
   'life on hit':                'Restores a flat amount of life each time you hit an enemy',
   'life leech':                 'Restores life equal to a percentage of damage dealt',
-  'cast speed':                 'How quickly skills are used — higher is faster',
-  'attack speed':               'How quickly skills are used — higher is faster',
+  'cast speed':                 'Reduces Spell skill cooldowns — higher is faster',
+  'attack speed':               'Reduces Attack skill cooldowns — higher is faster',
   'execute threshold':          'Instantly kills enemies below this HP percentage',
   'energy shield':              'Absorbs damage before life; recharges after not taking damage',
   // Abbreviated forms (pre-Sprint 3)

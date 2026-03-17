@@ -253,7 +253,7 @@ export default function SkillPanel() {
                       <span className="text-xs text-gray-500">{skill.duration}s{skill.cooldown > 0 ? ` / ${skill.cooldown}s CD` : ''}</span>
                     )}
                     {isActive && skill.cooldown > 0 && (
-                      <span className="text-xs text-gray-500">{skill.castTime}s cast / {skill.cooldown}s CD</span>
+                      <span className="text-xs text-gray-500">{skill.cooldown}s CD</span>
                     )}
                   </div>
                   <div className="text-xs text-gray-400">{skill.description}</div>

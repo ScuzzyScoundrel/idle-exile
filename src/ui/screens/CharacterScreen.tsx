@@ -38,13 +38,13 @@ const STAT_TOOLTIPS: Partial<Record<StatKey, string>> = {
   flatAtkColdDamage: 'Flat cold damage added to attacks.',
   flatAtkLightningDamage: 'Flat lightning damage added to attacks.',
   flatAtkChaosDamage: 'Flat chaos damage added to attacks.',
-  attackSpeed: 'Reduces Attack skill cooldowns and cast time. CDR% = speed / (100 + speed).',
+  attackSpeed: 'Reduces Attack skill cooldowns. CDR% = speed / (100 + speed).',
   accuracy: 'Chance to hit. Higher = fewer misses.',
   incPhysDamage: '% increased physical damage.',
   incAttackDamage: '% increased attack damage.',
   // Spell
   spellPower: 'Base spell power for spell skills.',
-  castSpeed: 'Reduces Spell skill cooldowns and cast time. CDR% = speed / (100 + speed).',
+  castSpeed: 'Reduces Spell skill cooldowns. CDR% = speed / (100 + speed).',
   incSpellDamage: '% increased spell damage.',
   // Shared Offensive
   incElementalDamage: '% increased elemental damage.',
