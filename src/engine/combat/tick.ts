@@ -329,6 +329,8 @@ export function runCombatTick(
   const consumeStateIds = COMBO_STATE_CONSUMERS[skill.id];
   let comboAilmentPotency = 0;
   let comboCdRefundPercent = 0;
+  let comboSplashPercent = 0;   // Dance Momentum: splash % to adjacent enemy
+  let comboExtraChains = 0;     // Chain Surge: +N chain targets
   if (consumeStateIds?.length) {
     const { consumed, remaining } = consumeMultipleComboStates(newComboStates, consumeStateIds);
     newComboStates = remaining;
@@ -344,6 +346,11 @@ export function runCombatTick(
       if (eff.guaranteedCrit) effectiveStats.critChance = 100;
       if (eff.ailmentPotency) comboAilmentPotency += eff.ailmentPotency;
       if (eff.cdRefundPercent) comboCdRefundPercent += eff.cdRefundPercent;
+
+      // Dance Momentum: splash 50% damage to adjacent enemy
+      if (cs.stateId === 'dance_momentum') comboSplashPercent = 50;
+      // Chain Surge: next skill chains to +1 enemy
+      if (cs.stateId === 'chain_surge') comboExtraChains = 1;
     }
   }
 
@@ -654,7 +661,9 @@ export function runCombatTick(
   // Unique: moreDotVsCursed — more DoT damage vs cursed targets (Marsh King's Crown)
   const isCursed = newDebuffs.some(d => d.debuffId === 'cursed');
   const dotVsCursedMult = (isCursed && effectiveStats.moreDotVsCursed > 0) ? (1 + effectiveStats.moreDotVsCursed / 100) : 1;
-  const debuffDotDamage = dotResult.damage * dotVsCursedMult;
+  // Saturated (passive combo state): +15% DoT damage while active
+  const saturatedMult = newComboStates.some(s => s.stateId === 'saturated') ? 1.15 : 1;
+  const debuffDotDamage = dotResult.damage * dotVsCursedMult * saturatedMult;
   const mainPoisonInstanceCount = dotResult.poisonInstanceCount;
   newDebuffs = dotResult.updatedDebuffs;
 
@@ -1153,6 +1162,26 @@ export function runCombatTick(
       front.hp -= effectiveDmg;
       totalDamage = effectiveDmg;
       front.debuffs = newDebuffs;
+
+      // Dance Momentum splash: also hit 1 adjacent enemy for X% damage
+      if (comboSplashPercent > 0 && updatedPackMobs.length > 1) {
+        const splashTarget = updatedPackMobs[1];
+        const splashDR = splashTarget.rare?.combinedDamageTakenMult ?? 1;
+        const splashDmg = rawSkillDamage * (comboSplashPercent / 100) * splashDR;
+        splashTarget.hp -= splashDmg;
+        totalDamage += splashDmg;
+      }
+
+      // Chain Surge: also hit +N additional enemies for full damage
+      if (comboExtraChains > 0) {
+        for (let c = 1; c <= comboExtraChains && c < updatedPackMobs.length; c++) {
+          const chainTarget = updatedPackMobs[c];
+          const chainDR = chainTarget.rare?.combinedDamageTakenMult ?? 1;
+          const chainDmg = rawSkillDamage * chainDR;
+          chainTarget.hp -= chainDmg;
+          totalDamage += chainDmg;
+        }
+      }
     }
   }
 
@@ -1511,6 +1540,13 @@ export function runCombatTick(
         }
       }
     }
+  }
+
+  // Remove mobs killed by bleed triggers / defensive procs during mob attack phase
+  const bleedKills = updatedPackMobs.filter(m => m.hp <= 0).length;
+  if (bleedKills > 0) {
+    updatedPackMobs = updatedPackMobs.filter(m => m.hp > 0);
+    mobKills += bleedKills;
   }
 
   const trackingClear = {

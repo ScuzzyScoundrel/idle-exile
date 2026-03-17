@@ -204,14 +204,18 @@ export function applyZoneDamage(
     }
   }
 
+  // Remove mobs killed by DoT/bleed between skill ticks
+  const dotKills = updatedMobs.filter(m => m.hp <= 0).length;
+  const survivingMobs = updatedMobs.filter(m => m.hp > 0);
+
   return {
     patch: {
-      packMobs: updatedMobs,
+      packMobs: survivingMobs,
       currentHp: playerHp,
       currentEs: currentEs,
       dodgeEntropy: currentDodgeEntropy,
       tempBuffs: updatedTempBuffs,
     },
-    result: { ...noResult, zoneAttack: zoneAttackResult, bleedTriggerDamage: helperBleedDmg, dotDamage: helperDotDamage, poisonInstanceCount: helperPoisonCount },
+    result: { ...noResult, zoneAttack: zoneAttackResult, bleedTriggerDamage: helperBleedDmg, dotDamage: helperDotDamage, poisonInstanceCount: helperPoisonCount, mobKills: dotKills },
   };
 }
