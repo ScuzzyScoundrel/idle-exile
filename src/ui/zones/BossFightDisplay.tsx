@@ -1,5 +1,7 @@
 import type { ActiveDebuff, MobDamageElement } from '../../types';
 import DebuffBadge from './DebuffBadge';
+import { ComboStatePill, TARGET_COMBO_STATES } from './ComboStateBadge';
+import { useGameStore } from '../../store/gameStore';
 import { ELEMENT_ICONS, ELEMENT_COLORS, ELEMENT_LABELS } from './zoneConstants';
 
 export default function BossFightDisplay({ bossName, bossHp, bossMaxHp, playerHp, maxHp, startedAt, nextBossAttackAt, bossAtkIntervalMs, activeDebuffs, fortifyStacks, fortifyDR, playerEs, maxEs, bossDamageElement }: {
@@ -16,7 +18,9 @@ export default function BossFightDisplay({ bossName, bossHp, bossMaxHp, playerHp
   const playerDps = damageDealt / elapsedSec;
   const playerPct = maxHp > 0 ? Math.max(0, (playerHp / maxHp) * 100) : 0;
   const playerColor = playerPct > 60 ? 'bg-green-500' : playerPct > 30 ? 'bg-yellow-500' : 'bg-red-500';
-  const hasDebuffs = activeDebuffs.length > 0;
+  const comboStates = useGameStore(s => s.comboStates);
+  const targetComboStates = comboStates.filter(cs => cs.stateId in TARGET_COMBO_STATES);
+  const hasDebuffs = activeDebuffs.length > 0 || targetComboStates.length > 0;
   const hasFortify = fortifyDR > 0;
   const hasEs = (maxEs ?? 0) > 0;
   const esPct = hasEs ? Math.max(0, Math.min(100, ((playerEs ?? 0) / maxEs!) * 100)) : 0;
@@ -35,6 +39,7 @@ export default function BossFightDisplay({ bossName, bossHp, bossMaxHp, playerHp
       {hasDebuffs && (
         <div className="flex flex-wrap justify-center gap-0.5">
           {activeDebuffs.map(d => <DebuffBadge key={d.debuffId} debuff={d} />)}
+          {targetComboStates.map(cs => <ComboStatePill key={cs.stateId} state={cs} />)}
         </div>
       )}
       {/* Boss HP */}

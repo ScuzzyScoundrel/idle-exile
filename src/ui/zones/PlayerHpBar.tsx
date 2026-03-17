@@ -41,7 +41,10 @@ export default function PlayerHpBar({ currentHp, maxHp, trailHp, fortifyStacks, 
 
   // Active buffs
   const activeBuffs = (buffs ?? []).filter(b => b.expiresAt > Date.now());
-  const comboStates = useGameStore(s => s.comboStates);
+  const allComboStates = useGameStore(s => s.comboStates);
+  // Only show player-side combo states here (target-side shown on mob/boss)
+  const TARGET_STATES = new Set(['exposed', 'deep_wound', 'shadow_mark', 'saturated']);
+  const comboStates = allComboStates.filter(cs => !TARGET_STATES.has(cs.stateId));
 
   // Class resource
   const classDef = charClass ? getClassDef(charClass as 'warrior' | 'mage' | 'ranger' | 'rogue') : null;

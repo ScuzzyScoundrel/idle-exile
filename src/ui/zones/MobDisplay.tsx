@@ -1,5 +1,7 @@
 import type { MobInPack, MobDrop } from '../../types';
 import DebuffBadge from './DebuffBadge';
+import { ComboStatePill, TARGET_COMBO_STATES } from './ComboStateBadge';
+import { useGameStore } from '../../store/gameStore';
 import { MOB_DROP_RARITY_COLOR, ELEMENT_ICONS, ELEMENT_COLORS, ELEMENT_LABELS } from './zoneConstants';
 import { formatMatName } from './zoneHelpers';
 import { RARE_AFFIX_DEFS } from '../../data/rareAffixes';
@@ -13,6 +15,8 @@ export default function MobDisplay({ mobName, mobs, bossIn, signatureDrop }: {
 }) {
   const packSize = mobs.length;
   const hasAnyRare = mobs.some(m => m.rare !== null);
+  const comboStates = useGameStore(s => s.comboStates);
+  const targetComboStates = comboStates.filter(cs => cs.stateId in TARGET_COMBO_STATES);
 
   // Build display name — show pack count, star if any rare
   const namePrefix = hasAnyRare ? '\u2605 ' : '';
@@ -85,6 +89,9 @@ export default function MobDisplay({ mobName, mobs, bossIn, signatureDrop }: {
                 {packSize > 1 && <span className="w-3 shrink-0" />}
                 {mob.debuffs.map(d => (
                   <DebuffBadge key={d.debuffId} debuff={d} />
+                ))}
+                {i === 0 && targetComboStates.map(cs => (
+                  <ComboStatePill key={cs.stateId} state={cs} />
                 ))}
               </div>
               {/* HP bar */}
