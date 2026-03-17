@@ -539,7 +539,7 @@ export function runCombatTick(
     const ELEMENT_AILMENT: Record<string, string> = {
       physical: 'bleeding', fire: 'burning', cold: 'chilled', lightning: 'shocked', chaos: 'poisoned',
     };
-    const currentElement = elementTransform ?? 'physical';
+    const currentElement = elementTransform ?? skill.baseConversion?.to ?? 'physical';
     const autoAilment = ELEMENT_AILMENT[currentElement];
     if (autoAilment) {
       const ailmentDur = 5 * (1 + (effectiveStats.ailmentDuration ?? 0) / 100);
