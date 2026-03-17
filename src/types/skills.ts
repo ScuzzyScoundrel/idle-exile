@@ -35,6 +35,7 @@ export interface AbilityEffect {
   // DoT / lingering
   clearSpeedBuff?: number;          // +X% clear speed for dotDuration seconds
   dotDuration?: number;             // how long DoT/buff lingers after ability ends
+  [key: string]: any;               // v2 forward compat
 }
 
 export interface ScalingTerm {
@@ -121,7 +122,7 @@ export const ABILITY_SLOT_UNLOCKS = [1, 5, 15] as const;
 
 // --- Skill Graph Trees (Sprint 11B) ---
 
-export type DamageElement = 'Physical' | 'Fire' | 'Cold' | 'Lightning' | 'Chaos';
+export type DamageElement = 'Physical' | 'Fire' | 'Cold' | 'Lightning' | 'Chaos' | 'matched';
 export type SkillModifierFlag = 'pierce' | 'fork' | 'alwaysCrit' | 'cannotCrit' | 'lifeLeech' | 'ignoreResists';
 
 // --- Damage Type System (Buckets + Conversion) ---
@@ -153,7 +154,34 @@ export type TriggerCondition =
   | 'whileDebuffActive' | 'afterConsecutiveHits'
   | 'onBossPhase' | 'onFirstHit' | 'onOverkill'
   | 'whileBuffActive' | 'consumeBuff'
-  | 'onCast' | 'onCastComplete' | 'afterCastWithoutKill';
+  | 'onCast' | 'onCastComplete' | 'afterCastWithoutKill'
+  // v2 talent tree conditions
+  | 'afterAilmentConsumption' | 'afterCast' | 'afterCastHitCount'
+  | 'afterCastOnMultipleTargets' | 'afterDash' | 'afterDetonation'
+  | 'afterDodge' | 'afterDodgeOrBlock' | 'afterTrapPlacement' | 'afterWardExpires'
+  | 'ailmentAge' | 'ailmentAgeScaling' | 'ailmentKillAfterFoK'
+  | 'counterHitKillDuringWard' | 'detonationKill'
+  | 'empoweredSkillKill' | 'enemyAttacksAfterBeingHit' | 'enemyAttacksSinceLast'
+  | 'firstSkillInEncounter' | 'lastSkillInCycle'
+  | 'onAilmentApplied' | 'onAilmentExpire' | 'onAilmentKill' | 'onAilmentTick'
+  | 'onCounterHitAilment' | 'onDashCast' | 'onDetonation'
+  | 'onFirstHitVsTarget' | 'onKillInCast'
+  | 'onLinkedTargetDeath' | 'onLinkedTargetsThreshold'
+  | 'onMultiKillInCast' | 'onTripleKillInCast'
+  | 'perAilmentStackOnTarget' | 'perCounterHitInWard' | 'perEnemyInPack'
+  | 'perFortifyStack' | 'perHitReceivedDuringWard'
+  | 'perOtherSkillAilmentOnTarget' | 'perOtherSkillOnCooldown'
+  | 'perOwnAilmentOnTarget' | 'perSecondOnCooldown'
+  | 'perSecondRemainingOnWard' | 'perSecondSinceArmed'
+  | 'perTargetInLastCast' | 'perUniqueTargetInLastCast'
+  | 'perViperStrikeAilmentGlobal' | 'previousSkillWas'
+  | 'sdAilments' | 'shadowMomentumActive' | 'skillsCastSinceLast'
+  | 'targetHasActiveAilment' | 'trapAilments'
+  | 'whileAboveHp' | 'whileDeepWoundActive' | 'whileFortifyStacks'
+  | 'whilePackSize' | 'whileSkillOnCooldown'
+  | 'whileTargetAilmentCount' | 'whileTargetBelowHp'
+  | 'whileTargetLinked' | 'whileTargetSaturated' | 'whileTargetsHit'
+  | 'whileViperStrikeAilmentCount' | 'whileWardActive';
 
 export interface ConditionalModifier {
   condition: TriggerCondition;
@@ -161,6 +189,7 @@ export interface ConditionalModifier {
   buffId?: string;              // for whileBuffActive / consumeBuff
   debuffId?: string;            // for whileDebuffActive — check specific debuff's stack count
   modifier: SkillModifier;
+  [key: string]: any;           // v2 forward compat
 }
 
 export interface SkillProcEffect {
@@ -170,12 +199,13 @@ export interface SkillProcEffect {
   castSkill?: string;
   resetCooldown?: string;
   bonusCast?: boolean;
-  applyBuff?: { buffId?: string; effect: AbilityEffect; duration: number };
-  applyDebuff?: { debuffId: string; stacks: number; duration: number };
-  instantDamage?: { flatDamage: number; element: DamageElement; scaleStat?: string; scaleRatio?: number };
+  applyBuff?: { buffId?: string; effect: AbilityEffect; duration: number; [key: string]: any };
+  applyDebuff?: { debuffId: string; stacks?: number; duration: number; [key: string]: any };
+  instantDamage?: { flatDamage?: number; element?: DamageElement; scaleStat?: string; scaleRatio?: number; [key: string]: any };
   healPercent?: number;
   internalCooldown?: number;    // seconds — prevents re-triggering within window
   resetGcd?: boolean;            // if true, also resets GCD (nextActiveSkillAt = now)
+  [key: string]: any;            // v2 forward compat
 }
 
 export interface DebuffInteraction {
@@ -205,6 +235,9 @@ export interface SkillChargeConfig {
 }
 
 export interface SkillModifier {
+  // v2 talent tree data — engine fields pending implementation
+  [key: string]: any;  // eslint-disable-line @typescript-eslint/no-explicit-any
+
   // Additive stat bonuses (for damage pipeline)
   incDamage?: number;           // %increased damage (additive with gear)
   flatDamage?: number;          // flat bonus damage

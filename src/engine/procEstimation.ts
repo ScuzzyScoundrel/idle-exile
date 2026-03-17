@@ -145,7 +145,7 @@ export function estimateProcDps(
 
     // --- Instant damage ---
     if (proc.instantDamage) {
-      let dmg = proc.instantDamage.flatDamage;
+      let dmg = proc.instantDamage.flatDamage ?? 0;
       if (proc.instantDamage.scaleStat && proc.instantDamage.scaleRatio) {
         dmg += resolveScaleStat(proc.instantDamage.scaleStat, weaponAvgDmg, stats)
           * proc.instantDamage.scaleRatio;
@@ -212,7 +212,7 @@ export function estimateProcDps(
     }
 
     // Steady-state active instances = applicationRate × stacksPerProc × duration
-    const steadyStateInstances = effectiveRate * proc.applyDebuff.stacks * duration;
+    const steadyStateInstances = effectiveRate * (proc.applyDebuff.stacks ?? 1) * duration;
 
     // Tick DPS per instance = snapshot × snapshotPercent/100 (per second)
     // Scaled by debuff effect bonus and increased DoT damage

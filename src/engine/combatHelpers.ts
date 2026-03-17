@@ -171,7 +171,7 @@ export function evaluateProcs(
     result.procsFired.push(proc.id);
 
     if (proc.instantDamage) {
-      let dmg = proc.instantDamage.flatDamage;
+      let dmg = proc.instantDamage.flatDamage ?? 0;
       if (proc.instantDamage.scaleStat && proc.instantDamage.scaleRatio) {
         let statVal: number;
         if (proc.instantDamage.scaleStat === 'weaponDamage') {
@@ -226,7 +226,7 @@ export function evaluateProcs(
     if (proc.applyDebuff) {
       result.newDebuffs.push({
         debuffId: proc.applyDebuff.debuffId,
-        stacks: proc.applyDebuff.stacks,
+        stacks: proc.applyDebuff.stacks ?? 1,
         duration: proc.applyDebuff.duration,
         skillId: ctx.skillId,
       });
