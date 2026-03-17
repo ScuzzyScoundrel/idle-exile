@@ -54,7 +54,7 @@ import {
 } from './helpers';
 import {
   COMBO_STATE_CREATORS, COMBO_STATE_CONSUMERS,
-  tickComboStates, consumeComboState, createComboState,
+  tickComboStates, consumeComboState, consumeMultipleComboStates, createComboState,
 } from './combo';
 import { isSkillAoE, spawnPack } from '../packs';
 import { isZoneInvaded } from '../invasions';
@@ -325,12 +325,14 @@ export function runCombatTick(
 
   // Combo state: tick expiry + consume before damage calc
   let newComboStates = tickComboStates([...state.comboStates], dtSec);
-  const consumeStateId = COMBO_STATE_CONSUMERS[skill.id];
-  if (consumeStateId) {
-    const { consumed, remaining } = consumeComboState(newComboStates, consumeStateId);
+  const consumeStateIds = COMBO_STATE_CONSUMERS[skill.id];
+  if (consumeStateIds?.length) {
+    const { consumed, remaining } = consumeMultipleComboStates(newComboStates, consumeStateIds);
     newComboStates = remaining;
-    if (consumed?.effect.incDamage) {
-      damageMult *= (1 + consumed.effect.incDamage / 100);
+    for (const cs of consumed) {
+      if (cs.effect.incDamage) damageMult *= (1 + cs.effect.incDamage / 100);
+      if (cs.effect.incCritChance) effectiveStats.critChance += cs.effect.incCritChance;
+      if (cs.effect.incCritMultiplier) effectiveStats.critMultiplier += cs.effect.incCritMultiplier;
     }
   }
 

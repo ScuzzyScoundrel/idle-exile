@@ -330,6 +330,6 @@ export function respecGraphNodes(): string[] {
 }
 
 /** Graph respec cost in gold: 50 * level^2 (same formula as old system). */
-export function getGraphRespecCost(skillLevel: number): number {
-  return 0; // TODO: restore to 50 * skillLevel * skillLevel after testing
+export function getGraphRespecCost(_skillLevel: number): number {
+  return 0; // TODO: restore to 50 * _skillLevel * _skillLevel after testing
 }
