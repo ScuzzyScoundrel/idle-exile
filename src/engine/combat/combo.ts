@@ -60,16 +60,21 @@ export const COMBO_STATE_CREATORS: Record<string, ComboStateConfig> = {
  *  Assassinate consumes BOTH exposed and deep_wound.
  *  Array format: consume all listed states. */
 export const COMBO_STATE_CONSUMERS: Record<string, string[]> = {
-  dagger_assassinate:  ['exposed', 'deep_wound'],
-  dagger_chain_strike: ['deep_wound'],
-  // Most skills consume shadow_mark when hitting a marked target
+  // Exposed: consumed by ANY non-Stab skill for +25% damage
+  // Deep Wound: consumed by Assassinate (+ Chain Strike) for burst
+  // Shadow Mark: consumed by any skill on marked target
+  dagger_assassinate:  ['exposed', 'deep_wound', 'shadow_mark'],
+  dagger_chain_strike: ['exposed', 'deep_wound', 'shadow_mark'],
+  dagger_blade_dance:  ['exposed', 'shadow_mark', 'dance_momentum'],
+  dagger_fan_of_knives:['exposed', 'shadow_mark'],
+  dagger_viper_strike: ['exposed', 'shadow_mark'],
+  dagger_blade_ward:   ['exposed', 'shadow_mark'],
+  dagger_blade_trap:   ['exposed', 'shadow_mark'],
+  dagger_shadow_dash:  ['exposed', 'shadow_mark'],
+  // Stab does NOT consume exposed (can't consume its own state)
   dagger_stab:         ['shadow_mark'],
-  dagger_blade_dance:  ['shadow_mark', 'dance_momentum'],
-  dagger_fan_of_knives:['shadow_mark'],
-  dagger_viper_strike: ['shadow_mark'],
-  dagger_blade_ward:   ['shadow_mark'],
-  dagger_blade_trap:   ['shadow_mark'],
-  dagger_shadow_dash:  ['shadow_mark'],
+  // Shadow Mark does NOT consume exposed (setup skill, not a damage follow-up)
+  dagger_shadow_mark:  ['shadow_mark'],
 };
 
 // ─── Pure Functions ───
