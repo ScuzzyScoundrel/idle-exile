@@ -8,6 +8,18 @@ import { getSkillEffectiveDuration, getSkillEffectiveCooldown, getSkillSpeedStat
 
 interface BuffMeta { label: string; color: string; description: string }
 
+const COMBO_STATE_META: Record<string, { label: string; abbr: string; color: string; description: string }> = {
+  exposed:          { label: 'Exposed',          abbr: 'EXP', color: 'text-red-300 bg-red-900/70',        description: 'Next non-Stab skill: +25% damage' },
+  dance_momentum:   { label: 'Dance Momentum',   abbr: 'MOM', color: 'text-purple-300 bg-purple-900/70',  description: 'Next skill splashes to 1 adjacent enemy' },
+  saturated:        { label: 'Saturated',         abbr: 'SAT', color: 'text-green-300 bg-green-900/70',    description: 'Targets take +15% DoT damage' },
+  deep_wound:       { label: 'Deep Wound',        abbr: 'DPW', color: 'text-emerald-300 bg-emerald-900/70', description: 'Assassinate consumes as instant burst' },
+  chain_surge:      { label: 'Chain Surge',       abbr: 'CHN', color: 'text-cyan-300 bg-cyan-900/70',      description: 'Next skill chains to +1 enemy' },
+  shadow_mark:      { label: 'Shadow Mark',       abbr: 'MRK', color: 'text-violet-300 bg-violet-900/70',  description: 'Next skill on target gets per-skill bonus' },
+  guarded:          { label: 'Guarded',           abbr: 'GRD', color: 'text-sky-300 bg-sky-900/70',        description: 'Next skill: +20% damage' },
+  primed:           { label: 'Primed',            abbr: 'PRM', color: 'text-orange-300 bg-orange-900/70',  description: 'Next trap is instant + 25% bonus' },
+  shadow_momentum:  { label: 'Shadow Momentum',   abbr: 'SPD', color: 'text-indigo-300 bg-indigo-900/70',  description: 'Next skill CD starts 2s earlier' },
+};
+
 export default function PlayerHpBar({ currentHp, maxHp, trailHp, fortifyStacks, fortifyDR, currentEs, maxEs, classResource, charClass, buffs, buffDisplay, rampingStacks, hideHpBars, lastFiredSkillId }: {
   currentHp: number; maxHp: number; trailHp?: number;
   fortifyStacks?: number; fortifyDR?: number;
@@ -29,6 +41,7 @@ export default function PlayerHpBar({ currentHp, maxHp, trailHp, fortifyStacks, 
 
   // Active buffs
   const activeBuffs = (buffs ?? []).filter(b => b.expiresAt > Date.now());
+  const comboStates = useGameStore(s => s.comboStates);
 
   // Class resource
   const classDef = charClass ? getClassDef(charClass as 'warrior' | 'mage' | 'ranger' | 'rogue') : null;
@@ -84,6 +97,27 @@ export default function PlayerHpBar({ currentHp, maxHp, trailHp, fortifyStacks, 
             </div>
           </Tooltip>
         )}
+        {comboStates.map(cs => {
+          const meta = COMBO_STATE_META[cs.stateId];
+          if (!meta) return null;
+          const remaining = cs.remainingDuration;
+          return (
+            <Tooltip key={cs.stateId} content={
+              <div className="space-y-0.5">
+                <div className="font-bold">{meta.label}</div>
+                <div className="text-gray-400">{meta.description}</div>
+                <div>Remaining: {remaining.toFixed(1)}s</div>
+              </div>
+            }>
+              <div className={`w-6 h-6 rounded flex items-center justify-center text-[8px] font-bold leading-none ${meta.color} cursor-help ring-1 ring-white/20`}>
+                <div className="text-center">
+                  <div>{meta.abbr}</div>
+                  <div className="text-[7px] opacity-70">{remaining.toFixed(0)}</div>
+                </div>
+              </div>
+            </Tooltip>
+          );
+        })}
       </div>
 
       {/* HP/ES bars — hidden during boss fight (BossFightDisplay has its own) */}
