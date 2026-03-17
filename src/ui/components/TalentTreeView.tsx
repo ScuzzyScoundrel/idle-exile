@@ -29,6 +29,15 @@ function formatProcName(id: string): string {
   return stripped.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
 
+// ─── Debuff Display Names ───
+
+const DEBUFF_DISPLAY: Record<string, string> = {
+  poisoned: 'Poison', bleeding: 'Bleed', burning: 'Ignite',
+  chilled: 'Chill', shocked: 'Shock', vulnerable: 'Vulnerable',
+  cursed: 'Curse', weakened: 'Weaken', blinded: 'Blind',
+  slowed: 'Slow', corroded: 'Corrode',
+};
+
 // ─── Modifier Formatting (adapted from SkillGraphView) ───
 
 function formatModifier(mod: SkillModifier | undefined): string[] {
@@ -45,7 +54,12 @@ function formatModifier(mod: SkillModifier | undefined): string[] {
   if (mod.cooldownReduction) parts.push(`-${mod.cooldownReduction}% cooldown`);
   if (mod.convertToAoE) parts.push('Converts to AoE');
   if (mod.convertElement) parts.push(`Convert ${mod.convertElement.from}\u2192${mod.convertElement.to}`);
-  if (mod.applyDebuff) parts.push(`${Math.round(mod.applyDebuff.chance * 100)}% chance: ${mod.applyDebuff.debuffId}`);
+  if (mod.applyDebuff) {
+    const debuffName = DEBUFF_DISPLAY[mod.applyDebuff.debuffId] ?? mod.applyDebuff.debuffId;
+    const pct = Math.round(mod.applyDebuff.chance * 100);
+    const dur = mod.applyDebuff.duration ? ` (${mod.applyDebuff.duration}s)` : '';
+    parts.push(pct >= 100 ? `Always applies ${debuffName}${dur}` : `${pct}% to apply ${debuffName}${dur}`);
+  }
   if (mod.flags?.includes('lifeLeech')) parts.push('Life leech');
   if (mod.flags?.includes('alwaysCrit')) parts.push('Always crit');
   if (mod.flags?.includes('cannotCrit')) parts.push('Cannot crit');
@@ -97,9 +111,9 @@ function formatModifier(mod: SkillModifier | undefined): string[] {
         : proc.trigger === 'onKill' ? 'on kill' : proc.trigger === 'onDodge' ? 'on dodge' : proc.trigger;
       if (proc.bonusCast) parts.push(`${pct}% ${trig}: re-cast`);
       else if (proc.applyDebuff) {
-        const name = formatProcName(proc.applyDebuff.debuffId);
-        const dur = proc.applyDebuff.duration ? ` ${proc.applyDebuff.duration}s` : '';
-        parts.push(`${pct}% ${trig}: ${name}${dur}`);
+        const name = DEBUFF_DISPLAY[proc.applyDebuff.debuffId] ?? formatProcName(proc.applyDebuff.debuffId);
+        const dur = proc.applyDebuff.duration ? ` (${proc.applyDebuff.duration}s)` : '';
+        parts.push(`${pct}% ${trig}: apply ${name}${dur}`);
       }
       else if (proc.castSkill) parts.push(`${pct}% ${trig}: cast ${proc.castSkill}`);
       else if (proc.instantDamage) {
@@ -185,9 +199,11 @@ function rankDisplay(node: TalentNode, currentRank: number): string {
 function nodeTypeBadge(nodeType: string): string {
   switch (nodeType) {
     case 'behavior': return '';
-    case 'notable': return 'NOT';
-    case 'keystoneChoice': return 'CHOICE';
-    case 'keystone': return 'KEY';
+    case 'notable': return 'Notable';
+    case 'keystoneChoice': return 'Choice';
+    case 'keystone': return 'Keystone';
+    case 'conditional': return 'Cond';
+    case 'support': return 'Support';
     default: return '';
   }
 }
@@ -250,9 +266,34 @@ const STAT_GLOSSARY: Record<string, string> = {
   'fortify':                    'Grants damage reduction per stack, earned by hitting enemies',
   'evasion':                    'Chance to completely avoid incoming attacks',
   'overkill':                   'Damage exceeding the lethal hit — can carry to the next enemy',
-  'shatter':                    'When a chilled enemy dies, overkill damage hits the next enemy as cold',
   'spread':                     'Transfers debuff stacks from a dying enemy to the next target',
   'icd':                        'Internal cooldown — minimum time between proc activations',
+  // Ailments
+  'poison':                     'Chaos DoT — 15% of hit damage per second per instance. No stack cap. Scales with YOUR damage.',
+  'poisoned':                   'Chaos DoT — 15% of hit damage per second per instance. No stack cap.',
+  'poisons':                    'Chaos DoT — 15% of hit damage per second per instance. No stack cap.',
+  'bleed':                      'Physical spike — 30% of snapshot damage triggers each time the enemy attacks. Max 5 stacks.',
+  'bleeding':                   'Physical spike — 30% of snapshot damage triggers each time the enemy attacks. Max 5 stacks.',
+  'ignite':                     'Fire DoT — burns for 1% of enemy max HP per second per stack. Max 5 stacks (5%/s cap).',
+  'burn':                       'Fire DoT — burns for 1% of enemy max HP per second per stack. Max 5 stacks.',
+  'burning':                    'Fire DoT — burns for 1% of enemy max HP per second per stack. Max 5 stacks.',
+  'chill':                      'Cold debuff — reduces enemy attack speed by 20%.',
+  'chilled':                    'Cold debuff — reduces enemy attack speed by 20%.',
+  'shock':                      'Lightning debuff — enemy takes 8% increased damage per stack. Max 3 stacks (24%).',
+  'shocked':                    'Lightning debuff — enemy takes 8% increased damage per stack. Max 3 stacks.',
+  'vulnerable':                 'Target takes 20% more damage from all sources.',
+  'cursed':                     'Target resists reduced by 15 per stack. Max 3 stacks.',
+  'weakened':                   'Target deals 10% less damage.',
+  // Combo States
+  'exposed':                    'Created by Stab crits. Consumed by Assassinate for +25% damage.',
+  'deep wound':                 'Created by Viper Strike. Consumed by Chain Strike for burst chaos damage.',
+  'shadow momentum':            'Created by Shadow Dash. Next skill cooldown starts 2 seconds earlier.',
+  'mark':                       'Applies a debuff to the target that amplifies damage taken or triggers special effects.',
+  // Skill Mechanics
+  'counter':                    'A reactive attack triggered when an enemy hits you during a defensive stance.',
+  'sequential':                 'Hits target different enemies in order — hit 1 on mob 1, hit 2 on mob 2, etc.',
+  'chain':                      'Bounces to nearby enemies after hitting the primary target.',
+  'trap':                       'Placed on the ground; arms after a delay, then detonates when enemies attack.',
 };
 
 // Pre-build regex from glossary keys (longest first to avoid partial matches)

@@ -5,7 +5,7 @@ export const DAGGER_ACTIVE_SKILLS: ActiveSkillDef[] = [
   {
     id: 'dagger_stab',
     name: 'Stab',
-    description: 'A quick piercing strike.',
+    description: 'A quick piercing strike. Crits create Exposed (consumed by Assassinate for +25% damage).',
     weaponType: 'dagger',
     tags: ['Attack', 'Physical', 'Melee'],
     baseDamage: 0,
@@ -19,7 +19,7 @@ export const DAGGER_ACTIVE_SKILLS: ActiveSkillDef[] = [
   {
     id: 'dagger_blade_dance',
     name: 'Blade Dance',
-    description: 'A flurry of slashes striking multiple enemies in sequence.',
+    description: 'Three sequential strikes targeting different enemies. 30% weapon damage per hit (90% total across 3 targets). Applies Bleed on hit.',
     weaponType: 'dagger',
     tags: ['Attack', 'Physical', 'Melee', 'AoE'],
     baseDamage: 2,
@@ -34,7 +34,7 @@ export const DAGGER_ACTIVE_SKILLS: ActiveSkillDef[] = [
   {
     id: 'dagger_fan_of_knives',
     name: 'Fan of Knives',
-    description: 'Throw a spread of knives that hit all nearby enemies.',
+    description: 'Throw a spread of knives that hit all nearby enemies. Applies Bleed on hit. Choose an element at level 5.',
     weaponType: 'dagger',
     tags: ['Attack', 'Physical', 'AoE', 'Projectile'],
     baseDamage: 4,
@@ -48,7 +48,7 @@ export const DAGGER_ACTIVE_SKILLS: ActiveSkillDef[] = [
   {
     id: 'dagger_viper_strike',
     name: 'Viper Strike',
-    description: 'A venomous strike that poisons the target over time.',
+    description: 'A venomous chaos strike. Always applies Poison on hit regardless of element. Creates Deep Wound (consumed by Chain Strike).',
     weaponType: 'dagger',
     tags: ['Attack', 'Chaos', 'Melee', 'DoT'],
     baseDamage: 2,
@@ -65,7 +65,7 @@ export const DAGGER_ACTIVE_SKILLS: ActiveSkillDef[] = [
   {
     id: 'dagger_shadow_mark',
     name: 'Shadow Mark',
-    description: 'Mark an enemy from the shadows, amplifying damage taken.',
+    description: 'Mark an enemy with chaos damage. Applies Poison on hit. Setup skill that empowers your next attack.',
     weaponType: 'dagger',
     tags: ['Attack', 'Chaos', 'Melee'],
     baseDamage: 0,
@@ -80,7 +80,7 @@ export const DAGGER_ACTIVE_SKILLS: ActiveSkillDef[] = [
   {
     id: 'dagger_assassinate',
     name: 'Assassinate',
-    description: 'A lethal strike from the shadows. Massive single-target damage.',
+    description: 'Massive single-target physical strike. Consumes Exposed for +25% damage. Highest burst damage of all dagger skills.',
     weaponType: 'dagger',
     tags: ['Attack', 'Physical', 'Melee'],
     baseDamage: 12,
@@ -94,7 +94,7 @@ export const DAGGER_ACTIVE_SKILLS: ActiveSkillDef[] = [
   {
     id: 'dagger_chain_strike',
     name: 'Chain Strike',
-    description: 'A rapid strike that chains to nearby enemies.',
+    description: 'A rapid lightning strike. Applies Shock on hit. Consumes Deep Wound for burst chaos damage.',
     weaponType: 'dagger',
     tags: ['Attack', 'Lightning', 'Melee'],
     baseDamage: 3,
@@ -109,7 +109,7 @@ export const DAGGER_ACTIVE_SKILLS: ActiveSkillDef[] = [
   {
     id: 'dagger_blade_ward',
     name: 'Blade Ward',
-    description: 'Assume a defensive stance, countering enemy attacks with blade strikes.',
+    description: 'Defensive stance with 15% damage reduction for 3s. Counter-attacks enemies that hit you for 60% weapon damage. Applies Bleed.',
     weaponType: 'dagger',
     tags: ['Attack', 'Physical', 'Melee'],
     baseDamage: 3,
@@ -123,7 +123,7 @@ export const DAGGER_ACTIVE_SKILLS: ActiveSkillDef[] = [
   {
     id: 'dagger_blade_trap',
     name: 'Blade Trap',
-    description: 'Place a hidden trap that arms and detonates when enemies attack.',
+    description: 'Place a trap that arms after 1.5s. Detonates when enemies attack, dealing 150% weapon damage as AoE. Applies Bleed.',
     weaponType: 'dagger',
     tags: ['Attack', 'Physical', 'AoE'],
     baseDamage: 8,
@@ -137,7 +137,7 @@ export const DAGGER_ACTIVE_SKILLS: ActiveSkillDef[] = [
   {
     id: 'dagger_shadow_dash',
     name: 'Shadow Dash',
-    description: 'Dash through the shadows, striking enemies along the path.',
+    description: 'Dash through shadows, striking for 80% weapon damage. Creates Shadow Momentum: next skill cooldown starts 2s earlier. Applies Bleed.',
     weaponType: 'dagger',
     tags: ['Attack', 'Physical', 'Melee'],
     baseDamage: 3,
