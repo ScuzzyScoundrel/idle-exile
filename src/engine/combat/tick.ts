@@ -1012,6 +1012,10 @@ export function runCombatTick(
       fortifyStacks: newFortifyStacks, fortifyExpiresAt: newFortifyExpiresAt, fortifyDRPerStack: newFortifyDRPerStack,
       lastHitMobTypeId: state.currentMobTypeId,
       lastProcTriggerAt: newLastProcTriggerAt,
+      comboStates: newComboStates,
+      activeTraps: newActiveTraps,
+      bladeWardExpiresAt: newBladeWardExpiresAt,
+      bladeWardHits: newBladeWardHits,
     };
 
     const updatedBoss = { ...bs, bossCurrentHp: newBossHp, bossNextAttackAt: nextAttack };
