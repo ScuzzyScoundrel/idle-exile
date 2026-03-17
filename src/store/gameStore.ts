@@ -1310,7 +1310,7 @@ export const useGameStore = create<GameState & GameActions>()(
         if (!sp) return;
         const currentElement = state.elementTransforms[skillId];
         if (!currentElement) return; // nothing to respec
-        const cost = 100 * sp.level * sp.level; // gold cost scales with level
+        const cost = 0; // TODO: restore to 100 * sp.level * sp.level after testing
         if (state.gold < cost) return;
         const transforms = { ...state.elementTransforms };
         delete transforms[skillId];

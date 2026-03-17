@@ -118,7 +118,7 @@ export function respecTalentRanks(): Record<string, number> {
 
 /** Talent respec cost in gold: same formula as graph respec. */
 export function getTalentRespecCost(skillLevel: number): number {
-  return 50 * skillLevel * skillLevel;
+  return 0; // TODO: restore to 50 * skillLevel * skillLevel after testing
 }
 
 // ─── Modifier Resolution ───
