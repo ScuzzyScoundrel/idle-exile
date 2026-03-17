@@ -296,6 +296,8 @@ function createInitialState(): GameState {
     deathStreak: 0, lastDeathTime: 0,
     comboStates: [],
     activeTraps: [],
+    bladeWardExpiresAt: 0,
+    bladeWardHits: 0,
     elementTransforms: {},
     lastHitMobTypeId: null, freeCastUntil: {}, lastProcTriggerAt: {},
     lastClearResult: null,

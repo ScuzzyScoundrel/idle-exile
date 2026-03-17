@@ -26,11 +26,9 @@ export const COMBO_STATE_CREATORS: Record<string, ComboStateConfig> = {
   // Blade Dance: all 3 hits on different targets → Dance Momentum (4s)
   // Next single-target skill also splashes to 1 adjacent enemy for 50% damage
   dagger_blade_dance:   { stateId: 'dance_momentum',   duration: 4, maxStacks: 1, createOn: 'onCast',
-                          effect: { incDamage: 15 } },
-  // Fan of Knives: hitting 3+ ailmented enemies creates Saturated (4s, passive, not consumed)
-  // +15% DoT damage on saturated targets
-  dagger_fan_of_knives: { stateId: 'saturated',        duration: 4, maxStacks: 1, createOn: 'onCast',
-                          effect: { incDamage: 15 } },
+                          effect: { incDamage: 15 }, minTargetsHit: 3 },
+  // Fan of Knives: Saturated created conditionally in tick.ts (requires 3+ ailmented targets)
+  // NOT auto-created here — see tick.ts FoK Saturated block
   // Viper Strike: creates Deep Wound — consumed by Assassinate for instant burst
   dagger_viper_strike:  { stateId: 'deep_wound',       duration: 5, maxStacks: 1, createOn: 'onCast',
                           effect: { burstDamage: 50, burstElement: 'chaos' } },
@@ -51,14 +49,8 @@ export const COMBO_STATE_CREATORS: Record<string, ComboStateConfig> = {
   // Next single-target skill also chains to 1 additional enemy
   dagger_chain_strike:  { stateId: 'chain_surge',      duration: 3, maxStacks: 1, createOn: 'onCast',
                           effect: { incDamage: 10 }, minTargetsHit: 3 },
-  // Blade Ward: receiving 3+ hits during ward creates Guarded (3s)
-  // Next skill deals +20% damage
-  dagger_blade_ward:    { stateId: 'guarded',          duration: 3, maxStacks: 1, createOn: 'onCast',
-                          effect: { incDamage: 20 } },
-  // Blade Trap: crit detonation after 3s+ armed creates Primed (4s)
-  // Next trap placement is instant + 25% bonus damage
-  dagger_blade_trap:    { stateId: 'primed',           duration: 4, maxStacks: 1, createOn: 'onCast',
-                          effect: { incDamage: 25 } },
+  // Blade Ward: Guarded created conditionally in tick.ts (requires 3+ hits during ward window)
+  // Blade Trap: Primed created conditionally in tick.ts (requires crit detonation after 3s armed)
   // Shadow Dash: creates Shadow Momentum (2s) — next skill CD starts 2s earlier
   dagger_shadow_dash:   { stateId: 'shadow_momentum',  duration: 2, maxStacks: 1, createOn: 'onCast',
                           effect: { cooldownAcceleration: 2 } },

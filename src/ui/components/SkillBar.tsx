@@ -7,6 +7,19 @@ import { getAbilityXpForLevel, getUnlockedSlotCount } from '../../engine/unified
 import { SKILL_MAX_LEVEL } from '../../data/balance';
 import { ABILITY_SLOT_UNLOCKS } from '../../types';
 
+// Combo state display metadata
+const COMBO_STATE_DISPLAY: Record<string, { label: string; description: string; bg: string; text: string; timerText: string }> = {
+  exposed:          { label: 'Exposed',          description: 'Next non-Stab skill deals +25% damage (from Stab crit)',           bg: 'bg-red-900/60',    text: 'text-red-300',    timerText: 'text-red-500' },
+  dance_momentum:   { label: 'Dance Momentum',   description: 'Next single-target skill splashes to 1 adjacent enemy for 50% damage', bg: 'bg-purple-900/60', text: 'text-purple-300', timerText: 'text-purple-500' },
+  saturated:        { label: 'Saturated',         description: 'Affected targets take +15% DoT damage (passive, not consumed)',   bg: 'bg-green-900/60',  text: 'text-green-300',  timerText: 'text-green-500' },
+  deep_wound:       { label: 'Deep Wound',        description: 'Assassinate consumes remaining ticks as instant burst damage',     bg: 'bg-emerald-900/60', text: 'text-emerald-300', timerText: 'text-emerald-500' },
+  chain_surge:      { label: 'Chain Surge',       description: 'Next single-target skill chains to +1 additional enemy',           bg: 'bg-cyan-900/60',   text: 'text-cyan-300',   timerText: 'text-cyan-500' },
+  shadow_mark:      { label: 'Shadow Mark',       description: 'Next skill on marked target gets a per-skill bonus',               bg: 'bg-violet-900/60', text: 'text-violet-300', timerText: 'text-violet-500' },
+  guarded:          { label: 'Guarded',           description: 'Next skill deals +20% damage (from 3+ hits during Blade Ward)',    bg: 'bg-sky-900/60',    text: 'text-sky-300',    timerText: 'text-sky-500' },
+  primed:           { label: 'Primed',            description: 'Next Blade Trap placement is instant with +25% damage',            bg: 'bg-orange-900/60', text: 'text-orange-300', timerText: 'text-orange-500' },
+  shadow_momentum:  { label: 'Shadow Momentum',   description: 'Next skill\'s cooldown starts recovering 2s earlier',              bg: 'bg-indigo-900/60', text: 'text-indigo-300', timerText: 'text-indigo-500' },
+};
+
 // Kind-specific border colors
 const KIND_BORDER: Record<string, string> = {
   active: 'border-yellow-600',
@@ -66,13 +79,22 @@ export default function SkillBar({ lastFiredSkillId, cdResetSkillId }: { lastFir
     <div>
       {/* Combo State Display */}
       {comboStates.length > 0 && (
-        <div className="flex gap-1 justify-center mb-1">
-          {comboStates.map(cs => (
-            <div key={cs.stateId} className="flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-900/60 text-amber-300 text-xs rounded">
-              <span className="font-semibold capitalize">{cs.stateId.replace(/_/g, ' ')}</span>
-              <span className="text-amber-500">{cs.remainingDuration.toFixed(1)}s</span>
-            </div>
-          ))}
+        <div className="flex gap-1 justify-center mb-1 flex-wrap">
+          {comboStates.map(cs => {
+            const meta = COMBO_STATE_DISPLAY[cs.stateId];
+            const bg = meta?.bg ?? 'bg-amber-900/60';
+            const text = meta?.text ?? 'text-amber-300';
+            const timerText = meta?.timerText ?? 'text-amber-500';
+            const label = meta?.label ?? cs.stateId.replace(/_/g, ' ');
+            const desc = meta?.description;
+            return (
+              <div key={cs.stateId} className={`flex items-center gap-0.5 px-1.5 py-0.5 ${bg} ${text} text-xs rounded cursor-default`}
+                title={desc}>
+                <span className="font-semibold">{label}</span>
+                <span className={timerText}>{cs.remainingDuration.toFixed(1)}s</span>
+              </div>
+            );
+          })}
         </div>
       )}
     <div className="flex gap-1.5 justify-center">

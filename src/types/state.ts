@@ -126,6 +126,10 @@ export interface GameState {
   // Element transforms (Dagger v2 — persisted per-skill element choice)
   elementTransforms: Record<string, DamageType>;
 
+  // Blade Ward: track hits during ward window for Guarded threshold
+  bladeWardExpiresAt: number;       // timestamp when ward window ends (0 = not active)
+  bladeWardHits: number;            // hits received during current ward window
+
   // Talent tree: ephemeral combat state (not persisted, reset on rehydrate)
   lastHitMobTypeId: string | null;                    // for same-target consecutive hit tracking
   freeCastUntil: Record<string, number>;              // skillId → timestamp: free cast (no CD) until

@@ -595,6 +595,30 @@ export function runCombatTick(
     }
   }
 
+  // Blade Ward: activate ward window on cast (3s DR + counter-hit + hit tracking)
+  let newBladeWardExpiresAt = state.bladeWardExpiresAt;
+  let newBladeWardHits = state.bladeWardHits;
+  if (skill.id === 'dagger_blade_ward' && roll.isHit) {
+    newBladeWardExpiresAt = now + 3000; // 3s ward window
+    newBladeWardHits = 0;
+  }
+  // Expire ward window
+  if (newBladeWardExpiresAt > 0 && now >= newBladeWardExpiresAt) {
+    newBladeWardExpiresAt = 0;
+    newBladeWardHits = 0;
+  }
+
+  // Fan of Knives: Saturated — create if 3+ pack mobs have active ailments
+  if (skill.id === 'dagger_fan_of_knives' && roll.isHit && state.packMobs.length >= 3) {
+    const ailmentedCount = state.packMobs.filter(m => m.debuffs.length > 0).length;
+    if (ailmentedCount >= 3) {
+      newComboStates = createComboState(
+        newComboStates, 'saturated', skill.id,
+        { incDamage: 15 }, 4, 1,
+      );
+    }
+  }
+
   // Trap placement: Blade Trap creates a trap on cast
   let newActiveTraps = tickTraps([...state.activeTraps], dtSec, now);
   if (skill.id === 'dagger_blade_trap' && roll.isHit) {
@@ -863,6 +887,17 @@ export function runCombatTick(
     if (bossAttackResult?.isDodged) newLastDodgeAt = now;
     if (bossAttackResult && bossAttackResult.damage > 0) newKillStreak = 0;
 
+    // Blade Ward: count hits during ward window, create Guarded at 3+
+    if (bossAttackResult && newBladeWardExpiresAt > 0 && now < newBladeWardExpiresAt) {
+      newBladeWardHits++;
+      if (newBladeWardHits >= 3 && !newComboStates.some(s => s.stateId === 'guarded')) {
+        newComboStates = createComboState(
+          newComboStates, 'guarded', 'dagger_blade_ward',
+          { incDamage: 20 }, 3, 1,
+        );
+      }
+    }
+
     // Trap detonation: enemy attacking triggers armed traps
     if (bossAttackResult && newActiveTraps.length > 0) {
       const { detonated, remaining } = detonateTrap(newActiveTraps);
@@ -872,6 +907,14 @@ export function runCombatTick(
         const trapDmg = detonated.damage * detonationBonus;
         newBossHp -= trapDmg;
         totalDamage += trapDmg;
+        // Primed: crit detonation after 3s+ armed creates Primed (4s)
+        const armTime = (now - detonated.placedAt) / 1000;
+        if (armTime >= 3 && Math.random() < (effectiveStats.critChance / 100)) {
+          newComboStates = createComboState(
+            newComboStates, 'primed', 'dagger_blade_trap',
+            { incDamage: 25 }, 4, 1,
+          );
+        }
       }
     }
 
@@ -1481,6 +1524,8 @@ export function runCombatTick(
     lastProcTriggerAt: newLastProcTriggerAt,
     comboStates: newComboStates,
     activeTraps: newActiveTraps,
+    bladeWardExpiresAt: newBladeWardExpiresAt,
+    bladeWardHits: newBladeWardHits,
   };
 
   // ES recharge per tick
