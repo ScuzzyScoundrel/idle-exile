@@ -339,7 +339,8 @@ export const useSkillStore = create<SkillActions>()((_set, _get) => ({
 
       const duration = getSkillEffectiveDuration(def, progress);
       const charStats = resolveStats(state.character);
-      const cooldown = getSkillEffectiveCooldown(def, progress, charStats.abilityHaste);
+      const speedStat = def.tags.includes('Spell') ? charStats.castSpeed : charStats.attackSpeed;
+      const cooldown = getSkillEffectiveCooldown(def, progress, speedStat);
 
       if (def.kind === 'buff') {
         newSkillTimers[stIdx] = {

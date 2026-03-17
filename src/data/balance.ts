@@ -221,7 +221,7 @@ export const BASE_STATS: ResolvedStats = {
   incChannelDamage: 0,
   critChance: 5,
   critMultiplier: 150,
-  abilityHaste: 0,
+  // abilityHaste removed — speed stats now reduce cooldowns directly
   // Defensive
   maxLife: 100,
   incMaxLife: 0,

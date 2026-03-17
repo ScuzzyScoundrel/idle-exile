@@ -38,19 +38,18 @@ const STAT_TOOLTIPS: Partial<Record<StatKey, string>> = {
   flatAtkColdDamage: 'Flat cold damage added to attacks.',
   flatAtkLightningDamage: 'Flat lightning damage added to attacks.',
   flatAtkChaosDamage: 'Flat chaos damage added to attacks.',
-  attackSpeed: 'Increases attacks per second.',
+  attackSpeed: 'Reduces Attack skill cooldowns and cast time. CDR% = speed / (100 + speed).',
   accuracy: 'Chance to hit. Higher = fewer misses.',
   incPhysDamage: '% increased physical damage.',
   incAttackDamage: '% increased attack damage.',
   // Spell
   spellPower: 'Base spell power for spell skills.',
-  castSpeed: 'Increases casts per second.',
+  castSpeed: 'Reduces Spell skill cooldowns and cast time. CDR% = speed / (100 + speed).',
   incSpellDamage: '% increased spell damage.',
   // Shared Offensive
   incElementalDamage: '% increased elemental damage.',
   critChance: '% chance to critically strike.',
   critMultiplier: 'Multiplier on critical hits.',
-  abilityHaste: 'Reduces all skill cooldowns. Diminishing returns: CDR% = haste / (100 + haste).',
   // Defensive
   maxLife: 'Maximum health pool.',
   incMaxLife: '% increased maximum life.',
@@ -83,7 +82,10 @@ const STAT_SECTIONS: StatSection[] = [
       { key: 'flatAtkColdDamage', label: 'Cold Atk', icon: '\u2744\uFE0F' },
       { key: 'flatAtkLightningDamage', label: 'Lightning Atk', icon: '\u26A1' },
       { key: 'flatAtkChaosDamage', label: 'Chaos Atk', icon: '\uD83D\uDC80' },
-      { key: 'attackSpeed', label: 'Attack Speed', icon: '\u26A1', format: (v) => v.toFixed(1) },
+      { key: 'attackSpeed', label: 'Attack Speed', icon: '\u26A1', format: (v) => {
+        const cdr = v / (100 + v) * 100;
+        return v > 0 ? `${v.toFixed(0)} (${cdr.toFixed(1)}% CDR)` : '0';
+      }},
       { key: 'accuracy', label: 'Accuracy', icon: '\uD83C\uDFAF' },
       { key: 'incPhysDamage', label: '% Phys Damage', icon: '\u2694\uFE0F', format: (v) => `${v.toFixed(0)}%` },
       { key: 'incAttackDamage', label: '% Attack Damage', icon: '\u2694\uFE0F', format: (v) => `${v.toFixed(0)}%` },
@@ -93,7 +95,10 @@ const STAT_SECTIONS: StatSection[] = [
     label: 'Spell',
     stats: [
       { key: 'spellPower', label: 'Spell Power', icon: '\u2728' },
-      { key: 'castSpeed', label: 'Cast Speed', icon: '\u2728', format: (v) => v.toFixed(1) },
+      { key: 'castSpeed', label: 'Cast Speed', icon: '\u2728', format: (v) => {
+        const cdr = v / (100 + v) * 100;
+        return v > 0 ? `${v.toFixed(0)} (${cdr.toFixed(1)}% CDR)` : '0';
+      }},
       { key: 'incSpellDamage', label: '% Spell Damage', icon: '\u2728', format: (v) => `${v.toFixed(0)}%` },
     ],
   },
@@ -128,10 +133,6 @@ const STAT_SECTIONS: StatSection[] = [
   {
     label: 'Utility',
     stats: [
-      { key: 'abilityHaste', label: 'Ability Haste', icon: '\u23F1\uFE0F', format: (v) => {
-        const cdr = v / (100 + v) * 100;
-        return v > 0 ? `${v.toFixed(0)} (${cdr.toFixed(1)}% CDR)` : '0';
-      }},
       { key: 'movementSpeed', label: 'Move Speed', icon: '\uD83D\uDC5F', format: (v) => `${v.toFixed(0)}%` },
       { key: 'itemQuantity', label: 'Item Quantity', icon: '\uD83D\uDCE6', format: (v) => `${v.toFixed(0)}%` },
       { key: 'itemRarity', label: 'Item Rarity', icon: '\u2B50', format: (v) => `${v.toFixed(0)}%` },
@@ -427,7 +428,6 @@ const STAT_LABELS: Partial<Record<StatKey, string>> = {
   weaponMastery: 'Weapon Mastery',
   critChance: 'Crit Chance',
   critMultiplier: 'Crit Multi',
-  abilityHaste: 'Ability Haste',
   maxLife: 'Max Life',
   incMaxLife: '% Max Life',
   lifeRegen: 'Life Regen',

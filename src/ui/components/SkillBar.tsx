@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { useSkillStore } from '../../store/skillStore';
 import { getUnifiedSkillDef } from '../../data/skills';
-import { getSkillEffectiveDuration, getSkillEffectiveCooldown } from '../../engine/unifiedSkills';
+import { getSkillEffectiveDuration, getSkillEffectiveCooldown, getSkillSpeedStat } from '../../engine/unifiedSkills';
 import { getAbilityXpForLevel, getUnlockedSlotCount } from '../../engine/unifiedSkills';
 import { SKILL_MAX_LEVEL } from '../../data/balance';
 import { ABILITY_SLOT_UNLOCKS } from '../../types';
@@ -132,7 +132,7 @@ export default function SkillBar({ lastFiredSkillId, cdResetSkillId }: { lastFir
         if (def.kind === 'active') {
           const shortName = def.name.length > 6 ? def.name.slice(0, 6) + '..' : def.name;
           const isFlashing = equipped.skillId === lastFiredSkillId;
-          const effectiveActiveCd = getSkillEffectiveCooldown(def, progress, character.stats.abilityHaste);
+          const effectiveActiveCd = getSkillEffectiveCooldown(def, progress, getSkillSpeedStat(def, character.stats));
           const activeCdPct = isOnCooldown && effectiveActiveCd > 0
             ? Math.max(0, Math.min(1, remainingCd / effectiveActiveCd))
             : 0;
@@ -271,7 +271,7 @@ export default function SkillBar({ lastFiredSkillId, cdResetSkillId }: { lastFir
         const isFlashingBtn = equipped.skillId === lastFiredSkillId;
 
         // Cooldown sweep: compute percentage for conic-gradient overlay
-        const cooldown = getSkillEffectiveCooldown(def, progress, character.stats.abilityHaste);
+        const cooldown = getSkillEffectiveCooldown(def, progress, getSkillSpeedStat(def, character.stats));
         const totalCdMs = def.kind === 'buff'
           ? (duration + cooldown) * 1000
           : cooldown * 1000;

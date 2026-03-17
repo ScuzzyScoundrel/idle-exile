@@ -99,12 +99,13 @@ export function getSkillEffectiveDuration(
 }
 
 /**
- * Get effective cooldown for a skill (base + tree bonuses + ability haste).
+ * Get effective cooldown for a skill (base + tree bonuses + speed stat CDR).
+ * Attack speed reduces Attack skill cooldowns; cast speed reduces Spell skill cooldowns.
  */
 export function getSkillEffectiveCooldown(
   skill: SkillDef,
   progress: SkillProgress | undefined,
-  abilityHaste: number = 0,
+  speedStat: number = 0,
 ): number {
   if (!skill.cooldown) return 0;
 
@@ -123,11 +124,17 @@ export function getSkillEffectiveCooldown(
     cooldown = getEffectiveCooldown(skill as any, abilityProgress);
   }
 
-  if (abilityHaste > 0) {
-    cooldown = cooldown / (1 + abilityHaste / 100);
+  if (speedStat > 0) {
+    cooldown = cooldown / (1 + speedStat / 100);
   }
 
   return Math.max(1, cooldown);
+}
+
+/** Get the appropriate speed stat for a skill based on its tags. */
+export function getSkillSpeedStat(skill: SkillDef, stats: { attackSpeed: number; castSpeed: number }): number {
+  if (skill.tags.includes('Spell')) return stats.castSpeed;
+  return stats.attackSpeed; // Attack and untagged default to attack speed
 }
 
 // ─── Timer Checks ───

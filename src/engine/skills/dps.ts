@@ -61,8 +61,10 @@ export function calcSkillDps(
     const baseCd = skill.cooldown + (graphMod?.cooldownIncrease ?? 0);
     const graphCDR = graphMod?.cooldownReduction ?? 0;
     effectiveCooldown = baseCd * (1 - graphCDR / 100);
-    if (stats.abilityHaste > 0) {
-      effectiveCooldown = effectiveCooldown / (1 + stats.abilityHaste / 100);
+    // Speed stat reduces cooldown: attack speed for Attack, cast speed for Spell
+    const speedCDR = skill.tags.includes('Spell') ? stats.castSpeed : stats.attackSpeed;
+    if (speedCDR > 0) {
+      effectiveCooldown = effectiveCooldown / (1 + speedCDR / 100);
     }
     effectiveCooldown = Math.max(1, effectiveCooldown);
   }

@@ -46,7 +46,7 @@ export type StatKey =
   | 'incChannelDamage'
   | 'critChance'
   | 'critMultiplier'
-  | 'abilityHaste'
+  // abilityHaste removed — attack/cast speed now reduce cooldowns
   // Defensive
   | 'maxLife'
   | 'incMaxLife'

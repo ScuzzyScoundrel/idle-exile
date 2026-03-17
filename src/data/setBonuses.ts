@@ -23,7 +23,7 @@ export const SET_BONUS_DEFS: Record<ArmorType, SetBonusDef> = {
     armorType: 'cloth',
     name: 'Arcane Weaver',
     thresholds: {
-      2: { abilityHaste: 6, energyShield: 40 },
+      2: { castSpeed: 6, energyShield: 40 },
       4: { incEnergyShield: 30, esRecharge: 2 },
       6: { esCombatRecharge: 40, maxLife: 200, allResist: 20, critChance: 3, critMultiplier: 5 },
     },

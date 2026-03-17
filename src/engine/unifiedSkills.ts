@@ -22,6 +22,7 @@ export {
   getEffectiveCooldown,
   getSkillEffectiveDuration,
   getSkillEffectiveCooldown,
+  getSkillSpeedStat,
   isAbilityActive,
   isAbilityOnCooldown,
   getRemainingCooldown,

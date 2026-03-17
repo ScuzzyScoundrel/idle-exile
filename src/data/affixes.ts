@@ -414,11 +414,11 @@ export const AFFIX_DEFS: AffixDef[] = [
     weight: 100, displayTemplate: '+{value}% Movement Speed',
   },
   {
-    id: 'ability_haste', name: 'of Celerity', category: 'ability_haste',
-    slot: 'suffix', stat: 'abilityHaste',
+    id: 'cast_speed', name: 'of Celerity', category: 'cast_speed',
+    slot: 'suffix', stat: 'castSpeed',
     allowedSlots: ['all_weapons', 'gloves', 'amulets', 'trinkets'],
     tiers: buildTiers(1, 2, 2, 3, 3, 6, 5, 9, 8, 14, 13, 20),
-    weight: 80, displayTemplate: '+{value}% Ability Haste',
+    weight: 80, displayTemplate: '+{value}% Cast Speed',
   },
   {
     id: 'item_quantity', name: 'of Plunder', category: 'item_quantity',

@@ -710,8 +710,10 @@ export function runCombatTick(
     if (cdAcceleration > 0) effectiveCD = Math.max(1, effectiveCD - cdAcceleration);
     // Apply combo state CD refund (Shadow Mark → Assassinate, etc.)
     if (comboCdRefundPercent > 0) effectiveCD *= (1 - comboCdRefundPercent / 100);
-    if (effectiveStats.abilityHaste > 0) {
-      effectiveCD = effectiveCD / (1 + effectiveStats.abilityHaste / 100);
+    // Speed stat reduces cooldown: attack speed for Attack, cast speed for Spell
+    const speedCDR = skill.tags.includes('Spell') ? effectiveStats.castSpeed : effectiveStats.attackSpeed;
+    if (speedCDR > 0) {
+      effectiveCD = effectiveCD / (1 + speedCDR / 100);
     }
     if (effectiveStats.cooldownRecovery > 0) {
       effectiveCD = effectiveCD / (1 + effectiveStats.cooldownRecovery / 100);

@@ -829,5 +829,49 @@ export function runMigrations(
     if (!raw.elementTransforms) raw.elementTransforms = {};
   }
 
+  if (version < 60) {
+    // v60: Remove abilityHaste — convert to castSpeed on all items.
+    // Attack speed reduces Attack cooldowns, cast speed reduces Spell cooldowns.
+    const convertItem = (item: Record<string, any>) => {
+      if (item?.stats?.abilityHaste) {
+        item.stats.castSpeed = (item.stats.castSpeed ?? 0) + item.stats.abilityHaste;
+        delete item.stats.abilityHaste;
+      }
+      // Convert affixes
+      if (item?.affixes) {
+        for (const affix of item.affixes) {
+          if (affix.stat === 'abilityHaste') {
+            affix.stat = 'castSpeed';
+            affix.id = affix.id?.replace('ability_haste', 'cast_speed');
+            affix.category = affix.category?.replace('ability_haste', 'cast_speed');
+          }
+        }
+      }
+    };
+    // Equipment
+    const equip60 = (raw.character as any)?.equipment;
+    if (equip60) {
+      for (const item of Object.values(equip60)) {
+        if (item) convertItem(item as Record<string, any>);
+      }
+    }
+    // Inventory
+    const inv60 = raw.inventory as any[];
+    if (inv60) {
+      for (const item of inv60) {
+        if (item) convertItem(item);
+      }
+    }
+    // Stash
+    const stash60 = raw.stashItems as any[];
+    if (stash60) {
+      for (const item of stash60) {
+        if (item) convertItem(item);
+      }
+    }
+    // Active traps init
+    if (!raw.activeTraps) raw.activeTraps = [];
+  }
+
   return state;
 }

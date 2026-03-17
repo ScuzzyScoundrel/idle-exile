@@ -1278,7 +1278,6 @@ const STAT_LABELS: Record<StatKey, string> = {
   weaponMastery: 'Weapon Mastery',
   critChance: 'Crit Chance',
   critMultiplier: 'Crit Multi',
-  abilityHaste: 'Ability Haste',
   maxLife: 'Max Life',
   incMaxLife: '% Max Life',
   lifeRegen: 'Life Regen',

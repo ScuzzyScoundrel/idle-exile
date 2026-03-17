@@ -4,7 +4,7 @@ import Tooltip from '../components/Tooltip';
 import { useGameStore } from '../../store/gameStore';
 import { useSkillStore } from '../../store/skillStore';
 import { getUnifiedSkillDef } from '../../data/skills';
-import { getSkillEffectiveDuration, getSkillEffectiveCooldown } from '../../engine/unifiedSkills';
+import { getSkillEffectiveDuration, getSkillEffectiveCooldown, getSkillSpeedStat } from '../../engine/unifiedSkills';
 
 interface BuffMeta { label: string; color: string; description: string }
 
@@ -187,7 +187,7 @@ function CompactSkills({ lastFiredSkillId }: { lastFiredSkillId?: string | null 
   const skillBar = useGameStore(s => s.skillBar);
   const skillTimers = useGameStore(s => s.skillTimers);
   const skillProgress = useGameStore(s => s.skillProgress);
-  const abilityHaste = useGameStore(s => s.character.stats.abilityHaste);
+  const charStats = useGameStore(s => s.character.stats);
   const activateSkillBarSlot = useSkillStore(s => s.activateSkillBarSlot);
   const now = Date.now();
 
@@ -201,7 +201,7 @@ function CompactSkills({ lastFiredSkillId }: { lastFiredSkillId?: string | null 
         const progress = skillProgress[equipped.skillId];
         const timer = skillTimers.find(t => t.skillId === equipped.skillId);
         const duration = getSkillEffectiveDuration(def, progress);
-        const cooldown = getSkillEffectiveCooldown(def, progress, abilityHaste);
+        const cooldown = getSkillEffectiveCooldown(def, progress, getSkillSpeedStat(def, charStats));
 
         const isActive = timer?.activatedAt != null && now < timer.activatedAt + duration * 1000;
         const isOnCd = timer?.cooldownUntil != null && now < timer.cooldownUntil;
