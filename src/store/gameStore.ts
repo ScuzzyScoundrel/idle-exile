@@ -295,6 +295,7 @@ function createInitialState(): GameState {
     fortifyStacks: 0, fortifyExpiresAt: 0, fortifyDRPerStack: 0,
     deathStreak: 0, lastDeathTime: 0,
     comboStates: [],
+    activeTraps: [],
     elementTransforms: {},
     lastHitMobTypeId: null, freeCastUntil: {}, lastProcTriggerAt: {},
     lastClearResult: null,

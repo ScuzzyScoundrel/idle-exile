@@ -226,20 +226,22 @@ export function estimateProcDps(
 
   // ─── Conditional Mods ───
   let conditionalIncDamage = 0;
+  let conditionalIncCastSpeed = 0;
 
   for (const cm of conditionalMods) {
     const uptime = estimateConditionUptime(cm, critRate, buffUptimes);
     if (uptime <= 0) continue;
 
     if (cm.modifier.incDamage) conditionalIncDamage += cm.modifier.incDamage * uptime;
-    // Other conditional stats (critChance, castSpeed) are harder to integrate
-    // without re-running the full DPS calc, so we focus on incDamage which is
-    // the most common and impactful conditional modifier.
+    if (cm.modifier.incCastSpeed) conditionalIncCastSpeed += cm.modifier.incCastSpeed * uptime;
   }
 
-  const conditionalDpsMult = baseIncDamage > 0
+  const conditionalSpeedMult = conditionalIncCastSpeed > 0
+    ? (1 + conditionalIncCastSpeed / 100) : 1;
+
+  const conditionalDpsMult = (baseIncDamage > 0
     ? (100 + baseIncDamage + conditionalIncDamage) / (100 + baseIncDamage)
-    : 1 + conditionalIncDamage / 100;
+    : 1 + conditionalIncDamage / 100) * conditionalSpeedMult;
 
   // ─── Debuff Interaction ───
   let debuffInteractionMult = 1;

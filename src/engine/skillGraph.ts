@@ -4,7 +4,7 @@
 // ============================================================
 
 import type { SkillGraph, AbilityEffect, ConditionalModifier, SkillProcEffect,
-  DebuffInteraction, SkillChargeConfig, DamageTag } from '../types';
+  DebuffInteraction, SkillChargeConfig, DamageTag, ComboStateEffect } from '../types';
 
 /** Resolved modifier: all allocated node modifiers summed together. */
 export interface ResolvedSkillModifier {
@@ -69,6 +69,16 @@ export interface ResolvedSkillModifier {
   cooldownIncrease: number;
   ailmentPotency: number;
   comboStateCreation: { stateId: string; duration: number; maxStacks?: number } | null;
+  // v2: combo state modifications from talent trees
+  comboStateEnhance: Record<string, Partial<ComboStateEffect>>;  // stateId → bonus effect merged on consume
+  comboStateReplace: { from: string; to: string; effect: ComboStateEffect; duration: number } | null;
+  // v2: counter-attack system (Blade Ward Ghost branch, etc.)
+  counterHitDamage: number;     // % weapon damage for counter-hit (0 = no counter)
+  counterCanCrit: boolean;
+  counterHitHeal: number;       // % max HP healed per counter-hit
+  // v2: trap system (Blade Trap)
+  armTimeOverride: number;      // seconds (0 = use default 1.5)
+  detonationDamageBonus: number; // % bonus detonation damage
 }
 
 /** Empty modifier (identity). */
@@ -131,6 +141,13 @@ export const EMPTY_GRAPH_MOD: ResolvedSkillModifier = {
   cooldownIncrease: 0,
   ailmentPotency: 0,
   comboStateCreation: null,
+  comboStateEnhance: {},
+  comboStateReplace: null,
+  counterHitDamage: 0,
+  counterCanCrit: false,
+  counterHitHeal: 0,
+  armTimeOverride: 0,
+  detonationDamageBonus: 0,
 };
 
 /**
@@ -259,6 +276,23 @@ export function resolveSkillGraphModifiers(
 
     // Dagger v2: last-wins
     if (m.comboStateCreation) result.comboStateCreation = m.comboStateCreation;
+    if (m.comboStateReplace) result.comboStateReplace = m.comboStateReplace as any;
+
+    // Dagger v2: combo state enhance — deep merge per stateId
+    if (m.comboStateEnhance) {
+      const enh = m.comboStateEnhance as Record<string, Partial<ComboStateEffect>>;
+      for (const [stateId, bonus] of Object.entries(enh)) {
+        const existing = result.comboStateEnhance[stateId] ?? {};
+        result.comboStateEnhance[stateId] = {
+          ...existing,
+          ...bonus,
+          incDamage: (existing.incDamage ?? 0) + (bonus.incDamage ?? 0) || undefined,
+          incCritChance: (existing.incCritChance ?? 0) + (bonus.incCritChance ?? 0) || undefined,
+          incCritMultiplier: (existing.incCritMultiplier ?? 0) + (bonus.incCritMultiplier ?? 0) || undefined,
+          ailmentPotency: (existing.ailmentPotency ?? 0) + (bonus.ailmentPotency ?? 0) || undefined,
+        };
+      }
+    }
 
     // Max-wins
     if (m.executeThreshold) result.executeThreshold = Math.max(result.executeThreshold, m.executeThreshold);
@@ -272,6 +306,15 @@ export function resolveSkillGraphModifiers(
     if (m.fortifyOnHit) result.fortifyOnHit = m.fortifyOnHit;
     if (m.rampingDamage) result.rampingDamage = m.rampingDamage;
     if (m.berserk) result.berserk = m.berserk;
+
+    // Trap system: last-wins / additive
+    if (m.armTimeOverride) result.armTimeOverride = m.armTimeOverride;
+    if (m.detonationDamageBonus) result.detonationDamageBonus += m.detonationDamageBonus;
+
+    // Counter-attack: additive/OR
+    if (m.counterHitDamage) result.counterHitDamage += m.counterHitDamage;
+    if (m.counterCanCrit) result.counterCanCrit = true;
+    if (m.counterHitHeal) result.counterHitHeal += m.counterHitHeal;
 
     // Talent tree: dagger-specific
     if (m.critsDoNoBonusDamage) result.critsDoNoBonusDamage = true;  // boolean OR

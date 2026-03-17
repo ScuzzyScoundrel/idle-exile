@@ -7,6 +7,7 @@ import type { Gem, GearSlot, Item, Rarity } from './items';
 import type { CurrencyType } from './currencies';
 import type { IdleMode, AbilityProgress, EquippedSkill, SkillProgress, SkillTimerState } from './skills';
 import type { CombatPhase, BossState, ActiveDebuff, TempBuff, MobInPack, CombatClearResult, ComboState } from './combat';
+import type { TrapState } from '../engine/combat/traps';
 import type { DamageType } from './skills';
 import type { GatheringProfession, GatheringSkills, CraftingSkills, CraftingProfession, OwnedPattern } from './crafting';
 import type { ClassResourceState } from './character';
@@ -118,6 +119,9 @@ export interface GameState {
 
   // Combo states (Dagger v2 — ephemeral, not persisted)
   comboStates: ComboState[];
+
+  // Active traps (Dagger v2 — ephemeral, not persisted)
+  activeTraps: TrapState[];
 
   // Element transforms (Dagger v2 — persisted per-skill element choice)
   elementTransforms: Record<string, DamageType>;

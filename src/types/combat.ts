@@ -176,6 +176,12 @@ export interface ComboStateEffect {
   cooldownAcceleration?: number;  // seconds subtracted from next skill CD
   burstDamage?: number;           // flat burst damage on consume
   burstElement?: string;          // element of burst damage
+  // v2: per-skill bonus (Shadow Mark, etc.)
+  guaranteedCrit?: boolean;       // consuming skill auto-crits
+  ailmentPotency?: number;        // % bonus ailment potency on consuming skill
+  cdRefundPercent?: number;       // % of consuming skill's CD refunded after consume
+  extraChains?: number;           // bonus chain targets for consuming skill
+  perSkillBonus?: Record<string, ComboStateEffect>;  // skill-specific overrides
 }
 
 export interface ComboState {

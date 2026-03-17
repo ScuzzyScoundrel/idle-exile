@@ -56,6 +56,7 @@ import {
   COMBO_STATE_CREATORS, COMBO_STATE_CONSUMERS,
   tickComboStates, consumeComboState, consumeMultipleComboStates, createComboState,
 } from './combo';
+import { tickTraps, detonateTrap } from './traps';
 import { isSkillAoE, spawnPack } from '../packs';
 import { isZoneInvaded } from '../invasions';
 import {
@@ -326,13 +327,23 @@ export function runCombatTick(
   // Combo state: tick expiry + consume before damage calc
   let newComboStates = tickComboStates([...state.comboStates], dtSec);
   const consumeStateIds = COMBO_STATE_CONSUMERS[skill.id];
+  let comboAilmentPotency = 0;
+  let comboCdRefundPercent = 0;
   if (consumeStateIds?.length) {
     const { consumed, remaining } = consumeMultipleComboStates(newComboStates, consumeStateIds);
     newComboStates = remaining;
     for (const cs of consumed) {
-      if (cs.effect.incDamage) damageMult *= (1 + cs.effect.incDamage / 100);
-      if (cs.effect.incCritChance) effectiveStats.critChance += cs.effect.incCritChance;
-      if (cs.effect.incCritMultiplier) effectiveStats.critMultiplier += cs.effect.incCritMultiplier;
+      // Resolve per-skill bonus + talent tree enhancements
+      const perSkill = cs.effect.perSkillBonus?.[skill.id];
+      const enhance = graphMod?.comboStateEnhance?.[cs.stateId];
+      const eff = { ...cs.effect, ...perSkill, ...enhance };
+
+      if (eff.incDamage) damageMult *= (1 + eff.incDamage / 100);
+      if (eff.incCritChance) effectiveStats.critChance += eff.incCritChance;
+      if (eff.incCritMultiplier) effectiveStats.critMultiplier += eff.incCritMultiplier;
+      if (eff.guaranteedCrit) effectiveStats.critChance = 100;
+      if (eff.ailmentPotency) comboAilmentPotency += eff.ailmentPotency;
+      if (eff.cdRefundPercent) comboCdRefundPercent += eff.cdRefundPercent;
     }
   }
 
@@ -347,8 +358,8 @@ export function runCombatTick(
 
   const roll = rollSkillCast(skill, effectiveStats, avgDamage, spellPower, damageMult, graphMod ?? undefined, effectiveConversion, elementTransform);
 
-  // Ailment potency: scale snapshot damage for debuff application
-  const ailmentPotencyMult = 1 + ((effectiveStats.ailmentPotency ?? 0) + (graphMod?.ailmentPotency ?? 0)) / 100;
+  // Ailment potency: scale snapshot damage for debuff application (includes combo state bonus)
+  const ailmentPotencyMult = 1 + ((effectiveStats.ailmentPotency ?? 0) + (graphMod?.ailmentPotency ?? 0) + comboAilmentPotency) / 100;
   const ailmentSnapshot = roll.damage * ailmentPotencyMult;
 
   // Post-roll conditional modifiers (on conditions)
@@ -556,15 +567,48 @@ export function runCombatTick(
   const comboConfig = COMBO_STATE_CREATORS[skill.id];
   if (comboConfig && roll.isHit) {
     const trigger = comboConfig.createOn ?? 'onCast';
-    const shouldCreate = trigger === 'onCast'
+    let shouldCreate = trigger === 'onCast'
       || (trigger === 'onCrit' && roll.isCrit);
     // onKill handled later in kill block
-    if (shouldCreate) {
-      newComboStates = createComboState(
-        newComboStates, comboConfig.stateId, skill.id,
-        comboConfig.effect, comboConfig.duration, comboConfig.maxStacks,
-      );
+
+    // Gate: minTargetsHit — only create if skill hits enough distinct targets
+    if (shouldCreate && comboConfig.minTargetsHit) {
+      const totalHits = Math.max(1, (skill.hitCount ?? 1) + (graphMod?.extraHits ?? 0));
+      const targetsHit = Math.min(totalHits, state.packMobs.length);
+      if (targetsHit < comboConfig.minTargetsHit) shouldCreate = false;
     }
+
+    if (shouldCreate) {
+      // comboStateReplace: talent tree substitutes one state for another
+      const replace = graphMod?.comboStateReplace;
+      if (replace && replace.from === comboConfig.stateId) {
+        newComboStates = createComboState(
+          newComboStates, replace.to, skill.id,
+          replace.effect, replace.duration, 1,
+        );
+      } else {
+        newComboStates = createComboState(
+          newComboStates, comboConfig.stateId, skill.id,
+          comboConfig.effect, comboConfig.duration, comboConfig.maxStacks,
+        );
+      }
+    }
+  }
+
+  // Trap placement: Blade Trap creates a trap on cast
+  let newActiveTraps = tickTraps([...state.activeTraps], dtSec, now);
+  if (skill.id === 'dagger_blade_trap' && roll.isHit) {
+    const armDelay = (graphMod?.armTimeOverride && graphMod.armTimeOverride > 0) ? graphMod.armTimeOverride : 1.5;
+    newActiveTraps.push({
+      trapId: `trap_${now}`,
+      sourceSkillId: skill.id,
+      placedAt: now,
+      armDelay,
+      isArmed: false,
+      damage: roll.damage,
+      duration: 30,
+      remainingDuration: 30,
+    });
   }
 
   // consumeDebuff: consume all stacks, deal burst damage
@@ -664,6 +708,8 @@ export function runCombatTick(
     let effectiveCD = baseCd * (1 - (graphMod?.cooldownReduction ?? 0) / 100);
     // Apply combo state CD acceleration (Shadow Momentum, etc.)
     if (cdAcceleration > 0) effectiveCD = Math.max(1, effectiveCD - cdAcceleration);
+    // Apply combo state CD refund (Shadow Mark → Assassinate, etc.)
+    if (comboCdRefundPercent > 0) effectiveCD *= (1 - comboCdRefundPercent / 100);
     if (effectiveStats.abilityHaste > 0) {
       effectiveCD = effectiveCD / (1 + effectiveStats.abilityHaste / 100);
     }
@@ -815,6 +861,18 @@ export function runCombatTick(
     if (bossAttackResult?.isDodged) newLastDodgeAt = now;
     if (bossAttackResult && bossAttackResult.damage > 0) newKillStreak = 0;
 
+    // Trap detonation: enemy attacking triggers armed traps
+    if (bossAttackResult && newActiveTraps.length > 0) {
+      const { detonated, remaining } = detonateTrap(newActiveTraps);
+      if (detonated) {
+        newActiveTraps = remaining;
+        const detonationBonus = 1 + (graphMod?.detonationDamageBonus ?? 0) / 100;
+        const trapDmg = detonated.damage * detonationBonus;
+        newBossHp -= trapDmg;
+        totalDamage += trapDmg;
+      }
+    }
+
     // Defensive proc evaluation (onDodge + onBlock triggers)
     if (graphMod?.skillProcs?.length && bossAttackResult) {
       const defenseTriggers: TriggerCondition[] = [];
@@ -847,6 +905,22 @@ export function runCombatTick(
             applyDebuffToList(newDebuffs, pd.debuffId, pd.stacks, pd.duration, pd.skillId);
           }
         }
+      }
+    }
+
+    // Counter-attack: fire on dodge/block if skill tree grants counter-hits
+    if (graphMod?.counterHitDamage && bossAttackResult &&
+        (bossAttackResult.isDodged || bossAttackResult.isBlocked)) {
+      const counterBase = avgDamage * graphMod.counterHitDamage / 100;
+      let counterDmg = counterBase;
+      if (graphMod.counterCanCrit) {
+        const counterCrit = Math.random() < (effectiveStats.critChance / 100);
+        if (counterCrit) counterDmg *= effectiveStats.critMultiplier / 100;
+      }
+      newBossHp -= counterDmg;
+      totalDamage += counterDmg;
+      if (graphMod.counterHitHeal) {
+        procHeal += effectiveMaxLife * graphMod.counterHitHeal / 100;
       }
     }
 
@@ -1404,6 +1478,7 @@ export function runCombatTick(
     lastHitMobTypeId: state.currentMobTypeId,
     lastProcTriggerAt: newLastProcTriggerAt,
     comboStates: newComboStates,
+    activeTraps: newActiveTraps,
   };
 
   // ES recharge per tick

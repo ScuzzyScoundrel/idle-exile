@@ -14,6 +14,7 @@ export interface ComboStateConfig {
   maxStacks: number;
   effect: ComboStateEffect;
   createOn?: 'onCast' | 'onCrit' | 'onKill';  // default: onCast
+  minTargetsHit?: number;   // gate: only create if skill hits N+ distinct targets
 }
 
 /** Default combo states created by dagger skills on cast.
@@ -35,11 +36,21 @@ export const COMBO_STATE_CREATORS: Record<string, ComboStateConfig> = {
                           effect: { burstDamage: 50, burstElement: 'chaos' } },
   // Shadow Mark: applies Shadow Mark debuff — empowers next skill per-skill
   dagger_shadow_mark:   { stateId: 'shadow_mark',      duration: 5, maxStacks: 1, createOn: 'onCast',
-                          effect: { incDamage: 20 } },
+                          effect: { incDamage: 20, perSkillBonus: {
+                            dagger_stab:          { guaranteedCrit: true },
+                            dagger_blade_dance:   { incDamage: 30 },
+                            dagger_fan_of_knives: { incDamage: 30 },
+                            dagger_viper_strike:  { ailmentPotency: 50 },
+                            dagger_assassinate:   { cdRefundPercent: 50 },
+                            dagger_chain_strike:  { extraChains: 2 },
+                            dagger_blade_ward:    { incDamage: 30 },
+                            dagger_blade_trap:    { incDamage: 50 },
+                            dagger_shadow_dash:   { incDamage: 20 },
+                          } } },
   // Chain Strike: chaining to 3+ targets creates Chain Surge (3s)
   // Next single-target skill also chains to 1 additional enemy
   dagger_chain_strike:  { stateId: 'chain_surge',      duration: 3, maxStacks: 1, createOn: 'onCast',
-                          effect: { incDamage: 10 } },
+                          effect: { incDamage: 10 }, minTargetsHit: 3 },
   // Blade Ward: receiving 3+ hits during ward creates Guarded (3s)
   // Next skill deals +20% damage
   dagger_blade_ward:    { stateId: 'guarded',          duration: 3, maxStacks: 1, createOn: 'onCast',
