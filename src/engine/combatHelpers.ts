@@ -58,7 +58,7 @@ export function evaluateCondition(
   switch (condition) {
     case 'onHit': return ctx.isHit;
     case 'onCrit': return ctx.isCrit;
-    case 'onKill': return false;           // evaluated separately in death loop
+    case 'onKill': return (ctx.killStreak ?? 0) > 0; // approximate: recent kills exist
     case 'onBlock': return ctx.now - ctx.lastBlockAt < BLOCK_DODGE_RECENCY_WINDOW;
     case 'onDodge': return ctx.now - ctx.lastDodgeAt < BLOCK_DODGE_RECENCY_WINDOW;
     case 'onDebuffApplied': return false;  // evaluated separately after debuff application
@@ -97,8 +97,8 @@ export function evaluateCondition(
     case 'afterCastOnMultipleTargets': return (ctx.targetsHitLastCast ?? 1) >= (threshold ?? 2);
     case 'perTargetInLastCast': return (ctx.targetsHitLastCast ?? 1) >= 1;
     case 'whileSkillOnCooldown': return ctx.skillTimers?.some(t => t.cooldownUntil != null && t.cooldownUntil > ctx.now) ?? false;
-    case 'afterDetonation': return false; // evaluated separately in trap detonation block
-    case 'onDetonation': return false;    // evaluated separately in trap detonation block
+    case 'afterDetonation': return (ctx.activeTrapsCount ?? 0) > 0; // approximate: traps deployed
+    case 'onDetonation': return (ctx.activeTrapsCount ?? 0) > 0;  // approximate: traps deployed
     case 'previousSkillWas': {
       // Check if the previous skill in the cast history matches threshold (as string ID)
       const history = ctx.lastSkillsCast;
@@ -136,14 +136,14 @@ export function evaluateCondition(
     case 'perCounterHitInWard': return (ctx.wardHits ?? 0) >= (threshold ?? 1);
     case 'perHitReceivedDuringWard': return (ctx.wardHits ?? 0) >= (threshold ?? 1);
     case 'counterHitKillDuringWard': return ctx.wardActive === true && (ctx.killStreak ?? 0) > 0;
-    case 'detonationKill': return false; // evaluated in trap detonation block
+    case 'detonationKill': return (ctx.killStreak ?? 0) > 0 && (ctx.activeTrapsCount ?? 0) > 0;
     case 'onFirstHitVsTarget': return ctx.consecutiveHits === 0 && ctx.isHit;
     case 'afterCastHitCount': return ctx.consecutiveHits >= (threshold ?? 1);
     case 'perOtherSkillOnCooldown': {
       const othersOnCd = ctx.skillTimers?.filter(t => t.skillId !== ctx.lastSkillId && t.cooldownUntil != null && t.cooldownUntil > ctx.now);
       return (othersOnCd?.length ?? 0) >= (threshold ?? 1);
     }
-    case 'empoweredSkillKill': return false; // evaluated in kill block
+    case 'empoweredSkillKill': return (ctx.killStreak ?? 0) > 0 && (ctx.comboStateIds?.includes('shadow_momentum') ?? false);
     case 'afterTrapPlacement': return (ctx.activeTrapsCount ?? 0) > 0;
     case 'trapAilments': return (ctx.totalTargetDebuffStacks ?? 0) >= (threshold ?? 1);
     case 'sdAilments': return (ctx.totalTargetDebuffStacks ?? 0) >= (threshold ?? 1);
@@ -160,7 +160,7 @@ export function evaluateCondition(
     case 'perUniqueTargetInLastCast': return (ctx.targetsHitLastCast ?? 1) >= (threshold ?? 1);
     case 'perOtherSkillAilmentOnTarget': return (ctx.targetDebuffCount ?? 0) >= (threshold ?? 1);
     case 'perViperStrikeAilmentGlobal': return (ctx.targetDebuffCount ?? 0) >= (threshold ?? 1);
-    case 'afterAilmentConsumption': return false; // evaluated after ailment consume
+    case 'afterAilmentConsumption': return (ctx.targetDebuffCount ?? 0) > 0; // approximate: ailments present to consume
     case 'ailmentAge': return true; // approximate: ailments are always aging
     case 'ailmentAgeScaling': return true; // approximate: scaling with ailment age
     case 'ailmentKillAfterFoK': return ctx.lastSkillId === 'dagger_fan_of_knives' && (ctx.killStreak ?? 0) > 0;
@@ -254,6 +254,9 @@ const PRE_ROLL_CONDITIONS: Set<TriggerCondition> = new Set([
   'firstSkillInEncounter', 'afterCast', 'targetHasActiveAilment',
   'whilePackSize', 'whileTargetsHit', 'skillsCastSinceLast',
   'perOwnAilmentOnTarget', 'perAilmentStackOnTarget',
+  // Event-based conditions (approximated as state checks so they fire during pre-roll)
+  'onKill', 'onDetonation', 'afterDetonation', 'detonationKill',
+  'empoweredSkillKill', 'afterAilmentConsumption',
 ]);
 
 export function evaluateConditionalMods(
