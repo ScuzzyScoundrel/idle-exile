@@ -11,6 +11,128 @@ import type { ResolvedSkillModifier } from './skillGraph';
 import { EMPTY_GRAPH_MOD } from './skillGraph';
 import { TALENT_TIER_GATES } from '../data/balance';
 
+// ─── Generic Modifier Merger ─────────────────────────────
+// Reflection-based: discovers target fields from EMPTY_GRAPH_MOD and determines
+// merge semantics from the empty value's type. New fields added to
+// ResolvedSkillModifier auto-merge with ZERO hand-coding.
+
+/** Non-zero source REPLACES target (last-wins override, where 0 = "not set"). */
+const OVERRIDE_NUMERIC = new Set([
+  'cooldownMultiplier', 'ailmentPotencyMult', 'ailmentEffectMult',
+  'ailmentPotencyOverride', 'weaponDamageOverride', 'directDamageOverride',
+  'executeScaling', 'secondCastDamageMult',
+]);
+
+/** Source takes the MAX of source and target. */
+const MAX_WINS_NUMERIC = new Set([
+  'executeThreshold', 'critChanceCap',
+]);
+
+/** Single-value source fields that push into differently-named target arrays. */
+const SINGLE_TO_ARRAY: Record<string, string> = {
+  applyDebuff: 'debuffs',
+  procOnHit: 'procs',
+  addTag: 'addTags',
+  removeTag: 'removeTags',
+};
+
+/** Array source fields that spread into differently-named target arrays. */
+const ARRAY_REMAP: Record<string, string> = {
+  procs: 'skillProcs',
+};
+
+/** Fields handled with special logic outside the generic merge. */
+const SPECIAL_FIELDS = new Set([
+  'abilityEffect', 'globalEffect', 'convertElement', 'convertToAoE',
+]);
+
+/**
+ * Auto-merge a SkillModifier into a ResolvedSkillModifier.
+ * Semantics derived from EMPTY_GRAPH_MOD field types:
+ *   number  → additive (unless OVERRIDE_NUMERIC or MAX_WINS_NUMERIC)
+ *   boolean → OR
+ *   array   → push/spread
+ *   null    → last-wins (complex objects)
+ *   object  → deep merge (Record fields like comboStateEnhance)
+ */
+function autoMergeModifier(result: ResolvedSkillModifier, m: SkillModifier): void {
+  for (const [key, val] of Object.entries(m)) {
+    if (val === undefined) continue;
+
+    // Skip fields with special merge logic
+    if (SPECIAL_FIELDS.has(key)) continue;
+
+    // Single-to-array remappings (addTag→addTags, applyDebuff→debuffs, etc.)
+    if (key in SINGLE_TO_ARRAY) {
+      if (val != null) (result as any)[SINGLE_TO_ARRAY[key]].push(val);
+      continue;
+    }
+
+    // Array remappings (procs→skillProcs)
+    if (key in ARRAY_REMAP) {
+      if (Array.isArray(val) && val.length > 0) (result as any)[ARRAY_REMAP[key]].push(...val);
+      continue;
+    }
+
+    // Only merge fields that exist on the target type
+    if (!(key in EMPTY_GRAPH_MOD)) continue;
+    const emptyVal = (EMPTY_GRAPH_MOD as any)[key];
+
+    // Number fields
+    if (typeof emptyVal === 'number') {
+      if (typeof val !== 'number' || val === 0) continue;
+      if (OVERRIDE_NUMERIC.has(key)) (result as any)[key] = val;
+      else if (MAX_WINS_NUMERIC.has(key)) (result as any)[key] = Math.max((result as any)[key], val);
+      else (result as any)[key] += val;
+      continue;
+    }
+
+    // Boolean fields → OR
+    if (typeof emptyVal === 'boolean') {
+      if (val) (result as any)[key] = true;
+      continue;
+    }
+
+    // Array fields → spread
+    if (Array.isArray(emptyVal)) {
+      if (Array.isArray(val) && val.length > 0) (result as any)[key].push(...val);
+      continue;
+    }
+
+    // Null fields → last-wins (complex objects)
+    if (emptyVal === null) {
+      if (val != null) (result as any)[key] = val;
+      continue;
+    }
+
+    // Non-null object fields → deep merge (Record<string, ...>)
+    if (typeof emptyVal === 'object' && typeof val === 'object' && val !== null) {
+      for (const [subKey, subVal] of Object.entries(val)) {
+        (result as any)[key][subKey] = { ...(result as any)[key]?.[subKey], ...(subVal as any) };
+      }
+      continue;
+    }
+  }
+}
+
+/** Merge two AbilityEffects: mult fields multiply, additive fields sum, boolean OR. */
+function mergeAbilityEffect(base: AbilityEffect, src: Partial<AbilityEffect>): AbilityEffect {
+  return {
+    damageMult: (base.damageMult ?? 1) * (src.damageMult ?? 1),
+    attackSpeedMult: (base.attackSpeedMult ?? 1) * (src.attackSpeedMult ?? 1),
+    defenseMult: (base.defenseMult ?? 1) * (src.defenseMult ?? 1),
+    clearSpeedMult: (base.clearSpeedMult ?? 1) * (src.clearSpeedMult ?? 1),
+    xpMult: (base.xpMult ?? 1) * (src.xpMult ?? 1),
+    itemDropMult: (base.itemDropMult ?? 1) * (src.itemDropMult ?? 1),
+    materialDropMult: (base.materialDropMult ?? 1) * (src.materialDropMult ?? 1),
+    critChanceBonus: (base.critChanceBonus ?? 0) + (src.critChanceBonus ?? 0),
+    critMultiplierBonus: (base.critMultiplierBonus ?? 0) + (src.critMultiplierBonus ?? 0),
+    resistBonus: (base.resistBonus ?? 0) + (src.resistBonus ?? 0),
+    ignoreHazards: (base.ignoreHazards ?? false) || (src.ignoreHazards ?? false),
+    doubleClears: (base.doubleClears ?? false) || (src.doubleClears ?? false),
+  };
+}
+
 // ─── Helpers ───
 
 /** Find a node in the tree by ID. */
@@ -155,54 +277,18 @@ export function resolveTalentModifiers(
       const m = getEffectiveModifier(node, rank);
       if (!m) continue;
 
-      // --- Merge logic (mirrors resolveSkillGraphModifiers) ---
+      // --- Generic merge: auto-discovers fields from EMPTY_GRAPH_MOD ---
+      autoMergeModifier(result, m);
 
-      // Additive stat sums
-      if (m.incDamage) result.incDamage += m.incDamage;
-      if (m.flatDamage) result.flatDamage += m.flatDamage;
-      if (m.incCritChance) result.incCritChance += m.incCritChance;
-      if (m.incCritMultiplier) result.incCritMultiplier += m.incCritMultiplier;
-      if (m.incCastSpeed) result.incCastSpeed += m.incCastSpeed;
-      if (m.extraHits) result.extraHits += m.extraHits;
-      if (m.durationBonus) result.durationBonus += m.durationBonus;
-      if (m.cooldownReduction) result.cooldownReduction += m.cooldownReduction;
+      // --- Special merges (can't be auto-detected) ---
 
       // AbilityEffect: mult*mult, add+add
       if (m.abilityEffect) {
         const ae = m.abilityEffect;
-        abilEffect = {
-          damageMult: (abilEffect.damageMult ?? 1) * (ae.damageMult ?? 1),
-          attackSpeedMult: (abilEffect.attackSpeedMult ?? 1) * (ae.attackSpeedMult ?? 1),
-          defenseMult: (abilEffect.defenseMult ?? 1) * (ae.defenseMult ?? 1),
-          clearSpeedMult: (abilEffect.clearSpeedMult ?? 1) * (ae.clearSpeedMult ?? 1),
-          xpMult: (abilEffect.xpMult ?? 1) * (ae.xpMult ?? 1),
-          itemDropMult: (abilEffect.itemDropMult ?? 1) * (ae.itemDropMult ?? 1),
-          materialDropMult: (abilEffect.materialDropMult ?? 1) * (ae.materialDropMult ?? 1),
-          critChanceBonus: (abilEffect.critChanceBonus ?? 0) + (ae.critChanceBonus ?? 0),
-          critMultiplierBonus: (abilEffect.critMultiplierBonus ?? 0) + (ae.critMultiplierBonus ?? 0),
-          resistBonus: (abilEffect.resistBonus ?? 0) + (ae.resistBonus ?? 0),
-          ignoreHazards: (abilEffect.ignoreHazards ?? false) || (ae.ignoreHazards ?? false),
-          doubleClears: (abilEffect.doubleClears ?? false) || (ae.doubleClears ?? false),
-        };
+        abilEffect = mergeAbilityEffect(abilEffect, ae);
       }
-
-      // GlobalEffect: same merge
       if (m.globalEffect) {
-        const ge = m.globalEffect;
-        globalEff = {
-          damageMult: (globalEff.damageMult ?? 1) * (ge.damageMult ?? 1),
-          attackSpeedMult: (globalEff.attackSpeedMult ?? 1) * (ge.attackSpeedMult ?? 1),
-          defenseMult: (globalEff.defenseMult ?? 1) * (ge.defenseMult ?? 1),
-          clearSpeedMult: (globalEff.clearSpeedMult ?? 1) * (ge.clearSpeedMult ?? 1),
-          xpMult: (globalEff.xpMult ?? 1) * (ge.xpMult ?? 1),
-          itemDropMult: (globalEff.itemDropMult ?? 1) * (ge.itemDropMult ?? 1),
-          materialDropMult: (globalEff.materialDropMult ?? 1) * (ge.materialDropMult ?? 1),
-          critChanceBonus: (globalEff.critChanceBonus ?? 0) + (ge.critChanceBonus ?? 0),
-          critMultiplierBonus: (globalEff.critMultiplierBonus ?? 0) + (ge.critMultiplierBonus ?? 0),
-          resistBonus: (globalEff.resistBonus ?? 0) + (ge.resistBonus ?? 0),
-          ignoreHazards: (globalEff.ignoreHazards ?? false) || (ge.ignoreHazards ?? false),
-          doubleClears: (globalEff.doubleClears ?? false) || (ge.doubleClears ?? false),
-        };
+        globalEff = mergeAbilityEffect(globalEff, m.globalEffect);
       }
 
       // Conversion: same-target additive (cap 100%), different-target overrides
@@ -217,68 +303,6 @@ export function resolveTalentModifiers(
         }
       }
       if (m.convertToAoE) result.convertToAoE = true;
-
-      // Collect debuffs and procs
-      if (m.applyDebuff) result.debuffs.push(m.applyDebuff);
-      if (m.procOnHit) result.procs.push(m.procOnHit);
-      if (m.flags) result.flags.push(...m.flags);
-
-      // Array collectors
-      if (m.conditionalMods) result.conditionalMods.push(...m.conditionalMods);
-      if (m.procs) result.skillProcs.push(...m.procs);
-      if (m.splitDamage) result.splitDamage.push(...m.splitDamage);
-      if (m.addTag) result.addTags.push(m.addTag);
-      if (m.removeTag) result.removeTags.push(m.removeTag);
-
-      // Additive scalars
-      if (m.damageFromArmor) result.damageFromArmor += m.damageFromArmor;
-      if (m.damageFromEvasion) result.damageFromEvasion += m.damageFromEvasion;
-      if (m.damageFromMaxLife) result.damageFromMaxLife += m.damageFromMaxLife;
-      if (m.leechPercent) result.leechPercent += m.leechPercent;
-      if (m.lifeOnHit) result.lifeOnHit += m.lifeOnHit;
-      if (m.lifeOnKill) result.lifeOnKill += m.lifeOnKill;
-      if (m.chainCount) result.chainCount += m.chainCount;
-      if (m.forkCount) result.forkCount += m.forkCount;
-      if (m.pierceCount) result.pierceCount += m.pierceCount;
-      if (m.overkillDamage) result.overkillDamage += m.overkillDamage;
-      if (m.selfDamagePercent) result.selfDamagePercent += m.selfDamagePercent;
-      if (m.reducedMaxLife) result.reducedMaxLife += m.reducedMaxLife;
-      if (m.increasedDamageTaken) result.increasedDamageTaken += m.increasedDamageTaken;
-
-      // Multiplicative offense stats (additive sum)
-      if (m.firePenetration) result.firePenetration += m.firePenetration;
-      if (m.coldPenetration) result.coldPenetration += m.coldPenetration;
-      if (m.lightningPenetration) result.lightningPenetration += m.lightningPenetration;
-      if (m.chaosPenetration) result.chaosPenetration += m.chaosPenetration;
-      if (m.dotMultiplier) result.dotMultiplier += m.dotMultiplier;
-      if (m.weaponMastery) result.weaponMastery += m.weaponMastery;
-      if (m.ailmentDuration) result.ailmentDuration += m.ailmentDuration;
-
-      // Dagger v2: additive scalars
-      if (m.cooldownIncrease) result.cooldownIncrease += m.cooldownIncrease;
-      if (m.ailmentPotency) result.ailmentPotency += m.ailmentPotency;
-
-      // Dagger v2: last-wins
-      if (m.comboStateCreation) result.comboStateCreation = m.comboStateCreation;
-
-      // Max-wins
-      if (m.executeThreshold) result.executeThreshold = Math.max(result.executeThreshold, m.executeThreshold);
-
-      // Boolean OR
-      if (m.cannotLeech) result.cannotLeech = true;
-      if (m.critsDoNoBonusDamage) result.critsDoNoBonusDamage = true;
-
-      // Max-wins (numeric)
-      if (m.critChanceCap) result.critChanceCap = Math.max(result.critChanceCap, m.critChanceCap);
-
-      // Last-wins (complex objects)
-      if (m.debuffInteraction) result.debuffInteraction = m.debuffInteraction;
-      if (m.chargeConfig) result.chargeConfig = m.chargeConfig;
-      if (m.fortifyOnHit) result.fortifyOnHit = m.fortifyOnHit;
-      if (m.rampingDamage) result.rampingDamage = m.rampingDamage;
-      if (m.berserk) result.berserk = m.berserk;
-      if (m.executeOnly) result.executeOnly = m.executeOnly;
-      if (m.castPriority) result.castPriority = m.castPriority;
     }
   }
 
@@ -291,7 +315,10 @@ export function resolveTalentModifiers(
  * Get the effective modifier for a talent node at a given rank.
  *
  * Behavior nodes (maxRank:2) with perRankModifiers:
- *   Use perRankModifiers[rank] directly — rank 2 REPLACES rank 1.
+ *   Inherit base modifier qualitative fields (conditionalMods, procs, etc.),
+ *   then overlay perRankModifiers[rank] on top. Rank-specific numeric fields
+ *   OVERRIDE the base, but qualitative fields from the base are preserved
+ *   unless the rank override explicitly sets them.
  *
  * Behavior nodes (maxRank:2) WITHOUT perRankModifiers:
  *   Scale modifier additively: field * rank.
@@ -302,10 +329,11 @@ export function resolveTalentModifiers(
 function getEffectiveModifier(node: TalentNode, rank: number): SkillModifier | null {
   if (rank === 0) return null;
 
-  // If perRankModifiers exist and have a non-empty entry for this rank, use it directly
+  // If perRankModifiers exist, overlay them on the base modifier so qualitative
+  // fields (conditionalMods, procs, comboStateReplace, etc.) are inherited.
   if (node.perRankModifiers && node.perRankModifiers[rank]
       && Object.keys(node.perRankModifiers[rank]).length > 0) {
-    return node.perRankModifiers[rank];
+    return { ...node.modifier, ...node.perRankModifiers[rank] };
   }
 
   // For maxRank:1 nodes (notables, keystones) or rank 1 of any node

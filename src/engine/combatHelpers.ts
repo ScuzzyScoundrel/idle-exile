@@ -192,7 +192,38 @@ export interface ConditionalModResult {
   evasionBonus: number;
   counterDamageMult: number;
   increasedDamageTaken: number;
+  // v2 expanded: auto-merged from conditional mod modifiers
+  extraHits: number;
+  lifeOnHit: number;
+  chainCount: number;
+  pierceCount: number;
+  ailmentPotencyMult: number;
+  globalIncDamage: number;
+  counterHitDamage: number;
+  detonationDamageBonus: number;
+  wardDRBonus: number;
+  shadowPhaseCounterDamage: number;
 }
+
+/** Empty pre-roll result (identity). Used by auto-merge to discover fields. */
+const EMPTY_PRE_ROLL: ConditionalModResult = {
+  incDamage: 0, flatDamage: 0, incCritChance: 0,
+  incCritMultiplier: 0, incCastSpeed: 0, damageMult: 1,
+  dodgeChance: 0, damageReduction: 0, ailmentPotency: 0,
+  leechPercent: 0, cooldownReduction: 0, ailmentDuration: 0,
+  ailmentDamageBonus: 0, dotMultiplier: 0, weaponMastery: 0,
+  evasionBonus: 0, counterDamageMult: 0, increasedDamageTaken: 0,
+  extraHits: 0, lifeOnHit: 0, chainCount: 0, pierceCount: 0,
+  ailmentPotencyMult: 0, globalIncDamage: 0, counterHitDamage: 0,
+  detonationDamageBonus: 0, wardDRBonus: 0, shadowPhaseCounterDamage: 0,
+};
+
+/** Alias mappings: source modifier field → target ConditionalModResult field. */
+const PRE_ROLL_ALIASES: Record<string, string> = {
+  dodgeChanceBonus: 'dodgeChance',
+  ailmentPotencyBonus: 'ailmentPotency',
+  ailmentDurationBonus: 'ailmentDuration',
+};
 
 const PRE_ROLL_CONDITIONS: Set<TriggerCondition> = new Set([
   'whileLowHp', 'whileFullHp', 'whileDebuffActive',
@@ -215,14 +246,7 @@ export function evaluateConditionalMods(
   ctx: ConditionContext,
   timing: 'pre-roll' | 'post-roll',
 ): ConditionalModResult {
-  const result: ConditionalModResult = {
-    incDamage: 0, flatDamage: 0, incCritChance: 0,
-    incCritMultiplier: 0, incCastSpeed: 0, damageMult: 1,
-    dodgeChance: 0, damageReduction: 0, ailmentPotency: 0,
-    leechPercent: 0, cooldownReduction: 0, ailmentDuration: 0,
-    ailmentDamageBonus: 0, dotMultiplier: 0, weaponMastery: 0,
-    evasionBonus: 0, counterDamageMult: 0, increasedDamageTaken: 0,
-  };
+  const result: ConditionalModResult = { ...EMPTY_PRE_ROLL };
   for (const cm of mods) {
     const isPre = PRE_ROLL_CONDITIONS.has(cm.condition);
     if (timing === 'pre-roll' && !isPre) continue;
@@ -238,29 +262,19 @@ export function evaluateConditionalMods(
     } else {
       if (!evaluateCondition(cm.condition, cm.threshold, ctx)) continue;
     }
+
+    // Generic merge: auto-discovers fields from EMPTY_PRE_ROLL
     const m = cm.modifier;
-    if (m.incDamage) result.incDamage += m.incDamage;
-    if (m.flatDamage) result.flatDamage += m.flatDamage;
-    if (m.incCritChance) result.incCritChance += m.incCritChance;
-    if (m.incCritMultiplier) result.incCritMultiplier += m.incCritMultiplier;
-    if (m.incCastSpeed) result.incCastSpeed += m.incCastSpeed;
+    for (const [key, val] of Object.entries(m)) {
+      if (val === undefined || typeof val !== 'number' || val === 0) continue;
+      // Check aliases first (dodgeChanceBonus→dodgeChance, etc.)
+      const targetKey = PRE_ROLL_ALIASES[key] ?? key;
+      if (targetKey in EMPTY_PRE_ROLL && targetKey !== 'damageMult') {
+        (result as any)[targetKey] += val;
+      }
+    }
+    // damageMult is multiplicative, sourced from abilityEffect
     if (m.abilityEffect?.damageMult) result.damageMult *= m.abilityEffect.damageMult;
-    // Sprint 1D: expanded field extraction
-    if (m.dodgeChance) result.dodgeChance += m.dodgeChance;
-    if (m.dodgeChanceBonus) result.dodgeChance += m.dodgeChanceBonus;
-    if (m.damageReduction) result.damageReduction += m.damageReduction;
-    if (m.ailmentPotency) result.ailmentPotency += m.ailmentPotency;
-    if (m.ailmentPotencyBonus) result.ailmentPotency += m.ailmentPotencyBonus;
-    if (m.leechPercent) result.leechPercent += m.leechPercent;
-    if (m.cooldownReduction) result.cooldownReduction += m.cooldownReduction;
-    if (m.ailmentDuration) result.ailmentDuration += m.ailmentDuration;
-    if (m.ailmentDurationBonus) result.ailmentDuration += m.ailmentDurationBonus;
-    if (m.ailmentDamageBonus) result.ailmentDamageBonus += m.ailmentDamageBonus;
-    if (m.dotMultiplier) result.dotMultiplier += m.dotMultiplier;
-    if (m.weaponMastery) result.weaponMastery += m.weaponMastery;
-    if (m.evasionBonus) result.evasionBonus += m.evasionBonus;
-    if (m.counterDamageMult) result.counterDamageMult += m.counterDamageMult;
-    if (m.increasedDamageTaken) result.increasedDamageTaken += m.increasedDamageTaken;
   }
   return result;
 }

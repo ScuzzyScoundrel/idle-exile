@@ -354,6 +354,17 @@ export function runCombatTick(
     condDamageReduction = preRoll.damageReduction;
     condCooldownReduction = preRoll.cooldownReduction;
     condIncreasedDamageTaken = preRoll.increasedDamageTaken;
+    // v2 expanded conditional fields
+    if (preRoll.extraHits) damageMult *= (1 + preRoll.extraHits * 0.5);
+    if (preRoll.lifeOnHit) effectiveStats.lifeOnHit += preRoll.lifeOnHit;
+    if (preRoll.chainCount) damageMult *= (1 + preRoll.chainCount * 0.3);
+    if (preRoll.pierceCount) damageMult *= (1 + preRoll.pierceCount * 0.3);
+    if (preRoll.globalIncDamage) damageMult *= (1 + preRoll.globalIncDamage / 100);
+    if (preRoll.counterHitDamage) damageMult *= (1 + preRoll.counterHitDamage / 100);
+    if (preRoll.detonationDamageBonus) damageMult *= (1 + preRoll.detonationDamageBonus / 100);
+    if (preRoll.wardDRBonus) condDamageReduction += preRoll.wardDRBonus;
+    if (preRoll.shadowPhaseCounterDamage) damageMult *= (1 + preRoll.shadowPhaseCounterDamage / 100);
+    if (preRoll.ailmentPotencyMult) condAilmentPotency += preRoll.ailmentPotencyMult;
   }
 
   // Apply graph + conditional cast speed bonus
@@ -470,6 +481,11 @@ export function runCombatTick(
     cdAcceleration = accelState.effect.cooldownAcceleration ?? 0;
     const { remaining: accelRemaining } = consumeComboState(newComboStates, accelState.stateId);
     newComboStates = accelRemaining;
+  }
+
+  // Weapon mastery: multiplicative damage bonus (mirrors zones/dps.ts masteryMult)
+  if (effectiveStats.weaponMastery > 0) {
+    damageMult *= (1 + effectiveStats.weaponMastery / 100);
   }
 
   const roll = rollSkillCast(skill, effectiveStats, avgDamage, spellPower, damageMult, graphMod ?? undefined, effectiveConversion, elementTransform);
