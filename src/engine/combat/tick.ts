@@ -211,6 +211,13 @@ export function runCombatTick(
     if (graphMod.dotMultiplier) effectiveStats.dotMultiplier += graphMod.dotMultiplier;
     if (graphMod.weaponMastery) effectiveStats.weaponMastery += graphMod.weaponMastery;
     if (graphMod.ailmentDuration) effectiveStats.ailmentDuration += graphMod.ailmentDuration;
+    if (graphMod.ailmentPotency) effectiveStats.ailmentPotency = (effectiveStats.ailmentPotency ?? 0) + graphMod.ailmentPotency;
+    if (graphMod.allResist) {
+      effectiveStats.fireResist += graphMod.allResist;
+      effectiveStats.coldResist += graphMod.allResist;
+      effectiveStats.lightningResist += graphMod.allResist;
+      effectiveStats.chaosResist += graphMod.allResist;
+    }
   }
 
   // Effective max life (reducedMaxLife keystone) — hoisted for condition evaluation
@@ -224,7 +231,13 @@ export function runCombatTick(
       ? (state.bossState.bossCurrentHp / state.bossState.bossMaxHp) * 100
       : (frontMobHp / frontMobMaxHp) * 100;
     if (targetHpPct > graphMod.executeOnly.hpThreshold) {
-      // Target too healthy — skip this skill, let zone/boss damage proceed
+      if (phase === 'clearing') return applyZoneDamage(state, dtSec, now, zone);
+      return applyBossDamage(state, dtSec, now);
+    }
+  }
+  // Sprint 2C: executeLocked — skip if target above execute threshold
+  if (graphMod?.executeLocked && graphMod.executeThreshold > 0) {
+    if (targetHpPct > graphMod.executeThreshold) {
       if (phase === 'clearing') return applyZoneDamage(state, dtSec, now, zone);
       return applyBossDamage(state, dtSec, now);
     }
@@ -268,6 +281,20 @@ export function runCombatTick(
   const outgoingDmgMult = calcOutgoingDamageMult(state.character.level, zone.iLvlMin);
   let damageMult = (combinedAbilityEffect.damageMult ?? 1) * getClassDamageModifier(state.classResource, classDef) * berserkMult * chargeDamageMult * outgoingDmgMult * missingLifeDmgMult;
 
+  // Sprint 2C: keystone global damage + penalties
+  if (graphMod?.globalIncDamage) damageMult *= (1 + graphMod.globalIncDamage / 100);
+  if (graphMod?.singleTargetPenalty && state.packMobs.length <= 1) {
+    damageMult *= (1 - graphMod.singleTargetPenalty / 100);
+  }
+  if (graphMod?.nonAoePenalty && !isSkillAoE(state.skillBar, skill.id, state.skillProgress)) {
+    damageMult *= (1 - graphMod.nonAoePenalty / 100);
+  }
+  // executeScaling: +X% damage per 1% missing target HP
+  if (graphMod?.executeScaling) {
+    const missingTargetHp = 100 - targetHpPct;
+    if (missingTargetHp > 0) damageMult *= (1 + graphMod.executeScaling / 100 * missingTargetHp);
+  }
+
   // executeOnly bonus damage when target is below threshold
   if (graphMod?.executeOnly) {
     damageMult *= (1 + graphMod.executeOnly.bonusDamage / 100);
@@ -275,6 +302,14 @@ export function runCombatTick(
 
   // Pre-roll conditional modifiers (while conditions)
   let condSpeedBonus = 0;
+  let condAilmentPotency = 0;
+  let condAilmentDuration = 0;
+  let condLeechPercent = 0;
+  let condDamageReduction = 0;
+  let condCooldownReduction = 0;
+  let condAilmentDamageBonus = 0;
+  let condCounterDamageMult = 0;
+  let condIncreasedDamageTaken = 0;
   if (graphMod?.conditionalMods?.length) {
     const condCtx: ConditionContext = {
       isHit: false, isCrit: false, phase,
@@ -297,6 +332,13 @@ export function runCombatTick(
       lastSkillId: skill.id,
       lastDashAt: state.lastSkillsCast?.includes('dagger_shadow_dash') ? state.lastSkillActivation : undefined,
       skillTimers: state.skillTimers as any,
+      // Sprint 1E: expanded context
+      wardHits: state.bladeWardHits,
+      lastSkillsCast: state.lastSkillsCast,
+      activeTrapsCount: state.activeTraps.length,
+      wardExpiresAt: state.bladeWardExpiresAt,
+      trapArmedAt: state.activeTraps.length > 0 ? state.activeTraps[0].placedAt : undefined,
+      totalTargetDebuffStacks: targetDebuffs.reduce((sum, d) => sum + d.stacks, 0),
     };
     const preRoll = evaluateConditionalMods(graphMod.conditionalMods, condCtx, 'pre-roll');
     if (preRoll.incCritChance) effectiveStats.critChance += preRoll.incCritChance;
@@ -304,6 +346,20 @@ export function runCombatTick(
     if (preRoll.incDamage) damageMult *= (1 + preRoll.incDamage / 100);
     if (preRoll.damageMult !== 1) damageMult *= preRoll.damageMult;
     condSpeedBonus = preRoll.incCastSpeed;
+    // Sprint 1D: apply expanded CM fields
+    if (preRoll.weaponMastery) effectiveStats.weaponMastery += preRoll.weaponMastery;
+    if (preRoll.dotMultiplier) effectiveStats.dotMultiplier += preRoll.dotMultiplier;
+    if (preRoll.evasionBonus) effectiveStats.evasion += preRoll.evasionBonus;
+    if (preRoll.dodgeChance) effectiveStats.evasion += preRoll.dodgeChance;
+    if (preRoll.ailmentDuration) effectiveStats.ailmentDuration += preRoll.ailmentDuration;
+    condAilmentPotency = preRoll.ailmentPotency;
+    condAilmentDuration = preRoll.ailmentDuration;
+    condLeechPercent = preRoll.leechPercent;
+    condDamageReduction = preRoll.damageReduction;
+    condCooldownReduction = preRoll.cooldownReduction;
+    condAilmentDamageBonus = preRoll.ailmentDamageBonus;
+    condCounterDamageMult = preRoll.counterDamageMult;
+    condIncreasedDamageTaken = preRoll.increasedDamageTaken;
   }
 
   // Apply graph + conditional cast speed bonus
@@ -347,9 +403,11 @@ export function runCombatTick(
   let comboFocusBurst = false;  // Shadow Mark + Blade Dance: all 3 hits target same enemy
   let comboCounterDamageMult = 1; // Shadow Mark + Blade Ward: counter-hit multiplier
   let comboMarkPassthrough = false; // Shadow Mark + Shadow Dash: mark persists for next skill
+  const consumedComboStateIds: string[] = [];  // track for conditionParam.consumesBothStates
   if (consumeStateIds?.length) {
     const { consumed, remaining } = consumeMultipleComboStates(newComboStates, consumeStateIds);
     newComboStates = remaining;
+    for (const cs of consumed) consumedComboStateIds.push(cs.stateId);
     for (const cs of consumed) {
       // Resolve per-skill bonus + talent tree enhancements
       const perSkill = cs.effect.perSkillBonus?.[skill.id];
@@ -423,7 +481,12 @@ export function runCombatTick(
   const roll = rollSkillCast(skill, effectiveStats, avgDamage, spellPower, damageMult, graphMod ?? undefined, effectiveConversion, elementTransform);
 
   // Ailment potency: scale snapshot damage for debuff application (includes combo state bonus)
-  const ailmentPotencyMult = 1 + ((effectiveStats.ailmentPotency ?? 0) + (graphMod?.ailmentPotency ?? 0) + comboAilmentPotency) / 100;
+  // Sprint 2C: keystone ailment potency modifiers
+  const keystoneAilmentPenalty = (graphMod?.globalAilmentPenalty ?? 0) + (graphMod?.globalAilmentPotencyPenalty ?? 0);
+  const keystoneAilmentPerStack = (graphMod?.ailmentPotencyPerStack ?? 0) * (targetDebuffs.reduce((s, d) => s + d.stacks, 0));
+  let ailmentPotencyMult = 1 + ((effectiveStats.ailmentPotency ?? 0) + (graphMod?.ailmentPotency ?? 0) + comboAilmentPotency + condAilmentPotency + keystoneAilmentPerStack - keystoneAilmentPenalty) / 100;
+  if (graphMod?.ailmentPotencyMult) ailmentPotencyMult *= (1 + graphMod.ailmentPotencyMult / 100);
+  if (graphMod?.ailmentPotencyOverride) ailmentPotencyMult = graphMod.ailmentPotencyOverride / 100;
   const ailmentSnapshot = roll.damage * ailmentPotencyMult;
 
   // Post-roll conditional modifiers (on conditions)
@@ -447,6 +510,12 @@ export function runCombatTick(
       targetDebuffCount: targetDebuffs.length,
       lastSkillId: skill.id,
       skillTimers: state.skillTimers as any,
+      wardHits: state.bladeWardHits,
+      lastSkillsCast: state.lastSkillsCast,
+      activeTrapsCount: state.activeTraps.length,
+      wardExpiresAt: state.bladeWardExpiresAt,
+      trapArmedAt: state.activeTraps.length > 0 ? state.activeTraps[0].placedAt : undefined,
+      totalTargetDebuffStacks: targetDebuffs.reduce((sum, d) => sum + d.stacks, 0),
     };
     const postRoll = evaluateConditionalMods(graphMod.conditionalMods, postCtx, 'post-roll');
     if (postRoll.incDamage || postRoll.flatDamage || postRoll.damageMult !== 1) {
@@ -629,7 +698,7 @@ export function runCombatTick(
     const currentElement = elementTransform ?? skill.baseConversion?.to ?? 'physical';
     const autoAilment = ELEMENT_AILMENT[currentElement];
     if (autoAilment) {
-      const ailmentDur = 5 * (1 + (effectiveStats.ailmentDuration ?? 0) / 100);
+      const ailmentDur = graphMod?.ailmentsNeverExpire ? 999999 : 5 * (1 + (effectiveStats.ailmentDuration ?? 0) / 100);
       // Viper Strike: +50% ailment potency (applies to ALL ailments, not just poison)
       const skillPotencyBonus = skill.id === 'dagger_viper_strike' ? 1.5 : 1.0;
       const finalSnapshot = ailmentSnapshot * skillPotencyBonus;
@@ -676,8 +745,8 @@ export function runCombatTick(
     newBladeWardExpiresAt = now + 3000; // 3s ward window
     newBladeWardHits = 0;
   }
-  // Expire ward window
-  if (newBladeWardExpiresAt > 0 && now >= newBladeWardExpiresAt) {
+  // Expire ward window (permanentWard prevents expiry)
+  if (newBladeWardExpiresAt > 0 && now >= newBladeWardExpiresAt && !graphMod?.permanentWard) {
     newBladeWardExpiresAt = 0;
     newBladeWardHits = 0;
   }
@@ -732,6 +801,8 @@ export function runCombatTick(
   const saturatedMult = newComboStates.some(s => s.stateId === 'saturated') ? 1.15 : 1;
   const debuffDotDamage = dotResult.damage * dotVsCursedMult * saturatedMult;
   const mainPoisonInstanceCount = dotResult.poisonInstanceCount;
+  // Sprint 2A: track expired debuffs for onAilmentExpire trigger
+  const expiredDebuffCount = targetDebuffs.length - dotResult.updatedDebuffs.length;
   newDebuffs = dotResult.updatedDebuffs;
 
   // Proc evaluation (onHit + onCrit triggers)
@@ -742,6 +813,33 @@ export function runCombatTick(
   const allProcsFired: string[] = [];
   const allProcEvents: ProcEvent[] = [];
   let newLastProcTriggerAt = { ...state.lastProcTriggerAt };
+  // Shared conditionParam context for all proc evaluations (Sprint 1A)
+  const cpTargetsHit = Math.min(
+    Math.max(1, (skill.hitCount ?? 1) + (graphMod?.extraHits ?? 0)),
+    phase === 'boss_fight' ? 1 : state.packMobs.length,
+  );
+  const cpAilmentedMobs = phase === 'boss_fight'
+    ? (targetDebuffs.length > 0 ? 1 : 0)
+    : state.packMobs.filter(m => m.debuffs.length > 0).length;
+  // Build lastSkillCastAt map from recent skill casts (approximation: last activation timestamp per skill)
+  const cpLastSkillCastAt: Record<string, number> = {};
+  for (const sid of state.lastSkillsCast) cpLastSkillCastAt[sid] = state.lastSkillActivation;
+  const cpShared = {
+    targetDebuffs,
+    targetHpPercent: targetHpPct,
+    consecutiveHits: state.consecutiveHits,
+    lastDodgeAt: state.lastDodgeAt,
+    packSize: state.packMobs.length,
+    targetsHitThisCast: cpTargetsHit,
+    critsThisCast: roll.isCrit ? 1 : 0,
+    comboStatesConsumedThisTick: consumedComboStateIds,
+    lastSkillCastAt: cpLastSkillCastAt,
+    skillTimers: state.skillTimers as { skillId: string; cooldownUntil: number | null }[],
+    activeTempBuffIds: activeTempBuffs.map(b => b.id),
+    currentCharges: newSkillCharges[skill.id]?.current ?? 0,
+    ailmentedMobCount: cpAilmentedMobs,
+  };
+
   if (graphMod?.skillProcs?.length) {
     const procCtx: ProcContext = {
       isHit: roll.isHit, isCrit: roll.isCrit,
@@ -751,6 +849,7 @@ export function runCombatTick(
       damageMult, now,
       lastProcTriggerAt: newLastProcTriggerAt,
       weaponConversion,
+      ...cpShared,
     };
 
     const triggers: TriggerCondition[] = ['onCast', 'onCastComplete'];
@@ -765,6 +864,12 @@ export function runCombatTick(
       allProcsFired.push(...pr.procsFired);
       allProcEvents.push(...buildProcEvents(pr, skill.id));
       Object.assign(newLastProcTriggerAt, pr.procTriggeredAt);
+      // fortifyOnProc: accumulate fortify stacks from proc results
+      if (pr.fortifyStacks > 0) {
+        newFortifyStacks = Math.min(newFortifyStacks + pr.fortifyStacks, FORTIFY_MAX_STACKS);
+        newFortifyExpiresAt = now + pr.fortifyDuration * 1000;
+        newFortifyDRPerStack = pr.fortifyDRPerStack;
+      }
 
       // Merge proc temp buffs (stack or add)
       for (const buff of pr.newTempBuffs) {
@@ -775,6 +880,48 @@ export function runCombatTick(
       for (const pd of pr.newDebuffs) {
         applyDebuffToList(newDebuffs, pd.debuffId, pd.stacks, pd.duration, pd.skillId, ailmentSnapshot);
       }
+      // Sprint 3A: ailment detonation damage
+      if (pr.detonationDamage > 0) {
+        procDamage += pr.detonationDamage;
+        if (pr.consumeAilments) newDebuffs = [];
+      }
+      // Sprint 3C: extendAllAilments — extend active debuff durations
+      if (pr.extendAllAilments > 0) {
+        for (const deb of newDebuffs) {
+          deb.remainingDuration += pr.extendAllAilments;
+          if (deb.instances) {
+            for (const inst of deb.instances) inst.remainingDuration += pr.extendAllAilments;
+          }
+        }
+      }
+    }
+  }
+
+  // Sprint 2A: onAilmentTick + onAilmentExpire proc triggers
+  if (graphMod?.skillProcs?.length && debuffDotDamage > 0) {
+    const dotProcCtx: ProcContext = {
+      isHit: roll.isHit, isCrit: roll.isCrit,
+      skillId: skill.id, effectiveMaxLife,
+      stats: effectiveStats,
+      weaponAvgDmg: avgDamage, weaponSpellPower: spellPower,
+      damageMult, now,
+      lastProcTriggerAt: newLastProcTriggerAt,
+      ...cpShared,
+    };
+    const tickPr = evaluateProcs(graphMod.skillProcs, 'onAilmentTick', dotProcCtx);
+    procDamage += tickPr.bonusDamage;
+    allProcsFired.push(...tickPr.procsFired);
+    allProcEvents.push(...buildProcEvents(tickPr, skill.id));
+    Object.assign(newLastProcTriggerAt, tickPr.procTriggeredAt);
+    for (const buff of tickPr.newTempBuffs) activeTempBuffs = mergeProcTempBuff(activeTempBuffs, buff);
+
+    if (expiredDebuffCount > 0) {
+      const expPr = evaluateProcs(graphMod.skillProcs, 'onAilmentExpire', dotProcCtx);
+      procDamage += expPr.bonusDamage;
+      allProcsFired.push(...expPr.procsFired);
+      allProcEvents.push(...buildProcEvents(expPr, skill.id));
+      Object.assign(newLastProcTriggerAt, expPr.procTriggeredAt);
+      for (const buff of expPr.newTempBuffs) activeTempBuffs = mergeProcTempBuff(activeTempBuffs, buff);
     }
   }
 
@@ -791,11 +938,33 @@ export function runCombatTick(
     }
   }
 
+  // Sprint 2A: onAilmentApplied proc trigger — after all debuff application
+  if (graphMod?.skillProcs?.length && newDebuffs.length > targetDebuffs.length) {
+    const ailmentProcCtx: ProcContext = {
+      isHit: roll.isHit, isCrit: roll.isCrit,
+      skillId: skill.id, effectiveMaxLife,
+      stats: effectiveStats,
+      weaponAvgDmg: avgDamage, weaponSpellPower: spellPower,
+      damageMult, now,
+      lastProcTriggerAt: newLastProcTriggerAt,
+      ...cpShared,
+    };
+    const pr = evaluateProcs(graphMod.skillProcs, 'onAilmentApplied', ailmentProcCtx);
+    procDamage += pr.bonusDamage;
+    procHeal += pr.healAmount;
+    allProcsFired.push(...pr.procsFired);
+    allProcEvents.push(...buildProcEvents(pr, skill.id));
+    Object.assign(newLastProcTriggerAt, pr.procTriggeredAt);
+    for (const buff of pr.newTempBuffs) activeTempBuffs = mergeProcTempBuff(activeTempBuffs, buff);
+    for (const pd of pr.newDebuffs) applyDebuffToList(newDebuffs, pd.debuffId, pd.stacks, pd.duration, pd.skillId, ailmentSnapshot);
+  }
+
   // Life leech: base + flag bonus + graph bonus + gear bonus (cannotLeech overrides all)
   const flagLeech = graphMod?.flags.includes('lifeLeech') ? LEECH_PERCENT : 0;
   const graphLeech = graphMod?.leechPercent ? graphMod.leechPercent / 100 : 0;
   const gearLeech = effectiveStats.lifeLeechPercent ? effectiveStats.lifeLeechPercent / 100 : 0;
-  const totalLeech = (graphMod?.cannotLeech || effectiveStats.cannotLeech > 0) ? 0 : (LEECH_PERCENT + flagLeech + graphLeech + gearLeech);
+  const condLeech = condLeechPercent ? condLeechPercent / 100 : 0;
+  const totalLeech = (graphMod?.cannotLeech || effectiveStats.cannotLeech > 0) ? 0 : (LEECH_PERCENT + flagLeech + graphLeech + gearLeech + condLeech);
 
   // Update GCD: next active skill can fire after castInterval (already includes GCD floor)
   let nextActiveSkillAt = now + castInterval * 1000;
@@ -805,7 +974,8 @@ export function runCombatTick(
   let newTimers = state.skillTimers;
   if (skill.cooldown > 0) {
     const baseCd = skill.cooldown + (graphMod?.cooldownIncrease ?? 0);
-    let effectiveCD = baseCd * (1 - (graphMod?.cooldownReduction ?? 0) / 100);
+    let effectiveCD = baseCd * (1 - ((graphMod?.cooldownReduction ?? 0) + condCooldownReduction) / 100);
+    if (graphMod?.cooldownMultiplier) effectiveCD *= graphMod.cooldownMultiplier;
     // Apply combo state CD acceleration (Shadow Momentum, etc.)
     if (cdAcceleration > 0) effectiveCD = Math.max(1, effectiveCD - cdAcceleration);
     // Apply combo state CD refund (Shadow Mark → Assassinate, etc.)
@@ -944,17 +1114,20 @@ export function runCombatTick(
         // Incoming damage multiplier (increasedDamageTaken keystone + berserk)
         let incomingMult = mainEnemyMods.damageMult;
         if (graphMod?.increasedDamageTaken) incomingMult *= (1 + graphMod.increasedDamageTaken / 100);
+        if (condIncreasedDamageTaken) incomingMult *= (1 + condIncreasedDamageTaken / 100);
         if (graphMod?.berserk) incomingMult *= (1 + graphMod.berserk.damageTakenIncrease / 100);
 
         // Damage cap: never exceed BOSS_MAX_DMG_RATIO of maxHP per hit
         let cappedBossDmg = Math.min(bossRoll.damage * incomingMult, stats.maxLife * BOSS_MAX_DMG_RATIO);
+        if (condDamageReduction) cappedBossDmg *= (1 - condDamageReduction / 100);
         // Fortify DR (current tick values)
         const mainBossFortifyDR = calcFortifyDR(newFortifyStacks, newFortifyExpiresAt, newFortifyDRPerStack, now, effectiveStats.fortifyEffect);
         if (mainBossFortifyDR > 0) cappedBossDmg *= (1 - mainBossFortifyDR);
         if (effectiveStats.damageTakenReduction > 0) cappedBossDmg *= (1 - effectiveStats.damageTakenReduction / 100);
-        // Blade Ward: 15% DR during ward window
+        // Blade Ward: 15% + wardDRBonus DR during ward window
         if (newBladeWardExpiresAt > 0 && now < newBladeWardExpiresAt) {
-          cappedBossDmg *= 0.85;
+          const wardDR = 15 + (graphMod?.wardDRBonus ?? 0);
+          cappedBossDmg *= (1 - wardDR / 100);
         }
         playerHp -= cappedBossDmg;
         bossAttackResult = { damage: cappedBossDmg, isDodged: bossRoll.isDodged, isBlocked: bossRoll.isBlocked, isCrit: isBossCrit };
@@ -990,12 +1163,15 @@ export function runCombatTick(
       if (detonated) {
         newActiveTraps = remaining;
         const detonationBonus = 1 + (graphMod?.detonationDamageBonus ?? 0) / 100;
-        const trapDmg = detonated.damage * detonationBonus;
+        let trapDmg = detonated.damage * detonationBonus;
+        // Sprint 4D: detonationGuaranteedCrit — auto-crit detonation
+        const detCrit = graphMod?.detonationGuaranteedCrit || Math.random() < (effectiveStats.critChance / 100);
+        if (detCrit) trapDmg *= effectiveStats.critMultiplier / 100;
         newBossHp -= trapDmg;
         totalDamage += trapDmg;
         // Primed: crit detonation after 3s+ armed creates Primed (4s)
         const armTime = (now - detonated.placedAt) / 1000;
-        if (armTime >= 3 && Math.random() < (effectiveStats.critChance / 100)) {
+        if (armTime >= 3 && detCrit) {
           newComboStates = createComboState(
             newComboStates, 'primed', 'dagger_blade_trap',
             { incDamage: 25 }, 4, 1,
@@ -1017,6 +1193,7 @@ export function runCombatTick(
           weaponAvgDmg: avgDamage, weaponSpellPower: spellPower,
           damageMult, now,
           lastProcTriggerAt: newLastProcTriggerAt,
+          ...cpShared,
         };
         for (const trigger of defenseTriggers) {
           const pr = evaluateProcs(graphMod.skillProcs, trigger, defProcCtx);
@@ -1079,6 +1256,9 @@ export function runCombatTick(
     // Self-damage on cast
     if (graphMod?.selfDamagePercent) {
       playerHp -= effectiveMaxLife * (graphMod.selfDamagePercent / 100);
+    }
+    if (graphMod?.lifeCostPerTrigger && allProcsFired.length > 0) {
+      playerHp -= graphMod.lifeCostPerTrigger * allProcsFired.length;
     }
 
     // Unique: damageOnHitSelfPercent — lose % of current Life on hit (Heartblood Edge)
@@ -1177,7 +1357,7 @@ export function runCombatTick(
   let shatterDamage = 0;
   let didSpreadDebuffs = false;
   const allSpreadEvents: SpreadResult[] = [];
-  const skillIsAoE = isSkillAoE(state.skillBar, skill.id, state.skillProgress);
+  const skillIsAoE = isSkillAoE(state.skillBar, skill.id, state.skillProgress) || (graphMod?.targetAllEnemies === true);
 
   // Compute total damage to apply (before per-mob DR)
   let rawSkillDamage = 0;
@@ -1197,13 +1377,25 @@ export function runCombatTick(
   if (consumeBurstDamage > 0) rawSkillDamage += consumeBurstDamage;
   if (comboBurstDamage > 0) rawSkillDamage += comboBurstDamage;
   if (procDamage > 0) rawSkillDamage += procDamage;
+  // Sprint 2C: doubleCast — add a second cast at specified damage mult
+  if (graphMod?.doubleCast && roll.isHit) {
+    const secondMult = graphMod.secondCastDamageMult || 1;
+    rawSkillDamage += roll.damage * secondMult;
+  }
+  // Sprint 2C: lifeCostPerTrigger — deduct life per proc fired
+  if (graphMod?.lifeCostPerTrigger && allProcsFired.length > 0) {
+    const lifeCost = graphMod.lifeCostPerTrigger * allProcsFired.length;
+    // Applied later in playerHp calculation (stashed for now)
+    rawSkillDamage += 0; // placeholder — actual life cost applied at playerHp section
+  }
 
   // Per-hit tracking for sequential hits (Blade Dance combat log)
   const perHitDamages: number[] = [];
 
   // Apply damage to pack mobs with per-mob DR
   if (updatedPackMobs.length > 0 && rawSkillDamage > 0) {
-    const totalHits = Math.max(1, (skill.hitCount ?? 1) + (graphMod?.extraHits ?? 0));
+    const baseHits = graphMod?.alwaysFire3Hits ? 3 : Math.max(1, (skill.hitCount ?? 1) + (graphMod?.extraHits ?? 0));
+    const totalHits = baseHits;
     if (totalHits > 1 && roll.isHit && updatedPackMobs.length > 1 && !comboFocusBurst) {
       // Sequential hits: hit 1→mob 0, hit 2→mob 1, hit 3→mob 2 (Blade Dance)
       // comboFocusBurst overrides: all hits target front mob (Shadow Mark + Blade Dance)
@@ -1341,6 +1533,7 @@ export function runCombatTick(
         weaponAvgDmg: avgDamage, weaponSpellPower: spellPower,
         damageMult, now,
         lastProcTriggerAt: newLastProcTriggerAt,
+        ...cpShared, killsThisCast: mobKills,
       };
       const killPr = evaluateProcs(graphMod.skillProcs, 'onKill', killProcCtx);
       Object.assign(newLastProcTriggerAt, killPr.procTriggeredAt);
@@ -1470,6 +1663,7 @@ export function runCombatTick(
         weaponAvgDmg: avgDamage, weaponSpellPower: spellPower,
         damageMult, now,
         lastProcTriggerAt: newLastProcTriggerAt,
+        ...cpShared, killsThisCast: mobKills,
       };
       const aoeKillPr = evaluateProcs(graphMod.skillProcs, 'onKill', aoeKillCtx);
       Object.assign(newLastProcTriggerAt, aoeKillPr.procTriggeredAt);
@@ -1489,6 +1683,42 @@ export function runCombatTick(
       if (aoeKillPr.gcdWasReset) {
         nextActiveSkillAt = now;
         procGcdWasReset = true;
+      }
+    }
+  }
+
+  // Sprint 2A: multi-kill proc triggers (after all kills counted)
+  if (graphMod?.skillProcs?.length && mobKills > 0) {
+    const multiKillCtx: ProcContext = {
+      isHit: roll.isHit, isCrit: roll.isCrit,
+      skillId: skill.id, effectiveMaxLife,
+      stats: effectiveStats,
+      weaponAvgDmg: avgDamage, weaponSpellPower: spellPower,
+      damageMult, now,
+      lastProcTriggerAt: newLastProcTriggerAt,
+      ...cpShared, killsThisCast: mobKills,
+    };
+    const killTriggers: TriggerCondition[] = ['onKillInCast'];
+    if (mobKills >= 2) killTriggers.push('onMultiKillInCast');
+    if (mobKills >= 3) killTriggers.push('onTripleKillInCast');
+    for (const trigger of killTriggers) {
+      const pr = evaluateProcs(graphMod.skillProcs, trigger, multiKillCtx);
+      Object.assign(newLastProcTriggerAt, pr.procTriggeredAt);
+      allProcsFired.push(...pr.procsFired);
+      allProcEvents.push(...buildProcEvents(pr, skill.id));
+      procDamage += pr.bonusDamage;
+      procHeal += pr.healAmount;
+      if (pr.bonusDamage > 0 && updatedPackMobs.length > 0) {
+        updatedPackMobs[0].hp -= pr.bonusDamage;
+      }
+      for (const buff of pr.newTempBuffs) {
+        activeTempBuffs = mergeProcTempBuff(activeTempBuffs, buff);
+      }
+      if (pr.cooldownResets.length > 0) {
+        procCooldownResets.push(...pr.cooldownResets);
+        newTimers = newTimers.map(t =>
+          pr.cooldownResets.includes(t.skillId) ? { ...t, cooldownUntil: null } : t,
+        );
       }
     }
   }
@@ -1531,15 +1761,18 @@ export function runCombatTick(
 
       let clearIncomingMult = mobEnemyMods.damageMult;
       if (graphMod?.increasedDamageTaken) clearIncomingMult *= (1 + graphMod.increasedDamageTaken / 100);
+      if (condIncreasedDamageTaken) clearIncomingMult *= (1 + condIncreasedDamageTaken / 100);
       if (graphMod?.berserk) clearIncomingMult *= (1 + graphMod.berserk.damageTakenIncrease / 100);
 
       let clearZoneDmg = zoneRoll.damage * clearIncomingMult;
+      if (condDamageReduction) clearZoneDmg *= (1 - condDamageReduction / 100);
       const mainClearFortifyDR = calcFortifyDR(newFortifyStacks, newFortifyExpiresAt, newFortifyDRPerStack, now, effectiveStats.fortifyEffect);
       if (mainClearFortifyDR > 0) clearZoneDmg *= (1 - mainClearFortifyDR);
       if (effectiveStats.damageTakenReduction > 0) clearZoneDmg *= (1 - effectiveStats.damageTakenReduction / 100);
-      // Blade Ward: 15% DR during ward window
+      // Blade Ward: 15% + wardDRBonus DR during ward window
       if (newBladeWardExpiresAt > 0 && now < newBladeWardExpiresAt) {
-        clearZoneDmg *= 0.85;
+        const wardDR = 15 + (graphMod?.wardDRBonus ?? 0);
+        clearZoneDmg *= (1 - wardDR / 100);
       }
       if (newCurrentEs > 0 && clearZoneDmg > 0) {
         const esAbs = Math.min(newCurrentEs, clearZoneDmg);
@@ -1611,6 +1844,9 @@ export function runCombatTick(
   if (graphMod?.selfDamagePercent) {
     playerHp -= effectiveMaxLife * (graphMod.selfDamagePercent / 100);
   }
+  if (graphMod?.lifeCostPerTrigger && allProcsFired.length > 0) {
+    playerHp -= graphMod.lifeCostPerTrigger * allProcsFired.length;
+  }
 
   // Unique: damageOnHitSelfPercent — lose % of current Life on hit (Heartblood Edge)
   if (roll.isHit && effectiveStats.damageOnHitSelfPercent > 0) {
@@ -1635,6 +1871,7 @@ export function runCombatTick(
         weaponAvgDmg: avgDamage, weaponSpellPower: spellPower,
         damageMult, now,
         lastProcTriggerAt: newLastProcTriggerAt,
+        ...cpShared,
       };
       for (const trigger of defenseTriggers) {
         const pr = evaluateProcs(graphMod.skillProcs, trigger, defProcCtx);

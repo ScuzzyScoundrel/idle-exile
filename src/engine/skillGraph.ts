@@ -65,6 +65,7 @@ export interface ResolvedSkillModifier {
   dotMultiplier: number;
   weaponMastery: number;
   ailmentDuration: number;
+  allResist: number;
   // Dagger v2: combo & element
   cooldownIncrease: number;
   ailmentPotency: number;
@@ -79,6 +80,51 @@ export interface ResolvedSkillModifier {
   // v2: trap system (Blade Trap)
   armTimeOverride: number;      // seconds (0 = use default 1.5)
   detonationDamageBonus: number; // % bonus detonation damage
+  // Sprint 2C: keystone modifier fields
+  // Additive
+  globalIncDamage: number;                 // % global damage bonus (applies to damageMult)
+  counterDamageMult: number;               // multiplier for counter-hit damage
+  ailmentPotencyPerStack: number;          // % ailment potency per debuff stack
+  deepWoundBurstBonus: number;             // flat % bonus to deep wound burst
+  deepWoundBurstMult: number;              // multiplier for deep wound burst
+  globalAilmentPenalty: number;            // % global ailment potency penalty
+  globalAilmentPotencyPenalty: number;     // % ailment potency penalty
+  singleTargetPenalty: number;             // % penalty for single-target skills
+  nonAoePenalty: number;                   // % penalty for non-AoE skills
+  lifeCostPerTrigger: number;              // flat life cost per proc trigger
+  cooldownMultiplier: number;              // multiply effective cooldown (1 = neutral)
+  ailmentPotencyMult: number;              // multiplicative ailment potency bonus
+  // Boolean
+  singleAilmentOnly: boolean;              // restrict to single ailment type
+  ailmentsNeverExpire: boolean;            // ailments persist until death
+  alwaysFire3Hits: boolean;                // force 3 hits regardless of targets
+  targetAllEnemies: boolean;               // hit all pack enemies
+  executeLocked: boolean;                  // restrict to execute threshold only
+  doubleCast: boolean;                     // fire skill twice per cast
+  // Last-wins
+  ailmentEffectMult: number;               // override ailment effect multiplier (0 = no override)
+  ailmentPotencyOverride: number;          // override base ailment potency (0 = no override)
+  weaponDamageOverride: number;            // override weapon damage value (0 = no override)
+  directDamageOverride: number;            // override direct hit damage (0 = no override)
+  executeScaling: number;                  // % damage per % missing HP (0 = none)
+  secondCastDamageMult: number;            // damage mult for double-cast second hit (0 = no override)
+  // Sprint 4C: Blade Ward subsystem
+  wardDRBonus: number;                       // % extra DR during ward window
+  counterHitCritFloor: number;               // minimum crit chance for counter-hits (0 = no floor)
+  permanentWard: boolean;                    // ward never expires
+  counterAppliesAllAilments: boolean;        // counter-hits apply all ailment types
+  counterHitDebuff: { id: string; duration: number; damageReduction: number } | null;
+  guardedEnhancement: Record<string, any> | null; // enhanced guarded state bonuses
+  // Sprint 4D: Blade Trap subsystem
+  detonationGuaranteedCrit: boolean;         // trap detonation auto-crits
+  detonationExtraAilments: number;           // extra ailment stacks on detonation
+  detonationAilmentPotencyMultiplier: number; // multiply ailment potency on detonation
+  trapCharges: number;                       // max concurrent traps (0 = default 1)
+  // Sprint 4E: Shadow Dash subsystem
+  passThroughAilment: { potencyPercent: number } | null;
+  perPassThroughTarget: Record<string, any> | null;
+  postCastDodgeWindow: { duration: number; dodgeChance: number } | null;
+  shadowPhaseCounterDamage: number;          // % weapon damage on counter during shadow phase
 }
 
 /** Empty modifier (identity). */
@@ -137,6 +183,7 @@ export const EMPTY_GRAPH_MOD: ResolvedSkillModifier = {
   dotMultiplier: 0,
   weaponMastery: 0,
   ailmentDuration: 0,
+  allResist: 0,
   // Dagger v2 defaults
   cooldownIncrease: 0,
   ailmentPotency: 0,
@@ -148,6 +195,46 @@ export const EMPTY_GRAPH_MOD: ResolvedSkillModifier = {
   counterHitHeal: 0,
   armTimeOverride: 0,
   detonationDamageBonus: 0,
+  // Sprint 2C: keystone defaults
+  globalIncDamage: 0,
+  counterDamageMult: 0,
+  ailmentPotencyPerStack: 0,
+  deepWoundBurstBonus: 0,
+  deepWoundBurstMult: 0,
+  globalAilmentPenalty: 0,
+  globalAilmentPotencyPenalty: 0,
+  singleTargetPenalty: 0,
+  nonAoePenalty: 0,
+  lifeCostPerTrigger: 0,
+  cooldownMultiplier: 0,
+  ailmentPotencyMult: 0,
+  singleAilmentOnly: false,
+  ailmentsNeverExpire: false,
+  alwaysFire3Hits: false,
+  targetAllEnemies: false,
+  executeLocked: false,
+  doubleCast: false,
+  ailmentEffectMult: 0,
+  ailmentPotencyOverride: 0,
+  weaponDamageOverride: 0,
+  directDamageOverride: 0,
+  executeScaling: 0,
+  secondCastDamageMult: 0,
+  // Sprint 4C-4E defaults
+  wardDRBonus: 0,
+  counterHitCritFloor: 0,
+  permanentWard: false,
+  counterAppliesAllAilments: false,
+  counterHitDebuff: null,
+  guardedEnhancement: null,
+  detonationGuaranteedCrit: false,
+  detonationExtraAilments: 0,
+  detonationAilmentPotencyMultiplier: 0,
+  trapCharges: 0,
+  passThroughAilment: null,
+  perPassThroughTarget: null,
+  postCastDodgeWindow: null,
+  shadowPhaseCounterDamage: 0,
 };
 
 /**
@@ -269,6 +356,7 @@ export function resolveSkillGraphModifiers(
     if (m.dotMultiplier) result.dotMultiplier += m.dotMultiplier;
     if (m.weaponMastery) result.weaponMastery += m.weaponMastery;
     if (m.ailmentDuration) result.ailmentDuration += m.ailmentDuration;
+    if (m.allResist) result.allResist += m.allResist;
 
     // Dagger v2: additive scalars
     if (m.cooldownIncrease) result.cooldownIncrease += m.cooldownIncrease;
@@ -321,6 +409,52 @@ export function resolveSkillGraphModifiers(
     if (m.critChanceCap) result.critChanceCap = Math.max(result.critChanceCap, m.critChanceCap);  // max-wins
     if (m.executeOnly) result.executeOnly = m.executeOnly;  // last-wins
     if (m.castPriority) result.castPriority = m.castPriority;  // last-wins
+
+    // Sprint 2C: keystone fields
+    // Additive
+    if (m.globalIncDamage) result.globalIncDamage += m.globalIncDamage;
+    if (m.counterDamageMult) result.counterDamageMult += m.counterDamageMult;
+    if (m.ailmentPotencyPerStack) result.ailmentPotencyPerStack += m.ailmentPotencyPerStack;
+    if (m.deepWoundBurstBonus) result.deepWoundBurstBonus += m.deepWoundBurstBonus;
+    if (m.deepWoundBurstMult) result.deepWoundBurstMult += m.deepWoundBurstMult;
+    if (m.globalAilmentPenalty) result.globalAilmentPenalty += m.globalAilmentPenalty;
+    if (m.globalAilmentPotencyPenalty) result.globalAilmentPotencyPenalty += m.globalAilmentPotencyPenalty;
+    if (m.singleTargetPenalty) result.singleTargetPenalty += m.singleTargetPenalty;
+    if (m.nonAoePenalty) result.nonAoePenalty += m.nonAoePenalty;
+    if (m.lifeCostPerTrigger) result.lifeCostPerTrigger += m.lifeCostPerTrigger;
+    if (m.cooldownMultiplier) result.cooldownMultiplier = (result.cooldownMultiplier || 1) * m.cooldownMultiplier;
+    if (m.ailmentPotencyMult) result.ailmentPotencyMult += m.ailmentPotencyMult;
+    // Boolean OR
+    if (m.singleAilmentOnly) result.singleAilmentOnly = true;
+    if (m.ailmentsNeverExpire) result.ailmentsNeverExpire = true;
+    if (m.alwaysFire3Hits) result.alwaysFire3Hits = true;
+    if (m.targetAllEnemies) result.targetAllEnemies = true;
+    if (m.executeLocked) result.executeLocked = true;
+    if (m.doubleCast) result.doubleCast = true;
+    // Last-wins
+    if (m.ailmentEffectMult) result.ailmentEffectMult = m.ailmentEffectMult;
+    if (m.ailmentPotencyOverride) result.ailmentPotencyOverride = m.ailmentPotencyOverride;
+    if (m.weaponDamageOverride) result.weaponDamageOverride = m.weaponDamageOverride;
+    if (m.directDamageOverride) result.directDamageOverride = m.directDamageOverride;
+    if (m.executeScaling) result.executeScaling = m.executeScaling;
+    if (m.secondCastDamageMult) result.secondCastDamageMult = m.secondCastDamageMult;
+    // Sprint 4C: Blade Ward
+    if (m.wardDRBonus) result.wardDRBonus += m.wardDRBonus;
+    if (m.counterHitCritFloor) result.counterHitCritFloor = Math.max(result.counterHitCritFloor, m.counterHitCritFloor);
+    if (m.permanentWard) result.permanentWard = true;
+    if (m.counterAppliesAllAilments) result.counterAppliesAllAilments = true;
+    if (m.counterHitDebuff) result.counterHitDebuff = m.counterHitDebuff;
+    if (m.guardedEnhancement) result.guardedEnhancement = m.guardedEnhancement;
+    // Sprint 4D: Blade Trap
+    if (m.detonationGuaranteedCrit) result.detonationGuaranteedCrit = true;
+    if (m.detonationExtraAilments) result.detonationExtraAilments += m.detonationExtraAilments;
+    if (m.detonationAilmentPotencyMultiplier) result.detonationAilmentPotencyMultiplier = Math.max(result.detonationAilmentPotencyMultiplier, m.detonationAilmentPotencyMultiplier);
+    if (m.trapCharges) result.trapCharges = Math.max(result.trapCharges, m.trapCharges);
+    // Sprint 4E: Shadow Dash
+    if (m.passThroughAilment) result.passThroughAilment = m.passThroughAilment;
+    if (m.perPassThroughTarget) result.perPassThroughTarget = m.perPassThroughTarget;
+    if (m.postCastDodgeWindow) result.postCastDodgeWindow = m.postCastDodgeWindow;
+    if (m.shadowPhaseCounterDamage) result.shadowPhaseCounterDamage += m.shadowPhaseCounterDamage;
   }
 
   result.abilityEffect = abilEffect;
