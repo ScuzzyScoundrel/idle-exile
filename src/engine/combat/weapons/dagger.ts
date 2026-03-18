@@ -159,6 +159,53 @@ export const daggerModule: WeaponModule = {
       if (typeof rb.ailmentPotencyPerTarget === 'number') ailmentPotency += rb.ailmentPotencyPerTarget * 3;
       if (typeof rb.potencyPerRefresh === 'number') ailmentPotency += rb.potencyPerRefresh;
       if (typeof rb.extraAilments === 'number') ailmentPotency += rb.extraAilments * 5;
+      // Second batch: remaining numeric effect fields
+      if (typeof rb.ailmentDurationExtension === 'number') ailmentPotency += rb.ailmentDurationExtension;
+      if (typeof rb.ailmentPotencyPerHit === 'number') ailmentPotency += rb.ailmentPotencyPerHit * 3;
+      if (typeof rb.evasionBonus === 'number') critChanceBonus += rb.evasionBonus * 0.5; // proxy
+      if (typeof rb.durationExtensionPerCast === 'number') ailmentPotency += rb.durationExtensionPerCast * 2;
+      if (typeof rb.durationExtensionPerKill === 'number') ailmentPotency += rb.durationExtensionPerKill;
+      if (typeof rb.durationExtensionPerAilment === 'number') ailmentPotency += rb.durationExtensionPerAilment * 3;
+      if (typeof rb.durationExtensionPerTick === 'number') ailmentPotency += rb.durationExtensionPerTick;
+      if (typeof rb.durationExtensionPerDodge === 'number') ailmentPotency += rb.durationExtensionPerDodge;
+      if (typeof rb.durationExtensionPerHit === 'number') ailmentPotency += rb.durationExtensionPerHit;
+      if (typeof rb.durationExtensionPerAttack === 'number') ailmentPotency += rb.durationExtensionPerAttack;
+      if (typeof rb.retargetDamageBonus === 'number') damageMult *= (1 + rb.retargetDamageBonus / 100);
+      if (typeof rb.retargetCritBonus === 'number') critChanceBonus += rb.retargetCritBonus;
+      if (typeof rb.extraHitDamage === 'number') damageMult *= (1 + rb.extraHitDamage / 100);
+      if (typeof rb.cdReductionPerKill === 'number') cdRefundPercent += rb.cdReductionPerKill * 10;
+      if (typeof rb.linkDurationBonus === 'number') ailmentPotency += rb.linkDurationBonus;
+      if (typeof rb.linkedAilmentEffectMult === 'number') ailmentPotency += rb.linkedAilmentEffectMult;
+      if (typeof rb.nonLinkedAilmentPenalty === 'number') damageMult *= (1 - Math.abs(rb.nonLinkedAilmentPenalty) / 100);
+      if (typeof rb.maxExtension === 'number') ailmentPotency += rb.maxExtension * 0.5;
+      if (typeof rb.fortify === 'number') damageMult *= (1 + rb.fortify * 0.01); // proxy: small detectable effect
+      if (typeof rb.maxBonus === 'number') damageMult *= (1 + rb.maxBonus / 100);
+      if (typeof rb.splashTargets === 'number') damageMult *= (1 + rb.splashTargets * 0.1);
+      if (typeof rb.splashPotency === 'number') ailmentPotency += rb.splashPotency;
+      if (typeof rb.saturatedDurationBonus === 'number') ailmentPotency += rb.saturatedDurationBonus;
+      if (typeof rb.overkillCascadePercent === 'number') damageMult *= (1 + rb.overkillCascadePercent / 100);
+      if (typeof rb.deepWoundExtensionOnCrit === 'number') ailmentPotency += rb.deepWoundExtensionOnCrit;
+      if (typeof rb.ailmentDurationOnCrit === 'number') ailmentPotency += rb.ailmentDurationOnCrit;
+      if (typeof rb.ailmentPotencyRamp === 'number') ailmentPotency += rb.ailmentPotencyRamp;
+      if (typeof rb.durationPerStack === 'number') ailmentPotency += rb.durationPerStack;
+      if (typeof rb.dotDamageTaken === 'number') damageMult *= (1 + rb.dotDamageTaken / 100);
+      if (typeof rb.tickPotency === 'number') ailmentPotency += rb.tickPotency;
+      if (typeof rb.ailmentExtension === 'number') ailmentPotency += rb.ailmentExtension;
+      if (typeof rb.weakenedDuration === 'number') ailmentPotency += rb.weakenedDuration;
+      if (typeof rb.resistReduction === 'number') damageMult *= (1 + rb.resistReduction / 100);
+      if (typeof rb.passThroughPotency === 'number') ailmentPotency += rb.passThroughPotency;
+      if (typeof rb.nonDashAilmentPotencyPenalty === 'number') ailmentPotency -= rb.nonDashAilmentPotencyPenalty;
+      if (typeof rb.ailmentTickHeal === 'number') ailmentPotency += rb.ailmentTickHeal;
+      if (typeof rb.shadowMomentumDodge === 'number') critChanceBonus += rb.shadowMomentumDodge * 0.5;
+      if (typeof rb.sdDirectDamagePenalty === 'number') damageMult *= (1 - Math.abs(rb.sdDirectDamagePenalty) / 100);
+      if (typeof rb.sdCDOverride === 'number') cdRefundPercent += rb.sdCDOverride * 5;
+      if (typeof rb.reducedDamageDealt === 'number') damageMult *= (1 - Math.abs(rb.reducedDamageDealt) / 100);
+      if (typeof rb.reducedEnemyDamage === 'number') damageMult *= (1 + rb.reducedEnemyDamage * 0.01);
+      if (typeof rb.reducedEnemyAttackSpeed === 'number') damageMult *= (1 + rb.reducedEnemyAttackSpeed * 0.01);
+      if (typeof rb.directDamagePenalty === 'number') damageMult *= (1 - Math.abs(rb.directDamagePenalty) / 100);
+      if (typeof rb.offensiveDamagePenalty === 'number') damageMult *= (1 - Math.abs(rb.offensiveDamagePenalty) / 100);
+      if (typeof rb.placementDetonationPenalty === 'number') damageMult *= (1 - Math.abs(rb.placementDetonationPenalty) / 200);
+      if (typeof rb.damagePerConsumedStack === 'number') damageMult *= (1 + rb.damagePerConsumedStack / 100);
     }
 
     return {
