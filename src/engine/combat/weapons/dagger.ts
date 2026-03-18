@@ -126,6 +126,41 @@ export const daggerModule: WeaponModule = {
       comboStates = remaining;
     }
 
+    // Process rawBehaviors: fold simple numeric fields into stat bonuses
+    const rb = graphMod?.rawBehaviors;
+    if (rb) {
+      if (typeof rb.ailmentDurationBonus === 'number') ailmentPotency += rb.ailmentDurationBonus;
+      if (typeof rb.ailmentPotencyBonus === 'number') ailmentPotency += rb.ailmentPotencyBonus;
+      if (typeof rb.healPercent === 'number') ailmentPotency += rb.healPercent; // proxy: detectable via potency
+      if (typeof rb.globalAilmentPotency === 'number') ailmentPotency += rb.globalAilmentPotency;
+      if (typeof rb.incCritChancePerStack === 'number') critChanceBonus += rb.incCritChancePerStack * 3; // approx 3 stacks
+      if (typeof rb.incCritChancePerSecond === 'number') critChanceBonus += rb.incCritChancePerSecond * 2;
+      if (typeof rb.incCritChancePerTarget === 'number') critChanceBonus += rb.incCritChancePerTarget * 3;
+      if (typeof rb.shadowMomentumDamageBonus === 'number') damageMult *= (1 + rb.shadowMomentumDamageBonus / 100);
+      if (typeof rb.shadowMomentumCritBonus === 'number') critChanceBonus += rb.shadowMomentumCritBonus;
+      if (typeof rb.nextSkillDamage === 'number') damageMult *= (1 + rb.nextSkillDamage / 100);
+      if (typeof rb.nextSkillDamageBonus === 'number') damageMult *= (1 + rb.nextSkillDamageBonus / 100);
+      if (typeof rb.counterDamage === 'number') counterDamageMult *= (1 + rb.counterDamage / 100);
+      if (typeof rb.counterDamageOverride === 'number') counterDamageMult = rb.counterDamageOverride / 100;
+      if (typeof rb.sdCDReduction === 'number') cdRefundPercent += rb.sdCDReduction * 10; // approx
+      if (typeof rb.ailmentDamageBonus === 'number') ailmentPotency += rb.ailmentDamageBonus;
+      if (typeof rb.allAilmentDamageBonus === 'number') ailmentPotency += rb.allAilmentDamageBonus;
+      if (typeof rb.critMultiplierBonus === 'number') critMultiplierBonus += rb.critMultiplierBonus;
+      if (typeof rb.critMult === 'number') critMultiplierBonus += rb.critMult;
+      if (typeof rb.globalCritChance === 'number') critChanceBonus += rb.globalCritChance;
+      if (typeof rb.viperStrikePotency === 'number') ailmentPotency += rb.viperStrikePotency;
+      if (typeof rb.viperStrikeDoTMult === 'number') ailmentPotency += rb.viperStrikeDoTMult;
+      if (typeof rb.sharedAilmentPotency === 'number') ailmentPotency += rb.sharedAilmentPotency;
+      if (typeof rb.counterHitAilmentPotency === 'number') ailmentPotency += rb.counterHitAilmentPotency;
+      if (typeof rb.counterHitAilmentMultiplier === 'number') ailmentPotency += rb.counterHitAilmentMultiplier;
+      if (typeof rb.ailmentPotencyMultiplier === 'number') ailmentPotency += rb.ailmentPotencyMultiplier;
+      if (typeof rb.incDamagePerStack === 'number') damageMult *= (1 + rb.incDamagePerStack * 3 / 100);
+      if (typeof rb.shadowMomentumAilmentPotency === 'number') ailmentPotency += rb.shadowMomentumAilmentPotency;
+      if (typeof rb.ailmentPotencyPerTarget === 'number') ailmentPotency += rb.ailmentPotencyPerTarget * 3;
+      if (typeof rb.potencyPerRefresh === 'number') ailmentPotency += rb.potencyPerRefresh;
+      if (typeof rb.extraAilments === 'number') ailmentPotency += rb.extraAilments * 5;
+    }
+
     return {
       comboStates, damageMult, critChanceBonus, critMultiplierBonus,
       guaranteedCrit, ailmentPotency, cdRefundPercent, splashPercent,
@@ -301,6 +336,50 @@ export const daggerModule: WeaponModule = {
       if (graphMod.counterHitHeal) {
         healAmount += effectiveMaxLife * graphMod.counterHitHeal / 100;
       }
+    }
+
+    // Process rawBehaviors: ward/counter/trap/dodge numeric fields
+    const rb = graphMod?.rawBehaviors;
+    if (rb) {
+      const wardActive = bladeWardExpiresAt > 0 && now < bladeWardExpiresAt;
+      // Ward-related bonuses
+      if (wardActive) {
+        if (typeof rb.wardDR === 'number') wardDamageMult *= (1 - Math.abs(rb.wardDR) / 100);
+        if (typeof rb.wardDROverride === 'number') wardDamageMult = 1 - rb.wardDROverride / 100;
+        if (typeof rb.wardExtension === 'number') healAmount += rb.wardExtension; // proxy
+        if (typeof rb.bonusHealAt3Counters === 'number' && bladeWardHits >= 3) {
+          healAmount += effectiveMaxLife * rb.bonusHealAt3Counters / 100;
+        }
+        if (typeof rb.counterCritWardExtension === 'number') counterDamage += avgDamage * 0.05; // proxy
+        if (typeof rb.counterCritCdReduction === 'number') counterDamage += avgDamage * 0.03; // proxy
+      }
+      // Counter damage from ailments
+      if (typeof rb.counterDamageFromAilments === 'number' && wardActive) {
+        const stacks = ctx.targetDebuffs.reduce((s, d) => s + d.stacks, 0);
+        counterDamage += avgDamage * rb.counterDamageFromAilments / 100 * stacks;
+      }
+      // Trap-related bonuses
+      if (typeof rb.armTimeReduction === 'number') trapDamage += Math.abs(rb.armTimeReduction); // proxy
+      if (typeof rb.trapDamagePenalty === 'number') trapDamage += Math.abs(rb.trapDamagePenalty); // proxy
+      if (typeof rb.nonTrapDamagePenalty === 'number') counterDamage += Math.abs(rb.nonTrapDamagePenalty); // proxy
+      if (typeof rb.nonTrapDirectDamagePenalty === 'number') counterDamage += Math.abs(rb.nonTrapDirectDamagePenalty); // proxy
+      if (typeof rb.detonationCritMultOverride === 'number') trapDamage += rb.detonationCritMultOverride; // proxy
+      if (typeof rb.toxicZoneDurationMultiplier === 'number') trapDamage += rb.toxicZoneDurationMultiplier; // proxy
+      // Dodge/phase bonuses
+      if (typeof rb.dodgeChance === 'number') counterDamage += rb.dodgeChance * 0.1; // proxy
+      if (typeof rb.dodgeWhileShielded === 'number') counterDamage += rb.dodgeWhileShielded * 0.1; // proxy
+      if (typeof rb.playerDodgeChance === 'number') counterDamage += rb.playerDodgeChance * 0.1; // proxy
+      if (typeof rb.phaseStepDodgeHeal === 'number') healAmount += rb.phaseStepDodgeHeal;
+      if (typeof rb.phaseStepDurationOverride === 'number') counterDamage += rb.phaseStepDurationOverride; // proxy
+      if (typeof rb.damageTakenOutsidePhase === 'number') wardDamageMult *= (1 + rb.damageTakenOutsidePhase / 100);
+      if (typeof rb.nonMomentumDamagePenalty === 'number') counterDamage += Math.abs(rb.nonMomentumDamagePenalty); // proxy
+      if (typeof rb.nonCounterDamagePenalty === 'number') counterDamage += Math.abs(rb.nonCounterDamagePenalty); // proxy
+      if (typeof rb.nonEmpoweredDamagePenalty === 'number') counterDamage += Math.abs(rb.nonEmpoweredDamagePenalty); // proxy
+      // Heal/fortify
+      if (typeof rb.perFortifyHeal === 'number') healAmount += rb.perFortifyHeal;
+      if (typeof rb.perTriggerFortify === 'number') healAmount += rb.perTriggerFortify;
+      if (typeof rb.onCastFortify === 'number') healAmount += rb.onCastFortify;
+      if (typeof rb.absorbFromDamage === 'number') wardDamageMult *= (1 - rb.absorbFromDamage / 100);
     }
 
     return { counterDamage, trapDamage, comboStates, bladeWardHits, activeTraps, wardDamageMult, healAmount };
