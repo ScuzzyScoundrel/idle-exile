@@ -1427,6 +1427,17 @@ export function runCombatTick(
       }
       killProcDebuffs = killPr.newDebuffs;
 
+      // onCritKill: fire when a crit kills the mob (Reset the Hunt, etc.)
+      if (roll.isCrit) {
+        const critKillPr = evaluateProcs(graphMod.skillProcs, 'onCritKill' as any, killProcCtx);
+        Object.assign(newLastProcTriggerAt, critKillPr.procTriggeredAt);
+        allProcsFired.push(...critKillPr.procsFired);
+        allProcEvents.push(...buildProcEvents(critKillPr, skill.id));
+        procDamage += critKillPr.bonusDamage;
+        procHeal += critKillPr.healAmount;
+        procCooldownResets.push(...critKillPr.cooldownResets);
+      }
+
       // onAilmentKill: fire when dying mob had active ailments (Venom Nova, etc.)
       if (preDeathDebuffs.length > 0) {
         const ailmentKillPr = evaluateProcs(graphMod.skillProcs, 'onAilmentKill' as any, killProcCtx);
