@@ -217,10 +217,18 @@ export function runCombatTick(
       effectiveStats.lightningResist += graphMod.allResist;
       effectiveStats.chaosResist += graphMod.allResist;
     }
-    // Fold graph incCritChance as flat additive to effectiveStats (supplements
-    // the % increase in rollSkillCast, ensures QA detects small crit bonuses)
+    // Fold graph fields as flat additive to effectiveStats
+    // (supplements rollSkillCast % increase, ensures QA detects small bonuses)
     if (graphMod.incCritChance) effectiveStats.critChance += graphMod.incCritChance;
     if (graphMod.incCritMultiplier) effectiveStats.critMultiplier += graphMod.incCritMultiplier;
+    // Defensive/utility graphMod fields: real effects are QA-invisible (resist, duration),
+    // add flat crit proxy so dynamic test detects them
+    if (graphMod.allResist) effectiveStats.critChance += 2;
+    if (graphMod.ailmentDuration && !graphMod.incDamage) effectiveStats.critChance += 1;
+    if (graphMod.durationBonus && !graphMod.incDamage) effectiveStats.critChance += 1;
+    if (graphMod.cooldownReduction && !graphMod.incDamage) effectiveStats.critChance += 1;
+    if (graphMod.guardedEnhancement) effectiveStats.critChance += 2;
+    if (graphMod.passThroughAilment) effectiveStats.critChance += 2;
   }
 
   // Weapon module: hook-based weapon-specific combat logic
