@@ -169,6 +169,8 @@ function createRichTestState(
 
   const now = getNow();
 
+  // Rotation partners: each skill gets a filler/synergy partner for realistic testing
+  // This ensures ward-dependent, momentum-dependent, and cross-skill nodes can fire
   const skillProgress: Record<string, SkillProgress> = {
     [skillId]: {
       skillId,
