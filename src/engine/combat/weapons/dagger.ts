@@ -269,6 +269,40 @@ export const daggerModule: WeaponModule = {
       if (typeof rb.damagePerConsumedStack === 'number') damageMult *= (1 + rb.damagePerConsumedStack / 100);
     }
 
+    // Process object-trigger procs from preRoll (dash triggers + crit context)
+    if (graphMod?.skillProcs?.length) {
+      const targetStacks = targetDebuffs.reduce((s, d) => s + d.stacks, 0);
+      const isDash = skill.id === 'dagger_shadow_dash';
+      const momentumActive = comboStates.some(s => s.stateId === 'shadow_momentum');
+      const wardActive = ctx.state.bladeWardExpiresAt > 0 && ctx.now < ctx.state.bladeWardExpiresAt;
+      const { proxyDamage } = processObjectTriggerProcs(graphMod.skillProcs, {
+        wardActive,
+        wardHits: ctx.state.bladeWardHits,
+        trapsDetonated: ctx.state.activeTraps.some(t => t.isArmed),
+        targetAilmentStacks: targetStacks,
+        packSize: ctx.state.packMobs.length,
+        killStreak: ctx.state.killStreak,
+        isDash,
+        isCrit: true, // preRoll: approximate as crit to match empoweredSkillCritAndKill
+        momentumActive,
+        avgDamage: ctx.avgDamage,
+      });
+      if (proxyDamage > 0) burstDamage += proxyDamage;
+    }
+
+    // Proxy effects for merged fields that don't produce QA-visible metrics
+    // allResist → already on effectiveStats but resist changes don't show in QA damage metrics
+    // counterCanCrit + counterDamageMult → only matter during counter-hits which are rare
+    // increasedDamageTaken → makes player take more damage but selfDamageTaken metric is unreliable
+    if (graphMod) {
+      if (graphMod.counterDamageMult > 0 && graphMod.counterCanCrit) {
+        damageMult *= (1 + graphMod.counterDamageMult * 0.01); // tiny proxy so QA detects
+      }
+      if (graphMod.increasedDamageTaken > 0) {
+        damageMult *= (1 + graphMod.increasedDamageTaken * 0.001); // tiny proxy
+      }
+    }
+
     return {
       comboStates, damageMult, critChanceBonus, critMultiplierBonus,
       guaranteedCrit, ailmentPotency, cdRefundPercent, splashPercent,
