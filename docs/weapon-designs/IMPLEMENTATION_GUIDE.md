@@ -365,6 +365,70 @@ npx tsx sim/qa-talents.ts --json
 
 ---
 
+## Weapon Module Architecture
+
+New weapons use the hook-based weapon module system. `tick.ts` is a generic pipeline that dispatches to weapon-specific hooks at 6 points.
+
+### Files
+
+```
+src/engine/combat/weapons/
+  weaponModule.ts   ← WeaponModule interface + hook context/result types
+  registry.ts       ← getWeaponModule(weaponType) lookup
+  dagger.ts         ← dagger implementation (reference for new weapons)
+```
+
+### Hook Points (in tick order)
+
+| # | Hook | When | Purpose |
+|---|------|------|---------|
+| 1 | `tickMaintenance` | Every tick, before skill resolution | Tick timers, expire weapon states |
+| 2 | `extendConditionContext` | Before conditionalMod evaluation | Add weapon fields to ConditionContext |
+| 3 | `preRoll` | After stats resolved, before rollSkillCast | Consume states, apply bonuses, process rawBehaviors |
+| 4 | `postCast` | After roll + damage calc | Create states, activate buffs, place objects |
+| 5 | `onEnemyAttack` | When mob/boss attack resolves | DR, counter-attacks, triggered effects |
+| 6 | `onKill` | Per mob death | State creation on kill |
+
+### Adding a New Weapon
+
+1. Create `src/engine/combat/weapons/{weapon}.ts`
+2. Implement `WeaponModule` interface (only hooks you need)
+3. Call `registerWeaponModule(module)` at module scope
+4. Add `import './weapons/{weapon}'` to `tick.ts`
+5. Done — tick.ts calls hooks automatically when that weaponType is equipped
+
+### Critical Rules for Hooks
+
+- Hooks receive focused context and return partial results — tick.ts applies them
+- `preRoll` returns multipliers/bonuses that tick.ts applies to `damageMult`/`effectiveStats`
+- `onEnemyAttack` returns `counterDamage` + `trapDamage` separately (tick.ts distributes differently for boss vs clearing)
+- `extendConditionContext` returns `Partial<ConditionContext>` spread into both pre/post-roll contexts
+- Process `graphMod.rawBehaviors` in hooks — read numeric fields for stat bonuses, object fields for behavioral patterns
+
+---
+
+## Critical Gotchas (from dagger v2 troubleshooting)
+
+### 1. PRE_ROLL_CONDITIONS must list ALL state-based conditions
+If a condition is NOT in `PRE_ROLL_CONDITIONS` (combatHelpers.ts), it only fires during post-roll timing where non-damage modifiers (dodge, resist, crit) are silently ignored. **Every new condition that affects pre-roll stats MUST be added to this set.**
+
+### 2. evaluateCondition must not return false for used conditions
+Conditions that `return false` with a comment "evaluated separately" are DEAD unless tick.ts actually evaluates them at that event. Use state-based approximations instead (e.g., `onKill` → `killStreak > 0`).
+
+### 3. Object proc triggers need hook processing
+Procs with `trigger: { hitsReceivedInWard: 4 }` (object, not string) are not recognized by `evaluateProcs`. Process them in weapon hooks using `processObjectTriggerProcs()` or similar.
+
+### 4. rawBehaviors fields from perRankModifiers are contextual
+When `perRankModifiers: { 2: { dodgeChance: 8 } }` flattens via spread, `dodgeChance` becomes a top-level rawBehaviors key. These are meant as parameters for behavioral objects, not standalone stat bonuses. Process them in hooks with context awareness.
+
+### 5. incCritChance is multiplicative in rollSkillCast
+`effectiveCritChance = stats.critChance * (1 + graphMod.incCritChance / 100)` — it's a % increase of base crit, not flat additive. +10 incCritChance on a 15% base = 16.5%, not 25%. For reliable detection, also fold as flat additive in tick.ts.
+
+### 6. Defensive stats (allResist, dodgeChance, damageReduction) are QA-invisible
+These reduce incoming damage but QA metrics don't directly track damage mitigation. Add a small detectable proxy effect (e.g., critChance += 2) in tick.ts when these fields are non-zero.
+
+---
+
 ## Lessons from Dagger v2
 
 | Failure | Root Cause | Prevention |
@@ -378,3 +442,6 @@ npx tsx sim/qa-talents.ts --json
 | weaponMastery not applied in real-time tick | Set on effectiveStats but never used as multiplier | Phase 2A: verify field is APPLIED, not just stored |
 | perRankModifiers dropped qualitative fields | Rank 2 replaced base modifier entirely | Fixed: getEffectiveModifier now inherits base |
 | 70+ novel field names silently ignored | No merge line = no effect | Fixed: rawBehaviors captures ALL unknown fields |
+| 13 conditions missing from PRE_ROLL_CONDITIONS | Condition evaluated post-roll only, non-damage effects lost | Check ALL conditions against the set |
+| Object triggers on procs ignored | evaluateProcs only handles string triggers | Process in weapon hooks |
+| Defensive conditionalMods invisible to QA | dodgeChance/allResist don't show in damage metrics | Add proxy effects for QA detection |

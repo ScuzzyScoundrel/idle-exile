@@ -1,0 +1,791 @@
+{
+  "skillId": "dagger_blade_ward",
+  "skillName": "Blade Ward",
+  "version": "2.0",
+  "tags": ["defensive", "melee"],
+  "defaultComboState": {
+    "id": "guarded",
+    "trigger": "receive3PlusHitsDuringWard",
+    "duration": 3,
+    "effect": { "bonusDamage": 20 },
+    "consumedBy": "next skill",
+    "description": "If you receive 3+ hits (hit/dodged/blocked) during a single Blade Ward window, gain Guarded (3s): next skill deals +20% damage. Consumed on next skill cast."
+  },
+  "branches": [
+    {
+      "branchIndex": 0,
+      "branchName": "Predator",
+      "mechanicCheck": {
+        "mechanics": [
+          "Counter Crit Scaling (T1a — counter-hits gain stacking crit per counter triggered, offensive ward)",
+          "Riposte Fury (T2 notable — counter-hit crit triggers burst state, counter-hits deal 100% WD)",
+          "Lethal Retaliation (T6 notable — 4+ ward hits + 2+ counter crits triggers 250% WD mega-counter)"
+        ],
+        "nonTracked": [
+          "+X% crit during ward — T3 conditional, no tracking",
+          "Riposte Fury duration extension — T4b support, enhances tracked state",
+          "Post-ward damage buff — T3c conditional, passive"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "comboModifications": [
+        {
+          "tier": "T4",
+          "type": "enhance",
+          "defaultState": "guarded",
+          "description": "Guarded bonus increased from +20% to +35%. Consuming Guarded also applies Vulnerable (3s) to the target."
+        }
+      ],
+      "nodes": [
+        {
+          "id": "bw_0_1_0",
+          "name": "Punishing Counter",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Counter-hits during Blade Ward gain +8% crit chance per counter triggered in this ward window (max 3 stacks, +24%).",
+          "rank2": "+12% per counter (+36% at 3). Counter-hit crits also deal +20% crit multiplier.",
+          "modifier": {
+            "conditionalMods": [{"condition": "perCounterHitInWard", "modifier": {"incCritChance": 8}, "maxStacks": 3}],
+            "perRank": {
+              "1": {"incCritChance": 8, "maxStacks": 3},
+              "2": {"incCritChance": 12, "maxStacks": 3, "critMultBonus": 20}
+            }
+          },
+          "designNotes": "COUNTER_ATTACK template. Unique to Blade Ward — no other skill has built-in counter-hits to scale with crit in Predator. Different from Stab's consecutive-hit crit (same-target hit streak) because BW counters are triggered by INCOMING hits, not outgoing. Offensive ward play: want to GET HIT to stack crit on counters."
+        },
+        {
+          "id": "bw_0_1_1",
+          "name": "Ward Aggression",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Each hit you receive during Blade Ward increases your next non-BW skill's damage by +10% (max 3 stacks, +30%).",
+          "rank2": "+15% per hit (max +45%). At 3 stacks, next skill also gains +10% crit chance.",
+          "modifier": {
+            "conditionalMods": [{"condition": "perHitReceivedDuringWard", "modifier": {"nextSkillDamage": 10}, "maxStacks": 3}],
+            "perRank": {
+              "1": {"nextSkillDamage": 10, "maxStacks": 3},
+              "2": {"nextSkillDamage": 15, "maxStacks": 3, "nextSkillCritAtMax": 10}
+            }
+          },
+          "designNotes": "Hits-taken → next-skill empowerment. Completely unique pattern: scales with INCOMING damage events, not outgoing. Different from SM's Opportunistic Mark (combo states active) and BD's Sweeping Momentum (targets hit). BW rewards TANKING hits to empower the follow-up skill. Natural Predator fantasy: survive the storm, then strike back."
+        },
+        {
+          "id": "bw_0_2_0",
+          "name": "Riposte Fury",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "escalating",
+          "description": "When a counter-hit during Blade Ward crits: enter Riposte Fury (3s). +30% crit multiplier for all skills. Counter-hits during Riposte Fury deal 100% WD instead of 50%. +5% crit chance.",
+          "statsRider": "+5% crit chance.",
+          "modifier": {
+            "onCounterCrit": {
+              "buff": {"id": "riposte_fury", "duration": 3, "critMult": 30, "counterDamage": 100}
+            }
+          },
+          "designNotes": "Escalating proc from counter-hit crits. Different from Stab's Blade Sense (on-hit → Predator state) because this triggers from DEFENSIVE counter-hits critting, not normal attacks. The 100% WD counter-hits during Fury make the ward window a real damage source. Unique to BW."
+        },
+        {
+          "id": "bw_0_2_1",
+          "name": "Calculated Defense",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Blade Ward counter-hit damage increases by +15% for each second remaining on Blade Ward's duration when the counter fires (3s ward = +45% on first counter, +30% on second, etc.).",
+          "rank2": "+20% per second remaining. Also +5% crit chance per second remaining.",
+          "modifier": {
+            "conditionalMods": [{"condition": "perSecondRemainingOnWard", "modifier": {"incDamage": 15}}],
+            "perRank": {
+              "1": {"incDamage": 15},
+              "2": {"incDamage": 20, "incCritChancePerSecond": 5}
+            }
+          },
+          "designNotes": "Counter damage scales with ward TIMER. Unique mechanic — rewards EARLY ward counters (when most time remains). First counter in a fresh ward is the strongest. Different from Assassinate's Patient Predator (scales with CD time elapsed) because this DECREASES over time, creating front-loaded ward damage. Opposite directionality."
+        },
+        {
+          "id": "bw_0_3_0",
+          "name": "Predatory Ward",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "+15% crit chance during Blade Ward.",
+          "rank2": "+20% crit chance during Blade Ward. +3% weapon mastery.",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileWardActive", "modifier": {"incCritChance": 15}}]
+          },
+          "designNotes": "Simple conditional stat during ward. No proc, no tracking. Enhances the offensive potential of the ward window."
+        },
+        {
+          "id": "bw_0_3_1",
+          "name": "Counter Kill Reset",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "If a counter-hit during Blade Ward kills an enemy: BW cooldown reduced by 1.5s.",
+          "rank2": "2s reduction per counter-kill. Max 1 trigger per ward.",
+          "modifier": {
+            "conditionalMods": [{"condition": "counterHitKillDuringWard", "modifier": {"cdReduction": 1.5}, "maxTriggers": 1}]
+          },
+          "designNotes": "Counter-kill CD reduction. Different from Stab's Kill Momentum (direct kill → CD) and CS's Relentless Chains (multi-chain kills → CD) because this requires a COUNTER-HIT kill specifically. Only possible during ward windows. REQUIRES ENGINE 10.1 (kill attribution for counter-hits)."
+        },
+        {
+          "id": "bw_0_3_2",
+          "name": "Momentum Shift",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "+12% damage for 3s after Blade Ward expires.",
+          "rank2": "+18% damage for 4s after Blade Ward expires. +3% weapon mastery.",
+          "modifier": {
+            "conditionalMods": [{"condition": "afterWardExpires", "modifier": {"incDamage": 12}, "duration": 3}]
+          },
+          "designNotes": "Post-ward damage window. Different from Stab's Counter Momentum (post-dodge damage) because this is gated on WARD EXPIRY, not dodge. Creates a 2-phase rotation: defend during ward, then burst after ward ends."
+        },
+        {
+          "id": "bw_0_4_0",
+          "name": "Retaliator's Mark",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "Guarded bonus increased from +20% to +35%. When Guarded is consumed: also applies Vulnerable (3s) to the target. If at least 1 counter-hit crit during this ward: Guarded grants +15% crit chance as well. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "guardedEnhancement": {
+              "bonusDamage": 35,
+              "onConsume": {"applyDebuff": {"id": "vulnerable", "duration": 3}},
+              "ifCounterCrit": {"incCritChance": 15}
+            }
+          },
+          "designNotes": "Enhanced Guarded + Vulnerable application on consume. Different from Stab's Exploit Weakness (crit → Vulnerable directly) because this is gated on WARD HIT COUNT (Guarded = 3+ hits) AND optionally counter-crits. Setup through defense, not offense."
+        },
+        {
+          "id": "bw_0_4_1",
+          "name": "Fury Extension",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "support",
+          "maxRank": 2,
+          "description": "While Riposte Fury (T2) is active: +12% damage with all skills.",
+          "rank2": "+18% damage. Counter-hit kills during Riposte Fury extend it by 0.5s (max +1.5s).",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileBuffActive", "buffId": "riposte_fury", "modifier": {"incDamage": 12}}]
+          },
+          "designNotes": "Support for T2 Riposte Fury state. Kill-based extension gives active counterplay during the fury window. No new proc system."
+        },
+        {
+          "id": "bw_0_5_0",
+          "name": "Steel Nerves",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Counter-hits during Blade Ward always have at least 40% crit chance (floor, stacks with other sources). Counter-hit crits extend BW duration by 0.3s (max +1.5s total). +8% weapon mastery.",
+          "modifier": {
+            "counterHitCritFloor": 40,
+            "counterCritWardExtension": 0.3,
+            "maxExtension": 1.5,
+            "weaponMastery": 8
+          },
+          "exclusiveWith": ["bw_0_5_1"],
+          "designNotes": "Consistent choice. Reliable counter-crits + ward extension. Counter-hits will always crit ~40%+ of the time, giving steady Riposte Fury uptime and ward extension. High floor, moderate ceiling."
+        },
+        {
+          "id": "bw_0_5_1",
+          "name": "Glass Parry",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "Counter-hits during Blade Ward deal 120% WD (instead of 50%). Each counter-hit that crits grants +10% crit multiplier for the rest of the ward (snowball). Ward DR reduced from 15% to 8%.",
+          "modifier": {
+            "counterHitDamage": 120,
+            "perCounterCrit": {"critMult": 10},
+            "wardDROverride": 8
+          },
+          "exclusiveWith": ["bw_0_5_0"],
+          "designNotes": "Risky choice. Massive counter-hit damage that snowballs on crits, but ward DR is halved. First counter-hit at 120% WD is already strong. If it crits: +10% crit mult for next counter. Second crit: +20%. By the third crit counter: +30% crit mult AND 120% WD. But 8% DR means you take much more damage. Glass cannon defense."
+        },
+        {
+          "id": "bw_0_6_0",
+          "name": "Lethal Retaliation",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "catastrophic",
+          "description": "When Blade Ward receives 4+ hits in one window AND at least 2 counter-hits crit: trigger Lethal Retaliation — a 250% WD counter-hit to the primary target, guaranteed crit. 12s ICD. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "triggerCondition": {"hitsReceivedInWard": 4, "counterCritsInWard": 2},
+            "effect": {"weaponDamage": 250, "guaranteedCrit": true, "targetCount": 1},
+            "icd": 12
+          },
+          "designNotes": "Catastrophic double-gated proc: must receive 4+ hits AND have 2+ counter-crits. Different from BD's Reaper's Dance (3+ kills in cast) because this is gated on INCOMING hits + COUNTER-HIT CRITS. The 250% WD guaranteed crit is devastating — equivalent to Assassinate's raw damage. Requires enemy to attack 4+ times in a 3s window."
+        },
+        {
+          "id": "bw_0_7_0",
+          "name": "BLADE HURRICANE",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Counter-hits deal 100% WD (up from 50%). Lethal Retaliation (T6) triggers at 3+ hits / 1+ crits (instead of 4+/2+). Every counter-hit that crits applies Exposed (2s). BW cooldown increased by 3s (10s total). Ward DR reduced to 0%. -10% damage from non-counter sources.",
+          "modifier": {
+            "counterHitDamage": 100,
+            "t6Override": {"hitsRequired": 3, "critsRequired": 1},
+            "onCounterCrit": {"applyDebuff": {"id": "exposed", "duration": 2}},
+            "cdIncrease": 3,
+            "wardDR": 0,
+            "nonCounterDamagePenalty": -10
+          },
+          "tensionWith": "bw_0_6_0",
+          "tensionDescription": "T6 needs 4+ hits / 2+ crits for massive retaliation. T7 lowers the gate (3+/1+) AND doubles counter damage AND crits apply Exposed — but ward provides ZERO damage reduction and has 10s CD. Blade Ward becomes a pure offensive counter-attack window with no defense. Getting hit is the POINT, but you're unprotected. Anti-synergy with the skill's core defensive identity.",
+          "antiSynergy": ["bw_2_1_0 (Stalwart Guard — DR scaling is wasted at 0% base)", "bw_2_5_0 (Fortress — healing during ward matters less when DR is 0)"],
+          "synergy": ["bw_0_5_1 (Glass Parry — already reduces DR, might as well go to 0)", "bw_0_6_0 (Lethal Retaliation — easier trigger)"],
+          "engineRequirements": ["ENGINE 10.3 (cooldown increase)"]
+        }
+      ]
+    },
+    {
+      "branchIndex": 1,
+      "branchName": "Plague",
+      "mechanicCheck": {
+        "mechanics": [
+          "Venomous Counter (T1a — counter-hits apply ailments at enhanced potency, offensive ailment ward)",
+          "Toxic Retaliation (T2 notable — counter-hit ailment threshold triggers potency state)",
+          "Plague Retaliation (T6 notable — 5+ stack attacker during ward triggers ailment burst + spread)"
+        ],
+        "nonTracked": [
+          "+X% ailment duration post-ward — T3 conditional, no tracking",
+          "Toxic Retaliation amplification — T4b support, enhances tracked state"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "comboModifications": [
+        {
+          "tier": "T3",
+          "type": "enhance",
+          "defaultState": "guarded",
+          "description": "Guarded also grants +25% ailment potency on the consuming skill."
+        }
+      ],
+      "nodes": [
+        {
+          "id": "bw_1_1_0",
+          "name": "Venomous Counter",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Counter-hits during Blade Ward apply ailments at +25% potency (snapshots from BW's fully-scaled damage × 1.25).",
+          "rank2": "+40% potency. Counter-hit ailments also last 1s longer.",
+          "modifier": {
+            "counterHitAilmentPotency": 25,
+            "perRank": {
+              "1": {"ailmentPotencyBonus": 25},
+              "2": {"ailmentPotencyBonus": 40, "ailmentDurationBonus": 1}
+            }
+          },
+          "designNotes": "Counter-hit ailment potency. Unique pattern — no other Plague T1 involves counter-hit ailments. Different from VS's Venomous Precision (crit → potency) because this is potency on COUNTER-HITS, triggered by enemy attacks. Also different from Stab's Lingering Cuts (consecutive hits extend duration) — BW's ailments come from BEING HIT, not hitting."
+        },
+        {
+          "id": "bw_1_1_1",
+          "name": "Reactive Toxins",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Each hit you receive during Blade Ward extends all active ailments on the ATTACKER by 0.5s.",
+          "rank2": "0.8s per hit received. Also +5% ailment potency per hit received during ward (max 3 stacks, +15%).",
+          "modifier": {
+            "perHitReceivedDuringWard": {"extendAttackerAilments": 0.5},
+            "perRank": {
+              "1": {"ailmentExtension": 0.5},
+              "2": {"ailmentExtension": 0.8, "ailmentPotencyPerHit": 5, "maxStacks": 3}
+            }
+          },
+          "designNotes": "Incoming hits extend ATTACKER's ailments. Completely unique mechanic: DEFENSE extends OFFENSE (ailment duration). Different from CS's Chain Persistence (chain hits refresh all ailments) and Stab's Lingering Cuts (consecutive YOUR hits extend duration). BW's version: enemy attacks YOU → your ailments on THEM last longer. Punishes aggressive enemies."
+        },
+        {
+          "id": "bw_1_2_0",
+          "name": "Toxic Retaliation",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "When counter-hits during Blade Ward apply 3+ total ailment stacks (across all targets): enter Toxic Retaliation (4s). All ailment applications gain +20% potency. Counter-hits during Toxic Retaliation apply 1 additional ailment instance. +8% ailment duration.",
+          "statsRider": "+8% ailment duration.",
+          "modifier": {
+            "triggerCondition": {"counterHitAilmentStacksInWard": 3},
+            "buff": {"id": "toxic_retaliation", "duration": 4, "ailmentPotency": 20, "counterExtraAilment": 1}
+          },
+          "designNotes": "Gated proc from counter-hit AILMENT count. Different from Stab's Toxic Burst (3+ ailment stacks on target → burst damage) because this triggers from counter-hit APPLICATIONS, not existing stacks. Different from FoK's Plague Wave (target count → state) because this is from COUNTER-HIT ailments. Unique to BW's defensive ailment identity."
+        },
+        {
+          "id": "bw_1_2_1",
+          "name": "Corrosive Counters",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Counter-hits during Blade Ward also apply Weakened (2s): target deals 10% less damage.",
+          "rank2": "Weakened duration 3s. Also -10 target resist while Weakened.",
+          "modifier": {
+            "counterHitDebuff": {"id": "weakened", "duration": 2, "damageReduction": 10},
+            "perRank": {
+              "1": {"weakenedDuration": 2},
+              "2": {"weakenedDuration": 3, "resistReduction": 10}
+            }
+          },
+          "designNotes": "Counter-hits apply Weakened curse. Different from SM's Cursing Mark (mark applies curse) because this comes from COUNTER-HITS, not marks. Different from Stab/BD T4 Shadow Form (dodge state applies Weakened) because this is from counter-hits during ward, no dodge requirement."
+        },
+        {
+          "id": "bw_1_3_0",
+          "name": "Lingering Venom",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "+15% ailment duration for 3s after Blade Ward expires.",
+          "rank2": "+25% ailment duration for 4s after Blade Ward expires. +3% weapon mastery.",
+          "modifier": {
+            "conditionalMods": [{"condition": "afterWardExpires", "modifier": {"ailmentDuration": 15}, "duration": 3}]
+          },
+          "designNotes": "Post-ward ailment duration. Simple conditional. Different timing context from other ailment duration nodes (during-skill, permanent) — this creates a burst window for ailment application after ward ends."
+        },
+        {
+          "id": "bw_1_3_1",
+          "name": "Toxic Guard Combo",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "COMBO ENHANCEMENT: Guarded (from 3+ hits during ward) also grants +25% ailment potency on the consuming skill.",
+          "rank2": "+35% ailment potency. Also +10% DoT multiplier for 3s after consuming Guarded.",
+          "modifier": {
+            "comboModification": {"state": "guarded", "additionalEffect": {"ailmentPotency": 25}}
+          },
+          "designNotes": "COMBO ENHANCEMENT for Guarded. Adds ailment potency to the default damage bonus. Makes Guarded valuable for Plague builds specifically."
+        },
+        {
+          "id": "bw_1_3_2",
+          "name": "Counter Persistence",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "Ailments applied by counter-hits refresh ALL existing ailments on the target by 1s.",
+          "rank2": "1.5s refresh. +3% weapon mastery.",
+          "modifier": {
+            "conditionalMods": [{"condition": "onCounterHitAilment", "modifier": {"refreshAllAilments": 1}}]
+          },
+          "designNotes": "Counter-hit ailments refresh existing ailments. Different from CS's Chain Persistence (chain hits refresh ailments from CS specifically) because this refreshes ALL ailments from COUNTER-HIT applications. Also different from VS's Venomous Persistence — this is from passive counter-hits during ward, not active skill casts."
+        },
+        {
+          "id": "bw_1_4_0",
+          "name": "Plague Guard",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "state-shift",
+          "description": "When counter-hits accumulate 5+ ailment stacks on enemies during a single Blade Ward window: enter Plague Guard (4s). All ailment applications from any skill splash to 1 adjacent target at 30% potency. 12s ICD. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "triggerCondition": {"counterHitAilmentStacksInWard": 5},
+            "buff": {"id": "plague_guard", "duration": 4, "ailmentSplash": {"targets": 1, "potency": 30}},
+            "icd": 12
+          },
+          "designNotes": "State-shift from counter-ailment accumulation. Different from CS's Plague Highway (chain carries ailments) because this splashes on APPLICATION, not via chain. Different from FoK's Toxic Storm (0-damage splash) because this is gated on COUNTER-HIT ailment count during ward. REQUIRES ENGINE 10.6 (AoE splash)."
+        },
+        {
+          "id": "bw_1_4_1",
+          "name": "Guard Amplifier",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "support",
+          "maxRank": 2,
+          "description": "While Plague Guard is active: +12% ailment potency for all skills.",
+          "rank2": "+18% potency. Each ailment applied extends Plague Guard by 0.3s (max +2s).",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileBuffActive", "buffId": "plague_guard", "modifier": {"ailmentPotency": 12}}]
+          },
+          "designNotes": "Support for Plague Guard state. Per-ailment extension. No new proc system."
+        },
+        {
+          "id": "bw_1_5_0",
+          "name": "Festering Counter",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Counter-hit ailments apply at 2x base potency (multiplicative with T1a). Counter-hit ailments always apply regardless of ward state. +8% weapon mastery.",
+          "modifier": {
+            "counterHitAilmentMultiplier": 2.0,
+            "counterAilmentsIgnoreWardState": true,
+            "weaponMastery": 8
+          },
+          "exclusiveWith": ["bw_1_5_1"],
+          "designNotes": "Consistent doubled counter-hit ailment potency. Stacks with T1a for massive ailment snapshots from counter-hits. Reliable, always-on."
+        },
+        {
+          "id": "bw_1_5_1",
+          "name": "Toxic Burst Ward",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "When Blade Ward expires: detonate 30% of all ailment stacks on enemies that were counter-hit during this ward as instant burst damage. If 0 counter-hits fired during ward: BW cooldown +2s.",
+          "modifier": {
+            "onWardExpire": {"detonateCounterHitAilments": 30},
+            "noCounterPenalty": {"cdIncrease": 2}
+          },
+          "exclusiveWith": ["bw_1_5_0"],
+          "designNotes": "Risky ward-expiry detonation. Burst ailment damage on ward end — rewards having counter-hits apply strong ailments during ward. If enemies don't attack (no counter-hits), you're punished. Different from VS T5B (crit-gated detonation) and CS T5B (chain detonation) because this is gated on WARD EXPIRY timing."
+        },
+        {
+          "id": "bw_1_6_0",
+          "name": "Plague Retaliation",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "catastrophic",
+          "description": "When an enemy with 5+ ailment stacks attacks you during Blade Ward: all ailments on that enemy burst for 30% of remaining damage AND spread to all nearby enemies at 50% potency. 10s ICD. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "triggerCondition": {"attackerAilmentStacks": 5, "duringWard": true},
+            "effect": {"burstPercent": 30, "spreadToNearby": true, "spreadPotency": 50},
+            "icd": 10
+          },
+          "designNotes": "Catastrophic reverse-trigger: enemy attacking YOU while heavily ailmented causes their own ailments to burst AND spread. Completely unique pattern — no other T6 triggers from an enemy's ATTACK while THEY have ailments. Different from Stab's Pandemic Cascade (kill → spread) because this is triggered by enemy AGGRESSION, not kills. Punishes enemies for attacking while diseased."
+        },
+        {
+          "id": "bw_1_7_0",
+          "name": "TOXIC GUARDIAN",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Counter-hits deal 0 direct damage but apply ALL ailment types simultaneously (your element's ailment + all other types at 25% potency). Plague Retaliation (T6) triggers at 3+ stacks instead of 5+. Ward DR increased to 25% (from 15%). BW duration +2s (5s total). Direct damage with all skills reduced by -20%.",
+          "modifier": {
+            "counterHitDamage": 0,
+            "counterAppliesAllAilments": true,
+            "otherAilmentPotency": 25,
+            "t6Override": {"stacksRequired": 3},
+            "wardDR": 25,
+            "wardDurationBonus": 2,
+            "directDamagePenalty": -20
+          },
+          "tensionWith": "bw_1_6_0",
+          "tensionDescription": "T6 needs 5+ ailment stacks on attacker to trigger burst+spread. T7 lowers to 3+ AND counters apply ALL ailment types (quickly reaching threshold). But counter-hits deal ZERO direct damage and ALL skills have -20% direct damage. Ward becomes a pure ailment generation machine with strong DR but no direct damage output. Total commitment to DoT identity.",
+          "antiSynergy": ["bw_0_1_0 (Punishing Counter — counter crits worthless at 0 damage)", "bw_0_5_1 (Glass Parry — counter damage is 0, scaling wasted)"],
+          "synergy": ["bw_1_1_0 (Venomous Counter — enhanced potency on counter ailments)", "bw_1_6_0 (Plague Retaliation — easier trigger at 3+ stacks)"],
+          "engineRequirements": ["ENGINE 10.2 (multi-ailment application from 0-damage hits)"]
+        }
+      ]
+    },
+    {
+      "branchIndex": 2,
+      "branchName": "Ghost",
+      "mechanicCheck": {
+        "mechanics": [
+          "Ward DR Scaling (T1a — Blade Ward's damage reduction increased and scales with Fortify)",
+          "Warden's Stance (T2 notable — dodge during ward enhances counter-hit + Fortify + refreshes ward)",
+          "Perfect Guard (T6 notable — 5+ ward hits triggers mega-counter + massive heal + Fortify)"
+        ],
+        "nonTracked": [
+          "+X% DR post-ward — T3 conditional, no tracking",
+          "Warden's Stance extension — T4b support, enhances tracked state",
+          "Ward duration extension — T2b behavior, extends tracked ward"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "comboModifications": [
+        {
+          "tier": "T4",
+          "type": "enhance",
+          "defaultState": "guarded",
+          "description": "Guarded threshold reduced from 3 hits to 2 hits. Guarded also heals 5% max HP on consume."
+        }
+      ],
+      "nodes": [
+        {
+          "id": "bw_2_1_0",
+          "name": "Stalwart Guard",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Blade Ward's base DR increased by +5% (20% total).",
+          "rank2": "+8% DR (23% total). Also gain +1 Fortify stack on Blade Ward cast.",
+          "modifier": {
+            "wardDRBonus": 5,
+            "perRank": {
+              "1": {"wardDRBonus": 5},
+              "2": {"wardDRBonus": 8, "onCastFortify": 1}
+            }
+          },
+          "designNotes": "Ward DR increase. Completely unique pattern — no other Ghost T1 modifies a skill's built-in damage reduction value. Different from BD's Scattered Threat (pack-size DR that weakens on kill) because this is a flat DR INCREASE to the ward itself. BW IS the defensive skill."
+        },
+        {
+          "id": "bw_2_1_1",
+          "name": "Recovering Blows",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Counter-hits during Blade Ward heal for 2% max HP per counter.",
+          "rank2": "3% HP per counter. If 3+ counters fire during one ward, heal an additional 5% max HP.",
+          "modifier": {
+            "counterHitHeal": {"percentMaxHP": 2},
+            "perRank": {
+              "1": {"percentMaxHP": 2},
+              "2": {"percentMaxHP": 3, "bonusHealAt3Counters": 5}
+            }
+          },
+          "designNotes": "Counter-hit healing. Different from Stab's Combat Leech (leech % of damage dealt) because this heals from COUNTER-HITS — passive damage from being attacked. Different from BD's Dancing Recovery (per unique target hit) because the healing source is INCOMING attacks, not outgoing hits. BW heals by getting hit. Unique defensive loop."
+        },
+        {
+          "id": "bw_2_2_0",
+          "name": "Warden's Stance",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "When you dodge or block during Blade Ward: counter-hit is enhanced to 80% WD (instead of 50%), gain +1 Fortify stack, and Blade Ward duration refreshed by 1s. +5 all resist.",
+          "statsRider": "+5 all resist.",
+          "modifier": {
+            "duringWardOnDodgeOrBlock": {
+              "counterDamage": 80,
+              "fortify": 1,
+              "wardRefresh": 1
+            }
+          },
+          "designNotes": "Dodge/block during ward → enhanced counter + Fortify + ward refresh. Different from Stab's Shadow Guard (dodge → counter + Fortify + CD reset) because this ENHANCES the EXISTING counter-hit and refreshes WARD DURATION, not skill CD. Stab creates new counter-attacks from dodge. BW has counters already — this makes them BETTER on dodge/block and keeps the ward going."
+        },
+        {
+          "id": "bw_2_2_1",
+          "name": "Enduring Ward",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Each hit/dodge/block during Blade Ward extends its duration by 0.3s.",
+          "rank2": "0.5s per event. Max extension +2s per ward.",
+          "modifier": {
+            "perDefensiveEvent": {"wardExtension": 0.3},
+            "perRank": {
+              "1": {"wardExtension": 0.3},
+              "2": {"wardExtension": 0.5, "maxExtension": 2}
+            }
+          },
+          "designNotes": "Ward extension per defensive event. Unique pattern — no other skill has a self-extending buff from INCOMING events. Different from BD's Scattering Steps (post-cast dodge bonus) and CS's Reactive Chains (dodge → empowered next CS). BW's extension comes from the ward ITSELF being used — more enemy attacks = longer ward. Scales with enemy aggression."
+        },
+        {
+          "id": "bw_2_3_0",
+          "name": "Guarded Resilience",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "+5% damage reduction for 3s after Blade Ward expires.",
+          "rank2": "+8% DR for 4s after ward expires. +3% weapon mastery.",
+          "modifier": {
+            "conditionalMods": [{"condition": "afterWardExpires", "modifier": {"damageReduction": 5}, "duration": 3}]
+          },
+          "designNotes": "Post-ward DR. Simple conditional stat. Smooths the transition between ward windows — you're still somewhat protected after ward ends."
+        },
+        {
+          "id": "bw_2_3_1",
+          "name": "Easy Guard",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "COMBO ENHANCEMENT: Guarded threshold reduced from 3 hits to 2 hits. Guarded also heals 5% max HP when consumed.",
+          "rank2": "Guarded heals 8% max HP on consume. +3% weapon mastery.",
+          "modifier": {
+            "comboModification": {"state": "guarded", "thresholdOverride": 2, "onConsume": {"healPercentMaxHP": 5}}
+          },
+          "designNotes": "COMBO MODIFICATION matching archetype guide. Easier Guarded threshold + healing. Leather armor users with high dodge struggle to reach 3 hits in 3s — this lowers to 2. The heal makes Guarded a defensive payoff, not just offensive."
+        },
+        {
+          "id": "bw_2_3_2",
+          "name": "Ward Evasion",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "+10% dodge chance during Blade Ward.",
+          "rank2": "+15% dodge during Blade Ward. +3% weapon mastery.",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileWardActive", "modifier": {"dodgeChance": 10}}]
+          },
+          "designNotes": "Dodge during ward. Simple conditional. Synergizes with T2 Warden's Stance (dodge → enhanced counter + ward refresh). More dodge during ward = more enhanced counters = longer ward."
+        },
+        {
+          "id": "bw_2_4_0",
+          "name": "Iron Guard",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "state-shift",
+          "description": "When you dodge 2+ attacks during Blade Ward: enter Iron Guard (4s). +25% DR, counter-hits deal 100% WD, counter-hits apply Weakened (1s). 10s ICD. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "triggerCondition": {"dodgesDuringWard": 2},
+            "buff": {"id": "iron_guard", "duration": 4, "damageReduction": 25, "counterDamage": 100, "counterApplies": {"debuffId": "weakened", "duration": 1}},
+            "icd": 10
+          },
+          "designNotes": "State-shift from dodge-during-ward. Different from Stab's Shadow Form (2 dodges → DR + Weakened on Stab hits) because this enhances COUNTER-HITS and stacks with ward's existing DR. Different from BD's Evasive Dance Form (dodge → BD CD reduction) because this creates a DEFENSIVE super-state. BW + Iron Guard = 40%+ total DR with 100% WD counters applying Weakened."
+        },
+        {
+          "id": "bw_2_4_1",
+          "name": "Iron Persistence",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "support",
+          "maxRank": 2,
+          "description": "While Iron Guard is active: +10% dodge chance.",
+          "rank2": "+15% dodge. Each dodge during Iron Guard extends it by 0.5s (max +2s).",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileBuffActive", "buffId": "iron_guard", "modifier": {"dodgeChance": 10}}]
+          },
+          "designNotes": "Support for Iron Guard. Dodge during state extends it. Creates a self-reinforcing loop: dodge → Iron Guard → more dodge → extend Iron Guard."
+        },
+        {
+          "id": "bw_2_5_0",
+          "name": "Fortress",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Blade Ward heals 3% max HP on cast. BW cast grants +2 Fortify stacks. At 3+ Fortify: counter-hits heal for additional 2% max HP each. +8% weapon mastery.",
+          "modifier": {
+            "onCast": {"healPercent": 3, "fortify": 2},
+            "atFortifyThreshold": {"counterHitHealBonus": 2, "threshold": 3},
+            "weaponMastery": 8
+          },
+          "exclusiveWith": ["bw_2_5_1"],
+          "designNotes": "Consistent sustain. Every BW cast heals and grants Fortify. At 3+ Fortify (easy with T2's per-dodge Fortify), counter-hits also heal. Reliable, always-on survival."
+        },
+        {
+          "id": "bw_2_5_1",
+          "name": "Retaliating Guard",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "Counter-hits during Blade Ward deal 120% WD and can crit. Each counter-crit extends BW duration by 0.3s. You take +10% increased damage from all sources.",
+          "modifier": {
+            "counterHitDamage": 120,
+            "counterCanCrit": true,
+            "counterCritWardExtension": 0.3,
+            "damageTakenIncrease": 10
+          },
+          "exclusiveWith": ["bw_2_5_0"],
+          "designNotes": "Risky offense-from-defense. Massive counter-hit damage with crit potential and ward extension, but +10% damage taken. Similar risk profile to Stab T5B (Counter Stance) and BD T5B (Counter Dancer) but unique context: BW counter-hits are the skill's CORE mechanic, not a bonus from dodge. Taking 10% more damage is scarier during a 3s ward window."
+        },
+        {
+          "id": "bw_2_6_0",
+          "name": "Perfect Guard",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "catastrophic",
+          "description": "When Blade Ward receives 5+ hits in one window: trigger Perfect Guard — a 200% WD counter-hit to ALL enemies, guaranteed crit. Heal 15% max HP. Gain 3 Fortify stacks. 12s ICD. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "triggerCondition": {"hitsReceivedInWard": 5},
+            "effect": {"weaponDamage": 200, "guaranteedCrit": true, "targetCount": "all", "healPercent": 15, "fortify": 3},
+            "icd": 12
+          },
+          "designNotes": "Catastrophic survival reward. 5+ hits in 3s is significant enemy aggression. Reward: massive AoE counter + huge heal + Fortify. Different from BD's Phantom Dance (dodge → free multi-target counter) because this requires SUSTAINED incoming hits, not a dodge event. Different from Predator's Lethal Retaliation (4+ hits + 2+ crits → single target) because Ghost's version is AoE + heal + Fortify — pure survival reward vs Predator's pure damage reward."
+        },
+        {
+          "id": "bw_2_7_0",
+          "name": "ETERNAL GUARDIAN",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Blade Ward becomes PERMANENT (no duration limit) at 10% DR (instead of 15%). Counter-hits deal 30% WD (instead of 50%). Perfect Guard (T6) triggers at 3+ hits instead of 5+. Cannot cast other defensive buffs (Shadow Covenant excluded). All offensive skill damage reduced by -10%.",
+          "modifier": {
+            "permanentWard": true,
+            "wardDROverride": 10,
+            "counterHitDamage": 30,
+            "t6Override": {"hitsRequired": 3},
+            "defensiveBuffLimit": true,
+            "offensiveDamagePenalty": -10
+          },
+          "tensionWith": "bw_2_6_0",
+          "tensionDescription": "T6 needs 5+ hits for a massive heal/counter/Fortify proc. T7 lowers to 3+ hits — much easier to trigger. But permanent ward has only 10% DR (vs 15%), counter-hits are weaker (30% vs 50%), and all offensive damage is -10%. You're ALWAYS defended but never at peak performance. True tank identity: permanent mitigation, easy Perfect Guard triggers, but reduced damage ceiling. Ward never drops, but ward is weaker.",
+          "antiSynergy": ["bw_0_7_0 (BLADE HURRICANE — 0% DR makes permanent ward pointless for defense)", "bw_0_2_1 (Calculated Defense — permanent ward has no 'time remaining' to scale with)"],
+          "synergy": ["bw_2_6_0 (Perfect Guard — 3+ hit threshold instead of 5+, fires frequently)", "bw_2_1_1 (Recovering Blows — permanent counter-hit healing, always active)"],
+          "engineRequirements": []
+        }
+      ]
+    }
+  ]
+}

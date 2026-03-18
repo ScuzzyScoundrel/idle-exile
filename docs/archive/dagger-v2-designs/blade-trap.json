@@ -1,0 +1,774 @@
+{
+  "skillId": "dagger_blade_trap",
+  "skillName": "Blade Trap",
+  "version": "2.0",
+  "tags": ["trap", "aoe"],
+  "defaultComboState": {
+    "id": "none",
+    "trigger": "none",
+    "description": "Blade Trap does not create a combo state. It consumes Shadow Mark for +50% detonation damage (225% WD instead of 150%)."
+  },
+  "branches": [
+    {
+      "branchIndex": 0,
+      "branchName": "Predator",
+      "mechanicCheck": {
+        "mechanics": [
+          "Detonation Scaling (T1a — trap damage scales with time since placement, patience rewarded)",
+          "Primed Detonation (T2 notable — fully-armed trap crit on detonation triggers burst state)",
+          "Annihilation Trap (T6 notable — trap that kills 2+ enemies triggers a second free detonation)"
+        ],
+        "nonTracked": [
+          "+X% crit on detonation — T3 conditional, no tracking",
+          "Primed Detonation extension — T4b support, enhances tracked state"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "comboModifications": [
+        {
+          "tier": "T4",
+          "type": "enhance",
+          "defaultState": "none",
+          "description": "Blade Trap detonation now creates Exposed (3s) on ALL enemies hit. Exposed bonus increased to +30% for trap detonations."
+        }
+      ],
+      "nodes": [
+        {
+          "id": "bt_0_1_0",
+          "name": "Patience Rewarded",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Blade Trap's detonation damage increases by +5% for each second the trap has been armed (placed) before detonation. At 10s CD, max +50% if detonation happens just before refresh.",
+          "rank2": "+8% per second armed (max +80%). Also +2% crit chance per second armed.",
+          "modifier": {
+            "conditionalMods": [{"condition": "perSecondSinceArmed", "modifier": {"incDamage": 5}}],
+            "perRank": {
+              "1": {"incDamage": 5},
+              "2": {"incDamage": 8, "incCritChancePerSecond": 2}
+            }
+          },
+          "designNotes": "ARM_TIME_MANIPULATION template. Unique to trap skills — damage scales with how long the trap WAITS before detonating. Different from Assassinate's Patient Predator (CD time → damage) because this scales with TRAP PERSISTENCE, not skill cooldown. Traps that detonate late hit harder. In idle auto-rotation, boss attack frequency determines detonation timing — fast-attacking bosses detonate early (less bonus), slow bosses detonate late (more bonus)."
+        },
+        {
+          "id": "bt_0_1_1",
+          "name": "Calculated Placement",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "If Blade Trap is the last skill in your rotation to cast before cycling back, its detonation deals +20% damage.",
+          "rank2": "+30% damage. Also +10% crit chance for the detonation.",
+          "modifier": {
+            "conditionalMods": [{"condition": "lastSkillInCycle", "modifier": {"incDamage": 20}}],
+            "perRank": {
+              "1": {"incDamage": 20},
+              "2": {"incDamage": 30, "incCritChance": 10}
+            }
+          },
+          "designNotes": "Rotation-position awareness. Unique to idle auto-rotation — rewards placing BT as slot 4 (last in cycle). No other skill cares about its POSITION in the auto-cast order. Different from Assassinate's cooldown investment (scales with time on CD) — this is about SLOT ORDER, not time. Creates a meaningful equip decision: BT in slot 4 = +30% detonation damage."
+        },
+        {
+          "id": "bt_0_2_0",
+          "name": "Primed Detonation",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "When Blade Trap detonation crits AND trap was armed for 3+ seconds: enter Primed state (4s). Next Blade Trap placement is instant (no arm time) and deals +25% damage. +5% crit chance.",
+          "statsRider": "+5% crit chance.",
+          "modifier": {
+            "triggerCondition": {"detonationCrit": true, "minArmTime": 3},
+            "buff": {"id": "primed", "duration": 4, "nextTrapInstant": true, "trapDamageBonus": 25}
+          },
+          "designNotes": "Gated proc: detonation CRIT + minimum arm time. Rewards patient trap placement that crits. The payoff (instant next trap + damage bonus) accelerates the next trap cycle. Different from other T2 procs (hit-based, chain-based, dodge-based) — this is DETONATION-GATED, unique to traps."
+        },
+        {
+          "id": "bt_0_2_1",
+          "name": "Sharpened Blades",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Blade Trap detonation deals +20% damage to the enemy that triggered it (the one that attacked).",
+          "rank2": "+30% damage to trigger enemy. That enemy also takes +10% crit chance on the detonation.",
+          "modifier": {
+            "triggerTargetBonus": {"incDamage": 20},
+            "perRank": {
+              "1": {"incDamage": 20},
+              "2": {"incDamage": 30, "incCritChance": 10}
+            }
+          },
+          "designNotes": "Bonus damage to the TRIGGER enemy. Unique to traps — no other skill has a 'trigger target' concept. Different from FoK's Piercing Throw (primary target bonus) because this is the enemy whose ATTACK caused the detonation, not the first target in a list."
+        },
+        {
+          "id": "bt_0_3_0",
+          "name": "Lethal Trap",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "+15% crit chance on Blade Trap detonations.",
+          "rank2": "+20% crit chance. +3% weapon mastery.",
+          "modifier": {
+            "conditionalMods": [{"condition": "onDetonation", "modifier": {"incCritChance": 15}}]
+          },
+          "designNotes": "Simple detonation crit. Enhances all Predator crit interactions."
+        },
+        {
+          "id": "bt_0_3_1",
+          "name": "Trap Efficiency",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "If Blade Trap detonation kills an enemy: BT cooldown reduced by 2s.",
+          "rank2": "3s reduction per detonation kill. +3% weapon mastery.",
+          "modifier": {
+            "conditionalMods": [{"condition": "detonationKill", "modifier": {"cdReduction": 2}}]
+          },
+          "designNotes": "Kill-based CD reduction on detonation. At 10s base CD, a 3s reduction is significant (30%). Different from other kill-CD patterns (Stab per hit, CS per chain kill) because BT's kills come from a DELAYED AoE — you set it and forget, then get rewarded retroactively."
+        },
+        {
+          "id": "bt_0_3_2",
+          "name": "Predator's Trap",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "+10% damage on next skill after Blade Trap detonates.",
+          "rank2": "+15% damage. +5% crit chance on next skill. Duration 3s.",
+          "modifier": {
+            "conditionalMods": [{"condition": "afterDetonation", "modifier": {"nextSkillDamage": 10}, "duration": 3}]
+          },
+          "designNotes": "Post-detonation empowerment. Different from BW's Momentum Shift (post-ward) because this triggers on trap DETONATION, not ward expiry. The trap's explosion sets up the next skill."
+        },
+        {
+          "id": "bt_0_4_0",
+          "name": "Execution Trap",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "Blade Trap detonation creates Exposed (3s) on ALL enemies hit. Exposed from trap detonations grants +30% damage (instead of +25%). If the trigger enemy is below 30% HP: detonation deals +40% damage to that enemy. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "onDetonation": {"applyToAll": {"debuffId": "exposed", "duration": 3, "enhancedBonus": 30}},
+            "executeThreshold": {"hpPercent": 30, "bonusDamage": 40}
+          },
+          "designNotes": "Mass Exposed application from detonation + execute threshold. Different from Stab's Exploit Weakness (crit → single Vulnerable) and CS's Surge Mastery (chain → Exposed on chain targets). BT applies Exposed to ALL enemies hit by AoE detonation, creating a mass setup for follow-up skills."
+        },
+        {
+          "id": "bt_0_4_1",
+          "name": "Primed Extension",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "support",
+          "maxRank": 2,
+          "description": "While Primed state (T2) is active: +10% damage with all skills.",
+          "rank2": "+15% damage. Primed state also grants +5% crit chance for all skills.",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileBuffActive", "buffId": "primed", "modifier": {"incDamage": 10}}]
+          },
+          "designNotes": "Support for T2 Primed state. Global damage during the trap acceleration window. No new proc system."
+        },
+        {
+          "id": "bt_0_5_0",
+          "name": "Reliable Detonation",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Blade Trap detonation always crits. Crit multiplier on detonations reduced to 1.3x (instead of normal). Arm time reduced to 1.0s (from 1.5s). +8% weapon mastery.",
+          "modifier": {
+            "detonationGuaranteedCrit": true,
+            "detonationCritMultOverride": 1.3,
+            "armTimeOverride": 1.0,
+            "weaponMastery": 8
+          },
+          "exclusiveWith": ["bt_0_5_1"],
+          "designNotes": "Consistent guaranteed crit. Every detonation crits — reliable Primed triggers (T2), reliable crit interactions. Lower crit mult keeps ceiling in check. Faster arm time is a QoL bonus."
+        },
+        {
+          "id": "bt_0_5_1",
+          "name": "Volatile Charge",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "Blade Trap detonation deals +80% damage. If detonation kills 0 enemies: BT cooldown increased by 3s (13s total for next cast). If detonation kills 1+: cooldown reduced by 2s (8s for next cast).",
+          "modifier": {
+            "detonationDamageBonus": 80,
+            "onDetonationKill": {"cdReduction": 2},
+            "onDetonationNoKill": {"cdIncrease": 3}
+          },
+          "exclusiveWith": ["bt_0_5_0"],
+          "designNotes": "Risky high-damage detonation. +80% damage is massive on a 150% WD base (= 270% WD total). Kill = faster cycle. No kill = 13s CD punishment. Against packs: easy kills, fast cycle. Against bosses: massive damage but 13s CD. True risk/reward."
+        },
+        {
+          "id": "bt_0_6_0",
+          "name": "Annihilation Trap",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "catastrophic",
+          "description": "When Blade Trap detonation kills 2+ enemies: trigger a second free detonation at 100% WD (no arm time) hitting all enemies. 12s ICD. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "triggerCondition": {"detonationKills": 2},
+            "effect": {"freeDetonation": true, "weaponDamage": 100, "noArmTime": true, "targetCount": "all"},
+            "icd": 12
+          },
+          "designNotes": "Multi-kill → free echo detonation. Different from FoK's Annihilation (3+ kills → free cast) because BT's echo is a DETONATION (no placement, instant). Different from BD's Reaper's Dance (3+ kills → AoE) because BT's echo uses TRAP SCALING, not skill damage — Patience Rewarded (T1a) applies to the echo. REQUIRES ENGINE 10.1 (kill attribution for trap kills)."
+        },
+        {
+          "id": "bt_0_7_0",
+          "name": "DEATH TRAP",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Blade Trap can store 2 charges (place 2 traps simultaneously). Detonation hits from both traps stack. Annihilation Trap (T6) triggers on 1+ kills instead of 2+. BT cooldown increased by 4s (14s total per charge). Trap damage reduced by -20%. Non-trap skills deal -10% damage.",
+          "modifier": {
+            "trapCharges": 2,
+            "t6Override": {"killsRequired": 1},
+            "cdIncrease": 4,
+            "trapDamagePenalty": -20,
+            "nonTrapDamagePenalty": -10
+          },
+          "tensionWith": "bt_0_6_0",
+          "tensionDescription": "T6 needs 2+ kills per detonation. T7 lowers to 1+ kill AND gives 2 trap charges — but each trap is weaker (-20%) and has 14s CD per charge. Two traps detonating together deal 2×120% = 240% WD (vs single trap 150%). The echo from T6 adds another 100%. Total potential: 340% WD in one detonation event. But 14s between charges and all other skills nerfed. Pure trap specialist.",
+          "antiSynergy": ["bt_1_7_0 (PLAGUE MINE — different trap identity)", "Non-trap skill damage penalty hurts skills-between-traps rotation"],
+          "synergy": ["bt_0_6_0 (Annihilation Trap — easier echo trigger)", "bt_0_5_0 (Reliable Detonation — guaranteed crits on both traps)"],
+          "engineRequirements": ["ENGINE 10.3 (cooldown increase)", "New: trap charge system (multi-trap placement)"]
+        }
+      ]
+    },
+    {
+      "branchIndex": 1,
+      "branchName": "Plague",
+      "mechanicCheck": {
+        "mechanics": [
+          "Ailment Detonation (T1a — trap detonation applies ailments at double potency)",
+          "Plague Trap (T2 notable — detonation on ailmented targets triggers enhanced ailment burst state)",
+          "Pandemic Trap (T6 notable — trap kill on 5+ stack target spreads all ailments + re-arms trap)"
+        ],
+        "nonTracked": [
+          "+X% ailment potency on detonation — T3 conditional, no tracking",
+          "Plague Trap extension — T4b support, enhances tracked state"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "comboModifications": [
+        {
+          "tier": "T3",
+          "type": "enhance",
+          "defaultState": "none",
+          "description": "Blade Trap detonation applies Saturated (4s) to all enemies hit, regardless of prior ailment state."
+        }
+      ],
+      "nodes": [
+        {
+          "id": "bt_1_1_0",
+          "name": "Toxic Payload",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Blade Trap detonation applies ailments at 2x potency (snapshots from 150% WD × 2.0 for ailment calculation).",
+          "rank2": "2.5x potency. Detonation ailments also last 1.5s longer.",
+          "modifier": {
+            "detonationAilmentPotencyMultiplier": 2.0,
+            "perRank": {
+              "1": {"ailmentPotencyMultiplier": 2.0},
+              "2": {"ailmentPotencyMultiplier": 2.5, "ailmentDurationBonus": 1.5}
+            }
+          },
+          "designNotes": "DETONATION_SCALING for ailments. Unique to traps — no other skill's Plague T1 multiplies ailment potency directly. Different from VS's base +50% potency (which is always-on) because BT's multiplier is on DETONATION only. 150% WD × 2.5x = 375% effective WD for ailment snapshot. Massive AoE ailment application but on a 10s CD."
+        },
+        {
+          "id": "bt_1_1_1",
+          "name": "Lingering Trap",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Blade Trap leaves a Toxic Zone (3s) after detonation. Enemies in the zone take ailment ticks at 20% of detonation ailment potency per second.",
+          "rank2": "Toxic Zone lasts 4s. Tick potency increased to 30%.",
+          "modifier": {
+            "postDetonationZone": {"duration": 3, "tickPotency": 20},
+            "perRank": {
+              "1": {"duration": 3, "tickPotency": 20},
+              "2": {"duration": 4, "tickPotency": 30}
+            }
+          },
+          "designNotes": "TRAP_PERSISTENCE template. Post-detonation lingering effect. Completely unique — no other skill leaves a damage ZONE after firing. The zone applies additional ailment ticks based on the original detonation snapshot. Creates area denial: enemies standing in the zone take continuous ailment damage."
+        },
+        {
+          "id": "bt_1_2_0",
+          "name": "Plague Trap",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "When Blade Trap detonates on an enemy with 3+ ailment stacks: enter Plague Trap state (4s). All ailment applications gain +25% potency. Trap ailments also apply Weakened (2s). +8% ailment duration.",
+          "statsRider": "+8% ailment duration.",
+          "modifier": {
+            "triggerCondition": {"triggerTargetAilmentStacks": 3},
+            "buff": {"id": "plague_trap", "duration": 4, "ailmentPotency": 25, "trapAilmentDebuff": {"id": "weakened", "duration": 2}}
+          },
+          "designNotes": "Gated proc: detonation on pre-ailmented target. Different from Stab's Toxic Burst (stacks on target → burst damage) because this checks at DETONATION time and creates a POTENCY state, not a damage burst. Rewards setting up ailments BEFORE the trap goes off. CS has Plague Chain (chains through ailmented targets), but BT's is about a single MOMENT of detonation."
+        },
+        {
+          "id": "bt_1_2_1",
+          "name": "Saturating Blast",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Blade Trap detonation applies 1 additional ailment instance to each target hit.",
+          "rank2": "2 additional instances. Total: 3 ailment instances per target on detonation.",
+          "modifier": {
+            "detonationExtraAilments": 1,
+            "perRank": {
+              "1": {"extraAilments": 1},
+              "2": {"extraAilments": 2}
+            }
+          },
+          "designNotes": "Multi-instance ailment from detonation. Different from BW's Toxic Retaliation T2 (counter-hit ailments → extra instance) because this is from a single DETONATION event, not repeated counter-hits. Also different from VS's base +50% potency — BT applies more INSTANCES, not stronger ones."
+        },
+        {
+          "id": "bt_1_3_0",
+          "name": "Concentrated Toxin",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "+20% ailment potency on Blade Trap detonations.",
+          "rank2": "+30% ailment potency. +3% weapon mastery.",
+          "modifier": {
+            "conditionalMods": [{"condition": "onDetonation", "modifier": {"ailmentPotency": 20}}]
+          },
+          "designNotes": "Simple detonation ailment potency. Stacks with T1a's multiplier for massive per-instance potency."
+        },
+        {
+          "id": "bt_1_3_1",
+          "name": "Trap Saturation",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "COMBO ENHANCEMENT: Blade Trap detonation applies Saturated (4s) to all enemies hit, regardless of prior ailment state.",
+          "rank2": "Saturated potency increased to +20% DoT damage (from +15%). +3% weapon mastery.",
+          "modifier": {
+            "comboModification": {"onDetonation": {"applyDebuff": {"id": "saturated", "duration": 4}}}
+          },
+          "designNotes": "Trap detonation auto-applies Saturated. Normally Saturated requires FoK to hit 3+ already-ailmented targets. BT's version applies it unconditionally from detonation — no FoK needed. Enables trap-centric builds to access the Saturated debuff without slotting FoK."
+        },
+        {
+          "id": "bt_1_3_2",
+          "name": "Persistent Toxins",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "Ailments from Blade Trap detonation last 2s longer than normal.",
+          "rank2": "3s longer. +3% weapon mastery.",
+          "modifier": {
+            "conditionalMods": [{"condition": "trapAilments", "modifier": {"ailmentDurationBonus": 2}}]
+          },
+          "designNotes": "Flat duration bonus on trap ailments. Simple, stacks with T1a R2's +1.5s for up to +4.5s total trap ailment duration."
+        },
+        {
+          "id": "bt_1_4_0",
+          "name": "Toxic Detonation",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "state-shift",
+          "description": "When Blade Trap detonation applies ailments to 3+ enemies: enter Toxic Detonation (4s). During this state: all ailment applications from any source apply 1 extra instance AND ailment ticks deal +15% more damage. 12s ICD. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "triggerCondition": {"detonationAilmentTargets": 3},
+            "buff": {"id": "toxic_detonation", "duration": 4, "extraAilmentInstance": 1, "ailmentTickDamage": 15},
+            "icd": 12
+          },
+          "designNotes": "State-shift from multi-target detonation ailment. Different from FoK's Toxic Storm (0-dmg splash state) because this requires AoE DETONATION specifically, and the state enhances ALL ailment sources with extra instances. Also different from Stab's Venom Frenzy (5+ stacks → speed state) — BT's state is AoE-triggered, not stack-triggered."
+        },
+        {
+          "id": "bt_1_4_1",
+          "name": "Detonation Amplifier",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "support",
+          "maxRank": 2,
+          "description": "While Toxic Detonation is active: +10% ailment potency for all skills.",
+          "rank2": "+15% potency. Each ailment applied extends Toxic Detonation by 0.3s (max +2s).",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileBuffActive", "buffId": "toxic_detonation", "modifier": {"ailmentPotency": 10}}]
+          },
+          "designNotes": "Support for Toxic Detonation state. Per-ailment extension. No new proc."
+        },
+        {
+          "id": "bt_1_5_0",
+          "name": "Deep Poison Trap",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Blade Trap detonation ailments apply at 3x potency (up from 2-2.5x with T1a). Toxic Zone (T1b) duration doubled. +8% weapon mastery.",
+          "modifier": {
+            "detonationAilmentPotencyMultiplier": 3.0,
+            "toxicZoneDurationMultiplier": 2,
+            "weaponMastery": 8
+          },
+          "exclusiveWith": ["bt_1_5_1"],
+          "designNotes": "Consistent mega-potency detonation ailments. 150% WD × 3x = 450% effective WD for ailment snapshot. Single detonation creates the strongest ailment instances in the game. Longer Toxic Zone for sustained DoT."
+        },
+        {
+          "id": "bt_1_5_1",
+          "name": "Plague Mine",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "Blade Trap detonation detonates ALL existing ailments on targets hit for 25% of remaining damage as instant burst. Detonated targets lose 50% of their ailment stacks. If detonation hits 0 ailmented targets: BT cooldown +3s.",
+          "modifier": {
+            "onDetonation": {"detonateAllAilments": 25, "stackLoss": 50},
+            "noAilmentPenalty": {"cdIncrease": 3}
+          },
+          "exclusiveWith": ["bt_1_5_0"],
+          "designNotes": "Risky ailment detonation. Mass burst from existing ailments on ALL targets hit — rewards pre-stacking ailments before trap detonation. Losing 50% stacks is significant — resets your ailment progress. If targets aren't ailmented, you're punished. Different from VS T5B (single-target detonation) because BT's is AoE and hits ALL targets."
+        },
+        {
+          "id": "bt_1_6_0",
+          "name": "Pandemic Trap",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "catastrophic",
+          "description": "When Blade Trap detonation kills an enemy with 5+ ailment stacks: ALL ailments from that enemy spread to ALL other enemies hit by the detonation at 75% potency. The trap also RE-ARMS instantly (1.5s arm time restarts). 12s ICD. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "triggerCondition": {"detonationKillWithStacks": 5},
+            "effect": {"spreadAllAilments": true, "spreadPotency": 75, "rearmTrap": true},
+            "icd": 12
+          },
+          "designNotes": "Kill + ailment threshold → mass spread + re-arm. Different from Stab's Pandemic Cascade (kill → spread to nearby) because BT's spreads to ALL DETONATION TARGETS (the full AoE radius) and RE-ARMS the trap for another cycle. Different from CS's Pandemic Chain (kill → carry along chain) because this is AoE radius spread, not sequential. REQUIRES ENGINE 10.1 (kill attribution for trap kills)."
+        },
+        {
+          "id": "bt_1_7_0",
+          "name": "PLAGUE MINE",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Blade Trap deals 0 direct damage. Detonation applies ailments at 4x potency to ALL enemies. Pandemic Trap (T6) triggers on ANY detonation kill (no stack requirement, no ICD). Trap persists between encounters (doesn't expire when pack dies). BT cooldown increased by 4s (14s total). All direct damage from non-trap skills reduced by -15%.",
+          "modifier": {
+            "trapDirectDamage": 0,
+            "detonationAilmentPotencyMultiplier": 4.0,
+            "t6Override": {"killStacksRequired": 0, "removeICD": true},
+            "trapPersistsBetweenEncounters": true,
+            "cdIncrease": 4,
+            "nonTrapDirectDamagePenalty": -15
+          },
+          "tensionWith": "bt_1_6_0",
+          "tensionDescription": "T6 needs 5+ ailment stack kill for spread + re-arm with ICD. T7 removes ALL gates: any detonation kill triggers spread + re-arm, no ICD, no stack requirement. But trap deals 0 direct damage, has 14s CD, and non-trap skills are nerfed. Trap becomes pure ailment delivery: 150% WD × 4x = 600% effective WD ailment snapshot with 0 direct damage. The strongest ailment instance in the game, AoE, that persists between encounters and re-arms on any kill.",
+          "antiSynergy": ["bt_0_7_0 (DEATH TRAP — different trap identity, direct damage vs ailment)", "Any build relying on BT's direct AoE damage"],
+          "synergy": ["bt_1_1_0 (Toxic Payload — stacks with 4x for insane potency)", "bt_1_6_0 (Pandemic Trap — always triggers on kill)"],
+          "engineRequirements": ["ENGINE 10.2 (0-damage skill ailment application)", "ENGINE 10.3 (cooldown increase)", "New: trap persistence between encounters"]
+        }
+      ]
+    },
+    {
+      "branchIndex": 2,
+      "branchName": "Ghost",
+      "mechanicCheck": {
+        "mechanics": [
+          "Defensive Trap (T1a — dodge instantly arms trap, removing the 1.5s vulnerability window)",
+          "Trap Shield (T2 notable — detonation grants DR + Fortify based on enemies hit)",
+          "Mirror Trap (T6 notable — dodge triggers free trap detonation at attacker's location)"
+        ],
+        "nonTracked": [
+          "+X% DR after detonation — T3 conditional, no tracking",
+          "Trap Shield extension — T4b support, enhances tracked state"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "comboModifications": [
+        {
+          "tier": "T3",
+          "type": "replace",
+          "defaultState": "none",
+          "description": "Blade Trap detonation now creates Guarded (3s, +20% damage) on the player, as if Blade Ward fired."
+        }
+      ],
+      "nodes": [
+        {
+          "id": "bt_2_1_0",
+          "name": "Reflex Trap",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "When you dodge within 2s of placing Blade Trap: the trap arms instantly (no 1.5s delay).",
+          "rank2": "Also grants +1 Fortify stack on instant arm. Dodge window extended to 3s.",
+          "modifier": {
+            "onDodgeAfterPlacement": {"instantArm": true, "window": 2},
+            "perRank": {
+              "1": {"instantArm": true},
+              "2": {"instantArm": true, "fortify": 1, "window": 3}
+            }
+          },
+          "designNotes": "ARM_TIME_MANIPULATION via dodge. Unique to trap × Ghost — no other skill has arm time to manipulate, and no other Ghost T1 interacts with delayed damage. Different from all dodge-grants-X patterns because this affects a PLACED trap's state, not the player. Creates a defensive interaction: dodge → trap arms → ready to detonate immediately. In idle, this fires naturally when dodge happens within the window."
+        },
+        {
+          "id": "bt_2_1_1",
+          "name": "Trap Barrier",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "While a Blade Trap is armed and waiting to detonate: +5% dodge chance.",
+          "rank2": "+8% dodge chance while trap is armed. Also +5% DR while trap is armed.",
+          "modifier": {
+            "whileTrapArmed": {"dodgeChance": 5},
+            "perRank": {
+              "1": {"dodgeChance": 5},
+              "2": {"dodgeChance": 8, "damageReduction": 5}
+            }
+          },
+          "designNotes": "Passive defense while trap is armed. Unique — no other Ghost T1 provides defense from a PLACED OBJECT. The trap acts as a psychological/mechanical shield. Duration scales with how long enemies take to trigger the trap. Different from BW's Stalwart Guard (flat DR on ward) because this is conditional on trap PRESENCE, not a self-buff."
+        },
+        {
+          "id": "bt_2_2_0",
+          "name": "Trap Shield",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "When Blade Trap detonation hits 2+ enemies: gain Trap Shield (3s). +15% DR. +1 Fortify per enemy hit by detonation (max 3 Fortify). +5 all resist.",
+          "statsRider": "+5 all resist.",
+          "modifier": {
+            "triggerCondition": {"detonationTargets": 2},
+            "buff": {"id": "trap_shield", "duration": 3, "damageReduction": 15, "fortifyPerTarget": 1, "maxFortify": 3}
+          },
+          "designNotes": "Detonation → defensive state. Different from Stab's Shadow Guard (dodge → counter + Fortify) and BW's Warden's Stance (dodge during ward → enhanced counter). BT's defensive proc comes from the TRAP's AoE detonation, not from dodging. More targets hit = more Fortify. Creates a defensive rhythm: place trap → wait → detonation → DR window."
+        },
+        {
+          "id": "bt_2_2_1",
+          "name": "Reactive Placement",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "After dodging: next Blade Trap placement within 3s has -50% arm time (0.75s instead of 1.5s).",
+          "rank2": "-100% arm time (instant placement on dodge). Also +10% detonation damage for the next trap.",
+          "modifier": {
+            "onDodge": {"nextTrapArmTimeReduction": 50, "window": 3},
+            "perRank": {
+              "1": {"armTimeReduction": 50},
+              "2": {"armTimeReduction": 100, "detonationDamageBonus": 10}
+            }
+          },
+          "designNotes": "Dodge → faster trap placement. Different from T1a's Reflex Trap (dodge after placement → instant arm) because this is dodge BEFORE placement → faster arm. R2 makes it fully instant — dodge into trap placement with no delay. Different from CS's Reactive Chains (dodge → empowered CS) because this modifies ARM TIME, not damage/chain count."
+        },
+        {
+          "id": "bt_2_3_0",
+          "name": "Blast Cover",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "+8% DR for 3s after Blade Trap detonation.",
+          "rank2": "+12% DR for 4s after detonation. +3% weapon mastery.",
+          "modifier": {
+            "conditionalMods": [{"condition": "afterDetonation", "modifier": {"damageReduction": 8}, "duration": 3}]
+          },
+          "designNotes": "Post-detonation DR. Simple conditional. Stacks with T2 Trap Shield for significant post-detonation defense."
+        },
+        {
+          "id": "bt_2_3_1",
+          "name": "Trap Ward",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "COMBO MODIFICATION: Blade Trap detonation now grants Guarded (3s, +20% damage) to the player, as if you received 3+ hits during a Blade Ward window.",
+          "rank2": "Guarded bonus increased to +25% from trap detonations. +3% weapon mastery.",
+          "modifier": {
+            "comboModification": {"onDetonation": {"grantBuff": {"id": "guarded", "duration": 3, "bonusDamage": 20}}}
+          },
+          "designNotes": "COMBO REPLACE. Trap detonation = free Guarded. Allows trap builds to access the Guarded combo state WITHOUT slotting Blade Ward. Creates a path: BT detonation → Guarded → next skill +20% damage. Makes BT a defensive/offensive hybrid through combo state generation."
+        },
+        {
+          "id": "bt_2_3_2",
+          "name": "Trap Evasion",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "+8% dodge chance for 3s after placing Blade Trap.",
+          "rank2": "+12% dodge for 4s after placement. +3% weapon mastery.",
+          "modifier": {
+            "conditionalMods": [{"condition": "afterTrapPlacement", "modifier": {"dodgeChance": 8}, "duration": 3}]
+          },
+          "designNotes": "Post-placement dodge. Different from T1b (dodge while trap is armed — persistent) because this is a BURST of dodge right after placement. Covers the vulnerable 1.5s arm time window with dodge chance."
+        },
+        {
+          "id": "bt_2_4_0",
+          "name": "Fortified Blast",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "state-shift",
+          "description": "When you dodge 2+ attacks while a Blade Trap is armed: enter Fortified Blast (4s after detonation). Detonation damage +30%. Gain 3 Fortify stacks on detonation. All enemies hit are Weakened (2s). 10s ICD. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "triggerCondition": {"dodgesWhileTrapArmed": 2},
+            "buff": {"id": "fortified_blast", "duration": 4, "detonationDamageBonus": 30, "fortify": 3, "applyWeakened": {"duration": 2}},
+            "icd": 10
+          },
+          "designNotes": "State-shift: dodge while trap is armed → enhanced detonation. Different from Stab/BD/CS T4 states (dodge → immediate defensive state) because this buffs the UPCOMING detonation, not the player immediately. The defensive investment (dodging during arm time) pays off LATER when the trap fires. Delayed reward from defensive action."
+        },
+        {
+          "id": "bt_2_4_1",
+          "name": "Blast Persistence",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "support",
+          "maxRank": 2,
+          "description": "While Trap Shield (T2) is active: +10% dodge chance.",
+          "rank2": "+15% dodge. Fortify stacks from Trap Shield last 2s longer.",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileBuffActive", "buffId": "trap_shield", "modifier": {"dodgeChance": 10}}]
+          },
+          "designNotes": "Support for T2 Trap Shield. Dodge during the post-detonation defensive window. No new proc system."
+        },
+        {
+          "id": "bt_2_5_0",
+          "name": "Iron Trap",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Blade Trap detonation always grants Trap Shield (no 2+ target requirement). Trap Shield also heals 3% max HP per Fortify gained. +8% weapon mastery.",
+          "modifier": {
+            "trapShieldAlwaysTriggers": true,
+            "perFortifyHeal": 3,
+            "weaponMastery": 8
+          },
+          "exclusiveWith": ["bt_2_5_1"],
+          "designNotes": "Consistent Trap Shield. Every detonation = DR + Fortify + healing. No target count requirement. Reliable defensive value from every trap."
+        },
+        {
+          "id": "bt_2_5_1",
+          "name": "Mirror Mine",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "Blade Trap detonation damage increased by +50%. Detonation also triggers a counter-hit at 80% WD on the enemy that triggered it. If trap detonates with 0 enemies hit (wasted): BT cooldown +3s.",
+          "modifier": {
+            "detonationDamageBonus": 50,
+            "onDetonation": {"counterHit": {"targetCount": 1, "weaponDamage": 80}},
+            "noTargetPenalty": {"cdIncrease": 3}
+          },
+          "exclusiveWith": ["bt_2_5_0"],
+          "designNotes": "Risky high-damage detonation + counter-hit on trigger enemy. The counter-hit on the enemy that attacked (triggering the trap) is thematic: 'you stepped on my trap AND got punched.' But wasted traps (no detonation, trap expires) are punished. Different from BW T5B (counter-hit damage in ward) because this is a single counter on DETONATION trigger."
+        },
+        {
+          "id": "bt_2_6_0",
+          "name": "Mirror Trap",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "catastrophic",
+          "description": "When you dodge: 15% chance to trigger Mirror Trap — instantly detonate a free trap at the dodged attacker's location for 120% WD AoE. Grants +2 Fortify. 10s ICD. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "onDodge": {"chance": 15, "effect": {"freeDetonation": true, "weaponDamage": 120, "aoe": true, "fortify": 2}},
+            "icd": 10
+          },
+          "designNotes": "Dodge → free trap detonation at attacker. Completely unique T6 counter — no other skill creates a DETONATION as a counter-attack. Different from Stab's Phantom Strike (dodge → single 200% counter) because this is AoE at the attacker's location. Different from BD's Phantom Dance (dodge → free BD targeting attackers) because this is a TRAP detonation with trap scaling. Different from CS's Phantom Chain (dodge → chain from attacker) because this is AoE explosion, not chain."
+        },
+        {
+          "id": "bt_2_7_0",
+          "name": "TRAP MASTER",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Mirror Trap (T6) triggers on EVERY dodge (no chance, no ICD) at 60% WD. Each trigger grants +1 Fortify. Blade Trap arm time increased to 3s (from 1.5s). BT direct placement detonation damage -25%. Trap persists between encounters.",
+          "modifier": {
+            "t6Override": {"removeChance": true, "removeICD": true, "weaponDamage": 60},
+            "perTriggerFortify": 1,
+            "armTimeIncrease": 3,
+            "placementDetonationPenalty": -25,
+            "trapPersistsBetweenEncounters": true
+          },
+          "tensionWith": "bt_2_6_0",
+          "tensionDescription": "T6 is rare 15% dodge → 120% WD AoE detonation. T7 fires EVERY dodge at 60% WD — constant AoE detonations from dodge events with Fortify stacking. But placed traps are weaker (-25%) and take longer to arm (3s). The balance shifts: PLACED traps become secondary to DODGE-TRIGGERED traps. You're not a trap placer anymore — you're a walking mine field that detonates every time you dodge. Direct trap investment punished, dodge investment rewarded.",
+          "antiSynergy": ["bt_0_1_0 (Patience Rewarded — longer arm time helps BUT placed traps do less damage)", "bt_0_7_0 (DEATH TRAP — different trap identity, placement vs reactive)"],
+          "synergy": ["bt_2_6_0 (Mirror Trap — always triggers)", "bt_2_3_2 (Trap Evasion — more dodge = more mirror traps)"],
+          "engineRequirements": ["New: dodge-triggered detonation system", "New: trap persistence between encounters"]
+        }
+      ]
+    }
+  ]
+}

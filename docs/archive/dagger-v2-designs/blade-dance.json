@@ -1,0 +1,878 @@
+{
+  "skillId": "dagger_blade_dance",
+  "skillName": "Blade Dance",
+  "version": "2.0",
+  "tags": ["sequential-aoe", "melee"],
+  "defaultComboState": {
+    "id": "dance_momentum",
+    "trigger": "all3HitsOn3DifferentTargets",
+    "duration": 4,
+    "effect": { "nextSingleTargetSplash": 50 },
+    "consumedBy": "next single-target skill",
+    "description": "If all 3 hits land on 3 different targets, gain Dance Momentum (4s): next single-target skill also hits 1 adjacent enemy for 50% of its damage."
+  },
+  "branches": [
+    {
+      "branchIndex": 0,
+      "branchName": "Predator",
+      "mechanicCheck": {
+        "mechanics": [
+          "Kill Redirect (T1a — if a hit kills its target, next hit redirects to a new enemy with bonus damage)",
+          "Slaughter State (T2 notable — 3 different kills in short window triggers burst state)",
+          "Reaper's Dance (T6 notable — killing all 3 targets in one cast triggers massive AoE)"
+        ],
+        "nonTracked": [
+          "+X% crit per unique target hit — T3 conditional, no tracking",
+          "Slaughter state duration extension — T4b support, enhances tracked state"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "comboModifications": [
+        {
+          "tier": "T4",
+          "type": "enhance",
+          "defaultState": "dance_momentum",
+          "description": "Dance Momentum's splash damage increased from 50% to 75% and the splashed hit can crit."
+        }
+      ],
+      "nodes": [
+        {
+          "id": "bd_0_1_0",
+          "name": "Kill Redirect",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "If a Blade Dance hit kills its target, the next hit in the cast retargets to a new enemy and gains +30% damage.",
+          "rank2": "+45% damage on redirected hits. Redirected hits also gain +10% crit chance.",
+          "modifier": {
+            "onMidCastKill": {"retarget": true, "retargetDamageBonus": 30},
+            "perRank": {
+              "1": {"retargetDamageBonus": 30},
+              "2": {"retargetDamageBonus": 45, "retargetCritBonus": 10}
+            }
+          },
+          "designNotes": "Unique to sequential-target: if hit 1 kills mob 1, hit 2 finds a NEW mob 2 instead of whiffing. Creates kill-chain momentum within a single cast. Can't exist on Stab (single hit)."
+        },
+        {
+          "id": "bd_0_1_1",
+          "name": "Opportunistic Strikes",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "+8% crit chance for each unique target hit by Blade Dance in the current cast. (3 targets = +24% crit on the last hit).",
+          "rank2": "+12% per unique target (+36% on last hit). Crits on the 3rd target apply Exposed.",
+          "modifier": {
+            "perUniqueTargetInCast": {"incCritChance": 8},
+            "perRank": {
+              "1": {"incCritChance": 8},
+              "2": {"incCritChance": 12, "thirdTargetCrit": {"applyDebuff": "exposed"}}
+            }
+          },
+          "designNotes": "Crit scaling based on TARGET DIVERSITY. More targets = more crit. Opposite of Stab's consecutive-hit-on-same-target pattern. Rank 2 creating Exposed on 3rd target crit is a unique way to set up combos — the LAST mob hit gets marked."
+        },
+        {
+          "id": "bd_0_2_0",
+          "name": "Slaughter Dance",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "escalating",
+          "description": "When Blade Dance kills 2+ targets in a single cast: enter Slaughter state (+25% damage, +20% crit chance for 4s). Killing 3 targets extends duration to 6s and adds +15% crit multiplier.",
+          "statsRider": "+5% crit chance.",
+          "modifier": {
+            "procs": [
+              {
+                "id": "bd_slaughter_dance",
+                "trigger": "onMultiKillInCast",
+                "chance": 1.0,
+                "conditionParam": {"minKills": 2},
+                "applyBuff": {"buffId": "slaughter", "effect": {"damageMult": 1.25, "critChanceBonus": 20}, "duration": 4},
+                "escalation": {"atKills": 3, "durationOverride": 6, "additionalEffect": {"critMultiplierBonus": 15}}
+              }
+            ],
+            "stats": {"incCritChance": 5}
+          },
+          "designNotes": "Escalating proc based on KILLS IN CAST — unique to sequential AoE. Stab can only kill 1 per cast. Blade Dance can kill 2-3 if targets are low. Rewards finishing off wounded pack members. The 3-kill escalation is the dream scenario."
+        },
+        {
+          "id": "bd_0_2_1",
+          "name": "Target Selection",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Blade Dance prioritizes the lowest-HP enemy for hit 1. If hit 1 kills, the kill redirect bonus (T1a) is more likely to trigger.",
+          "rank2": "Also prioritizes 2nd lowest for hit 2. +3% weapon mastery.",
+          "modifier": {
+            "targetPriority": "lowestHp",
+            "perRank": {
+              "1": {"priorityHits": 1},
+              "2": {"priorityHits": 2, "weaponMastery": 3}
+            }
+          },
+          "designNotes": "Smart targeting. Hitting low-HP enemies first maximizes kill redirects (T1a) and Slaughter Dance (T2) triggers. Changes the idle auto-behavior from 'random targeting' to 'execute-first targeting.' Unique to sequential-target skills."
+        },
+        {
+          "id": "bd_0_3_0",
+          "name": "Pack Hunter",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "+10% damage with Blade Dance per enemy in the current pack (max +40% at 4+ enemies).",
+          "rank2": "+15% per enemy (max +60%). +3% weapon mastery.",
+          "modifier": {
+            "conditionalMods": [{"condition": "perEnemyInPack", "modifier": {"incDamage": 10}, "maxStacks": 4}],
+            "perRank": {
+              "1": {"incDamage": 10, "maxStacks": 4},
+              "2": {"incDamage": 15, "maxStacks": 4, "weaponMastery": 3}
+            }
+          },
+          "designNotes": "Pack-size scaling. More enemies = more damage. Worthless on boss (1 mob), strong on big packs. Natural fit for sequential AoE."
+        },
+        {
+          "id": "bd_0_3_1",
+          "name": "Finishing Dance",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "+20% crit chance against targets below 40% HP.",
+          "rank2": "+30% crit chance. Kills during Blade Dance reduce its cooldown by 0.5s per kill.",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileTargetBelowHp", "threshold": 40, "modifier": {"incCritChance": 20}}],
+            "perRank": {
+              "1": {"incCritChance": 20, "threshold": 40},
+              "2": {"incCritChance": 30, "cdReductionPerKill": 0.5}
+            }
+          },
+          "designNotes": "Execute helper. With Target Selection (T2b) hitting lowest HP first, this stacks well — hit the weakest, crit it, kill it, get CD back. Different from Stab's Exploit Opening (50% HP threshold, no CD interaction)."
+        },
+        {
+          "id": "bd_0_3_2",
+          "name": "Sweeping Momentum",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "+15% damage on the next skill cast after Blade Dance if at least 2 targets were hit.",
+          "rank2": "+25% damage. If 3 targets were hit, also gain +10% crit chance for next skill.",
+          "modifier": {
+            "conditionalMods": [{"condition": "afterCastHitCount", "threshold": 2, "modifier": {"nextSkillDamageBonus": 15}}],
+            "perRank": {
+              "1": {"nextSkillDamageBonus": 15, "threshold": 2},
+              "2": {"nextSkillDamageBonus": 25, "at3Targets": {"nextSkillCritBonus": 10}}
+            }
+          },
+          "designNotes": "Rotation flow — Blade Dance into another skill gets a damage bonus. Rewards using BD as an opener. Different from Stab's Lethal Rhythm (per-consecutive-hit ramp) because this is a one-shot per-cast bonus."
+        },
+        {
+          "id": "bd_0_4_0",
+          "name": "Triple Execution",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "When Blade Dance hits 3 different targets and at least 1 is below 30% HP: that low-HP target takes +50% damage from Blade Dance AND Dance Momentum's splash is increased to 75% (can crit). +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "procs": [{"id": "bd_triple_execution", "trigger": "onCast", "chance": 1.0, "conditionParam": {"uniqueTargets": 3, "anyTargetBelowHp": 30}, "effect": {"lowHpTargetDamageBonus": 50}}],
+            "comboStateEnhance": {"dance_momentum": {"splashDamage": 75, "splashCanCrit": true}},
+            "weaponMastery": 5
+          },
+          "designNotes": "Gated on 3 unique targets + execute threshold. Combines sequential-target mechanic with execute. The Dance Momentum enhancement rewards using BD before a big single-target follow-up."
+        },
+        {
+          "id": "bd_0_4_1",
+          "name": "Slaughter Extension",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "support",
+          "maxRank": 2,
+          "description": "While Slaughter state is active: +15% damage with all skills.",
+          "rank2": "+25% damage. Each kill during Slaughter extends it by 1s (max +3s).",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileBuffActive", "buffId": "slaughter", "modifier": {"incDamage": 15}}],
+            "perRank": {
+              "1": {"incDamage": 15},
+              "2": {"incDamage": 25, "durationExtensionPerKill": 1, "maxExtension": 3}
+            }
+          },
+          "designNotes": "Support for T2 Slaughter state. Global damage during the window. Rank 2's kill extension creates snowball — Slaughter → kill → extend → kill → extend."
+        },
+        {
+          "id": "bd_0_5_0",
+          "name": "Methodical Dancer",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Blade Dance always hits 3 targets even if fewer than 3 enemies exist (remaining hits re-hit the same target). All hits gain +10% damage. +8% weapon mastery.",
+          "modifier": {
+            "alwaysFire3Hits": true,
+            "incDamage": 10,
+            "weaponMastery": 8
+          },
+          "exclusiveWith": ["bd_0_5_1"],
+          "designNotes": "Consistent choice. REMOVES the single-target penalty entirely — BD always fires 3 hits. On a boss, that's 3 × 30% = 90% WD + 10% = 99% WD total. Still less than Stab (100%) but close, and with 3 crit rolls. Makes BD viable everywhere, not just packs."
+        },
+        {
+          "id": "bd_0_5_1",
+          "name": "Dance of Death",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "Each Blade Dance kill during the cast adds +1 hit to the cast (kill mob 1 → hit 4 fires, kill mob 2 → hit 5 fires, etc.). Extra hits deal 30% WD each. If Blade Dance kills 0 targets, its cooldown is increased by 2s.",
+          "modifier": {
+            "extraHitPerKill": true,
+            "extraHitDamage": 30,
+            "onZeroKillsPenalty": {"cooldownIncrease": 2}
+          },
+          "exclusiveWith": ["bd_0_5_0"],
+          "designNotes": "Risky chain-kill fantasy. In a pack of 5, if BD keeps killing, it could fire 5+ hits in one cast. Against tanky mobs where nothing dies, you get punished with +2s CD. Feast or famine."
+        },
+        {
+          "id": "bd_0_6_0",
+          "name": "Reaper's Dance",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "catastrophic",
+          "description": "When Blade Dance kills 3+ targets in a single cast: trigger Reaper's Dance — deal 200% of Blade Dance's fully-scaled damage as AoE to ALL remaining enemies. 12s internal cooldown. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "procs": [
+              {
+                "id": "bd_reapers_dance",
+                "trigger": "onTripleKillInCast",
+                "chance": 1.0,
+                "instantDamage": {"scaleStat": "weaponDamage", "scaleRatio": 2.0, "isAoE": true},
+                "internalCooldown": 12
+              }
+            ],
+            "weaponMastery": 5
+          },
+          "designNotes": "Triple-kill catastrophic proc. Incredibly hard to achieve (3 kills in one cast of a 30% WD skill) but devastatingly rewarding. With T1a Kill Redirect and T5B Dance of Death, the chain-kill path makes this reachable. Different from Stab's Death Mark (setup→consume) — this is a pure kill-chain explosion."
+        },
+        {
+          "id": "bd_0_7_0",
+          "name": "DANCE MACABRE",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Blade Dance targets ALL enemies in the pack (becomes full AoE like Fan of Knives) but each hit deals only 15% WD. Reaper's Dance (T6) triggers on 2+ kills instead of 3+ but at 150% instead of 200%. -10% damage with all other skills.",
+          "modifier": {
+            "targetAllEnemies": true,
+            "weaponDamageOverride": 15,
+            "reapersOverride": {"minKills": 2, "scaleRatio": 1.5},
+            "globalIncDamage": -10
+          },
+          "tensionWith": "bd_0_6_0",
+          "tensionDescription": "T6 (Reaper's Dance) requires 3 kills for 200% AoE. T7 lowers the gate to 2 kills but reduces the payoff to 150% AND makes each individual hit weaker (15% vs 30%). Also nerfs all OTHER skills by -10%. You're committing to BD as your primary AoE at the cost of everything else.",
+          "antiSynergy": ["bd_0_5_0"],
+          "antiSynergyNotes": "Methodical Dancer (T5A) — 'always fire 3 hits' is meaningless when BD hits ALL enemies anyway.",
+          "synergy": ["bd_0_5_1", "bd_0_6_0", "bd_0_3_0"],
+          "synergyNotes": "Dance of Death (T5B) — extra hits per kill + all-target = maximum kill chain potential. Reaper's Dance (T6) — easier trigger (2 kills). Pack Hunter (T3a) — per-enemy damage scales with full pack targeting."
+        }
+      ]
+    },
+    {
+      "branchIndex": 1,
+      "branchName": "Plague",
+      "mechanicCheck": {
+        "mechanics": [
+          "Distributed Infection (T1a — ailments gain potency per unique target hit in cast)",
+          "Plague Link (T2 notable — hitting 3 targets links them, damage to one partially hits others)",
+          "Pandemic Dance (T6 notable — killing a linked target spreads ALL ailments to linked survivors)"
+        ],
+        "nonTracked": [
+          "+X% ailment potency per enemy in pack — T3 conditional, no tracking",
+          "Plague Link duration extension — T4b support, enhances tracked state"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "comboModifications": [
+        {
+          "tier": "T3",
+          "type": "replace",
+          "defaultState": "dance_momentum",
+          "description": "Dance Momentum replaced with Plague Spread: next skill's ailment also applies to 1 adjacent enemy at 50% potency."
+        }
+      ],
+      "nodes": [
+        {
+          "id": "bd_1_1_0",
+          "name": "Distributed Infection",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Ailments applied by Blade Dance gain +10% potency for each unique target hit in the cast. (3 targets = each ailment at +30% potency).",
+          "rank2": "+15% per unique target (+45% at 3 targets). +3% weapon mastery.",
+          "modifier": {
+            "perUniqueTargetInCast": {"ailmentPotencyBonus": 10},
+            "perRank": {
+              "1": {"ailmentPotencyBonus": 10},
+              "2": {"ailmentPotencyBonus": 15, "weaponMastery": 3}
+            }
+          },
+          "designNotes": "Ailment potency scales with TARGET DIVERSITY. Hitting 3 different mobs makes each ailment 30-45% stronger. Unique to sequential-target — Stab's Plague T1a extends DURATION through consecutive hits instead. Completely different scaling axis."
+        },
+        {
+          "id": "bd_1_1_1",
+          "name": "Infectious Dance",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "If Blade Dance hits a target that already has an active ailment, the new ailment gains +15% duration.",
+          "rank2": "+25% duration. If the existing ailment was applied by a DIFFERENT skill, also gain +10% potency.",
+          "modifier": {
+            "conditionalMods": [{"condition": "targetHasActiveAilment", "modifier": {"ailmentDurationBonus": 15}}],
+            "perRank": {
+              "1": {"ailmentDurationBonus": 15},
+              "2": {"ailmentDurationBonus": 25, "differentSkillBonus": {"ailmentPotency": 10}}
+            }
+          },
+          "designNotes": "Rewards hitting already-ailmented targets. Rank 2's 'different skill' bonus encourages rotation: Stab poisons mob → Blade Dance hits same mob → stronger/longer ailment. Different from Stab's Toxic Momentum (per unique ailment TYPE)."
+        },
+        {
+          "id": "bd_1_2_0",
+          "name": "Plague Link",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "When Blade Dance hits 3 different targets: link all 3 with Plague Link (5s). While linked, 15% of damage dealt to any linked target is also dealt to other linked targets. +8% ailment duration.",
+          "statsRider": "+8% ailment duration.",
+          "modifier": {
+            "procs": [
+              {
+                "id": "bd_plague_link",
+                "trigger": "onCast",
+                "chance": 1.0,
+                "conditionParam": {"uniqueTargets": 3},
+                "applyDebuff": {"debuffId": "plague_link", "duration": 5, "effect": {"sharedDamagePercent": 15}}
+              }
+            ],
+            "ailmentDuration": 8
+          },
+          "designNotes": "Plague Link is a UNIQUE mechanic — damage sharing between linked targets. Only possible because Blade Dance hits 3 specific targets. Can't exist on Stab (single target) or Fan of Knives (all targets). The 15% share means focused damage on one linked target partially kills the others."
+        },
+        {
+          "id": "bd_1_2_1",
+          "name": "Contagious Steps",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Ailments applied to linked targets (from Plague Link damage sharing) have +20% potency.",
+          "rank2": "+35% potency. Shared damage also counts as a 'hit' for ailment application purposes (can apply new ailment stacks via sharing).",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileTargetLinked", "modifier": {"sharedAilmentPotency": 20}}],
+            "perRank": {
+              "1": {"sharedAilmentPotency": 20},
+              "2": {"sharedAilmentPotency": 35, "sharedDamageAppliesAilments": true}
+            }
+          },
+          "designNotes": "Enhances Plague Link. Rank 2 is huge — shared damage applying ailments means one target's ailments naturally spread to linked targets through the damage sharing. Creates a self-reinforcing plague web."
+        },
+        {
+          "id": "bd_1_3_0",
+          "name": "Mass Infection",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "+8% ailment potency for Blade Dance per enemy in the current pack (max +32% at 4+).",
+          "rank2": "+12% per enemy (max +48%). +3% weapon mastery.",
+          "modifier": {
+            "conditionalMods": [{"condition": "perEnemyInPack", "modifier": {"ailmentPotency": 8}, "maxStacks": 4}],
+            "perRank": {
+              "1": {"ailmentPotency": 8, "maxStacks": 4},
+              "2": {"ailmentPotency": 12, "maxStacks": 4, "weaponMastery": 3}
+            }
+          },
+          "designNotes": "Pack-size ailment scaling. Bigger pack = stronger ailments. Mirrors Predator's Pack Hunter (damage) but for ailment potency."
+        },
+        {
+          "id": "bd_1_3_1",
+          "name": "Plague Spread",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "Dance Momentum replaced with Plague Spread (4s): next skill's ailment also applies to 1 adjacent enemy at 50% potency.",
+          "rank2": "Spreads to 2 adjacent enemies at 60% potency.",
+          "modifier": {
+            "comboStateReplace": {"from": "dance_momentum", "to": "plague_spread", "effect": {"nextAilmentSplash": 1, "splashPotency": 50}, "duration": 4},
+            "perRank": {
+              "1": {"splashTargets": 1, "splashPotency": 50},
+              "2": {"splashTargets": 2, "splashPotency": 60}
+            }
+          },
+          "designNotes": "COMBO MODIFICATION. Instead of next skill splashing damage, it splashes AILMENTS. Blade Dance → Viper Strike = deep poison on front mob + weaker poison on 1-2 adjacent. Plague identity."
+        },
+        {
+          "id": "bd_1_3_2",
+          "name": "Lingering Links",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "Ailments on Plague-Linked targets last 20% longer.",
+          "rank2": "30% longer. Plague Link duration extended by 1s (6s total).",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileTargetLinked", "modifier": {"ailmentDuration": 20}}],
+            "perRank": {
+              "1": {"ailmentDuration": 20},
+              "2": {"ailmentDuration": 30, "linkDurationBonus": 1}
+            }
+          },
+          "designNotes": "Simple conditional enhancing the Plague Link mechanic. Longer ailments on linked targets = more shared damage = more spread."
+        },
+        {
+          "id": "bd_1_4_0",
+          "name": "Plague Web",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "state-shift",
+          "description": "When 3 Plague-Linked targets all have 3+ ailment stacks simultaneously: enter Plague Web state (5s). During Plague Web: Plague Link damage sharing increased from 15% to 30% and applies to ALL enemies in the pack (not just linked targets). 15s internal cooldown. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "procs": [
+              {
+                "id": "bd_plague_web",
+                "trigger": "onLinkedTargetsThreshold",
+                "chance": 1.0,
+                "conditionParam": {"linkedTargets": 3, "minAilmentStacks": 3},
+                "applyBuff": {"buffId": "plagueWeb", "effect": {"sharedDamagePercent": 30, "shareToAll": true}, "duration": 5},
+                "internalCooldown": 15
+              }
+            ],
+            "weaponMastery": 5
+          },
+          "designNotes": "State-shift when all 3 linked targets are deeply ailmented. The damage sharing becomes pack-wide at 30% — hitting ANY enemy partially hits ALL enemies. Unique to Blade Dance because only it creates the 3-target link."
+        },
+        {
+          "id": "bd_1_4_1",
+          "name": "Web Amplifier",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "support",
+          "maxRank": 2,
+          "description": "While Plague Web is active: +15% ailment potency for all skills.",
+          "rank2": "+25% ailment potency. Each ailment applied during Plague Web extends it by 0.3s (max +2s).",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileBuffActive", "buffId": "plagueWeb", "modifier": {"ailmentPotency": 15}}],
+            "perRank": {
+              "1": {"ailmentPotency": 15},
+              "2": {"ailmentPotency": 25, "durationExtensionPerAilment": 0.3, "maxExtension": 2}
+            }
+          },
+          "designNotes": "Support for T4 Plague Web. Global ailment potency during the web window. Rank 2's per-ailment extension means fast-hitting skills keep the web alive longer."
+        },
+        {
+          "id": "bd_1_5_0",
+          "name": "Persistent Links",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Plague Link persists until the linked targets die (no duration limit). Plague Link damage sharing increased to 20% baseline. +8% weapon mastery.",
+          "modifier": {
+            "plagueLinkOverride": {"duration": "permanent", "sharedDamagePercent": 20},
+            "weaponMastery": 8
+          },
+          "exclusiveWith": ["bd_1_5_1"],
+          "designNotes": "Consistent choice. Permanent links = permanent shared damage. Once 3 targets are linked, they stay linked until dead. Reliable, always-on value for sustained fights."
+        },
+        {
+          "id": "bd_1_5_1",
+          "name": "Detonating Links",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "When a Plague-Linked target dies: detonate all its ailments as instant burst damage to the other linked targets (100% of remaining ailment damage). Plague Link is removed from all targets after detonation.",
+          "modifier": {
+            "procs": [{"id": "bd_detonating_links", "trigger": "onLinkedTargetDeath", "chance": 1.0, "detonateAilments": {"scaleRatio": 1.0, "removeLink": true}}]
+          },
+          "exclusiveWith": ["bd_1_5_0"],
+          "designNotes": "Risky detonation. Killing one linked target dumps all its ailment damage into the other linked targets. High burst but removes the link — you must reapply. Feast-or-famine."
+        },
+        {
+          "id": "bd_1_6_0",
+          "name": "Pandemic Dance",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "catastrophic",
+          "description": "When a Plague-Linked target dies: ALL of its ailments spread to the other linked targets at 100% remaining duration and potency. If the dead target had 5+ ailment stacks, also spreads to ALL non-linked enemies in the pack. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "procs": [{"id": "bd_pandemic_dance", "trigger": "onLinkedTargetDeath", "chance": 1.0, "spreadAilments": {"toLinked": true, "potencyRetain": 1.0, "durationRetain": 1.0}, "escalation": {"at5Stacks": {"spreadToAll": true}}}],
+            "weaponMastery": 5
+          },
+          "designNotes": "Kill-chain ailment spread through links. Kill one heavily-stacked target → its ailments jump to linked targets (and whole pack at 5+ stacks). Different from Stab's Pandemic Cascade (spread on ANY kill) because this requires the Plague Link setup."
+        },
+        {
+          "id": "bd_1_7_0",
+          "name": "PLAGUE DANCER",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Plague Link now links ALL enemies hit by Blade Dance (not just 3). Linked enemy ailments deal 3x effect. Blade Dance direct hit damage reduced by -30%. Non-linked enemies take -20% ailment damage from you.",
+          "modifier": {
+            "linkAllTargets": true,
+            "linkedAilmentEffectMult": 3.0,
+            "incDamage": -30,
+            "nonLinkedAilmentPenalty": -20
+          },
+          "tensionWith": "bd_1_6_0",
+          "tensionDescription": "T6 (Pandemic Dance) spreads ailments from linked kills. T7 links ALL targets but heavily reduces direct damage and penalizes non-linked ailment damage. You MUST link targets first (via Blade Dance cast) for your ailments to work at full power. If Blade Dance is on cooldown, your ailments are 20% weaker on unlinked targets.",
+          "antiSynergy": ["bd_0_3_0"],
+          "antiSynergyNotes": "Pack Hunter (T3a Predator) — per-enemy damage bonus partially offset by -30% direct damage.",
+          "synergy": ["bd_1_2_0", "bd_1_4_0", "bd_1_6_0"],
+          "synergyNotes": "Plague Link (T2) is the foundation T7 amplifies. Plague Web (T4) becomes even stronger with all-target linking. Pandemic Dance (T6) spreads 3x ailments on linked kills."
+        }
+      ]
+    },
+    {
+      "branchIndex": 2,
+      "branchName": "Ghost",
+      "mechanicCheck": {
+        "mechanics": [
+          "Scattered Threat (T1a — pack-size DR, defense weakens as pack shrinks, unique to AoE)",
+          "Defensive Scatter (T2 notable — dodge after Blade Dance grants Fortify + counter-hits each target)",
+          "Phantom Dance (T6 notable — dodge triggers a free Blade Dance counter that prioritizes attackers)"
+        ],
+        "nonTracked": [
+          "+X% DR per unique target hit — T3 conditional, no tracking",
+          "Defensive Scatter extension — T4b support, enhances tracked state"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "comboModifications": [
+        {
+          "tier": "T3",
+          "type": "replace",
+          "defaultState": "dance_momentum",
+          "description": "Dance Momentum replaced with Evasive Dance: +15% dodge chance for 3s."
+        }
+      ],
+      "nodes": [
+        {
+          "id": "bd_2_1_0",
+          "name": "Scattered Threat",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "While 3+ enemies are alive in the current encounter, you take 8% less damage. Each enemy killed by Blade Dance reduces this bonus by 2% (defense weakens as the pack shrinks).",
+          "rank2": "10% DR at 3+ enemies. Reduction per kill lowered to 1.5%. Also gain +5 all resist while 3+ enemies alive.",
+          "modifier": {
+            "conditionalMods": [{"condition": "whilePackSize", "threshold": 3, "modifier": {"damageReduction": 8, "reductionPerKill": 2}}],
+            "perRank": {
+              "1": {"damageReduction": 8, "reductionPerKill": 2},
+              "2": {"damageReduction": 10, "reductionPerKill": 1.5, "allResist": 5}
+            }
+          },
+          "designNotes": "Defense from PACK SIZE — completely different from Stab's per-hit dodge stacking. BD is strong when surrounded (natural environment) and weakens as you clear. Creates tension: killing fast reduces your own defense. Can't exist on single-target skills."
+        },
+        {
+          "id": "bd_2_1_1",
+          "name": "Dancing Recovery",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Each unique target hit by Blade Dance heals for 1% max HP. (3 targets = 3% HP).",
+          "rank2": "1.5% per target (4.5% at 3). If all 3 targets are hit, also gain +1 Fortify stack.",
+          "modifier": {
+            "perUniqueTargetInCast": {"healPercent": 1},
+            "perRank": {
+              "1": {"healPercent": 1},
+              "2": {"healPercent": 1.5, "onFullTargets": {"fortify": {"stacks": 1, "duration": 4, "damageReduction": 3}}}
+            }
+          },
+          "designNotes": "Per-target healing. More targets = more healing. Different from Stab's Combat Leech (% of damage dealt as leech). This is flat max HP healing scaled by target count."
+        },
+        {
+          "id": "bd_2_2_0",
+          "name": "Defensive Scatter",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "If you dodge within 3s of casting Blade Dance: each target that was hit takes a counter-hit for 60% of Blade Dance's fully-scaled damage and you gain +1 Fortify stack per target hit (max 3). 5s internal cooldown. +5 all resist.",
+          "statsRider": "+5 all resist.",
+          "modifier": {
+            "procs": [
+              {
+                "id": "bd_defensive_scatter",
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "conditionParam": {"withinWindowAfterCast": 3, "skillId": "dagger_blade_dance"},
+                "counterPerTarget": {"damage": 60, "fortifyPerTarget": {"stacks": 1, "duration": 5, "damageReduction": 3}},
+                "internalCooldown": 5
+              }
+            ],
+            "allResist": 5
+          },
+          "designNotes": "Dodge after BD → counter ALL targets that were hit + Fortify per target. 3 targets = 3 Fortify stacks in one dodge. Different from Stab's Shadow Guard (dodge → single counter). This is MULTI-TARGET counter-attack."
+        },
+        {
+          "id": "bd_2_2_1",
+          "name": "Scattering Steps",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "After casting Blade Dance on 3 targets: +10% chance to dodge the next attack.",
+          "rank2": "+15% dodge. Also, dodging within 2s of BD reduces BD's cooldown by 1s.",
+          "modifier": {
+            "conditionalMods": [{"condition": "afterCastOnMultipleTargets", "threshold": 3, "modifier": {"dodgeChanceBonus": 10}}],
+            "perRank": {
+              "1": {"dodgeChanceBonus": 10},
+              "2": {"dodgeChanceBonus": 15, "dodgeReducesCd": 1}
+            }
+          },
+          "designNotes": "Post-cast dodge bonus. Rank 2's CD reduction on dodge creates a BD → dodge → faster BD loop."
+        },
+        {
+          "id": "bd_2_3_0",
+          "name": "Scattered Defense",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "+5% damage reduction for 3s per unique target hit by the most recent Blade Dance (max +15% at 3 targets).",
+          "rank2": "+8% per target (max +24%). +3% weapon mastery.",
+          "modifier": {
+            "conditionalMods": [{"condition": "perUniqueTargetInLastCast", "modifier": {"damageReduction": 5}, "maxStacks": 3, "duration": 3}],
+            "perRank": {
+              "1": {"damageReduction": 5},
+              "2": {"damageReduction": 8, "weaponMastery": 3}
+            }
+          },
+          "designNotes": "DR scaling from target diversity. Pack = strong defense, boss = weak. Natural fit for the sequential-target mechanic."
+        },
+        {
+          "id": "bd_2_3_1",
+          "name": "Evasive Dance",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "Dance Momentum replaced with Evasive Dance (3s): +15% dodge chance.",
+          "rank2": "+20% dodge chance. Duration extended to 4s.",
+          "modifier": {
+            "comboStateReplace": {"from": "dance_momentum", "to": "evasive_dance", "effect": {"dodgeChance": 15}, "duration": 3},
+            "perRank": {
+              "1": {"dodgeChance": 15, "duration": 3},
+              "2": {"dodgeChance": 20, "duration": 4}
+            }
+          },
+          "designNotes": "COMBO MODIFICATION. Instead of splash damage on next skill, BD creates a dodge window. Ghost identity — defense over offense from combo states."
+        },
+        {
+          "id": "bd_2_3_2",
+          "name": "Retaliation Marks",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "Each enemy hit by Blade Dance that attacks you within 3s becomes Marked for Retaliation: takes +15% more damage from your next Blade Dance.",
+          "rank2": "+20% more damage. Marks last 5s instead of 3s. Marked enemies also take +5% damage from all your other skills.",
+          "modifier": {
+            "conditionalMods": [{"condition": "enemyAttacksAfterBeingHit", "window": 3, "modifier": {"targetDamageTaken": 15, "fromSkill": "dagger_blade_dance"}}],
+            "perRank": {
+              "1": {"targetDamageTaken": 15, "window": 3, "fromSkill": "dagger_blade_dance"},
+              "2": {"targetDamageTaken": 20, "window": 5, "globalBonus": 5}
+            }
+          },
+          "designNotes": "Offense-from-defense via ENEMY DEBUFF, not self-buff. Completely different from Stab's Counter Momentum (self +dmg after dodge). This puts a mark on enemies that HIT YOU after being hit by BD — they become more vulnerable to the next BD. Rewards being in the thick of a pack."
+        },
+        {
+          "id": "bd_2_4_0",
+          "name": "Evasive Dance Form",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "state-shift",
+          "description": "When you dodge 2 attacks within 4s of casting Blade Dance: enter Evasive Dance Form (4s). During form: Blade Dance cooldown reduced by 50% and all Blade Dance hits apply Weakened curse (2s). 10s internal cooldown. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "procs": [
+              {
+                "id": "bd_evasive_dance_form",
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "conditionParam": {"dodgesInWindow": 2, "afterCastWindow": 4, "skillId": "dagger_blade_dance"},
+                "applyBuff": {"buffId": "evasiveDanceForm", "effect": {"skillCdReduction": {"dagger_blade_dance": 50}}, "duration": 4},
+                "internalCooldown": 10
+              }
+            ],
+            "weaponMastery": 5
+          },
+          "designNotes": "State-shift on dodge-after-BD. Different from Stab's Shadow Form (DR + Weakened) because this gives CD reduction on BD itself — allowing rapid BD casts during the window. Weakened on all targets makes BD a debuff spreader during the form."
+        },
+        {
+          "id": "bd_2_4_1",
+          "name": "Form Persistence",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "support",
+          "maxRank": 2,
+          "description": "While Evasive Dance Form is active: +10% dodge chance.",
+          "rank2": "+15% dodge chance. Each Blade Dance cast during form extends it by 0.5s (max +2s).",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileBuffActive", "buffId": "evasiveDanceForm", "modifier": {"evasionBonus": 10}}],
+            "perRank": {
+              "1": {"evasionBonus": 10},
+              "2": {"evasionBonus": 15, "durationExtensionPerCast": 0.5, "maxExtension": 2}
+            }
+          },
+          "designNotes": "Support for Evasive Dance Form. More dodge = more form triggers. BD casts extend the form. Self-reinforcing loop."
+        },
+        {
+          "id": "bd_2_5_0",
+          "name": "Iron Dancer",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Each Blade Dance cast grants +1 Fortify stack (3% DR, 6s). At 3+ Fortify stacks: Blade Dance heals 2% max HP per target hit. +8% weapon mastery.",
+          "modifier": {
+            "procs": [{"id": "bd_iron_dancer", "trigger": "onCast", "chance": 1.0, "fortifyOnProc": {"stacks": 1, "duration": 6, "damageReduction": 3}}],
+            "conditionalMods": [{"condition": "whileFortifyStacks", "threshold": 3, "modifier": {"healPerTargetPercent": 2}}],
+            "weaponMastery": 8
+          },
+          "exclusiveWith": ["bd_2_5_1"],
+          "designNotes": "Consistent sustain. Fortify per cast + healing per target at threshold. 3 targets × 2% = 6% HP healed per BD cast at 3+ Fortify. Reliable survival."
+        },
+        {
+          "id": "bd_2_5_1",
+          "name": "Counter Dancer",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "Defensive Scatter counter-hits (T2) deal 120% instead of 60% and can crit. Each counter-hit that crits reduces Blade Dance cooldown by 0.5s. You take +10% increased damage from all sources.",
+          "modifier": {
+            "counterDamageOverride": 120,
+            "counterCanCrit": true,
+            "counterCritCdReduction": 0.5,
+            "increasedDamageTaken": 10
+          },
+          "exclusiveWith": ["bd_2_5_0"],
+          "designNotes": "Risky offense-from-defense. Counter-hits become your damage source — doubled damage, can crit, crits reduce BD CD. But +10% damage taken. High risk, high reward."
+        },
+        {
+          "id": "bd_2_6_0",
+          "name": "Phantom Dance",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "catastrophic",
+          "description": "When you dodge: 20% chance to trigger Phantom Dance — a free Blade Dance counter-attack that prioritizes enemies currently attacking you. Each hit deals 80% of Blade Dance's fully-scaled damage. 8s internal cooldown. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "procs": [
+              {
+                "id": "bd_phantom_dance",
+                "trigger": "onDodge",
+                "chance": 0.20,
+                "instantDamage": {"scaleStat": "weaponDamage", "scaleRatio": 0.80, "hitCount": 3, "targetPriority": "attackingPlayer"},
+                "internalCooldown": 8
+              }
+            ],
+            "weaponMastery": 5
+          },
+          "designNotes": "Catastrophic dodge proc — free Blade Dance counter that targets YOUR attackers. Different from Stab's Phantom Strike (single 200% counter). This is a multi-target counter that hits up to 3 enemies attacking you. Defensive targeting = hits the threats."
+        },
+        {
+          "id": "bd_2_7_0",
+          "name": "SHADOW DANCER",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Phantom Dance (T6) triggers on EVERY dodge (no chance roll, no ICD). Counter-hits deal 50% instead of 80%. Each Phantom Dance trigger costs 1.5% max HP. Blade Dance's regular casts deal -15% damage.",
+          "modifier": {
+            "phantomDanceOverride": {"chance": 1.0, "icd": 0, "damagePerHit": 0.50},
+            "lifeCostPerTrigger": 1.5,
+            "incDamage": -15
+          },
+          "tensionWith": "bd_2_6_0",
+          "tensionDescription": "T6 (Phantom Dance) is a rare 20% proc with 8s ICD. T7 makes it fire EVERY dodge — constant multi-target counters. But each hit is weaker (50% vs 80%), triggers cost HP, and regular BD casts are nerfed. You become a reactive dancer who damages by dodging, not by casting.",
+          "antiSynergy": ["bd_2_1_1"],
+          "antiSynergyNotes": "Dancing Recovery (T1b) — per-target healing can't keep up with 1.5% HP drain per dodge if dodging frequently.",
+          "synergy": ["bd_2_1_0", "bd_2_5_1", "bd_2_6_0"],
+          "synergyNotes": "Scattered Threat (T1a) — pack DR keeps you alive while constant Phantom Dance triggers drain HP. Counter Dancer (T5B) — counters deal 120% + crit. Phantom Dance (T6) — T7 removes chance and ICD."
+        }
+      ]
+    }
+  ]
+}

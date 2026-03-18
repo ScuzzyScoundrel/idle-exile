@@ -1,0 +1,903 @@
+{
+  "skillId": "dagger_fan_of_knives",
+  "skillName": "Fan of Knives",
+  "version": "2.0",
+  "tags": ["aoe", "projectile"],
+  "defaultComboState": {
+    "id": "saturated",
+    "trigger": "hit3PlusAilmentedTargets",
+    "duration": 4,
+    "effect": { "targetDoTDamageTaken": 15 },
+    "consumedBy": "passive (not consumed)",
+    "description": "If Fan of Knives hits 3+ enemies that already have an active ailment, those enemies become Saturated (4s): take +15% DoT damage. Not consumed."
+  },
+  "branches": [
+    {
+      "branchIndex": 0,
+      "branchName": "Predator",
+      "mechanicCheck": {
+        "mechanics": [
+          "Target Count Scaling (T1a — damage increases per enemy hit, crit chance scales with pack size)",
+          "Knife Storm (T2 notable — hitting 4+ enemies triggers a burst state with AoE crit bonuses)",
+          "Annihilation (T6 notable — killing 3+ enemies in one cast triggers a second free cast)"
+        ],
+        "nonTracked": [
+          "+X% crit per target — T3 conditional, no tracking",
+          "Knife Storm duration — T4b support, enhances tracked state"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "comboModifications": [
+        {
+          "tier": "T4",
+          "type": "enhance",
+          "defaultState": "saturated",
+          "description": "Saturated also increases crit chance against affected targets by +10%."
+        }
+      ],
+      "nodes": [
+        {
+          "id": "fk_0_1_0",
+          "name": "Widening Arc",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Fan of Knives gains +5% damage per enemy hit in the cast (4 enemies = +20%).",
+          "rank2": "+8% per enemy (4 enemies = +32%). Also gain +2% crit chance per enemy hit.",
+          "modifier": {
+            "perTargetHit": {"incDamage": 5},
+            "perRank": {
+              "1": {"incDamage": 5},
+              "2": {"incDamage": 8, "incCritChancePerTarget": 2}
+            }
+          },
+          "designNotes": "TARGET_COUNT_SCALING template. Unique to AoE — single-target and sequential skills can't scale with target count. More enemies = more damage per enemy. Natural AoE reward."
+        },
+        {
+          "id": "fk_0_1_1",
+          "name": "Piercing Throw",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Fan of Knives deals +15% damage to the FRONT enemy (primary target) in addition to hitting all targets.",
+          "rank2": "+25% to front target. Front target hit also has +10% crit chance.",
+          "modifier": {
+            "primaryTargetBonus": {"incDamage": 15},
+            "perRank": {
+              "1": {"incDamage": 15},
+              "2": {"incDamage": 25, "incCritChance": 10}
+            }
+          },
+          "designNotes": "Primary target focus within AoE. Creates a hybrid: AoE skill that also has single-target value. Different from Stab (pure single-target) because FoK still hits everything, but the front mob takes extra. Unique to AoE skills."
+        },
+        {
+          "id": "fk_0_2_0",
+          "name": "Knife Storm",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "When Fan of Knives hits 4+ enemies: enter Knife Storm state (4s). During Knife Storm: +20% crit chance and +25% crit multiplier with all skills. +8% crit chance.",
+          "statsRider": "+8% crit chance.",
+          "modifier": {
+            "procs": [
+              {
+                "id": "fk_knife_storm",
+                "trigger": "onCast",
+                "chance": 1.0,
+                "conditionParam": {"minTargetsHit": 4},
+                "applyBuff": {"buffId": "knifeStorm", "effect": {"critChanceBonus": 20, "critMultiplierBonus": 25}, "duration": 4}
+              }
+            ],
+            "stats": {"incCritChance": 8}
+          },
+          "designNotes": "Gated on target count (4+). Different from Stab's Blade Sense (consecutive-hit escalating) and Blade Dance's Slaughter Dance (multi-kill). FoK's gate is pack SIZE, not kill count or hit streak. Global crit buff means FoK sets up other skills in the rotation."
+        },
+        {
+          "id": "fk_0_2_1",
+          "name": "Sharpened Edge",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Fan of Knives crits deal +15% more damage to non-primary targets (AoE crit bonus).",
+          "rank2": "+25% AoE crit bonus. Crits on 3+ targets also apply Exposed to the primary target.",
+          "modifier": {
+            "aoeCritBonus": {"incDamage": 15},
+            "perRank": {
+              "1": {"incDamage": 15},
+              "2": {"incDamage": 25, "onMultiCrit": {"applyToFront": {"debuffId": "exposed", "duration": 3}}}
+            }
+          },
+          "designNotes": "AoE crit scaling. Different from other T2b nodes which are single-target focused. Rank 2's Exposed application on multi-crit creates a FoK → Assassinate combo path through AoE."
+        },
+        {
+          "id": "fk_0_3_0",
+          "name": "Overwhelming Force",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "+20% crit multiplier with Fan of Knives when hitting 3+ enemies.",
+          "rank2": "+30% crit multiplier. +3% weapon mastery.",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileTargetsHit", "threshold": 3, "modifier": {"incCritMultiplier": 20}}],
+            "perRank": {
+              "1": {"incCritMultiplier": 20},
+              "2": {"incCritMultiplier": 30, "weaponMastery": 3}
+            }
+          },
+          "designNotes": "Pack-size crit mult. Only valuable in packs. Worthless on single targets — natural AoE tradeoff."
+        },
+        {
+          "id": "fk_0_3_1",
+          "name": "Overkill Cascade",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "When Fan of Knives kills an enemy, 30% of overkill damage is dealt to all surviving enemies.",
+          "rank2": "50% overkill cascade. Overkill damage can also crit.",
+          "modifier": {
+            "conditionalMods": [{"condition": "onKill", "modifier": {"overkillCascadePercent": 30}}],
+            "perRank": {
+              "1": {"overkillCascadePercent": 30},
+              "2": {"overkillCascadePercent": 50, "overkillCanCrit": true}
+            }
+          },
+          "designNotes": "Overkill sharing across the pack. Unique to AoE — single-target overkill just carries to next mob. FoK overkill SPLASHES to ALL survivors. Creates chain-clear momentum where killing weak mobs damages strong ones."
+        },
+        {
+          "id": "fk_0_3_2",
+          "name": "Fan Mastery",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "+3% weapon mastery per skill cast since the last Fan of Knives (max 3 stacks, +9%).",
+          "rank2": "+4% per cast (max +12%). Also +5% damage with Fan of Knives per stack.",
+          "modifier": {
+            "conditionalMods": [{"condition": "skillsCastSinceLast", "modifier": {"weaponMastery": 3}, "maxStacks": 3}],
+            "perRank": {
+              "1": {"weaponMastery": 3, "maxStacks": 3},
+              "2": {"weaponMastery": 4, "maxStacks": 3, "incDamagePerStack": 5}
+            }
+          },
+          "designNotes": "Spacing reward. Similar PATTERN to Blade Dance's Tempo and Assassinate's Predator's Patience (skills-cast-since-last) — FLAGGED at 3 skills. Different STAT (weapon mastery vs damage vs crit mult) and different scale. This is approaching the pattern limit — future skills must NOT use this pattern in Predator. DOCUMENTED."
+        },
+        {
+          "id": "fk_0_4_0",
+          "name": "Storm of Steel",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "When Fan of Knives crits on 3+ targets in one cast: Saturated also grants +10% crit chance against affected targets. All enemies hit gain Exposed (2s). +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "comboStateEnhance": {"saturated": {"additionalEffect": {"incCritChance": 10}}},
+            "procs": [{"id": "fk_storm_of_steel", "trigger": "onCast", "chance": 1.0, "conditionParam": {"minCritsInCast": 3}, "applyDebuff": {"debuffId": "exposed", "duration": 2, "toAll": true}}],
+            "weaponMastery": 5
+          },
+          "designNotes": "Multi-crit gate + mass Exposed application. FoK critting 3+ targets → EVERY enemy gets Exposed. This sets up Assassinate (or any follow-up skill) to consume Exposed on any target. AoE combo setup."
+        },
+        {
+          "id": "fk_0_4_1",
+          "name": "Storm Sustain",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "support",
+          "maxRank": 2,
+          "description": "While Knife Storm is active: +10% damage with Fan of Knives.",
+          "rank2": "+15% damage. Each kill during Knife Storm extends it by 0.5s (max +2s).",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileBuffActive", "buffId": "knifeStorm", "modifier": {"incDamage": 10}}],
+            "perRank": {
+              "1": {"incDamage": 10},
+              "2": {"incDamage": 15, "durationExtensionPerKill": 0.5, "maxExtension": 2}
+            }
+          },
+          "designNotes": "Support for T2 Knife Storm. Kill extension during the state — AoE kills naturally happen fast in packs, so Knife Storm can extend significantly."
+        },
+        {
+          "id": "fk_0_5_0",
+          "name": "Precision Barrage",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Fan of Knives gains +3% crit chance per enemy in the pack (even unhit enemies count). At 5+ enemies: Fan of Knives always crits. +8% weapon mastery.",
+          "modifier": {
+            "perEnemyInPack": {"incCritChance": 3},
+            "guaranteedCritAt": 5,
+            "weaponMastery": 8
+          },
+          "exclusiveWith": ["fk_0_5_1"],
+          "designNotes": "Consistent choice. Bigger packs = more crit. At 5 enemies, guaranteed crit on every target every cast. Reliable, scales with content. Makes Knife Storm (T2) almost guaranteed in big packs."
+        },
+        {
+          "id": "fk_0_5_1",
+          "name": "Rain of Blades",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "Fan of Knives fires twice (double cast — two separate volleys). Second volley deals 60% of the first's damage. If Fan of Knives kills 0 enemies across both volleys, its cooldown is increased by 2s.",
+          "modifier": {
+            "doubleCast": true,
+            "secondCastDamageMult": 0.60,
+            "onZeroKillsPenalty": {"cooldownIncrease": 2}
+          },
+          "exclusiveWith": ["fk_0_5_0"],
+          "designNotes": "Risky double-cast. Two AoE volleys = double the crit chances, double the ailment applications, double the procs. But if nothing dies, cooldown punishment. Amazing for packs, terrible for single tanky mobs."
+        },
+        {
+          "id": "fk_0_6_0",
+          "name": "Annihilation",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "catastrophic",
+          "description": "When Fan of Knives kills 3+ enemies in a single cast: trigger a free bonus Fan of Knives at 150% damage that hits ALL enemies (including newly spawned pack if the previous pack was cleared). 12s internal cooldown. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "procs": [
+              {
+                "id": "fk_annihilation",
+                "trigger": "onMultiKillInCast",
+                "chance": 1.0,
+                "conditionParam": {"minKills": 3},
+                "freeCast": {"skillId": "dagger_fan_of_knives", "damageMult": 1.5, "hitsNewPack": true},
+                "internalCooldown": 12
+              }
+            ],
+            "weaponMastery": 5
+          },
+          "designNotes": "Mass-kill → free AoE echo. The 'hitsNewPack' is unique — if you clear the entire pack, the bonus FoK hits the NEXT pack that spawns. Different from Blade Dance's Reaper's Dance (3 kills in sequential hits) because this is simultaneous kills from one AoE. REQUIRES ENGINE 10.1 (kill attribution) — ailment DoT kills from FoK-applied ailments must credit FoK."
+        },
+        {
+          "id": "fk_0_7_0",
+          "name": "BLADE TEMPEST",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Fan of Knives deals +50% damage but its cooldown is doubled (10s). Annihilation (T6) triggers on 2+ kills instead of 3+ and the free cast deals 200% instead of 150%. -15% damage with all single-target skills.",
+          "modifier": {
+            "incDamage": 50,
+            "cooldownMultiplier": 2.0,
+            "annihilationOverride": {"minKills": 2, "damageMult": 2.0},
+            "singleTargetPenalty": -15
+          },
+          "tensionWith": "fk_0_6_0",
+          "tensionDescription": "T6 (Annihilation) triggers at 3+ kills for 150% bonus. T7 makes FoK hit harder (+50%) with easier Annihilation (2+ kills at 200%) but DOUBLES the cooldown (10s) and nerfs single-target skills (-15%). You're all-in on AoE. Packs melt. Bosses suffer.",
+          "antiSynergy": ["fk_0_1_1"],
+          "antiSynergyNotes": "Piercing Throw (T1b) — front target bonus is less valuable when single-target skills are nerfed -15%. FoK becomes PURELY AoE focused.",
+          "synergy": ["fk_0_1_0", "fk_0_3_1", "fk_0_6_0"],
+          "synergyNotes": "Widening Arc (T1a) — per-target damage scales with T7's +50% base. Overkill Cascade (T3b) — stronger hits = more overkill = more cascade. Annihilation (T6) — easier trigger, stronger echo."
+        }
+      ]
+    },
+    {
+      "branchIndex": 1,
+      "branchName": "Plague",
+      "mechanicCheck": {
+        "mechanics": [
+          "Mass Application (T1a — ailment potency scales with target count, AoE ailment amplification)",
+          "Plague Wave (T2 notable — hitting 3+ ailmented targets triggers DoT acceleration on all of them)",
+          "Extinction Event (T6 notable — killing an ailmented target in AoE detonates its ailments as pack-wide burst)"
+        ],
+        "nonTracked": [
+          "+X% DoT mult per target — T3 conditional, no tracking",
+          "Plague Wave extension — T4b support, enhances tracked state"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "comboModifications": [
+        {
+          "tier": "T3",
+          "type": "enhance",
+          "defaultState": "saturated",
+          "description": "Saturated's +15% DoT damage increased to +25% AND Saturated now also extends active ailment durations by 1s."
+        }
+      ],
+      "nodes": [
+        {
+          "id": "fk_1_1_0",
+          "name": "Toxic Barrage",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Fan of Knives' ailment applications gain +5% potency per target hit in the cast (4 targets = +20% potency on ALL applications).",
+          "rank2": "+8% per target (4 targets = +32%). +3% weapon mastery.",
+          "modifier": {
+            "perTargetHit": {"ailmentPotencyBonus": 5},
+            "perRank": {
+              "1": {"ailmentPotencyBonus": 5},
+              "2": {"ailmentPotencyBonus": 8, "weaponMastery": 3}
+            }
+          },
+          "designNotes": "Ailment potency scales with SIMULTANEOUS target count. Different from Blade Dance's Distributed Infection (per UNIQUE target, sequential). FoK hits ALL simultaneously, so the per-target bonus applies to ALL applications. Bigger pack = stronger ailments on everyone. True AoE ailment scaling."
+        },
+        {
+          "id": "fk_1_1_1",
+          "name": "Saturating Strikes",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Enemies already affected by Saturated take +10% more ailment damage from Fan of Knives.",
+          "rank2": "+15% more ailment damage. Saturated duration extended by 1s (5s total) for targets hit by FoK.",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileTargetSaturated", "modifier": {"ailmentDamageBonus": 10}}],
+            "perRank": {
+              "1": {"ailmentDamageBonus": 10},
+              "2": {"ailmentDamageBonus": 15, "saturatedDurationBonus": 1}
+            }
+          },
+          "designNotes": "Self-reinforcing with FoK's own Saturated combo state. FoK applies Saturated → next FoK deals more ailment damage to Saturated targets → reapplies Saturated. Loop. Unique because only FoK creates Saturated."
+        },
+        {
+          "id": "fk_1_2_0",
+          "name": "Plague Wave",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "When Fan of Knives hits 3+ enemies that already have active ailments: trigger Plague Wave — all active ailments on hit targets tick at 2x speed for 3s. +8% ailment duration.",
+          "statsRider": "+8% ailment duration.",
+          "modifier": {
+            "procs": [
+              {
+                "id": "fk_plague_wave",
+                "trigger": "onCast",
+                "chance": 1.0,
+                "conditionParam": {"minAilmentedTargetsHit": 3},
+                "applyBuff": {"buffId": "plagueWave", "effect": {"ailmentTickSpeedMult": 2.0, "appliesToTargets": true}, "duration": 3}
+              }
+            ],
+            "ailmentDuration": 8
+          },
+          "designNotes": "DoT ACCELERATION — ailments tick twice as fast for 3s. Completely unique mechanic. Different from potency bonuses (more damage per tick) — this is more TICKS. Poison deals 2x ticks, Ignite ramps 2x faster, Bleed spikes 2x on enemy attacks. Gate is 3+ already-ailmented targets, requiring setup from other skills. REQUIRES ENGINE 10.5 (ailment tick speed multiplier)."
+        },
+        {
+          "id": "fk_1_2_1",
+          "name": "Lingering Barrage",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Ailments applied by Fan of Knives last 20% longer than normal.",
+          "rank2": "30% longer. Ailments applied to 4+ targets simultaneously also gain +10% potency.",
+          "modifier": {
+            "ailmentDurationBonus": 20,
+            "perRank": {
+              "1": {"ailmentDurationBonus": 20},
+              "2": {"ailmentDurationBonus": 30, "massDurationBonus": {"threshold": 4, "potencyBonus": 10}}
+            }
+          },
+          "designNotes": "FoK-specific duration extension. Different from Stab's Festering Patience (potency while ailment active) and Blade Dance's Infectious Dance (duration on existing ailment). This is baseline duration extension for mass application."
+        },
+        {
+          "id": "fk_1_3_0",
+          "name": "Pandemic Reach",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "+5% DoT multiplier per enemy hit by the most recent Fan of Knives (max +25% at 5 targets).",
+          "rank2": "+7% per target (max +35%). +3% weapon mastery.",
+          "modifier": {
+            "conditionalMods": [{"condition": "perTargetInLastCast", "modifier": {"dotMultiplier": 5}, "maxStacks": 5}],
+            "perRank": {
+              "1": {"dotMultiplier": 5, "maxStacks": 5},
+              "2": {"dotMultiplier": 7, "maxStacks": 5, "weaponMastery": 3}
+            }
+          },
+          "designNotes": "DoT mult scaling from target count. Different from Blade Dance's Sustained Pressure (per ailment-APPLYING hit, max 3) — this scales with how many TARGETS were in the pack, up to 5. True AoE DoT scaling."
+        },
+        {
+          "id": "fk_1_3_1",
+          "name": "Enhanced Saturation",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "Saturated's +15% DoT damage increased to +25%. Saturated now also extends active ailment durations by 1s when applied.",
+          "rank2": "+30% DoT damage. Duration extension increased to 1.5s.",
+          "modifier": {
+            "comboStateEnhance": {"saturated": {"dotDamageTaken": 25, "ailmentDurationExtension": 1}},
+            "perRank": {
+              "1": {"dotDamageTaken": 25, "ailmentDurationExtension": 1},
+              "2": {"dotDamageTaken": 30, "ailmentDurationExtension": 1.5}
+            }
+          },
+          "designNotes": "COMBO ENHANCEMENT for Saturated. Makes FoK's unique combo state significantly stronger for Plague builds. Duration extension is key — FoK refreshes ailments that might be expiring."
+        },
+        {
+          "id": "fk_1_3_2",
+          "name": "Festering Cloud",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "Enemies killed by ailment damage within 3s of being hit by Fan of Knives spread their ailments to all nearby enemies at 50% remaining duration.",
+          "rank2": "75% remaining duration. Also spreads to enemies not in the current pack (carries to next pack).",
+          "modifier": {
+            "conditionalMods": [{"condition": "ailmentKillAfterFoK", "window": 3, "modifier": {"spreadAilments": {"durationRetain": 50}}}],
+            "perRank": {
+              "1": {"durationRetain": 50, "crossPackSpread": false},
+              "2": {"durationRetain": 75, "crossPackSpread": true}
+            }
+          },
+          "designNotes": "Ailment-death spread. Different from Stab's Pandemic Cascade (kill-with-stacks spread) because this triggers on AILMENT KILLS specifically (the DoT killed them, not the hit). FoK ailments something → DoT kills it → ailments spread. Rank 2's cross-pack spread is endgame chain-clearing."
+        },
+        {
+          "id": "fk_1_4_0",
+          "name": "Toxic Storm",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "state-shift",
+          "description": "When Fan of Knives applies ailments to 4+ targets simultaneously: enter Toxic Storm (4s). During Toxic Storm: all skills' ailment applications gain +25% potency AND hit 1 additional target (single-target skills splash to 1 adjacent). 12s internal cooldown. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "procs": [
+              {
+                "id": "fk_toxic_storm",
+                "trigger": "onCast",
+                "chance": 1.0,
+                "conditionParam": {"minTargetsAilmented": 4},
+                "applyBuff": {"buffId": "toxicStorm", "effect": {"globalAilmentPotency": 25, "allSkillsSplash": 1}, "duration": 4},
+                "internalCooldown": 12
+              }
+            ],
+            "weaponMastery": 5
+          },
+          "designNotes": "State-shift at 4+ targets ailmented. The 'all skills splash to 1 adjacent' is unique — Stab temporarily hits 2 targets, Assassinate temporarily hits 2 targets. FoK becomes a setup that makes the whole rotation AoE for 4s. Different from Stab's Venom Frenzy (speed state) and Blade Dance's Plague Web (damage sharing). REQUIRES ENGINE 10.6 (AoE splash on single-target skills)."
+        },
+        {
+          "id": "fk_1_4_1",
+          "name": "Storm Amplifier",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "support",
+          "maxRank": 2,
+          "description": "While Toxic Storm is active: +10% ailment duration for all skills.",
+          "rank2": "+15% duration. Each skill cast during Toxic Storm extends it by 0.3s (max +1.5s).",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileBuffActive", "buffId": "toxicStorm", "modifier": {"ailmentDuration": 10}}],
+            "perRank": {
+              "1": {"ailmentDuration": 10},
+              "2": {"ailmentDuration": 15, "durationExtensionPerCast": 0.3, "maxExtension": 1.5}
+            }
+          },
+          "designNotes": "Support for Toxic Storm. Global ailment duration during the state. Extension per cast rewards fast rotation."
+        },
+        {
+          "id": "fk_1_5_0",
+          "name": "Endless Plague",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Fan of Knives permanently gains +2% ailment potency per cast (max 15 stacks, +30%). Stacks persist until zone change. Ailments from FoK can never expire naturally — they persist until the target dies. +8% weapon mastery.",
+          "modifier": {
+            "permanentStackPerCast": {"stat": "ailmentPotency", "perStack": 2, "maxStacks": 15},
+            "ailmentsNeverExpire": true,
+            "weaponMastery": 8
+          },
+          "exclusiveWith": ["fk_1_5_1"],
+          "designNotes": "Consistent long-game scaling. Ailments NEVER EXPIRE = infinite stacking over time. On bosses, FoK ailments accumulate forever. Permanent potency stacks make each FoK cast stronger. Slow but inevitable."
+        },
+        {
+          "id": "fk_1_5_1",
+          "name": "Chain Detonation",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "When Fan of Knives hits an enemy with 5+ ailment stacks: 25% chance to detonate ALL stacks on that target as instant burst (100% of snapshot). Detonation triggers independently per enemy — multiple detonations possible in one cast. Detonated targets have NO ailments after.",
+          "modifier": {
+            "procs": [
+              {
+                "id": "fk_chain_detonation",
+                "trigger": "onHit",
+                "chance": 0.25,
+                "conditionParam": {"minAilmentStacks": 5},
+                "detonateAll": true,
+                "perTarget": true
+              }
+            ]
+          },
+          "exclusiveWith": ["fk_1_5_0"],
+          "designNotes": "Risky mass detonation. Each target independently has 25% chance to detonate. In a pack of 5 ailmented enemies, average ~1-2 detonations per cast. High variance. Wipes stacks — must rebuild. Anti-synergy with Endless Plague (never expire vs detonate everything)."
+        },
+        {
+          "id": "fk_1_6_0",
+          "name": "Extinction Event",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "catastrophic",
+          "description": "When Fan of Knives kills an enemy that has 3+ ailment stacks: that target's ailments EXPLODE, dealing 40% of total remaining ailment damage as AoE to all surviving enemies. Each enemy can only explode once per cast. 10s internal cooldown. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "procs": [
+              {
+                "id": "fk_extinction_event",
+                "trigger": "onKillInCast",
+                "chance": 1.0,
+                "conditionParam": {"minAilmentStacks": 3},
+                "explodeAilments": {"aoeScaleRatio": 0.40, "oncePerTarget": true},
+                "internalCooldown": 10
+              }
+            ],
+            "weaponMastery": 5
+          },
+          "designNotes": "AoE ailment explosion on kill. Different from Assassinate's Plague Executioner (single-target kill explosion + applies stacks) because FoK kills MULTIPLE targets — each exploding individually. Multiple explosions possible in one cast. Different from Blade Dance's Pandemic Dance (requires Plague Link setup)."
+        },
+        {
+          "id": "fk_1_7_0",
+          "name": "PLAGUE STORM",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Fan of Knives applies ailments at 3x potency but can ONLY apply ailments (deals 0 direct hit damage). Extinction Event (T6) triggers on ANY ailment-kill of a FoK-ailmented target (not just during FoK cast). -20% ailment potency with all non-AoE skills.",
+          "modifier": {
+            "ailmentPotencyMult": 3.0,
+            "directDamageOverride": 0,
+            "extinctionOverride": {"triggerOnAnyAilmentKill": true},
+            "nonAoePenalty": {"ailmentPotency": -20}
+          },
+          "tensionWith": "fk_1_6_0",
+          "tensionDescription": "T6 (Extinction Event) triggers on FoK kills with 3+ stacks. T7 removes ALL direct damage — FoK can't kill anything directly. Ailments must do the killing (through ticks). But when they DO kill, Extinction Event triggers from ANY source, not just FoK cast. The 3x potency makes ailments incredibly strong. Tension: FoK can't kill directly but creates the most devastating ailments in the game, and any death of a FoK-ailmented target triggers pack-wide explosion.",
+          "antiSynergy": ["fk_0_1_0", "fk_0_3_1"],
+          "antiSynergyNotes": "Widening Arc (T1a Predator) — per-target damage bonus is wasted with 0 direct damage. Overkill Cascade (T3b) — can't overkill with 0 damage.",
+          "synergy": ["fk_1_1_0", "fk_1_2_0", "fk_1_5_0"],
+          "synergyNotes": "Toxic Barrage (T1a) — per-target potency scaling on 3x base = massive stacks. Plague Wave (T2) — 2x tick speed on 3x potency ailments = insane DoT. Endless Plague (T5A) — never-expiring 3x ailments that accumulate infinitely.",
+          "engineRequirements": ["ENGINE 10.2 (keystone ailment snapshot override — 0 direct damage but snapshots from WD%)", "ENGINE 10.1 (kill attribution — ailment kills credit FoK for Extinction Event)"]
+        }
+      ]
+    },
+    {
+      "branchIndex": 2,
+      "branchName": "Ghost",
+      "mechanicCheck": {
+        "mechanics": [
+          "Suppressive Fire (T1a — enemies hit by FoK deal less damage for a short duration)",
+          "Defensive Barrage (T2 notable — FoK cast grants Fortify per enemy hit, dodge → AoE counter)",
+          "Knife Veil (T6 notable — dodge triggers a free defensive Fan of Knives that applies Weakened)"
+        ],
+        "nonTracked": [
+          "+X% DR per target hit — T3 conditional, no tracking",
+          "Defensive Barrage extension — T4b support, enhances tracked state"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "comboModifications": [
+        {
+          "tier": "T3",
+          "type": "replace",
+          "defaultState": "saturated",
+          "description": "Saturated replaced with Suppressed: affected enemies deal -10% damage for 4s."
+        }
+      ],
+      "nodes": [
+        {
+          "id": "fk_2_1_0",
+          "name": "Suppressive Fire",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Enemies hit by Fan of Knives deal 5% less damage for 3s.",
+          "rank2": "8% less damage. Duration extended to 4s.",
+          "modifier": {
+            "onHitDebuff": {"reducedDamageDealt": 5, "duration": 3},
+            "perRank": {
+              "1": {"reducedDamageDealt": 5, "duration": 3},
+              "2": {"reducedDamageDealt": 8, "duration": 4}
+            }
+          },
+          "designNotes": "AoE SUPPRESSION — all enemies deal less damage after being hit. Completely unique defensive pattern. Single-target skills suppress 1 enemy. FoK suppresses the ENTIRE PACK. Different from Stab's Evasive Rhythm (self dodge) and Blade Dance's Scattered Threat (pack-size DR). This debuffs ENEMIES, not buffs player."
+        },
+        {
+          "id": "fk_2_1_1",
+          "name": "Scattering Throw",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Fan of Knives heals for 0.5% max HP per enemy hit.",
+          "rank2": "0.8% per enemy. At 4+ enemies hit, also gain +1 Fortify stack (3% DR, 4s).",
+          "modifier": {
+            "perTargetHit": {"healPercent": 0.5},
+            "perRank": {
+              "1": {"healPercent": 0.5},
+              "2": {"healPercent": 0.8, "atTargets": 4, "fortify": {"stacks": 1, "duration": 4, "damageReduction": 3}}
+            }
+          },
+          "designNotes": "Per-target healing from AoE. Different from Blade Dance's Dancing Recovery (per unique target, 1-1.5%) because FoK hits ALL targets — bigger packs = significantly more healing. 5 enemies = 2.5-4% HP per cast."
+        },
+        {
+          "id": "fk_2_2_0",
+          "name": "Defensive Barrage",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "When Fan of Knives hits 3+ enemies: gain +1 Fortify stack per enemy hit (max 3 stacks gained). If you dodge within 3s of casting: trigger a counter Fan of Knives at 50% damage. +5 all resist.",
+          "statsRider": "+5 all resist.",
+          "modifier": {
+            "procs": [
+              {
+                "id": "fk_defensive_barrage",
+                "trigger": "onCast",
+                "chance": 1.0,
+                "conditionParam": {"minTargetsHit": 3},
+                "fortifyPerTarget": {"stacks": 1, "maxStacks": 3, "duration": 5, "damageReduction": 3}
+              },
+              {
+                "id": "fk_defensive_barrage_counter",
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "conditionParam": {"withinWindowAfterCast": 3, "skillId": "dagger_fan_of_knives"},
+                "freeCast": {"skillId": "dagger_fan_of_knives", "damageMult": 0.5}
+              }
+            ],
+            "allResist": 5
+          },
+          "designNotes": "Mass Fortify from AoE + dodge-triggered counter FoK. Different from Blade Dance's Defensive Scatter (counter per individual target) because this grants Fortify PROPORTIONAL to pack size and the counter is another full AoE, not individual hits."
+        },
+        {
+          "id": "fk_2_2_1",
+          "name": "Scatter Shield",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "For 3s after casting Fan of Knives on 3+ targets: +8% chance to dodge attacks.",
+          "rank2": "+12% dodge chance. Duration extended to 4s. Also +5 all resist during this window.",
+          "modifier": {
+            "conditionalMods": [{"condition": "afterCastOnMultipleTargets", "threshold": 3, "modifier": {"dodgeChance": 8}, "duration": 3}],
+            "perRank": {
+              "1": {"dodgeChance": 8, "duration": 3},
+              "2": {"dodgeChance": 12, "duration": 4, "allResist": 5}
+            }
+          },
+          "designNotes": "Post-cast dodge window from AoE. Different from Blade Dance's Scattering Steps (post-cast dodge + CD reduction) because this doesn't interact with FoK cooldown — pure defensive window. Pack requirement (3+) prevents single-target abuse."
+        },
+        {
+          "id": "fk_2_3_0",
+          "name": "Crowd Control",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "+3% damage reduction for 3s per enemy hit by the most recent Fan of Knives (max +15% at 5 targets).",
+          "rank2": "+4% per target (max +20%). +3% weapon mastery.",
+          "modifier": {
+            "conditionalMods": [{"condition": "perTargetInLastCast", "modifier": {"damageReduction": 3}, "maxStacks": 5, "duration": 3}],
+            "perRank": {
+              "1": {"damageReduction": 3, "maxStacks": 5},
+              "2": {"damageReduction": 4, "maxStacks": 5, "weaponMastery": 3}
+            }
+          },
+          "designNotes": "DR per target from AoE. Different from Blade Dance's Scattered Defense (per UNIQUE target, max 3) because FoK hits ALL — 5 targets = +15-20% DR. Scales with pack size, which is FoK's strength."
+        },
+        {
+          "id": "fk_2_3_1",
+          "name": "Suppressed State",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "Saturated replaced with Suppressed (4s): affected enemies deal -10% damage.",
+          "rank2": "-15% damage dealt. Also applies -5% enemy attack speed.",
+          "modifier": {
+            "comboStateReplace": {"from": "saturated", "to": "suppressed", "effect": {"reducedEnemyDamage": 10}, "duration": 4},
+            "perRank": {
+              "1": {"reducedEnemyDamage": 10},
+              "2": {"reducedEnemyDamage": 15, "reducedEnemyAttackSpeed": 5}
+            }
+          },
+          "designNotes": "COMBO MODIFICATION. Replaces Saturated (offensive DoT amp) with Suppressed (defensive enemy nerf). Ghost FoK is about SUPPRESSING the pack, not amplifying DoTs. Different from Stab's Riposte Ready (dodge counter) and Blade Dance's Evasive Dance (dodge chance) — this is enemy debuff, not self-buff."
+        },
+        {
+          "id": "fk_2_3_2",
+          "name": "Retaliatory Barrage",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "+10% damage with Fan of Knives for each enemy that attacked you since the last Fan of Knives cast (max 4 stacks, +40%).",
+          "rank2": "+12% per attack received (max +48%). Also +5% crit chance per stack.",
+          "modifier": {
+            "conditionalMods": [{"condition": "enemyAttacksSinceLast", "modifier": {"incDamage": 10}, "maxStacks": 4}],
+            "perRank": {
+              "1": {"incDamage": 10, "maxStacks": 4},
+              "2": {"incDamage": 12, "maxStacks": 4, "incCritChancePerStack": 5}
+            }
+          },
+          "designNotes": "ATTACKS RECEIVED scaling. Completely different from any existing pattern — damage scales with how many times you were ATTACKED between FoK casts. Ghost fantasy: 'I endured your attacks, now I return them.' AoE retaliation. Different from Blade Dance's Retaliation Marks (enemy-attacks-you debuff) — this is a self-buff from total attacks received."
+        },
+        {
+          "id": "fk_2_4_0",
+          "name": "Storm Shelter",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "state-shift",
+          "description": "When Fan of Knives hits 4+ enemies: enter Storm Shelter (4s). During Storm Shelter: +20% damage reduction and all enemies that attack you take 30% of Fan of Knives' fully-scaled damage as retaliation. 10s internal cooldown. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "procs": [
+              {
+                "id": "fk_storm_shelter",
+                "trigger": "onCast",
+                "chance": 1.0,
+                "conditionParam": {"minTargetsHit": 4},
+                "applyBuff": {"buffId": "stormShelter", "effect": {"damageReduction": 20, "retaliationDamage": 30}, "duration": 4},
+                "internalCooldown": 10
+              }
+            ],
+            "weaponMastery": 5
+          },
+          "designNotes": "AoE defensive state. Different from Stab's Shadow Form (dodge-triggered DR + Weakened) and Blade Dance's Evasive Dance Form (dodge-triggered CD reduction). FoK's version is TARGET-COUNT triggered (4+ enemies) with RETALIATION damage — enemies that attack you get hurt. Unique to AoE because single-target skills can't hit 4+ targets to trigger it. REQUIRES ENGINE 10.7 (retaliation damage — enemy attacks trigger damage back to attacker)."
+        },
+        {
+          "id": "fk_2_4_1",
+          "name": "Shelter Extension",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "support",
+          "maxRank": 2,
+          "description": "While Storm Shelter is active: +10% dodge chance.",
+          "rank2": "+15% dodge chance. Each enemy that attacks you during Storm Shelter extends it by 0.3s (max +2s).",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileBuffActive", "buffId": "stormShelter", "modifier": {"dodgeChance": 10}}],
+            "perRank": {
+              "1": {"dodgeChance": 10},
+              "2": {"dodgeChance": 15, "durationExtensionPerAttack": 0.3, "maxExtension": 2}
+            }
+          },
+          "designNotes": "Support for Storm Shelter. Dodge during shelter + enemy attacks extend it. In a big pack with many attackers, Storm Shelter can last a long time."
+        },
+        {
+          "id": "fk_2_5_0",
+          "name": "Iron Barrage",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Fan of Knives grants +1 Fortify stack per 2 enemies hit (rounded down). At 5+ Fortify stacks: Fan of Knives heals for 1% max HP per enemy hit. +8% weapon mastery.",
+          "modifier": {
+            "fortifyPerTargets": {"ratio": 2, "stacks": 1, "duration": 6, "damageReduction": 3},
+            "conditionalMods": [{"condition": "whileFortifyStacks", "threshold": 5, "modifier": {"healPerTargetPercent": 1}}],
+            "weaponMastery": 8
+          },
+          "exclusiveWith": ["fk_2_5_1"],
+          "designNotes": "Consistent AoE sustain. More enemies = more Fortify + more healing. 4 enemies = 2 Fortify stacks per cast. At 5+ stacks, also healing 4-5% HP per cast. Reliable, always scaling with pack size."
+        },
+        {
+          "id": "fk_2_5_1",
+          "name": "Retribution Barrage",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "Storm Shelter's retaliation damage increased from 30% to 60% of FoK's fully-scaled damage. Retaliation hits can crit. You take +12% increased damage from all sources.",
+          "modifier": {
+            "stormShelterOverride": {"retaliationDamage": 60, "retaliationCanCrit": true},
+            "increasedDamageTaken": 12
+          },
+          "exclusiveWith": ["fk_2_5_0"],
+          "designNotes": "Risky retaliation. Enemies that attack you during Storm Shelter take massive damage — but you take 12% more too. In a pack of 4 fast-attacking mobs, retaliation crits could out-damage FoK's direct hits. Glass cannon AoE defense."
+        },
+        {
+          "id": "fk_2_6_0",
+          "name": "Knife Veil",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "catastrophic",
+          "description": "When you dodge: 20% chance to trigger Knife Veil — a free defensive Fan of Knives that deals 60% damage and applies Weakened curse (2s) to all targets. Does NOT go on cooldown. 8s internal cooldown. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "procs": [
+              {
+                "id": "fk_knife_veil",
+                "trigger": "onDodge",
+                "chance": 0.20,
+                "freeCast": {"skillId": "dagger_fan_of_knives", "damageMult": 0.60},
+                "applyDebuff": {"debuffId": "weakened", "duration": 2, "toAll": true},
+                "internalCooldown": 8
+              }
+            ],
+            "weaponMastery": 5
+          },
+          "designNotes": "Dodge → free AoE counter with pack-wide Weakened. Different from Stab's Phantom Strike (single massive counter) and Blade Dance's Phantom Dance (sequential multi-counter). FoK's counter is a FULL AoE hitting everything. Weakened reduces all enemy damage dealt — defensive AoE counter."
+        },
+        {
+          "id": "fk_2_7_0",
+          "name": "STORM FORTRESS",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Knife Veil (T6) triggers on EVERY dodge (no chance roll, no ICD). Counter FoK deals 35% instead of 60%. Each Knife Veil trigger costs 1% max HP. Fan of Knives' regular casts deal -20% damage.",
+          "modifier": {
+            "knifeVeilOverride": {"chance": 1.0, "icd": 0, "damageMult": 0.35},
+            "lifeCostPerTrigger": 1,
+            "incDamage": -20
+          },
+          "tensionWith": "fk_2_6_0",
+          "tensionDescription": "T6 (Knife Veil) is a rare 20% dodge → free AoE with Weakened. T7 makes it fire EVERY dodge — constant AoE retaliation on every dodge. But each hit is weaker (35%), costs 1% HP, and regular FoK is nerfed. You become a walking AoE damage field that hurts everything around you when dodging.",
+          "antiSynergy": ["fk_2_1_1"],
+          "antiSynergyNotes": "Scattering Throw (T1b) — per-target healing can't keep up with 1% HP drain per dodge in fast-attacking packs.",
+          "synergy": ["fk_2_2_1", "fk_2_5_1", "fk_2_6_0"],
+          "synergyNotes": "Scatter Shield (T2b) — more dodge chance = more Knife Veil triggers. Retribution Barrage (T5B) — retaliation + constant AoE counters = enemies die from attacking you. Knife Veil (T6) — T7 removes chance and ICD."
+        }
+      ]
+    }
+  ]
+}

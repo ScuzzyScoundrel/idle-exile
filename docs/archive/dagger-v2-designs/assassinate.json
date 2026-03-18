@@ -1,0 +1,889 @@
+{
+  "skillId": "dagger_assassinate",
+  "skillName": "Assassinate",
+  "version": "2.0",
+  "tags": ["heavy", "long-cd"],
+  "defaultComboState": {
+    "id": "none",
+    "trigger": "none",
+    "description": "Assassinate does not CREATE a combo state. It CONSUMES: Exposed (+25% damage), Deep Wound (remaining ailment ticks fire instantly)."
+  },
+  "branches": [
+    {
+      "branchIndex": 0,
+      "branchName": "Predator",
+      "mechanicCheck": {
+        "mechanics": [
+          "Cooldown Investment (T1a — damage scales with time spent on cooldown, rewards patience)",
+          "Killing Intent (T2 notable — below HP threshold triggers guaranteed crit + enhanced execute)",
+          "Perfect Kill (T6 notable — consuming both Exposed + Deep Wound triggers massive bonus hit)"
+        ],
+        "nonTracked": [
+          "+X% damage vs low HP — T3 conditional, no tracking",
+          "Killing Intent duration — T4b support, enhances tracked state"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "comboModifications": [
+        {
+          "tier": "T4",
+          "type": "enhance",
+          "defaultState": "exposed",
+          "description": "Exposed consumed by Assassinate grants +40% instead of +25%, and also resets Stab cooldown."
+        }
+      ],
+      "nodes": [
+        {
+          "id": "as_0_1_0",
+          "name": "Patient Predator",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Assassinate gains +8% damage per second it spends on cooldown (max +64% at full 8s CD). Bonus resets on cast.",
+          "rank2": "+10% per second (max +80%). Also gain +3% crit chance per second on CD (max +24%).",
+          "modifier": {
+            "conditionalMods": [{"condition": "perSecondOnCooldown", "modifier": {"incDamage": 8}, "maxStacks": 8}],
+            "perRank": {
+              "1": {"incDamage": 8},
+              "2": {"incDamage": 10, "incCritChancePerSecond": 3}
+            }
+          },
+          "designNotes": "COOLDOWN_INVESTMENT template. Unique to long-CD skills — Stab (3s) and Blade Dance (5s) can't meaningfully accumulate. 8s CD = 8 stacks = huge payoff. Rewards NOT reducing the cooldown (anti-synergy with CD reduction nodes). UNIQUE ITEM OPPORTUNITY: 'Executioner's Patience: Assassinate cooldown +3s. +5% damage per second on cooldown.' — stacks with this node for 11s × 10% = +110% damage. Requires ENGINE 10.3 (cooldown increase mechanic)."
+        },
+        {
+          "id": "as_0_1_1",
+          "name": "Measured Strike",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "If Assassinate is the first skill cast against a target (no prior hits from any skill), it deals +25% damage.",
+          "rank2": "+35% damage. Also applies Exposed (3s) to the target (enabling self-setup for next rotation).",
+          "modifier": {
+            "conditionalMods": [{"condition": "onFirstHitVsTarget", "modifier": {"incDamage": 25}}],
+            "perRank": {
+              "1": {"incDamage": 25},
+              "2": {"incDamage": 35, "applyOnFirstHit": {"debuffId": "exposed", "duration": 3}}
+            }
+          },
+          "designNotes": "FIRST_STRIKE template. Rewards using Assassinate as an OPENER rather than a finisher. Opposite of Patient Predator (which rewards waiting). Creates a choice: open with Assassinate for burst or save it for execute. Rank 2 self-applies Exposed for the next rotation cycle."
+        },
+        {
+          "id": "as_0_2_0",
+          "name": "Killing Intent",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "When Assassinate hits a target below 40% HP: guaranteed crit and +30% crit multiplier. If the target dies, gain Killing Intent (4s): next Assassinate's cooldown reduced by 3s.",
+          "statsRider": "+8% crit chance.",
+          "modifier": {
+            "procs": [
+              {
+                "id": "as_killing_intent",
+                "trigger": "onHit",
+                "chance": 1.0,
+                "conditionParam": {"targetBelowHp": 40},
+                "effect": {"guaranteedCrit": true, "incCritMultiplier": 30}
+              },
+              {
+                "id": "as_killing_intent_kill",
+                "trigger": "onKill",
+                "chance": 1.0,
+                "applyBuff": {"buffId": "killingIntent", "effect": {"skillCdReduction": {"dagger_assassinate": 3}}, "duration": 4}
+              }
+            ],
+            "stats": {"incCritChance": 8}
+          },
+          "designNotes": "Gated on HP threshold (40%). The guaranteed crit below 40% makes Assassinate a reliable finisher. The kill → CD reduction creates chain-killing momentum. Different from Stab's Blade Sense (escalating consecutive hit proc) and Blade Dance's Slaughter Dance (multi-kill state)."
+        },
+        {
+          "id": "as_0_2_1",
+          "name": "Executioner's Focus",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "While Assassinate is on cooldown, all other dagger skills gain +3% crit chance. [TUNING: was +5%, reduced due to ~85% uptime]",
+          "rank2": "+5% crit chance. Also +3% weapon mastery while Assassinate is on cooldown. [TUNING: was +8%, reduced]",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileSkillOnCooldown", "skillId": "dagger_assassinate", "modifier": {"globalCritChance": 3}}],
+            "perRank": {
+              "1": {"globalCritChance": 3},
+              "2": {"globalCritChance": 5, "weaponMastery": 3}
+            }
+          },
+          "designNotes": "Passive benefit WHILE Assassinate is on CD. Since Assassinate has the longest CD (8s), this is active most of the time. Rewards having Assassinate slotted even when it's not firing. Unique to long-CD skills — short CD skills are rarely on cooldown long enough."
+        },
+        {
+          "id": "as_0_3_0",
+          "name": "Coup de Grace",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "+30% damage with Assassinate against targets below 25% HP.",
+          "rank2": "+45% damage. Threshold raised to 30% HP.",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileTargetBelowHp", "threshold": 25, "modifier": {"incDamage": 30}}],
+            "perRank": {
+              "1": {"incDamage": 30, "threshold": 25},
+              "2": {"incDamage": 45, "threshold": 30}
+            }
+          },
+          "designNotes": "Execute scaling — damage bonus at low HP. Different from Stab's Exploit Opening (crit vs low HP) because this is flat DAMAGE, not crit chance. Also different threshold (25% vs 50%)."
+        },
+        {
+          "id": "as_0_3_1",
+          "name": "Reset the Hunt",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "When Assassinate kills a target, its cooldown is reduced by 2s.",
+          "rank2": "Cooldown reduced by 3s on kill. If the kill was a crit, fully reset cooldown instead.",
+          "modifier": {
+            "conditionalMods": [{"condition": "onKill", "modifier": {"cooldownReduction": 2}}],
+            "perRank": {
+              "1": {"cooldownReduction": 2},
+              "2": {"cooldownReduction": 3, "onCritKill": {"fullReset": true}}
+            }
+          },
+          "designNotes": "Kill-chain accelerator specifically for Assassinate. Different from Stab's Kill Momentum (0.5-1s reduction on a 3s CD) — this is 2-3s on an 8s CD, proportionally similar but the rank 2 FULL RESET on crit kill is unique and build-defining for chain-clearing."
+        },
+        {
+          "id": "as_0_3_2",
+          "name": "Predator's Patience",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "+5% crit multiplier for each skill cast between Assassinate casts (max 4 stacks, +20%).",
+          "rank2": "+7% per skill cast (max +28%). +3% weapon mastery.",
+          "modifier": {
+            "conditionalMods": [{"condition": "skillsCastSinceLast", "modifier": {"incCritMultiplier": 5}, "maxStacks": 4}],
+            "perRank": {
+              "1": {"incCritMultiplier": 5, "maxStacks": 4},
+              "2": {"incCritMultiplier": 7, "maxStacks": 4, "weaponMastery": 3}
+            }
+          },
+          "designNotes": "Rewards SPACING Assassinate in rotation — cast other skills between each Assassinate for crit mult. Similar concept to Blade Dance's Tempo (skills-cast-since-last) but different stat (crit mult vs damage) and different skill context (long CD naturally spaces itself)."
+        },
+        {
+          "id": "as_0_4_0",
+          "name": "Mark Exploiter",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "Exposed consumed by Assassinate grants +40% damage instead of +25%. Consuming Exposed also resets Stab's cooldown. If target also has Vulnerable: Assassinate deals +20% more on top. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "comboStateEnhance": {"exposed": {"bonusDamage": 40, "onConsume": {"resetCooldown": "dagger_stab"}}},
+            "conditionalMods": [{"condition": "whileDebuffActive", "debuffId": "vulnerable", "modifier": {"incDamage": 20}}],
+            "weaponMastery": 5
+          },
+          "designNotes": "Combo enhancement + cross-skill synergy. Assassinate consuming Exposed → resets Stab CD → Stab can immediately re-apply Exposed for the next cycle. Creates a Stab→Assassinate→Stab loop. The Vulnerable bonus stacks if Stab's Exploit Weakness (T4) is also taken."
+        },
+        {
+          "id": "as_0_4_1",
+          "name": "Killing Intent Extension",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "support",
+          "maxRank": 2,
+          "description": "While Killing Intent is active: +10% damage with all skills.",
+          "rank2": "+15% damage. Killing Intent duration extended by 2s (6s total).",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileBuffActive", "buffId": "killingIntent", "modifier": {"incDamage": 10}}],
+            "perRank": {
+              "1": {"incDamage": 10},
+              "2": {"incDamage": 15, "durationBonus": 2}
+            }
+          },
+          "designNotes": "Support for T2 Killing Intent. Global damage during the kill-chain window. Longer duration = more time to land the next Assassinate."
+        },
+        {
+          "id": "as_0_5_0",
+          "name": "Surgical Execution",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Assassinate deals +3% more damage for every 1% of target HP missing (at 50% HP = +150%, at 10% HP = +270%). Crit chance capped at 50%. +8% weapon mastery.",
+          "modifier": {
+            "executeScaling": {"damagePerMissingHpPercent": 3},
+            "critChanceCap": 0.50,
+            "weaponMastery": 8
+          },
+          "exclusiveWith": ["as_0_5_1"],
+          "designNotes": "Consistent execute scaling. Damage ramps smoothly as target HP drops. Crit cap prevents it from being a guaranteed-crit one-shot — you need the target LOW for it to shine. Always-on, always scaling, no variance."
+        },
+        {
+          "id": "as_0_5_1",
+          "name": "All or Nothing",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "If Assassinate kills the target: gain All or Nothing (8s) — next Assassinate deals +100% damage and costs no cooldown. If Assassinate does NOT kill: +3s added to Assassinate's cooldown.",
+          "modifier": {
+            "procs": [{"id": "as_all_or_nothing", "trigger": "onKill", "chance": 1.0, "applyBuff": {"effect": {"damageMult": 2.0, "cooldownOverride": 0}, "duration": 8}}],
+            "onFailPenalty": {"cooldownIncrease": 3}
+          },
+          "exclusiveWith": ["as_0_5_0"],
+          "designNotes": "Risky kill-chain. Kill → free double-damage Assassinate → kill → repeat. Miss the kill → 11s cooldown instead of 8s. The dream is chain-executing through a pack. The nightmare is hitting a tanky mob and being locked out."
+        },
+        {
+          "id": "as_0_6_0",
+          "name": "Perfect Kill",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "catastrophic",
+          "description": "When Assassinate consumes BOTH Exposed AND Deep Wound in a single hit: trigger Perfect Kill — an additional hit for 300% of Assassinate's fully-scaled damage. 15s internal cooldown. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "procs": [
+              {
+                "id": "as_perfect_kill",
+                "trigger": "onHit",
+                "chance": 1.0,
+                "conditionParam": {"consumesBothStates": ["exposed", "deep_wound"]},
+                "instantDamage": {"scaleStat": "weaponDamage", "scaleRatio": 3.0},
+                "internalCooldown": 15
+              }
+            ],
+            "weaponMastery": 5
+          },
+          "designNotes": "Catastrophic combo proc. Requires the FULL SETUP: Stab (Exposed) + Viper Strike (Deep Wound) + Assassinate (consume both). The 300% bonus hit is the payoff for a 3-skill combo executed in order. 15s ICD prevents abuse. Different from Stab's Death Mark (crit-chance proc) and Blade Dance's Reaper's Dance (kill-count proc)."
+        },
+        {
+          "id": "as_0_7_0",
+          "name": "DEATH SENTENCE",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Assassinate can only be cast when the target is below 35% HP (execute-locked). When it fires: deals 500% weapon damage baseline (replaces normal 220%). Perfect Kill (T6) bonus reduced from 300% to 150%. -25% damage with all other skills.",
+          "modifier": {
+            "executeLocked": {"hpThreshold": 35},
+            "weaponDamageOverride": 500,
+            "perfectKillOverride": {"scaleRatio": 1.5},
+            "globalIncDamage": -25
+          },
+          "tensionWith": "as_0_6_0",
+          "tensionDescription": "T6 (Perfect Kill) rewards setting up the full Exposed+Deep Wound combo for a 300% bonus. T7 locks Assassinate to execute-only AND cuts Perfect Kill to 150% — but the BASE becomes 500% WD. The tradeoff: you can't Assassinate above 35% HP (dead slot until execute range), but when it fires it's devastating. Other skills nerfed -25% to compensate.",
+          "antiSynergy": ["as_0_1_1"],
+          "antiSynergyNotes": "Measured Strike (T1b) — 'first hit vs target' bonus is useless since Assassinate can only fire below 35% HP, meaning other skills MUST hit first to get the target low.",
+          "synergy": ["as_0_1_0", "as_0_3_0", "as_0_5_0"],
+          "synergyNotes": "Patient Predator (T1a) — long CD wait = max damage stacking before the execute window. Coup de Grace (T3a) — execute threshold bonuses stack with the base 500%. Surgical Execution (T5A) — per-missing-HP scaling on a 500% base is insane in execute range.",
+          "engineRequirements": ["ENGINE 10.8 (execute-lock — skill can only cast when target below HP threshold)", "ENGINE 10.3 (cooldown increase — needed for Patient Predator synergy items)"]
+        }
+      ]
+    },
+    {
+      "branchIndex": 1,
+      "branchName": "Plague",
+      "mechanicCheck": {
+        "mechanics": [
+          "Ailment Consumption (T1a — Assassinate's hit damage increased per ailment stack on target, consumed on hit)",
+          "Venom Burst (T2 notable — consuming 5+ ailment stacks triggers chain-reaction DoT burst)",
+          "Plague Executioner (T6 notable — killing a heavily-ailmented target explodes ailments to pack)"
+        ],
+        "nonTracked": [
+          "+X% ailment potency after Assassinate — T3 conditional, no tracking",
+          "Venom Burst amplification — T4b support, enhances tracked burst"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "comboModifications": [
+        {
+          "tier": "T3",
+          "type": "replace",
+          "defaultState": "deep_wound_consumption",
+          "description": "Assassinate no longer consumes Deep Wound for instant burst. Instead, Deep Wound is AMPLIFIED: while Deep Wound is active, Assassinate deals +50% more damage (Deep Wound persists)."
+        }
+      ],
+      "nodes": [
+        {
+          "id": "as_1_1_0",
+          "name": "Venom Reaper",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Assassinate deals +4% more damage for each ailment stack on the target. Stacks are NOT consumed — they persist after the hit.",
+          "rank2": "+6% per stack. Also gain +2% crit chance per ailment stack on target.",
+          "modifier": {
+            "conditionalMods": [{"condition": "perAilmentStackOnTarget", "modifier": {"incDamage": 4}}],
+            "perRank": {
+              "1": {"incDamage": 4},
+              "2": {"incDamage": 6, "incCritChancePerStack": 2}
+            }
+          },
+          "designNotes": "Damage scales with ailment depth on target. Different from consuming stacks (that's T2's job). At 10 poison stacks: +40-60% damage. Rewards other skills building ailments before Assassinate fires. Unique to Assassinate because it's the 'spend' skill in the rotation."
+        },
+        {
+          "id": "as_1_1_1",
+          "name": "Lingering Execution",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Assassinate applies its signature ailment at 200% potency (double the normal 100% from element transform).",
+          "rank2": "250% potency. The ailment also lasts 50% longer than normal.",
+          "modifier": {
+            "ailmentPotencyMult": 2.0,
+            "perRank": {
+              "1": {"ailmentPotencyMult": 2.0},
+              "2": {"ailmentPotencyMult": 2.5, "ailmentDurationBonus": 50}
+            }
+          },
+          "designNotes": "Assassinate's high weapon damage (220% WD) makes its ailment snapshot massive. At 200-250% potency on TOP of 220% WD, this creates the biggest single ailment instance possible. Different from Viper Strike's +50% base potency — Assassinate's comes from a talent, Viper Strike's is innate."
+        },
+        {
+          "id": "as_1_2_0",
+          "name": "Venom Burst",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "When Assassinate hits a target with 5+ ailment stacks: consume 3 stacks and deal instant damage equal to 60% of consumed stacks' total snapshot damage. +8% ailment duration.",
+          "statsRider": "+8% ailment duration.",
+          "modifier": {
+            "procs": [
+              {
+                "id": "as_venom_burst",
+                "trigger": "onHit",
+                "chance": 1.0,
+                "conditionParam": {"minAilmentStacks": 5},
+                "consumeAilmentStacks": 3,
+                "instantDamage": {"scaleStat": "consumedAilmentSnapshot", "scaleRatio": 0.60}
+              }
+            ],
+            "ailmentDuration": 8
+          },
+          "designNotes": "Gated ailment consumption at 5+ stacks. Different from Stab's Toxic Burst (25% chance at 3+ stacks, no consumption) and Blade Dance's Plague Link (damage sharing). Assassinate SPENDS ailment stacks for burst — it's the ailment SPENDER. Consumes 3, leaves 2+ remaining."
+        },
+        {
+          "id": "as_1_2_1",
+          "name": "Toxic Precision",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "After Assassinate consumes ailment stacks (via Venom Burst), all other skills gain +10% ailment potency for 4s.",
+          "rank2": "+15% potency. Duration extended to 5s.",
+          "modifier": {
+            "conditionalMods": [{"condition": "afterAilmentConsumption", "modifier": {"globalAilmentPotency": 10}, "duration": 4}],
+            "perRank": {
+              "1": {"globalAilmentPotency": 10, "duration": 4},
+              "2": {"globalAilmentPotency": 15, "duration": 5}
+            }
+          },
+          "designNotes": "Post-consumption buff. Assassinate consumes stacks → other skills reapply stronger ailments → Assassinate consumes again. Creates a spend→rebuild→spend cycle."
+        },
+        {
+          "id": "as_1_3_0",
+          "name": "Finishing Venom",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "+20% ailment potency with Assassinate against targets below 50% HP.",
+          "rank2": "+30% potency. Threshold raised to 60% HP.",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileTargetBelowHp", "threshold": 50, "modifier": {"ailmentPotency": 20}}],
+            "perRank": {
+              "1": {"ailmentPotency": 20, "threshold": 50},
+              "2": {"ailmentPotency": 30, "threshold": 60}
+            }
+          },
+          "designNotes": "Execute-adjacent ailment potency. Even in Plague builds, Assassinate hits harder on low targets. Different from Predator's Coup de Grace (flat damage vs HP threshold) because this boosts AILMENT potency specifically."
+        },
+        {
+          "id": "as_1_3_1",
+          "name": "Persistent Wounds",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "Assassinate no longer consumes Deep Wound. Instead, while Deep Wound is active on target, Assassinate deals +50% more damage. Deep Wound persists.",
+          "rank2": "+65% damage while Deep Wound active. Deep Wound's duration is also extended by 2s on each Assassinate hit.",
+          "modifier": {
+            "comboStateReplace": {"disableConsumption": "deep_wound", "whileActive": {"incDamage": 50}},
+            "perRank": {
+              "1": {"incDamage": 50},
+              "2": {"incDamage": 65, "extendDuration": 2}
+            }
+          },
+          "designNotes": "COMBO MODIFICATION. Instead of consuming Deep Wound for instant burst (Predator style), Plague keeps Deep Wound alive and uses it as a persistent damage amplifier. Assassinate becomes a SUSTAINED damage skill rather than a burst finisher. Deep Wound stays for other skills to benefit from too."
+        },
+        {
+          "id": "as_1_3_2",
+          "name": "Toxic Aftershock",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "After casting Assassinate, all other skills apply ailments at +15% potency for 3s.",
+          "rank2": "+20% potency. Duration extended to 4s. +3% weapon mastery.",
+          "modifier": {
+            "conditionalMods": [{"condition": "afterCast", "window": 3, "modifier": {"globalAilmentPotency": 15}}],
+            "perRank": {
+              "1": {"globalAilmentPotency": 15, "duration": 3},
+              "2": {"globalAilmentPotency": 20, "duration": 4, "weaponMastery": 3}
+            }
+          },
+          "designNotes": "Post-Assassinate ailment buff for the whole rotation. Assassinate fires → Stab/Viper Strike/Blade Dance all apply stronger ailments for a few seconds. Unique to Assassinate because its long CD creates a natural 'post-burst rebuild' window."
+        },
+        {
+          "id": "as_1_4_0",
+          "name": "Venom Executioner",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "state-shift",
+          "description": "When Assassinate hits a target with 8+ ailment stacks: enter Venom Executioner state (5s). During this state: all ailment applications from any skill gain +30% potency AND have their duration refreshed to full. 12s internal cooldown. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "procs": [
+              {
+                "id": "as_venom_executioner",
+                "trigger": "onHit",
+                "chance": 1.0,
+                "conditionParam": {"minAilmentStacks": 8},
+                "applyBuff": {"buffId": "venomExecutioner", "effect": {"globalAilmentPotency": 30, "refreshAilmentDuration": true}, "duration": 5},
+                "internalCooldown": 12
+              }
+            ],
+            "weaponMastery": 5
+          },
+          "designNotes": "State-shift at 8+ stacks — higher threshold than Stab's Venom Frenzy (5+) because Assassinate fires less often. The duration refresh is key: all existing ailments get their timers reset to full, preventing them from expiring during the burst window."
+        },
+        {
+          "id": "as_1_4_1",
+          "name": "Executioner Sustain",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "support",
+          "maxRank": 2,
+          "description": "While Venom Executioner is active: +10% DoT multiplier.",
+          "rank2": "+15% DoT multiplier. Each ailment applied during window extends it by 0.4s (max +2s).",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileBuffActive", "buffId": "venomExecutioner", "modifier": {"dotMultiplier": 10}}],
+            "perRank": {
+              "1": {"dotMultiplier": 10},
+              "2": {"dotMultiplier": 15, "durationExtensionPerAilment": 0.4, "maxExtension": 2}
+            }
+          },
+          "designNotes": "Support for Venom Executioner state. DoT multiplier during window enhances ALL DoTs (not just Assassinate's). Extension rewards fast ailment application during the window."
+        },
+        {
+          "id": "as_1_5_0",
+          "name": "Toxic Finisher",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Assassinate's Venom Burst (T2) no longer has a stack threshold — it always consumes 3 stacks and bursts if 3+ exist. Burst damage increased from 60% to 80% of consumed snapshot. +8% weapon mastery.",
+          "modifier": {
+            "venomBurstOverride": {"minStacks": 3, "consumeCount": 3, "scaleRatio": 0.80},
+            "weaponMastery": 8
+          },
+          "exclusiveWith": ["as_1_5_1"],
+          "designNotes": "Consistent choice. Lower threshold (3 instead of 5) + stronger burst (80% instead of 60%). Always fires when stacks exist. Reliable, no variance."
+        },
+        {
+          "id": "as_1_5_1",
+          "name": "Pandemic Execution",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "Assassinate's Venom Burst consumes ALL ailment stacks (not just 3) and deals 100% of total consumed snapshot as burst. If fewer than 5 stacks consumed, Assassinate's cooldown increased by 2s.",
+          "modifier": {
+            "venomBurstOverride": {"consumeAll": true, "scaleRatio": 1.0, "minForNopenalty": 5, "penaltyCdIncrease": 2}
+          },
+          "exclusiveWith": ["as_1_5_0"],
+          "designNotes": "Risky all-in detonation. Consume EVERYTHING for maximum burst. But if you detonate too early (<5 stacks), you're punished. Rewards patience in stacking before the big hit. Feast-or-famine."
+        },
+        {
+          "id": "as_1_6_0",
+          "name": "Plague Executioner",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "catastrophic",
+          "description": "When Assassinate kills a target that has 5+ ailment stacks: ALL ailments on the dead target explode, dealing 50% of their remaining damage as AoE to all nearby enemies AND applying 1 stack of each ailment type to nearby targets. 12s internal cooldown. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "procs": [
+              {
+                "id": "as_plague_executioner",
+                "trigger": "onKill",
+                "chance": 1.0,
+                "conditionParam": {"minAilmentStacks": 5},
+                "explodeAilments": {"aoeScaleRatio": 0.50, "applyPerType": 1},
+                "internalCooldown": 12
+              }
+            ],
+            "weaponMastery": 5
+          },
+          "designNotes": "Kill with stacks → AoE ailment explosion. Different from Stab's Pandemic Cascade (spread ailments on kill) because this deals DAMAGE from the ailments AND applies new stacks. Different from Blade Dance's Pandemic Dance (requires Plague Link setup). Assassinate version is the burst-kill-explode fantasy. REQUIRES ENGINE 10.1 (kill attribution) — if Assassinate's ailment DoT gets the kill, it must still credit Assassinate as the source."
+        },
+        {
+          "id": "as_1_7_0",
+          "name": "PLAGUE REAPER",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Assassinate consumes ALL ailment stacks on the target on every hit (always, not just via Venom Burst). Each consumed stack adds +5% to Assassinate's damage. Plague Executioner (T6) explosion triggers on EVERY Assassinate kill (no stack threshold). Assassinate's cooldown increased by 3s (11s total). All other skills' ailment potency reduced by -20%.",
+          "modifier": {
+            "alwaysConsumeAllAilments": true,
+            "damagePerConsumedStack": 5,
+            "plagueExecutionerOverride": {"minStacks": 0},
+            "cooldownIncrease": 3,
+            "globalAilmentPotencyPenalty": -20
+          },
+          "tensionWith": "as_1_6_0",
+          "tensionDescription": "T6 (Plague Executioner) requires 5+ stacks to explode on kill. T7 removes the threshold but forces Assassinate to ALWAYS consume all ailments — meaning your other skills must constantly rebuild stacks between each 11s Assassinate cycle. The -20% ailment potency on other skills makes rebuilding harder. Tension: T7 always explodes but always wipes your stacks and makes rebuilding painful.",
+          "antiSynergy": ["as_1_3_1"],
+          "antiSynergyNotes": "Persistent Wounds (T3b) — 'Deep Wound persists' is meaningless when Assassinate always consumes everything. The +50% damage while Deep Wound active only applies for the one hit before consumption.",
+          "synergy": ["as_1_1_0", "as_1_5_1", "as_1_6_0"],
+          "synergyNotes": "Venom Reaper (T1a) — +6% per stack consumed, and T7 consumes ALL stacks. 15 stacks = +90% damage. Pandemic Execution (T5B) — consume-all burst damage stacks with T7's always-consume. Plague Executioner (T6) — no stack threshold, every kill explodes."
+        }
+      ]
+    },
+    {
+      "branchIndex": 2,
+      "branchName": "Ghost",
+      "mechanicCheck": {
+        "mechanics": [
+          "Shadow Charge (T1a — dodges store charges, Assassinate uses charges for guaranteed crit + bonus)",
+          "Ambush State (T2 notable — dodge within window of Assassinate CD being ready triggers Ambush state)",
+          "Reaper's Shadow (T6 notable — dodge counter that deals Assassinate-scaled damage)"
+        ],
+        "nonTracked": [
+          "+X% damage after dodge — T3 conditional, no tracking",
+          "Ambush state extension — T4b support, enhances tracked state"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "comboModifications": [
+        {
+          "tier": "T3",
+          "type": "replace",
+          "defaultState": "exposed_consumption",
+          "description": "Assassinate no longer consumes Exposed. Instead, Assassinate grants Shadow Preparation (3s): next dodge triggers a free Stab counter."
+        }
+      ],
+      "nodes": [
+        {
+          "id": "as_2_1_0",
+          "name": "Shadow Charge",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Each dodge stores 1 Shadow Charge (max 3). When Assassinate fires, consume all charges: +10% damage and +5% crit chance per charge consumed.",
+          "rank2": "+15% damage and +8% crit per charge. Max charges increased to 4.",
+          "modifier": {
+            "chargeSystem": {"gainOn": "onDodge", "maxCharges": 3, "consumeOn": "dagger_assassinate", "perCharge": {"incDamage": 10, "incCritChance": 5}},
+            "perRank": {
+              "1": {"perCharge": {"incDamage": 10, "incCritChance": 5}, "maxCharges": 3},
+              "2": {"perCharge": {"incDamage": 15, "incCritChance": 8}, "maxCharges": 4}
+            }
+          },
+          "designNotes": "Dodge→charge→spend system. Completely unique mechanic — no other skill uses dodge charges that are CONSUMED by a specific skill cast. Bridges defense (dodge) with offense (Assassinate burst). Long CD = time to accumulate charges between casts."
+        },
+        {
+          "id": "as_2_1_1",
+          "name": "Assassin's Resilience",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "While Assassinate is on cooldown: +5% damage reduction.",
+          "rank2": "+8% DR. Also +2 life on hit with all skills while Assassinate is on cooldown.",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileSkillOnCooldown", "skillId": "dagger_assassinate", "modifier": {"damageReduction": 5}}],
+            "perRank": {
+              "1": {"damageReduction": 5},
+              "2": {"damageReduction": 8, "lifeOnHit": 2}
+            }
+          },
+          "designNotes": "Passive DR while Assassinate is on CD. Since Assassinate has 8s CD, this is active ~85% of the time. Similar to Predator's Executioner's Focus (crit while on CD) but defensive instead of offensive. Unique to long-CD skills."
+        },
+        {
+          "id": "as_2_2_0",
+          "name": "Ambush Setup",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "If you dodge an attack while Assassinate is off cooldown (ready to fire): enter Ambush state (3s). During Ambush: next Assassinate deals +50% damage and is guaranteed to crit. Ambush is consumed when Assassinate fires. +5 all resist.",
+          "statsRider": "+5 all resist.",
+          "modifier": {
+            "procs": [
+              {
+                "id": "as_ambush_setup",
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "conditionParam": {"whileSkillReady": "dagger_assassinate"},
+                "applyBuff": {"buffId": "ambush", "effect": {"incDamage": 50, "guaranteedCrit": true}, "duration": 3}
+              }
+            ],
+            "allResist": 5
+          },
+          "designNotes": "Dodge WHILE Assassinate is ready → empowered Assassinate. Creates timing gameplay: you WANT to dodge before Assassinate fires. In idle rotation, this fires naturally when a dodge happens to align with Assassinate being ready. Unique gating condition (skill-ready + dodge)."
+        },
+        {
+          "id": "as_2_2_1",
+          "name": "Patient Defender",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Each second Assassinate spends on cooldown grants +1% dodge chance (max +8% at full CD).",
+          "rank2": "+1.5% per second (max +12%). Resets when Assassinate fires.",
+          "modifier": {
+            "conditionalMods": [{"condition": "perSecondOnCooldown", "modifier": {"dodgeChance": 1}, "maxStacks": 8}],
+            "perRank": {
+              "1": {"dodgeChance": 1, "maxStacks": 8},
+              "2": {"dodgeChance": 1.5, "maxStacks": 8}
+            }
+          },
+          "designNotes": "Dodge ramps while Assassinate is on CD. As CD counts down, you become harder to hit. When Assassinate fires, dodge resets. Creates a natural rhythm: vulnerable right after casting → increasingly safe → cast again. Similar pattern to Patient Predator (T1a) but defensive instead of offensive."
+        },
+        {
+          "id": "as_2_3_0",
+          "name": "Survivor's Instinct",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "+20% damage with Assassinate while you are above 80% HP.",
+          "rank2": "+30% damage. Threshold lowered to 70% HP.",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileAboveHp", "threshold": 80, "modifier": {"incDamage": 20}}],
+            "perRank": {
+              "1": {"incDamage": 20, "threshold": 80},
+              "2": {"incDamage": 30, "threshold": 70}
+            }
+          },
+          "designNotes": "Anti-execute conditional. Rewards being HEALTHY — the Ghost fantasy of 'I dodged everything, now I strike.' Opposite of Predator's Coup de Grace (bonus at LOW target HP). This rewards YOUR high HP, not target's low HP."
+        },
+        {
+          "id": "as_2_3_1",
+          "name": "Shadow Preparation",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "After Assassinate fires, gain Shadow Preparation (3s): next dodge triggers a free Stab counter for 100% of Stab's fully-scaled damage.",
+          "rank2": "Counter deals 130%. Shadow Preparation duration extended to 4s.",
+          "modifier": {
+            "comboStateReplace": {"afterCast": true, "newState": "shadow_preparation", "effect": {"counterOnDodge": true, "counterSkill": "dagger_stab", "counterDamage": 100}, "duration": 3},
+            "perRank": {
+              "1": {"counterDamage": 100, "duration": 3},
+              "2": {"counterDamage": 130, "duration": 4}
+            }
+          },
+          "designNotes": "COMBO MODIFICATION. After Assassinate fires → dodge window → free Stab counter. Creates a Assassinate→dodge→Stab chain. Different from Stab's Riposte Ready (crit→dodge→counter) because this is triggered by Assassinate CASTING, not critting."
+        },
+        {
+          "id": "as_2_3_2",
+          "name": "Fortified Execution",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "+5% damage with Assassinate per active Fortify stack (max +25% at 5 stacks).",
+          "rank2": "+7% per stack (max +35%). Assassinate also grants +1 Fortify stack on hit.",
+          "modifier": {
+            "conditionalMods": [{"condition": "perFortifyStack", "modifier": {"incDamage": 5}, "maxStacks": 5}],
+            "perRank": {
+              "1": {"incDamage": 5},
+              "2": {"incDamage": 7, "fortifyOnHit": {"stacks": 1, "duration": 5, "damageReduction": 3}}
+            }
+          },
+          "designNotes": "Fortify→damage conversion for Assassinate. Similar pattern to Blade Dance's Fortified Combo (per Fortify stack damage) — FLAGGED as pattern reuse at 2 skills. Justified because: Blade Dance's is generic damage, Assassinate's is specific to Assassinate + rank 2 GRANTS Fortify (self-sustaining loop vs passive scaling). Different enough to allow."
+        },
+        {
+          "id": "as_2_4_0",
+          "name": "Phantom Ambush",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "state-shift",
+          "description": "When you dodge while Ambush state (T2) is active: Ambush is UPGRADED to Phantom Ambush (3s). Phantom Ambush grants: Assassinate deals +80% damage, guaranteed crit, and Assassinate becomes invisible (cannot be dodged/blocked by enemies). 10s ICD. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "procs": [
+              {
+                "id": "as_phantom_ambush",
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "conditionParam": {"whileBuffActive": "ambush"},
+                "upgradeBuff": {"from": "ambush", "to": "phantomAmbush", "effect": {"incDamage": 80, "guaranteedCrit": true, "cannotBeDodged": true}, "duration": 3},
+                "internalCooldown": 10
+              }
+            ],
+            "weaponMastery": 5
+          },
+          "designNotes": "State-shift: Ambush (T2) + dodge → upgraded Phantom Ambush. Requires dodge WHILE Ambush is active (narrow window). The 'cannot be dodged' is unique to this node — Assassinate bypasses enemy evasion. Double-dodge requirement: dodge to trigger Ambush, dodge AGAIN during Ambush to upgrade."
+        },
+        {
+          "id": "as_2_4_1",
+          "name": "Ambush Sustain",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "support",
+          "maxRank": 2,
+          "description": "While Ambush or Phantom Ambush is active: +10% dodge chance.",
+          "rank2": "+15% dodge chance. Ambush/Phantom Ambush duration extended by 1s.",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileBuffActive", "buffId": ["ambush", "phantomAmbush"], "modifier": {"dodgeChance": 10}}],
+            "perRank": {
+              "1": {"dodgeChance": 10},
+              "2": {"dodgeChance": 15, "durationBonus": 1}
+            }
+          },
+          "designNotes": "Support for Ambush states. More dodge during Ambush = higher chance to dodge AGAIN for Phantom Ambush upgrade (T4). Self-reinforcing."
+        },
+        {
+          "id": "as_2_5_0",
+          "name": "Patient Shadow",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Shadow Charges (T1a) also grant +3% damage reduction per charge (max +12% DR at 4 charges). Charges are no longer consumed on Assassinate — instead, each charge adds +8% damage to Assassinate permanently while held. +8% weapon mastery.",
+          "modifier": {
+            "shadowChargeOverride": {"drPerCharge": 3, "notConsumed": true, "permanentDamagePerCharge": 8},
+            "weaponMastery": 8
+          },
+          "exclusiveWith": ["as_2_5_1"],
+          "designNotes": "Consistent choice. Charges become permanent buffs — dodge enough to max charges, then keep them forever. DR + damage. No variance, always scaling. Charges not consumed = always at max after enough dodges."
+        },
+        {
+          "id": "as_2_5_1",
+          "name": "Shadow Executioner",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "When Assassinate fires with 3+ Shadow Charges: consume all charges and deal an additional hit for 50% of Assassinate's fully-scaled damage per charge consumed. You take +15% more damage for 3s after consuming charges.",
+          "modifier": {
+            "procs": [{"id": "as_shadow_executioner", "trigger": "onCast", "chance": 1.0, "conditionParam": {"minCharges": 3}, "instantDamage": {"scaleStat": "weaponDamage", "scaleRatio": 0.50, "perCharge": true}}],
+            "onConsumePenalty": {"increasedDamageTaken": 15, "duration": 3}
+          },
+          "exclusiveWith": ["as_2_5_0"],
+          "designNotes": "Risky burst. Consume 4 charges = +200% bonus hit. But +15% damage taken for 3s after. Glass cannon window: massive burst followed by vulnerability. Opposite of Patient Shadow's consistency."
+        },
+        {
+          "id": "as_2_6_0",
+          "name": "Reaper's Shadow",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "catastrophic",
+          "description": "When you dodge while Assassinate is on cooldown: 15% chance to trigger Reaper's Shadow — a counter-attack that deals 150% of Assassinate's fully-scaled damage. Does NOT put Assassinate on cooldown (it's a free echo). 10s internal cooldown. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "procs": [
+              {
+                "id": "as_reapers_shadow",
+                "trigger": "onDodge",
+                "chance": 0.15,
+                "conditionParam": {"whileSkillOnCooldown": "dagger_assassinate"},
+                "instantDamage": {"scaleStat": "assassinateDamage", "scaleRatio": 1.5},
+                "internalCooldown": 10
+              }
+            ],
+            "weaponMastery": 5
+          },
+          "designNotes": "Dodge → Assassinate-scaled counter. Different from Stab's Phantom Strike (Stab-scaled counter) and Blade Dance's Phantom Dance (BD-scaled multi-counter). This scales off ASSASSINATE's damage — the highest-damage skill. 150% of 220% WD = 330% WD counter. Rare (15%) but devastating."
+        },
+        {
+          "id": "as_2_7_0",
+          "name": "SHADOW REAPER",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Reaper's Shadow (T6) triggers on every dodge (no chance roll) but deals 80% instead of 150%. Assassinate's cooldown increased by 4s (12s total). You can no longer heal from any source while Assassinate is on cooldown.",
+          "modifier": {
+            "reapersOverride": {"chance": 1.0, "icd": 0, "scaleRatio": 0.80},
+            "cooldownIncrease": 4,
+            "noHealingWhileOnCooldown": true
+          },
+          "tensionWith": "as_2_6_0",
+          "tensionDescription": "T6 (Reaper's Shadow) is a rare 15% dodge counter at 150% Assassinate damage. T7 makes it fire EVERY dodge at 80% — constant Assassinate-scaled counters. But 12s total CD and NO HEALING while on cooldown. For ~11s out of every 12, you can't heal. You live or die by dodge chance alone.",
+          "antiSynergy": ["as_2_1_1"],
+          "antiSynergyNotes": "Assassin's Resilience (T1b) — life on hit while on CD is completely disabled by no-healing restriction.",
+          "synergy": ["as_2_1_0", "as_2_5_1", "as_2_6_0"],
+          "synergyNotes": "Shadow Charge (T1a) — dodges build charges AND trigger Reaper's Shadow. Shadow Executioner (T5B) — burst on Assassinate cast + constant counters between casts. Reaper's Shadow (T6) — T7 removes the chance roll."
+        }
+      ]
+    }
+  ]
+}

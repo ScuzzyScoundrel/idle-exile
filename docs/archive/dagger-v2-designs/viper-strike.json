@@ -1,0 +1,888 @@
+{
+  "skillId": "dagger_viper_strike",
+  "skillName": "Viper Strike",
+  "version": "2.0",
+  "tags": ["dot", "melee"],
+  "defaultComboState": {
+    "id": "deep_wound",
+    "trigger": "onAilmentApplied",
+    "duration": "ailmentDuration",
+    "effect": { "instantBurst": true },
+    "consumedBy": "Assassinate",
+    "description": "Viper Strike's ailment is flagged as Deep Wound. Assassinate consumes it: remaining ticks fire instantly as burst."
+  },
+  "branches": [
+    {
+      "branchIndex": 0,
+      "branchName": "Predator",
+      "mechanicCheck": {
+        "mechanics": [
+          "Potency Investment (T1a — ailment potency scales with skills cast since last VS, rewards spacing)",
+          "Venom Crit (T2 notable — crits on ailmented targets trigger enhanced ailment reapplication)",
+          "Detonation Strike (T6 notable — crit on 8+ stack target detonates half as burst + reapplies)"
+        ],
+        "nonTracked": [
+          "+X% crit vs ailmented — T3 conditional, no tracking",
+          "Venom Crit amplification — T4b support, enhances tracked state"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "comboModifications": [
+        {
+          "tier": "T4",
+          "type": "enhance",
+          "defaultState": "deep_wound",
+          "description": "Deep Wound consumed by Assassinate also applies a new Deep Wound at 50% potency (chain consumption)."
+        }
+      ],
+      "nodes": [
+        {
+          "id": "vs_0_1_0",
+          "name": "Coiled Strike",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Viper Strike's ailment potency increases by +8% for each skill cast since the last Viper Strike (max 3 stacks, +24%). Resets when VS fires.",
+          "rank2": "+12% per skill cast (max +36%). Also +3% crit chance per stack.",
+          "modifier": {
+            "conditionalMods": [{"condition": "skillsCastSinceLast", "modifier": {"ailmentPotency": 8}, "maxStacks": 3}],
+            "perRank": {
+              "1": {"ailmentPotency": 8, "maxStacks": 3},
+              "2": {"ailmentPotency": 12, "maxStacks": 3, "incCritChancePerStack": 3}
+            }
+          },
+          "designNotes": "Spacing reward for ailment POTENCY specifically. PATTERN FLAG: 'skills-cast-since-last' is at 3 skills in Predator (Blade Dance Tempo, Assassinate Predator's Patience, FoK Fan Mastery) — this is the 4th BUT in a different stat context (ailment potency, not damage/crit mult/weapon mastery). BLOCKED if another Predator node uses this pattern. Justified here because VS is the DoT specialist — spacing its casts to maximize snapshot quality is core to its identity."
+        },
+        {
+          "id": "vs_0_1_1",
+          "name": "Venomous Precision",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Viper Strike crits apply ailments at +30% potency on top of the base +50% (total +80% on crit).",
+          "rank2": "+40% on crit (total +90%). Crit ailments also last 1s longer.",
+          "modifier": {
+            "conditionalMods": [{"condition": "onCrit", "modifier": {"ailmentPotencyBonus": 30}}],
+            "perRank": {
+              "1": {"ailmentPotencyBonus": 30},
+              "2": {"ailmentPotencyBonus": 40, "ailmentDurationOnCrit": 1}
+            }
+          },
+          "designNotes": "Crit → enhanced ailment. Unique because VS already has +50% base potency — this stacks multiplicatively for crits. Stab's Predator T1 builds TOWARD crits. VS's Predator T1 makes crits ENHANCE the DoT. Different axis."
+        },
+        {
+          "id": "vs_0_2_0",
+          "name": "Venom Crit",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "When Viper Strike crits a target with 3+ ailment stacks: extend ALL existing ailment durations on that target by 1s. Also grants +15% ailment potency for 3s. +8% crit chance.",
+          "statsRider": "+8% crit chance.",
+          "modifier": {
+            "procs": [
+              {
+                "id": "vs_venom_crit",
+                "trigger": "onCrit",
+                "chance": 1.0,
+                "conditionParam": {"minAilmentStacks": 3},
+                "extendAllAilments": 1,
+                "buff": {"ailmentPotency": 15, "duration": 3}
+              }
+            ],
+            "stats": {"incCritChance": 8}
+          },
+          "designNotes": "Crit on ailmented target → extend all ailment durations by 1s + potency buff. FIXED from v2.0: old version 'reapply at 150% potency' was redundant because crits already produce higher snapshots naturally. New version rewards crits by EXTENDING ailments (keeping high-snapshot instances alive longer) + temporary potency buff for follow-up applications. Different from Stab's Blade Sense (escalating proc → buff state) because this manipulates AILMENT TIMERS, not player state."
+        },
+        {
+          "id": "vs_0_2_1",
+          "name": "Wound Deepening",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Each Viper Strike hit on a target that already has a Deep Wound increases Deep Wound's burst value by +10% (when Assassinate consumes it).",
+          "rank2": "+15% per hit. Max +45% bonus burst value.",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileDeepWoundActive", "modifier": {"deepWoundBurstBonus": 10}, "maxStacks": 3}],
+            "perRank": {
+              "1": {"deepWoundBurstBonus": 10, "maxStacks": 3},
+              "2": {"deepWoundBurstBonus": 15, "maxStacks": 3}
+            }
+          },
+          "designNotes": "Directly enhances the VS→Assassinate combo. Multiple VS casts on the same target make the Deep Wound consumption increasingly devastating. Rewards patient setup."
+        },
+        {
+          "id": "vs_0_3_0",
+          "name": "Lethal Dose",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "+15% crit chance with Viper Strike against targets with 5+ ailment stacks.",
+          "rank2": "+22% crit chance. Also +10% crit multiplier vs 5+ stacks.",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileTargetAilmentCount", "threshold": 5, "modifier": {"incCritChance": 15}}],
+            "perRank": {
+              "1": {"incCritChance": 15},
+              "2": {"incCritChance": 22, "incCritMultiplier": 10}
+            }
+          },
+          "designNotes": "Crit vs deeply-stacked targets. Different from Stab's Exploit Opening (vs LOW HP) and Blade Dance's Finishing Dance (vs LOW HP). This gates on AILMENT STACKS, not HP threshold. Rewards ailment setup from other skills."
+        },
+        {
+          "id": "vs_0_3_1",
+          "name": "Follow-up Strike",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "+20% damage with Viper Strike if the previous skill in rotation was Stab.",
+          "rank2": "+30% damage. Also +10% ailment potency if preceded by Stab.",
+          "modifier": {
+            "conditionalMods": [{"condition": "previousSkillWas", "skillId": "dagger_stab", "modifier": {"incDamage": 20}}],
+            "perRank": {
+              "1": {"incDamage": 20},
+              "2": {"incDamage": 30, "ailmentPotency": 10}
+            }
+          },
+          "designNotes": "Rotation-order reward. Stab → Viper Strike is stronger than Viper Strike → Stab. Unique pattern: 'previous skill was X' — first time this pattern appears. Encourages deliberate skill bar ordering."
+        },
+        {
+          "id": "vs_0_3_2",
+          "name": "Rising Venom",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "+5% damage with Viper Strike for each active ailment instance you've applied to the current target (max +40% at 8 instances).",
+          "rank2": "+6% per instance (max +48%). +3% weapon mastery.",
+          "modifier": {
+            "conditionalMods": [{"condition": "perOwnAilmentOnTarget", "modifier": {"incDamage": 5}, "maxStacks": 8}],
+            "perRank": {
+              "1": {"incDamage": 5, "maxStacks": 8},
+              "2": {"incDamage": 6, "maxStacks": 8, "weaponMastery": 3}
+            }
+          },
+          "designNotes": "Damage scales with YOUR ailments on target. Different from Assassinate's Venom Reaper (any ailment stack) because this counts only YOUR ailments. Rewards Viper Strike being the primary ailment applicator."
+        },
+        {
+          "id": "vs_0_4_0",
+          "name": "Deep Wound Mastery",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "When Assassinate consumes Deep Wound: the burst also applies a NEW Deep Wound at 50% of the consumed one's potency (chain consumption). The new Deep Wound can also be consumed by the next Assassinate. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "comboStateEnhance": {"deep_wound": {"onConsume": {"reapplyAtPercent": 50}}},
+            "weaponMastery": 5
+          },
+          "designNotes": "Chain consumption: consume → reapply at half → consume again. Creates a Viper Strike → Assassinate → Assassinate chain where each consumption leaves a weaker copy. Different from Stab's Exploit Weakness (crit→Vulnerable) because this modifies the DEEP WOUND combo system."
+        },
+        {
+          "id": "vs_0_4_1",
+          "name": "Venom Crit Extension",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "support",
+          "maxRank": 2,
+          "description": "While target has a Deep Wound active: Viper Strike gains +10% crit chance.",
+          "rank2": "+15% crit chance. Viper Strike crits extend Deep Wound duration by 1s.",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileDeepWoundActive", "modifier": {"incCritChance": 10}}],
+            "perRank": {
+              "1": {"incCritChance": 10},
+              "2": {"incCritChance": 15, "deepWoundExtensionOnCrit": 1}
+            }
+          },
+          "designNotes": "Support for Deep Wound combo. More crits on Deep Wound targets = longer Deep Wound = bigger burst when Assassinate consumes. No new proc system."
+        },
+        {
+          "id": "vs_0_5_0",
+          "name": "Surgical Venom",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Viper Strike's base +50% ailment potency increased to +100%. Deep Wound burst value increased by +25% baseline. Crit chance capped at 40%. +8% weapon mastery.",
+          "modifier": {
+            "ailmentPotencyOverride": 100,
+            "deepWoundBurstBonus": 25,
+            "critChanceCap": 0.40,
+            "weaponMastery": 8
+          },
+          "exclusiveWith": ["vs_0_5_1"],
+          "designNotes": "Consistent choice. Doubled base potency (+100% instead of +50%). Every VS ailment is massive. Crit cap prevents brute-forcing but Deep Wound burst is always strong. Reliable, always scaling."
+        },
+        {
+          "id": "vs_0_5_1",
+          "name": "Serpent's Gambit",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "Viper Strike crits deal +80% damage AND apply ailments at +80% potency. Non-crits deal -30% damage and apply ailments at -30% potency. All-in on crits.",
+          "modifier": {
+            "onCrit": {"incDamage": 80, "ailmentPotencyBonus": 80},
+            "onNonCrit": {"incDamage": -30, "ailmentPotency": -30}
+          },
+          "exclusiveWith": ["vs_0_5_0"],
+          "designNotes": "Risky crit-or-bust. Crits are devastating (220% WD × 1.8 = 396% WD hit + massive ailment). Non-crits are terrible. Rewards crit investment heavily. Anti-synergy with Surgical Venom's crit cap."
+        },
+        {
+          "id": "vs_0_6_0",
+          "name": "Detonation Strike",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "catastrophic",
+          "description": "When Viper Strike crits a target with 8+ ailment stacks: detonate 50% of all ailment damage as instant burst AND immediately reapply all detonated ailments at 60% potency. 12s internal cooldown. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "procs": [
+              {
+                "id": "vs_detonation_strike",
+                "trigger": "onCrit",
+                "chance": 1.0,
+                "conditionParam": {"minAilmentStacks": 8},
+                "detonateAilments": {"percent": 50, "reapplyAt": 60},
+                "internalCooldown": 12
+              }
+            ],
+            "weaponMastery": 5
+          },
+          "designNotes": "Detonate + reapply. Different from Assassinate's Venom Burst (consume 3 stacks, no reapply) and Stab's Volatile Toxins (consume all, no reapply). VS detonates HALF and REAPPLIES — you get burst AND keep your stacks (at reduced potency). The DoT specialist doesn't waste its own DoTs."
+        },
+        {
+          "id": "vs_0_7_0",
+          "name": "KING COBRA",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Viper Strike's ailment potency increased to +150% (from +50% base). Each VS cast can only apply ONE ailment instance, but it's the strongest possible. Deep Wound burst value doubled. Viper Strike cooldown increased by 2s (7s total). -15% damage with all other skills' ailments.",
+          "modifier": {
+            "ailmentPotencyOverride": 150,
+            "singleInstancePerCast": true,
+            "deepWoundBurstMult": 2.0,
+            "cooldownIncrease": 2,
+            "globalAilmentPenalty": -15
+          },
+          "tensionWith": "vs_0_6_0",
+          "tensionDescription": "T6 (Detonation Strike) rewards having 8+ stacks to detonate. T7 limits VS to ONE instance per cast — reaching 8 stacks takes 8 VS casts (56s at 7s CD). But each instance is devastatingly strong (+150% potency). Tension: T6 wants stack VOLUME for detonation, T7 forces stack QUALITY at the cost of volume. Deep Wound burst is doubled to compensate for fewer stacks.",
+          "antiSynergy": ["vs_0_2_0"],
+          "antiSynergyNotes": "Venom Crit (T2) — 'reapply at 150% potency' still works but only creates 1 additional instance. Can't stack fast.",
+          "synergy": ["vs_0_1_0", "vs_0_5_0"],
+          "synergyNotes": "Coiled Strike (T1a) — spacing bonus stacks with +150% base for enormous single instances. Surgical Venom (T5A) — would be +200% if stacking, but T7 overrides to +150%. Still synergizes with Deep Wound burst bonus.",
+          "engineRequirements": ["ENGINE 10.3 (cooldown increase)"]
+        }
+      ]
+    },
+    {
+      "branchIndex": 1,
+      "branchName": "Plague",
+      "mechanicCheck": {
+        "mechanics": [
+          "Potency Ramping (T1a — each VS cast on same target increases potency of NEXT VS ailment)",
+          "Venom Saturation (T2 notable — at threshold, VS ailments deal damage to nearby enemies passively)",
+          "Eternal Venom (T6 notable — VS ailments that would expire instead persist at 50% potency)"
+        ],
+        "nonTracked": [
+          "+X% DoT mult per VS ailment — T3 conditional, no tracking",
+          "Saturation amplification — T4b support, enhances tracked state"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "comboModifications": [
+        {
+          "tier": "T3",
+          "type": "enhance",
+          "defaultState": "deep_wound",
+          "description": "Deep Wound no longer consumed by Assassinate. Instead, while Deep Wound active, ALL ailments on target deal +20% more damage."
+        }
+      ],
+      "nodes": [
+        {
+          "id": "vs_1_1_0",
+          "name": "Compounding Venom",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Each Viper Strike cast on the same target increases the NEXT VS ailment's potency by +10% (max 5 stacks, +50%). Stacks persist on the target, not the player.",
+          "rank2": "+15% per cast (max +75%). Stacks also increase ailment duration by 0.3s each.",
+          "modifier": {
+            "perCastOnSameTarget": {"ailmentPotencyRamp": 10, "maxStacks": 5},
+            "perRank": {
+              "1": {"ailmentPotencyRamp": 10},
+              "2": {"ailmentPotencyRamp": 15, "durationPerStack": 0.3}
+            }
+          },
+          "designNotes": "Per-cast potency ramp on SAME TARGET. Different from Stab's Lingering Cuts (extends duration per hit) because this increases POTENCY per cast, not duration. VS has longer CD (5s) so stacks build slower but each is more impactful. The DoT specialist's ailments get progressively more devastating."
+        },
+        {
+          "id": "vs_1_1_1",
+          "name": "Venom Synergy",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "VS ailments deal +5% more damage for each OTHER skill's ailment active on the target (max +20% at 4 other ailments).",
+          "rank2": "+8% per other ailment (max +32%). Also +3% weapon mastery.",
+          "modifier": {
+            "conditionalMods": [{"condition": "perOtherSkillAilmentOnTarget", "modifier": {"ailmentDamageBonus": 5}, "maxStacks": 4}],
+            "perRank": {
+              "1": {"ailmentDamageBonus": 5},
+              "2": {"ailmentDamageBonus": 8, "weaponMastery": 3}
+            }
+          },
+          "designNotes": "VS ailments boosted by OTHER skills' ailments. Different from Stab's Toxic Momentum (per unique ailment TYPE) because this scales with ailments from OTHER SKILLS specifically. Rewards diverse rotation — Stab poisons + FoK poisons + VS poisons all boost VS ailments."
+        },
+        {
+          "id": "vs_1_2_0",
+          "name": "Venom Saturation",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "When a target has 5+ VS-applied ailment instances: the target becomes Venom Saturated (persists while 5+ VS ailments active). Saturated targets passively deal 10% of total VS ailment damage per second to all nearby enemies as area poison. +8% ailment duration.",
+          "statsRider": "+8% ailment duration.",
+          "modifier": {
+            "procs": [
+              {
+                "id": "vs_venom_saturation",
+                "trigger": "onAilmentApplied",
+                "chance": 1.0,
+                "conditionParam": {"minViperStrikeAilments": 5},
+                "applyDebuff": {"debuffId": "venom_saturated", "duration": "whileAboveThreshold", "effect": {"aoePoison": {"percent": 10, "radius": "nearby"}}}
+              }
+            ],
+            "ailmentDuration": 8
+          },
+          "designNotes": "Target becomes a poison aura — passively damaging nearby enemies. Completely unique mechanic. Different from FoK's Plague Wave (accelerates existing ticks) and Blade Dance's Plague Link (shares direct damage). VS makes the TARGET into a DoT source for nearby enemies."
+        },
+        {
+          "id": "vs_1_2_1",
+          "name": "Deep Toxin",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "VS ailments that have been active for 2+ seconds deal +15% more damage.",
+          "rank2": "+25% after 2s. Ailments active for 4+ seconds deal an additional +10% (total +35%).",
+          "modifier": {
+            "conditionalMods": [{"condition": "ailmentAge", "threshold": 2, "modifier": {"ailmentDamageBonus": 15}}],
+            "perRank": {
+              "1": {"at2s": 15},
+              "2": {"at2s": 25, "at4s": 10}
+            }
+          },
+          "designNotes": "Ailment age bonus — older ailments deal more. Different from Stab's Relentless Infection (per-second scaling) because this has THRESHOLDS (2s, 4s) not linear scaling. Rewards keeping ailments alive long-term."
+        },
+        {
+          "id": "vs_1_3_0",
+          "name": "Concentrated Venom",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "+10% DoT multiplier for Viper Strike ailments specifically (not all ailments).",
+          "rank2": "+15% DoT mult. Also +5% ailment potency for VS ailments.",
+          "modifier": {
+            "viperStrikeDoTMult": 10,
+            "perRank": {
+              "1": {"viperStrikeDoTMult": 10},
+              "2": {"viperStrikeDoTMult": 15, "viperStrikePotency": 5}
+            }
+          },
+          "designNotes": "VS-SPECIFIC DoT multiplier. Different from global DoT mult because it only applies to VS ailments. Makes VS the best DoT source by a wider margin."
+        },
+        {
+          "id": "vs_1_3_1",
+          "name": "Persistent Deep Wound",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "Deep Wound is no longer consumed by Assassinate. Instead, while Deep Wound is active on target, ALL ailments on target deal +20% more damage.",
+          "rank2": "+30% more damage. Deep Wound also increases ailment duration by 15% while active.",
+          "modifier": {
+            "comboStateReplace": {"disableConsumption": "deep_wound", "whileActive": {"allAilmentDamageBonus": 20}},
+            "perRank": {
+              "1": {"allAilmentDamageBonus": 20},
+              "2": {"allAilmentDamageBonus": 30, "ailmentDurationBonus": 15}
+            }
+          },
+          "designNotes": "COMBO MODIFICATION. Plague VS doesn't want Assassinate to CONSUME the Deep Wound — it wants it to PERSIST as a damage amplifier. Different from Assassinate's Persistent Wounds (same concept) because this one lives in VS's tree and affects ALL ailments, not just VS damage."
+        },
+        {
+          "id": "vs_1_3_2",
+          "name": "Venomous Persistence",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "VS ailments refresh their duration when ANY other skill hits the target.",
+          "rank2": "Also gain +5% potency per refresh (max +25% after 5 refreshes). +3% weapon mastery.",
+          "modifier": {
+            "viperStrikeAilmentRefresh": {"onAnySkillHit": true},
+            "perRank": {
+              "1": {"refreshOnly": true},
+              "2": {"potencyPerRefresh": 5, "maxRefreshBonus": 25, "weaponMastery": 3}
+            }
+          },
+          "designNotes": "VS ailments refreshed by OTHER skills hitting the target. Makes VS ailments effectively permanent as long as you keep attacking. Unique to DoT specialist — no other skill's ailments auto-refresh from other skills' hits."
+        },
+        {
+          "id": "vs_1_4_0",
+          "name": "Venom Mastery",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "state-shift",
+          "description": "When VS ailment damage ticks for 10+ total ticks on a single target: enter Venom Mastery state (5s). During this state: VS ailments tick at 1.5x speed and gain +20% potency. 15s internal cooldown. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "procs": [
+              {
+                "id": "vs_venom_mastery",
+                "trigger": "onAilmentTick",
+                "chance": 1.0,
+                "conditionParam": {"totalTicksOnTarget": 10},
+                "applyBuff": {"buffId": "venomMastery", "effect": {"viperStrikeTickSpeed": 1.5, "viperStrikePotency": 20}, "duration": 5},
+                "internalCooldown": 15
+              }
+            ],
+            "weaponMastery": 5
+          },
+          "designNotes": "State-shift based on AILMENT TICKS, not hits or kills. Completely unique trigger condition. 10 ticks = ~5s of a single ailment ticking = achievable with sustained pressure. Different from Stab's Venom Frenzy (5+ stacks threshold) because this cares about tick VOLUME over time."
+        },
+        {
+          "id": "vs_1_4_1",
+          "name": "Mastery Amplifier",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "support",
+          "maxRank": 2,
+          "description": "While Venom Mastery is active: +10% ailment duration for VS ailments.",
+          "rank2": "+15% duration. Each VS ailment tick during Mastery extends it by 0.2s (max +2s).",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileBuffActive", "buffId": "venomMastery", "modifier": {"viperStrikeAilmentDuration": 10}}],
+            "perRank": {
+              "1": {"viperStrikeAilmentDuration": 10},
+              "2": {"viperStrikeAilmentDuration": 15, "durationExtensionPerTick": 0.2, "maxExtension": 2}
+            }
+          },
+          "designNotes": "Support for Venom Mastery. Tick-based extension — VS ailments ticking fast naturally extend the window. Self-reinforcing."
+        },
+        {
+          "id": "vs_1_5_0",
+          "name": "Endless Venom",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "VS ailments gain +3% potency per second they've been active (uncapped). VS ailment duration +50%. +8% weapon mastery.",
+          "modifier": {
+            "viperStrikeAilmentAgeScaling": {"potencyPerSecond": 3, "uncapped": true},
+            "viperStrikeAilmentDuration": 50,
+            "weaponMastery": 8
+          },
+          "exclusiveWith": ["vs_1_5_1"],
+          "designNotes": "Consistent infinite scaling. VS ailments that live long enough become the strongest in the game. No ceiling. Combined with T3c (refresh on other skill hits), VS ailments can persist and scale indefinitely."
+        },
+        {
+          "id": "vs_1_5_1",
+          "name": "Venom Nova",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "When VS ailment damage kills a target: all VS ailments on that target explode as AoE, dealing 80% of remaining damage to nearby enemies and applying 1 VS ailment instance to each. If VS ailments DON'T kill the target, VS cooldown +1s.",
+          "modifier": {
+            "procs": [{"id": "vs_venom_nova", "trigger": "onAilmentKill", "chance": 1.0, "explodeAilments": {"aoeScaleRatio": 0.80, "applyInstance": 1}}],
+            "onNonAilmentKillPenalty": {"cooldownIncrease": 1}
+          },
+          "exclusiveWith": ["vs_1_5_0"],
+          "designNotes": "Risky ailment-kill explosion. VS ailments kill → AoE + spread. Different from Assassinate's Plague Executioner (requires direct kill) because this triggers on AILMENT kills specifically. If your DoTs aren't strong enough to kill, you're punished. REQUIRES ENGINE 10.1 (kill attribution)."
+        },
+        {
+          "id": "vs_1_6_0",
+          "name": "Eternal Venom",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "catastrophic",
+          "description": "When a VS ailment would expire: 40% chance it persists instead at 50% of its current potency (indefinitely, until target dies). Can only trigger once per ailment instance. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "procs": [
+              {
+                "id": "vs_eternal_venom",
+                "trigger": "onAilmentExpire",
+                "chance": 0.40,
+                "effect": {"persistAtPercent": 50, "oncePerInstance": true}
+              }
+            ],
+            "weaponMastery": 5
+          },
+          "designNotes": "Ailment death prevention. 40% of VS ailments NEVER EXPIRE — they persist at half potency forever. Over time, targets accumulate permanent low-potency poisons. Completely unique mechanic. Different from FoK's Endless Plague (all ailments never expire) because this is probabilistic and at reduced potency."
+        },
+        {
+          "id": "vs_1_7_0",
+          "name": "VENOM LORD",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "VS's +50% base ailment potency increased to +120%. VS can only apply ailments to ONE target at a time — applying to a new target removes all VS ailments from the previous target. Eternal Venom (T6) chance increased to 60% but persisted ailments only last 10s (not indefinitely). -20% ailment potency with all other skills.",
+          "modifier": {
+            "ailmentPotencyOverride": 120,
+            "singleTargetAilmentLock": true,
+            "eternalVenomOverride": {"chance": 0.60, "maxDuration": 10},
+            "globalAilmentPenalty": -20
+          },
+          "tensionWith": "vs_1_6_0",
+          "tensionDescription": "T6 (Eternal Venom) lets ailments persist indefinitely at 50%. T7 caps persistence to 10s AND locks VS to one target. You can't spread your devastating +120% potency ailments across the pack — they're all on one target. Switching targets wipes your investment. Tension: T6 wants wide, persistent coverage. T7 forces focused, single-target devastation.",
+          "antiSynergy": ["vs_1_2_0"],
+          "antiSynergyNotes": "Venom Saturation (T2) — 'target becomes AoE poison source' still works but you can only saturate ONE target. AoE poison aura is from one source only.",
+          "synergy": ["vs_1_1_0", "vs_1_5_0", "vs_1_6_0"],
+          "synergyNotes": "Compounding Venom (T1a) — per-cast potency ramp stacks with +120% base. Endless Venom (T5A) — per-second scaling on +120% base = extreme stacking. Eternal Venom (T6) — 60% persist chance keeps your one-target investment alive."
+        }
+      ]
+    },
+    {
+      "branchIndex": 2,
+      "branchName": "Ghost",
+      "mechanicCheck": {
+        "mechanics": [
+          "Venomous Defense (T1a — VS hits grant a stacking absorb shield based on ailment potency)",
+          "Serpent Reflexes (T2 notable — dodge applies VS ailment to ALL nearby enemies)",
+          "Phantom Venom (T6 notable — dodge triggers a VS-scaled counter that applies deep wound)"
+        ],
+        "nonTracked": [
+          "+X% DR while ailments active — T3 conditional, no tracking",
+          "Serpent Reflexes amplification — T4b support, enhances tracked state"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "comboModifications": [
+        {
+          "tier": "T3",
+          "type": "replace",
+          "defaultState": "deep_wound",
+          "description": "Deep Wound no longer consumed for burst. Instead, while Deep Wound active, player gains +10% dodge chance."
+        }
+      ],
+      "nodes": [
+        {
+          "id": "vs_2_1_0",
+          "name": "Venomous Shield",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Each VS hit grants an absorb shield equal to 3% of the ailment's snapshot damage. Shield lasts 4s, refreshes on each VS hit.",
+          "rank2": "5% of snapshot. Shield also grants +3% dodge chance while active.",
+          "modifier": {
+            "onHit": {"absorbShield": {"percentOfSnapshot": 3, "duration": 4}},
+            "perRank": {
+              "1": {"percentOfSnapshot": 3},
+              "2": {"percentOfSnapshot": 5, "dodgeWhileShielded": 3}
+            }
+          },
+          "designNotes": "Absorb shield from ailment snapshot. Completely unique defensive mechanic — stronger ailments = stronger shield. Different from Stab's Evasive Rhythm (dodge stacking) and Blade Dance's Scattered Threat (pack-size DR). VS's defense scales with your OFFENSIVE investment (ailment potency)."
+        },
+        {
+          "id": "vs_2_1_1",
+          "name": "Serpent's Recovery",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "While any VS ailment is ticking on an enemy: heal for 0.5% max HP per tick.",
+          "rank2": "0.8% per tick. At 3+ VS ailments ticking: also gain +5 all resist.",
+          "modifier": {
+            "onAilmentTick": {"healPercent": 0.5},
+            "perRank": {
+              "1": {"healPercent": 0.5},
+              "2": {"healPercent": 0.8, "at3Ailments": {"allResist": 5}}
+            }
+          },
+          "designNotes": "Heal per ailment TICK. Different from Stab's Combat Leech (leech on hit) and Blade Dance's Dancing Recovery (heal per target hit). VS heals from its ailments TICKING — passive sustain that scales with ailment count and tick rate. More ailments = more healing."
+        },
+        {
+          "id": "vs_2_2_0",
+          "name": "Serpent Reflexes",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "When you dodge: apply 1 VS ailment instance at 75% potency to ALL nearby enemies (not just the attacker). Gains Fortify (+3% DR, 5s). +5 all resist.",
+          "statsRider": "+5 all resist.",
+          "modifier": {
+            "procs": [
+              {
+                "id": "vs_serpent_reflexes",
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "applyAilment": {"skillId": "dagger_viper_strike", "potencyMult": 0.75, "toAll": true},
+                "fortifyOnProc": {"stacks": 1, "duration": 5, "damageReduction": 3}
+              }
+            ],
+            "allResist": 5
+          },
+          "designNotes": "Dodge → AoE ailment application. Different from Stab's Shadow Guard (dodge → single counter + Fortify) and Blade Dance's Defensive Scatter (dodge → counter each target). VS's dodge applies AILMENTS to everything nearby — defensive event → offensive DoT spread. Unique because it uses VS's potency for the ailment."
+        },
+        {
+          "id": "vs_2_2_1",
+          "name": "Toxin Endurance",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "While 3+ enemies have VS ailments active: +8% damage reduction.",
+          "rank2": "+12% DR. Also +5% dodge chance while 3+ enemies are VS-ailmented.",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileViperStrikeAilmentCount", "threshold": 3, "modifier": {"damageReduction": 8}}],
+            "perRank": {
+              "1": {"damageReduction": 8},
+              "2": {"damageReduction": 12, "dodgeChance": 5}
+            }
+          },
+          "designNotes": "DR from having ailments spread across enemies. Different from Blade Dance's Scattered Threat (pack size DR) because this requires YOUR ailments on enemies, not just enemies existing. Rewards aggressive ailment spreading via Serpent Reflexes (T2)."
+        },
+        {
+          "id": "vs_2_3_0",
+          "name": "Poison Resilience",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "+3% damage reduction per VS ailment instance active across all enemies (max +15% at 5 instances).",
+          "rank2": "+4% per instance (max +20%). +3% weapon mastery.",
+          "modifier": {
+            "conditionalMods": [{"condition": "perViperStrikeAilmentGlobal", "modifier": {"damageReduction": 3}, "maxStacks": 5}],
+            "perRank": {
+              "1": {"damageReduction": 3, "maxStacks": 5},
+              "2": {"damageReduction": 4, "maxStacks": 5, "weaponMastery": 3}
+            }
+          },
+          "designNotes": "DR scales with total VS ailments across ALL enemies. More poison = more defense. Unique to DoT specialist — no other skill's Ghost branch scales defense with ailment count."
+        },
+        {
+          "id": "vs_2_3_1",
+          "name": "Venom Shield",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "Deep Wound no longer consumed for burst. Instead, while Deep Wound is active on target, you gain +10% dodge chance.",
+          "rank2": "+15% dodge chance. Also +5% damage with VS while Deep Wound is active.",
+          "modifier": {
+            "comboStateReplace": {"disableConsumption": "deep_wound", "whileActive": {"playerDodgeChance": 10}},
+            "perRank": {
+              "1": {"playerDodgeChance": 10},
+              "2": {"playerDodgeChance": 15, "incDamage": 5}
+            }
+          },
+          "designNotes": "COMBO MODIFICATION. Deep Wound becomes a DEFENSIVE tool — dodge chance while active. Different from Plague's Persistent Deep Wound (ailment damage amp) because this is PLAYER defense, not target debuff. Ghost VS doesn't want burst from Deep Wound — it wants survivability."
+        },
+        {
+          "id": "vs_2_3_2",
+          "name": "Venom Barrier",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "Each VS ailment tick generates an absorb shield equal to 2% of the tick's damage. Shield stacks up to 10% max HP. Decays at 3% per second when not refreshed.",
+          "rank2": "3% of tick damage. Shield cap increased to 15% max HP. Decay rate 2% per second.",
+          "modifier": {
+            "onAilmentTick": {"absorbShieldFromDamage": 2, "shieldCap": {"percentMaxHP": 10}, "decayRate": 3},
+            "perRank": {
+              "1": {"absorbFromDamage": 2, "capPercent": 10, "decay": 3},
+              "2": {"absorbFromDamage": 3, "capPercent": 15, "decay": 2}
+            }
+          },
+          "designNotes": "Tick damage → absorb shield. FIXED from v2.0: old version (0.3% heal from tick damage) was worthless — 0.3% of a 1000 tick = 3 HP. New version converts tick damage into a SHIELD that stacks over time. Synergizes with T1a Venomous Shield (VS hit → shield from snapshot). Both create shields from different sources (hit snapshot vs tick damage). With many VS ailments ticking, shield stays refreshed above decay. Different from T1b (flat max HP heal per tick) — this BLOCKS future damage instead of recovering HP."
+        },
+        {
+          "id": "vs_2_4_0",
+          "name": "Serpent Form",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "state-shift",
+          "description": "When you dodge while 3+ enemies have VS ailments: enter Serpent Form (4s). During Serpent Form: VS ailment ticks heal you for 1% max HP each AND all dodge counter-attacks apply VS ailments at 100% potency. 12s internal cooldown. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "procs": [
+              {
+                "id": "vs_serpent_form",
+                "trigger": "onDodge",
+                "chance": 1.0,
+                "conditionParam": {"minEnemiesWithViperStrikeAilment": 3},
+                "applyBuff": {"buffId": "serpentForm", "effect": {"ailmentTickHeal": 1, "counterAppliesVSAilment": true}, "duration": 4},
+                "internalCooldown": 12
+              }
+            ],
+            "weaponMastery": 5
+          },
+          "designNotes": "State-shift gated on dodge + 3 VS-ailmented enemies. Different from Stab's Shadow Form (2 dodges → DR) because this requires spreading ailments FIRST. Serpent Form creates a sustain loop: ailments tick → heal → dodge → counter → apply more ailments → more ticks → more heals."
+        },
+        {
+          "id": "vs_2_4_1",
+          "name": "Serpent Sustain",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "support",
+          "maxRank": 2,
+          "description": "While Serpent Form is active: +10% dodge chance.",
+          "rank2": "+15% dodge chance. Each VS ailment tick during Serpent Form extends it by 0.15s (max +2s).",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileBuffActive", "buffId": "serpentForm", "modifier": {"dodgeChance": 10}}],
+            "perRank": {
+              "1": {"dodgeChance": 10},
+              "2": {"dodgeChance": 15, "durationExtensionPerTick": 0.15, "maxExtension": 2}
+            }
+          },
+          "designNotes": "Support for Serpent Form. Tick-based extension — with many VS ailments ticking, Serpent Form can last significantly longer. Different from other supports (cast-based or dodge-based extension) because this uses ailment TICKS."
+        },
+        {
+          "id": "vs_2_5_0",
+          "name": "Venomous Sanctuary",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "While any VS ailment is active on any enemy: +10% damage reduction and +5% dodge chance. VS ailment ticks heal 0.5% max HP each. +8% weapon mastery.",
+          "modifier": {
+            "whileAnyVSAilmentActive": {"damageReduction": 10, "dodgeChance": 5},
+            "ailmentTickHeal": 0.5,
+            "weaponMastery": 8
+          },
+          "exclusiveWith": ["vs_2_5_1"],
+          "designNotes": "Consistent sustain. As long as ANY VS ailment ticks anywhere, you have DR + dodge + healing. Nearly permanent uptime in combat. Reliable, always-on."
+        },
+        {
+          "id": "vs_2_5_1",
+          "name": "Venom Counter",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "Dodge counter-attacks from Serpent Reflexes (T2) deal damage equal to 20% of ALL active VS ailment snapshot damage combined. Counters can crit. You take +10% increased damage from all sources.",
+          "modifier": {
+            "counterDamageFromAilments": {"percentOfTotalSnapshot": 20, "canCrit": true},
+            "increasedDamageTaken": 10
+          },
+          "exclusiveWith": ["vs_2_5_0"],
+          "designNotes": "Risky offense-from-DoT. Counter damage scales with total VS ailment investment — more ailments active = stronger counters. At 10 poison instances with decent snapshots, each counter hits HARD. But +10% damage taken."
+        },
+        {
+          "id": "vs_2_6_0",
+          "name": "Phantom Venom",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "catastrophic",
+          "description": "When you dodge: 20% chance to trigger Phantom Venom — a counter-attack that deals 120% of VS's fully-scaled damage and applies a Deep Wound at 100% potency. 8s internal cooldown. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "procs": [
+              {
+                "id": "vs_phantom_venom",
+                "trigger": "onDodge",
+                "chance": 0.20,
+                "instantDamage": {"scaleStat": "viperStrikeDamage", "scaleRatio": 1.2},
+                "applyComboState": {"id": "deep_wound", "potencyMult": 1.0},
+                "internalCooldown": 8
+              }
+            ],
+            "weaponMastery": 5
+          },
+          "designNotes": "Dodge → VS-scaled counter that ALSO applies Deep Wound. Different from Stab's Phantom Strike (Stab-scaled, applies guaranteed crit buff) and Assassinate's Reaper's Shadow (Assassinate-scaled, pure damage). VS's counter applies the DEEP WOUND combo state — enabling Assassinate consumption from a dodge event."
+        },
+        {
+          "id": "vs_2_7_0",
+          "name": "SERPENT SOVEREIGN",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Phantom Venom (T6) triggers on EVERY dodge (no chance roll, no ICD). Counter deals 60% instead of 120%. Each trigger applies VS ailment at 50% potency to ALL nearby enemies. VS cooldown increased by 2s (7s total). You can no longer directly cast VS — it only fires via Phantom Venom counters and normal rotation.",
+          "modifier": {
+            "phantomVenomOverride": {"chance": 1.0, "icd": 0, "scaleRatio": 0.60, "aoeAilment": {"potency": 50}},
+            "cooldownIncrease": 2,
+            "castRestriction": "counterOnly"
+          },
+          "tensionWith": "vs_2_6_0",
+          "tensionDescription": "T6 (Phantom Venom) is a rare 20% dodge counter. T7 makes it fire EVERY dodge — constant VS counters that apply AoE ailments. But counters are weaker (60%), VS CD is longer (7s), and VS casting is unchanged (still fires in rotation). The tension: T6 is a dramatic moment, T7 is constant pressure. The AoE ailment on every dodge makes Ghost VS a walking poison field.",
+          "antiSynergy": ["vs_2_1_0"],
+          "antiSynergyNotes": "Venomous Shield (T1a) — shield from direct VS snapshot is lower since counters are at 60%. Still functional but weaker.",
+          "synergy": ["vs_2_2_0", "vs_2_5_1", "vs_2_6_0"],
+          "synergyNotes": "Serpent Reflexes (T2) — both apply AoE ailments on dodge, stacking ailment spread. Venom Counter (T5B) — counter damage from total ailments + T7's constant ailment spreading = self-reinforcing. Phantom Venom (T6) — T7 removes chance and ICD.",
+          "engineRequirements": ["ENGINE 10.3 (cooldown increase)"]
+        }
+      ]
+    }
+  ]
+}

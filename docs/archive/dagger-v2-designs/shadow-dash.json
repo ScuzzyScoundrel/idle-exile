@@ -1,0 +1,781 @@
+{
+  "skillId": "dagger_shadow_dash",
+  "skillName": "Shadow Dash",
+  "version": "2.0",
+  "tags": ["movement", "melee"],
+  "defaultComboState": {
+    "id": "shadow_momentum",
+    "trigger": "onCast",
+    "duration": 2,
+    "effect": { "nextSkillCDAcceleration": 2 },
+    "consumedBy": "next skill",
+    "description": "Shadow Dash creates Shadow Momentum (2s): next skill's cooldown starts recovering 2s earlier. Consumed on next skill cast."
+  },
+  "branches": [
+    {
+      "branchIndex": 0,
+      "branchName": "Predator",
+      "mechanicCheck": {
+        "mechanics": [
+          "Ambush Crit (T1a — first-encounter dash has guaranteed crit, rewards opening strikes)",
+          "Predator's Rush (T2 notable — dash + follow-up crit triggers burst state with CD reset)",
+          "Perfect Ambush (T6 notable — dash-empowered skill that crits and kills echoes at 150%)"
+        ],
+        "nonTracked": [
+          "+X% crit after dash — T3 conditional, no tracking",
+          "Predator's Rush extension — T4b support, enhances tracked state"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "comboModifications": [
+        {
+          "tier": "T4",
+          "type": "enhance",
+          "defaultState": "shadow_momentum",
+          "description": "Shadow Momentum also grants +25% crit chance on the empowered skill. If the empowered skill crits: SD CD reduced by 1s."
+        }
+      ],
+      "nodes": [
+        {
+          "id": "sd_0_1_0",
+          "name": "Ambush Strike",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Shadow Dash's direct hit gains +15% crit chance. If Shadow Dash is the first skill cast in a new encounter (fresh pack/boss): guaranteed crit.",
+          "rank2": "+20% crit chance always. First-encounter guaranteed crit also applies Exposed (3s).",
+          "modifier": {
+            "incCritChance": 15,
+            "conditionalMods": [{"condition": "firstSkillInEncounter", "modifier": {"guaranteedCrit": true}}],
+            "perRank": {
+              "1": {"incCritChance": 15, "firstEncounterGuaranteedCrit": true},
+              "2": {"incCritChance": 20, "firstEncounterGuaranteedCrit": true, "firstEncounterApply": {"debuffId": "exposed", "duration": 3}}
+            }
+          },
+          "designNotes": "FIRST_STRIKE template. Unique to movement skills — only SD can be 'the first skill in a new encounter' meaningfully (you dash TO the enemy). Different from Assassinate's Measured Strike (first hit vs specific target = +dmg%) because this is first-ENCOUNTER guaranteed crit, and applies to the DASH itself. In idle auto-rotation with SD in slot 1: every new encounter opens with a guaranteed crit dash."
+        },
+        {
+          "id": "sd_0_1_1",
+          "name": "Momentum Builder",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "The skill cast immediately after Shadow Dash (empowered by Shadow Momentum) gains +12% crit chance.",
+          "rank2": "+18% crit chance. Also +10% crit multiplier on the empowered skill.",
+          "modifier": {
+            "shadowMomentumCritBonus": 12,
+            "perRank": {
+              "1": {"incCritChance": 12},
+              "2": {"incCritChance": 18, "critMult": 10}
+            }
+          },
+          "designNotes": "Post-dash crit on empowered skill. Different from Stab's Honed Instincts (after-crit crit-mult refresh) because this is tied to the DASH, not to critting. Also different from SM's Mark Precision (passive crit while mark is up) because this is a one-time burst on the NEXT skill. SD is a setup for crit delivery."
+        },
+        {
+          "id": "sd_0_2_0",
+          "name": "Predator's Rush",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "escalating",
+          "description": "When Shadow Dash hits a target AND the next skill (empowered by Shadow Momentum) crits: enter Predator's Rush (3s). +25% crit multiplier for all skills. Shadow Dash CD reduced by 2s (3s effective for next SD). +5% crit chance.",
+          "statsRider": "+5% crit chance.",
+          "modifier": {
+            "triggerCondition": {"dashHit": true, "nextSkillCrits": true},
+            "buff": {"id": "predators_rush", "duration": 3, "critMult": 25, "sdCDReduction": 2}
+          },
+          "designNotes": "Escalating proc from dash → follow-up crit chain. Unique two-step trigger: SD must hit AND the empowered skill must crit. Different from Stab's Blade Sense (escalating on-hit → state) because this requires TWO DIFFERENT SKILLS to succeed (SD + follow-up). Creates a dash → crit → rush → dash → crit cycle if executed well."
+        },
+        {
+          "id": "sd_0_2_1",
+          "name": "Closing Speed",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Shadow Dash deals +15% more damage for each of your other skills currently on cooldown when SD is cast (max +45% at 3 other skills on CD).",
+          "rank2": "+20% per skill on CD (max +60%). Also +3% crit chance per skill on CD.",
+          "modifier": {
+            "conditionalMods": [{"condition": "perOtherSkillOnCooldown", "modifier": {"incDamage": 15}, "maxStacks": 3}],
+            "perRank": {
+              "1": {"incDamage": 15, "maxStacks": 3},
+              "2": {"incDamage": 20, "maxStacks": 3, "incCritChancePerStack": 3}
+            }
+          },
+          "designNotes": "Damage scales with OTHER skills' CD state. Completely unique mechanic — no other skill checks how many skills are ON COOLDOWN. In idle rotation: after casting skills 1-3 (all now on CD), SD in slot 4 gets +60% damage. Creates a natural rhythm: cast everything → dash hits hardest. Different from Assassinate's Patient Predator (own CD time → damage) because this checks OTHER skills' CDs, not its own."
+        },
+        {
+          "id": "sd_0_3_0",
+          "name": "Ambush Mastery",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "+15% crit chance for 2s after Shadow Dash.",
+          "rank2": "+20% crit for 3s after Shadow Dash. +3% weapon mastery.",
+          "modifier": {
+            "conditionalMods": [{"condition": "afterDash", "modifier": {"incCritChance": 15}, "duration": 2}]
+          },
+          "designNotes": "Post-dash crit window. Simple conditional. Covers both the dash hit and the empowered follow-up skill."
+        },
+        {
+          "id": "sd_0_3_1",
+          "name": "Kill Rush",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "If the skill empowered by Shadow Momentum kills an enemy: Shadow Dash cooldown reduced by 2s.",
+          "rank2": "3s reduction per empowered-skill kill. +3% weapon mastery.",
+          "modifier": {
+            "conditionalMods": [{"condition": "empoweredSkillKill", "modifier": {"sdCDReduction": 2}}]
+          },
+          "designNotes": "Empowered skill kill → SD CD reduction. Different from Stab's Kill Momentum (own kill → own CD) and CS's Relentless Chains (chain kill → own CD) because this reduces SD's CD when ANOTHER skill kills. SD doesn't need to kill — the skill it empowered does. Rewards successful dash → burst sequences. At R2, a 3s reduction on a 5s CD = near-instant reset."
+        },
+        {
+          "id": "sd_0_3_2",
+          "name": "Aggressive Momentum",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "Shadow Momentum also grants +10% damage to the empowered skill (on top of CD acceleration).",
+          "rank2": "+15% damage. +3% weapon mastery.",
+          "modifier": {
+            "conditionalMods": [{"condition": "shadowMomentumActive", "modifier": {"empoweredSkillDamage": 10}}]
+          },
+          "designNotes": "Flat damage on empowered skill. Enhances Shadow Momentum's value beyond just CD acceleration. Simple, stacks with T1b crit bonus."
+        },
+        {
+          "id": "sd_0_4_0",
+          "name": "Hunter's Dash",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "Shadow Momentum enhanced: also grants +25% crit chance on the empowered skill. If the empowered skill crits AND kills: enter Hunter's Dash (4s). Next SD deals +50% damage, applies Vulnerable (3s), and has 0 cooldown (instant reset). 12s ICD. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "shadowMomentumEnhancement": {"incCritChance": 25},
+            "triggerCondition": {"empoweredSkillCritAndKill": true},
+            "buff": {"id": "hunters_dash", "duration": 4, "nextSDDamage": 50, "applyVulnerable": 3, "sdCDReset": true},
+            "icd": 12
+          },
+          "designNotes": "Gated state from empowered skill CRIT + KILL. Two-condition gate makes this rare but rewarding. The payoff is a supercharged next SD that applies Vulnerable. Different from Stab's Exploit Weakness (crit → Vulnerable directly) because this requires the full dash → empower → crit → kill chain. Creates a chain: SD → empower → crit kill → Hunter's Dash → super SD → empower → chain continues."
+        },
+        {
+          "id": "sd_0_4_1",
+          "name": "Rush Extension",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "support",
+          "maxRank": 2,
+          "description": "While Predator's Rush (T2) is active: +10% damage with all skills.",
+          "rank2": "+15% damage. Each kill during Rush extends it by 0.5s (max +1.5s).",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileBuffActive", "buffId": "predators_rush", "modifier": {"incDamage": 10}}]
+          },
+          "designNotes": "Support for T2 Predator's Rush state. Kill extension. No new proc system."
+        },
+        {
+          "id": "sd_0_5_0",
+          "name": "Relentless Pursuit",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Shadow Momentum also grants +15% crit chance AND +15% crit multiplier on the empowered skill. Shadow Dash CD reduced by 1s (4s base). +8% weapon mastery.",
+          "modifier": {
+            "shadowMomentumBonus": {"incCritChance": 15, "critMult": 15},
+            "sdCDReduction": 1,
+            "weaponMastery": 8
+          },
+          "exclusiveWith": ["sd_0_5_1"],
+          "designNotes": "Consistent empowerment. Every dash empowers the follow-up with crit. 4s CD means more frequent dashes. Reliable, high-floor dash → burst cycle."
+        },
+        {
+          "id": "sd_0_5_1",
+          "name": "All-In Rush",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "Shadow Momentum grants +40% damage to the empowered skill. If the empowered skill kills: Shadow Dash cooldown fully reset (0s). If the empowered skill does NOT kill: Shadow Dash CD increased by 2s (7s total for next cast).",
+          "modifier": {
+            "shadowMomentumDamageBonus": 40,
+            "onEmpoweredKill": {"sdCDReset": true},
+            "onEmpoweredNoKill": {"sdCDIncrease": 2}
+          },
+          "exclusiveWith": ["sd_0_5_0"],
+          "designNotes": "Risky all-in. +40% damage on empowered skill is massive. Kill = instant SD reset = chain dashing through pack. No kill = 7s CD punishment. Against packs: dash → kill → dash → kill chain. Against bosses: +40% damage but slow 7s cycle. Feast or famine."
+        },
+        {
+          "id": "sd_0_6_0",
+          "name": "Perfect Ambush",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "catastrophic",
+          "description": "When the skill empowered by Shadow Momentum crits AND kills: that skill's damage is repeated as a second free hit at 150% of the original damage. 12s ICD. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "triggerCondition": {"empoweredSkillCritAndKill": true},
+            "effect": {"echoHit": true, "echoDamagePercent": 150},
+            "icd": 12
+          },
+          "designNotes": "Three-layer catastrophic: dash → empower → crit → kill → echo hit at 150%. The echo fires AFTER the kill, hitting the next target or overkilling. Different from BD's Reaper's Dance (3+ kills → AoE) because this echoes a SINGLE skill's damage from a crit-kill chain. SD → Assassinate crit kill = Assassinate fires again at 150%. Devastating combo when it aligns."
+        },
+        {
+          "id": "sd_0_7_0",
+          "name": "SHADOW ASSASSIN",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Shadow Dash CD reduced to 3s. Shadow Momentum empowers the next TWO skills (instead of 1) — both get CD acceleration AND Predator bonuses. Perfect Ambush (T6) ICD reduced to 10s. SD direct damage reduced by -30%. Non-empowered skills deal -15% damage.",
+          "modifier": {
+            "sdCDOverride": 3,
+            "shadowMomentumTargets": 2,
+            "t6Override": {"icd": 10},
+            "sdDirectDamagePenalty": -30,
+            "nonEmpoweredDamagePenalty": -15
+          },
+          "tensionWith": "sd_0_6_0",
+          "tensionDescription": "T6 echoes on crit-kill from empowered skill. T7 empowers TWO skills per dash — double chance for echo trigger. But SD itself is weak (-30%) and non-empowered skills are -15%. With 3s CD and 2 empowered skills, you need 3+ skills to ALWAYS have empowerment running. If you miss timing, some skills fire unempowered at -15%. Creates a frantic pace: dash constantly to keep empowerment up on all skills.",
+          "antiSynergy": ["Rotations with only 2 damage skills (one always unempowered)", "sd_0_2_1 (Closing Speed — at 3s CD, fewer skills will be on cooldown when SD fires)"],
+          "synergy": ["sd_0_6_0 (Perfect Ambush — double chance to trigger from 2 empowered skills)", "sd_0_5_1 (All-In Rush — more empowered skills = more kill chances for reset)"],
+          "engineRequirements": []
+        }
+      ]
+    },
+    {
+      "branchIndex": 1,
+      "branchName": "Plague",
+      "mechanicCheck": {
+        "mechanics": [
+          "Toxic Trail (T1a — dash applies ailments to ALL enemies passed through during movement)",
+          "Plague Rush (T2 notable — passing through ailmented enemies triggers potency state)",
+          "Pandemic Dash (T6 notable — dash kill spreads all ailments from killed target to pass-through range)"
+        ],
+        "nonTracked": [
+          "+X% ailment potency after dash — T3 conditional, no tracking",
+          "Plague Rush extension — T4b support, enhances tracked state"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "comboModifications": [
+        {
+          "tier": "T3",
+          "type": "enhance",
+          "defaultState": "shadow_momentum",
+          "description": "Shadow Momentum also grants +20% ailment potency on the empowered skill."
+        }
+      ],
+      "nodes": [
+        {
+          "id": "sd_1_1_0",
+          "name": "Toxic Trail",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Shadow Dash applies your ailment to ALL enemies between you and the target (pass-through) at 60% of SD's ailment potency.",
+          "rank2": "80% potency. Pass-through ailments also last 1s longer.",
+          "modifier": {
+            "passThroughAilment": {"potencyPercent": 60},
+            "perRank": {
+              "1": {"potencyPercent": 60},
+              "2": {"potencyPercent": 80, "durationBonus": 1}
+            }
+          },
+          "designNotes": "PASS_THROUGH_DAMAGE template for ailments. Completely unique mechanic — no other skill applies ailments to enemies you move THROUGH. Different from FoK's mass AoE (hits all simultaneously) and CS's chains (sequential from target outward). SD literally MOVES through enemies, applying ailments along the path. Unique to movement skills."
+        },
+        {
+          "id": "sd_1_1_1",
+          "name": "Momentum Infection",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "The skill empowered by Shadow Momentum gains +20% ailment potency.",
+          "rank2": "+30% ailment potency. Empowered skill's ailments also gain +1s duration.",
+          "modifier": {
+            "shadowMomentumAilmentPotency": 20,
+            "perRank": {
+              "1": {"ailmentPotency": 20},
+              "2": {"ailmentPotency": 30, "ailmentDuration": 1}
+            }
+          },
+          "designNotes": "Empowered skill ailment potency. Different from VS's base +50% potency (always-on, self) because this enhances the NEXT SKILL's ailments via dash empowerment. SD becomes ailment setup: dash → next Viper Strike has +30% bonus on top of VS's own +50%. Stacking potency."
+        },
+        {
+          "id": "sd_1_2_0",
+          "name": "Plague Rush",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "When Shadow Dash passes through 2+ enemies that have active ailments: enter Plague Rush (4s). All ailment applications gain +20% potency. SD's direct hit also applies 1 extra ailment instance. +8% ailment duration.",
+          "statsRider": "+8% ailment duration.",
+          "modifier": {
+            "triggerCondition": {"passThroughAilmentedTargets": 2},
+            "buff": {"id": "plague_rush", "duration": 4, "ailmentPotency": 20, "sdExtraAilment": 1}
+          },
+          "designNotes": "Gated proc from passing through pre-ailmented enemies. Unique to movement × plague — requires enemies to ALREADY be ailmented when you dash through them. Different from BT's Plague Trap (detonation on ailmented target → state) because this checks PASS-THROUGH targets, not a single detonation target. Rewards setting up ailments before dashing."
+        },
+        {
+          "id": "sd_1_2_1",
+          "name": "Infectious Speed",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Each unique enemy passed through by Shadow Dash extends all YOUR active ailments on ALL targets by 0.3s.",
+          "rank2": "0.5s per enemy passed through. Also +5% ailment potency per pass-through target (max +15%).",
+          "modifier": {
+            "perPassThroughTarget": {"extendAllAilments": 0.3},
+            "perRank": {
+              "1": {"extendAllAilments": 0.3},
+              "2": {"extendAllAilments": 0.5, "ailmentPotencyPerTarget": 5, "maxStacks": 3}
+            }
+          },
+          "designNotes": "Pass-through extends ALL your ailments everywhere. Unique global ailment extension from movement. Different from Stab's Lingering Cuts (consecutive hits extend on same target) and BW's Reactive Toxins (hits received extend attacker's ailments). SD's version: move through enemies → ALL your ailments across ALL targets get longer. Rewards pack-heavy zones."
+        },
+        {
+          "id": "sd_1_3_0",
+          "name": "Toxic Momentum",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "+15% ailment potency for 3s after Shadow Dash.",
+          "rank2": "+25% potency for 4s after Shadow Dash. +3% weapon mastery.",
+          "modifier": {
+            "conditionalMods": [{"condition": "afterDash", "modifier": {"ailmentPotency": 15}, "duration": 3}]
+          },
+          "designNotes": "Post-dash ailment potency window. Simple conditional. Covers both SD's own ailments and the empowered follow-up skill."
+        },
+        {
+          "id": "sd_1_3_1",
+          "name": "Contagion Dash",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "COMBO ENHANCEMENT: Shadow Momentum also grants +20% ailment potency on the empowered skill.",
+          "rank2": "+30% potency on empowered skill. +3% weapon mastery.",
+          "modifier": {
+            "comboModification": {"state": "shadow_momentum", "additionalEffect": {"ailmentPotency": 20}}
+          },
+          "designNotes": "COMBO ENHANCEMENT for Shadow Momentum. Stacks with T1b's empowered potency bonus for up to +60% ailment potency on the empowered skill from SD investment alone."
+        },
+        {
+          "id": "sd_1_3_2",
+          "name": "Lingering Speed",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "Ailments applied by Shadow Dash (direct hit or pass-through) last 2s longer.",
+          "rank2": "3s longer. +3% weapon mastery.",
+          "modifier": {
+            "conditionalMods": [{"condition": "sdAilments", "modifier": {"ailmentDurationBonus": 2}}]
+          },
+          "designNotes": "Duration bonus on SD's ailments. Simple conditional. Stacks with T1a R2 for up to +4s total pass-through ailment duration."
+        },
+        {
+          "id": "sd_1_4_0",
+          "name": "Plague Wake",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "state-shift",
+          "description": "When Shadow Dash passes through 3+ enemies: leave a Plague Wake ground zone along the dash path (3s). Enemies in the wake take ailment ticks at 25% of SD's ailment potency per second. 10s ICD. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "triggerCondition": {"passThroughTargets": 3},
+            "groundZone": {"duration": 3, "tickPotencyPercent": 25},
+            "icd": 10
+          },
+          "designNotes": "State-shift: movement → ground zone. Different from BT's Lingering Trap (post-detonation zone) because this zone follows the DASH PATH — a line, not a circle. Different from FoK's Toxic Storm (splash on application) because this is a PERSISTENT ZONE from movement. Enemies standing in the dash trail take continuous ailment ticks. REQUIRES new engine: ground zone from movement path."
+        },
+        {
+          "id": "sd_1_4_1",
+          "name": "Rush Amplifier",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "support",
+          "maxRank": 2,
+          "description": "While Plague Rush (T2) is active: +10% ailment duration for all skills.",
+          "rank2": "+15% duration. Each pass-through target in the triggering dash extends Plague Rush by 0.3s (max +1.5s).",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileBuffActive", "buffId": "plague_rush", "modifier": {"ailmentDuration": 10}}]
+          },
+          "designNotes": "Support for T2 Plague Rush. Pass-through count extends state. No new proc system."
+        },
+        {
+          "id": "sd_1_5_0",
+          "name": "Persistent Trail",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Shadow Dash pass-through ailments apply at full potency (100% instead of 60-80%). Pass-through ailments also refresh ALL existing ailments on each passed enemy by 2s. +8% weapon mastery.",
+          "modifier": {
+            "passThroughPotency": 100,
+            "passThroughRefreshAllAilments": 2,
+            "weaponMastery": 8
+          },
+          "exclusiveWith": ["sd_1_5_1"],
+          "designNotes": "Consistent full-potency pass-through. Every dash refreshes existing ailments on all passed enemies. Reliable ailment maintenance through movement. No risk, high floor."
+        },
+        {
+          "id": "sd_1_5_1",
+          "name": "Detonating Dash",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "Shadow Dash pass-through detonates 20% of existing ailments on each passed enemy as instant burst damage. Passed enemies lose 1 ailment stack each. If SD passes through 0 enemies: SD cooldown +2s.",
+          "modifier": {
+            "passThroughDetonation": {"burstPercent": 20, "stackLoss": 1},
+            "noPassThroughPenalty": {"cdIncrease": 2}
+          },
+          "exclusiveWith": ["sd_1_5_0"],
+          "designNotes": "Risky pass-through detonation. Dash through pre-ailmented enemies → burst their ailments. Losing 1 stack per enemy is moderate — traded for instant burst damage. If no enemies to pass through (single target, no pack): punished with +2s CD. Pack-oriented risk/reward."
+        },
+        {
+          "id": "sd_1_6_0",
+          "name": "Pandemic Dash",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "catastrophic",
+          "description": "When Shadow Dash kills an enemy (direct hit or pass-through): ALL ailments from the killed enemy spread to ALL enemies within pass-through range at 75% potency. 10s ICD. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "triggerCondition": {"sdKill": true},
+            "effect": {"spreadAllAilments": true, "spreadPotency": 75, "spreadRange": "passThroughRange"},
+            "icd": 10
+          },
+          "designNotes": "Kill → spread all ailments. Different from Stab's Pandemic Cascade (kill with 3+ stacks → spread to nearby) because this uses PASS-THROUGH RANGE as the spread radius and doesn't require a stack threshold. Different from CS's Pandemic Chain (kill → carry along chain) because this spreads in an AREA, not a chain. SD's movement range = spread range. REQUIRES ENGINE 10.1 (kill attribution)."
+        },
+        {
+          "id": "sd_1_7_0",
+          "name": "PLAGUE RUNNER",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Shadow Dash passes through ALL enemies (no limit). Pass-through ailments apply at 120% potency. Pandemic Dash (T6) triggers on ANY SD kill (no ICD). SD direct hit damage reduced to 0. Non-dash skills' ailment potency reduced by -15%. SD CD increased by 2s (7s total).",
+          "modifier": {
+            "passThroughUnlimited": true,
+            "passThroughPotency": 120,
+            "t6Override": {"removeICD": true},
+            "sdDirectDamage": 0,
+            "nonDashAilmentPotencyPenalty": -15,
+            "cdIncrease": 2
+          },
+          "tensionWith": "sd_1_6_0",
+          "tensionDescription": "T6 spreads ailments on kill with 10s ICD. T7 removes ICD AND makes pass-through hit ALL enemies at 120% potency — but SD deals 0 direct damage, has 7s CD, and non-dash ailments are weaker. SD becomes a pure ailment-spreading movement tool: dash through everything, leave a trail of disease, kills spread it further. No direct damage, just ailment delivery and propagation.",
+          "antiSynergy": ["Builds relying on SD's 80% WD direct damage", "Non-pass-through heavy rotations (single-target focused)"],
+          "synergy": ["sd_1_1_0 (Toxic Trail — pass-through at 120%)", "sd_1_6_0 (Pandemic Dash — always triggers on kill)"],
+          "engineRequirements": ["ENGINE 10.2 (0-damage skill ailment application)", "ENGINE 10.3 (cooldown increase)"]
+        }
+      ]
+    },
+    {
+      "branchIndex": 2,
+      "branchName": "Ghost",
+      "mechanicCheck": {
+        "mechanics": [
+          "Phase Window (T1a — Shadow Dash grants brief guaranteed dodge window after cast)",
+          "Shadow Phase (T2 notable — dodge after dash triggers defensive state with counter-attacks)",
+          "Phantom Step (T6 notable — dodge triggers free Shadow Dash to nearest enemy)"
+        ],
+        "nonTracked": [
+          "+X% DR after dash — T3 conditional, no tracking",
+          "Shadow Phase extension — T4b support, enhances tracked state"
+        ],
+        "verdict": "3 mechanics. PASS."
+      },
+      "comboModifications": [
+        {
+          "tier": "T4",
+          "type": "enhance",
+          "defaultState": "shadow_momentum",
+          "description": "Shadow Momentum also grants +15% dodge chance for 3s on the player. Empowered skill dodges during cast reduce SD CD by 1s."
+        }
+      ],
+      "nodes": [
+        {
+          "id": "sd_2_1_0",
+          "name": "Phase Step",
+          "slot": "T1a",
+          "tier": 1,
+          "position": 0,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Shadow Dash grants 100% dodge chance for 0.5s after casting (guaranteed dodge window).",
+          "rank2": "0.8s dodge window. Also gain +1 Fortify on dash cast.",
+          "modifier": {
+            "postCastDodgeWindow": {"duration": 0.5, "dodgeChance": 100},
+            "perRank": {
+              "1": {"duration": 0.5},
+              "2": {"duration": 0.8, "fortify": 1}
+            }
+          },
+          "designNotes": "Post-dash guaranteed dodge. Unique to movement × Ghost — the dash itself provides a brief invulnerability window. Different from all other dodge-granting nodes (which add % dodge chance) because this is GUARANTEED dodge for a short window. In idle: SD fires → 0.8s of untouchability → next skill casts safely. Thematic: you dash so fast enemies can't hit you during the transition."
+        },
+        {
+          "id": "sd_2_1_1",
+          "name": "Evasive Arrival",
+          "slot": "T1b",
+          "tier": 1,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "After Shadow Dash: +8% dodge chance for 3s.",
+          "rank2": "+12% dodge for 4s. Also +5 all resist for the duration.",
+          "modifier": {
+            "postDash": {"dodgeChance": 8, "duration": 3},
+            "perRank": {
+              "1": {"dodgeChance": 8, "duration": 3},
+              "2": {"dodgeChance": 12, "duration": 4, "allResist": 5}
+            }
+          },
+          "designNotes": "Post-dash dodge buff. Different from BD's Scattering Steps (dodge after BD on 3 targets) because this is unconditional — every SD grants dodge. Also different from BT's Trap Barrier (dodge while trap is armed — persistent while object exists). SD's is a standard post-cast window."
+        },
+        {
+          "id": "sd_2_2_0",
+          "name": "Shadow Phase",
+          "slot": "T2",
+          "tier": 2,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "gated",
+          "description": "When you dodge within 2s of Shadow Dash: enter Shadow Phase (3s). +20% dodge chance. Counter-attacks during Shadow Phase deal 80% of SD's fully-scaled damage. +1 Fortify. +5 all resist.",
+          "statsRider": "+5 all resist.",
+          "modifier": {
+            "triggerCondition": {"dodgeWithinWindow": {"afterSkill": "shadow_dash", "window": 2}},
+            "buff": {"id": "shadow_phase", "duration": 3, "dodgeChance": 20, "counterDamage": 80, "fortify": 1}
+          },
+          "designNotes": "Dodge after dash → defensive state with counters. Different from Stab's Shadow Guard (dodge → counter + Fortify + CD reset) because this creates a TIMED STATE with persistent counter-attacks, not a one-off counter. Different from BW's Warden's Stance (dodge during ward → enhanced counter) because this triggers from dodge AFTER DASH, not during a ward. SD creates the defensive window through movement, not a defensive skill."
+        },
+        {
+          "id": "sd_2_2_1",
+          "name": "Phasing Momentum",
+          "slot": "T2b",
+          "tier": 2,
+          "position": 1,
+          "type": "behavior",
+          "maxRank": 2,
+          "description": "Shadow Momentum also grants +10% dodge chance to the empowered skill's cast window (2s).",
+          "rank2": "+15% dodge. If the empowered skill dodges an attack during its cast: SD cooldown reduced by 1s.",
+          "modifier": {
+            "shadowMomentumDodge": 10,
+            "perRank": {
+              "1": {"dodgeChance": 10},
+              "2": {"dodgeChance": 15, "onDodgeDuringEmpowered": {"sdCDReduction": 1}}
+            }
+          },
+          "designNotes": "Shadow Momentum adds dodge. Different from all other dodge-granting behaviors because this is tied to the EMPOWERED SKILL's window, not a flat duration. The dodge only helps during the next skill's cast. R2: if you dodge during that window, SD CD reduces. Creates a connection between defensive success and offensive uptime."
+        },
+        {
+          "id": "sd_2_3_0",
+          "name": "Phase Shield",
+          "slot": "T3a",
+          "tier": 3,
+          "position": 0,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "+5% DR for 3s after Shadow Dash.",
+          "rank2": "+8% DR for 4s. +3% weapon mastery.",
+          "modifier": {
+            "conditionalMods": [{"condition": "afterDash", "modifier": {"damageReduction": 5}, "duration": 3}]
+          },
+          "designNotes": "Post-dash DR. Simple conditional. Covers the arrival window after dashing into enemies."
+        },
+        {
+          "id": "sd_2_3_1",
+          "name": "Dash Reflex",
+          "slot": "T3b",
+          "tier": 3,
+          "position": 1,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "COMBO ENHANCEMENT: Shadow Momentum also grants +15% dodge chance for 3s on the player.",
+          "rank2": "+20% dodge for 4s. +3% weapon mastery.",
+          "modifier": {
+            "comboModification": {"state": "shadow_momentum", "additionalEffect": {"dodgeChance": 15, "duration": 3}}
+          },
+          "designNotes": "COMBO ENHANCEMENT for Shadow Momentum. Adds dodge to the CD acceleration. Makes every dash a defensive event: dash → 3s of dodge + CD acceleration."
+        },
+        {
+          "id": "sd_2_3_2",
+          "name": "Phasing Recovery",
+          "slot": "T3c",
+          "tier": 3,
+          "position": 2,
+          "type": "conditional",
+          "maxRank": 2,
+          "description": "Shadow Dash heals 2% max HP on cast.",
+          "rank2": "3% max HP heal. +3% weapon mastery.",
+          "modifier": {
+            "conditionalMods": [{"condition": "onDashCast", "modifier": {"healPercentMaxHP": 2}}]
+          },
+          "designNotes": "Dash heal. Simple sustain. Different from BW's Recovering Blows (counter-hit heal) and BD's Dancing Recovery (per-target heal) because this is a flat on-CAST heal. Every 5s SD cycle heals."
+        },
+        {
+          "id": "sd_2_4_0",
+          "name": "Phantom Dash",
+          "slot": "T4",
+          "tier": 4,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "state-shift",
+          "description": "When you dodge 2+ attacks within 3s of Shadow Dash: enter Phantom Dash (3s). +30% dodge chance, +15% DR. Next SD cast has 0 CD (instant reset). 10s ICD. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "triggerCondition": {"dodgesAfterDash": 2, "window": 3},
+            "buff": {"id": "phantom_dash", "duration": 3, "dodgeChance": 30, "damageReduction": 15, "nextSDFree": true},
+            "icd": 10
+          },
+          "designNotes": "State-shift from dodge-after-dash. Different from Stab's Shadow Form (2 dodges in 4s → DR + Weakened) because this grants a FREE NEXT SD — the defensive success (dodging) rewards more MOVEMENT. Different from BW's Iron Guard (dodge during ward → enhanced counter) because this rewards dodging AFTER a movement skill, not during a defensive skill. Creates a loop: dash → dodge × 2 → Phantom Dash → free dash → dodge × 2 → repeat."
+        },
+        {
+          "id": "sd_2_4_1",
+          "name": "Phase Persistence",
+          "slot": "T4b",
+          "tier": 4,
+          "position": 1,
+          "type": "support",
+          "maxRank": 2,
+          "description": "While Shadow Phase (T2) is active: +10% dodge chance.",
+          "rank2": "+15% dodge. Each dodge during Shadow Phase extends it by 0.3s (max +1.5s).",
+          "modifier": {
+            "conditionalMods": [{"condition": "whileBuffActive", "buffId": "shadow_phase", "modifier": {"dodgeChance": 10}}]
+          },
+          "designNotes": "Support for T2 Shadow Phase. Dodge extends state. Standard support pattern."
+        },
+        {
+          "id": "sd_2_5_0",
+          "name": "Evasive Dasher",
+          "slot": "T5A",
+          "tier": 5,
+          "position": 0,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "consistent",
+          "description": "Shadow Dash grants +2 Fortify stacks on cast. Phase Step (T1a) window extended to 1.2s. Each dodge during Phase Step window heals 2% max HP. +8% weapon mastery.",
+          "modifier": {
+            "onDash": {"fortify": 2},
+            "phaseStepDurationOverride": 1.2,
+            "phaseStepDodgeHeal": 2,
+            "weaponMastery": 8
+          },
+          "exclusiveWith": ["sd_2_5_1"],
+          "designNotes": "Consistent sustain from dashing. Every dash = Fortify + guaranteed dodge window + healing if dodge triggers. Reliable, always-on survival from movement."
+        },
+        {
+          "id": "sd_2_5_1",
+          "name": "Counter Dash",
+          "slot": "T5B",
+          "tier": 5,
+          "position": 1,
+          "type": "keystoneChoice",
+          "maxRank": 1,
+          "style": "risky",
+          "description": "Shadow Phase counter-attacks (T2) deal 150% WD instead of 80% and can crit. Counter-crits during Shadow Phase reset SD cooldown. You take +10% increased damage outside of Shadow Phase.",
+          "modifier": {
+            "shadowPhaseCounterDamage": 150,
+            "counterCanCrit": true,
+            "counterCritSDReset": true,
+            "damageTakenOutsidePhase": 10
+          },
+          "exclusiveWith": ["sd_2_5_0"],
+          "designNotes": "Risky offense-from-defense. Massive counter-hit damage during Shadow Phase. Crit counters reset SD → more dashes → more Shadow Phase → more counters. But vulnerable outside the Phase window. Creates a cycle: dash → dodge → Shadow Phase → counter-crit → SD reset → dash again. Falls apart if you don't dodge fast enough."
+        },
+        {
+          "id": "sd_2_6_0",
+          "name": "Phantom Step",
+          "slot": "T6",
+          "tier": 6,
+          "position": 0,
+          "type": "notable",
+          "maxRank": 1,
+          "procPattern": "catastrophic",
+          "description": "When you dodge: 15% chance to trigger a free Shadow Dash to the nearest enemy at 80% WD. Grants full Shadow Momentum (2s). 8s ICD. +5% weapon mastery.",
+          "statsRider": "+5% weapon mastery.",
+          "modifier": {
+            "onDodge": {"chance": 15, "effect": {"freeDash": true, "weaponDamage": 80, "grantShadowMomentum": true}},
+            "icd": 8
+          },
+          "designNotes": "Dodge → free dash. Unique T6 counter — no other skill triggers a free MOVEMENT ability from dodge. Different from Stab's Phantom Strike (dodge → single 200% counter) because this is a full DASH with Shadow Momentum. Different from BT's Mirror Trap (dodge → free detonation at attacker) because this is MOVEMENT to an enemy, not an explosion. The free Shadow Momentum is the real reward — it empowers the NEXT skill after the free dash."
+        },
+        {
+          "id": "sd_2_7_0",
+          "name": "SHADOW STEP",
+          "slot": "T7",
+          "tier": 7,
+          "position": 0,
+          "type": "keystone",
+          "maxRank": 1,
+          "description": "Phantom Step (T6) triggers on EVERY dodge (no chance, no ICD) at 40% WD. Each free dash grants Shadow Momentum. SD direct cast damage -20%. Non-dash skills deal -10% damage without Shadow Momentum active. Phase Step (T1a) window applies to every free dash.",
+          "modifier": {
+            "t6Override": {"removeChance": true, "removeICD": true, "weaponDamage": 40},
+            "freeDashGrantsMomentum": true,
+            "sdDirectDamagePenalty": -20,
+            "nonMomentumDamagePenalty": -10,
+            "phaseStepOnFreeDash": true
+          },
+          "tensionWith": "sd_2_6_0",
+          "tensionDescription": "T6 is rare 15% dodge → free dash. T7 fires EVERY dodge — constant dashing on every dodge event. Each dodge = free SD at 40% WD + Shadow Momentum + Phase Step window. With high dodge: near-constant Shadow Momentum uptime (every skill is empowered). But direct SD is weak (-20%) and skills without Momentum are -10%. You're a blur of movement — constantly dashing, constantly empowering, but individually weak. The speed IS the build.",
+          "antiSynergy": ["sd_0_2_1 (Closing Speed — frequent dashes mean fewer skills on CD when SD fires)", "Slow, infrequent dash rotations (T7 wants constant dodge events)"],
+          "synergy": ["sd_2_6_0 (Phantom Step — always triggers)", "sd_2_1_0 (Phase Step — each free dash gets dodge window)", "sd_2_5_1 (Counter Dash — counter-crits trigger more free dashes → more momentum)"],
+          "engineRequirements": []
+        }
+      ]
+    }
+  ]
+}
