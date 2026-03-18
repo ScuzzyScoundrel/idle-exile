@@ -87,7 +87,7 @@ export function evaluateCondition(
     case 'perFortifyStack': return (ctx.fortifyStacks ?? 0) >= 1;
     case 'perEnemyInPack': return (ctx.packSize ?? 1) >= (threshold ?? 1);
     case 'whileWardActive': return ctx.wardActive === true;
-    case 'afterWardExpires': return ctx.wardJustExpired === true;
+    case 'afterWardExpires': return ctx.wardActive !== true; // fires when ward is down (between ward windows)
     case 'afterDash': return ctx.lastDashAt != null && ctx.now - ctx.lastDashAt < 3000;
     case 'afterDodge': return ctx.now - ctx.lastDodgeAt < BLOCK_DODGE_RECENCY_WINDOW;
     case 'afterDodgeOrBlock': return ctx.now - ctx.lastDodgeAt < BLOCK_DODGE_RECENCY_WINDOW || ctx.now - ctx.lastBlockAt < BLOCK_DODGE_RECENCY_WINDOW;
