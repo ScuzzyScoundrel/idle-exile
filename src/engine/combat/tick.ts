@@ -1757,6 +1757,16 @@ export function runCombatTick(
   if (bleedKills > 0) {
     updatedPackMobs = updatedPackMobs.filter(m => m.hp > 0);
     mobKills += bleedKills;
+
+    // If bleed/counter/trap damage killed the entire pack, spawn a new one
+    if (updatedPackMobs.length === 0) {
+      newMobTypeId = pickCurrentMob(zone.id, state.targetedMobId);
+      const tickMobDef = newMobTypeId ? getMobTypeDef(newMobTypeId) : undefined;
+      const hpMult = tickMobDef?.hpMultiplier ?? 1.0;
+      const invHpMult = isZoneInvaded(state.invasionState, zone.id, zone.band) ? INVASION_DIFFICULTY_MULT : 1.0;
+      updatedPackMobs = spawnPack(zone, hpMult, invHpMult, now, tickMobDef?.damageElement, tickMobDef?.physRatio);
+      newCurrentPackSize = updatedPackMobs.length;
+    }
   }
 
   const trackingClear = {
