@@ -247,9 +247,15 @@ export const daggerModule: WeaponModule = {
             replace.effect, replace.duration, 1,
           );
         } else {
+          // comboModification: merge additionalEffect into created state
+          let effect = comboConfig.effect;
+          const pcm = graphMod?.rawBehaviors?.comboModification;
+          if (pcm?.state === comboConfig.stateId && pcm.additionalEffect) {
+            effect = { ...effect, ...pcm.additionalEffect };
+          }
           comboStates = createComboState(
             comboStates, comboConfig.stateId, skill.id,
-            comboConfig.effect, comboConfig.duration, comboConfig.maxStacks,
+            effect, comboConfig.duration, comboConfig.maxStacks,
           );
         }
       }
@@ -332,11 +338,18 @@ export const daggerModule: WeaponModule = {
         ? avgDamage * graphMod!.counterHitDamage / 100 : 0;
       counterDamage += baseCounterDmg + talentCounterDmg;
 
-      // Create Guarded at 3+ hits
-      if (bladeWardHits >= 3 && !comboStates.some(s => s.stateId === 'guarded')) {
+      // Create Guarded at 3+ hits (comboModification can override threshold)
+      const cm = graphMod?.rawBehaviors?.comboModification;
+      const guardedThreshold = (cm?.state === 'guarded' && cm.thresholdOverride) ? cm.thresholdOverride : 3;
+      if (bladeWardHits >= guardedThreshold && !comboStates.some(s => s.stateId === 'guarded')) {
+        const guardedEffect: Record<string, any> = { incDamage: 20 };
+        // Merge additionalEffect from comboModification
+        if (cm?.state === 'guarded' && cm.additionalEffect) {
+          Object.assign(guardedEffect, cm.additionalEffect);
+        }
         comboStates = createComboState(
           comboStates, 'guarded', 'dagger_blade_ward',
-          { incDamage: 20 }, 3, 1,
+          guardedEffect, 3, 1,
         );
       }
     }
@@ -366,6 +379,24 @@ export const daggerModule: WeaponModule = {
         } else {
           // Clearing: AoE — tick.ts applies per-mob with rare DR
           trapDamage = detDmg;
+        }
+
+        // comboModification.onDetonation: create states/buffs when trap detonates
+        const detCm = graphMod?.rawBehaviors?.comboModification;
+        if (detCm?.onDetonation) {
+          const od = detCm.onDetonation;
+          if (od.applyDebuff) {
+            comboStates = createComboState(
+              comboStates, od.applyDebuff.id ?? 'saturated', 'dagger_blade_trap',
+              { incDamage: 15 }, od.applyDebuff.duration ?? 4, 1,
+            );
+          }
+          if (od.grantBuff) {
+            comboStates = createComboState(
+              comboStates, od.grantBuff.id ?? 'guarded', 'dagger_blade_trap',
+              { incDamage: od.grantBuff.bonusDamage ?? 20 }, od.grantBuff.duration ?? 3, 1,
+            );
+          }
         }
       }
     }
