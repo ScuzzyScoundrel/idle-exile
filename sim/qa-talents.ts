@@ -278,7 +278,7 @@ function createRichTestState(
     lastDeathTime: 0,
     comboStates,
     activeTraps,
-    bladeWardExpiresAt: now + 3000,
+    bladeWardExpiresAt: now + 60000, // 60s — ensure ward-based conditions fire for enough ticks
     bladeWardHits: 2,
     elementTransforms: {},
     lastHitMobTypeId: 'thicket_crawler',
