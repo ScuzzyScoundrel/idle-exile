@@ -183,8 +183,9 @@ function createRichTestState(
     { skillId, activatedAt: null, cooldownUntil: null },
   ];
 
+  const BUFF_DURATION = 120000; // 120s — covers entire simulation
   const tempBuffs: any[] = [
-    { id: 'qa_test_buff', effect: { damageMult: 1.1 }, expiresAt: now + 10000, sourceSkillId: skillId, stacks: 1, maxStacks: 1 },
+    { id: 'qa_test_buff', effect: { damageMult: 1.1 }, expiresAt: now + BUFF_DURATION, sourceSkillId: skillId, stacks: 1, maxStacks: 1 },
   ];
 
   // Node-aware: pre-seed temp buffs for whileBuffActive conditionalMods
@@ -195,7 +196,7 @@ function createRichTestState(
         const buffId = (cm as any).buffId;
         if (!seenBuffIds.has(buffId)) {
           seenBuffIds.add(buffId);
-          tempBuffs.push({ id: buffId, effect: {}, expiresAt: now + 10000, sourceSkillId: skillId, stacks: 1, maxStacks: 1 });
+          tempBuffs.push({ id: buffId, effect: {}, expiresAt: now + BUFF_DURATION, sourceSkillId: skillId, stacks: 1, maxStacks: 1 });
         }
       }
     }
@@ -209,6 +210,7 @@ function createRichTestState(
     { stateId: 'chain_surge', sourceSkillId: skillId, remainingDuration: 5, stacks: 1, maxStacks: 3, effect: { cooldownAcceleration: 0.5 } },
     { stateId: 'guarded', sourceSkillId: 'dagger_blade_ward', remainingDuration: 10, stacks: 3, maxStacks: 5, effect: { incDamage: 0.1 } },
     { stateId: 'shadow_momentum', sourceSkillId: 'dagger_shadow_dash', remainingDuration: 8, stacks: 1, maxStacks: 3, effect: {} },
+    { stateId: 'saturated', sourceSkillId: 'dagger_fan_of_knives', remainingDuration: 4, stacks: 1, maxStacks: 1, effect: { incDamage: 15 } },
   ];
 
   const activeTraps: TrapState[] = [

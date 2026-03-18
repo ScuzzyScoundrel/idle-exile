@@ -223,6 +223,21 @@ const PRE_ROLL_ALIASES: Record<string, string> = {
   dodgeChanceBonus: 'dodgeChance',
   ailmentPotencyBonus: 'ailmentPotency',
   ailmentDurationBonus: 'ailmentDuration',
+  cdReduction: 'cooldownReduction',
+  globalAilmentPotency: 'ailmentPotency',
+  globalCritChance: 'incCritChance',
+  sdCDReduction: 'cooldownReduction',
+  deepWoundBurstBonus: 'incDamage',
+  empoweredSkillDamage: 'incDamage',
+  nextSkillDamageBonus: 'incDamage',
+  nextSkillDamage: 'incDamage',
+  targetDamageTaken: 'increasedDamageTaken',
+  sharedAilmentPotency: 'ailmentPotency',
+  healPercentMaxHP: 'leechPercent',
+  healPerTargetPercent: 'leechPercent',
+  ailmentDurationExtension: 'ailmentDuration',
+  viperStrikeAilmentDuration: 'ailmentDuration',
+  reductionPerKill: 'damageReduction',
 };
 
 const PRE_ROLL_CONDITIONS: Set<TriggerCondition> = new Set([
@@ -266,6 +281,18 @@ export function evaluateConditionalMods(
     // Generic merge: auto-discovers fields from EMPTY_PRE_ROLL
     const m = cm.modifier;
     for (const [key, val] of Object.entries(m)) {
+      // guaranteedCrit: set crit chance to 100%
+      if (key === 'guaranteedCrit' && val) {
+        result.incCritChance = 100;
+        continue;
+      }
+      // Boolean/object fields: map to closest numeric effect
+      if (key === 'overkillCascadePercent' && typeof val === 'number' && val > 0) {
+        result.incDamage += val;
+        continue;
+      }
+      if (key === 'spreadAilments' && val) { result.ailmentPotency += 10; continue; }
+      if (key === 'refreshAllAilments' && val) { result.ailmentDuration += 20; continue; }
       if (val === undefined || typeof val !== 'number' || val === 0) continue;
       // Check aliases first (dodgeChanceBonus→dodgeChance, etc.)
       const targetKey = PRE_ROLL_ALIASES[key] ?? key;
