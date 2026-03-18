@@ -303,12 +303,9 @@ export function runCombatTick(
   // Pre-roll conditional modifiers (while conditions)
   let condSpeedBonus = 0;
   let condAilmentPotency = 0;
-  let condAilmentDuration = 0;
   let condLeechPercent = 0;
   let condDamageReduction = 0;
   let condCooldownReduction = 0;
-  let condAilmentDamageBonus = 0;
-  let condCounterDamageMult = 0;
   let condIncreasedDamageTaken = 0;
   if (graphMod?.conditionalMods?.length) {
     const condCtx: ConditionContext = {
@@ -353,12 +350,9 @@ export function runCombatTick(
     if (preRoll.dodgeChance) effectiveStats.evasion += preRoll.dodgeChance;
     if (preRoll.ailmentDuration) effectiveStats.ailmentDuration += preRoll.ailmentDuration;
     condAilmentPotency = preRoll.ailmentPotency;
-    condAilmentDuration = preRoll.ailmentDuration;
     condLeechPercent = preRoll.leechPercent;
     condDamageReduction = preRoll.damageReduction;
     condCooldownReduction = preRoll.cooldownReduction;
-    condAilmentDamageBonus = preRoll.ailmentDamageBonus;
-    condCounterDamageMult = preRoll.counterDamageMult;
     condIncreasedDamageTaken = preRoll.increasedDamageTaken;
   }
 
@@ -1382,13 +1376,6 @@ export function runCombatTick(
     const secondMult = graphMod.secondCastDamageMult || 1;
     rawSkillDamage += roll.damage * secondMult;
   }
-  // Sprint 2C: lifeCostPerTrigger — deduct life per proc fired
-  if (graphMod?.lifeCostPerTrigger && allProcsFired.length > 0) {
-    const lifeCost = graphMod.lifeCostPerTrigger * allProcsFired.length;
-    // Applied later in playerHp calculation (stashed for now)
-    rawSkillDamage += 0; // placeholder — actual life cost applied at playerHp section
-  }
-
   // Per-hit tracking for sequential hits (Blade Dance combat log)
   const perHitDamages: number[] = [];
 
