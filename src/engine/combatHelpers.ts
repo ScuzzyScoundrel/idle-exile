@@ -147,16 +147,16 @@ export function evaluateCondition(
     case 'afterTrapPlacement': return (ctx.activeTrapsCount ?? 0) > 0;
     case 'trapAilments': return (ctx.totalTargetDebuffStacks ?? 0) >= (threshold ?? 1);
     case 'sdAilments': return (ctx.totalTargetDebuffStacks ?? 0) >= (threshold ?? 1);
-    case 'onAilmentApplied': return false;   // proc trigger, evaluated after ailment application
-    case 'onAilmentExpire': return false;    // proc trigger, evaluated when debuff expires
-    case 'onAilmentKill': return false;      // proc trigger, evaluated when DoT kills
-    case 'onAilmentTick': return false;      // proc trigger, evaluated during DoT tick
+    case 'onAilmentApplied': return (ctx.targetDebuffCount ?? 0) > 0; // approximate: ailments present
+    case 'onAilmentExpire': return (ctx.targetDebuffCount ?? 0) > 0;  // approximate: ailments aging/expiring
+    case 'onAilmentKill': return (ctx.killStreak ?? 0) > 0 && (ctx.targetDebuffCount ?? 0) > 0;
+    case 'onAilmentTick': return (ctx.targetDebuffCount ?? 0) > 0;   // approximate: DoT ticking
     case 'onCounterHitAilment': return ctx.wardActive === true && (ctx.targetDebuffCount ?? 0) > 0;
     case 'onKillInCast': return false;       // proc trigger, Sprint 2A
     case 'onMultiKillInCast': return false;  // proc trigger, Sprint 2A
     case 'onTripleKillInCast': return false; // proc trigger, Sprint 2A
-    case 'onLinkedTargetDeath': return false; // plague link, Sprint 4
-    case 'onLinkedTargetsThreshold': return false; // plague link, Sprint 4
+    case 'onLinkedTargetDeath': return (ctx.killStreak ?? 0) > 0; // approximate: kills happen
+    case 'onLinkedTargetsThreshold': return (ctx.packSize ?? 1) >= 2; // approximate: multiple targets
     case 'perUniqueTargetInLastCast': return (ctx.targetsHitLastCast ?? 1) >= (threshold ?? 1);
     case 'perOtherSkillAilmentOnTarget': return (ctx.targetDebuffCount ?? 0) >= (threshold ?? 1);
     case 'perViperStrikeAilmentGlobal': return (ctx.targetDebuffCount ?? 0) >= (threshold ?? 1);
@@ -263,6 +263,8 @@ const PRE_ROLL_CONDITIONS: Set<TriggerCondition> = new Set([
   'enemyAttacksAfterBeingHit', 'ailmentKillAfterFoK', 'ailmentAge',
   'perSecondOnCooldown', 'perSecondRemainingOnWard', 'perSecondSinceArmed',
   'perHitReceivedDuringWard',
+  'onAilmentApplied', 'onAilmentExpire', 'onAilmentKill', 'onAilmentTick',
+  'onLinkedTargetDeath', 'onLinkedTargetsThreshold',
 ]);
 
 export function evaluateConditionalMods(

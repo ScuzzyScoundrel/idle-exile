@@ -407,7 +407,7 @@ function runSimulation(skillId: string, allocatedRanks: Record<string, number>, 
     // Respawn pack if all mobs dead
     if (!state.packMobs || state.packMobs.length === 0) {
       state.packMobs = createMobPack(skillId, getNow());
-      state.currentPackSize = 3;
+      state.currentPackSize = 4;
       state.consecutiveHits = 5;
     }
   }
