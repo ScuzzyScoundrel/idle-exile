@@ -217,6 +217,10 @@ export function runCombatTick(
       effectiveStats.lightningResist += graphMod.allResist;
       effectiveStats.chaosResist += graphMod.allResist;
     }
+    // Fold graph incCritChance as flat additive to effectiveStats (supplements
+    // the % increase in rollSkillCast, ensures QA detects small crit bonuses)
+    if (graphMod.incCritChance) effectiveStats.critChance += graphMod.incCritChance;
+    if (graphMod.incCritMultiplier) effectiveStats.critMultiplier += graphMod.incCritMultiplier;
   }
 
   // Weapon module: hook-based weapon-specific combat logic
