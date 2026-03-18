@@ -257,6 +257,12 @@ const PRE_ROLL_CONDITIONS: Set<TriggerCondition> = new Set([
   // Event-based conditions (approximated as state checks so they fire during pre-roll)
   'onKill', 'onDetonation', 'afterDetonation', 'detonationKill',
   'empoweredSkillKill', 'afterAilmentConsumption',
+  // Sprint 1E conditions that were missing from pre-roll set
+  'perCounterHitInWard', 'counterHitKillDuringWard', 'onCounterHitAilment',
+  'trapAilments', 'afterTrapPlacement', 'sdAilments',
+  'enemyAttacksAfterBeingHit', 'ailmentKillAfterFoK', 'ailmentAge',
+  'perSecondOnCooldown', 'perSecondRemainingOnWard', 'perSecondSinceArmed',
+  'perHitReceivedDuringWard',
 ]);
 
 export function evaluateConditionalMods(
