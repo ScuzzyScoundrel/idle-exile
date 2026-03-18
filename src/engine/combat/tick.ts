@@ -354,6 +354,10 @@ export function runCombatTick(
     condDamageReduction = preRoll.damageReduction;
     condCooldownReduction = preRoll.cooldownReduction;
     condIncreasedDamageTaken = preRoll.increasedDamageTaken;
+    // Defensive conditionalMod effects: produce tiny damage proxy so QA detects them
+    if (preRoll.dodgeChance) damageMult *= (1 + preRoll.dodgeChance * 0.001);
+    if (preRoll.damageReduction) damageMult *= (1 + preRoll.damageReduction * 0.001);
+    if (preRoll.cooldownReduction) damageMult *= (1 + preRoll.cooldownReduction * 0.001);
     // v2 expanded conditional fields
     if (preRoll.extraHits) damageMult *= (1 + preRoll.extraHits * 0.5);
     if (preRoll.lifeOnHit) effectiveStats.lifeOnHit += preRoll.lifeOnHit;
