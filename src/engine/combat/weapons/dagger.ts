@@ -429,7 +429,60 @@ export const daggerModule: WeaponModule = {
       if (typeof rb.absorbFromDamage === 'number') wardDamageMult *= (1 - rb.absorbFromDamage / 100);
     }
 
-    return { counterDamage, trapDamage, comboStates, bladeWardHits, activeTraps, wardDamageMult, healAmount };
+    // Evaluate object-trigger procs: create REAL temp buffs when conditions match
+    const newTempBuffs: { id: string; effect: Record<string, any>; duration: number; stacks: number; maxStacks: number }[] = [];
+    if (graphMod?.skillProcs?.length) {
+      const wardActive = bladeWardExpiresAt > 0 && now < bladeWardExpiresAt;
+      const targetStacks = ctx.targetDebuffs.reduce((s, d) => s + d.stacks, 0);
+      const trapsJustDetonated = trapDamage > 0;
+
+      for (const proc of graphMod.skillProcs) {
+        if (typeof proc.trigger !== 'object' || proc.trigger === null) continue;
+        const t = proc.trigger as Record<string, any>;
+        const buff = (proc as any).buff;
+        if (!buff) continue; // only handle buff-creating procs
+
+        let matched = true;
+        // Ward triggers
+        if (t.hitsReceivedInWard != null) matched = matched && wardActive && bladeWardHits >= t.hitsReceivedInWard;
+        if (t.counterCritsInWard != null) matched = matched && wardActive && bladeWardHits >= t.counterCritsInWard; // approx: use wardHits as crit proxy
+        if (t.counterHitAilmentStacksInWard != null) matched = matched && wardActive && targetStacks >= t.counterHitAilmentStacksInWard;
+        if (t.attackerAilmentStacks != null) matched = matched && targetStacks >= t.attackerAilmentStacks;
+        if (t.duringWard) matched = matched && wardActive;
+        if (t.dodgesDuringWard != null) matched = matched && wardActive && bladeWardHits >= t.dodgesDuringWard; // approx
+        // Detonation triggers
+        if (t.detonationCrit != null) matched = matched && trapsJustDetonated;
+        if (t.minArmTime != null) matched = matched && trapsJustDetonated;
+        if (t.detonationKills != null) matched = matched && trapsJustDetonated && (ctx.state.killStreak ?? 0) >= t.detonationKills;
+        if (t.detonationKillWithStacks != null) matched = matched && (ctx.state.killStreak ?? 0) > 0 && targetStacks >= t.detonationKillWithStacks;
+        if (t.triggerTargetAilmentStacks != null) matched = matched && targetStacks >= t.triggerTargetAilmentStacks;
+        if (t.detonationAilmentTargets != null) matched = matched && ctx.state.packMobs.length >= t.detonationAilmentTargets;
+        if (t.detonationTargets != null) matched = matched && ctx.state.packMobs.length >= t.detonationTargets;
+        if (t.dodgesWhileTrapArmed != null) matched = matched && ctx.state.activeTraps.some(tr => tr.isArmed);
+        // Dash triggers (evaluated here with available context)
+        if (t.dashHit != null) matched = matched && ctx.skill.id === 'dagger_shadow_dash';
+        if (t.empoweredSkillCritAndKill != null) matched = matched && comboStates.some(s => s.stateId === 'shadow_momentum') && (ctx.state.killStreak ?? 0) > 0;
+        if (t.passThroughAilmentedTargets != null) matched = matched && ctx.skill.id === 'dagger_shadow_dash' && targetStacks >= t.passThroughAilmentedTargets;
+        if (t.passThroughTargets != null) matched = matched && ctx.skill.id === 'dagger_shadow_dash' && ctx.state.packMobs.length >= t.passThroughTargets;
+        if (t.sdKill != null) matched = matched && ctx.skill.id === 'dagger_shadow_dash' && (ctx.state.killStreak ?? 0) > 0;
+        if (t.dodgeWithinWindow != null) matched = matched && attackResult && attackResult.isDodged;
+        if (t.dodgesAfterDash != null) matched = matched && attackResult && attackResult.isDodged;
+
+        if (matched) {
+          const buffId = buff.buffId ?? buff.id ?? (proc as any).id ?? 'object_trigger_buff';
+          const duration = buff.duration ?? 4;
+          newTempBuffs.push({
+            id: buffId,
+            effect: buff.effect ?? {},
+            duration,
+            stacks: 1,
+            maxStacks: buff.maxStacks ?? 1,
+          });
+        }
+      }
+    }
+
+    return { counterDamage, trapDamage, comboStates, bladeWardHits, activeTraps, wardDamageMult, healAmount, newTempBuffs };
   },
 };
 

@@ -111,6 +111,8 @@ export interface EnemyAttackResult {
   /** Ward DR multiplier for incoming damage (1 = no reduction). */
   wardDamageMult: number;
   healAmount: number;
+  /** Temp buffs created by object-trigger procs (ward/detonation/dash triggers). */
+  newTempBuffs: { id: string; effect: Record<string, any>; duration: number; stacks: number; maxStacks: number }[];
 }
 
 export interface KillResult {

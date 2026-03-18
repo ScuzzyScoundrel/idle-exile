@@ -1055,6 +1055,9 @@ export function runCombatTick(
           newComboStates = bossWardResult.comboStates;
           newActiveTraps = bossWardResult.activeTraps;
           procHeal += bossWardResult.healAmount;
+          for (const buff of bossWardResult.newTempBuffs) {
+            activeTempBuffs = [...activeTempBuffs, { ...buff, expiresAt: now + buff.duration * 1000, sourceSkillId: skill.id }];
+          }
         }
         playerHp -= cappedBossDmg;
         bossAttackResult = { damage: cappedBossDmg, isDodged: bossRoll.isDodged, isBlocked: bossRoll.isBlocked, isCrit: isBossCrit };
@@ -1677,6 +1680,9 @@ export function runCombatTick(
         newComboStates = clearWpn.comboStates;
         newActiveTraps = clearWpn.activeTraps;
         procHeal += clearWpn.healAmount;
+          for (const buff of clearWpn.newTempBuffs) {
+            activeTempBuffs = [...activeTempBuffs, { ...buff, expiresAt: now + buff.duration * 1000, sourceSkillId: skill.id }];
+          }
       }
       if (newCurrentEs > 0 && clearZoneDmg > 0) {
         const esAbs = Math.min(newCurrentEs, clearZoneDmg);
