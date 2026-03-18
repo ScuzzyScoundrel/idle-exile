@@ -125,6 +125,11 @@ export interface ResolvedSkillModifier {
   perPassThroughTarget: Record<string, any> | null;
   postCastDodgeWindow: { duration: number; dodgeChance: number } | null;
   shadowPhaseCounterDamage: number;          // % weapon damage on counter during shadow phase
+
+  // Generic passthrough: collects ALL modifier fields not on this type.
+  // Engine code reads specific keys (e.g., rawBehaviors.triggerCondition).
+  // New weapon types add novel fields here with zero merge code needed.
+  rawBehaviors: Record<string, any>;
 }
 
 /** Empty modifier (identity). */
@@ -235,6 +240,7 @@ export const EMPTY_GRAPH_MOD: ResolvedSkillModifier = {
   perPassThroughTarget: null,
   postCastDodgeWindow: null,
   shadowPhaseCounterDamage: 0,
+  rawBehaviors: {},
 };
 
 /**

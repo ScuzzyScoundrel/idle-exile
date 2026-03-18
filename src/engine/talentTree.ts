@@ -74,8 +74,14 @@ function autoMergeModifier(result: ResolvedSkillModifier, m: SkillModifier): voi
       continue;
     }
 
-    // Only merge fields that exist on the target type
-    if (!(key in EMPTY_GRAPH_MOD)) continue;
+    // Unknown fields → collect into rawBehaviors passthrough
+    if (!(key in EMPTY_GRAPH_MOD)) {
+      if (val != null && val !== 0 && val !== false) {
+        result.rawBehaviors[key] = val;
+      }
+      continue;
+    }
+    if (key === 'rawBehaviors') continue; // don't merge rawBehaviors into itself
     const emptyVal = (EMPTY_GRAPH_MOD as any)[key];
 
     // Number fields
@@ -264,6 +270,7 @@ export function resolveTalentModifiers(
     ...EMPTY_GRAPH_MOD,
     debuffs: [], procs: [], flags: [],
     conditionalMods: [], skillProcs: [], splitDamage: [], addTags: [], removeTags: [],
+    rawBehaviors: {},
   };
   let abilEffect: AbilityEffect = {};
   let globalEff: AbilityEffect = {};
@@ -303,6 +310,28 @@ export function resolveTalentModifiers(
         }
       }
       if (m.convertToAoE) result.convertToAoE = true;
+
+      // --- Normalize flat behavioral patterns into structured systems ---
+
+      // triggerCondition + buff/effect → synthesize a skillProc entry
+      if (m.triggerCondition || m.trigger) {
+        const trigger = (m.triggerCondition ?? m.trigger) as string;
+        const syntheticProc: Record<string, any> = {
+          id: `auto_${node.id}_${rank}`,
+          chance: (m as any).chance ?? 1,
+          trigger,
+        };
+        if ((m as any).icd) syntheticProc.internalCooldown = (m as any).icd;
+        if ((m as any).buff) {
+          const b = (m as any).buff;
+          syntheticProc.applyBuff = { buffId: b.id ?? b.buffId, effect: b.effect ?? {}, duration: b.duration ?? 5, ...b };
+        }
+        if ((m as any).effect && !(m as any).buff) {
+          syntheticProc.applyBuff = { effect: (m as any).effect, duration: 5 };
+        }
+        if ((m as any).comboModification) syntheticProc.comboModification = (m as any).comboModification;
+        result.skillProcs.push(syntheticProc as any);
+      }
     }
   }
 
