@@ -332,6 +332,9 @@ export function runCombatTick(
   let comboSplashPercent = 0;   // Dance Momentum: splash % to adjacent enemy
   let comboExtraChains = 0;     // Chain Surge: +N chain targets
   let comboBurstDamage = 0;     // Deep Wound: instant burst from consumed ailments
+  let comboFocusBurst = false;  // Shadow Mark + Blade Dance: all 3 hits target same enemy
+  let comboCounterDamageMult = 1; // Shadow Mark + Blade Ward: counter-hit multiplier
+  let comboMarkPassthrough = false; // Shadow Mark + Shadow Dash: mark persists for next skill
   if (consumeStateIds?.length) {
     const { consumed, remaining } = consumeMultipleComboStates(newComboStates, consumeStateIds);
     newComboStates = remaining;
@@ -373,6 +376,26 @@ export function runCombatTick(
       if (cs.stateId === 'dance_momentum') comboSplashPercent = 50;
       // Chain Surge: next skill chains to +1 enemy
       if (cs.stateId === 'chain_surge') comboExtraChains = 1;
+      // Shadow Mark per-skill specials
+      if (eff.focusBurst) comboFocusBurst = true;
+      if (eff.counterDamageMult) comboCounterDamageMult = eff.counterDamageMult;
+      if (eff.markPassthrough) comboMarkPassthrough = true;
+      // Shadow Mark + Blade Trap: burstDamage as detonation bonus (not deep wound)
+      if (eff.burstDamage && cs.stateId === 'shadow_mark') {
+        // Stored as extra detonation bonus for next trap
+        comboSplashPercent = Math.max(comboSplashPercent, eff.burstDamage);
+      }
+    }
+  }
+
+  // Shadow Mark passthrough: Shadow Dash consumed the mark but re-creates it for next skill
+  if (comboMarkPassthrough) {
+    const markConfig = COMBO_STATE_CREATORS['dagger_shadow_mark'];
+    if (markConfig) {
+      newComboStates = createComboState(
+        newComboStates, markConfig.stateId, 'dagger_shadow_dash',
+        markConfig.effect, markConfig.duration, markConfig.maxStacks,
+      );
     }
   }
 
@@ -926,7 +949,7 @@ export function runCombatTick(
     if (bossAttackResult && newBladeWardExpiresAt > 0 && now < newBladeWardExpiresAt) {
       newBladeWardHits++;
       // Base counter-hit: 50% weapon damage (talent counterHitDamage stacks on top)
-      const bossCounterBase = avgDamage * 0.50;
+      const bossCounterBase = avgDamage * 0.50 * comboCounterDamageMult;
       const bossCounterTalent = (graphMod?.counterHitDamage ?? 0) > 0 ? avgDamage * graphMod!.counterHitDamage / 100 : 0;
       const bossCounterTotal = bossCounterBase + bossCounterTalent;
       newBossHp -= bossCounterTotal;
@@ -1159,8 +1182,9 @@ export function runCombatTick(
   // Apply damage to pack mobs with per-mob DR
   if (updatedPackMobs.length > 0 && rawSkillDamage > 0) {
     const totalHits = Math.max(1, (skill.hitCount ?? 1) + (graphMod?.extraHits ?? 0));
-    if (totalHits > 1 && roll.isHit && updatedPackMobs.length > 1) {
+    if (totalHits > 1 && roll.isHit && updatedPackMobs.length > 1 && !comboFocusBurst) {
       // Sequential hits: hit 1→mob 0, hit 2→mob 1, hit 3→mob 2 (Blade Dance)
+      // comboFocusBurst overrides: all hits target front mob (Shadow Mark + Blade Dance)
       const perHitBaseDmg = roll.damage / totalHits;
       for (let h = 0; h < totalHits && h < updatedPackMobs.length; h++) {
         const mob = updatedPackMobs[h];
@@ -1508,7 +1532,7 @@ export function runCombatTick(
       if (newBladeWardExpiresAt > 0 && now < newBladeWardExpiresAt) {
         newBladeWardHits++;
         // Base counter-hit: 50% weapon damage (talent counterHitDamage stacks on top)
-        const baseCounterDmg = avgDamage * 0.50;
+        const baseCounterDmg = avgDamage * 0.50 * comboCounterDamageMult;
         const talentCounterDmg = (graphMod?.counterHitDamage ?? 0) > 0 ? avgDamage * graphMod!.counterHitDamage / 100 : 0;
         const counterTotal = baseCounterDmg + talentCounterDmg;
         mob.hp -= counterTotal;

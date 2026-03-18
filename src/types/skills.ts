@@ -383,6 +383,8 @@ export type DamageTag =
   | 'Attack' | 'Spell'
   // Delivery
   | 'Melee' | 'Projectile' | 'AoE' | 'DoT' | 'Channel'
+  // Role (dagger v2)
+  | 'Chain' | 'Trap' | 'Movement' | 'Defensive' | 'Utility' | 'Heavy'
   // Element
   | 'Physical' | 'Fire' | 'Cold' | 'Lightning' | 'Chaos';
 

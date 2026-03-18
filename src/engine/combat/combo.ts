@@ -36,14 +36,14 @@ export const COMBO_STATE_CREATORS: Record<string, ComboStateConfig> = {
   dagger_shadow_mark:   { stateId: 'shadow_mark',      duration: 5, maxStacks: 1, createOn: 'onCast',
                           effect: { incDamage: 20, perSkillBonus: {
                             dagger_stab:          { guaranteedCrit: true },
-                            dagger_blade_dance:   { incDamage: 30 },
+                            dagger_blade_dance:   { incDamage: 30, focusBurst: true },  // all 3 hits target same enemy
                             dagger_fan_of_knives: { incDamage: 30 },
                             dagger_viper_strike:  { ailmentPotency: 50 },
                             dagger_assassinate:   { cdRefundPercent: 50 },
                             dagger_chain_strike:  { extraChains: 2 },
-                            dagger_blade_ward:    { incDamage: 30 },
-                            dagger_blade_trap:    { incDamage: 50 },
-                            dagger_shadow_dash:   { incDamage: 20 },
+                            dagger_blade_ward:    { counterDamageMult: 2 },  // counter-hits deal double
+                            dagger_blade_trap:    { burstDamage: 50 },  // +50% detonation damage
+                            dagger_shadow_dash:   { markPassthrough: true },  // mark persists for next skill
                           } } },
   // Chain Strike: chaining to 3+ targets creates Chain Surge (3s)
   // Next single-target skill also chains to 1 additional enemy
@@ -64,8 +64,8 @@ export const COMBO_STATE_CONSUMERS: Record<string, string[]> = {
   // Deep Wound: consumed by Assassinate (+ Chain Strike) for burst
   // Shadow Mark: consumed by any skill on marked target
   dagger_assassinate:  ['exposed', 'deep_wound', 'shadow_mark'],
-  dagger_chain_strike: ['exposed', 'deep_wound', 'shadow_mark'],
-  dagger_blade_dance:  ['exposed', 'shadow_mark', 'dance_momentum'],
+  dagger_chain_strike: ['exposed', 'shadow_mark'],
+  dagger_blade_dance:  ['exposed', 'shadow_mark'],
   dagger_fan_of_knives:['exposed', 'shadow_mark'],
   dagger_viper_strike: ['exposed', 'shadow_mark'],
   dagger_blade_ward:   ['exposed', 'shadow_mark'],

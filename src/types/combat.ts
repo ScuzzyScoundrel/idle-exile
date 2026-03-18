@@ -182,6 +182,10 @@ export interface ComboStateEffect {
   cdRefundPercent?: number;       // % of consuming skill's CD refunded after consume
   extraChains?: number;           // bonus chain targets for consuming skill
   perSkillBonus?: Record<string, ComboStateEffect>;  // skill-specific overrides
+  // Shadow Mark per-skill specials
+  focusBurst?: boolean;         // Blade Dance: all hits target same enemy
+  counterDamageMult?: number;   // Blade Ward: multiply counter-hit damage
+  markPassthrough?: boolean;    // Shadow Dash: re-create mark after consume
 }
 
 export interface ComboState {
