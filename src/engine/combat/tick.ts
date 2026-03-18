@@ -285,6 +285,18 @@ export function runCombatTick(
       lastOverkillDamage: state.lastOverkillDamage, now,
       activeTempBuffIds: activeTempBuffs.map(b => b.id),
       killStreak: state.killStreak,
+      // v2 context
+      targetHpPercent: phase === 'boss_fight' && state.bossState
+        ? (state.bossState.bossCurrentHp / state.bossState.bossMaxHp) * 100
+        : (frontMobMaxHp > 0 ? (frontMobHp / frontMobMaxHp) * 100 : 100),
+      fortifyStacks: state.fortifyStacks,
+      packSize: state.packMobs.length,
+      wardActive: state.bladeWardExpiresAt > 0 && now < state.bladeWardExpiresAt,
+      comboStateIds: state.comboStates.map(s => s.stateId),
+      targetDebuffCount: targetDebuffs.length,
+      lastSkillId: skill.id,
+      lastDashAt: state.lastSkillsCast?.includes('dagger_shadow_dash') ? state.lastSkillActivation : undefined,
+      skillTimers: state.skillTimers as any,
     };
     const preRoll = evaluateConditionalMods(graphMod.conditionalMods, condCtx, 'pre-roll');
     if (preRoll.incCritChance) effectiveStats.critChance += preRoll.incCritChance;
@@ -425,6 +437,16 @@ export function runCombatTick(
       lastOverkillDamage: state.lastOverkillDamage, now,
       activeTempBuffIds: activeTempBuffs.map(b => b.id),
       killStreak: state.killStreak,
+      targetHpPercent: phase === 'boss_fight' && state.bossState
+        ? (state.bossState.bossCurrentHp / state.bossState.bossMaxHp) * 100
+        : (frontMobMaxHp > 0 ? (frontMobHp / frontMobMaxHp) * 100 : 100),
+      fortifyStacks: state.fortifyStacks,
+      packSize: state.packMobs.length,
+      wardActive: state.bladeWardExpiresAt > 0 && now < state.bladeWardExpiresAt,
+      comboStateIds: state.comboStates.map(s => s.stateId),
+      targetDebuffCount: targetDebuffs.length,
+      lastSkillId: skill.id,
+      skillTimers: state.skillTimers as any,
     };
     const postRoll = evaluateConditionalMods(graphMod.conditionalMods, postCtx, 'post-roll');
     if (postRoll.incDamage || postRoll.flatDamage || postRoll.damageMult !== 1) {

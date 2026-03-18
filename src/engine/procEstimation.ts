@@ -287,6 +287,31 @@ function estimateConditionUptime(
       return 1.0; // on-kill bonuses assumed active during clearing
     case 'whileFullHp':
       return 0.50;
+    // v2 conditions — heuristic uptimes for DPS estimation
+    case 'whileTargetBelowHp': return 0.40;
+    case 'whileAboveHp': return 0.70;
+    case 'whileFortifyStacks': return 0.50;
+    case 'perFortifyStack': return 0.50;
+    case 'perEnemyInPack': return 0.60;
+    case 'whileWardActive': return 0.30;     // 3s ward / ~10s cycle
+    case 'afterWardExpires': return 0.20;
+    case 'afterDash': return 0.40;
+    case 'afterDodge': return 0.30;
+    case 'afterDodgeOrBlock': return 0.40;
+    case 'whileDeepWoundActive': return 0.50;
+    case 'whileTargetAilmentCount': return 0.60;
+    case 'whileTargetSaturated': return 0.40;
+    case 'afterCastOnMultipleTargets': return 0.50;
+    case 'perTargetInLastCast': return 0.60;
+    case 'whileSkillOnCooldown': return 0.70;
+    case 'shadowMomentumActive': return 0.30;
+    case 'firstSkillInEncounter': return 0.15;
+    case 'afterCast': return 1.0;
+    case 'targetHasActiveAilment': return 0.70;
+    case 'whilePackSize': return 0.60;
+    case 'skillsCastSinceLast': return 0.60;
+    case 'perOwnAilmentOnTarget': return 0.50;
+    case 'perAilmentStackOnTarget': return 0.50;
     default:
       return 0;
   }

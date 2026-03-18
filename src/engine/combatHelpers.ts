@@ -29,6 +29,18 @@ export interface ConditionContext {
   now: number;
   activeTempBuffIds?: string[];   // for whileBuffActive condition
   killStreak?: number;            // for afterCastWithoutKill condition
+  // v2 context fields
+  targetHpPercent?: number;       // target mob HP as 0-100
+  fortifyStacks?: number;         // current fortify stacks
+  packSize?: number;              // number of mobs in current pack
+  wardActive?: boolean;           // blade ward window is active
+  wardJustExpired?: boolean;      // blade ward expired this tick
+  comboStateIds?: string[];       // active combo state IDs
+  targetDebuffCount?: number;     // number of debuffs on target
+  lastSkillId?: string;           // ID of skill that fired this tick
+  lastDashAt?: number;            // timestamp of last shadow dash
+  targetsHitLastCast?: number;    // number of targets hit by last cast
+  skillTimers?: { skillId: string; cooldownUntil: number | null }[];
 }
 
 export function evaluateCondition(
@@ -61,6 +73,36 @@ export function evaluateCondition(
     case 'onCast': return true;           // always true during a cast evaluation
     case 'onCastComplete': return true;   // always true (single-tick casts)
     case 'afterCastWithoutKill': return (ctx.killStreak ?? 0) === 0;
+    // v2 conditions
+    case 'whileTargetBelowHp': return (ctx.targetHpPercent ?? 100) < (threshold ?? 50);
+    case 'whileAboveHp': return (ctx.currentHp / ctx.effectiveMaxLife * 100) > (threshold ?? 80);
+    case 'whileFortifyStacks': return (ctx.fortifyStacks ?? 0) >= (threshold ?? 1);
+    case 'perFortifyStack': return (ctx.fortifyStacks ?? 0) >= 1;
+    case 'perEnemyInPack': return (ctx.packSize ?? 1) >= (threshold ?? 1);
+    case 'whileWardActive': return ctx.wardActive === true;
+    case 'afterWardExpires': return ctx.wardJustExpired === true;
+    case 'afterDash': return ctx.lastDashAt != null && ctx.now - ctx.lastDashAt < 3000;
+    case 'afterDodge': return ctx.now - ctx.lastDodgeAt < BLOCK_DODGE_RECENCY_WINDOW;
+    case 'afterDodgeOrBlock': return ctx.now - ctx.lastDodgeAt < BLOCK_DODGE_RECENCY_WINDOW || ctx.now - ctx.lastBlockAt < BLOCK_DODGE_RECENCY_WINDOW;
+    case 'whileDeepWoundActive': return ctx.comboStateIds?.includes('deep_wound') ?? false;
+    case 'whileTargetAilmentCount': return ctx.targetDebuffCount != null && ctx.targetDebuffCount >= (threshold ?? 1);
+    case 'whileTargetSaturated': return ctx.comboStateIds?.includes('saturated') ?? false;
+    case 'afterCastOnMultipleTargets': return (ctx.targetsHitLastCast ?? 1) >= (threshold ?? 2);
+    case 'perTargetInLastCast': return (ctx.targetsHitLastCast ?? 1) >= 1;
+    case 'whileSkillOnCooldown': return ctx.skillTimers?.some(t => t.cooldownUntil != null && t.cooldownUntil > ctx.now) ?? false;
+    case 'afterDetonation': return false; // evaluated separately in trap detonation block
+    case 'onDetonation': return false;    // evaluated separately in trap detonation block
+    case 'previousSkillWas': return false; // would need last-skill tracking
+    case 'skillsCastSinceLast': return true; // approximate: assume active rotation
+    case 'shadowMomentumActive': return ctx.comboStateIds?.includes('shadow_momentum') ?? false;
+    case 'onDashCast': return ctx.lastSkillId === 'dagger_shadow_dash';
+    case 'firstSkillInEncounter': return ctx.consecutiveHits === 0;
+    case 'afterCast': return true; // always true during cast evaluation
+    case 'targetHasActiveAilment': return (ctx.targetDebuffCount ?? 0) > 0;
+    case 'whilePackSize': return (ctx.packSize ?? 1) >= (threshold ?? 1);
+    case 'whileTargetsHit': return (ctx.targetsHitLastCast ?? 1) >= (threshold ?? 1);
+    case 'perOwnAilmentOnTarget': return (ctx.targetDebuffCount ?? 0) >= 1;
+    case 'perAilmentStackOnTarget': return (ctx.targetDebuffCount ?? 0) >= 1;
     default: return false;
   }
 }
@@ -80,6 +122,16 @@ const PRE_ROLL_CONDITIONS: Set<TriggerCondition> = new Set([
   'whileLowHp', 'whileFullHp', 'whileDebuffActive',
   'afterConsecutiveHits', 'onBossPhase', 'whileBuffActive',
   'afterCastWithoutKill',
+  // v2 pre-roll conditions (state-based, affect the damage roll)
+  'whileTargetBelowHp', 'whileAboveHp', 'whileFortifyStacks', 'perFortifyStack',
+  'perEnemyInPack', 'whileWardActive', 'afterWardExpires', 'afterDash',
+  'afterDodge', 'afterDodgeOrBlock', 'whileDeepWoundActive',
+  'whileTargetAilmentCount', 'whileTargetSaturated',
+  'afterCastOnMultipleTargets', 'perTargetInLastCast',
+  'whileSkillOnCooldown', 'shadowMomentumActive', 'onDashCast',
+  'firstSkillInEncounter', 'afterCast', 'targetHasActiveAilment',
+  'whilePackSize', 'whileTargetsHit', 'skillsCastSinceLast',
+  'perOwnAilmentOnTarget', 'perAilmentStackOnTarget',
 ]);
 
 export function evaluateConditionalMods(
