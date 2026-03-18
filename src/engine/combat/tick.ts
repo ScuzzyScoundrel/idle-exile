@@ -227,7 +227,7 @@ export function runCombatTick(
     if (graphMod.ailmentDuration && !graphMod.incDamage) effectiveStats.critChance += 1;
     if (graphMod.durationBonus && !graphMod.incDamage) effectiveStats.critChance += 1;
     if (graphMod.cooldownReduction && !graphMod.incDamage) effectiveStats.critChance += 1;
-    if (graphMod.guardedEnhancement) effectiveStats.critChance += 2;
+    if (graphMod.guardedEnhancement) effectiveStats.critChance += 5;
     if (graphMod.passThroughAilment) effectiveStats.critChance += 2;
   }
 

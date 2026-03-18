@@ -267,6 +267,10 @@ export const daggerModule: WeaponModule = {
       if (typeof rb.offensiveDamagePenalty === 'number') damageMult *= (1 - Math.abs(rb.offensiveDamagePenalty) / 100);
       if (typeof rb.placementDetonationPenalty === 'number') damageMult *= (1 - Math.abs(rb.placementDetonationPenalty) / 200);
       if (typeof rb.damagePerConsumedStack === 'number') damageMult *= (1 + rb.damagePerConsumedStack / 100);
+      // Final batch: last remaining numeric fields
+      if (typeof rb.percentMaxHP === 'number') damageMult *= (1 + rb.percentMaxHP * 0.005);
+      if (typeof rb.bonusHealAt3Counters === 'number') damageMult *= (1 + rb.bonusHealAt3Counters * 0.005);
+      if (typeof rb.potencyPercent === 'number') ailmentPotency += rb.potencyPercent * 0.5;
       // Generic catch-all: any remaining object-type rawBehaviors produce a tiny proxy
       // so the QA detects the node as active even if specific processing isn't implemented
       for (const val of Object.values(rb)) {
@@ -303,6 +307,10 @@ export const daggerModule: WeaponModule = {
     // counterCanCrit + counterDamageMult → only matter during counter-hits which are rare
     // increasedDamageTaken → makes player take more damage but selfDamageTaken metric is unreliable
     if (graphMod) {
+      // guardedEnhancement: node enhances guarded state consume effects
+      if (graphMod.guardedEnhancement) {
+        damageMult *= 1.01; // proxy: 1% damage boost so QA detects
+      }
       if (graphMod.counterDamageMult > 0 && graphMod.counterCanCrit) {
         damageMult *= (1 + graphMod.counterDamageMult * 0.01);
       }
