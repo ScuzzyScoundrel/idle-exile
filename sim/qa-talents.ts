@@ -69,6 +69,11 @@ interface AggregateMetrics {
   cooldownResets: number;
   debuffsApplied: number;
   selfDamageTaken: number;
+  // Defensive metrics: detect dodge/DR/resist effects
+  finalHp: number;
+  totalIncomingDamage: number;
+  dodgeCount: number;
+  skillCasts: number;
 }
 
 interface DynamicResult {
@@ -353,6 +358,10 @@ function createEmptyMetrics(): AggregateMetrics {
     cooldownResets: 0,
     debuffsApplied: 0,
     selfDamageTaken: 0,
+    finalHp: 0,
+    totalIncomingDamage: 0,
+    dodgeCount: 0,
+    skillCasts: 0,
   };
 }
 
@@ -382,6 +391,14 @@ function accumulateMetrics(
   metrics.fortifyStacksMax = Math.max(metrics.fortifyStacksMax, state.fortifyStacks ?? 0);
   metrics.tempBuffCount = Math.max(metrics.tempBuffCount, (state.tempBuffs ?? []).length);
   metrics.comboStatesCreated = Math.max(metrics.comboStatesCreated, (state.comboStates ?? []).length);
+
+  // Defensive metrics
+  metrics.finalHp = state.currentHp;
+  if (result.zoneAttack?.damage) metrics.totalIncomingDamage += result.zoneAttack.damage;
+  if (result.bossAttack?.damage) metrics.totalIncomingDamage += result.bossAttack.damage;
+  if (result.zoneAttack?.isDodged) metrics.dodgeCount++;
+  if (result.bossAttack?.isDodged) metrics.dodgeCount++;
+  if (result.skillFired) metrics.skillCasts++;
 
   if (state.packMobs?.[0]) {
     metrics.debuffsApplied = Math.max(metrics.debuffsApplied, state.packMobs[0].debuffs.length);
@@ -429,6 +446,7 @@ function runDynamicCheck(skillId: string, tree: TalentTree, node: TalentNode, ti
     'totalDamage', 'totalDotDamage', 'totalProcDamage', 'totalKills', 'totalCrits',
     'totalHits', 'procsFiredCount', 'healingReceived', 'fortifyStacksMax',
     'tempBuffCount', 'comboStatesCreated', 'cooldownResets', 'debuffsApplied', 'selfDamageTaken',
+    'finalHp', 'totalIncomingDamage', 'dodgeCount', 'skillCasts',
   ] as const;
 
   for (const key of metricKeys) {
