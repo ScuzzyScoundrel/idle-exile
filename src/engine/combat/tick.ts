@@ -674,6 +674,20 @@ export function runCombatTick(
     }
   }
 
+  // Venomous Persistence: non-VS skill hits refresh VS poison durations on target
+  if (roll.isHit && skill.id !== 'dagger_viper_strike' && graphMod?.rawBehaviors?.viperStrikeAilmentRefresh) {
+    const poisonDebuff = newDebuffs.find(d => d.debuffId === 'poisoned');
+    if (poisonDebuff?.instances) {
+      const refreshDur = 5 * (1 + (effectiveStats.ailmentDuration ?? 0) / 100);
+      for (const inst of poisonDebuff.instances) {
+        if (inst.appliedBySkillId === 'dagger_viper_strike') {
+          inst.remainingDuration = refreshDur;
+        }
+      }
+      poisonDebuff.remainingDuration = Math.max(poisonDebuff.remainingDuration, refreshDur);
+    }
+  }
+
   // Weapon postCast hook: combo state creation, ward activation, trap placement
   let newBladeWardExpiresAt = state.bladeWardExpiresAt;
   let newBladeWardHits = state.bladeWardHits;
@@ -1425,6 +1439,22 @@ export function runCombatTick(
         procGcdWasReset = true;
       }
       killProcDebuffs = killPr.newDebuffs;
+
+      // onAilmentKill: fire when dying mob had active ailments (Venom Nova, etc.)
+      if (preDeathDebuffs.length > 0) {
+        const ailmentKillPr = evaluateProcs(graphMod.skillProcs, 'onAilmentKill' as any, killProcCtx);
+        Object.assign(newLastProcTriggerAt, ailmentKillPr.procTriggeredAt);
+        allProcsFired.push(...ailmentKillPr.procsFired);
+        allProcEvents.push(...buildProcEvents(ailmentKillPr, skill.id));
+        procDamage += ailmentKillPr.bonusDamage;
+        procHeal += ailmentKillPr.healAmount;
+        // Venom Nova: AoE ailment explosion damage to remaining mobs
+        if (ailmentKillPr.bonusDamage > 0 && updatedPackMobs.length > 1) {
+          for (let i = 1; i < updatedPackMobs.length; i++) {
+            updatedPackMobs[i].hp -= ailmentKillPr.bonusDamage * 0.8;
+          }
+        }
+      }
     }
 
     // Unique: burnExplosionPercent — burning enemies explode on kill (Emberheart Pendant)
