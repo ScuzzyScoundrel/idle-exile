@@ -331,6 +331,7 @@ export function runCombatTick(
   let comboCdRefundPercent = 0;
   let comboSplashPercent = 0;   // Dance Momentum: splash % to adjacent enemy
   let comboExtraChains = 0;     // Chain Surge: +N chain targets
+  let comboBurstDamage = 0;     // Deep Wound: instant burst from consumed ailments
   if (consumeStateIds?.length) {
     const { consumed, remaining } = consumeMultipleComboStates(newComboStates, consumeStateIds);
     newComboStates = remaining;
@@ -346,6 +347,27 @@ export function runCombatTick(
       if (eff.guaranteedCrit) effectiveStats.critChance = 100;
       if (eff.ailmentPotency) comboAilmentPotency += eff.ailmentPotency;
       if (eff.cdRefundPercent) comboCdRefundPercent += eff.cdRefundPercent;
+
+      // Deep Wound burst: consume remaining ailment ticks as instant damage
+      if (eff.burstDamage && cs.stateId === 'deep_wound') {
+        // Sum all remaining ailment damage on the target and fire as instant burst
+        let ailmentBurst = 0;
+        const targetDebs = targetDebuffs;
+        for (const deb of targetDebs) {
+          if (deb.instances) {
+            // Instance-based (poison): sum snapshot × remaining ticks
+            for (const inst of deb.instances) {
+              ailmentBurst += inst.snapshot * inst.remainingDuration;
+            }
+          } else if (deb.stackSnapshots?.length) {
+            // Stack-based (bleed): sum all stack snapshots × remaining duration
+            const stackTotal = deb.stackSnapshots.reduce((a, b) => a + b, 0);
+            ailmentBurst += stackTotal * (deb.remainingDuration ?? 0);
+          }
+        }
+        // Apply burst as % of total ailment damage (burstDamage = 50 means 50% of remaining)
+        comboBurstDamage += ailmentBurst * (eff.burstDamage / 100);
+      }
 
       // Dance Momentum: splash 50% damage to adjacent enemy
       if (cs.stateId === 'dance_momentum') comboSplashPercent = 50;
@@ -885,6 +907,10 @@ export function runCombatTick(
         const mainBossFortifyDR = calcFortifyDR(newFortifyStacks, newFortifyExpiresAt, newFortifyDRPerStack, now, effectiveStats.fortifyEffect);
         if (mainBossFortifyDR > 0) cappedBossDmg *= (1 - mainBossFortifyDR);
         if (effectiveStats.damageTakenReduction > 0) cappedBossDmg *= (1 - effectiveStats.damageTakenReduction / 100);
+        // Blade Ward: 15% DR during ward window
+        if (newBladeWardExpiresAt > 0 && now < newBladeWardExpiresAt) {
+          cappedBossDmg *= 0.85;
+        }
         playerHp -= cappedBossDmg;
         bossAttackResult = { damage: cappedBossDmg, isDodged: bossRoll.isDodged, isBlocked: bossRoll.isBlocked, isCrit: isBossCrit };
         nextAttack = now + bs.bossAttackInterval * mainEnemyMods.atkSpeedSlowMult * 1000;
@@ -896,9 +922,15 @@ export function runCombatTick(
     if (bossAttackResult?.isDodged) newLastDodgeAt = now;
     if (bossAttackResult && bossAttackResult.damage > 0) newKillStreak = 0;
 
-    // Blade Ward: count hits during ward window, create Guarded at 3+
+    // Blade Ward: count hits during ward window + base 50% WD counter-hit + Guarded at 3+
     if (bossAttackResult && newBladeWardExpiresAt > 0 && now < newBladeWardExpiresAt) {
       newBladeWardHits++;
+      // Base counter-hit: 50% weapon damage (talent counterHitDamage stacks on top)
+      const bossCounterBase = avgDamage * 0.50;
+      const bossCounterTalent = (graphMod?.counterHitDamage ?? 0) > 0 ? avgDamage * graphMod!.counterHitDamage / 100 : 0;
+      const bossCounterTotal = bossCounterBase + bossCounterTalent;
+      newBossHp -= bossCounterTotal;
+      totalDamage += bossCounterTotal;
       if (newBladeWardHits >= 3 && !newComboStates.some(s => s.stateId === 'guarded')) {
         newComboStates = createComboState(
           newComboStates, 'guarded', 'dagger_blade_ward',
@@ -1118,6 +1150,7 @@ export function runCombatTick(
   }
   if (chargeSpendDamage > 0) rawSkillDamage += chargeSpendDamage;
   if (consumeBurstDamage > 0) rawSkillDamage += consumeBurstDamage;
+  if (comboBurstDamage > 0) rawSkillDamage += comboBurstDamage;
   if (procDamage > 0) rawSkillDamage += procDamage;
 
   // Per-hit tracking for sequential hits (Blade Dance combat log)
@@ -1458,6 +1491,10 @@ export function runCombatTick(
       const mainClearFortifyDR = calcFortifyDR(newFortifyStacks, newFortifyExpiresAt, newFortifyDRPerStack, now, effectiveStats.fortifyEffect);
       if (mainClearFortifyDR > 0) clearZoneDmg *= (1 - mainClearFortifyDR);
       if (effectiveStats.damageTakenReduction > 0) clearZoneDmg *= (1 - effectiveStats.damageTakenReduction / 100);
+      // Blade Ward: 15% DR during ward window
+      if (newBladeWardExpiresAt > 0 && now < newBladeWardExpiresAt) {
+        clearZoneDmg *= 0.85;
+      }
       if (newCurrentEs > 0 && clearZoneDmg > 0) {
         const esAbs = Math.min(newCurrentEs, clearZoneDmg);
         newCurrentEs -= esAbs;
@@ -1466,6 +1503,40 @@ export function runCombatTick(
       playerHp -= clearZoneDmg;
       zoneAttackResult = zoneRoll;
       mob.nextAttackAt = now + ZONE_ATTACK_INTERVAL * mobEnemyMods.atkSpeedSlowMult * mobRareAtkMult * 1000;
+
+      // Blade Ward: count hit during ward window + base 50% WD counter-hit
+      if (newBladeWardExpiresAt > 0 && now < newBladeWardExpiresAt) {
+        newBladeWardHits++;
+        // Base counter-hit: 50% weapon damage (talent counterHitDamage stacks on top)
+        const baseCounterDmg = avgDamage * 0.50;
+        const talentCounterDmg = (graphMod?.counterHitDamage ?? 0) > 0 ? avgDamage * graphMod!.counterHitDamage / 100 : 0;
+        const counterTotal = baseCounterDmg + talentCounterDmg;
+        mob.hp -= counterTotal;
+        totalDamage += counterTotal;
+        // Create Guarded at 3+ hits
+        if (newBladeWardHits >= 3 && !newComboStates.some(s => s.stateId === 'guarded')) {
+          newComboStates = createComboState(
+            newComboStates, 'guarded', 'dagger_blade_ward',
+            { incDamage: 20 }, 3, 1,
+          );
+        }
+      }
+
+      // Trap detonation: mob attacking triggers armed traps (clearing)
+      if (newActiveTraps.length > 0) {
+        const { detonated, remaining: trapsRemaining } = detonateTrap(newActiveTraps);
+        if (detonated) {
+          newActiveTraps = trapsRemaining;
+          const detBonus = 1 + (graphMod?.detonationDamageBonus ?? 0) / 100;
+          const trapDmg = detonated.damage * detBonus;
+          // AoE detonation: damage all pack mobs
+          for (const pm of updatedPackMobs) {
+            const pmDR = pm.rare?.combinedDamageTakenMult ?? 1;
+            pm.hp -= trapDmg * pmDR;
+          }
+          totalDamage += trapDmg * updatedPackMobs.length;
+        }
+      }
     }
   }
 
