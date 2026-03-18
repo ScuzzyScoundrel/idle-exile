@@ -1,0 +1,142 @@
+// ============================================================
+// Weapon Module Interface — hook-based weapon-specific combat logic
+// tick.ts calls optional hooks at 6 pipeline points.
+// Each hook receives focused context and returns a partial patch.
+// ============================================================
+
+import type {
+  GameState,
+  CombatPhase,
+  ActiveDebuff,
+  ResolvedStats,
+  SkillDef,
+  ActiveSkillDef,
+  ComboState,
+} from '../../../types';
+import type { ResolvedSkillModifier } from '../../skillGraph';
+import type { ConditionContext } from '../../combatHelpers';
+import type { TrapState } from '../traps';
+
+// ── Shared context available to all weapon hooks ──
+
+export interface WeaponTickContext {
+  state: GameState;
+  skill: SkillDef | ActiveSkillDef;
+  graphMod: ResolvedSkillModifier | null;
+  effectiveStats: ResolvedStats;
+  effectiveMaxLife: number;
+  dtSec: number;
+  now: number;
+  phase: CombatPhase;
+  avgDamage: number;
+  spellPower: number;
+  targetDebuffs: ActiveDebuff[];
+}
+
+// ── Hook-specific context extensions ──
+
+export interface PreRollContext extends WeaponTickContext {
+  comboStates: ComboState[];
+  damageMult: number;
+}
+
+export interface PostCastContext extends WeaponTickContext {
+  roll: { damage: number; isHit: boolean; isCrit: boolean };
+  comboStates: ComboState[];
+  bladeWardExpiresAt: number;
+  bladeWardHits: number;
+  activeTraps: TrapState[];
+  ailmentSnapshot: number;
+}
+
+export interface EnemyAttackContext extends WeaponTickContext {
+  attackResult: { damage: number; isDodged: boolean; isBlocked: boolean; isCrit?: boolean } | null;
+  comboStates: ComboState[];
+  bladeWardExpiresAt: number;
+  bladeWardHits: number;
+  activeTraps: TrapState[];
+  comboCounterDamageMult: number;
+  /** The target taking damage — boss HP for boss phase, mob for clearing. */
+  isBossPhase: boolean;
+}
+
+export interface KillContext extends WeaponTickContext {
+  comboStates: ComboState[];
+  mobKills: number;
+}
+
+// ── Hook result types ──
+
+export interface MaintenanceResult {
+  comboStates?: ComboState[];
+  activeTraps?: TrapState[];
+  bladeWardExpiresAt?: number;
+  bladeWardHits?: number;
+}
+
+export interface PreRollResult {
+  comboStates: ComboState[];
+  /** Additive damage multiplier adjustments (applied as damageMult *= value). */
+  damageMult: number;
+  critChanceBonus: number;
+  critMultiplierBonus: number;
+  guaranteedCrit: boolean;
+  ailmentPotency: number;
+  cdRefundPercent: number;
+  splashPercent: number;
+  extraChains: number;
+  burstDamage: number;
+  focusBurst: boolean;
+  counterDamageMult: number;
+  markPassthrough: boolean;
+  cdAcceleration: number;
+  consumedStateIds: string[];
+}
+
+export interface PostCastResult {
+  comboStates: ComboState[];
+  bladeWardExpiresAt: number;
+  bladeWardHits: number;
+  activeTraps: TrapState[];
+}
+
+export interface EnemyAttackResult {
+  /** Counter-hit damage dealt to the attacking enemy. */
+  counterDamage: number;
+  /** Trap detonation damage (boss: to boss only, clearing: AoE to all mobs). */
+  trapDamage: number;
+  comboStates: ComboState[];
+  bladeWardHits: number;
+  activeTraps: TrapState[];
+  /** Ward DR multiplier for incoming damage (1 = no reduction). */
+  wardDamageMult: number;
+  healAmount: number;
+}
+
+export interface KillResult {
+  comboStates: ComboState[];
+}
+
+// ── Weapon Module Interface ──
+
+export interface WeaponModule {
+  readonly weaponType: string;
+
+  /** Every tick, before skill resolution. Tick timers, expire states. */
+  tickMaintenance?(ctx: WeaponTickContext): MaintenanceResult;
+
+  /** Before conditionalMod evaluation. Return extra fields for ConditionContext. */
+  extendConditionContext?(ctx: WeaponTickContext): Partial<ConditionContext>;
+
+  /** After stats resolved, before rollSkillCast. Consume combo states → bonuses. */
+  preRoll?(ctx: PreRollContext): PreRollResult;
+
+  /** After roll + damage calc. Create combo states, activate ward, place traps. */
+  postCast?(ctx: PostCastContext): PostCastResult;
+
+  /** When mob/boss attack resolves. Ward DR, counter-hits, trap detonation. */
+  onEnemyAttack?(ctx: EnemyAttackContext): EnemyAttackResult;
+
+  /** Per mob death. Combo state creation on kill. */
+  onKill?(ctx: KillContext): KillResult;
+}

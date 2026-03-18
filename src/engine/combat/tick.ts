@@ -52,11 +52,6 @@ import {
   mergeProcTempBuff,
   type SpreadResult,
 } from './helpers';
-import {
-  COMBO_STATE_CREATORS, COMBO_STATE_CONSUMERS,
-  tickComboStates, consumeComboState, consumeMultipleComboStates, createComboState,
-} from './combo';
-import { tickTraps, detonateTrap } from './traps';
 import { isSkillAoE, spawnPack } from '../packs';
 import { isZoneInvaded } from '../invasions';
 import {
@@ -84,6 +79,10 @@ import { applyZoneDamage } from './zoneAttack';
 import { noResult } from './types';
 import type { CombatTickOutput } from './types';
 export type { CombatTickOutput } from './types';
+
+// ── Weapon module system ──
+import { getWeaponModule } from './weapons/registry';
+import './weapons/dagger'; // side-effect: registers dagger module
 
 // ── Structured proc event type (mirrors CombatTickResult.procEvents element) ──
 type ProcEvent = {
@@ -220,6 +219,9 @@ export function runCombatTick(
     }
   }
 
+  // Weapon module: hook-based weapon-specific combat logic
+  const weaponMod = getWeaponModule(state.character.equipment.mainhand?.weaponType);
+
   // Effective max life (reducedMaxLife keystone) — hoisted for condition evaluation
   const effectiveMaxLife = graphMod?.reducedMaxLife
     ? stats.maxLife * (1 - graphMod.reducedMaxLife / 100)
@@ -300,6 +302,12 @@ export function runCombatTick(
     damageMult *= (1 + graphMod.executeOnly.bonusDamage / 100);
   }
 
+  // Weapon-specific condition context extension (computed once, used in both pre/post-roll)
+  const weaponCondExt = weaponMod?.extendConditionContext?.({
+    state, skill, graphMod, effectiveStats, effectiveMaxLife,
+    dtSec, now, phase, avgDamage: 0, spellPower: 0, targetDebuffs,
+  }) ?? {};
+
   // Pre-roll conditional modifiers (while conditions)
   let condSpeedBonus = 0;
   let condAilmentPotency = 0;
@@ -317,25 +325,17 @@ export function runCombatTick(
       lastOverkillDamage: state.lastOverkillDamage, now,
       activeTempBuffIds: activeTempBuffs.map(b => b.id),
       killStreak: state.killStreak,
-      // v2 context
       targetHpPercent: phase === 'boss_fight' && state.bossState
         ? (state.bossState.bossCurrentHp / state.bossState.bossMaxHp) * 100
         : (frontMobMaxHp > 0 ? (frontMobHp / frontMobMaxHp) * 100 : 100),
       fortifyStacks: state.fortifyStacks,
       packSize: state.packMobs.length,
-      wardActive: state.bladeWardExpiresAt > 0 && now < state.bladeWardExpiresAt,
-      comboStateIds: state.comboStates.map(s => s.stateId),
       targetDebuffCount: targetDebuffs.length,
       lastSkillId: skill.id,
-      lastDashAt: state.lastSkillsCast?.includes('dagger_shadow_dash') ? state.lastSkillActivation : undefined,
       skillTimers: state.skillTimers as any,
-      // Sprint 1E: expanded context
-      wardHits: state.bladeWardHits,
       lastSkillsCast: state.lastSkillsCast,
-      activeTrapsCount: state.activeTraps.length,
-      wardExpiresAt: state.bladeWardExpiresAt,
-      trapArmedAt: state.activeTraps.length > 0 ? state.activeTraps[0].placedAt : undefined,
       totalTargetDebuffStacks: targetDebuffs.reduce((sum, d) => sum + d.stacks, 0),
+      ...weaponCondExt,
     };
     const preRoll = evaluateConditionalMods(graphMod.conditionalMods, condCtx, 'pre-roll');
     if (preRoll.incCritChance) effectiveStats.critChance += preRoll.incCritChance;
@@ -397,90 +397,37 @@ export function runCombatTick(
   // Element transform: per-skill element override (Dagger v2)
   const elementTransform = state.elementTransforms[skill.id] ?? undefined;
 
-  // Combo state: tick expiry + consume before damage calc
-  let newComboStates = tickComboStates([...state.comboStates], dtSec);
-  const consumeStateIds = COMBO_STATE_CONSUMERS[skill.id];
+  // Weapon preRoll hook: tick + consume combo states → damage/crit/potency bonuses
+  let newComboStates = [...state.comboStates];
   let comboAilmentPotency = 0;
   let comboCdRefundPercent = 0;
-  let comboSplashPercent = 0;   // Dance Momentum: splash % to adjacent enemy
-  let comboExtraChains = 0;     // Chain Surge: +N chain targets
-  let comboBurstDamage = 0;     // Deep Wound: instant burst from consumed ailments
-  let comboFocusBurst = false;  // Shadow Mark + Blade Dance: all 3 hits target same enemy
-  let comboCounterDamageMult = 1; // Shadow Mark + Blade Ward: counter-hit multiplier
-  let comboMarkPassthrough = false; // Shadow Mark + Shadow Dash: mark persists for next skill
-  const consumedComboStateIds: string[] = [];  // track for conditionParam.consumesBothStates
-  if (consumeStateIds?.length) {
-    const { consumed, remaining } = consumeMultipleComboStates(newComboStates, consumeStateIds);
-    newComboStates = remaining;
-    for (const cs of consumed) consumedComboStateIds.push(cs.stateId);
-    for (const cs of consumed) {
-      // Resolve per-skill bonus + talent tree enhancements
-      const perSkill = cs.effect.perSkillBonus?.[skill.id];
-      const enhance = graphMod?.comboStateEnhance?.[cs.stateId];
-      const eff = { ...cs.effect, ...perSkill, ...enhance };
-
-      if (eff.incDamage) damageMult *= (1 + eff.incDamage / 100);
-      if (eff.incCritChance) effectiveStats.critChance += eff.incCritChance;
-      if (eff.incCritMultiplier) effectiveStats.critMultiplier += eff.incCritMultiplier;
-      if (eff.guaranteedCrit) effectiveStats.critChance = 100;
-      if (eff.ailmentPotency) comboAilmentPotency += eff.ailmentPotency;
-      if (eff.cdRefundPercent) comboCdRefundPercent += eff.cdRefundPercent;
-
-      // Deep Wound burst: consume remaining ailment ticks as instant damage
-      if (eff.burstDamage && cs.stateId === 'deep_wound') {
-        // Sum all remaining ailment damage on the target and fire as instant burst
-        let ailmentBurst = 0;
-        const targetDebs = targetDebuffs;
-        for (const deb of targetDebs) {
-          if (deb.instances) {
-            // Instance-based (poison): sum snapshot × remaining ticks
-            for (const inst of deb.instances) {
-              ailmentBurst += inst.snapshot * inst.remainingDuration;
-            }
-          } else if (deb.stackSnapshots?.length) {
-            // Stack-based (bleed): sum all stack snapshots × remaining duration
-            const stackTotal = deb.stackSnapshots.reduce((a, b) => a + b, 0);
-            ailmentBurst += stackTotal * (deb.remainingDuration ?? 0);
-          }
-        }
-        // Apply burst as % of total ailment damage (burstDamage = 50 means 50% of remaining)
-        comboBurstDamage += ailmentBurst * (eff.burstDamage / 100);
-      }
-
-      // Dance Momentum: splash 50% damage to adjacent enemy
-      if (cs.stateId === 'dance_momentum') comboSplashPercent = 50;
-      // Chain Surge: next skill chains to +1 enemy
-      if (cs.stateId === 'chain_surge') comboExtraChains = 1;
-      // Shadow Mark per-skill specials
-      if (eff.focusBurst) comboFocusBurst = true;
-      if (eff.counterDamageMult) comboCounterDamageMult = eff.counterDamageMult;
-      if (eff.markPassthrough) comboMarkPassthrough = true;
-      // Shadow Mark + Blade Trap: burstDamage as detonation bonus (not deep wound)
-      if (eff.burstDamage && cs.stateId === 'shadow_mark') {
-        // Stored as extra detonation bonus for next trap
-        comboSplashPercent = Math.max(comboSplashPercent, eff.burstDamage);
-      }
-    }
-  }
-
-  // Shadow Mark passthrough: Shadow Dash consumed the mark but re-creates it for next skill
-  if (comboMarkPassthrough) {
-    const markConfig = COMBO_STATE_CREATORS['dagger_shadow_mark'];
-    if (markConfig) {
-      newComboStates = createComboState(
-        newComboStates, markConfig.stateId, 'dagger_shadow_dash',
-        markConfig.effect, markConfig.duration, markConfig.maxStacks,
-      );
-    }
-  }
-
-  // Combo state: consume cooldown acceleration (Shadow Momentum, etc.)
+  let comboSplashPercent = 0;
+  let comboExtraChains = 0;
+  let comboBurstDamage = 0;
+  let comboFocusBurst = false;
+  let comboCounterDamageMult = 1;
   let cdAcceleration = 0;
-  const accelState = newComboStates.find(s => s.effect.cooldownAcceleration);
-  if (accelState) {
-    cdAcceleration = accelState.effect.cooldownAcceleration ?? 0;
-    const { remaining: accelRemaining } = consumeComboState(newComboStates, accelState.stateId);
-    newComboStates = accelRemaining;
+  const consumedComboStateIds: string[] = [];
+  if (weaponMod?.preRoll) {
+    const pr = weaponMod.preRoll({
+      state, skill, graphMod, effectiveStats, effectiveMaxLife,
+      dtSec, now, phase, avgDamage, spellPower, targetDebuffs,
+      comboStates: state.comboStates, damageMult,
+    });
+    newComboStates = pr.comboStates;
+    damageMult *= pr.damageMult;
+    effectiveStats.critChance += pr.critChanceBonus;
+    effectiveStats.critMultiplier += pr.critMultiplierBonus;
+    if (pr.guaranteedCrit) effectiveStats.critChance = 100;
+    comboAilmentPotency = pr.ailmentPotency;
+    comboCdRefundPercent = pr.cdRefundPercent;
+    comboSplashPercent = pr.splashPercent;
+    comboExtraChains = pr.extraChains;
+    comboBurstDamage = pr.burstDamage;
+    comboFocusBurst = pr.focusBurst;
+    comboCounterDamageMult = pr.counterDamageMult;
+    cdAcceleration = pr.cdAcceleration;
+    consumedComboStateIds.push(...pr.consumedStateIds);
   }
 
   // Weapon mastery: multiplicative damage bonus (mirrors zones/dps.ts masteryMult)
@@ -515,17 +462,12 @@ export function runCombatTick(
         : (frontMobMaxHp > 0 ? (frontMobHp / frontMobMaxHp) * 100 : 100),
       fortifyStacks: state.fortifyStacks,
       packSize: state.packMobs.length,
-      wardActive: state.bladeWardExpiresAt > 0 && now < state.bladeWardExpiresAt,
-      comboStateIds: state.comboStates.map(s => s.stateId),
       targetDebuffCount: targetDebuffs.length,
       lastSkillId: skill.id,
       skillTimers: state.skillTimers as any,
-      wardHits: state.bladeWardHits,
       lastSkillsCast: state.lastSkillsCast,
-      activeTrapsCount: state.activeTraps.length,
-      wardExpiresAt: state.bladeWardExpiresAt,
-      trapArmedAt: state.activeTraps.length > 0 ? state.activeTraps[0].placedAt : undefined,
       totalTargetDebuffStacks: targetDebuffs.reduce((sum, d) => sum + d.stacks, 0),
+      ...weaponCondExt,
     };
     const postRoll = evaluateConditionalMods(graphMod.conditionalMods, postCtx, 'post-roll');
     if (postRoll.incDamage || postRoll.flatDamage || postRoll.damageMult !== 1) {
@@ -716,76 +658,24 @@ export function runCombatTick(
     }
   }
 
-  // Combo state creation: skill creates a state on cast/crit/kill
-  const comboConfig = COMBO_STATE_CREATORS[skill.id];
-  if (comboConfig && roll.isHit) {
-    const trigger = comboConfig.createOn ?? 'onCast';
-    let shouldCreate = trigger === 'onCast'
-      || (trigger === 'onCrit' && roll.isCrit);
-    // onKill handled later in kill block
-
-    // Gate: minTargetsHit — only create if skill hits enough distinct targets
-    if (shouldCreate && comboConfig.minTargetsHit) {
-      const totalHits = Math.max(1, (skill.hitCount ?? 1) + (graphMod?.extraHits ?? 0));
-      const targetsHit = Math.min(totalHits, state.packMobs.length);
-      if (targetsHit < comboConfig.minTargetsHit) shouldCreate = false;
-    }
-
-    if (shouldCreate) {
-      // comboStateReplace: talent tree substitutes one state for another
-      const replace = graphMod?.comboStateReplace;
-      if (replace && replace.from === comboConfig.stateId) {
-        newComboStates = createComboState(
-          newComboStates, replace.to, skill.id,
-          replace.effect, replace.duration, 1,
-        );
-      } else {
-        newComboStates = createComboState(
-          newComboStates, comboConfig.stateId, skill.id,
-          comboConfig.effect, comboConfig.duration, comboConfig.maxStacks,
-        );
-      }
-    }
-  }
-
-  // Blade Ward: activate ward window on cast (3s DR + counter-hit + hit tracking)
+  // Weapon postCast hook: combo state creation, ward activation, trap placement
   let newBladeWardExpiresAt = state.bladeWardExpiresAt;
   let newBladeWardHits = state.bladeWardHits;
-  if (skill.id === 'dagger_blade_ward' && roll.isHit) {
-    newBladeWardExpiresAt = now + 3000; // 3s ward window
-    newBladeWardHits = 0;
-  }
-  // Expire ward window (permanentWard prevents expiry)
-  if (newBladeWardExpiresAt > 0 && now >= newBladeWardExpiresAt && !graphMod?.permanentWard) {
-    newBladeWardExpiresAt = 0;
-    newBladeWardHits = 0;
-  }
-
-  // Fan of Knives: Saturated — create if 3+ pack mobs have active ailments
-  if (skill.id === 'dagger_fan_of_knives' && roll.isHit && state.packMobs.length >= 3) {
-    const ailmentedCount = state.packMobs.filter(m => m.debuffs.length > 0).length;
-    if (ailmentedCount >= 3) {
-      newComboStates = createComboState(
-        newComboStates, 'saturated', skill.id,
-        { incDamage: 15 }, 4, 1,
-      );
-    }
-  }
-
-  // Trap placement: Blade Trap creates a trap on cast
-  let newActiveTraps = tickTraps([...state.activeTraps], dtSec, now);
-  if (skill.id === 'dagger_blade_trap' && roll.isHit) {
-    const armDelay = (graphMod?.armTimeOverride && graphMod.armTimeOverride > 0) ? graphMod.armTimeOverride : 1.5;
-    newActiveTraps.push({
-      trapId: `trap_${now}`,
-      sourceSkillId: skill.id,
-      placedAt: now,
-      armDelay,
-      isArmed: false,
-      damage: roll.damage,
-      duration: 30,
-      remainingDuration: 30,
+  let newActiveTraps = [...state.activeTraps];
+  if (weaponMod?.postCast) {
+    const pc = weaponMod.postCast({
+      state, skill, graphMod, effectiveStats, effectiveMaxLife,
+      dtSec, now, phase, avgDamage, spellPower, targetDebuffs,
+      roll, comboStates: newComboStates,
+      bladeWardExpiresAt: state.bladeWardExpiresAt,
+      bladeWardHits: state.bladeWardHits,
+      activeTraps: state.activeTraps,
+      ailmentSnapshot,
     });
+    newComboStates = pc.comboStates;
+    newBladeWardExpiresAt = pc.bladeWardExpiresAt;
+    newBladeWardHits = pc.bladeWardHits;
+    newActiveTraps = pc.activeTraps;
   }
 
   // consumeDebuff: consume all stacks, deal burst damage
@@ -1134,10 +1024,23 @@ export function runCombatTick(
         const mainBossFortifyDR = calcFortifyDR(newFortifyStacks, newFortifyExpiresAt, newFortifyDRPerStack, now, effectiveStats.fortifyEffect);
         if (mainBossFortifyDR > 0) cappedBossDmg *= (1 - mainBossFortifyDR);
         if (effectiveStats.damageTakenReduction > 0) cappedBossDmg *= (1 - effectiveStats.damageTakenReduction / 100);
-        // Blade Ward: 15% + wardDRBonus DR during ward window
-        if (newBladeWardExpiresAt > 0 && now < newBladeWardExpiresAt) {
-          const wardDR = 15 + (graphMod?.wardDRBonus ?? 0);
-          cappedBossDmg *= (1 - wardDR / 100);
+        // Weapon module: ward DR during ward window
+        if (weaponMod?.onEnemyAttack) {
+          const bossWardResult = weaponMod.onEnemyAttack({
+            state, skill, graphMod, effectiveStats, effectiveMaxLife,
+            dtSec, now, phase, avgDamage, spellPower, targetDebuffs,
+            attackResult: { damage: cappedBossDmg, isDodged: bossRoll.isDodged, isBlocked: bossRoll.isBlocked, isCrit: isBossCrit },
+            comboStates: newComboStates, bladeWardExpiresAt: newBladeWardExpiresAt,
+            bladeWardHits: newBladeWardHits, activeTraps: newActiveTraps,
+            comboCounterDamageMult, isBossPhase: true,
+          });
+          cappedBossDmg *= bossWardResult.wardDamageMult;
+          newBossHp -= bossWardResult.counterDamage + bossWardResult.trapDamage;
+          totalDamage += bossWardResult.counterDamage + bossWardResult.trapDamage;
+          newBladeWardHits = bossWardResult.bladeWardHits;
+          newComboStates = bossWardResult.comboStates;
+          newActiveTraps = bossWardResult.activeTraps;
+          procHeal += bossWardResult.healAmount;
         }
         playerHp -= cappedBossDmg;
         bossAttackResult = { damage: cappedBossDmg, isDodged: bossRoll.isDodged, isBlocked: bossRoll.isBlocked, isCrit: isBossCrit };
@@ -1150,45 +1053,7 @@ export function runCombatTick(
     if (bossAttackResult?.isDodged) newLastDodgeAt = now;
     if (bossAttackResult && bossAttackResult.damage > 0) newKillStreak = 0;
 
-    // Blade Ward: count hits during ward window + base 50% WD counter-hit + Guarded at 3+
-    if (bossAttackResult && newBladeWardExpiresAt > 0 && now < newBladeWardExpiresAt) {
-      newBladeWardHits++;
-      // Base counter-hit: 50% weapon damage (talent counterHitDamage stacks on top)
-      const bossCounterBase = avgDamage * 0.50 * comboCounterDamageMult;
-      const bossCounterTalent = (graphMod?.counterHitDamage ?? 0) > 0 ? avgDamage * graphMod!.counterHitDamage / 100 : 0;
-      const bossCounterTotal = bossCounterBase + bossCounterTalent;
-      newBossHp -= bossCounterTotal;
-      totalDamage += bossCounterTotal;
-      if (newBladeWardHits >= 3 && !newComboStates.some(s => s.stateId === 'guarded')) {
-        newComboStates = createComboState(
-          newComboStates, 'guarded', 'dagger_blade_ward',
-          { incDamage: 20 }, 3, 1,
-        );
-      }
-    }
-
-    // Trap detonation: enemy attacking triggers armed traps
-    if (bossAttackResult && newActiveTraps.length > 0) {
-      const { detonated, remaining } = detonateTrap(newActiveTraps);
-      if (detonated) {
-        newActiveTraps = remaining;
-        const detonationBonus = 1 + (graphMod?.detonationDamageBonus ?? 0) / 100;
-        let trapDmg = detonated.damage * detonationBonus;
-        // Sprint 4D: detonationGuaranteedCrit — auto-crit detonation
-        const detCrit = graphMod?.detonationGuaranteedCrit || Math.random() < (effectiveStats.critChance / 100);
-        if (detCrit) trapDmg *= effectiveStats.critMultiplier / 100;
-        newBossHp -= trapDmg;
-        totalDamage += trapDmg;
-        // Primed: crit detonation after 3s+ armed creates Primed (4s)
-        const armTime = (now - detonated.placedAt) / 1000;
-        if (armTime >= 3 && detCrit) {
-          newComboStates = createComboState(
-            newComboStates, 'primed', 'dagger_blade_trap',
-            { incDamage: 25 }, 4, 1,
-          );
-        }
-      }
-    }
+    // Ward counter-hits, trap detonation, and guarded creation handled by weapon onEnemyAttack hook above
 
     // Defensive proc evaluation (onDodge + onBlock triggers)
     if (graphMod?.skillProcs?.length && bossAttackResult) {
@@ -1226,21 +1091,7 @@ export function runCombatTick(
       }
     }
 
-    // Counter-attack: fire on dodge/block if skill tree grants counter-hits
-    if (graphMod?.counterHitDamage && bossAttackResult &&
-        (bossAttackResult.isDodged || bossAttackResult.isBlocked)) {
-      const counterBase = avgDamage * graphMod.counterHitDamage / 100;
-      let counterDmg = counterBase;
-      if (graphMod.counterCanCrit) {
-        const counterCrit = Math.random() < (effectiveStats.critChance / 100);
-        if (counterCrit) counterDmg *= effectiveStats.critMultiplier / 100;
-      }
-      newBossHp -= counterDmg;
-      totalDamage += counterDmg;
-      if (graphMod.counterHitHeal) {
-        procHeal += effectiveMaxLife * graphMod.counterHitHeal / 100;
-      }
-    }
+    // Counter-attack on dodge/block handled by weapon onEnemyAttack hook above
 
     // Passive regen per tick
     playerHp = Math.min(effectiveMaxLife, playerHp + stats.lifeRegen * dtSec);
@@ -1772,10 +1623,30 @@ export function runCombatTick(
       const mainClearFortifyDR = calcFortifyDR(newFortifyStacks, newFortifyExpiresAt, newFortifyDRPerStack, now, effectiveStats.fortifyEffect);
       if (mainClearFortifyDR > 0) clearZoneDmg *= (1 - mainClearFortifyDR);
       if (effectiveStats.damageTakenReduction > 0) clearZoneDmg *= (1 - effectiveStats.damageTakenReduction / 100);
-      // Blade Ward: 15% + wardDRBonus DR during ward window
-      if (newBladeWardExpiresAt > 0 && now < newBladeWardExpiresAt) {
-        const wardDR = 15 + (graphMod?.wardDRBonus ?? 0);
-        clearZoneDmg *= (1 - wardDR / 100);
+      // Weapon module: ward DR, counter-hits, trap detonation
+      if (weaponMod?.onEnemyAttack) {
+        const clearWpn = weaponMod.onEnemyAttack({
+          state, skill, graphMod, effectiveStats, effectiveMaxLife,
+          dtSec, now, phase, avgDamage, spellPower, targetDebuffs,
+          attackResult: zoneRoll, comboStates: newComboStates,
+          bladeWardExpiresAt: newBladeWardExpiresAt, bladeWardHits: newBladeWardHits,
+          activeTraps: newActiveTraps, comboCounterDamageMult, isBossPhase: false,
+        });
+        clearZoneDmg *= clearWpn.wardDamageMult;
+        mob.hp -= clearWpn.counterDamage;
+        totalDamage += clearWpn.counterDamage;
+        // Trap AoE: damage all pack mobs
+        if (clearWpn.trapDamage > 0) {
+          for (const pm of updatedPackMobs) {
+            const pmDR = pm.rare?.combinedDamageTakenMult ?? 1;
+            pm.hp -= clearWpn.trapDamage * pmDR;
+          }
+          totalDamage += clearWpn.trapDamage * updatedPackMobs.length;
+        }
+        newBladeWardHits = clearWpn.bladeWardHits;
+        newComboStates = clearWpn.comboStates;
+        newActiveTraps = clearWpn.activeTraps;
+        procHeal += clearWpn.healAmount;
       }
       if (newCurrentEs > 0 && clearZoneDmg > 0) {
         const esAbs = Math.min(newCurrentEs, clearZoneDmg);
@@ -1785,40 +1656,6 @@ export function runCombatTick(
       playerHp -= clearZoneDmg;
       zoneAttackResult = zoneRoll;
       mob.nextAttackAt = now + ZONE_ATTACK_INTERVAL * mobEnemyMods.atkSpeedSlowMult * mobRareAtkMult * 1000;
-
-      // Blade Ward: count hit during ward window + base 50% WD counter-hit
-      if (newBladeWardExpiresAt > 0 && now < newBladeWardExpiresAt) {
-        newBladeWardHits++;
-        // Base counter-hit: 50% weapon damage (talent counterHitDamage stacks on top)
-        const baseCounterDmg = avgDamage * 0.50 * comboCounterDamageMult;
-        const talentCounterDmg = (graphMod?.counterHitDamage ?? 0) > 0 ? avgDamage * graphMod!.counterHitDamage / 100 : 0;
-        const counterTotal = baseCounterDmg + talentCounterDmg;
-        mob.hp -= counterTotal;
-        totalDamage += counterTotal;
-        // Create Guarded at 3+ hits
-        if (newBladeWardHits >= 3 && !newComboStates.some(s => s.stateId === 'guarded')) {
-          newComboStates = createComboState(
-            newComboStates, 'guarded', 'dagger_blade_ward',
-            { incDamage: 20 }, 3, 1,
-          );
-        }
-      }
-
-      // Trap detonation: mob attacking triggers armed traps (clearing)
-      if (newActiveTraps.length > 0) {
-        const { detonated, remaining: trapsRemaining } = detonateTrap(newActiveTraps);
-        if (detonated) {
-          newActiveTraps = trapsRemaining;
-          const detBonus = 1 + (graphMod?.detonationDamageBonus ?? 0) / 100;
-          const trapDmg = detonated.damage * detBonus;
-          // AoE detonation: damage all pack mobs
-          for (const pm of updatedPackMobs) {
-            const pmDR = pm.rare?.combinedDamageTakenMult ?? 1;
-            pm.hp -= trapDmg * pmDR;
-          }
-          totalDamage += trapDmg * updatedPackMobs.length;
-        }
-      }
     }
   }
 
