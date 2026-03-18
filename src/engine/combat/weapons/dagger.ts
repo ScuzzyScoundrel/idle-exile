@@ -15,67 +15,6 @@ import {
 } from '../combo';
 import { tickTraps, detonateTrap } from '../traps';
 import { registerWeaponModule } from './registry';
-import type { SkillProcEffect } from '../../../types';
-
-/** Evaluate object-trigger procs against current combat state. Returns proxy damage for each matched. */
-function processObjectTriggerProcs(
-  procs: SkillProcEffect[],
-  context: {
-    wardActive: boolean;
-    wardHits: number;
-    trapsDetonated: boolean;
-    targetAilmentStacks: number;
-    packSize: number;
-    killStreak: number;
-    isDash: boolean;
-    isCrit: boolean;
-    momentumActive: boolean;
-    avgDamage: number;
-  },
-): { proxyDamage: number; proxyHeal: number } {
-  let proxyDamage = 0;
-  let proxyHeal = 0;
-  for (const proc of procs) {
-    if (typeof proc.trigger !== 'object' || proc.trigger === null) continue;
-    const t = proc.trigger as Record<string, any>;
-    let matched = true;
-
-    // Ward-based triggers
-    if (t.hitsReceivedInWard != null) matched = matched && context.wardActive && context.wardHits >= t.hitsReceivedInWard;
-    if (t.counterCritsInWard != null) matched = matched && context.wardActive && context.wardHits >= t.counterCritsInWard;
-    if (t.counterHitAilmentStacksInWard != null) matched = matched && context.wardActive && context.targetAilmentStacks >= t.counterHitAilmentStacksInWard;
-    if (t.attackerAilmentStacks != null) matched = matched && context.targetAilmentStacks >= t.attackerAilmentStacks;
-    if (t.duringWard) matched = matched && context.wardActive;
-    if (t.dodgesDuringWard != null) matched = matched && context.wardActive && context.wardHits >= t.dodgesDuringWard;
-
-    // Detonation-based triggers
-    if (t.detonationCrit != null) matched = matched && context.trapsDetonated && context.isCrit;
-    if (t.minArmTime != null) matched = matched && context.trapsDetonated; // approximate
-    if (t.detonationKills != null) matched = matched && context.trapsDetonated && context.killStreak >= t.detonationKills;
-    if (t.detonationKillWithStacks != null) matched = matched && context.killStreak > 0 && context.targetAilmentStacks >= t.detonationKillWithStacks;
-    if (t.triggerTargetAilmentStacks != null) matched = matched && context.targetAilmentStacks >= t.triggerTargetAilmentStacks;
-    if (t.detonationAilmentTargets != null) matched = matched && context.packSize >= t.detonationAilmentTargets;
-    if (t.detonationTargets != null) matched = matched && context.packSize >= t.detonationTargets;
-    if (t.dodgesWhileTrapArmed != null) matched = matched && context.wardHits >= 1; // approximate
-
-    // Dash-based triggers
-    if (t.dashHit != null) matched = matched && context.isDash;
-    if (t.nextSkillCrits != null) matched = matched && context.isCrit;
-    if (t.empoweredSkillCritAndKill != null) matched = matched && context.momentumActive && context.isCrit && context.killStreak > 0;
-    if (t.passThroughAilmentedTargets != null) matched = matched && context.isDash && context.targetAilmentStacks >= t.passThroughAilmentedTargets;
-    if (t.passThroughTargets != null) matched = matched && context.isDash && context.packSize >= t.passThroughTargets;
-    if (t.sdKill != null) matched = matched && context.isDash && context.killStreak > 0;
-    if (t.dodgeWithinWindow != null) matched = matched && context.wardHits >= 1; // approximate: any defensive event
-    if (t.dodgesAfterDash != null) matched = matched && context.isDash && context.wardHits >= 1;
-
-    if (matched) {
-      // Proxy effect: small damage so QA detects the node is working
-      proxyDamage += context.avgDamage * 0.05;
-      proxyHeal += 1;
-    }
-  }
-  return { proxyDamage, proxyHeal };
-}
 
 export const daggerModule: WeaponModule = {
   weaponType: 'dagger',
@@ -267,65 +206,6 @@ export const daggerModule: WeaponModule = {
       if (typeof rb.offensiveDamagePenalty === 'number') damageMult *= (1 - Math.abs(rb.offensiveDamagePenalty) / 100);
       if (typeof rb.placementDetonationPenalty === 'number') damageMult *= (1 - Math.abs(rb.placementDetonationPenalty) / 200);
       if (typeof rb.damagePerConsumedStack === 'number') damageMult *= (1 + rb.damagePerConsumedStack / 100);
-      // Final batch: last remaining numeric fields
-      if (typeof rb.percentMaxHP === 'number') damageMult *= (1 + rb.percentMaxHP * 0.005);
-      if (typeof rb.bonusHealAt3Counters === 'number') damageMult *= (1 + rb.bonusHealAt3Counters * 0.005);
-      if (typeof rb.potencyPercent === 'number') ailmentPotency += rb.potencyPercent * 0.5;
-      // Generic catch-all: any remaining object-type rawBehaviors produce a tiny proxy
-      // so the QA detects the node as active even if specific processing isn't implemented
-      for (const val of Object.values(rb)) {
-        if (typeof val === 'object' && val !== null) {
-          damageMult *= 1.002; // 0.2% per object pattern — accumulates to detectable level
-          break; // one proxy is enough
-        }
-      }
-    }
-
-    // Process object-trigger procs from preRoll (dash triggers + crit context)
-    if (graphMod?.skillProcs?.length) {
-      const targetStacks = targetDebuffs.reduce((s, d) => s + d.stacks, 0);
-      const isDash = skill.id === 'dagger_shadow_dash';
-      const momentumActive = comboStates.some(s => s.stateId === 'shadow_momentum');
-      const wardActive = ctx.state.bladeWardExpiresAt > 0 && ctx.now < ctx.state.bladeWardExpiresAt;
-      const { proxyDamage } = processObjectTriggerProcs(graphMod.skillProcs, {
-        wardActive,
-        wardHits: ctx.state.bladeWardHits,
-        trapsDetonated: ctx.state.activeTraps.some(t => t.isArmed),
-        targetAilmentStacks: targetStacks,
-        packSize: ctx.state.packMobs.length,
-        killStreak: ctx.state.killStreak,
-        isDash,
-        isCrit: true, // preRoll: approximate as crit to match empoweredSkillCritAndKill
-        momentumActive,
-        avgDamage: ctx.avgDamage,
-      });
-      if (proxyDamage > 0) burstDamage += proxyDamage;
-    }
-
-    // Proxy effects for merged fields that don't produce QA-visible metrics
-    // allResist → already on effectiveStats but resist changes don't show in QA damage metrics
-    // counterCanCrit + counterDamageMult → only matter during counter-hits which are rare
-    // increasedDamageTaken → makes player take more damage but selfDamageTaken metric is unreliable
-    if (graphMod) {
-      // guardedEnhancement: node enhances guarded state consume effects
-      if (graphMod.guardedEnhancement) {
-        damageMult *= 1.01; // proxy: 1% damage boost so QA detects
-      }
-      if (graphMod.counterDamageMult > 0 && graphMod.counterCanCrit) {
-        damageMult *= (1 + graphMod.counterDamageMult * 0.01);
-      }
-      if (graphMod.increasedDamageTaken > 0) {
-        damageMult *= (1 + graphMod.increasedDamageTaken * 0.001);
-      }
-      // Catch-all: any node with skillProcs produces a proxy so QA detects it
-      // (procs may not fire due to rare triggers/gates, but the node IS active)
-      if (graphMod.skillProcs.length > 0) {
-        damageMult *= (1 + graphMod.skillProcs.length * 0.001);
-      }
-      // Catch-all: any node with conditionalMods produces a proxy
-      if (graphMod.conditionalMods.length > 0) {
-        damageMult *= (1 + graphMod.conditionalMods.length * 0.0005);
-      }
     }
 
     return {
@@ -547,28 +427,6 @@ export const daggerModule: WeaponModule = {
       if (typeof rb.perTriggerFortify === 'number') healAmount += rb.perTriggerFortify;
       if (typeof rb.onCastFortify === 'number') healAmount += rb.onCastFortify;
       if (typeof rb.absorbFromDamage === 'number') wardDamageMult *= (1 - rb.absorbFromDamage / 100);
-    }
-
-    // Process object-trigger procs (ward/detonation/dash triggers)
-    if (graphMod?.skillProcs?.length) {
-      const trapsDetonated = trapDamage > 0;
-      const targetStacks = ctx.targetDebuffs.reduce((s, d) => s + d.stacks, 0);
-      const isDash = ctx.skill.id === 'dagger_shadow_dash';
-      const momentumActive = comboStates.some(s => s.stateId === 'shadow_momentum');
-      const { proxyDamage, proxyHeal } = processObjectTriggerProcs(graphMod.skillProcs, {
-        wardActive: bladeWardExpiresAt > 0 && now < bladeWardExpiresAt,
-        wardHits: bladeWardHits,
-        trapsDetonated,
-        targetAilmentStacks: targetStacks,
-        packSize: ctx.state.packMobs.length,
-        killStreak: ctx.state.killStreak,
-        isDash,
-        isCrit: false, // approximate: no crit info in enemy attack context
-        momentumActive,
-        avgDamage,
-      });
-      counterDamage += proxyDamage;
-      healAmount += proxyHeal;
     }
 
     return { counterDamage, trapDamage, comboStates, bladeWardHits, activeTraps, wardDamageMult, healAmount };

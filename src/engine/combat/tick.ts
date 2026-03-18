@@ -217,18 +217,6 @@ export function runCombatTick(
       effectiveStats.lightningResist += graphMod.allResist;
       effectiveStats.chaosResist += graphMod.allResist;
     }
-    // Fold graph fields as flat additive to effectiveStats
-    // (supplements rollSkillCast % increase, ensures QA detects small bonuses)
-    if (graphMod.incCritChance) effectiveStats.critChance += graphMod.incCritChance;
-    if (graphMod.incCritMultiplier) effectiveStats.critMultiplier += graphMod.incCritMultiplier;
-    // Defensive/utility graphMod fields: real effects are QA-invisible (resist, duration),
-    // add flat crit proxy so dynamic test detects them
-    if (graphMod.allResist) effectiveStats.critChance += 2;
-    if (graphMod.ailmentDuration && !graphMod.incDamage) effectiveStats.critChance += 1;
-    if (graphMod.durationBonus && !graphMod.incDamage) effectiveStats.critChance += 1;
-    if (graphMod.cooldownReduction && !graphMod.incDamage) effectiveStats.critChance += 1;
-    if (graphMod.guardedEnhancement) effectiveStats.critChance += 5;
-    if (graphMod.passThroughAilment) effectiveStats.critChance += 2;
   }
 
   // Weapon module: hook-based weapon-specific combat logic
@@ -366,10 +354,6 @@ export function runCombatTick(
     condDamageReduction = preRoll.damageReduction;
     condCooldownReduction = preRoll.cooldownReduction;
     condIncreasedDamageTaken = preRoll.increasedDamageTaken;
-    // Defensive conditionalMod effects: produce tiny damage proxy so QA detects them
-    if (preRoll.dodgeChance) damageMult *= (1 + preRoll.dodgeChance * 0.001);
-    if (preRoll.damageReduction) damageMult *= (1 + preRoll.damageReduction * 0.001);
-    if (preRoll.cooldownReduction) damageMult *= (1 + preRoll.cooldownReduction * 0.001);
     // v2 expanded conditional fields
     if (preRoll.extraHits) damageMult *= (1 + preRoll.extraHits * 0.5);
     if (preRoll.lifeOnHit) effectiveStats.lifeOnHit += preRoll.lifeOnHit;
