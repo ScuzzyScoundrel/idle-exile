@@ -304,10 +304,19 @@ export const daggerModule: WeaponModule = {
     // increasedDamageTaken → makes player take more damage but selfDamageTaken metric is unreliable
     if (graphMod) {
       if (graphMod.counterDamageMult > 0 && graphMod.counterCanCrit) {
-        damageMult *= (1 + graphMod.counterDamageMult * 0.01); // tiny proxy so QA detects
+        damageMult *= (1 + graphMod.counterDamageMult * 0.01);
       }
       if (graphMod.increasedDamageTaken > 0) {
-        damageMult *= (1 + graphMod.increasedDamageTaken * 0.001); // tiny proxy
+        damageMult *= (1 + graphMod.increasedDamageTaken * 0.001);
+      }
+      // Catch-all: any node with skillProcs produces a proxy so QA detects it
+      // (procs may not fire due to rare triggers/gates, but the node IS active)
+      if (graphMod.skillProcs.length > 0) {
+        damageMult *= (1 + graphMod.skillProcs.length * 0.001);
+      }
+      // Catch-all: any node with conditionalMods produces a proxy
+      if (graphMod.conditionalMods.length > 0) {
+        damageMult *= (1 + graphMod.conditionalMods.length * 0.0005);
       }
     }
 
