@@ -238,6 +238,7 @@ const PRE_ROLL_ALIASES: Record<string, string> = {
   ailmentDurationExtension: 'ailmentDuration',
   viperStrikeAilmentDuration: 'ailmentDuration',
   reductionPerKill: 'damageReduction',
+  ailmentDamageBonus: 'ailmentPotency',
 };
 
 const PRE_ROLL_CONDITIONS: Set<TriggerCondition> = new Set([
