@@ -678,16 +678,22 @@ export function runCombatTick(
   }
 
   // Venomous Persistence: non-VS skill hits refresh VS poison durations on target
-  if (roll.isHit && skill.id !== 'dagger_viper_strike' && graphMod?.rawBehaviors?.viperStrikeAilmentRefresh) {
-    const poisonDebuff = newDebuffs.find(d => d.debuffId === 'poisoned');
-    if (poisonDebuff?.instances) {
-      const refreshDur = 5 * (1 + (effectiveStats.ailmentDuration ?? 0) / 100);
-      for (const inst of poisonDebuff.instances) {
-        if (inst.appliedBySkillId === 'dagger_viper_strike') {
-          inst.remainingDuration = refreshDur;
+  // Must check VS's own graphMod (cross-skill feature), not the active skill's graphMod
+  if (roll.isHit && skill.id !== 'dagger_viper_strike') {
+    const vsProgress = state.skillProgress?.['dagger_viper_strike'];
+    const vsSkillDef = vsProgress ? getUnifiedSkillDef('dagger_viper_strike') : null;
+    const vsGraphMod = vsSkillDef ? getSkillGraphModifier(vsSkillDef, vsProgress) : null;
+    if (vsGraphMod?.rawBehaviors?.viperStrikeAilmentRefresh) {
+      const poisonDebuff = newDebuffs.find(d => d.debuffId === 'poisoned');
+      if (poisonDebuff?.instances) {
+        const refreshDur = 5 * (1 + (effectiveStats.ailmentDuration ?? 0) / 100);
+        for (const inst of poisonDebuff.instances) {
+          if (inst.appliedBySkillId === 'dagger_viper_strike') {
+            inst.remainingDuration = refreshDur;
+          }
         }
+        poisonDebuff.remainingDuration = Math.max(poisonDebuff.remainingDuration, refreshDur);
       }
-      poisonDebuff.remainingDuration = Math.max(poisonDebuff.remainingDuration, refreshDur);
     }
   }
 
