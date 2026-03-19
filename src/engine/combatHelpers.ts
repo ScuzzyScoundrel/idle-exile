@@ -657,7 +657,7 @@ export function evaluateProcs(
       result.fortifyDRPerStack = Math.max(result.fortifyDRPerStack, proc.fortifyOnProc.damageReduction);
     }
     // Sprint 3A: ailment detonation — sum remaining ailment damage as burst
-    if (proc.detonateAilments || proc.explodeAilments || proc.consumeAllAilments) {
+    if (proc.detonateAilments || proc.explodeAilments || proc.consumeAllAilments || proc.detonateAll) {
       const targetDebs = ctx.targetDebuffs ?? [];
       let ailmentTotal = 0;
       for (const deb of targetDebs) {
@@ -675,6 +675,10 @@ export function evaluateProcs(
         result.detonationDamage += ailmentTotal * (proc.explodeAilments.aoeScaleRatio ?? 0.5);
       }
       if (proc.consumeAllAilments) {
+        result.detonationDamage += ailmentTotal;
+        result.consumeAilments = true;
+      }
+      if (proc.detonateAll) {
         result.detonationDamage += ailmentTotal;
         result.consumeAilments = true;
       }
