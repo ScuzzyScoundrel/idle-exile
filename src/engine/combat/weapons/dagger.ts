@@ -412,7 +412,7 @@ export const daggerModule: WeaponModule = {
     let healAmount = 0;
 
     if (!attackResult) {
-      return { counterDamage: 0, trapDamage: 0, comboStates, bladeWardHits, activeTraps, wardDamageMult: 1, healAmount: 0 };
+      return { counterDamage: 0, trapDamage: 0, comboStates, bladeWardHits, activeTraps, wardDamageMult: 1, healAmount: 0, newTempBuffs: [] };
     }
 
     // Ward DR: 15% + wardDRBonus during ward window
