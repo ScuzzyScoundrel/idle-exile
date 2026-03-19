@@ -145,10 +145,31 @@ export function runCombatTick(
   const frontMobHp = state.packMobs.length > 0 ? state.packMobs[0].hp : 0;
   const frontMobMaxHp = state.packMobs.length > 0 ? state.packMobs[0].maxHp : 1;
 
+  // Weapon module: hook-based weapon-specific combat logic (hoisted for tickMaintenance)
+  const weaponMod = getWeaponModule(state.character.equipment.mainhand?.weaponType);
+
+  // Weapon maintenance: tick combo states + traps EVERY tick (not gated by GCD)
+  let maintPatch: Partial<GameState> | null = null;
+  if (weaponMod?.tickMaintenance) {
+    const maint = weaponMod.tickMaintenance({
+      state, skill: { id: '' } as any, graphMod: null,
+      effectiveStats: {} as any, effectiveMaxLife: 0,
+      dtSec, now, phase, avgDamage: 0, spellPower: 0, targetDebuffs,
+    });
+    maintPatch = {};
+    if (maint.comboStates) maintPatch.comboStates = maint.comboStates;
+    if (maint.activeTraps) maintPatch.activeTraps = maint.activeTraps;
+    if (maint.bladeWardExpiresAt !== undefined) maintPatch.bladeWardExpiresAt = maint.bladeWardExpiresAt;
+    if (maint.bladeWardHits !== undefined) maintPatch.bladeWardHits = maint.bladeWardHits;
+    state = { ...state, ...maintPatch };
+  }
+  const withMaint = (out: CombatTickOutput): CombatTickOutput =>
+    maintPatch ? { patch: { ...out.patch, ...maintPatch }, result: out.result } : out;
+
   // GCD check: can we fire any active skill yet?
   if (now < state.nextActiveSkillAt) {
-    if (phase === 'clearing') return applyZoneDamage(state, dtSec, now, zone);
-    return applyBossDamage(state, dtSec, now);
+    if (phase === 'clearing') return withMaint(applyZoneDamage(state, dtSec, now, zone));
+    return withMaint(applyBossDamage(state, dtSec, now));
   }
 
   // Find next ready skill from rotation (slot-priority order)
@@ -168,8 +189,8 @@ export function runCombatTick(
     });
     if (hasActiveSkill) {
       // Active skills exist but all on CD — idle until one comes back
-      if (phase === 'clearing') return applyZoneDamage(state, dtSec, now, zone);
-      return applyBossDamage(state, dtSec, now);
+      if (phase === 'clearing') return withMaint(applyZoneDamage(state, dtSec, now, zone));
+      return withMaint(applyBossDamage(state, dtSec, now));
     }
     // No active skills equipped at all — fall back to default weapon skill
     skill = getDefaultSkillForWeapon(
@@ -180,8 +201,8 @@ export function runCombatTick(
 
   // If still no skill, idle (enemies still damage)
   if (!skill) {
-    if (phase === 'clearing') return applyZoneDamage(state, dtSec, now, zone);
-    return applyBossDamage(state, dtSec, now);
+    if (phase === 'clearing') return withMaint(applyZoneDamage(state, dtSec, now, zone));
+    return withMaint(applyBossDamage(state, dtSec, now));
   }
 
   const stats = resolveStats(state.character);
@@ -222,9 +243,6 @@ export function runCombatTick(
       effectiveStats.chaosResist += graphMod.allResist;
     }
   }
-
-  // Weapon module: hook-based weapon-specific combat logic
-  const weaponMod = getWeaponModule(state.character.equipment.mainhand?.weaponType);
 
   // Effective max life (reducedMaxLife keystone) — hoisted for condition evaluation
   const effectiveMaxLife = graphMod?.reducedMaxLife
@@ -1359,6 +1377,25 @@ export function runCombatTick(
           const chainDmg = rawSkillDamage * chainDR;
           chainTarget.hp -= chainDmg;
           totalDamage += chainDmg;
+        }
+      }
+
+      // Skill-intrinsic chain: hit additional targets with decaying damage (e.g. Chain Strike)
+      const skillChains = (skill as ActiveSkillDef).chainCount ?? 0;
+      if (skillChains > 0 && updatedPackMobs.length > 1) {
+        const chainDecay = [0.7, 0.5, 0.35]; // 70%, 50%, 35% per successive chain
+        for (let c = 0; c < skillChains && c + 1 < updatedPackMobs.length; c++) {
+          const chainTarget = updatedPackMobs[c + 1];
+          const chainDR = chainTarget.rare?.combinedDamageTakenMult ?? 1;
+          const decay = chainDecay[Math.min(c, chainDecay.length - 1)];
+          const chainDmg = rawSkillDamage * decay * chainDR;
+          chainTarget.hp -= chainDmg;
+          totalDamage += chainDmg;
+          // Apply ailments to chain targets
+          for (const ailment of castAilments) {
+            applyDebuffToList(chainTarget.debuffs, ailment.debuffId, 1,
+              ailment.remainingDuration, skill.id, ailment.stackSnapshots?.[0] ?? 0);
+          }
         }
       }
     }

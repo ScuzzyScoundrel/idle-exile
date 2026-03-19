@@ -71,8 +71,10 @@ const convertedActiveSkills: SkillDef[] = ACTIVE_SKILL_DEFS.map(s => ({
   castTime: s.castTime,
   cooldown: s.cooldown,
   hitCount: s.hitCount,
+  chainCount: s.chainCount,
   dotDuration: s.dotDuration,
   dotDamagePercent: s.dotDamagePercent,
+  baseConversion: s.baseConversion,
   // Wire graph tree for all weapons
   skillGraph: ALL_SKILL_GRAPHS[s.id],
   talentTree: ALL_TALENT_TREES[s.id],

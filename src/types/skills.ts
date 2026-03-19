@@ -403,6 +403,7 @@ export interface ActiveSkillDef {
   icon: string;                 // emoji for now
   // Optional mechanics
   hitCount?: number;            // hits per use (default 1)
+  chainCount?: number;          // chain bounces to additional targets
   dotDuration?: number;         // DoT seconds
   dotDamagePercent?: number;    // % of hit applied as DoT per second (0.3 = 30%)
   baseConversion?: ConversionSpec;  // elemental conversion of physical base damage
@@ -428,6 +429,7 @@ export interface SkillDef {
   castTime: number;
   cooldown: number;
   hitCount?: number;
+  chainCount?: number;              // chain bounces to additional targets
   dotDuration?: number;
   dotDamagePercent?: number;
   baseConversion?: ConversionSpec;  // elemental conversion of physical base damage

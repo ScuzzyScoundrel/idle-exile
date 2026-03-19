@@ -3,7 +3,7 @@
 // Extracted from combat/tick.ts (Phase D3)
 // ============================================================
 
-import type { GameState, CombatTickResult, ResolvedStats, CombatPhase } from '../../types';
+import type { GameState, CombatTickResult, ResolvedStats, CombatPhase, ZoneDef } from '../../types';
 import { resolveStats } from '../character';
 import {
   rollZoneAttack,
@@ -19,7 +19,12 @@ import {
   DEATH_STREAK_WINDOW,
   MOB_CRIT_CHANCE,
   MOB_CRIT_MULTIPLIER,
+  INVASION_DIFFICULTY_MULT,
 } from '../../data/balance';
+import { spawnPack } from '../packs';
+import { pickCurrentMob } from '../zones/helpers';
+import { getMobTypeDef } from '../../data/mobTypes';
+import { isZoneInvaded } from '../invasions';
 import type { TempBuff } from '../../types';
 import {
   tickDebuffDoT,
@@ -42,7 +47,7 @@ export function applyZoneDamage(
   state: GameState,
   dt: number,
   now: number,
-  zone: { band: number; iLvlMin: number },
+  zone: ZoneDef,
 ): CombatTickOutput {
   if (state.combatPhase !== 'clearing') return { patch: {}, result: noResult };
   let playerHp = state.currentHp;
@@ -206,7 +211,16 @@ export function applyZoneDamage(
 
   // Remove mobs killed by DoT/bleed between skill ticks
   const dotKills = updatedMobs.filter(m => m.hp <= 0).length;
-  const survivingMobs = updatedMobs.filter(m => m.hp > 0);
+  let survivingMobs = updatedMobs.filter(m => m.hp > 0);
+
+  // DoT wiped the entire pack — spawn a new encounter (mirrors tick.ts:1897)
+  if (dotKills > 0 && survivingMobs.length === 0) {
+    const newMobTypeId = pickCurrentMob(zone.id, state.targetedMobId);
+    const tickMobDef = newMobTypeId ? getMobTypeDef(newMobTypeId) : undefined;
+    const hpMult = tickMobDef?.hpMultiplier ?? 1.0;
+    const invHpMult = isZoneInvaded(state.invasionState, zone.id, zone.band) ? INVASION_DIFFICULTY_MULT : 1.0;
+    survivingMobs = spawnPack(zone, hpMult, invHpMult, now, tickMobDef?.damageElement, tickMobDef?.physRatio);
+  }
 
   return {
     patch: {

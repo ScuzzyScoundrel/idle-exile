@@ -99,6 +99,7 @@ export const DAGGER_ACTIVE_SKILLS: ActiveSkillDef[] = [
     tags: ['Attack', 'Melee', 'Chain'],
     baseDamage: 3,
     weaponDamagePercent: 0.65,
+    chainCount: 2,
     spellPowerRatio: 0,
     castTime: 0.7,
     cooldown: 4,

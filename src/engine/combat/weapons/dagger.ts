@@ -5,7 +5,7 @@
 // ============================================================
 
 import type {
-  WeaponModule, WeaponTickContext, PreRollContext, PreRollResult,
+  WeaponModule, WeaponTickContext, MaintenanceResult, PreRollContext, PreRollResult,
   PostCastContext, PostCastResult, EnemyAttackContext, EnemyAttackResult,
 } from './weaponModule';
 import type { ConditionContext } from '../../combatHelpers';
@@ -17,6 +17,14 @@ import { tickTraps, detonateTrap } from '../traps';
 
 export const daggerModule: WeaponModule = {
   weaponType: 'dagger',
+
+  // ── Hook 1: Tick maintenance — tick combo states and traps every tick ──
+
+  tickMaintenance(ctx: WeaponTickContext): MaintenanceResult {
+    const comboStates = tickComboStates([...ctx.state.comboStates], ctx.dtSec);
+    const activeTraps = tickTraps([...ctx.state.activeTraps], ctx.dtSec, ctx.now);
+    return { comboStates, activeTraps };
+  },
 
   // ── Hook 2: Extend condition context with dagger-specific fields ──
 
@@ -36,10 +44,10 @@ export const daggerModule: WeaponModule = {
   // ── Hook 3: Pre-roll — tick + consume combo states → damage/crit/potency bonuses ──
 
   preRoll(ctx: PreRollContext): PreRollResult {
-    const { skill, graphMod, targetDebuffs, dtSec } = ctx;
+    const { skill, graphMod, targetDebuffs } = ctx;
 
-    // Tick combo state durations
-    let comboStates = tickComboStates([...ctx.comboStates], dtSec);
+    // Combo states already ticked by tickMaintenance — just copy
+    let comboStates = [...ctx.comboStates];
 
     let damageMult = 1;
     let critChanceBonus = 0;
@@ -310,7 +318,7 @@ export const daggerModule: WeaponModule = {
   // ── Hook 4: Post-cast — create combo states, activate ward, place traps ──
 
   postCast(ctx: PostCastContext): PostCastResult {
-    const { skill, graphMod, now, roll, state, dtSec } = ctx;
+    const { skill, graphMod, now, roll, state } = ctx;
     let comboStates = [...ctx.comboStates];
     let bladeWardExpiresAt = ctx.bladeWardExpiresAt;
     let bladeWardHits = ctx.bladeWardHits;
@@ -325,7 +333,7 @@ export const daggerModule: WeaponModule = {
 
       // Gate: minTargetsHit
       if (shouldCreate && comboConfig.minTargetsHit) {
-        const totalHits = Math.max(1, ((skill as any).hitCount ?? 1) + (graphMod?.extraHits ?? 0));
+        const totalHits = Math.max(1, ((skill as any).hitCount ?? 1) + ((skill as any).chainCount ?? 0) + (graphMod?.extraHits ?? 0));
         const targetsHit = Math.min(totalHits, state.packMobs.length);
         if (targetsHit < comboConfig.minTargetsHit) shouldCreate = false;
       }
@@ -353,7 +361,7 @@ export const daggerModule: WeaponModule = {
     }
 
     // Blade Ward: activate ward window on cast (3s DR + counter-hit + hit tracking)
-    if (skill.id === 'dagger_blade_ward' && roll.isHit) {
+    if (skill.id === 'dagger_blade_ward') {
       bladeWardExpiresAt = now + 3000;
       bladeWardHits = 0;
     }
@@ -374,8 +382,8 @@ export const daggerModule: WeaponModule = {
       }
     }
 
-    // Trap: tick existing + place new on Blade Trap cast
-    let activeTraps = tickTraps([...ctx.activeTraps], dtSec, now);
+    // Traps already ticked by tickMaintenance — just copy; place new on Blade Trap cast
+    let activeTraps = [...ctx.activeTraps];
     if (skill.id === 'dagger_blade_trap' && roll.isHit) {
       const armDelay = (graphMod?.armTimeOverride && graphMod.armTimeOverride > 0)
         ? graphMod.armTimeOverride : 1.5;
