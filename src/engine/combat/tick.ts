@@ -1407,13 +1407,45 @@ export function runCombatTick(
       const mob = updatedPackMobs[i];
       const mobDR = mob.rare?.combinedDamageTakenMult ?? 1;
       mob.hp -= rawSkillDamage * mobDR;
-      // AoE debuff application: apply same debuffs to back mobs
-      for (const debuffInfo of newDebuffs) {
-        const existingIdx = mob.debuffs.findIndex(d => d.debuffId === debuffInfo.debuffId);
-        if (existingIdx >= 0) {
-          mob.debuffs[existingIdx] = { ...debuffInfo };
-        } else {
-          mob.debuffs.push({ ...debuffInfo });
+      // AoE debuff application: apply only THIS cast's ailments to back mobs
+      // (not all newDebuffs, which includes pre-existing front mob debuffs from other skills)
+      for (const ailment of castAilments) {
+        applyDebuffToList(mob.debuffs, ailment.debuffId, 1,
+          ailment.remainingDuration, skill.id, ailment.stackSnapshots?.[0] ?? 0);
+      }
+    }
+  }
+
+  // Per-target proc evaluation for AoE skills (Chain Detonation's perTarget: true)
+  if (skillIsAoE && graphMod?.skillProcs?.length && roll.isHit) {
+    const perTargetProcs = graphMod.skillProcs.filter((p: any) => p.perTarget);
+    if (perTargetProcs.length > 0) {
+      for (const mob of updatedPackMobs) {
+        if (mob.debuffs.length === 0) continue;
+        const perTargetCtx: ProcContext = {
+          isHit: roll.isHit, isCrit: roll.isCrit,
+          skillId: skill.id, effectiveMaxLife,
+          stats: effectiveStats,
+          weaponAvgDmg: avgDamage, weaponSpellPower: spellPower,
+          damageMult, now,
+          lastProcTriggerAt: newLastProcTriggerAt,
+          ...cpShared,
+          targetDebuffs: mob.debuffs,
+        };
+        const ptResult = evaluateProcs(perTargetProcs, 'onHit', perTargetCtx);
+        Object.assign(newLastProcTriggerAt, ptResult.procTriggeredAt);
+        allProcsFired.push(...ptResult.procsFired);
+        allProcEvents.push(...buildProcEvents(ptResult, skill.id));
+        if (ptResult.detonationDamage > 0) {
+          const mobDR = mob.rare?.combinedDamageTakenMult ?? 1;
+          mob.hp -= ptResult.detonationDamage * mobDR;
+          procDamage += ptResult.detonationDamage;
+          if (ptResult.consumeAilments) {
+            mob.debuffs = [];
+          }
+        }
+        for (const buff of ptResult.newTempBuffs) {
+          activeTempBuffs = mergeProcTempBuff(activeTempBuffs, buff);
         }
       }
     }
@@ -1679,8 +1711,17 @@ export function runCombatTick(
       allProcsFired.push(...pr.procsFired);
       allProcEvents.push(...buildProcEvents(pr, skill.id));
       procDamage += pr.bonusDamage;
+      procDamage += pr.detonationDamage;
       procHeal += pr.healAmount;
-      if (pr.bonusDamage > 0 && updatedPackMobs.length > 0) {
+      // Explosion-type kill procs (Extinction Event): AoE to all surviving mobs
+      if (pr.detonationDamage > 0 && updatedPackMobs.length > 0) {
+        for (const mob of updatedPackMobs) {
+          mob.hp -= pr.detonationDamage * (mob.rare?.combinedDamageTakenMult ?? 1);
+        }
+        if (pr.consumeAilments && updatedPackMobs.length > 0) {
+          updatedPackMobs[0].debuffs = [];
+        }
+      } else if (pr.bonusDamage > 0 && updatedPackMobs.length > 0) {
         updatedPackMobs[0].hp -= pr.bonusDamage;
       }
       for (const buff of pr.newTempBuffs) {
