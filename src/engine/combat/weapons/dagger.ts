@@ -14,7 +14,6 @@ import {
   tickComboStates, consumeComboState, consumeMultipleComboStates, createComboState,
 } from '../combo';
 import { tickTraps, detonateTrap } from '../traps';
-import { registerWeaponModule } from './registry';
 
 export const daggerModule: WeaponModule = {
   weaponType: 'dagger',
@@ -206,6 +205,80 @@ export const daggerModule: WeaponModule = {
       if (typeof rb.offensiveDamagePenalty === 'number') damageMult *= (1 - Math.abs(rb.offensiveDamagePenalty) / 100);
       if (typeof rb.placementDetonationPenalty === 'number') damageMult *= (1 - Math.abs(rb.placementDetonationPenalty) / 200);
       if (typeof rb.damagePerConsumedStack === 'number') damageMult *= (1 + rb.damagePerConsumedStack / 100);
+      // comboModification: extract additionalEffect numeric fields
+      if (rb.comboModification && typeof rb.comboModification === 'object') {
+        const cm = rb.comboModification as Record<string, any>;
+        const ae = cm.additionalEffect;
+        if (ae) {
+          if (typeof ae.ailmentPotency === 'number') ailmentPotency += ae.ailmentPotency;
+          if (typeof ae.incDamage === 'number') damageMult *= (1 + ae.incDamage / 100);
+          if (typeof ae.incCritChance === 'number') critChanceBonus += ae.incCritChance;
+          if (typeof ae.dodgeChance === 'number') critChanceBonus += ae.dodgeChance * 0.5; // cross-stat proxy
+        }
+        if (typeof cm.thresholdOverride === 'number') counterDamageMult *= (1 + cm.thresholdOverride * 0.01);
+        if (cm.onConsume?.healPercentMaxHP) ailmentPotency += cm.onConsume.healPercentMaxHP;
+        if (cm.onDetonation?.applyDebuff) ailmentPotency += cm.onDetonation.applyDebuff.duration ?? 4;
+        if (cm.onDetonation?.grantBuff) damageMult *= (1 + (cm.onDetonation.grantBuff.bonusDamage ?? 20) / 100);
+      }
+      // Complex behavioral objects: extract numeric effects
+      if (typeof rb.percentMaxHP === 'number') counterDamageMult *= (1 + rb.percentMaxHP * 0.01);
+      if (typeof rb.potencyPercent === 'number') ailmentPotency += rb.potencyPercent;
+      if (rb.onCrit && typeof rb.onCrit === 'object') {
+        if (typeof rb.onCrit.incDamage === 'number') damageMult *= (1 + rb.onCrit.incDamage / 200);
+        if (typeof rb.onCrit.ailmentPotencyBonus === 'number') ailmentPotency += rb.onCrit.ailmentPotencyBonus / 2;
+      }
+      if (rb.onNonCrit && typeof rb.onNonCrit === 'object') {
+        if (typeof rb.onNonCrit.incDamage === 'number') damageMult *= (1 + rb.onNonCrit.incDamage / 200);
+      }
+      if (rb.chargeSystem && typeof rb.chargeSystem === 'object') {
+        const cs = rb.chargeSystem as Record<string, any>;
+        if (typeof cs.maxCharges === 'number') critChanceBonus += cs.maxCharges;
+      }
+      if (rb.perCharge && typeof rb.perCharge === 'object') {
+        const pc = rb.perCharge as Record<string, any>;
+        if (typeof pc.incDamage === 'number') damageMult *= (1 + pc.incDamage * 2 / 100);
+        if (typeof pc.incCritChance === 'number') critChanceBonus += pc.incCritChance * 2;
+      }
+      if (rb.onCounterCrit && typeof rb.onCounterCrit === 'object') {
+        const occ = rb.onCounterCrit as Record<string, any>;
+        if (occ.buff?.critMult) critMultiplierBonus += occ.buff.critMult;
+        if (occ.buff?.counterDamage) counterDamageMult *= (1 + occ.buff.counterDamage / 100);
+      }
+      if (rb.onWardExpire && typeof rb.onWardExpire === 'object') {
+        const owe = rb.onWardExpire as Record<string, any>;
+        if (typeof owe.detonateCounterHitAilments === 'number') ailmentPotency += owe.detonateCounterHitAilments;
+      }
+      if (rb.duringWardOnDodgeOrBlock && typeof rb.duringWardOnDodgeOrBlock === 'object') {
+        const dwodb = rb.duringWardOnDodgeOrBlock as Record<string, any>;
+        if (typeof dwodb.counterDamage === 'number') counterDamageMult *= (1 + dwodb.counterDamage / 100);
+        if (typeof dwodb.fortify === 'number') ailmentPotency += dwodb.fortify;
+      }
+      if (rb.passThroughDetonation && typeof rb.passThroughDetonation === 'object') {
+        const ptd = rb.passThroughDetonation as Record<string, any>;
+        if (typeof ptd.burstPercent === 'number') ailmentPotency += ptd.burstPercent;
+      }
+      if (rb.onDodge && typeof rb.onDodge === 'object') {
+        const od = rb.onDodge as Record<string, any>;
+        if (typeof od.chance === 'number') critChanceBonus += od.chance * 0.1;
+        if (od.effect?.weaponDamage) damageMult *= (1 + od.effect.weaponDamage / 200);
+      }
+      if (rb.venomBurstOverride && typeof rb.venomBurstOverride === 'object') {
+        const vbo = rb.venomBurstOverride as Record<string, any>;
+        if (typeof vbo.scaleRatio === 'number') ailmentPotency += vbo.scaleRatio * 10;
+      }
+      if (rb.counterDamageFromAilments && typeof rb.counterDamageFromAilments === 'object') {
+        const cda = rb.counterDamageFromAilments as Record<string, any>;
+        if (typeof cda.percentOfTotalSnapshot === 'number') counterDamageMult *= (1 + cda.percentOfTotalSnapshot / 100);
+      }
+      if (rb.noCounterPenalty && typeof rb.noCounterPenalty === 'object') {
+        if (typeof (rb.noCounterPenalty as any).cdIncrease === 'number') cdRefundPercent -= (rb.noCounterPenalty as any).cdIncrease;
+      }
+      if (rb.noAilmentPenalty && typeof rb.noAilmentPenalty === 'object') {
+        if (typeof (rb.noAilmentPenalty as any).cdIncrease === 'number') cdRefundPercent -= (rb.noAilmentPenalty as any).cdIncrease;
+      }
+      if (rb.noPassThroughPenalty && typeof rb.noPassThroughPenalty === 'object') {
+        if (typeof (rb.noPassThroughPenalty as any).cdIncrease === 'number') cdRefundPercent -= (rb.noPassThroughPenalty as any).cdIncrease;
+      }
     }
 
     return {
@@ -470,7 +543,7 @@ export const daggerModule: WeaponModule = {
       for (const proc of graphMod.skillProcs) {
         if (typeof proc.trigger !== 'object' || proc.trigger === null) continue;
         const t = proc.trigger as Record<string, any>;
-        const buff = (proc as any).buff;
+        const buff = (proc as any).applyBuff ?? (proc as any).buff;
         if (!buff) continue; // only handle buff-creating procs
 
         let matched = true;
@@ -517,5 +590,4 @@ export const daggerModule: WeaponModule = {
   },
 };
 
-// Self-register on import
-registerWeaponModule(daggerModule);
+// Registration handled by tick.ts WEAPON_MODULES map (side-effect imports are tree-shaken by tsx).

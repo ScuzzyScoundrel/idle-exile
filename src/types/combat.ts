@@ -56,6 +56,9 @@ export interface CombatTickResult {
     stacks: number;           // how many stacks spread
   }>;
   cooldownResets?: string[];  // skill IDs that had CD reset
+  conditionalModBonuses?: number;  // sum of non-zero conditional mod effects applied this tick
+  counterHitDamage?: number;       // counter-hit damage from weapon hooks this tick
+  trapDetonationDamage?: number;   // trap detonation damage from weapon hooks this tick
 }
 
 export type CombatPhase = 'clearing' | 'boss_fight' | 'boss_victory' | 'boss_defeat' | 'zone_defeat';

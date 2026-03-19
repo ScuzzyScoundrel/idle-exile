@@ -74,6 +74,10 @@ interface AggregateMetrics {
   totalIncomingDamage: number;
   dodgeCount: number;
   skillCasts: number;
+  // Weapon hook + conditional mod metrics
+  conditionalModBonuses: number;
+  counterHitDamage: number;
+  trapDetonationDamage: number;
 }
 
 interface DynamicResult {
@@ -221,7 +225,7 @@ function createRichTestState(
   ];
 
   const activeTraps: TrapState[] = [
-    { trapId: 'qa_trap', sourceSkillId: 'dagger_blade_trap', placedAt: now - 2000, armDelay: 1.5, isArmed: true, damage: 100, duration: 15, remainingDuration: 13 },
+    { trapId: 'qa_trap', sourceSkillId: 'dagger_blade_trap', placedAt: now - 5000, armDelay: 1.5, isArmed: true, damage: 100, duration: 15, remainingDuration: 10 },
   ];
 
   const zone = ZONE_DEFS[5] ?? ZONE_DEFS[0];
@@ -286,7 +290,7 @@ function createRichTestState(
     comboStates,
     activeTraps,
     bladeWardExpiresAt: now + 60000, // 60s — ensure ward-based conditions fire for enough ticks
-    bladeWardHits: 2,
+    bladeWardHits: 5, // 5 hits — satisfy hitsReceivedInWard:4, counterCritsInWard:2 thresholds
     elementTransforms: {},
     lastHitMobTypeId: 'thicket_crawler',
     freeCastUntil: {},
@@ -364,6 +368,9 @@ function createEmptyMetrics(): AggregateMetrics {
     totalIncomingDamage: 0,
     dodgeCount: 0,
     skillCasts: 0,
+    conditionalModBonuses: 0,
+    counterHitDamage: 0,
+    trapDetonationDamage: 0,
   };
 }
 
@@ -401,6 +408,11 @@ function accumulateMetrics(
   if (result.zoneAttack?.isDodged) metrics.dodgeCount++;
   if (result.bossAttack?.isDodged) metrics.dodgeCount++;
   if (result.skillFired) metrics.skillCasts++;
+
+  // Weapon hook + conditional mod metrics
+  metrics.conditionalModBonuses += result.conditionalModBonuses ?? 0;
+  metrics.counterHitDamage += result.counterHitDamage ?? 0;
+  metrics.trapDetonationDamage += result.trapDetonationDamage ?? 0;
 
   if (state.packMobs?.[0]) {
     metrics.debuffsApplied = Math.max(metrics.debuffsApplied, state.packMobs[0].debuffs.length);
@@ -449,6 +461,7 @@ function runDynamicCheck(skillId: string, tree: TalentTree, node: TalentNode, ti
     'totalHits', 'procsFiredCount', 'healingReceived', 'fortifyStacksMax',
     'tempBuffCount', 'comboStatesCreated', 'cooldownResets', 'debuffsApplied', 'selfDamageTaken',
     'finalHp', 'totalIncomingDamage', 'dodgeCount', 'skillCasts',
+    'conditionalModBonuses', 'counterHitDamage', 'trapDetonationDamage',
   ] as const;
 
   for (const key of metricKeys) {

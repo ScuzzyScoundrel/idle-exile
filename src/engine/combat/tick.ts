@@ -81,8 +81,12 @@ import type { CombatTickOutput } from './types';
 export type { CombatTickOutput } from './types';
 
 // ── Weapon module system ──
-import { getWeaponModule } from './weapons/registry';
-import './weapons/dagger'; // side-effect: registers dagger module
+import type { WeaponModule } from './weapons/weaponModule';
+import { daggerModule } from './weapons/dagger';
+const WEAPON_MODULES: Record<string, WeaponModule> = { dagger: daggerModule };
+function getWeaponModule(wt: string | undefined): WeaponModule | null {
+  return wt ? WEAPON_MODULES[wt] ?? null : null;
+}
 
 // ── Structured proc event type (mirrors CombatTickResult.procEvents element) ──
 type ProcEvent = {
@@ -315,6 +319,7 @@ export function runCombatTick(
   let condDamageReduction = 0;
   let condCooldownReduction = 0;
   let condIncreasedDamageTaken = 0;
+  let condModBonuses = 0;
   if (graphMod?.conditionalMods?.length) {
     const condCtx: ConditionContext = {
       isHit: false, isCrit: false, phase,
@@ -338,6 +343,20 @@ export function runCombatTick(
       ...weaponCondExt,
     };
     const preRoll = evaluateConditionalMods(graphMod.conditionalMods, condCtx, 'pre-roll');
+    // Sum all non-zero conditional mod effects for QA observability
+    condModBonuses = Math.abs(preRoll.incCritChance) + Math.abs(preRoll.incCritMultiplier)
+      + Math.abs(preRoll.incDamage) + Math.abs(preRoll.incCastSpeed)
+      + Math.abs(preRoll.weaponMastery) + Math.abs(preRoll.dotMultiplier)
+      + Math.abs(preRoll.evasionBonus) + Math.abs(preRoll.dodgeChance)
+      + Math.abs(preRoll.ailmentDuration) + Math.abs(preRoll.ailmentPotency)
+      + Math.abs(preRoll.leechPercent) + Math.abs(preRoll.damageReduction)
+      + Math.abs(preRoll.cooldownReduction) + Math.abs(preRoll.increasedDamageTaken)
+      + Math.abs(preRoll.extraHits) + Math.abs(preRoll.lifeOnHit)
+      + Math.abs(preRoll.chainCount) + Math.abs(preRoll.pierceCount)
+      + Math.abs(preRoll.globalIncDamage) + Math.abs(preRoll.counterHitDamage)
+      + Math.abs(preRoll.detonationDamageBonus) + Math.abs(preRoll.wardDRBonus)
+      + Math.abs(preRoll.shadowPhaseCounterDamage) + Math.abs(preRoll.ailmentPotencyMult)
+      + (preRoll.damageMult !== 1 ? Math.abs(preRoll.damageMult - 1) * 100 : 0);
     if (preRoll.incCritChance) effectiveStats.critChance += preRoll.incCritChance;
     if (preRoll.incCritMultiplier) effectiveStats.critMultiplier += preRoll.incCritMultiplier;
     if (preRoll.incDamage) damageMult *= (1 + preRoll.incDamage / 100);
@@ -958,6 +977,8 @@ export function runCombatTick(
     const bs = state.bossState;
     let totalDamage = 0;
     let bleedTriggerDamage = 0;
+    let weaponCounterDmg = 0;
+    let weaponTrapDmg = 0;
     let newBossHp = bs.bossCurrentHp;
 
     if (roll.isHit) {
@@ -1051,6 +1072,8 @@ export function runCombatTick(
           cappedBossDmg *= bossWardResult.wardDamageMult;
           newBossHp -= bossWardResult.counterDamage + bossWardResult.trapDamage;
           totalDamage += bossWardResult.counterDamage + bossWardResult.trapDamage;
+          weaponCounterDmg += bossWardResult.counterDamage;
+          weaponTrapDmg += bossWardResult.trapDamage;
           newBladeWardHits = bossWardResult.bladeWardHits;
           newComboStates = bossWardResult.comboStates;
           newActiveTraps = bossWardResult.activeTraps;
@@ -1173,6 +1196,9 @@ export function runCombatTick(
       procDamage: procDamage > 0 ? procDamage : undefined,
       procLabel: allProcsFired.length > 0 ? (prettifyProcId(allProcsFired[0])) : undefined,
       cooldownWasReset: procCooldownResets.length > 0,
+      conditionalModBonuses: condModBonuses > 0 ? condModBonuses : undefined,
+      counterHitDamage: weaponCounterDmg > 0 ? weaponCounterDmg : undefined,
+      trapDetonationDamage: weaponTrapDmg > 0 ? weaponTrapDmg : undefined,
       // Structured events
       procEvents: allProcEvents.length > 0 ? allProcEvents : undefined,
       cooldownResets: procCooldownResets.length > 0 ? procCooldownResets : undefined,
@@ -1234,6 +1260,8 @@ export function runCombatTick(
   let bleedTriggerDamage = 0;
   let shatterDamage = 0;
   let didSpreadDebuffs = false;
+  let weaponCounterDmg = 0;
+  let weaponTrapDmg = 0;
   const allSpreadEvents: SpreadResult[] = [];
   const skillIsAoE = isSkillAoE(state.skillBar, skill.id, state.skillProgress) || (graphMod?.targetAllEnemies === true);
 
@@ -1679,6 +1707,8 @@ export function runCombatTick(
         clearZoneDmg *= clearWpn.wardDamageMult;
         mob.hp -= clearWpn.counterDamage;
         totalDamage += clearWpn.counterDamage;
+        weaponCounterDmg += clearWpn.counterDamage;
+        weaponTrapDmg += clearWpn.trapDamage;
         // Trap AoE: damage all pack mobs
         if (clearWpn.trapDamage > 0) {
           for (const pm of updatedPackMobs) {
@@ -1702,6 +1732,22 @@ export function runCombatTick(
       }
       playerHp -= clearZoneDmg;
       zoneAttackResult = zoneRoll;
+      // Proc trigger: onDodge (clearing)
+      if (zoneRoll.isDodged && graphMod?.skillProcs?.length) {
+        const dodgeProcCtx: ProcContext = {
+          isHit: false, isCrit: false, skillId: skill.id,
+          effectiveMaxLife, stats: effectiveStats, weaponAvgDmg: avgDamage,
+          weaponSpellPower: spellPower, damageMult: 1, now,
+          lastProcTriggerAt: { ...state.lastProcTriggerAt },
+          targetDebuffs: mob.debuffs, packSize: updatedPackMobs.length,
+          activeTempBuffIds: activeTempBuffs.map(b => b.id),
+        };
+        const dodgePr = evaluateProcs(graphMod.skillProcs, 'onDodge', dodgeProcCtx);
+        if (dodgePr.bonusDamage > 0) { mob.hp -= dodgePr.bonusDamage; totalDamage += dodgePr.bonusDamage; }
+        procHeal += dodgePr.healAmount;
+        for (const id of dodgePr.procsFired) allProcsFired.push(id);
+        for (const buff of dodgePr.newTempBuffs) activeTempBuffs = mergeProcTempBuff(activeTempBuffs, buff);
+      }
       mob.nextAttackAt = now + ZONE_ATTACK_INTERVAL * mobEnemyMods.atkSpeedSlowMult * mobRareAtkMult * 1000;
     }
   }
@@ -1838,6 +1884,9 @@ export function runCombatTick(
     procDamage: procDamage > 0 ? procDamage : undefined,
     procLabel: allProcsFired.length > 0 ? (prettifyProcId(allProcsFired[0])) : undefined,
     cooldownWasReset: procCooldownResets.length > 0,
+    conditionalModBonuses: condModBonuses > 0 ? condModBonuses : undefined,
+    counterHitDamage: weaponCounterDmg > 0 ? weaponCounterDmg : undefined,
+    trapDetonationDamage: weaponTrapDmg > 0 ? weaponTrapDmg : undefined,
     gcdWasReset: procGcdWasReset,
     didSpreadDebuffs,
     packSize: newCurrentPackSize,
