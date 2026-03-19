@@ -156,6 +156,19 @@ function createRichTestState(
   char.level = 20;
   char.xpToNext = 99999;
 
+  // Node-aware: adjust state for specific conditions (must be before dagger creation)
+  let nodeAwareConsecutiveHits = 5;
+  let nodeAwareFrontMobHp = 500;
+  if (resolvedMod?.conditionalMods) {
+    for (const cm of resolvedMod.conditionalMods) {
+      if (cm.condition === 'firstSkillInEncounter') nodeAwareConsecutiveHits = 0;
+      if (cm.condition === 'afterCastOnMultipleTargets') nodeAwareConsecutiveHits = 3;
+    }
+  }
+  if (resolvedMod?.executeThreshold && resolvedMod.executeThreshold > 0) {
+    nodeAwareFrontMobHp = Math.floor(1000 * (resolvedMod.executeThreshold / 100) * 0.8);
+  }
+
   const dagger: Item = {
     id: 'qa_dagger',
     baseId: 'crude_dagger',
@@ -214,20 +227,6 @@ function createRichTestState(
         }
       }
     }
-  }
-
-  // Node-aware: adjust state for specific conditions
-  let nodeAwareConsecutiveHits = 5;
-  let nodeAwareFrontMobHp = 500;
-  if (resolvedMod?.conditionalMods) {
-    for (const cm of resolvedMod.conditionalMods) {
-      if (cm.condition === 'firstSkillInEncounter') nodeAwareConsecutiveHits = 0;
-      if (cm.condition === 'afterCastOnMultipleTargets') nodeAwareConsecutiveHits = 3;
-    }
-  }
-  // Execute threshold: put front mob below threshold
-  if (resolvedMod?.executeThreshold && resolvedMod.executeThreshold > 0) {
-    nodeAwareFrontMobHp = Math.floor(1000 * (resolvedMod.executeThreshold / 100) * 0.8); // 80% of threshold
   }
 
   const comboStates = [

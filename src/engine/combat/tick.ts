@@ -1671,6 +1671,19 @@ export function runCombatTick(
     if (Math.random() * 100 < mobEnemyMods.missChance) {
       zoneAttackResult = { damage: 0, isDodged: true, isBlocked: false };
       mob.nextAttackAt = now + ZONE_ATTACK_INTERVAL * mobEnemyMods.atkSpeedSlowMult * mobRareAtkMult * 1000;
+      // onDodge proc trigger (miss-chance dodge)
+      if (graphMod?.skillProcs?.length) {
+        const dodgePr = evaluateProcs(graphMod.skillProcs, 'onDodge', {
+          isHit: false, isCrit: false, skillId: skill.id,
+          effectiveMaxLife, stats: effectiveStats, weaponAvgDmg: avgDamage,
+          weaponSpellPower: spellPower, damageMult: 1, now,
+          lastProcTriggerAt: newLastProcTriggerAt, ...cpShared,
+        });
+        if (dodgePr.bonusDamage > 0) { mob.hp -= dodgePr.bonusDamage; totalDamage += dodgePr.bonusDamage; }
+        procHeal += dodgePr.healAmount;
+        for (const id of dodgePr.procsFired) allProcsFired.push(id);
+        for (const buff of dodgePr.newTempBuffs) activeTempBuffs = mergeProcTempBuff(activeTempBuffs, buff);
+      }
     } else {
       const defStats = applyAbilityResists(stats, abilityEffect);
       const buffedStats: ResolvedStats = abilityEffect.defenseMult
@@ -1739,9 +1752,8 @@ export function runCombatTick(
           isHit: false, isCrit: false, skillId: skill.id,
           effectiveMaxLife, stats: effectiveStats, weaponAvgDmg: avgDamage,
           weaponSpellPower: spellPower, damageMult: 1, now,
-          lastProcTriggerAt: { ...state.lastProcTriggerAt },
-          targetDebuffs: mob.debuffs, packSize: updatedPackMobs.length,
-          activeTempBuffIds: activeTempBuffs.map(b => b.id),
+          lastProcTriggerAt: newLastProcTriggerAt,
+          ...cpShared,
         };
         const dodgePr = evaluateProcs(graphMod.skillProcs, 'onDodge', dodgeProcCtx);
         if (dodgePr.bonusDamage > 0) { mob.hp -= dodgePr.bonusDamage; totalDamage += dodgePr.bonusDamage; }
