@@ -617,6 +617,8 @@ export function runCombatTick(
 
   // Apply new debuffs from graph modifier
   let newDebuffs = [...targetDebuffs];
+  // Track ailments applied THIS cast (for sequential hit spreading)
+  const castAilments: ActiveDebuff[] = [];
   // consumeOnHit: remove the mark debuff after its bonus was applied
   if (consumeMarkId) {
     const idx = newDebuffs.findIndex(d => d.debuffId === consumeMarkId);
@@ -674,6 +676,9 @@ export function runCombatTick(
       const skillPotencyBonus = skill.id === 'dagger_viper_strike' ? 1.5 : 1.0;
       const finalSnapshot = ailmentSnapshot * skillPotencyBonus;
       applyDebuffToList(newDebuffs, autoAilment, 1, ailmentDur, skill.id, finalSnapshot);
+      // Track for sequential hit spreading
+      const applied = newDebuffs.find(d => d.debuffId === autoAilment);
+      if (applied) castAilments.push({ ...applied });
     }
   }
 
@@ -1314,14 +1319,11 @@ export function runCombatTick(
         mob.hp -= hitDmg;
         totalDamage += hitDmg;
         perHitDamages.push(hitDmg);
-        // Apply ailments to EACH sequential hit target independently
-        for (const debuffInfo of newDebuffs) {
-          const existingIdx = mob.debuffs.findIndex(d => d.debuffId === debuffInfo.debuffId);
-          if (existingIdx >= 0) {
-            mob.debuffs[existingIdx] = { ...debuffInfo };
-          } else {
-            mob.debuffs.push({ ...debuffInfo });
-          }
+        // Apply only THIS CAST's auto-ailment to sequential hit targets
+        // (not pre-existing debuffs from front mob — those belong to front mob only)
+        for (const ailment of castAilments) {
+          applyDebuffToList(mob.debuffs, ailment.debuffId, 1,
+            ailment.remainingDuration, skill.id, ailment.stackSnapshots?.[0] ?? 0);
         }
       }
       // DoT/proc/charge extra damage on front mob only
