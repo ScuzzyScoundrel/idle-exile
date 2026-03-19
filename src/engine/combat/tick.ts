@@ -726,7 +726,8 @@ export function runCombatTick(
   const enemyMaxHp = (phase === 'boss_fight' && state.bossState)
     ? state.bossState.bossMaxHp
     : (frontMobMaxHp > 0 ? frontMobMaxHp : 1);
-  const dotResult = tickDebuffDoT(newDebuffs, dtSec, effectBonus, stats.incDoTDamage, enemyMaxHp);
+  const combinedDoTDamage = stats.incDoTDamage + (effectiveStats.dotMultiplier ?? 0);
+  const dotResult = tickDebuffDoT(newDebuffs, dtSec, effectBonus, combinedDoTDamage, enemyMaxHp);
   // Unique: moreDotVsCursed — more DoT damage vs cursed targets (Marsh King's Crown)
   const isCursed = newDebuffs.some(d => d.debuffId === 'cursed');
   const dotVsCursedMult = (isCursed && effectiveStats.moreDotVsCursed > 0) ? (1 + effectiveStats.moreDotVsCursed / 100) : 1;

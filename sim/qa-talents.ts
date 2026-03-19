@@ -120,13 +120,16 @@ function pad(s: string, len: number): string {
 
 // ─── Mob Pack Factory ────────────────────────────────────
 
-function createMobPack(skillId: string, now: number): MobInPack[] {
+function createMobPack(skillId: string, now: number, frontMobHp: number = 500): MobInPack[] {
   const frontDebuffs: ActiveDebuff[] = [
     { debuffId: 'bleeding', stacks: 3, remainingDuration: 10, appliedBySkillId: skillId, stackSnapshots: [20, 25, 22] },
-    { debuffId: 'poisoned', stacks: 3, remainingDuration: 10, appliedBySkillId: skillId, instances: [
-      { snapshot: 15, remainingDuration: 8, appliedBySkillId: skillId },
-      { snapshot: 18, remainingDuration: 6, appliedBySkillId: skillId },
-      { snapshot: 12, remainingDuration: 10, appliedBySkillId: skillId },
+    { debuffId: 'poisoned', stacks: 6, remainingDuration: 10, appliedBySkillId: skillId, instances: [
+      { snapshot: 15, remainingDuration: 8, appliedBySkillId: 'dagger_viper_strike' },
+      { snapshot: 18, remainingDuration: 6, appliedBySkillId: 'dagger_viper_strike' },
+      { snapshot: 12, remainingDuration: 10, appliedBySkillId: 'dagger_viper_strike' },
+      { snapshot: 14, remainingDuration: 7, appliedBySkillId: 'dagger_viper_strike' },
+      { snapshot: 16, remainingDuration: 9, appliedBySkillId: 'dagger_viper_strike' },
+      { snapshot: 11, remainingDuration: 5, appliedBySkillId: 'dagger_viper_strike' },
     ] },
     { debuffId: 'burning', stacks: 1, remainingDuration: 8, appliedBySkillId: skillId },
     { debuffId: 'chilled', stacks: 1, remainingDuration: 8, appliedBySkillId: skillId },
@@ -135,7 +138,7 @@ function createMobPack(skillId: string, now: number): MobInPack[] {
   ];
 
   return [
-    { hp: 500, maxHp: 1000, debuffs: [...frontDebuffs.map(d => ({ ...d }))], nextAttackAt: now, rare: null, damageElement: 'physical' as any, physRatio: 1.0 },
+    { hp: frontMobHp, maxHp: 1000, debuffs: [...frontDebuffs.map(d => ({ ...d }))], nextAttackAt: now, rare: null, damageElement: 'physical' as any, physRatio: 1.0 },
     { hp: 40000, maxHp: 50000, debuffs: [], nextAttackAt: now + 2000, rare: null, damageElement: 'physical' as any, physRatio: 1.0 },
     { hp: 50000, maxHp: 50000, debuffs: [], nextAttackAt: now + 3000, rare: null, damageElement: 'physical' as any, physRatio: 1.0 },
   ];
@@ -213,6 +216,20 @@ function createRichTestState(
     }
   }
 
+  // Node-aware: adjust state for specific conditions
+  let nodeAwareConsecutiveHits = 5;
+  let nodeAwareFrontMobHp = 500;
+  if (resolvedMod?.conditionalMods) {
+    for (const cm of resolvedMod.conditionalMods) {
+      if (cm.condition === 'firstSkillInEncounter') nodeAwareConsecutiveHits = 0;
+      if (cm.condition === 'afterCastOnMultipleTargets') nodeAwareConsecutiveHits = 3;
+    }
+  }
+  // Execute threshold: put front mob below threshold
+  if (resolvedMod?.executeThreshold && resolvedMod.executeThreshold > 0) {
+    nodeAwareFrontMobHp = Math.floor(1000 * (resolvedMod.executeThreshold / 100) * 0.8); // 80% of threshold
+  }
+
   const comboStates = [
     { stateId: 'exposed', sourceSkillId: skillId, remainingDuration: 10, stacks: 1, maxStacks: 1, effect: { incDamage: 0.15 } },
     { stateId: 'deep_wound', sourceSkillId: skillId, remainingDuration: 8, stacks: 1, maxStacks: 3, effect: { burstDamage: 50 } },
@@ -270,7 +287,7 @@ function createRichTestState(
     skillTimers,
     talentAllocations: [],
     activeDebuffs: [],
-    consecutiveHits: 5,
+    consecutiveHits: nodeAwareConsecutiveHits,
     lastSkillsCast: [skillId, skillId],
     lastOverkillDamage: 30,
     killStreak: 3,
@@ -298,7 +315,7 @@ function createRichTestState(
     lastClearResult: null,
     lastSkillActivation: now - 600,
     nextActiveSkillAt: 0,
-    packMobs: createMobPack(skillId, now),
+    packMobs: createMobPack(skillId, now, nodeAwareFrontMobHp),
     currentPackSize: 3,
     targetedMobId: null,
     currentMobTypeId: 'thicket_crawler',

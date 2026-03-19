@@ -262,6 +262,24 @@ export const daggerModule: WeaponModule = {
         if (typeof od.chance === 'number') critChanceBonus += od.chance * 0.1;
         if (od.effect?.weaponDamage) damageMult *= (1 + od.effect.weaponDamage / 200);
       }
+      if (rb.perUniqueTargetInCast && typeof rb.perUniqueTargetInCast === 'object') {
+        const put = rb.perUniqueTargetInCast as Record<string, any>;
+        const targets = Math.min(ctx.skill.hitCount ?? 1, ctx.state.packMobs?.length ?? 3);
+        if (typeof put.incCritChance === 'number') critChanceBonus += put.incCritChance * targets;
+        if (typeof put.incDamage === 'number') damageMult *= (1 + put.incDamage * targets / 100);
+      }
+      if (rb.thirdTargetCrit && typeof rb.thirdTargetCrit === 'object') {
+        const ttc = rb.thirdTargetCrit as Record<string, any>;
+        if (ttc.applyDebuff) ailmentPotency += 5; // exposed debuff effect proxy
+      }
+      // onAilmentTick absorb shield (Venom Barrier)
+      if (rb.onAilmentTick && typeof rb.onAilmentTick === 'object') {
+        const oat = rb.onAilmentTick as Record<string, any>;
+        if (typeof oat.absorbShieldFromDamage === 'number') counterDamageMult *= (1 + oat.absorbShieldFromDamage * 0.01);
+      }
+      if (typeof rb.absorbFromDamage === 'number' && rb.absorbFromDamage > 0) {
+        counterDamageMult *= (1 + rb.absorbFromDamage * 0.01);
+      }
       if (rb.venomBurstOverride && typeof rb.venomBurstOverride === 'object') {
         const vbo = rb.venomBurstOverride as Record<string, any>;
         if (typeof vbo.scaleRatio === 'number') ailmentPotency += vbo.scaleRatio * 10;
