@@ -135,7 +135,7 @@ const AUTO_SALVAGE_OPTIONS: { value: Rarity; label: string }[] = [
   { value: 'epic', label: '≤ Rare' },
 ];
 
-export default function InventoryScreen() {
+export default function InventoryScreen({ embedded = false }: { embedded?: boolean } = {}) {
   const {
     character, inventory, currencies, gold,
     bagSlots, bagStash, equipBag, sellBag, salvageBag,
@@ -1023,22 +1023,31 @@ export default function InventoryScreen() {
   );
 
   return (
-    <div className="max-w-4xl xl:max-w-7xl mx-auto overflow-x-hidden">
-      {/* Desktop: two-column layout */}
-      <div className="hidden lg:grid lg:grid-cols-[320px_1fr] lg:gap-4">
-        {/* Left: equipped gear (sticky) */}
-        <div className="lg:sticky lg:top-16 lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
-          {renderEquippedGear()}
+    <div className={embedded ? 'overflow-x-hidden' : 'max-w-4xl xl:max-w-7xl mx-auto overflow-x-hidden'}>
+      {embedded ? (
+        /* Embedded mode: just the loot column, no equipped gear (parent shows equipment) */
+        <div className="space-y-3">
+          {renderLootColumn()}
         </div>
-        {/* Right: loot grid + inline detail */}
-        {renderLootColumn()}
-      </div>
+      ) : (
+        <>
+          {/* Desktop: two-column layout */}
+          <div className="hidden lg:grid lg:grid-cols-[320px_1fr] lg:gap-4">
+            {/* Left: equipped gear (sticky) */}
+            <div className="lg:sticky lg:top-16 lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
+              {renderEquippedGear()}
+            </div>
+            {/* Right: loot grid + inline detail */}
+            {renderLootColumn()}
+          </div>
 
-      {/* Mobile / small screen: stacked */}
-      <div className="lg:hidden space-y-3">
-        {renderEquippedGear()}
-        {renderLootColumn()}
-      </div>
+          {/* Mobile / small screen: stacked */}
+          <div className="lg:hidden space-y-3">
+            {renderEquippedGear()}
+            {renderLootColumn()}
+          </div>
+        </>
+      )}
 
       {/* Mobile bottom sheet overlay — bank item */}
       {isMobile && selectedBankSlot && (

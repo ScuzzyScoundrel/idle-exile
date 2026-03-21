@@ -7,7 +7,7 @@
  */
 
 import { useMemo } from 'react';
-import { useGameStore } from '../../store';
+import { useGameStore } from '../../store/gameStore';
 
 
 // Zone → biome kit mapping

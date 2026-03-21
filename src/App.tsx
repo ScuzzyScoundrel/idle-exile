@@ -1,15 +1,12 @@
 import { useState, useEffect, Component, type ReactNode, type ErrorInfo } from 'react';
 import TooltipProvider from './ui/components/TooltipProvider';
-import TopBar from './ui/components/TopBar';
 import NavBar from './ui/components/NavBar';
 import TutorialOverlay from './ui/components/TutorialOverlay';
 import OfflineProgressModal from './ui/components/OfflineProgressModal';
 import ClassPicker from './ui/components/ClassPicker';
-import ZoneScreen from './ui/screens/ZoneScreen';
-import InventoryScreen from './ui/screens/InventoryScreen';
-import CharacterScreen from './ui/screens/CharacterScreen';
+import WorldScreen from './ui/screens/WorldScreen';
+import HeroScreen from './ui/screens/HeroScreen';
 import CraftingScreen from './ui/screens/CraftingScreen';
-import CombatStatusBar from './ui/components/CombatStatusBar';
 import { useGameStore } from './store/gameStore';
 import { useTabGuard } from './ui/hooks/useTabGuard';
 import { useZoneTheme } from './ui/hooks/useZoneTheme';
@@ -64,9 +61,8 @@ function App() {
   const offlineProgress = useGameStore((s) => s.offlineProgress);
   const classSelected = useGameStore((s) => s.classSelected);
   const currentZoneId = useGameStore((s) => s.currentZoneId);
-  const isRunning = useGameStore((s) => s.idleStartTime !== null);
   const [activeTab, setActiveTab] = useState(() =>
-    tutorialStep === 1 ? 'inventory' : 'zones'
+    tutorialStep === 1 ? 'hero' : 'world'
   );
 
   // DEV: max level for visual testing — remove before merge
@@ -119,12 +115,12 @@ function App() {
       <div className="fixed inset-0 pointer-events-none z-0 bg-cover bg-center transition-all duration-[2s]"
         style={{
           backgroundImage: `url(/images/backgrounds/${currentZoneId ?? 'idle-tavern'}.png)`,
-          opacity: currentZoneId ? 0.3 : 0.35,
+          opacity: currentZoneId ? 0.7 : 0.35,
         }} />
       {/* Soft vignette to keep edges readable */}
       <div className="fixed inset-0 pointer-events-none z-[1]"
         style={{
-          background: `radial-gradient(ellipse at 50% 40%, transparent 30%, rgba(0,0,0,0.45) 100%)`,
+          background: `radial-gradient(ellipse at 50% 40%, transparent 45%, rgba(0,0,0,0.15) 100%)`,
         }} />
       {/* Zone foreground layers — transparent border overlays from top/bottom edges */}
       <div className="fixed top-0 left-0 right-0 pointer-events-none z-40 transition-all duration-[2s]"
@@ -133,8 +129,8 @@ function App() {
           backgroundSize: 'auto 100%',
           backgroundPosition: 'center top',
           backgroundRepeat: 'repeat-x',
-          height: '60px',
-          opacity: 0.45,
+          height: '80px',
+          opacity: 1,
         }} />
       {/* Footer frame disabled — header-only for cleaner UI */}
       {/* Zone vignette overlay */}
@@ -142,22 +138,17 @@ function App() {
       {/* Ambient floating particles */}
       {band > 0 && <AmbientParticles band={band} />}
 
-      <TopBar />
-      <CombatStatusBar />
-
       {offlineProgress && <OfflineProgressModal />}
 
       <TutorialOverlay activeTab={activeTab} onTabChange={setActiveTab} />
 
       {/* Main content area — padded for top and bottom bars + optional combat status bar.
           All screens stay mounted (hidden via CSS) so local state persists across tab switches. */}
-      <main className={`relative z-10 mx-2 rounded-xl ${isRunning ? 'mt-[88px]' : 'mt-14'} mb-16
-        bg-gray-950/70 backdrop-blur-lg border border-white/5`}>
+      <main className="relative z-10 mx-2 mt-10 mb-20">
         <div className="p-3">
-          <div className={activeTab === 'zones' ? '' : 'hidden'}><ZoneScreen /></div>
-          <div className={activeTab === 'inventory' ? '' : 'hidden'}><InventoryScreen /></div>
+          <div className={activeTab === 'world' ? '' : 'hidden'}><WorldScreen /></div>
+          <div className={activeTab === 'hero' ? '' : 'hidden'}><HeroScreen /></div>
           <div className={activeTab === 'crafting' ? '' : 'hidden'}><CraftingScreen /></div>
-          <div className={activeTab === 'character' ? '' : 'hidden'}><CharacterScreen /></div>
         </div>
       </main>
 

@@ -52,8 +52,7 @@ export default function CombatStatusBar() {
       : 0;
 
     return (
-      <div className="fixed top-[48px] left-0 right-0 z-40 px-3 py-1"
-        style={{ background: 'transparent' }}>
+      <div className="fixed bottom-14 left-0 right-0 z-40 px-2 py-1">
         <div className="flex items-center gap-2 max-w-4xl xl:max-w-7xl mx-auto text-xs">
           <div className="flex items-center gap-3 flex-1 bg-gray-950/90 backdrop-blur-md
             rounded-lg px-3 py-1.5 border border-white/10">
@@ -113,8 +112,7 @@ export default function CombatStatusBar() {
     : 0;
 
   return (
-    <div className="fixed top-[48px] left-0 right-0 z-40 px-3 py-1"
-      style={{ background: 'transparent' }}>
+    <div className="fixed bottom-14 left-0 right-0 z-40 px-2 py-1">
       <div className="flex items-center gap-2 max-w-4xl xl:max-w-7xl mx-auto text-xs
         bg-gray-950/90 backdrop-blur-md rounded-lg px-3 py-1.5 border border-white/10">
         {/* Zone name */}

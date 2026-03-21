@@ -98,12 +98,11 @@
     transparent 100%);
   box-shadow: 0 0 4px rgb(var(--glow-ambient) / 0.3);
   pointer-events: none;
-  z-index: 1;
   transition: background 0.8s ease, box-shadow 0.8s ease;
 }
 .panel-stone::before { top: 6px; left: 8px; }
 .panel-stone::after  { top: 6px; right: 8px; }
-.panel-stone { position: relative; }
+.panel-stone { position: relative; isolation: isolate; }
 
 /* ── Border: Iron ── */
 .border-iron {
@@ -140,6 +139,41 @@
     0 -4px 16px rgba(0,0,0,0.7),
     0 -2px 4px rgba(0,0,0,0.5);
   transition: background-image 0.8s ease;
+}
+
+/* ── Game Tabs: Trapezoidal nav buttons ── */
+.game-tab {
+  position: relative;
+  clip-path: polygon(8% 0%, 92% 0%, 100% 100%, 0% 100%);
+  border: none;
+  border-radius: 0;
+}
+.game-tab-active {
+  background: linear-gradient(175deg,
+    rgb(var(--panel-bg-1) / 0.92) 0%,
+    rgb(var(--panel-bg-2) / 0.95) 40%,
+    rgb(var(--panel-bg-3) / 0.98) 100%);
+  box-shadow:
+    0 -2px 8px rgb(var(--theme-accent) / 0.15),
+    inset 0 1px 0 rgb(var(--theme-accent) / 0.3);
+}
+.game-tab-inactive {
+  background: linear-gradient(175deg,
+    rgb(var(--panel-bg-1) / 0.6) 0%,
+    rgb(var(--panel-bg-2) / 0.7) 40%,
+    rgb(var(--panel-bg-3) / 0.75) 100%);
+}
+.game-tab-active::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 15%;
+  right: 15%;
+  height: 2px;
+  background: rgb(var(--theme-accent) / 0.6);
+  box-shadow: 0 0 8px rgb(var(--theme-accent) / 0.3);
+  pointer-events: none;
+  transition: background 0.8s ease, box-shadow 0.8s ease;
 }
 
 /* ── Decorative: TopBar bottom glow line ── */
@@ -434,6 +468,27 @@ body {
 .vignette-band-5  { box-shadow: inset 0 0 120px 40px rgba(30, 27, 75, 0.35); }
 .vignette-band-6  { box-shadow: inset 0 0 120px 40px rgba(0, 0, 0, 0.5); animation: vignette-breathe 12s ease-in-out infinite; }
 
+/* Zone map: current zone pulsing ring */
+@keyframes zone-current {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(var(--theme-accent) / 0); }
+  50%      { box-shadow: 0 0 12px 4px rgb(var(--theme-accent) / 0.3); }
+}
+.animate-zone-current { animation: zone-current 2s ease-in-out infinite; }
+
+/* Zone map: invaded node pulse */
+@keyframes invasion-node {
+  0%, 100% { box-shadow: 0 0 4px 1px rgba(168, 85, 247, 0.2); }
+  50%      { box-shadow: 0 0 10px 3px rgba(168, 85, 247, 0.4); }
+}
+.animate-invasion-node { animation: invasion-node 2s ease-in-out infinite; }
+
+/* Zone detail: fade in */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in { animation: fade-in 0.2s ease-out; }
+
 /* Combat: "last hit" pop animation */
 @keyframes pop-hit {
   0%   { transform: scale(1); }
@@ -543,4 +598,56 @@ body {
   10%  { opacity: 0.15; }
   90%  { opacity: 0.1; }
   100% { transform: translate(10px, 110vh) rotate(90deg); opacity: 0; }
+}
+
+/* ══════════════════════════════════════════════════════
+   Phase 4: Visual Polish
+   ══════════════════════════════════════════════════════ */
+
+/* ── Panel size container (inline only — block axis stays auto-sized by content) ── */
+.panel-stone {
+  container-type: inline-size;
+}
+
+/* ── Equipment change flash — rarity-colored glow ── */
+@keyframes equip-flash {
+  0%   { box-shadow: 0 0 0 0 currentColor; }
+  30%  { box-shadow: 0 0 16px 4px currentColor; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+.animate-equip-flash { animation: equip-flash 0.5s ease-out; }
+
+/* ── Level up pulse — golden flash on XP bar ── */
+@keyframes level-up-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.8); opacity: 1; }
+  50%  { box-shadow: 0 0 20px 8px rgba(250, 204, 21, 0.6); }
+  100% { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0); opacity: 1; }
+}
+.animate-level-up { animation: level-up-pulse 0.8s ease-out; }
+
+/* ── Boss approach — text pulses red ── */
+@keyframes boss-approach {
+  0%, 100% { color: rgba(239, 68, 68, 0.6); }
+  50%      { color: rgba(239, 68, 68, 1); text-shadow: 0 0 8px rgba(239, 68, 68, 0.4); }
+}
+.animate-boss-approach { animation: boss-approach 1.5s ease-in-out infinite; }
+
+/* ── Fortify arc glow ── */
+@keyframes fortify-arc {
+  0%, 100% { filter: drop-shadow(0 0 2px rgba(245, 158, 11, 0.2)); }
+  50%      { filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.4)); }
+}
+.animate-fortify-arc { animation: fortify-arc 2s ease-in-out infinite; }
+
+/* ── NavBar active tab: zone theme accent response ── */
+.game-tab-active {
+  border-top: 2px solid rgb(var(--theme-accent) / 0.4);
+  transition: border-color 0.8s ease, background 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* ── Consistent section headers: Cinzel everywhere ── */
+.panel-stone h3,
+.panel-leather h3 {
+  font-family: 'Cinzel', Georgia, serif;
+  letter-spacing: 0.06em;
 }

@@ -32,7 +32,7 @@ export default function TutorialOverlay({ activeTab, onTabChange }: TutorialOver
 
   // Auto-advance: Step 2 -> 3 when user navigates to zones tab
   useEffect(() => {
-    if (tutorialStep === 2 && activeTab === 'zones') {
+    if (tutorialStep === 2 && activeTab === 'world') {
       advanceTutorial(3);
     }
   }, [tutorialStep, activeTab, advanceTutorial]);
@@ -66,7 +66,7 @@ export default function TutorialOverlay({ activeTab, onTabChange }: TutorialOver
   // Step 2: auto-navigate to zones when banner appears
   const handleBannerClick = () => {
     if (tutorialStep === 2) {
-      onTabChange('zones');
+      onTabChange('world');
     } else if (tutorialStep === 5) {
       onTabChange('crafting');
     }
