@@ -517,7 +517,7 @@ export default function CombatPanel() {
           {/* Mob display (combat) or progress bar (gathering) */}
           {idleMode === 'combat' && runningZone ? (
             <div
-              className="rounded-lg overflow-hidden relative border border-gray-700/50"
+              className="rounded-lg overflow-hidden relative border border-iron"
               style={{ height: '15rem' }}
             >
               {/* Zone background image */}
@@ -552,7 +552,7 @@ export default function CombatPanel() {
               </div>
             </div>
           ) : (
-            <div className="bg-gray-800 rounded-lg p-3">
+            <div className="panel-stone p-3">
               <div className="flex justify-between text-sm mb-1">
                 <span className="text-gray-300">
                   {runningZone?.name}
@@ -564,7 +564,7 @@ export default function CombatPanel() {
                 </span>
                 <span className="text-yellow-400 font-mono">{Math.floor(elapsed)}s</span>
               </div>
-              <div className="h-2 bg-gray-700 rounded-full overflow-hidden mb-1">
+              <div className="h-2 bar-track overflow-hidden mb-1">
                 <div
                   className="h-full bg-green-500 rounded-full transition-all duration-200"
                   style={{ width: `${clearProgress * 100}%` }}
@@ -599,7 +599,7 @@ export default function CombatPanel() {
 
       {/* Last Hit Dashboard — fixed-height: skills + incoming | events */}
       {idleMode === 'combat' && (combatPhase === 'clearing' || combatPhase === 'boss_fight') && (
-        <div className="text-[11px] bg-gray-900/50 rounded px-2 py-1.5 font-mono min-h-[7rem]">
+        <div className="text-[11px] panel-inset px-2 py-1.5 font-mono min-h-[7rem]">
           <div className="grid grid-cols-[1fr_auto] gap-x-3">
             {/* Left column: skill rows */}
             <div className="space-y-0.5">

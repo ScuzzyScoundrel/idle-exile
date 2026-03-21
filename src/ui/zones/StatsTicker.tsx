@@ -18,7 +18,7 @@ export default function StatsTicker({ selectedZone }: StatsTickerProps) {
   const xpScale = calcXpScale(character.level, zone.iLvlMin);
 
   return (
-    <div className="bg-gray-800/80 rounded-lg px-3 py-2">
+    <div className="panel-iron px-3 py-2">
       <div className="flex flex-wrap gap-x-4 gap-y-1 items-center text-sm">
         {idleMode === 'combat' && (
           <>

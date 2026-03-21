@@ -508,7 +508,7 @@ export default function TalentTreeView({ skill, progress, gold, onAllocate, onRe
 
                     {/* Expanded detail */}
                     {isExpanded && (
-                      <div className="bg-gray-800/90 border border-gray-600 rounded-lg p-3 mt-1 ml-2">
+                      <div className="panel-iron p-3 mt-1 ml-2">
                         <div className="text-xs text-gray-400">{renderDescription(node.description)}</div>
 
                         {/* Rank-specific info for multi-rank nodes */}

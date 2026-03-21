@@ -26,9 +26,9 @@ export function CraftingDrawer({ open, onClose, title, children }: CraftingDrawe
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
       {/* Drawer panel */}
-      <div className="relative w-full max-w-md bg-gray-900 border-l border-gray-700 shadow-2xl flex flex-col overflow-hidden">
+      <div className="relative w-full max-w-md bg-stone-dark border-l border-iron shadow-2xl flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700 bg-gray-800/60">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-iron bg-leather-dark/60">
           <h2 className="text-lg font-semibold text-gray-100">{title}</h2>
           <button
             onClick={onClose}

@@ -2,13 +2,250 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Zone theme CSS variables (default = idle/yellow) ── */
+/* ══════════════════════════════════════════════════════
+   Dark Stone / Leather / Iron — UI Panel System
+   ══════════════════════════════════════════════════════ */
+
+/* ── Floating UI: text readable on any background ── */
+.ui-float {
+  text-shadow: 0 1px 4px rgba(0,0,0,0.9), 0 0 12px rgba(0,0,0,0.6);
+}
+.ui-float-strong {
+  text-shadow: 0 1px 3px rgba(0,0,0,1), 0 0 8px rgba(0,0,0,0.8), 0 2px 16px rgba(0,0,0,0.5);
+}
+
+/* ── Panel base: Hearthstone-grade frosted glass ── */
+.panel-stone, .panel-leather, .panel-iron, .panel-inset {
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border-radius: 0.5rem;
+  transition: background 0.8s ease, border-color 0.8s ease, box-shadow 0.8s ease;
+}
+
+/* ── Panel: Primary — clean with metallic edge highlight ── */
+.panel-stone {
+  background: linear-gradient(175deg,
+    rgb(var(--panel-bg-1) / 0.82) 0%,
+    rgb(var(--panel-bg-2) / 0.88) 40%,
+    rgb(var(--panel-bg-3) / 0.92) 100%);
+  /* Double border trick: outer = dark frame, inner highlight via box-shadow */
+  border: 1px solid rgb(var(--panel-border) / 0.7);
+  box-shadow:
+    /* Outer drop shadow — depth */
+    0 2px 8px rgba(0,0,0,0.5),
+    0 4px 16px rgba(0,0,0,0.2),
+    /* Inner top edge — metallic light catch */
+    inset 0 1px 0 rgb(var(--panel-highlight) / 0.15),
+    /* Inner bottom edge — subtle depth */
+    inset 0 -1px 0 rgb(var(--panel-shadow) / 0.3),
+    /* Subtle ambient glow from zone theme */
+    0 0 12px -4px rgb(var(--glow-ambient) / 0.08);
+}
+
+/* ── Panel: Secondary — warm tinted, slightly recessed ── */
+.panel-leather {
+  background: linear-gradient(175deg,
+    color-mix(in srgb, rgb(var(--panel-bg-1) / 0.78), #3d2a16 20%) 0%,
+    color-mix(in srgb, rgb(var(--panel-bg-2) / 0.84), #2d1f11 20%) 40%,
+    color-mix(in srgb, rgb(var(--panel-bg-3) / 0.88), #1f1508 20%) 100%);
+  border: 1px solid color-mix(in srgb, rgb(var(--panel-border) / 0.6), #5a4028 15%);
+  box-shadow:
+    0 2px 8px rgba(0,0,0,0.4),
+    inset 0 1px 0 rgb(var(--panel-highlight) / 0.1),
+    inset 0 -1px 0 rgb(var(--panel-shadow) / 0.2);
+}
+
+/* ── Panel: Accent — cool metallic tint, sharper edges ── */
+.panel-iron {
+  background: linear-gradient(175deg,
+    color-mix(in srgb, rgb(var(--panel-bg-1) / 0.8), #8888aa 8%) 0%,
+    color-mix(in srgb, rgb(var(--panel-bg-2) / 0.85), #777799 8%) 40%,
+    color-mix(in srgb, rgb(var(--panel-bg-3) / 0.9), #666688 8%) 100%);
+  border: 1px solid color-mix(in srgb, rgb(var(--panel-border) / 0.6), #5a5a78 15%);
+  /* Sharper metallic highlight on top edge */
+  border-top: 1px solid color-mix(in srgb, rgb(var(--panel-border-light) / 0.5), #b0b0cc 20%);
+  box-shadow:
+    0 2px 6px rgba(0,0,0,0.4),
+    inset 0 1px 0 rgb(var(--panel-highlight) / 0.18),
+    inset 0 -1px 0 rgb(var(--panel-shadow) / 0.2);
+}
+
+/* ── Panel: Recessed — sunken inset for logs/readouts ── */
+.panel-inset {
+  background: linear-gradient(180deg,
+    rgb(var(--panel-shadow) / 0.6) 0%,
+    rgb(var(--panel-shadow) / 0.45) 50%,
+    rgb(var(--panel-shadow) / 0.55) 100%);
+  border: 1px solid rgb(var(--panel-shadow) / 0.5);
+  /* Sunken feel — shadow at top, highlight at bottom */
+  box-shadow:
+    inset 0 2px 6px rgb(var(--panel-shadow) / 0.5),
+    inset 0 1px 0 rgb(var(--panel-shadow) / 0.3),
+    inset 0 -1px 0 rgb(var(--panel-highlight) / 0.06);
+}
+
+/* ── Accent corner dots — CSS-only gem dots on primary panels ── */
+.panel-stone::before,
+.panel-stone::after {
+  content: '';
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: radial-gradient(circle,
+    rgb(var(--glow-ambient) / 0.6) 0%,
+    rgb(var(--glow-ambient) / 0.2) 60%,
+    transparent 100%);
+  box-shadow: 0 0 4px rgb(var(--glow-ambient) / 0.3);
+  pointer-events: none;
+  z-index: 1;
+  transition: background 0.8s ease, box-shadow 0.8s ease;
+}
+.panel-stone::before { top: 6px; left: 8px; }
+.panel-stone::after  { top: 6px; right: 8px; }
+.panel-stone { position: relative; }
+
+/* ── Border: Iron ── */
+.border-iron {
+  border-color: rgb(var(--divider-color));
+  transition: border-color 0.8s ease;
+}
+
+/* ── Divider: simple line ── */
+.divider-iron {
+  height: 1px;
+  background: rgb(var(--divider-color) / 0.3);
+  border: none;
+  transition: background-color 0.8s ease;
+}
+
+/* ── Decorative classes kept as no-ops for compat ── */
+.panel-rivet, .panel-stitch, .panel-scratched, .panel-ornate {
+  position: relative;
+}
+
+/* ── Chrome: Panoramic bar backgrounds ── */
+.bar-chrome-top {
+  background: var(--bar-top) center/cover no-repeat;
+  border-bottom: none;
+  box-shadow:
+    0 4px 16px rgba(0,0,0,0.7),
+    0 2px 4px rgba(0,0,0,0.5);
+  transition: background-image 0.8s ease;
+}
+.bar-chrome-bottom {
+  background: var(--bar-bottom) center/cover no-repeat;
+  border-top: none;
+  box-shadow:
+    0 -4px 16px rgba(0,0,0,0.7),
+    0 -2px 4px rgba(0,0,0,0.5);
+  transition: background-image 0.8s ease;
+}
+
+/* ── Decorative: TopBar bottom glow line ── */
+.topbar-glow::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent,
+    rgb(var(--theme-accent) / 0.2) 30%,
+    rgb(var(--theme-accent) / 0.35) 50%,
+    rgb(var(--theme-accent) / 0.2) 70%,
+    transparent);
+  pointer-events: none;
+  transition: background 0.8s ease;
+}
+
+/* ── Decorative: Active nav tab top glow ── */
+.nav-glow {
+  position: relative;
+}
+.nav-glow::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 20%;
+  right: 20%;
+  height: 2px;
+  background: rgb(var(--theme-accent) / 0.5);
+  border-radius: 0 0 2px 2px;
+  box-shadow: 0 2px 8px rgb(var(--theme-accent) / 0.2);
+  pointer-events: none;
+  transition: background 0.8s ease, box-shadow 0.8s ease;
+}
+
+/* ── Decorative: L-shaped bracket accent on section headers ── */
+.bracket-accent {
+  position: relative;
+}
+.bracket-accent::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -4px;
+  width: 10px;
+  height: 10px;
+  border-top: 2px solid rgb(var(--theme-accent) / 0.3);
+  border-left: 2px solid rgb(var(--theme-accent) / 0.3);
+  pointer-events: none;
+  transition: border-color 0.8s ease;
+}
+
+/* ── Heading: Fantasy display font ── */
+.heading-fantasy {
+  font-family: 'Cinzel', Georgia, serif;
+  letter-spacing: 0.08em;
+  text-shadow:
+    0 0 8px rgba(200,180,120,0.15),
+    0 2px 4px rgba(0,0,0,0.8);
+}
+
+/* ── Bar Track: Recessed progress bar background ── */
+.bar-track {
+  background: rgb(var(--panel-shadow) / 0.5);
+  border: 1px solid rgb(var(--panel-shadow) / 0.3);
+  border-radius: 9999px;
+  box-shadow:
+    inset 0 2px 4px rgb(var(--panel-shadow) / 0.5),
+    inset 0 0 2px rgb(var(--panel-shadow) / 0.3);
+  transition: background 0.8s ease, border-color 0.8s ease;
+}
+
+/* ── Body: Dungeon background — solid dark, scene image layered behind via App.tsx ── */
+.bg-dungeon {
+  background-color: rgb(var(--body-bg));
+}
+
+/* ── Zone theme CSS variables (default = idle/campfire) ── */
 :root {
-  --theme-accent: 250 204 21;         /* yellow-400 */
-  --theme-accent-muted: 55 65 81;     /* gray-700 */
-  --theme-bg-tint: 3 7 18;            /* gray-950 */
-  --theme-progress: 168 85 247;       /* purple-500 */
-  --theme-text-accent: 250 204 21;    /* yellow-400 */
+  --theme-accent: 250 204 21;
+  --theme-accent-muted: 55 65 81;
+  --theme-bg-tint: 3 7 18;
+  --theme-progress: 168 85 247;
+  --theme-text-accent: 250 204 21;
+  /* Panel chrome */
+  --panel-bg-1: 42 34 28;
+  --panel-bg-2: 32 26 20;
+  --panel-bg-3: 24 18 14;
+  --panel-border: 62 48 36;
+  --panel-border-light: 78 60 44;
+  --panel-border-dark: 30 22 16;
+  --panel-highlight: 180 140 80;
+  --panel-shadow: 12 8 4;
+  /* Body atmosphere */
+  --body-bg: 12 10 8;
+  --body-radial-1: 30 22 12;
+  --body-radial-2: 16 10 6;
+  /* Decorative */
+  --glow-ambient: 250 204 21;
+  --divider-color: 68 54 38;
+  --panel-material: url(/images/textures/materials/warm-wood.png);
+  --fg-top: url(/images/foreground/warm-wood-top.png);
+  --fg-bottom: url(/images/foreground/warm-wood-bottom.png);
 }
 
 html {
@@ -26,6 +263,11 @@ body {
 #root {
   min-height: 100vh;
 }
+
+/* ══════════════════════════════════════════════════════
+   Band-Specific Textures
+   ══════════════════════════════════════════════════════ */
+
 
 /* Skill slot flash on cast (10K-B2) */
 @keyframes skill-flash {
@@ -91,6 +333,90 @@ body {
   50%      { box-shadow: 0 0 14px 4px rgba(168, 85, 247, 0.4); }
 }
 
+/* ══════════════════════════════════════════════════════
+   Ambient Life Animations — UI breathes per band
+   ══════════════════════════════════════════════════════ */
+
+/* Panel breathing: subtle ambient glow pulse */
+@keyframes panel-breathe {
+  0%, 100% { box-shadow:
+    inset 0 1px 0 rgb(var(--panel-highlight) / 0.06),
+    inset 0 -1px 4px rgb(var(--panel-shadow) / 0.3),
+    0 2px 8px rgba(0,0,0,0.4),
+    0 0 0 0 rgb(var(--glow-ambient) / 0); }
+  50% { box-shadow:
+    inset 0 1px 0 rgb(var(--panel-highlight) / 0.06),
+    inset 0 -1px 4px rgb(var(--panel-shadow) / 0.3),
+    0 2px 8px rgba(0,0,0,0.4),
+    0 0 15px -5px rgb(var(--glow-ambient) / 0.06); }
+}
+
+/* Default: 8s breathe on all stone panels when in a zone */
+[data-band]:not([data-band="0"]) .panel-stone {
+  animation: panel-breathe 8s ease-in-out infinite;
+}
+
+/* Band-specific timing overrides */
+[data-band="1"] .panel-stone { animation-duration: 10s; }  /* Slow, peaceful */
+[data-band="3"] .panel-stone { animation-duration: 4s; }   /* Urgent, flickering */
+[data-band="6"] .panel-stone { animation-duration: 15s; }  /* Glacially slow, dying */
+
+/* Band 5: erratic electric flicker variant */
+@keyframes panel-flicker {
+  0%, 100% { box-shadow:
+    inset 0 1px 0 rgb(var(--panel-highlight) / 0.06),
+    inset 0 -1px 4px rgb(var(--panel-shadow) / 0.3),
+    0 2px 8px rgba(0,0,0,0.4),
+    0 0 0 0 rgb(var(--glow-ambient) / 0); }
+  25% { box-shadow:
+    inset 0 1px 0 rgb(var(--panel-highlight) / 0.06),
+    inset 0 -1px 4px rgb(var(--panel-shadow) / 0.3),
+    0 2px 8px rgba(0,0,0,0.4),
+    0 0 12px -4px rgb(var(--glow-ambient) / 0.08); }
+  50% { box-shadow:
+    inset 0 1px 0 rgb(var(--panel-highlight) / 0.06),
+    inset 0 -1px 4px rgb(var(--panel-shadow) / 0.3),
+    0 2px 8px rgba(0,0,0,0.4),
+    0 0 3px -2px rgb(var(--glow-ambient) / 0.02); }
+  75% { box-shadow:
+    inset 0 1px 0 rgb(var(--panel-highlight) / 0.06),
+    inset 0 -1px 4px rgb(var(--panel-shadow) / 0.3),
+    0 2px 8px rgba(0,0,0,0.4),
+    0 0 18px -6px rgb(var(--glow-ambient) / 0.1); }
+}
+[data-band="5"] .panel-stone { animation: panel-flicker 6s ease-in-out infinite; }
+
+/* Accent pulse on active nav tab + start/stop buttons */
+@keyframes accent-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(var(--theme-accent) / 0); }
+  50%      { box-shadow: 0 0 8px 0 rgb(var(--theme-accent) / 0.15); }
+}
+[data-band]:not([data-band="0"]) .nav-glow {
+  animation: accent-pulse 3s ease-in-out infinite;
+}
+
+/* ── Zone-active surface hardening ──
+   When inside a zone, all bg-gray surfaces need more opacity
+   to stay readable against busy zone backgrounds + frame overlays.
+   This single block catches every sub-panel, badge, and button. */
+[data-band]:not([data-band="0"]) main [class*="bg-gray-800"],
+[data-band]:not([data-band="0"]) main [class*="bg-gray-900"] {
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  background-color: rgba(17, 17, 24, 0.85) !important;
+}
+/* Keep intentionally transparent elements light */
+[data-band]:not([data-band="0"]) main [class*="bg-gray-800/5"],
+[data-band]:not([data-band="0"]) main [class*="bg-gray-900/3"] {
+  background-color: rgba(17, 17, 24, 0.5) !important;
+  backdrop-filter: blur(4px);
+}
+/* CombatStatusBar — already solid, just ensure blur */
+[data-band]:not([data-band="0"]) .fixed[class*="bg-gray-900/9"] {
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
 /* ── Zone theming: smooth transition on themed elements ── */
 .theme-transition {
   transition: border-color 0.6s ease, background-color 0.6s ease, color 0.6s ease;
@@ -135,6 +461,31 @@ body {
 @keyframes zone-flash {
   0%   { opacity: 1; }
   100% { opacity: 0; }
+}
+
+/* ── Zone frame overlays — transparent PNG header/footer borders ── */
+.zone-frame-header,
+.zone-frame-footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  background-size: auto 100%;
+  background-repeat: repeat-x;
+  background-position: center bottom;
+  transition: background-image 0.8s ease, filter 0.8s ease, opacity 0.6s ease;
+  opacity: 0.9;
+}
+.zone-frame-header {
+  top: 0;
+  height: 100px;
+  z-index: 90;
+}
+.zone-frame-footer {
+  bottom: 0;
+  height: 140px;
+  z-index: 90;
+  background-position: center top;
 }
 
 /* ── Particle keyframes (transform + opacity only → GPU compositor) ── */

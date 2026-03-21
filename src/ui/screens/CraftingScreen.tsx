@@ -302,7 +302,7 @@ export default function CraftingScreen() {
 
       {/* Recipe list — top tier (highest craftable per base) */}
       {topTier.length === 0 && slotPatterns.length === 0 ? (
-        <div className="bg-gray-800 rounded-lg p-6 text-center text-gray-500 text-sm">
+        <div className="panel-stone p-6 text-center text-gray-500 text-sm">
           {totalRecipes === 0 ? 'No recipes for this slot.' : 'No recipes match your filters.'}
         </div>
       ) : (

@@ -168,7 +168,7 @@ export function WorkbenchRecipeCard({ recipe, onMaterialClick }: WorkbenchRecipe
   };
 
   return (
-    <div className={`bg-gray-800 rounded-lg border ${borderColor} ${opacity} transition-colors`}>
+    <div className={`panel-leather border ${borderColor} ${opacity} transition-colors`}>
       {/* Header row */}
       <div className="flex items-center gap-2 px-3 py-2">
         <span className="text-base">

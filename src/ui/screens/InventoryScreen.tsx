@@ -612,12 +612,12 @@ export default function InventoryScreen() {
   };
 
   const renderEquippedGear = () => (
-    <div className="bg-gray-800 rounded-lg">
+    <div className="panel-stone">
       {isMobile ? (
         <>
           <button
             onClick={() => setEquippedOpen(!equippedOpen)}
-            className="w-full flex items-center justify-between px-3 py-2 text-sm font-bold text-gray-300 hover:bg-gray-700 transition-colors rounded-t-lg"
+            className="w-full flex items-center justify-between px-3 py-2 text-sm font-bold text-gray-300 heading-fantasy hover:bg-stone-mid transition-colors rounded-t-lg"
           >
             <span>Equipped Gear</span>
             <span className="text-xs text-gray-500">{equippedOpen ? '\u25B2' : '\u25BC'}</span>
@@ -687,7 +687,7 @@ export default function InventoryScreen() {
   const renderLootColumn = () => (
     <div className="space-y-3">
       {/* Currency Summary Strip */}
-      <div className="flex flex-wrap gap-2 bg-gray-800 rounded-lg px-3 py-2 items-center">
+      <div className="flex flex-wrap gap-2 panel-iron px-3 py-2 items-center">
         <span className="text-xs font-semibold text-yellow-400">{'\uD83D\uDCB0'} {gold}g</span>
         {CURRENCY_DEFS.map((cur) => (
           <div
@@ -742,7 +742,7 @@ export default function InventoryScreen() {
         </div>
         {/* Collapsible bag management panel */}
         {bagsExpanded && (
-          <div className="bg-gray-800/60 rounded-lg p-2 mb-2 space-y-2">
+          <div className="panel-inset p-2 mb-2 space-y-2">
             {/* Equipped bag slots */}
             <div className="flex gap-1">
               {bagSlots.map((slotId, i) => {
@@ -989,7 +989,7 @@ export default function InventoryScreen() {
 
       {/* Bank item detail panel */}
       {!isMobile && selectedBankSlot && (
-        <div className="mt-2 bg-gray-800/60 rounded-lg p-3 space-y-2">
+        <div className="mt-2 panel-inset p-3 space-y-2">
           <div className="flex items-center gap-2">
             <ItemIcon item={selectedBankSlot.item} size="lg" />
             <div>
@@ -1336,7 +1336,7 @@ function ComparisonPanel({ selected, equipped }: { selected: Item; equipped: Ite
   const allKeys = [...new Set([...Object.keys(selectedStats), ...Object.keys(equippedStats)])] as StatKey[];
 
   return (
-    <div className="bg-gray-900 rounded-lg border border-gray-700 p-3 space-y-2">
+    <div className="panel-iron p-3 space-y-2">
       <div className="text-xs font-semibold text-gray-400">vs Equipped ({slotLabel(equipped.slot)})</div>
       {allKeys.length > 0 && (
         <div className="space-y-0.5">

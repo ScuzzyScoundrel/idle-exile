@@ -12,7 +12,7 @@ export default function CraftLog() {
   const visible = craftLog.slice(0, 5);
 
   return (
-    <div className="bg-gray-800/60 rounded-lg px-2 py-1.5">
+    <div className="panel-inset px-2 py-1.5">
       <div className="flex items-center justify-between mb-1">
         <span className="text-xs font-semibold text-gray-400">Craft Log</span>
         <button

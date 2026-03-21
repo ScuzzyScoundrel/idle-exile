@@ -46,7 +46,7 @@ export default function BankPanel({ onSelectBankItem, selectedBankSlot, activeBa
   // No tabs yet — show buy prompt
   if (tabCount === 0) {
     return (
-      <div className="mt-2 bg-gray-800/60 rounded-lg p-3 text-center space-y-2">
+      <div className="mt-2 panel-leather p-3 text-center space-y-2">
         <p className="text-sm text-gray-400">Buy your first bank tab to start storing items</p>
         <button
           onClick={buyBankTab}
@@ -78,7 +78,7 @@ export default function BankPanel({ onSelectBankItem, selectedBankSlot, activeBa
       </button>
 
       {expanded && (
-        <div className="bg-gray-800/60 rounded-lg p-2 space-y-2">
+        <div className="panel-leather p-2 space-y-2">
           {/* Tab strip */}
           <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-thin">
             {bank.tabs.map((tab, i) => {
@@ -138,7 +138,7 @@ export default function BankPanel({ onSelectBankItem, selectedBankSlot, activeBa
               return (
                 <div
                   key={slotIdx}
-                  className="aspect-square rounded-lg border-2 border-dashed border-gray-700 bg-gray-900/30"
+                  className="aspect-square rounded-lg border-2 border-dashed border-iron bg-stone-dark/30"
                 />
               );
             })}

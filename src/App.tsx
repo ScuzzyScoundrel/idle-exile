@@ -1,4 +1,4 @@
-import { useState, Component, type ReactNode, type ErrorInfo } from 'react';
+import { useState, useEffect, Component, type ReactNode, type ErrorInfo } from 'react';
 import TooltipProvider from './ui/components/TooltipProvider';
 import TopBar from './ui/components/TopBar';
 import NavBar from './ui/components/NavBar';
@@ -63,10 +63,23 @@ function App() {
   const tutorialStep = useGameStore((s) => s.tutorialStep);
   const offlineProgress = useGameStore((s) => s.offlineProgress);
   const classSelected = useGameStore((s) => s.classSelected);
+  const currentZoneId = useGameStore((s) => s.currentZoneId);
   const isRunning = useGameStore((s) => s.idleStartTime !== null);
   const [activeTab, setActiveTab] = useState(() =>
     tutorialStep === 1 ? 'inventory' : 'zones'
   );
+
+  // DEV: max level for visual testing — remove before merge
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      const state = useGameStore.getState();
+      if (state.character.level < 60) {
+        useGameStore.setState({
+          character: { ...state.character, level: 60, xp: 0, xpToNext: 0 },
+        });
+      }
+    }
+  }, []);
 
   // Block duplicate tabs to prevent localStorage conflicts
   if (tabBlocked) {
@@ -101,7 +114,29 @@ function App() {
   const vignetteClass = band > 0 ? `vignette-band-${band}` : 'vignette-none';
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100">
+    <div className="min-h-screen bg-dungeon text-gray-100" data-band={band}>
+      {/* Full scene background — unique illustration per zone */}
+      <div className="fixed inset-0 pointer-events-none z-0 bg-cover bg-center transition-all duration-[2s]"
+        style={{
+          backgroundImage: `url(/images/backgrounds/${currentZoneId ?? 'idle-tavern'}.png)`,
+          opacity: currentZoneId ? 0.3 : 0.35,
+        }} />
+      {/* Soft vignette to keep edges readable */}
+      <div className="fixed inset-0 pointer-events-none z-[1]"
+        style={{
+          background: `radial-gradient(ellipse at 50% 40%, transparent 30%, rgba(0,0,0,0.45) 100%)`,
+        }} />
+      {/* Zone foreground layers — transparent border overlays from top/bottom edges */}
+      <div className="fixed top-0 left-0 right-0 pointer-events-none z-40 transition-all duration-[2s]"
+        style={{
+          backgroundImage: 'var(--fg-top)',
+          backgroundSize: 'auto 100%',
+          backgroundPosition: 'center top',
+          backgroundRepeat: 'repeat-x',
+          height: '60px',
+          opacity: 0.45,
+        }} />
+      {/* Footer frame disabled — header-only for cleaner UI */}
       {/* Zone vignette overlay */}
       <div className={`fixed inset-0 pointer-events-none z-30 vignette-overlay ${vignetteClass}`} />
       {/* Ambient floating particles */}
@@ -116,11 +151,14 @@ function App() {
 
       {/* Main content area — padded for top and bottom bars + optional combat status bar.
           All screens stay mounted (hidden via CSS) so local state persists across tab switches. */}
-      <main className={`px-3 ${isRunning ? 'pt-[88px]' : 'pt-16'} pb-20`}>
-        <div className={activeTab === 'zones' ? '' : 'hidden'}><ZoneScreen /></div>
-        <div className={activeTab === 'inventory' ? '' : 'hidden'}><InventoryScreen /></div>
-        <div className={activeTab === 'crafting' ? '' : 'hidden'}><CraftingScreen /></div>
-        <div className={activeTab === 'character' ? '' : 'hidden'}><CharacterScreen /></div>
+      <main className={`relative z-10 mx-2 rounded-xl ${isRunning ? 'mt-[88px]' : 'mt-14'} mb-16
+        bg-gray-950/70 backdrop-blur-lg border border-white/5`}>
+        <div className="p-3">
+          <div className={activeTab === 'zones' ? '' : 'hidden'}><ZoneScreen /></div>
+          <div className={activeTab === 'inventory' ? '' : 'hidden'}><InventoryScreen /></div>
+          <div className={activeTab === 'crafting' ? '' : 'hidden'}><CraftingScreen /></div>
+          <div className={activeTab === 'character' ? '' : 'hidden'}><CharacterScreen /></div>
+        </div>
       </main>
 
       <NavBar activeTab={activeTab} onTabChange={setActiveTab} tutorialStep={tutorialStep} />

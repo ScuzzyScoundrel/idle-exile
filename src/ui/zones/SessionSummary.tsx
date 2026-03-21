@@ -9,7 +9,7 @@ export default function SessionSummaryPanel({ session }: { session: SessionSumma
   if (session.totalClears <= 0) return null;
 
   return (
-    <div className="bg-gray-900 rounded-lg border border-gray-700 p-3 space-y-2">
+    <div className="panel-stone p-3 space-y-2">
       {/* Clear count — prominent */}
       <div className="text-center">
         <div className="text-2xl font-bold text-white">{session.totalClears}</div>

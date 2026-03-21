@@ -38,7 +38,7 @@ export default function PatternPanel() {
     return (
       <div className="space-y-3">
         <CraftOutputPanel />
-        <div className="bg-gray-900 rounded-lg border border-gray-700 p-6 text-center space-y-2">
+        <div className="panel-stone p-6 text-center space-y-2">
           <div className="text-3xl">📜</div>
           <div className="text-gray-400 text-sm">No patterns found yet.</div>
           <div className="text-gray-500 text-xs">Patterns drop from zone clears and boss kills. Keep farming!</div>
@@ -73,7 +73,7 @@ export default function PatternPanel() {
           return (
             <div
               key={`${owned.defId}-${index}`}
-              className="bg-gray-900 rounded-lg border border-gray-700 p-3 space-y-2"
+              className="panel-stone p-3 space-y-2"
             >
               {/* Header: name + badges */}
               <div className="flex items-start justify-between gap-2">

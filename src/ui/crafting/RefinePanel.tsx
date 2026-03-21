@@ -48,7 +48,7 @@ export default function RefinePanel() {
   return (
     <div className="space-y-3">
       {/* Track selector pills */}
-      <div className="flex flex-wrap gap-1 bg-gray-800/50 rounded-lg p-1">
+      <div className="flex flex-wrap gap-1 panel-inset p-1">
         {REFINEMENT_TRACK_DEFS.map(track => (
           <button
             key={track.id}
@@ -87,8 +87,8 @@ export default function RefinePanel() {
           return (
             <div
               key={recipe.id}
-              className={`bg-gray-800 rounded-lg p-3 border transition-all ${
-                isFlashing ? 'border-yellow-400 bg-yellow-900/20' : 'border-gray-700'
+              className={`panel-leather p-3 transition-all ${
+                isFlashing ? '!border-yellow-400 !bg-yellow-900/20' : ''
               }`}
             >
               <div className="flex items-center justify-between mb-2">

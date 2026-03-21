@@ -22,22 +22,27 @@ export default function NavBar({ activeTab, onTabChange, tutorialStep = 0 }: Nav
   const pulseTabId = PULSE_MAP[tutorialStep];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-theme-accent-muted/30 z-50 theme-transition">
-      <div className="flex justify-around max-w-4xl xl:max-w-7xl mx-auto">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 px-3 py-2"
+      style={{ background: 'transparent' }}>
+      <div className="flex justify-center gap-2 max-w-4xl xl:max-w-7xl mx-auto">
         {TABS.map((tab) => {
           const shouldPulse = tab.id === pulseTabId && activeTab !== tab.id;
+          const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
               className={`
-                flex flex-col items-center py-2 px-4 text-xs transition-colors
-                ${activeTab === tab.id ? 'text-theme-text-accent' : 'text-gray-500 hover:text-gray-300'}
-                ${shouldPulse ? 'ring-2 ring-yellow-400 rounded-lg animate-pulse' : ''}
+                flex flex-col items-center py-2 px-5 text-xs transition-all
+                rounded-lg border backdrop-blur-md
+                ${isActive
+                  ? 'bg-gray-950/90 border-theme-text-accent/40 text-theme-text-accent nav-glow'
+                  : 'bg-gray-950/80 border-white/10 text-gray-400 hover:text-gray-200 hover:border-white/20'}
+                ${shouldPulse ? 'ring-2 ring-yellow-400 animate-pulse' : ''}
               `}
             >
               <span className="text-lg mb-0.5">{tab.icon}</span>
-              <span>{tab.label}</span>
+              <span className="font-semibold">{tab.label}</span>
             </button>
           );
         })}

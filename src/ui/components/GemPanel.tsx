@@ -94,7 +94,7 @@ export default function GemPanel({ collapsed: initialCollapsed }: GemPanelProps)
   if (gemInventory.length === 0 && socketableItems.length === 0) return null;
 
   return (
-    <div className="bg-gray-800 rounded-lg border border-gray-700">
+    <div className="panel-stone">
       {/* Header / toggle */}
       <button
         className="w-full flex items-center justify-between px-3 py-2 text-sm font-semibold text-gray-200 hover:bg-gray-750 transition-colors"
@@ -102,7 +102,7 @@ export default function GemPanel({ collapsed: initialCollapsed }: GemPanelProps)
       >
         <span className="flex items-center gap-2">
           <span>{'💎'}</span>
-          <span>Gems</span>
+          <span className="heading-fantasy">Gems</span>
           <span className="text-xs text-gray-500">({gemInventory.length}/{GEM_INVENTORY_CAP})</span>
         </span>
         <span className="text-gray-500 text-xs">{collapsed ? '▶' : '▼'}</span>

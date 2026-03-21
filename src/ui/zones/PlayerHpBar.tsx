@@ -53,7 +53,7 @@ export default function PlayerHpBar({ currentHp, maxHp, trailHp, fortifyStacks, 
 
   return (
     <div
-      className={`bg-gray-800/50 rounded-lg border p-2 space-y-1 ${hasFortify && !hideHpBars ? 'border-amber-500/40' : 'border-gray-700'}`}
+      className={`panel-iron p-2 space-y-1 ${hasFortify && !hideHpBars ? '!border-amber-500/40' : ''}`}
       style={hasFortify && !hideHpBars ? { animation: 'fortify-glow 2s ease-in-out infinite' } : undefined}
     >
       {/* Buff squares (WoW-style) — fixed row */}
