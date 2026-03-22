@@ -25,147 +25,110 @@ from pathlib import Path
 COMFYUI_URL = "http://127.0.0.1:8188"
 OUTPUT_DIR = Path(__file__).resolve().parent.parent.parent / "public/images/zones/frames/raw"
 
-# DreamShaperXL Turbo settings
+# DreamShaperXL Turbo settings — exact recipe from forest_header_s0.png metadata
 CHECKPOINT = "DreamShaperXL_Turbo_v2_1.safetensors"
 WIDTH = 1024
-HEIGHT = 256
-STEPS = 6
-CFG = 2.0
+HEIGHT = 512
+STEPS = 15
+CFG = 5.0
 SAMPLER = "dpmpp_sde"
 SCHEDULER = "karras"
 
+SPRITE_PREFIX = (
+    "game sprite asset, transparent PNG overlay, "
+)
+
 NEGATIVE = (
-    "white background, gradient background, sky, ground plane, full scene, "
-    "landscape, horizon, text, watermark, signature, blurry, low quality, "
-    "photo, realistic, people, characters, UI elements"
+    "background scene, landscape, horizon, sky, environment, room, "
+    "gradient background, colored background, fog, mist, atmosphere, depth, "
+    "text, watermark, blurry, soft focus, low quality, washed out, "
+    "photo, realistic, plants growing upward, ground plants, tree trunk, trees"
 )
 
 BIOME_PROMPTS = {
     "forest": {
         "header": (
-            "horizontal seamless banner, hanging jungle vines and branches from above, "
-            "lush green leaves, dangling moss, tropical canopy edge, "
-            "3D rendered game UI border, top-down perspective, "
-            "dark fantasy RPG style, painted textures, highly detailed, "
-            "isolated on solid black background, no ground, no sky"
-        ),
-        "footer": (
-            "horizontal seamless banner, dense tropical foliage ground border, "
-            "ferns mushrooms moss fallen logs, small flowers, "
-            "3D rendered game UI border, bottom-up perspective, "
-            "dark fantasy RPG style, painted textures, highly detailed, "
-            "isolated on solid black background, no sky, no trees"
+            "tropical vines and branches hanging DOWN from the very top edge, "
+            "large green leaves, curly tendrils, dripping moss strands, "
+            "canopy border hanging downward into empty space, vibrant greens, "
+            "sharp detailed, hand-painted game art style, "
+            "isolated object on pure black, black void background, nothing behind"
         ),
     },
     "cave": {
         "header": (
-            "horizontal seamless banner, stalactites hanging from cave ceiling, "
-            "dripping water, small crystal formations, rough stone, "
-            "3D rendered game UI border, top-down perspective, "
-            "dark fantasy RPG style, painted textures, highly detailed, "
-            "isolated on solid black background"
-        ),
-        "footer": (
-            "horizontal seamless banner, stalagmites and cave floor rocks, "
-            "small crystal clusters, scattered pebbles, underground mushrooms, "
-            "3D rendered game UI border, bottom-up perspective, "
-            "dark fantasy RPG style, painted textures, highly detailed, "
-            "isolated on solid black background"
+            "a hanging garland like a vine garland but made of stone and crystals, "
+            "stretching left to right along the very top edge, "
+            "thin rocky branches with small amber gemstone droplets dangling on fine stone threads, "
+            "tiny mushrooms and moss patches growing on the stone vine, curly root tendrils, "
+            "earthy browns and warm amber tones, "
+            "sharp detailed, hand-painted game art style, "
+            "isolated object on pure black, black void background, nothing behind"
         ),
     },
     "swamp": {
         "header": (
-            "horizontal seamless banner, gnarled swamp branches hanging down, "
-            "spanish moss, dripping water, twisted roots from above, "
-            "bioluminescent fungi, dark swamp atmosphere, "
-            "3D rendered game UI border, top-down perspective, "
-            "dark fantasy RPG style, highly detailed, isolated on solid black background"
-        ),
-        "footer": (
-            "horizontal seamless banner, swamp ground border with lily pads, "
-            "murky water edge, mushrooms, twisted roots, bog plants, "
-            "bioluminescent glow, 3D rendered game UI border, "
-            "bottom-up perspective, dark fantasy RPG style, highly detailed, "
-            "isolated on solid black background"
+            "a hanging garland like a vine garland but made of twisted dark swamp wood, "
+            "stretching left to right along the very top edge, "
+            "gnarled branches with long spanish moss strands drooping down, "
+            "small glowing green mushrooms and toxic droplets dangling on thin threads, "
+            "curly dark root tendrils, murky green and dark brown tones, "
+            "sharp detailed, hand-painted game art style, "
+            "isolated object on pure black, black void background, nothing behind"
         ),
     },
     "mountain": {
         "header": (
-            "horizontal seamless banner, rocky cliff edge hanging down, "
-            "iron chains, mountain stone formations, wind-swept grass tufts, "
-            "rough hewn stone border, 3D rendered game UI border, "
-            "top-down perspective, dark fantasy RPG style, highly detailed, "
-            "isolated on solid black background"
-        ),
-        "footer": (
-            "horizontal seamless banner, rocky ground border, scattered boulders, "
-            "iron ore veins, wind-blown grass, gravel and stone, "
-            "3D rendered game UI border, bottom-up perspective, "
-            "dark fantasy RPG style, highly detailed, isolated on solid black background"
+            "a hanging garland like a vine garland but made of iron chains and stone, "
+            "stretching left to right along the very top edge, "
+            "iron chain links with small hanging lanterns and rough stone pieces dangling, "
+            "grass tufts and tiny wildflowers growing from cracks, pebble droplets on threads, "
+            "cold gray and warm lantern orange tones, "
+            "sharp detailed, hand-painted game art style, "
+            "isolated object on pure black, black void background, nothing behind"
         ),
     },
     "volcanic": {
         "header": (
-            "horizontal seamless banner, volcanic rock hanging formations, "
-            "dripping lava streams, obsidian shards, glowing embers, "
-            "molten metal drips, scorched stone border, "
-            "3D rendered game UI border, top-down perspective, "
-            "dark fantasy RPG style, highly detailed, isolated on solid black background"
-        ),
-        "footer": (
-            "horizontal seamless banner, volcanic ground border, "
-            "cooling lava flows, obsidian shards, ember particles, "
-            "cracked molten earth, scorched rocks, "
-            "3D rendered game UI border, bottom-up perspective, "
-            "dark fantasy RPG style, highly detailed, isolated on solid black background"
+            "a hanging garland like a vine garland but made of obsidian rock and dripping lava, "
+            "stretching left to right along the very top edge, "
+            "dark volcanic stone branches with bright orange lava droplets dangling on thin chains, "
+            "glowing ember beads falling, small obsidian shards hanging like leaves, "
+            "dark red and bright orange tones, "
+            "sharp detailed, hand-painted game art style, "
+            "isolated object on pure black, black void background, nothing behind"
         ),
     },
     "ice": {
         "header": (
-            "horizontal seamless banner, icicles hanging from frozen ceiling, "
-            "frost crystals, frozen branches, ice formations, "
-            "cold blue light, 3D rendered game UI border, "
-            "top-down perspective, dark fantasy RPG style, highly detailed, "
-            "isolated on solid black background"
-        ),
-        "footer": (
-            "horizontal seamless banner, frozen ground border, "
-            "ice shards, frost crystals, frozen water edge, "
-            "snow-covered rocks, cold blue glow, "
-            "3D rendered game UI border, bottom-up perspective, "
-            "dark fantasy RPG style, highly detailed, isolated on solid black background"
+            "a hanging garland like a vine garland but made of ice and frost, "
+            "stretching left to right along the very top edge, "
+            "frozen ice branches with translucent blue icicle droplets dangling on frost threads, "
+            "snowflake ornaments, small frozen water beads hanging like dewdrops, "
+            "icy blue and white tones, "
+            "sharp detailed, hand-painted game art style, "
+            "isolated object on pure black, black void background, nothing behind"
         ),
     },
     "crystal": {
         "header": (
-            "horizontal seamless banner, crystal formations hanging down, "
-            "arcane runes glowing, ethereal energy wisps, "
-            "amethyst and celestite crystals, magical sparkles, "
-            "3D rendered game UI border, top-down perspective, "
-            "dark fantasy RPG style, highly detailed, isolated on solid black background"
-        ),
-        "footer": (
-            "horizontal seamless banner, crystal ground border, "
-            "glowing crystal clusters, arcane sigils, "
-            "ethereal mist, star fragments, magical energy, "
-            "3D rendered game UI border, bottom-up perspective, "
-            "dark fantasy RPG style, highly detailed, isolated on solid black background"
+            "arcane crystal formations and gem chains hanging DOWN from the very top edge, "
+            "glowing purple amethyst and blue crystal clusters dangling on delicate chains, "
+            "tiny magical sparkles, ethereal energy wisps, floating gem fragments, "
+            "crystal border hanging downward into empty space, mystical purples, "
+            "sharp detailed, hand-painted game art style, "
+            "isolated object on pure black, black void background, nothing behind"
         ),
     },
     "void": {
         "header": (
-            "horizontal seamless banner, dark tendrils hanging from above, "
-            "ancient bone fragments, void energy wisps, "
-            "crumbling dark stone, eldritch formations, "
-            "3D rendered game UI border, top-down perspective, "
-            "dark fantasy RPG style, highly detailed, isolated on solid black background"
-        ),
-        "footer": (
-            "horizontal seamless banner, dark ground border, "
-            "bone fragments, cracked ancient stone, void energy, "
-            "dark tendrils rising, ruined pillars base, "
-            "3D rendered game UI border, bottom-up perspective, "
-            "dark fantasy RPG style, highly detailed, isolated on solid black background"
+            "a hanging garland like a vine garland but made of dark bone and purple energy, "
+            "stretching left to right along the very top edge, "
+            "twisted dark tendrils with purple gemstone droplets dangling on bone chains, "
+            "small skull beads, crumbling ancient stone fragments hanging like leaves, "
+            "dark purple and bone white tones, "
+            "sharp detailed, hand-painted game art style, "
+            "isolated object on pure black, black void background, nothing behind"
         ),
     },
 }
@@ -276,12 +239,12 @@ def generate_kit(kit_name: str, seed: int) -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     prompts = BIOME_PROMPTS[kit_name]
 
-    for part in ("header", "footer"):
+    for part in ("header",):
         prefix = f"zoneframe_{kit_name}_{part}"
         print(f"\nGenerating {kit_name} {part}...")
         print(f"  Prompt: {prompts[part][:80]}...")
 
-        workflow = build_workflow(prompts[part], prefix, seed)
+        workflow = build_workflow(SPRITE_PREFIX + prompts[part], prefix, seed)
         prompt_id = queue_prompt(workflow)
         print(f"  Queued: {prompt_id}")
 

@@ -203,22 +203,6 @@ function applyPalette(palette: BandPalette) {
   root.setProperty('--divider-color', palette.dividerColor);
 }
 
-// Zone ID → biome kit (for frame overlays)
-const ZONE_BIOME_KIT: Record<string, string> = {
-  ashwood_thicket: 'forest', stillwater_meadow: 'forest', mossback_creek: 'forest',
-  thistlewood_grove: 'forest', silkveil_canopy: 'forest',
-  dustvein_hollow: 'cave', glintstone_caverns: 'cave', dreadmaw_caverns: 'cave',
-  bogmire_marsh: 'swamp', shimmerfen_bog: 'swamp', rothollow_thicket: 'swamp',
-  ironcrest_ridge: 'mountain', windsworn_steppe: 'mountain',
-  thornwall_basin: 'mountain', stormveil_heights: 'mountain',
-  emberpeak_caldera: 'volcanic', obsidian_forge: 'volcanic',
-  scorched_plateau: 'volcanic', ashenmaw_crater: 'volcanic',
-  frostmere_depths: 'ice', wraithwood: 'ice', drowned_abyss: 'ice',
-  celestine_spire: 'crystal', starfall_basin: 'crystal', hollow_throne: 'crystal',
-  venomspire_ruins: 'void', consuming_dark: 'void', titans_graveyard: 'void',
-  eternal_storm: 'void', worlds_edge: 'void',
-};
-
 // Zone ID → material texture mapping
 const ZONE_MATERIAL: Record<string, string> = {
   // Band 1 — forest/nature
@@ -259,6 +243,22 @@ const ZONE_MATERIAL: Record<string, string> = {
   worlds_edge:        'bone-ash',
 };
 
+// Zone ID → biome kit (for header frame overlays)
+const ZONE_BIOME: Record<string, string> = {
+  ashwood_thicket: 'forest', stillwater_meadow: 'forest', mossback_creek: 'forest',
+  thistlewood_grove: 'forest', silkveil_canopy: 'forest',
+  dustvein_hollow: 'cave', glintstone_caverns: 'cave', dreadmaw_caverns: 'cave',
+  bogmire_marsh: 'swamp', shimmerfen_bog: 'swamp', rothollow_thicket: 'swamp',
+  ironcrest_ridge: 'mountain', windsworn_steppe: 'mountain',
+  thornwall_basin: 'mountain', stormveil_heights: 'mountain',
+  emberpeak_caldera: 'volcanic', obsidian_forge: 'volcanic',
+  scorched_plateau: 'volcanic', ashenmaw_crater: 'volcanic',
+  frostmere_depths: 'ice', wraithwood: 'ice', drowned_abyss: 'ice',
+  celestine_spire: 'crystal', starfall_basin: 'crystal', hollow_throne: 'crystal',
+  venomspire_ruins: 'void', consuming_dark: 'void', titans_graveyard: 'void',
+  eternal_storm: 'void', worlds_edge: 'void',
+};
+
 /**
  * Sets CSS custom properties on :root based on the current zone.
  * Returns the current band number (1-6) or 0 if not running.
@@ -278,15 +278,9 @@ export function useZoneTheme(): number {
     const root = document.documentElement.style;
     const material = currentZoneId ? ZONE_MATERIAL[currentZoneId] ?? 'warm-wood' : 'warm-wood';
     root.setProperty('--panel-material', `url(/images/textures/materials/${material}.png)`);
-    // Per-zone border overlays — biome kit frames (transparent PNGs)
-    const kit = currentZoneId ? ZONE_BIOME_KIT[currentZoneId] : null;
-    if (kit) {
-      root.setProperty('--fg-top', `url(/images/zones/frames/processed/${kit}_header.png)`);
-      root.setProperty('--fg-bottom', `url(/images/zones/frames/processed/${kit}_footer.png)`);
-    } else {
-      root.setProperty('--fg-top', 'none');
-      root.setProperty('--fg-bottom', 'none');
-    }
+    // Per-zone header frame overlay — biome kit transparent PNGs
+    const biome = currentZoneId ? ZONE_BIOME[currentZoneId] ?? 'forest' : 'forest';
+    root.setProperty('--fg-top', `url(/images/zones/frames/processed/${biome}_header.png)`);
   }, [band, currentZoneId]);
 
   return band;
