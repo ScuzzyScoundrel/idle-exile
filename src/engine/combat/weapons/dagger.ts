@@ -61,6 +61,7 @@ export const daggerModule: WeaponModule = {
     let focusBurst = false;
     let counterDamageMult = 1;
     let markPassthrough = false;
+    let healAmount = 0;
     const consumedStateIds: string[] = [];
 
     // Consume combo states for this skill
@@ -275,6 +276,7 @@ export const daggerModule: WeaponModule = {
         const targets = Math.min(ctx.skill.hitCount ?? 1, ctx.state.packMobs?.length ?? 3);
         if (typeof put.incCritChance === 'number') critChanceBonus += put.incCritChance * targets;
         if (typeof put.incDamage === 'number') damageMult *= (1 + put.incDamage * targets / 100);
+        if (typeof put.healPercent === 'number') healAmount += ctx.effectiveMaxLife * put.healPercent * targets / 100;
       }
       if (rb.thirdTargetCrit && typeof rb.thirdTargetCrit === 'object') {
         const ttc = rb.thirdTargetCrit as Record<string, any>;
@@ -311,7 +313,7 @@ export const daggerModule: WeaponModule = {
       comboStates, damageMult, critChanceBonus, critMultiplierBonus,
       guaranteedCrit, ailmentPotency, cdRefundPercent, splashPercent,
       extraChains, burstDamage, focusBurst, counterDamageMult,
-      markPassthrough, cdAcceleration, consumedStateIds,
+      markPassthrough, cdAcceleration, consumedStateIds, healAmount,
     };
   },
 

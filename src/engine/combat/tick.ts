@@ -446,6 +446,7 @@ export function runCombatTick(
   let comboFocusBurst = false;
   let comboCounterDamageMult = 1;
   let cdAcceleration = 0;
+  let preRollHealAmount = 0;
   const consumedComboStateIds: string[] = [];
   if (weaponMod?.preRoll) {
     const pr = weaponMod.preRoll({
@@ -467,6 +468,7 @@ export function runCombatTick(
     comboCounterDamageMult = pr.counterDamageMult;
     cdAcceleration = pr.cdAcceleration;
     consumedComboStateIds.push(...pr.consumedStateIds);
+    preRollHealAmount = pr.healAmount;
   }
 
   // Weapon mastery: multiplicative damage bonus (mirrors zones/dps.ts masteryMult)
@@ -773,7 +775,7 @@ export function runCombatTick(
 
   // Proc evaluation (onHit + onCrit triggers)
   let procDamage = 0;
-  let procHeal = 0;
+  let procHeal = preRollHealAmount;
   let procCooldownResets: string[] = [];
   let procGcdWasReset = false;
   const allProcsFired: string[] = [];
@@ -1399,6 +1401,18 @@ export function runCombatTick(
           for (const ailment of castAilments) {
             applyDebuffToList(chainTarget.debuffs, ailment.debuffId, 1,
               ailment.remainingDuration, skill.id, ailment.stackSnapshots?.[0] ?? 0);
+          }
+          // Contagion Chains: carry previous target's ailments to chain target at reduced duration
+          if (graphMod?.rawBehaviors?.spreadAilments) {
+            const sourceIndex = c; // chain 0 spreads from front mob (idx 0), chain 1 from idx 1, etc.
+            const source = updatedPackMobs[sourceIndex];
+            const retain = (graphMod.rawBehaviors.spreadAilments as any).durationRetain ?? 0.75;
+            for (const deb of source.debuffs) {
+              // Skip ailments already applied by this cast to avoid duplication
+              if (castAilments.some(a => a.debuffId === deb.debuffId)) continue;
+              applyDebuffToList(chainTarget.debuffs, deb.debuffId, 1,
+                deb.remainingDuration * retain, skill.id, (deb as any).stackSnapshots?.[0] ?? 0);
+            }
           }
         }
       }
