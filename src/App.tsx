@@ -62,9 +62,16 @@ function App() {
   const offlineProgress = useGameStore((s) => s.offlineProgress);
   const classSelected = useGameStore((s) => s.classSelected);
   const currentZoneId = useGameStore((s) => s.currentZoneId);
-  const [activeTab, setActiveTab] = useState(() =>
+  const [activeTab, setActiveTabRaw] = useState(() =>
     tutorialStep === 1 ? 'hero' : 'world'
   );
+  const setActiveTab = (tab: string) => {
+    // Leaving arena: clear the arena's large pack so idle mode spawns a fresh one
+    if (activeTab === 'arena' && tab !== 'arena') {
+      useGameStore.setState({ packMobs: [], currentPackSize: 0 });
+    }
+    setActiveTabRaw(tab);
+  };
 
   // DEV: max level for visual testing — remove before merge
   useEffect(() => {
