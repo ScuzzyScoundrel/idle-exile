@@ -530,7 +530,7 @@ export function triggerDodgeRoll(state: ArenaState, keys: Set<string>): boolean 
 
 // ── Shrines ──
 
-import type { ArenaShrine, ShrineType, ArenaShrineEffect } from './arenaTypes';
+import type { ShrineType } from './arenaTypes';
 
 const SHRINE_TYPES: ShrineType[] = ['damage', 'speed', 'magnet', 'bomb'];
 const SHRINE_SPAWN_KILLS = 25; // kills between shrine spawns

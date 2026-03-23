@@ -688,9 +688,6 @@ export function renderArena(
     const shrineColors: Record<string, string> = {
       damage: '#ef4444', speed: '#60a5fa', magnet: '#c084fc', bomb: '#f97316',
     };
-    const shrineIcons: Record<string, string> = {
-      damage: '\u2694', speed: '\u26A1', magnet: '\u2B50', bomb: '\u1F4A3',
-    };
     const sColor = shrineColors[shrine.type] ?? '#fbbf24';
     // Glow ring
     const shrGlow = ctx.createRadialGradient(shrine.x, shrine.y, 5, shrine.x, shrine.y, 30);
