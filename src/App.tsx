@@ -66,9 +66,12 @@ function App() {
     tutorialStep === 1 ? 'hero' : 'world'
   );
   const setActiveTab = (tab: string) => {
-    // Leaving arena: clear the arena's large pack so idle mode spawns a fresh one
+    // Leaving arena: restart idle run so it spawns a fresh zone-appropriate pack
     if (activeTab === 'arena' && tab !== 'arena') {
-      useGameStore.setState({ packMobs: [], currentPackSize: 0 });
+      const gs = useGameStore.getState();
+      if (gs.currentZoneId && gs.idleStartTime) {
+        gs.startIdleRun(gs.currentZoneId);
+      }
     }
     setActiveTabRaw(tab);
   };
