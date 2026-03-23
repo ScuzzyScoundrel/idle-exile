@@ -147,7 +147,8 @@ function App() {
           All screens stay mounted (hidden via CSS) so local state persists across tab switches. */}
       <main className="relative z-10 mx-2 mt-10 mb-20">
         <div className="p-3">
-          <div className={activeTab === 'world' ? '' : 'hidden'}><WorldScreen /></div>
+          {/* WorldScreen unmounted during arena to stop idle tick loop from running in parallel */}
+          {activeTab !== 'arena' && <div className={activeTab === 'world' ? '' : 'hidden'}><WorldScreen /></div>}
           <div className={activeTab === 'hero' ? '' : 'hidden'}><HeroScreen /></div>
           <div className={activeTab === 'crafting' ? '' : 'hidden'}><CraftingScreen /></div>
           {activeTab === 'arena' && <ArenaScreen />}
