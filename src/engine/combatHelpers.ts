@@ -48,6 +48,7 @@ export interface ConditionContext {
   wardExpiresAt?: number;         // blade ward expiry timestamp (ms)
   trapArmedAt?: number;           // timestamp when trap was armed (ms)
   totalTargetDebuffStacks?: number; // sum of all debuff stacks on target
+  targetHasPlagueLink?: boolean;    // target mob has plague_link debuff active
 }
 
 export function evaluateCondition(
@@ -166,6 +167,7 @@ export function evaluateCondition(
     case 'ailmentKillAfterFoK': return ctx.lastSkillId === 'dagger_fan_of_knives' && (ctx.killStreak ?? 0) > 0;
     case 'enemyAttacksAfterBeingHit': return true; // approximate: enemies attack after being hit
     case 'enemyAttacksSinceLast': return true; // approximate: enemies have attacked
+    case 'whileTargetLinked': return ctx.targetHasPlagueLink === true;
     default: return false;
   }
 }

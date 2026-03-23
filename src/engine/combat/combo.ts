@@ -59,22 +59,30 @@ export const COMBO_STATE_CREATORS: Record<string, ComboStateConfig> = {
 /** Which combo states each skill consumes on cast.
  *  Assassinate consumes BOTH exposed and deep_wound.
  *  Array format: consume all listed states. */
+// One-shot combo states consumed by the next skill (not the creator):
+// chain_surge (Chain Strike → next skill gets +1 chain)
+// dance_momentum (Blade Dance → next skill gets splash)
+// contagion_surge (Chain Strike + talent → next skill spreads ailments)
+// shadow_momentum (Shadow Dash → next skill bonus)
+const CROSS_SKILL_STATES = ['chain_surge', 'dance_momentum', 'contagion_surge', 'shadow_momentum'];
+
 export const COMBO_STATE_CONSUMERS: Record<string, string[]> = {
   // Exposed: consumed by ANY non-Stab skill for +25% damage
   // Deep Wound: consumed by Assassinate (+ Chain Strike) for burst
   // Shadow Mark: consumed by any skill on marked target
-  dagger_assassinate:  ['exposed', 'deep_wound', 'shadow_mark'],
-  dagger_chain_strike: ['exposed', 'shadow_mark'],
-  dagger_blade_dance:  ['exposed', 'shadow_mark'],
-  dagger_fan_of_knives:['exposed', 'shadow_mark'],
-  dagger_viper_strike: ['exposed', 'shadow_mark'],
-  dagger_blade_ward:   ['exposed', 'shadow_mark'],
-  dagger_blade_trap:   ['exposed', 'shadow_mark'],
-  dagger_shadow_dash:  ['exposed', 'shadow_mark'],
+  // Cross-skill states: consumed by any skill EXCEPT the one that created them
+  dagger_assassinate:  ['exposed', 'deep_wound', 'shadow_mark', ...CROSS_SKILL_STATES],
+  dagger_chain_strike: ['exposed', 'shadow_mark', 'dance_momentum', 'shadow_momentum'],  // NOT chain_surge/contagion_surge (own states)
+  dagger_blade_dance:  ['exposed', 'shadow_mark', 'chain_surge', 'contagion_surge', 'shadow_momentum'],  // NOT dance_momentum (own state)
+  dagger_fan_of_knives:['exposed', 'shadow_mark', ...CROSS_SKILL_STATES],
+  dagger_viper_strike: ['exposed', 'shadow_mark', ...CROSS_SKILL_STATES],
+  dagger_blade_ward:   ['exposed', 'shadow_mark', ...CROSS_SKILL_STATES],
+  dagger_blade_trap:   ['exposed', 'shadow_mark', ...CROSS_SKILL_STATES],
+  dagger_shadow_dash:  ['exposed', 'shadow_mark', 'chain_surge', 'dance_momentum', 'contagion_surge'],  // NOT shadow_momentum (own state)
   // Stab does NOT consume exposed (can't consume its own state)
-  dagger_stab:         ['shadow_mark'],
+  dagger_stab:         ['shadow_mark', ...CROSS_SKILL_STATES],
   // Shadow Mark does NOT consume exposed (setup skill, not a damage follow-up)
-  dagger_shadow_mark:  ['shadow_mark'],
+  dagger_shadow_mark:  ['shadow_mark', ...CROSS_SKILL_STATES],
 };
 
 // ─── Pure Functions ───

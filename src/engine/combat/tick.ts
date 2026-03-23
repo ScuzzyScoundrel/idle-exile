@@ -356,6 +356,7 @@ export function runCombatTick(
       fortifyStacks: state.fortifyStacks,
       packSize: state.packMobs.length,
       targetDebuffCount: targetDebuffs.length,
+      targetHasPlagueLink: targetDebuffs.some(d => d.debuffId === 'plague_link'),
       lastSkillId: skill.id,
       skillTimers: state.skillTimers as any,
       lastSkillsCast: state.lastSkillsCast,
@@ -447,6 +448,7 @@ export function runCombatTick(
   let comboCounterDamageMult = 1;
   let cdAcceleration = 0;
   let preRollHealAmount = 0;
+  let comboContagionSpread = 0;
   const consumedComboStateIds: string[] = [];
   if (weaponMod?.preRoll) {
     const pr = weaponMod.preRoll({
@@ -469,6 +471,7 @@ export function runCombatTick(
     cdAcceleration = pr.cdAcceleration;
     consumedComboStateIds.push(...pr.consumedStateIds);
     preRollHealAmount = pr.healAmount;
+    if (pr.contagionSpreadCount > 0) comboContagionSpread = pr.contagionSpreadCount;
   }
 
   // Weapon mastery: multiplicative damage bonus (mirrors zones/dps.ts masteryMult)
@@ -505,6 +508,7 @@ export function runCombatTick(
       fortifyStacks: state.fortifyStacks,
       packSize: state.packMobs.length,
       targetDebuffCount: targetDebuffs.length,
+      targetHasPlagueLink: targetDebuffs.some(d => d.debuffId === 'plague_link'),
       lastSkillId: skill.id,
       skillTimers: state.skillTimers as any,
       lastSkillsCast: state.lastSkillsCast,
@@ -1364,6 +1368,17 @@ export function runCombatTick(
       front.hp -= effectiveDmg;
       totalDamage = effectiveDmg;
       front.debuffs = newDebuffs;
+
+      // Contagion Surge: spread this cast's ailments to N adjacent enemies
+      if (comboContagionSpread > 0 && updatedPackMobs.length > 1) {
+        for (let ci = 1; ci <= comboContagionSpread && ci < updatedPackMobs.length; ci++) {
+          const spreadTarget = updatedPackMobs[ci];
+          for (const ailment of castAilments) {
+            applyDebuffToList(spreadTarget.debuffs, ailment.debuffId, 1,
+              ailment.remainingDuration, skill.id, ailment.stackSnapshots?.[0] ?? 0);
+          }
+        }
+      }
 
       // Dance Momentum splash: also hit 1 adjacent enemy for X% damage
       if (comboSplashPercent > 0 && updatedPackMobs.length > 1) {

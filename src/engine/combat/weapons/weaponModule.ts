@@ -92,6 +92,7 @@ export interface PreRollResult {
   cdAcceleration: number;
   consumedStateIds: string[];
   healAmount: number;
+  contagionSpreadCount: number;
 }
 
 export interface PostCastResult {

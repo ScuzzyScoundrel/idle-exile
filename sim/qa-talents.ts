@@ -166,6 +166,7 @@ function createMobPack(skillId: string, now: number, opts?: {
     { debuffId: 'chilled', stacks: 1, remainingDuration: 8, appliedBySkillId: skillId },
     { debuffId: 'shocked', stacks: 1, remainingDuration: 8, appliedBySkillId: skillId },
     { debuffId: 'vulnerable', stacks: 1, remainingDuration: 10, appliedBySkillId: skillId },
+    { debuffId: 'plague_link', stacks: 1, remainingDuration: 15, appliedBySkillId: 'dagger_blade_dance' },
   ];
 
   const mobs: MobInPack[] = [];
@@ -693,6 +694,7 @@ function runDirectEvalCheck(resolved: ResolvedSkillModifier, skillId: string): b
       skillTimers: [{ skillId, cooldownUntil: null }] as any,
       lastSkillsCast: [skillId, skillId],
       totalTargetDebuffStacks: 12,
+      targetHasPlagueLink: true,
       wardActive: true, wardHits: 6,
       activeTrapsCount: 2, comboStateIds: ['guarded', 'shadow_momentum'],
       lastDashAt: now - 500,

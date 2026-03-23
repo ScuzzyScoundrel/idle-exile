@@ -62,6 +62,7 @@ export const daggerModule: WeaponModule = {
     let counterDamageMult = 1;
     let markPassthrough = false;
     let healAmount = 0;
+    let contagionSpreadCount = 0;
     const consumedStateIds: string[] = [];
 
     // Consume combo states for this skill
@@ -103,6 +104,8 @@ export const daggerModule: WeaponModule = {
         if (cs.stateId === 'dance_momentum') splashPercent = 50;
         // Chain Surge: next skill chains to +1 enemy
         if (cs.stateId === 'chain_surge') extraChains = 1;
+        // Contagion Surge: next skill's ailments also apply to 2 adjacent enemies
+        if (cs.stateId === 'contagion_surge') contagionSpreadCount = 2;
         // Shadow Mark per-skill specials
         if (eff.focusBurst) focusBurst = true;
         if (eff.counterDamageMult) counterDamageMult = eff.counterDamageMult;
@@ -313,7 +316,7 @@ export const daggerModule: WeaponModule = {
       comboStates, damageMult, critChanceBonus, critMultiplierBonus,
       guaranteedCrit, ailmentPotency, cdRefundPercent, splashPercent,
       extraChains, burstDamage, focusBurst, counterDamageMult,
-      markPassthrough, cdAcceleration, consumedStateIds, healAmount,
+      markPassthrough, cdAcceleration, consumedStateIds, healAmount, contagionSpreadCount,
     };
   },
 
