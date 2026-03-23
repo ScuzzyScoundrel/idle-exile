@@ -36,13 +36,16 @@ import {
   logCombat,
   advanceWave,
   trackMultiKill,
+  spawnBossDeathParticles,
+  triggerDodgeRoll,
+  checkShrineSpawn,
   KILLS_PER_CLEAR,
   type ArenaState,
   type SkillCooldownInfo,
 } from './arenaEngine';
 import { buildSpatialSlice } from './spatialTargeting';
 import type { MobInPack } from '../../types/combat';
-import { rollArenaLoot } from './arenaLoot';
+import { rollArenaLoot, rollBossArenaLoot } from './arenaLoot';
 import { calcXpScale } from '../../engine/zones/scaling';
 import { BOSS_INTERVAL } from '../../data/balance';
 import { getUnifiedSkillDef } from '../../data/skills';
@@ -99,6 +102,31 @@ export default function ArenaScreen() {
     } else {
       bgImageRef.current = null;
     }
+
+    // Spatial damage helper: ES absorption + death detection
+    const applySpatialDamage = (arena: ArenaState, rawDamage: number, source: string) => {
+      const s = useGameStore.getState();
+      let remaining = rawDamage;
+      // Absorb with ES first
+      if ((s.currentEs ?? 0) > 0) {
+        const esAbsorbed = Math.min(s.currentEs ?? 0, remaining);
+        remaining -= esAbsorbed;
+        useGameStore.setState({ currentEs: (s.currentEs ?? 0) - esAbsorbed });
+      }
+      if (remaining > 0) {
+        const newHp = Math.max(0, s.currentHp - remaining);
+        useGameStore.setState({ currentHp: newHp });
+        if (newHp <= 0 && s.combatPhase === 'clearing') {
+          logCombat(arena, 'DEFEATED', '#fca5a5');
+          useGameStore.setState({
+            combatPhase: 'zone_defeat' as never,
+            combatPhaseStartedAt: Date.now(),
+          });
+          arena.sessionDeaths++;
+        }
+      }
+      logCombat(arena, `${source} → ${Math.round(rawDamage)}`, '#f87171');
+    };
 
     // Game loop
     const loop = (time: number) => {
@@ -177,9 +205,7 @@ export default function ArenaScreen() {
                 addPlayerHitFloater(arena, hit.damage, hit.isDodged, hit.isBlocked);
                 if (!hit.isDodged && !hit.isBlocked && hit.damage > 0) {
                   triggerIFrames(arena);
-                  const curHp = useGameStore.getState().currentHp;
-                  useGameStore.setState({ currentHp: Math.max(0, curHp - hit.damage) });
-                  logCombat(arena, `Projectile → ${Math.round(hit.damage)}`, '#f87171');
+                  applySpatialDamage(arena, hit.damage, 'Projectile');
                 } else if (hit.isDodged) {
                   logCombat(arena, 'DODGE projectile', '#67e8f9');
                 } else if (hit.isBlocked) {
@@ -207,9 +233,7 @@ export default function ArenaScreen() {
                 addPlayerHitFloater(arena, hit.damage, hit.isDodged, hit.isBlocked);
                 if (!hit.isDodged && !hit.isBlocked && hit.damage > 0) {
                   triggerIFrames(arena);
-                  const curHp = useGameStore.getState().currentHp;
-                  useGameStore.setState({ currentHp: Math.max(0, curHp - hit.damage) });
-                  logCombat(arena, `Melee hit → ${Math.round(hit.damage)}`, '#f87171');
+                  applySpatialDamage(arena, hit.damage, 'Melee');
                 } else if (hit.isDodged) {
                   logCombat(arena, 'DODGE melee', '#67e8f9');
                 } else if (hit.isBlocked) {
@@ -238,14 +262,47 @@ export default function ArenaScreen() {
         if (currentPhase === 'boss_fight') {
           const result = tickGs.tickCombat(0.25);
 
-          // Boss victory/defeat detection
+          // Sync boss HP to visual entity
           const bossCheckGs = useGameStore.getState();
+          if (arena.bossMob && bossCheckGs.bossState) {
+            const prevHp = arena.bossMob.hp;
+            arena.bossMob.hp = bossCheckGs.bossState.bossCurrentHp;
+            arena.bossMob.maxHp = bossCheckGs.bossState.bossMaxHp;
+            // Flash on hit
+            if (bossCheckGs.bossState.bossCurrentHp < prevHp) {
+              arena.bossMob.lastHitTime = arena.totalTime;
+              // Knockback away from player
+              const bkdx = arena.bossMob.x - arena.player.x;
+              const bkdy = arena.bossMob.y - arena.player.y;
+              const bkDist = Math.sqrt(bkdx * bkdx + bkdy * bkdy);
+              if (bkDist > 1) {
+                arena.bossMob.knockbackVx = (bkdx / bkDist) * 80;
+                arena.bossMob.knockbackVy = (bkdy / bkDist) * 80;
+              }
+            }
+          }
+
+          // Boss victory/defeat detection
           if (bossCheckGs.bossState && bossCheckGs.bossState.bossCurrentHp <= 0) {
             logCombat(arena, 'BOSS DEFEATED!', '#fbbf24');
-            bossCheckGs.handleBossVictory();
+            // Death explosion
+            if (arena.bossMob && !arena.bossMob.dead) {
+              arena.bossMob.dead = true;
+              arena.bossMob.deathTimer = 0;
+              spawnBossDeathParticles(arena, arena.bossMob, arena.bossMob.color);
+              triggerShake(arena, 8);
+            }
+            // Loot explosion around boss position
+            const bossResult = bossCheckGs.handleBossVictory();
+            if (bossResult && arena.bossMob) {
+              const loot = rollBossArenaLoot(bossResult, { x: arena.bossMob.x, y: arena.bossMob.y });
+              arena.groundItems.push(...loot);
+            }
+            // Clean up boss entity after short delay handled in updateArena
           } else if (bossCheckGs.currentHp <= 0) {
             logCombat(arena, 'DEFEATED by boss', '#fca5a5');
             bossCheckGs.handleBossDefeat();
+            arena.bossMob = null;
           }
 
           // Boss attack feedback
@@ -442,10 +499,11 @@ export default function ArenaScreen() {
           }
         }
 
-        // Crit feedback
+        // Crit feedback + hit-stop
         if (result.isCrit && result.damageDealt > 0) {
           triggerShake(arena, 4);
           arena.critFlashTimer = 0.03;
+          arena.hitStopTimer = 0.03; // 2-frame freeze for impact
         }
 
         // Count kills
@@ -456,6 +514,7 @@ export default function ArenaScreen() {
             killCountRef.current += actualKills;
             trackKillStreak(arena, actualKills);
             trackMultiKill(arena, actualKills);
+            checkShrineSpawn(arena, actualKills);
 
             // Wave progression
             arena.waveKillCount += actualKills;
@@ -562,13 +621,19 @@ export default function ArenaScreen() {
 
       // Detect boss entrance transition + boss defeat → wave reset
       const phase = currentState.combatPhase ?? 'clearing';
-      checkPhaseTransition(arena, phase);
+      const bossInfo = currentState.bossState ? {
+        name: currentState.bossState.bossName ?? 'Boss',
+        color: '#ef4444',
+        maxHp: currentState.bossState.bossMaxHp ?? 1000,
+      } : undefined;
+      checkPhaseTransition(arena, phase, bossInfo);
       if (arena.currentCombatPhase === 'boss_fight' && phase === 'clearing') {
-        // Boss defeated — reset waves
+        // Boss defeated — reset waves, clean up boss entity
         arena.currentWave = 1;
         arena.waveKillCount = 0;
         arena.waveKillTarget = 10;
         arena.waveAnnouncementTimer = 1.5;
+        arena.bossMob = null;
       }
       arena.currentCombatPhase = phase;
 
@@ -685,7 +750,7 @@ export default function ArenaScreen() {
     const onKeyDown = (e: KeyboardEvent) => {
       const key = e.key.toLowerCase();
       keysRef.current.add(key);
-      if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'tab'].includes(key)) {
+      if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'tab', ' '].includes(key)) {
         e.preventDefault();
       }
       if (key === 'tab' && stateRef.current) {
@@ -693,6 +758,10 @@ export default function ArenaScreen() {
       }
       if (key === 'escape' && stateRef.current) {
         stateRef.current.paused = !stateRef.current.paused;
+      }
+      // Spacebar: dodge roll
+      if (key === ' ' && stateRef.current) {
+        triggerDodgeRoll(stateRef.current, keysRef.current);
       }
     };
     const onKeyUp = (e: KeyboardEvent) => {

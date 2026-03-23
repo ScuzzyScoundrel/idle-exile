@@ -45,12 +45,13 @@ const SPATIAL_DMG_BASE = 9;                 // matches ZONE_DMG_BASE
 const SPATIAL_DMG_ILVL_SCALE = 1.2;         // matches ZONE_DMG_ILVL_SCALE
 
 // ── Wave System ──
-const WAVE_BASE_DENSITY = 20;              // mob target for wave 1
-const WAVE_DENSITY_PER_WAVE = 5;           // additional mobs per wave
-const WAVE_MAX_DENSITY = 40;               // cap on mob target
-const WAVE_BASE_INTERVAL = 0.5;            // spawn interval wave 1 (seconds)
-const WAVE_INTERVAL_REDUCTION = 0.05;      // faster spawns per wave
-const WAVE_MIN_INTERVAL = 0.3;             // fastest spawn interval
+const WAVE_BASE_DENSITY = 40;              // mob target for wave 1 (VS-style swarm)
+const WAVE_DENSITY_PER_WAVE = 8;           // additional mobs per wave
+const WAVE_MAX_DENSITY = 80;               // cap on mob target
+const WAVE_BASE_INTERVAL = 0.15;           // spawn interval wave 1 (seconds) — fast burst
+const WAVE_INTERVAL_REDUCTION = 0.02;      // faster spawns per wave
+const WAVE_MIN_INTERVAL = 0.08;            // fastest spawn interval
+const BURST_SPAWN_COUNT = 4;               // spawn this many at once per tick
 const WAVE_BOSS_DENSITY = 12;              // fewer adds during boss
 const WAVE_BOSS_INTERVAL = 2.0;            // slow spawns during boss
 
@@ -78,6 +79,7 @@ export function createArenaState(width: number, height: number): ArenaState {
     playerRadius: PLAYER_RADIUS,
     playerFacing: { x: 0, y: -1 },
     mobs: [],
+    bossMob: null,
     floaters: [],
     splashes: [],
     gems: [],
@@ -130,6 +132,17 @@ export function createArenaState(width: number, height: number): ArenaState {
     nextProjectileId: 1,
     // Phase 10: Persistent arena traps
     traps: [],
+    // Phase 11: Dodge roll
+    dodgeRollCooldown: 0,
+    dodgeRollTimer: 0,
+    dodgeRollDir: { x: 0, y: -1 },
+    // Phase 12: Hit-stop
+    hitStopTimer: 0,
+    // Phase 13: Shrines
+    shrines: [],
+    nextShrineId: 1,
+    activeShrineEffects: [],
+    totalKillsForShrines: 0,
     nextTrapId: 1,
   };
 }
@@ -411,39 +424,51 @@ export function tickArenaSpawns(
   const alive = state.mobs.filter(m => !m.dead).length;
   if (alive >= densityCap) return [];
 
-  // Spawn one mob
+  // Burst spawn: spawn multiple mobs at once in a cluster
   state.spawnTimer = interval;
-  state.pendingSpawns--;
+  const burstCount = isBoss ? 1 : Math.min(BURST_SPAWN_COUNT, state.pendingSpawns, densityCap - alive);
+  if (burstCount <= 0) return [];
 
+  const allPack: MobInPack[] = [];
   const now = Date.now();
-  const pack = spawnPack(zone, hpMult, invMult, now, mobElement, mobPhysRatio, 1);
-  // Create visual mob at edge
-  const currentPackLen = state.lastKnownPackLength;
-  const pos = randomEdgePosition(state.width, state.height, state.camera);
-  state.mobs.push({
-    mobId: state.nextMobId++,
-    packIndex: currentPackLen, // appended to end of packMobs
-    x: pos.x,
-    y: pos.y,
-    radius: pack[0].rare ? RARE_MOB_RADIUS : MOB_RADIUS,
-    hp: pack[0].hp,
-    maxHp: pack[0].maxHp,
-    isRare: !!pack[0].rare,
-    dead: false,
-    deathTimer: 0,
-    color: elementColor(pack[0].damageElement, !!pack[0].rare),
-    vx: 0,
-    vy: 0,
-    lastHitTime: -1,
-    knockbackVx: 0,
-    knockbackVy: 0,
-    attackTimer: Math.random() * SPATIAL_ATTACK_INTERVAL,
-    activeDebuffs: [],
-    behavior: rollMobBehavior(),
-  });
-  state.lastKnownPackLength = currentPackLen + 1;
+  // Pick one edge position, then scatter burst around it
+  const basePos = randomEdgePosition(state.width, state.height, state.camera);
 
-  return pack;
+  for (let b = 0; b < burstCount; b++) {
+    state.pendingSpawns--;
+    const pack = spawnPack(zone, hpMult, invMult, now, mobElement, mobPhysRatio, 1);
+    const currentPackLen = state.lastKnownPackLength;
+    // Scatter within 40px of base position for cluster feel
+    const pos = {
+      x: basePos.x + (Math.random() - 0.5) * 80,
+      y: basePos.y + (Math.random() - 0.5) * 80,
+    };
+    state.mobs.push({
+      mobId: state.nextMobId++,
+      packIndex: currentPackLen,
+      x: pos.x,
+      y: pos.y,
+      radius: pack[0].rare ? RARE_MOB_RADIUS : MOB_RADIUS,
+      hp: pack[0].hp,
+      maxHp: pack[0].maxHp,
+      isRare: !!pack[0].rare,
+      dead: false,
+      deathTimer: 0,
+      color: elementColor(pack[0].damageElement, !!pack[0].rare),
+      vx: 0,
+      vy: 0,
+      lastHitTime: -1,
+      knockbackVx: 0,
+      knockbackVy: 0,
+      attackTimer: Math.random() * SPATIAL_ATTACK_INTERVAL,
+      activeDebuffs: [],
+      behavior: rollMobBehavior(),
+    });
+    state.lastKnownPackLength = currentPackLen + 1;
+    allPack.push(...pack);
+  }
+
+  return allPack;
 }
 
 /** Returns closest living target in attack range. */
@@ -470,6 +495,116 @@ export function advanceWave(state: ArenaState): void {
   state.waveKillTarget = Math.min(50, state.currentWave * 10);
   state.waveAnnouncementTimer = 1.5;
   triggerShake(state, 3);
+}
+
+// ── Dodge Roll ──
+
+const DODGE_ROLL_COOLDOWN = 4.0;  // seconds between rolls
+const DODGE_ROLL_DURATION = 0.15; // seconds of roll movement
+
+/** Trigger a dodge roll in the current movement or facing direction. */
+export function triggerDodgeRoll(state: ArenaState, keys: Set<string>): boolean {
+  if (state.dodgeRollCooldown > 0 || state.dodgeRollTimer > 0) return false;
+
+  // Roll in movement direction if moving, else facing direction
+  let rdx = 0, rdy = 0;
+  if (keys.has('w') || keys.has('arrowup')) rdy -= 1;
+  if (keys.has('s') || keys.has('arrowdown')) rdy += 1;
+  if (keys.has('a') || keys.has('arrowleft')) rdx -= 1;
+  if (keys.has('d') || keys.has('arrowright')) rdx += 1;
+
+  if (rdx === 0 && rdy === 0) {
+    rdx = state.playerFacing.x;
+    rdy = state.playerFacing.y;
+  }
+  const len = Math.sqrt(rdx * rdx + rdy * rdy);
+  if (len < 0.01) return false;
+
+  state.dodgeRollDir = { x: rdx / len, y: rdy / len };
+  state.dodgeRollTimer = DODGE_ROLL_DURATION;
+  state.dodgeRollCooldown = DODGE_ROLL_COOLDOWN;
+  state.iFrameTimer = DODGE_ROLL_DURATION + 0.05;
+  triggerShake(state, 2);
+  return true;
+}
+
+// ── Shrines ──
+
+import type { ArenaShrine, ShrineType, ArenaShrineEffect } from './arenaTypes';
+
+const SHRINE_TYPES: ShrineType[] = ['damage', 'speed', 'magnet', 'bomb'];
+const SHRINE_SPAWN_KILLS = 25; // kills between shrine spawns
+
+/** Spawn a shrine at a random position near the player. */
+export function spawnShrine(state: ArenaState): void {
+  const angle = Math.random() * Math.PI * 2;
+  const dist = 100 + Math.random() * 150;
+  const x = Math.max(30, Math.min(state.worldWidth - 30, state.player.x + Math.cos(angle) * dist));
+  const y = Math.max(30, Math.min(state.worldHeight - 30, state.player.y + Math.sin(angle) * dist));
+  const type = SHRINE_TYPES[Math.floor(Math.random() * SHRINE_TYPES.length)];
+  state.shrines.push({
+    id: state.nextShrineId++,
+    x, y, type,
+    age: 0,
+    collected: false,
+  });
+}
+
+/** Apply a shrine effect. */
+function applyShrineEffect(state: ArenaState, type: ShrineType): void {
+  switch (type) {
+    case 'damage':
+      // Remove existing damage buff, add fresh
+      state.activeShrineEffects = state.activeShrineEffects.filter(e => e.type !== 'damage');
+      state.activeShrineEffects.push({ type: 'damage', remainingTime: 10 });
+      triggerShake(state, 3);
+      break;
+    case 'speed':
+      state.activeShrineEffects = state.activeShrineEffects.filter(e => e.type !== 'speed');
+      state.activeShrineEffects.push({ type: 'speed', remainingTime: 8 });
+      triggerShake(state, 2);
+      break;
+    case 'magnet':
+      // Vacuum all ground items + gems toward player
+      for (const gi of state.groundItems) {
+        if (!gi.collected) { gi.autoPickup = true; }
+      }
+      for (const gem of state.gems) {
+        if (!gem.collected) {
+          gem.x = state.player.x + (Math.random() - 0.5) * 30;
+          gem.y = state.player.y + (Math.random() - 0.5) * 30;
+        }
+      }
+      triggerShake(state, 4);
+      break;
+    case 'bomb':
+      // Kill all on-screen mobs (within viewport)
+      for (const mob of state.mobs) {
+        if (mob.dead) continue;
+        const dx = mob.x - state.camera.x - state.width / 2;
+        const dy = mob.y - state.camera.y - state.height / 2;
+        if (Math.abs(dx) < state.width / 2 + 50 && Math.abs(dy) < state.height / 2 + 50) {
+          mob.hp = 0;
+          mob.dead = true;
+          mob.deathTimer = 0;
+          addKillFloater(state, mob);
+          spawnDeathParticles(state, mob);
+          spawnGems(state, mob, 2 + Math.floor(Math.random() * 3));
+          state.pendingSpawns++;
+        }
+      }
+      triggerShake(state, 8);
+      break;
+  }
+}
+
+/** Check if it's time to spawn a shrine based on kills. */
+export function checkShrineSpawn(state: ArenaState, kills: number): void {
+  state.totalKillsForShrines += kills;
+  if (state.totalKillsForShrines >= SHRINE_SPAWN_KILLS) {
+    state.totalKillsForShrines -= SHRINE_SPAWN_KILLS;
+    spawnShrine(state);
+  }
 }
 
 // ── Ranged Mob Projectiles ──
@@ -609,6 +744,12 @@ export function updateArena(
   dt: number,
   keys: Set<string>,
 ): void {
+  // ── Hit-stop: freeze all simulation briefly for impact ──
+  if (state.hitStopTimer > 0) {
+    state.hitStopTimer -= dt;
+    return; // freeze everything — no movement, no ticks
+  }
+
   state.totalTime += dt;
 
   // ── Player movement ──
@@ -622,6 +763,17 @@ export function updateArena(
     const len = Math.sqrt(dx * dx + dy * dy);
     dx /= len;
     dy /= len;
+  }
+
+  // ── Mouse-aim: skills fire toward cursor, not movement direction ──
+  if (state.mouseWorldPos) {
+    const mx = state.mouseWorldPos.x - state.player.x;
+    const my = state.mouseWorldPos.y - state.player.y;
+    const mLen = Math.sqrt(mx * mx + my * my);
+    if (mLen > 5) {
+      state.playerFacing = { x: mx / mLen, y: my / mLen };
+    }
+  } else if (dx !== 0 || dy !== 0) {
     state.playerFacing = { x: dx, y: dy };
   }
 
@@ -637,9 +789,25 @@ export function updateArena(
     speedMult = Math.max(0.3, minEdgeDist / BOUNDARY_ZONE);
   }
 
-  state.player.x += dx * PLAYER_SPEED * speedMult * dt;
-  state.player.y += dy * PLAYER_SPEED * speedMult * dt;
-  state.playerMoving = dx !== 0 || dy !== 0;
+  // Speed shrine buff
+  const hasSpeedBuff = state.activeShrineEffects.some(e => e.type === 'speed');
+  const shrineSpeedMult = hasSpeedBuff ? 1.5 : 1;
+
+  // ── Dodge roll ──
+  if (state.dodgeRollCooldown > 0) state.dodgeRollCooldown -= dt;
+  if (state.dodgeRollTimer > 0) {
+    // During roll: fast movement in roll direction, i-frames
+    const DODGE_SPEED = PLAYER_SPEED * 4;
+    state.player.x += state.dodgeRollDir.x * DODGE_SPEED * dt;
+    state.player.y += state.dodgeRollDir.y * DODGE_SPEED * dt;
+    state.dodgeRollTimer -= dt;
+    state.iFrameTimer = 0.1; // maintain i-frames during roll
+    state.playerMoving = true;
+  } else {
+    state.player.x += dx * PLAYER_SPEED * speedMult * shrineSpeedMult * dt;
+    state.player.y += dy * PLAYER_SPEED * speedMult * shrineSpeedMult * dt;
+  }
+  state.playerMoving = dx !== 0 || dy !== 0 || state.dodgeRollTimer > 0;
 
   // Clamp to world bounds
   state.player.x = Math.max(state.playerRadius, Math.min(state.worldWidth - state.playerRadius, state.player.x));
@@ -673,6 +841,61 @@ export function updateArena(
   // ── Mob movement ──
   moveMobsTowardPlayer(state, state.mobs, dt);
 
+  // ── Boss movement ──
+  if (state.bossMob && !state.bossMob.dead) {
+    const boss = state.bossMob;
+    // Entrance walk-in: slide toward player from above
+    if (boss.entranceTimer > 0) {
+      boss.entranceTimer -= dt;
+      const tgt = { x: state.player.x, y: state.player.y - 80 };
+      const edx = tgt.x - boss.x;
+      const edy = tgt.y - boss.y;
+      const eDist = Math.sqrt(edx * edx + edy * edy);
+      if (eDist > 5) {
+        const eSpeed = 120; // entrance speed
+        boss.x += (edx / eDist) * eSpeed * dt;
+        boss.y += (edy / eDist) * eSpeed * dt;
+      }
+    } else {
+      // Track player at 45% player speed, prefer ~60px distance
+      const BOSS_SPEED = PLAYER_SPEED * 0.45;
+      const PREFERRED_DIST = 60;
+      const bdx = state.player.x - boss.x;
+      const bdy = state.player.y - boss.y;
+      const bDist = Math.sqrt(bdx * bdx + bdy * bdy);
+      if (bDist > PREFERRED_DIST + 10) {
+        const spd = BOSS_SPEED * Math.min(1, (bDist - PREFERRED_DIST) / 80);
+        boss.vx = (bdx / bDist) * spd;
+        boss.vy = (bdy / bDist) * spd;
+      } else if (bDist < PREFERRED_DIST - 10) {
+        // Too close — back away slightly
+        boss.vx = -(bdx / bDist) * BOSS_SPEED * 0.3;
+        boss.vy = -(bdy / bDist) * BOSS_SPEED * 0.3;
+      } else {
+        boss.vx *= 0.9;
+        boss.vy *= 0.9;
+      }
+      boss.x += boss.vx * dt;
+      boss.y += boss.vy * dt;
+    }
+    // Knockback decay
+    if (boss.knockbackVx !== 0 || boss.knockbackVy !== 0) {
+      boss.x += boss.knockbackVx * dt;
+      boss.y += boss.knockbackVy * dt;
+      boss.knockbackVx *= Math.max(0, 1 - 6 * dt);
+      boss.knockbackVy *= Math.max(0, 1 - 6 * dt);
+      if (Math.abs(boss.knockbackVx) < 1) boss.knockbackVx = 0;
+      if (Math.abs(boss.knockbackVy) < 1) boss.knockbackVy = 0;
+    }
+    // Clamp to world
+    boss.x = Math.max(boss.radius, Math.min(state.worldWidth - boss.radius, boss.x));
+    boss.y = Math.max(boss.radius, Math.min(state.worldHeight - boss.radius, boss.y));
+    // Death timer
+    if (boss.dead) {
+      boss.deathTimer += dt;
+    }
+  }
+
   // ── Splashes ──
   for (const s of state.splashes) s.age += dt;
   state.splashes = state.splashes.filter(s => s.age < s.maxAge);
@@ -682,6 +905,27 @@ export function updateArena(
 
   // ── Ground Items (Phase 7) ──
   updateGroundItems(state, dt);
+
+  // ── Shrines ──
+  for (const shrine of state.shrines) {
+    shrine.age += dt;
+    if (shrine.collected) continue;
+    // Proximity pickup
+    const sdx = state.player.x - shrine.x;
+    const sdy = state.player.y - shrine.y;
+    const sDist = Math.sqrt(sdx * sdx + sdy * sdy);
+    if (sDist < state.playerRadius + 20) {
+      shrine.collected = true;
+      applyShrineEffect(state, shrine.type);
+    }
+  }
+  state.shrines = state.shrines.filter(s => !s.collected && s.age < 30);
+
+  // Decay shrine effects
+  for (const eff of state.activeShrineEffects) {
+    eff.remainingTime -= dt;
+  }
+  state.activeShrineEffects = state.activeShrineEffects.filter(e => e.remainingTime > 0);
 
   // ── Knockback decay (all mobs) ──
   const KNOCKBACK_FRICTION = 8;

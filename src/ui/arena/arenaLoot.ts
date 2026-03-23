@@ -4,16 +4,18 @@
 // ============================================================
 
 import { simulateSingleClear, type SingleClearResult } from '../../engine/zones/drops';
+import type { ProcessClearsResult } from '../../engine/zones/lootProcessor';
 import { useGameStore } from '../../store/gameStore';
 import type { Item, Rarity, Gem } from '../../types/items';
 import type { CurrencyType } from '../../types/currencies';
 import type { Character } from '../../types/character';
 import type { ZoneDef } from '../../types/zones';
 import type { Vec2 } from './arenaEngine';
+import { CURRENCY_DEFS } from '../../data/items';
 
 // ── Types ──
 
-export type GroundItemKind = 'equipment' | 'material' | 'currency' | 'gold' | 'gem';
+export type GroundItemKind = 'equipment' | 'material' | 'currency' | 'gold' | 'gem' | 'trophy';
 
 export interface ArenaGroundItem {
   id: number;
@@ -23,17 +25,21 @@ export interface ArenaGroundItem {
   label: string;
   color: string;           // rarity or kind hex color
   rarity: Rarity | null;
+  displayRarity?: string | null;  // rarity tier for rendering (equipment uses .rarity, others set explicitly)
   autoPickup: boolean;     // true for mats/currency/gold/gems
   hovered: boolean;
   collected: boolean;
   collectTimer: number;
   age: number;
+  visualOnly?: boolean;    // true for boss loot (already applied by handleBossVictory)
   // Payload (one set per kind)
   item?: Item;
   materials?: Record<string, number>;
   currencies?: Partial<Record<CurrencyType, number>>;
   gold?: number;
   gemDrop?: Gem;
+  trophyId?: string;
+  trophyName?: string;
 }
 
 // ── Rarity Colors ──
@@ -48,8 +54,35 @@ export const RARITY_HEX: Record<Rarity, string> = {
 };
 
 const MATERIAL_COLOR = '#9ca3af';
-const CURRENCY_COLOR = '#fbbf24';
 const GOLD_COLOR = '#fbbf24';
+
+// Per-currency color: map each CurrencyType to its rarity color
+const CURRENCY_COLOR_MAP: Record<string, string> = {};
+for (const def of CURRENCY_DEFS) {
+  CURRENCY_COLOR_MAP[def.id] = RARITY_HEX[def.rarity as Rarity] ?? '#fbbf24';
+}
+const CURRENCY_COLOR_FALLBACK = '#fbbf24';
+
+/** Get highest rarity among currencies in a bundle */
+function highestCurrencyRarity(currencies: Partial<Record<CurrencyType, number>>): string {
+  const order: Rarity[] = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'unique'];
+  let best = 0;
+  for (const [key, val] of Object.entries(currencies)) {
+    if (!val || val <= 0) continue;
+    const def = CURRENCY_DEFS.find(d => d.id === key);
+    if (def) {
+      const idx = order.indexOf(def.rarity as Rarity);
+      if (idx > best) best = idx;
+    }
+  }
+  return order[best];
+}
+
+/** Get color for highest-rarity currency in a bundle */
+function currencyBundleColor(currencies: Partial<Record<CurrencyType, number>>): string {
+  const rarity = highestCurrencyRarity(currencies);
+  return RARITY_HEX[rarity as Rarity] ?? CURRENCY_COLOR_FALLBACK;
+}
 const GEM_COLOR_MAP: Record<string, string> = {
   fire: '#f97316',
   cold: '#22d3ee',
@@ -100,6 +133,7 @@ export function rollArenaLoot(
         label: result.item.name,
         color: RARITY_HEX[result.item.rarity] ?? RARITY_HEX.common,
         rarity: result.item.rarity,
+        displayRarity: result.item.rarity,
         autoPickup: false,
         hovered: false,
         collected: false,
@@ -120,6 +154,7 @@ export function rollArenaLoot(
         label: result.professionGearDrop.name,
         color: RARITY_HEX[result.professionGearDrop.rarity] ?? RARITY_HEX.common,
         rarity: result.professionGearDrop.rarity,
+        displayRarity: result.professionGearDrop.rarity,
         autoPickup: false,
         hovered: false,
         collected: false,
@@ -142,6 +177,7 @@ export function rollArenaLoot(
         label,
         color: MATERIAL_COLOR,
         rarity: null,
+        displayRarity: 'common',
         autoPickup: true,
         hovered: false,
         collected: false,
@@ -156,14 +192,16 @@ export function rollArenaLoot(
     if (currEntries.length > 0) {
       const pos = scatterPos(playerPos, 20, 45);
       const label = currEntries.map(([k, v]) => `${v}x ${k.replace(/_/g, ' ')}`).join(', ');
+      const bundleRarity = highestCurrencyRarity(result.currencyDrops);
       items.push({
         id: _nextId++,
         kind: 'currency',
         x: pos.x,
         y: pos.y,
         label,
-        color: CURRENCY_COLOR,
+        color: currencyBundleColor(result.currencyDrops),
         rarity: null,
+        displayRarity: bundleRarity,
         autoPickup: true,
         hovered: false,
         collected: false,
@@ -184,6 +222,7 @@ export function rollArenaLoot(
         label: `${result.goldGained}g`,
         color: GOLD_COLOR,
         rarity: null,
+        displayRarity: 'common',
         autoPickup: true,
         hovered: false,
         collected: false,
@@ -205,6 +244,7 @@ export function rollArenaLoot(
         label: `T${result.gemDrop.tier} ${result.gemDrop.type}`,
         color: gemColor,
         rarity: null,
+        displayRarity: 'uncommon',
         autoPickup: true,
         hovered: false,
         collected: false,
@@ -221,6 +261,9 @@ export function rollArenaLoot(
 // ── Apply Pickup (mutates store) ──
 
 export function applyGroundItemPickup(gItem: ArenaGroundItem): void {
+  // Boss loot is visual-only — already applied by handleBossVictory()
+  if (gItem.visualOnly) return;
+
   const store = useGameStore.getState();
 
   switch (gItem.kind) {
@@ -265,4 +308,135 @@ export function applyGroundItemPickup(gItem: ArenaGroundItem): void {
       break;
     }
   }
+}
+
+// ── Boss Loot → Ground Items (Phase 3) ──
+
+/** Convert ProcessClearsResult from handleBossVictory into visual ground items.
+ *  All items are visualOnly since the store already applied them. */
+export function rollBossArenaLoot(
+  result: ProcessClearsResult,
+  bossPos: Vec2,
+): ArenaGroundItem[] {
+  const items: ArenaGroundItem[] = [];
+
+  // Equipment items (click-to-collect visual)
+  for (const it of result.items) {
+    const pos = scatterPos(bossPos, 30, 80);
+    items.push({
+      id: _nextId++,
+      kind: 'equipment',
+      x: pos.x, y: pos.y,
+      label: it.name,
+      color: RARITY_HEX[it.rarity] ?? RARITY_HEX.common,
+      rarity: it.rarity,
+      displayRarity: it.rarity,
+      autoPickup: false,
+      hovered: false, collected: false, collectTimer: 0, age: 0,
+      visualOnly: true,
+    });
+  }
+
+  // Trophy drops (white + gold border)
+  if (result.trophyDrops) {
+    for (const [tId, count] of Object.entries(result.trophyDrops)) {
+      if (!count || count <= 0) continue;
+      const pos = scatterPos(bossPos, 20, 60);
+      items.push({
+        id: _nextId++,
+        kind: 'trophy',
+        x: pos.x, y: pos.y,
+        label: tId.replace(/_/g, ' '),
+        color: '#ffffff',
+        rarity: null,
+        displayRarity: 'legendary',
+        autoPickup: false,
+        hovered: false, collected: false, collectTimer: 0, age: 0,
+        visualOnly: true,
+        trophyId: tId,
+        trophyName: tId.replace(/_/g, ' '),
+      });
+    }
+  }
+
+  // Currency
+  const currEntries = Object.entries(result.currencyDrops).filter(([, v]) => v > 0);
+  if (currEntries.length > 0) {
+    const pos = scatterPos(bossPos, 25, 65);
+    const label = currEntries.map(([k, v]) => `${v}x ${k.replace(/_/g, ' ')}`).join(', ');
+    items.push({
+      id: _nextId++,
+      kind: 'currency',
+      x: pos.x, y: pos.y,
+      label,
+      color: currencyBundleColor(result.currencyDrops),
+      rarity: null,
+      displayRarity: highestCurrencyRarity(result.currencyDrops),
+      autoPickup: true,
+      hovered: false, collected: false, collectTimer: 0, age: 0,
+      visualOnly: true,
+      currencies: result.currencyDrops,
+    });
+  }
+
+  // Materials
+  const matEntries = Object.entries(result.materialDrops).filter(([, v]) => v > 0);
+  if (matEntries.length > 0) {
+    const pos = scatterPos(bossPos, 20, 55);
+    const label = matEntries.map(([k, v]) => `${v}x ${k.replace(/_/g, ' ')}`).join(', ');
+    items.push({
+      id: _nextId++,
+      kind: 'material',
+      x: pos.x, y: pos.y,
+      label,
+      color: MATERIAL_COLOR,
+      rarity: null,
+      displayRarity: 'common',
+      autoPickup: true,
+      hovered: false, collected: false, collectTimer: 0, age: 0,
+      visualOnly: true,
+      materials: result.materialDrops,
+    });
+  }
+
+  // Gold
+  if (result.goldGained > 0) {
+    const pos = scatterPos(bossPos, 15, 50);
+    items.push({
+      id: _nextId++,
+      kind: 'gold',
+      x: pos.x, y: pos.y,
+      label: `${result.goldGained}g`,
+      color: GOLD_COLOR,
+      rarity: null,
+      displayRarity: 'common',
+      autoPickup: true,
+      hovered: false, collected: false, collectTimer: 0, age: 0,
+      visualOnly: true,
+      gold: result.goldGained,
+    });
+  }
+
+  // Gems
+  if (result.gemDrops) {
+    for (const gem of result.gemDrops) {
+      const pos = scatterPos(bossPos, 25, 60);
+      const gemColor = GEM_COLOR_MAP[gem.type] ?? '#e5e7eb';
+      items.push({
+        id: _nextId++,
+        kind: 'gem',
+        x: pos.x, y: pos.y,
+        label: `T${gem.tier} ${gem.type}`,
+        color: gemColor,
+        rarity: null,
+        displayRarity: 'uncommon',
+        autoPickup: true,
+        hovered: false, collected: false, collectTimer: 0, age: 0,
+        visualOnly: true,
+        gemDrop: gem,
+      });
+    }
+  }
+
+  return items;
 }

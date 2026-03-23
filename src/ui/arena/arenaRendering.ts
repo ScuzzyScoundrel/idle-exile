@@ -485,6 +485,69 @@ export function renderArena(
 
   // Ambient mob rendering removed — all mobs now in state.mobs
 
+  // ── Boss Mob ──
+  if (state.bossMob) {
+    const boss = state.bossMob;
+    const bossAlive = !boss.dead;
+    const deathFade = boss.dead ? Math.max(0, 1 - boss.deathTimer / 0.6) : 1;
+
+    if (deathFade > 0) {
+      ctx.globalAlpha = deathFade;
+
+      // Pulsing glow ring
+      const glowPulse = 1 + Math.sin(totalTime * 2) * 0.15;
+      const glowR = boss.radius * 2.5 * glowPulse;
+      const bossGlow = ctx.createRadialGradient(boss.x, boss.y, boss.radius * 0.5, boss.x, boss.y, glowR);
+      bossGlow.addColorStop(0, boss.color + '40');
+      bossGlow.addColorStop(0.6, boss.color + '15');
+      bossGlow.addColorStop(1, boss.color + '00');
+      ctx.beginPath();
+      ctx.arc(boss.x, boss.y, glowR, 0, Math.PI * 2);
+      ctx.fillStyle = bossGlow;
+      ctx.fill();
+
+      // Boss body
+      ctx.beginPath();
+      ctx.arc(boss.x, boss.y, boss.radius * (boss.dead ? 1 + boss.deathTimer * 2 : 1), 0, Math.PI * 2);
+      // White flash on hit
+      const hitFlash = bossAlive && boss.lastHitTime > 0 && (totalTime - boss.lastHitTime) < 0.08;
+      ctx.fillStyle = hitFlash ? '#ffffff' : boss.color;
+      ctx.fill();
+
+      // Boss border
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Name label above
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = 'bold 13px monospace';
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillText(boss.name, boss.x, boss.y - boss.radius - 22);
+
+      // Mini HP bar below
+      if (bossAlive) {
+        const bBarW = 60;
+        const bBarH = 5;
+        const bBarX = boss.x - bBarW / 2;
+        const bBarY = boss.y + boss.radius + 8;
+        const bHpPct = Math.max(0, boss.hp / boss.maxHp);
+        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        ctx.fillRect(bBarX - 1, bBarY - 1, bBarW + 2, bBarH + 2);
+        ctx.fillStyle = bHpPct > 0.5 ? '#ef4444' : bHpPct > 0.25 ? '#f97316' : '#fbbf24';
+        ctx.fillRect(bBarX, bBarY, bBarW * bHpPct, bBarH);
+      }
+
+      ctx.globalAlpha = 1;
+    }
+
+    // Remove boss entity after death animation
+    if (boss.dead && boss.deathTimer > 0.6) {
+      state.bossMob = null;
+    }
+  }
+
   // ── Splash effects ──
   for (const s of state.splashes) {
     const t = s.age / s.maxAge;
@@ -618,9 +681,66 @@ export function renderArena(
     ctx.fill();
   }
 
-  // ── Ground Items (Phase 7) ──
+  // ── Shrines ──
+  for (const shrine of state.shrines) {
+    if (shrine.collected) continue;
+    const sPulse = 0.7 + Math.sin(totalTime * 3 + shrine.id) * 0.3;
+    const shrineColors: Record<string, string> = {
+      damage: '#ef4444', speed: '#60a5fa', magnet: '#c084fc', bomb: '#f97316',
+    };
+    const shrineIcons: Record<string, string> = {
+      damage: '\u2694', speed: '\u26A1', magnet: '\u2B50', bomb: '\u1F4A3',
+    };
+    const sColor = shrineColors[shrine.type] ?? '#fbbf24';
+    // Glow ring
+    const shrGlow = ctx.createRadialGradient(shrine.x, shrine.y, 5, shrine.x, shrine.y, 30);
+    shrGlow.addColorStop(0, sColor + Math.round(sPulse * 100).toString(16).padStart(2, '0'));
+    shrGlow.addColorStop(1, sColor + '00');
+    ctx.beginPath();
+    ctx.arc(shrine.x, shrine.y, 30, 0, Math.PI * 2);
+    ctx.fillStyle = shrGlow;
+    ctx.fill();
+    // Shrine body
+    ctx.beginPath();
+    ctx.arc(shrine.x, shrine.y, 12, 0, Math.PI * 2);
+    ctx.fillStyle = sColor;
+    ctx.globalAlpha = sPulse;
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    // Label
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = 'bold 10px monospace';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(shrine.type.toUpperCase(), shrine.x, shrine.y + 20);
+  }
+
+  // ── Dodge roll trail ──
+  if (state.dodgeRollTimer > 0) {
+    const rollAlpha = state.dodgeRollTimer / 0.15;
+    ctx.globalAlpha = rollAlpha * 0.5;
+    ctx.beginPath();
+    ctx.arc(state.player.x, state.player.y, state.playerRadius * 1.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#60a5fa';
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  // ── Ground Items (Phase 7 + Loot Filter Visuals) ──
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
+
+  // Rarity order for beam sizing
+  const RARITY_BEAM: Record<string, number> = {
+    common: 0, uncommon: 0, rare: 40, epic: 60, legendary: 80, unique: 80,
+  };
+  const RARITY_IS_HIGH: Record<string, boolean> = {
+    legendary: true, unique: true,
+  };
+
   for (const gi of state.groundItems) {
     if (gi.collected) {
       // Collect animation: float up + fade
@@ -628,8 +748,8 @@ export function renderArena(
       const alpha = Math.max(0, 1 - t);
       const yOff = -t * 20;
       ctx.globalAlpha = alpha;
-      ctx.font = gi.kind === 'equipment' ? 'bold 11px monospace' : '9px monospace';
-      // Shadow
+      const cFontSize = gi.kind === 'equipment' || gi.kind === 'trophy' ? 11 : 9;
+      ctx.font = `bold ${cFontSize}px monospace`;
       ctx.fillStyle = 'rgba(0,0,0,0.5)';
       ctx.fillText(gi.label, gi.x + 1, gi.y + yOff + 1);
       ctx.fillStyle = gi.color;
@@ -638,122 +758,137 @@ export function renderArena(
       continue;
     }
 
-    if (gi.kind === 'equipment') {
-      // POE-style pill label
-      const fontSize = 11;
-      ctx.font = `bold ${fontSize}px monospace`;
-      const textW = ctx.measureText(gi.label).width;
-      const padX = 8;
-      const padY = 4;
-      const pillW = textW + padX * 2;
-      const pillH = fontSize + padY * 2;
-      const px = gi.x - pillW / 2;
-      const py = gi.y - pillH / 2;
+    // Fade in/out
+    const fadeIn = Math.min(1, gi.age / 0.3);
+    const fadeOut = gi.age > GROUND_ITEM_MAX_AGE - 3 ? (GROUND_ITEM_MAX_AGE - gi.age) / 3 : 1;
+    const baseFade = fadeIn * fadeOut;
 
-      // Subtle pulse
-      const pulse = 0.85 + Math.sin(totalTime * 3 + gi.id) * 0.1;
-
-      // Background
-      const bgAlpha = gi.hovered ? 0.9 : 0.75;
-      ctx.fillStyle = `rgba(15, 15, 25, ${(bgAlpha * pulse).toFixed(3)})`;
-      ctx.beginPath();
-      ctx.roundRect(px, py, pillW, pillH, 4);
-      ctx.fill();
-
-      // Border
-      if (gi.hovered) {
-        ctx.strokeStyle = gi.color;
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-        // Glow
-        ctx.shadowColor = gi.color;
-        ctx.shadowBlur = 8;
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-      } else {
-        ctx.strokeStyle = `rgba(255,255,255,0.15)`;
-        ctx.lineWidth = 1;
-        ctx.stroke();
+    // ── Loot beam for rare+ drops ──
+    const dRarity = gi.displayRarity ?? gi.rarity ?? 'common';
+    const beamH = gi.kind === 'trophy' ? 100 : (RARITY_BEAM[dRarity] ?? 0);
+    if (beamH > 0) {
+      const isHigh = gi.kind === 'trophy' || (RARITY_IS_HIGH[dRarity] ?? false);
+      const beamAlpha = baseFade * (0.3 + Math.sin(totalTime * 2 + gi.id) * 0.1);
+      const beamGrad = ctx.createLinearGradient(gi.x, gi.y, gi.x, gi.y - beamH);
+      const beamColor = gi.kind === 'trophy' ? '#ffffff' : gi.color;
+      beamGrad.addColorStop(0, beamColor + Math.round(beamAlpha * 180).toString(16).padStart(2, '0'));
+      beamGrad.addColorStop(1, beamColor + '00');
+      ctx.fillStyle = beamGrad;
+      ctx.fillRect(gi.x - 1.5, gi.y - beamH, 3, beamH);
+      // Wider glow for legendary/unique/trophy
+      if (isHigh) {
+        ctx.globalAlpha = beamAlpha * 0.4;
+        ctx.fillStyle = beamGrad;
+        ctx.fillRect(gi.x - 4, gi.y - beamH, 8, beamH);
+        ctx.globalAlpha = 1;
       }
+    }
 
-      // Text
-      ctx.fillStyle = gi.color;
-      ctx.globalAlpha = pulse;
-      ctx.fillText(gi.label, gi.x, gi.y);
-      ctx.globalAlpha = 1;
+    // ── Pill rendering for ALL drop types ──
+    const isEquipOrTrophy = gi.kind === 'equipment' || gi.kind === 'trophy';
+    const isHigh = RARITY_IS_HIGH[dRarity] ?? false;
+    const fontSize = isEquipOrTrophy ? 11 : isHigh ? 13 : 9;
+    ctx.font = `bold ${fontSize}px monospace`;
+    const textW = ctx.measureText(gi.label).width;
+    const padX = isEquipOrTrophy ? 8 : 6;
+    const padY = isEquipOrTrophy ? 4 : 3;
+    const pillW = textW + padX * 2;
+    const pillH = fontSize + padY * 2;
+    const px = gi.x - pillW / 2;
+    const py = gi.y - pillH / 2;
 
-      // Hover tooltip — show rarity, slot, key stats
-      if (gi.hovered && gi.item) {
-        const ttFontSize = 10;
-        ctx.font = `${ttFontSize}px monospace`;
-        ctx.textAlign = 'left';
+    // Subtle pulse
+    const pulse = 0.85 + Math.sin(totalTime * 3 + gi.id) * 0.1;
 
-        // Build tooltip lines
-        const lines: { text: string; color: string }[] = [];
-        const rarityLabel = gi.item.rarity.charAt(0).toUpperCase() + gi.item.rarity.slice(1);
-        const slotLabel = gi.item.slot.replace(/_/g, ' ');
-        lines.push({ text: `${rarityLabel} ${slotLabel}`, color: gi.color });
-        if (gi.item.iLvl) lines.push({ text: `iLvl ${gi.item.iLvl}`, color: '#9ca3af' });
-        // Base damage or armor
-        if (gi.item.baseDamageMin != null && gi.item.baseDamageMax != null) {
-          lines.push({ text: `Damage: ${gi.item.baseDamageMin}-${gi.item.baseDamageMax}`, color: '#e5e7eb' });
-        }
-        // Base stats
-        for (const [stat, val] of Object.entries(gi.item.baseStats)) {
-          if (val && val !== 0) {
-            const sign = val > 0 ? '+' : '';
-            lines.push({ text: `${sign}${val} ${stat.replace(/_/g, ' ')}`, color: '#86efac' });
-          }
-        }
-        // Affixes (prefixes + suffixes)
-        for (const affix of [...gi.item.prefixes, ...gi.item.suffixes]) {
-          lines.push({ text: formatAffix(affix), color: '#c4b5fd' });
-        }
+    ctx.globalAlpha = baseFade;
 
-        // Measure tooltip dimensions
-        let maxLineW = 0;
-        for (const l of lines) {
-          const w = ctx.measureText(l.text).width;
-          if (w > maxLineW) maxLineW = w;
-        }
-        const ttPadX = 8;
-        const ttPadY = 6;
-        const ttLineH = ttFontSize + 3;
-        const ttW = maxLineW + ttPadX * 2;
-        const ttH = lines.length * ttLineH + ttPadY * 2;
-        const ttX = gi.x - ttW / 2;
-        const ttY = py + pillH + 4;
+    // Background
+    const bgAlpha = gi.hovered ? 0.9 : 0.75;
+    ctx.fillStyle = `rgba(15, 15, 25, ${(bgAlpha * pulse).toFixed(3)})`;
+    ctx.beginPath();
+    ctx.roundRect(px, py, pillW, pillH, 4);
+    ctx.fill();
 
-        // Tooltip background
-        ctx.fillStyle = 'rgba(10, 10, 20, 0.92)';
-        ctx.beginPath();
-        ctx.roundRect(ttX, ttY, ttW, ttH, 4);
-        ctx.fill();
-        ctx.strokeStyle = gi.color;
-        ctx.lineWidth = 1;
-        ctx.stroke();
-
-        // Tooltip text
-        for (let li = 0; li < lines.length; li++) {
-          ctx.fillStyle = lines[li].color;
-          ctx.fillText(lines[li].text, ttX + ttPadX, ttY + ttPadY + li * ttLineH + ttFontSize);
-        }
-        ctx.textAlign = 'center';
-      }
+    // Border + glow
+    const borderColor = gi.kind === 'trophy' ? '#fbbf24' : gi.color;
+    if (gi.hovered || gi.kind === 'trophy') {
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth = gi.kind === 'trophy' ? 1.5 : 1.5;
+      ctx.stroke();
+      ctx.shadowColor = borderColor;
+      ctx.shadowBlur = gi.kind === 'trophy' ? 12 : 8;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    } else if (isHigh) {
+      ctx.strokeStyle = gi.color;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.shadowColor = gi.color;
+      ctx.shadowBlur = 12;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
     } else {
-      // Material / currency / gold / gem — small floating label
-      const fontSize = gi.kind === 'gold' ? 8 : 9;
-      ctx.font = `${fontSize}px monospace`;
-      // Fade in over first 0.3s, fade near expiry
-      const fadeIn = Math.min(1, gi.age / 0.3);
-      const fadeOut = gi.age > GROUND_ITEM_MAX_AGE - 3 ? (GROUND_ITEM_MAX_AGE - gi.age) / 3 : 1;
-      ctx.globalAlpha = fadeIn * fadeOut;
-      // Shadow
-      ctx.fillStyle = 'rgba(0,0,0,0.5)';
-      ctx.fillText(gi.label, gi.x + 1, gi.y + 1);
-      ctx.fillStyle = gi.color;
-      ctx.fillText(gi.label, gi.x, gi.y);
-      ctx.globalAlpha = 1;
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    // Text
+    ctx.fillStyle = gi.kind === 'trophy' ? '#ffffff' : gi.color;
+    ctx.globalAlpha = baseFade * pulse;
+    ctx.fillText(gi.label, gi.x, gi.y);
+    ctx.globalAlpha = 1;
+
+    // ── Hover tooltip for equipment ──
+    if (gi.hovered && gi.item) {
+      const ttFontSize = 10;
+      ctx.font = `${ttFontSize}px monospace`;
+      ctx.textAlign = 'left';
+
+      const lines: { text: string; color: string }[] = [];
+      const rarityLabel = gi.item.rarity.charAt(0).toUpperCase() + gi.item.rarity.slice(1);
+      const slotLabel = gi.item.slot.replace(/_/g, ' ');
+      lines.push({ text: `${rarityLabel} ${slotLabel}`, color: gi.color });
+      if (gi.item.iLvl) lines.push({ text: `iLvl ${gi.item.iLvl}`, color: '#9ca3af' });
+      if (gi.item.baseDamageMin != null && gi.item.baseDamageMax != null) {
+        lines.push({ text: `Damage: ${gi.item.baseDamageMin}-${gi.item.baseDamageMax}`, color: '#e5e7eb' });
+      }
+      for (const [stat, val] of Object.entries(gi.item.baseStats)) {
+        if (val && val !== 0) {
+          const sign = val > 0 ? '+' : '';
+          lines.push({ text: `${sign}${val} ${stat.replace(/_/g, ' ')}`, color: '#86efac' });
+        }
+      }
+      for (const affix of [...gi.item.prefixes, ...gi.item.suffixes]) {
+        lines.push({ text: formatAffix(affix), color: '#c4b5fd' });
+      }
+
+      let maxLineW = 0;
+      for (const l of lines) {
+        const w = ctx.measureText(l.text).width;
+        if (w > maxLineW) maxLineW = w;
+      }
+      const ttPadX = 8;
+      const ttPadY = 6;
+      const ttLineH = ttFontSize + 3;
+      const ttW = maxLineW + ttPadX * 2;
+      const ttH = lines.length * ttLineH + ttPadY * 2;
+      const ttX = gi.x - ttW / 2;
+      const ttY = py + pillH + 4;
+
+      ctx.fillStyle = 'rgba(10, 10, 20, 0.92)';
+      ctx.beginPath();
+      ctx.roundRect(ttX, ttY, ttW, ttH, 4);
+      ctx.fill();
+      ctx.strokeStyle = gi.color;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      for (let li = 0; li < lines.length; li++) {
+        ctx.fillStyle = lines[li].color;
+        ctx.fillText(lines[li].text, ttX + ttPadX, ttY + ttPadY + li * ttLineH + ttFontSize);
+      }
+      ctx.textAlign = 'center';
     }
   }
 
@@ -1001,6 +1136,41 @@ export function renderArena(
   } else {
     ctx.fillStyle = '#6b7280';
     ctx.fillText('Out of range', 16, 82);
+  }
+
+  // ── Dodge roll cooldown indicator ──
+  {
+    const dodgeCd = state.dodgeRollCooldown;
+    const dodgeReady = dodgeCd <= 0;
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(8, 106, 120, 18);
+    ctx.font = '11px monospace';
+    if (dodgeReady) {
+      ctx.fillStyle = '#60a5fa';
+      ctx.fillText('DODGE [Space] Ready', 12, 109);
+    } else {
+      ctx.fillStyle = '#6b7280';
+      ctx.fillText(`DODGE ${dodgeCd.toFixed(1)}s`, 12, 109);
+      // Cooldown bar
+      const cdPct = Math.min(1, dodgeCd / 4);
+      ctx.fillStyle = '#60a5fa';
+      ctx.fillRect(8, 124, 120 * (1 - cdPct), 2);
+    }
+  }
+
+  // ── Active shrine effects ──
+  if (state.activeShrineEffects.length > 0) {
+    let seY = 130;
+    ctx.font = 'bold 11px monospace';
+    for (const eff of state.activeShrineEffects) {
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillRect(8, seY, 120, 18);
+      const effColor = eff.type === 'damage' ? '#ef4444' : '#60a5fa';
+      ctx.fillStyle = effColor;
+      const effLabel = eff.type === 'damage' ? '\u2694 2x DMG' : '\u26A1 SPEED';
+      ctx.fillText(`${effLabel} ${eff.remainingTime.toFixed(1)}s`, 12, seY + 3);
+      seY += 20;
+    }
   }
 
   // ── Zone info (top-right) ──

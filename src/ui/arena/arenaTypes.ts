@@ -143,11 +143,40 @@ export interface CombatLogEntry {
   color: string;
 }
 
+export type ShrineType = 'damage' | 'speed' | 'magnet' | 'bomb';
+
+export interface ArenaShrine {
+  id: number;
+  x: number; y: number;
+  type: ShrineType;
+  age: number;
+  collected: boolean;
+}
+
+export interface ArenaShrineEffect {
+  type: 'damage' | 'speed';
+  remainingTime: number;  // seconds
+}
+
+export interface ArenaBoss {
+  x: number; y: number;
+  radius: number;           // 45px (3-4x mob radius)
+  hp: number; maxHp: number;
+  color: string; name: string;
+  vx: number; vy: number;
+  lastHitTime: number;
+  knockbackVx: number; knockbackVy: number;
+  deathTimer: number;
+  dead: boolean;
+  entranceTimer: number;    // walk-in animation
+}
+
 export interface ArenaState {
   player: Vec2;
   playerRadius: number;
   playerFacing: Vec2;       // normalized direction player last moved
   mobs: ArenaMob[];
+  bossMob: ArenaBoss | null;
   floaters: DamageFloater[];
   splashes: ArenaSplash[];  // visual AoE burst effects
   gems: ArenaGem[];         // XP/loot gem pickups
@@ -209,6 +238,17 @@ export interface ArenaState {
   // Phase 10: Persistent arena traps
   traps: ArenaTrap[];
   nextTrapId: number;
+  // Phase 11: Dodge roll
+  dodgeRollCooldown: number;   // seconds until next roll
+  dodgeRollTimer: number;      // >0 during active roll (0.15s)
+  dodgeRollDir: Vec2;          // direction of current roll
+  // Phase 12: Hit-stop
+  hitStopTimer: number;        // >0 freezes simulation for impact feel
+  // Phase 13: Shrines (temporary power pickups)
+  shrines: ArenaShrine[];
+  nextShrineId: number;
+  activeShrineEffects: ArenaShrineEffect[];
+  totalKillsForShrines: number;  // kills since last shrine spawn
 }
 
 export interface ProjectileHitResult {
@@ -241,7 +281,7 @@ export interface ArenaRenderOpts {
 
 // ── Constants ──
 
-export const PLAYER_ATTACK_RANGE = 80;   // px — player auto-attacks mobs within this radius
+export const PLAYER_ATTACK_RANGE = 140;  // px — player auto-attacks mobs within this radius (wider for VS feel)
 export const MOB_ATTACK_RANGE = 35;      // px — mobs must be this close to hit player
 
 // ── Splash / AoE ──

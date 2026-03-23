@@ -331,13 +331,55 @@ export function trackMultiKill(state: ArenaState, kills: number): void {
 
 // ── Phase Transition ──
 
-/** Call each frame with current combatPhase to detect boss entrance. */
-export function checkPhaseTransition(state: ArenaState, phase: string): void {
+/** Call each frame with current combatPhase to detect boss entrance.
+ *  Optionally pass bossName/bossColor from store for the visual entity. */
+export function checkPhaseTransition(
+  state: ArenaState,
+  phase: string,
+  bossInfo?: { name: string; color: string; maxHp: number },
+): void {
   if (phase === 'boss_fight' && state.lastCombatPhase !== 'boss_fight') {
     state.bossEntranceTimer = 1.5;
     triggerShake(state, 6);
+    // Spawn boss mob entity above viewport
+    if (bossInfo) {
+      state.bossMob = {
+        x: state.player.x,
+        y: state.camera.y - 60, // above viewport
+        radius: 45,
+        hp: bossInfo.maxHp,
+        maxHp: bossInfo.maxHp,
+        color: bossInfo.color,
+        name: bossInfo.name,
+        vx: 0, vy: 0,
+        lastHitTime: -1,
+        knockbackVx: 0, knockbackVy: 0,
+        deathTimer: 0,
+        dead: false,
+        entranceTimer: 1.5,
+      };
+    }
   }
   state.lastCombatPhase = phase;
+}
+
+/** Massive death particles for boss kill. */
+export function spawnBossDeathParticles(state: ArenaState, pos: Vec2, color: string): void {
+  const count = 20 + Math.floor(Math.random() * 10);
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 80 + Math.random() * 160;
+    state.particles.push({
+      x: pos.x + (Math.random() - 0.5) * 20,
+      y: pos.y + (Math.random() - 0.5) * 20,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      size: 3 + Math.random() * 5,
+      color: i % 3 === 0 ? '#fbbf24' : color,
+      age: 0,
+      maxAge: 0.6 + Math.random() * 0.5,
+    });
+  }
 }
 
 // ── Floater Factories ──
