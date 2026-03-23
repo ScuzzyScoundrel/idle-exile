@@ -130,6 +130,10 @@ export interface GameState {
   bladeWardExpiresAt: number;       // timestamp when ward window ends (0 = not active)
   bladeWardHits: number;            // hits received during current ward window
 
+  // Arena spatial dodge/block queue — fed to weapon module hooks in next tickCombat
+  pendingSpatialDodges: number;
+  pendingSpatialBlocks: number;
+
   // Talent tree: ephemeral combat state (not persisted, reset on rehydrate)
   lastHitMobTypeId: string | null;                    // for same-target consecutive hit tracking
   freeCastUntil: Record<string, number>;              // skillId → timestamp: free cast (no CD) until

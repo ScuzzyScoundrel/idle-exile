@@ -208,8 +208,12 @@ export default function ArenaScreen() {
                   applySpatialDamage(arena, hit.damage, 'Projectile');
                 } else if (hit.isDodged) {
                   logCombat(arena, 'DODGE projectile', '#67e8f9');
+                  const ds = useGameStore.getState();
+                  useGameStore.setState({ pendingSpatialDodges: (ds.pendingSpatialDodges ?? 0) + 1 });
                 } else if (hit.isBlocked) {
                   logCombat(arena, 'BLOCK projectile', '#93c5fd');
+                  const bs = useGameStore.getState();
+                  useGameStore.setState({ pendingSpatialBlocks: (bs.pendingSpatialBlocks ?? 0) + 1 });
                 }
               }
             }
@@ -236,8 +240,12 @@ export default function ArenaScreen() {
                   applySpatialDamage(arena, hit.damage, 'Melee');
                 } else if (hit.isDodged) {
                   logCombat(arena, 'DODGE melee', '#67e8f9');
+                  const ds = useGameStore.getState();
+                  useGameStore.setState({ pendingSpatialDodges: (ds.pendingSpatialDodges ?? 0) + 1 });
                 } else if (hit.isBlocked) {
                   logCombat(arena, 'BLOCK melee', '#93c5fd');
+                  const bs = useGameStore.getState();
+                  useGameStore.setState({ pendingSpatialBlocks: (bs.pendingSpatialBlocks ?? 0) + 1 });
                 }
               }
             }

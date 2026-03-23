@@ -1172,6 +1172,58 @@ export function runCombatTick(
 
     // Counter-attack on dodge/block handled by weapon onEnemyAttack hook above
 
+    // ── Process queued spatial dodges/blocks from arena ──
+    if (weaponMod?.onEnemyAttack && (state.pendingSpatialDodges > 0 || state.pendingSpatialBlocks > 0)) {
+      const spatialCount = state.pendingSpatialDodges + state.pendingSpatialBlocks;
+      for (let si = 0; si < spatialCount; si++) {
+        const isSpatialDodge = si < state.pendingSpatialDodges;
+        const spatialResult = weaponMod.onEnemyAttack({
+          state, skill, graphMod, effectiveStats, effectiveMaxLife,
+          dtSec, now, phase, avgDamage, spellPower, targetDebuffs,
+          attackResult: { damage: 0, isDodged: isSpatialDodge, isBlocked: !isSpatialDodge, isCrit: false },
+          comboStates: newComboStates, bladeWardExpiresAt: newBladeWardExpiresAt,
+          bladeWardHits: newBladeWardHits, activeTraps: newActiveTraps,
+          comboCounterDamageMult, isBossPhase: phase === 'boss_fight',
+        });
+        newComboStates = spatialResult.comboStates;
+        newBladeWardHits = spatialResult.bladeWardHits;
+        newActiveTraps = spatialResult.activeTraps;
+        procHeal += spatialResult.healAmount;
+        if (spatialResult.counterDamage > 0) {
+          if (phase === 'boss_fight') { newBossHp -= spatialResult.counterDamage; }
+          else if (state.packMobs.length > 0) { state.packMobs[0].hp -= spatialResult.counterDamage; }
+          totalDamage += spatialResult.counterDamage;
+          weaponCounterDmg += spatialResult.counterDamage;
+        }
+        if (isSpatialDodge) newLastDodgeAt = now;
+        else newLastBlockAt = now;
+      }
+      // Evaluate defensive procs for spatial dodges
+      if (graphMod?.skillProcs?.length) {
+        for (let si = 0; si < spatialCount; si++) {
+          const isSpatialDodge = si < state.pendingSpatialDodges;
+          const trigger: TriggerCondition = isSpatialDodge ? 'onDodge' : 'onBlock';
+          const defCtx: ProcContext = {
+            isHit: roll.isHit, isCrit: roll.isCrit, skillId: skill.id,
+            effectiveMaxLife, stats: effectiveStats, weaponAvgDmg: avgDamage,
+            weaponSpellPower: spellPower, damageMult, now,
+            lastProcTriggerAt: newLastProcTriggerAt, ...cpShared,
+          };
+          const pr = evaluateProcs(graphMod.skillProcs, trigger, defCtx);
+          Object.assign(newLastProcTriggerAt, pr.procTriggeredAt);
+          allProcsFired.push(...pr.procsFired);
+          if (pr.bonusDamage > 0) {
+            if (phase === 'boss_fight') newBossHp -= pr.bonusDamage;
+            else if (state.packMobs.length > 0) state.packMobs[0].hp -= pr.bonusDamage;
+            totalDamage += pr.bonusDamage;
+          }
+          procHeal += pr.healAmount;
+          procCooldownResets.push(...pr.cooldownResets);
+          for (const buff of pr.newTempBuffs) activeTempBuffs = mergeProcTempBuff(activeTempBuffs, buff);
+        }
+      }
+    }
+
     // Passive regen per tick
     playerHp = Math.min(effectiveMaxLife, playerHp + stats.lifeRegen * dtSec);
 
@@ -1222,6 +1274,8 @@ export function runCombatTick(
       activeTraps: newActiveTraps,
       bladeWardExpiresAt: newBladeWardExpiresAt,
       bladeWardHits: newBladeWardHits,
+      pendingSpatialDodges: 0,
+      pendingSpatialBlocks: 0,
     };
 
     const updatedBoss = { ...bs, bossCurrentHp: newBossHp, bossNextAttackAt: nextAttack };
@@ -1919,6 +1973,55 @@ export function runCombatTick(
     }
   }
 
+  // ── Process queued spatial dodges/blocks from arena (clearing path) ──
+  if (weaponMod?.onEnemyAttack && (state.pendingSpatialDodges > 0 || state.pendingSpatialBlocks > 0)) {
+    const spatialCount = state.pendingSpatialDodges + state.pendingSpatialBlocks;
+    for (let si = 0; si < spatialCount; si++) {
+      const isSpatialDodge = si < state.pendingSpatialDodges;
+      const spatialResult = weaponMod.onEnemyAttack({
+        state, skill, graphMod, effectiveStats, effectiveMaxLife,
+        dtSec, now, phase, avgDamage, spellPower, targetDebuffs,
+        attackResult: { damage: 0, isDodged: isSpatialDodge, isBlocked: !isSpatialDodge, isCrit: false },
+        comboStates: newComboStates, bladeWardExpiresAt: newBladeWardExpiresAt,
+        bladeWardHits: newBladeWardHits, activeTraps: newActiveTraps,
+        comboCounterDamageMult, isBossPhase: false,
+      });
+      newComboStates = spatialResult.comboStates;
+      newBladeWardHits = spatialResult.bladeWardHits;
+      newActiveTraps = spatialResult.activeTraps;
+      procHeal += spatialResult.healAmount;
+      if (spatialResult.counterDamage > 0) {
+        if (updatedPackMobs.length > 0) updatedPackMobs[0].hp -= spatialResult.counterDamage;
+        totalDamage += spatialResult.counterDamage;
+        weaponCounterDmg += spatialResult.counterDamage;
+      }
+      if (isSpatialDodge) newLastDodgeAt = now;
+      else newLastBlockAt = now;
+    }
+    if (graphMod?.skillProcs?.length) {
+      for (let si = 0; si < spatialCount; si++) {
+        const isSpatialDodge = si < state.pendingSpatialDodges;
+        const trigger: TriggerCondition = isSpatialDodge ? 'onDodge' : 'onBlock';
+        const defCtx: ProcContext = {
+          isHit: roll.isHit, isCrit: roll.isCrit, skillId: skill.id,
+          effectiveMaxLife, stats: effectiveStats, weaponAvgDmg: avgDamage,
+          weaponSpellPower: spellPower, damageMult, now,
+          lastProcTriggerAt: newLastProcTriggerAt, ...cpShared,
+        };
+        const pr = evaluateProcs(graphMod.skillProcs, trigger, defCtx);
+        Object.assign(newLastProcTriggerAt, pr.procTriggeredAt);
+        allProcsFired.push(...pr.procsFired);
+        if (pr.bonusDamage > 0 && updatedPackMobs.length > 0) {
+          updatedPackMobs[0].hp -= pr.bonusDamage;
+          totalDamage += pr.bonusDamage;
+        }
+        procHeal += pr.healAmount;
+        procCooldownResets.push(...pr.cooldownResets);
+        for (const buff of pr.newTempBuffs) activeTempBuffs = mergeProcTempBuff(activeTempBuffs, buff);
+      }
+    }
+  }
+
   // Passive regen per tick
   playerHp = Math.min(effectiveMaxLife, playerHp + stats.lifeRegen * dtSec);
 
@@ -2030,6 +2133,8 @@ export function runCombatTick(
     activeTraps: newActiveTraps,
     bladeWardExpiresAt: newBladeWardExpiresAt,
     bladeWardHits: newBladeWardHits,
+    pendingSpatialDodges: 0,
+    pendingSpatialBlocks: 0,
   };
 
   // ES recharge per tick

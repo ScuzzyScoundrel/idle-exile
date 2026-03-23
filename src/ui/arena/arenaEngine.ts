@@ -132,6 +132,9 @@ export function createArenaState(width: number, height: number): ArenaState {
     nextProjectileId: 1,
     // Phase 10: Persistent arena traps
     traps: [],
+    // Phase 11: Spatial dodge queue
+    spatialDodgeQueue: 0,
+    spatialBlockQueue: 0,
     // Phase 11: Dodge roll
     dodgeRollCooldown: 0,
     dodgeRollTimer: 0,

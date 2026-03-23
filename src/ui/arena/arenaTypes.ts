@@ -238,6 +238,9 @@ export interface ArenaState {
   // Phase 10: Persistent arena traps
   traps: ArenaTrap[];
   nextTrapId: number;
+  // Phase 11: Spatial dodge/block queue (fed back to engine next tick)
+  spatialDodgeQueue: number;   // count of spatial dodges since last tickCombat
+  spatialBlockQueue: number;   // count of spatial blocks since last tickCombat
   // Phase 11: Dodge roll
   dodgeRollCooldown: number;   // seconds until next roll
   dodgeRollTimer: number;      // >0 during active roll (0.15s)

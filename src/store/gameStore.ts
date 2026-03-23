@@ -298,6 +298,8 @@ function createInitialState(): GameState {
     activeTraps: [],
     bladeWardExpiresAt: 0,
     bladeWardHits: 0,
+    pendingSpatialDodges: 0,
+    pendingSpatialBlocks: 0,
     elementTransforms: {},
     lastHitMobTypeId: null, freeCastUntil: {}, lastProcTriggerAt: {},
     lastClearResult: null,
