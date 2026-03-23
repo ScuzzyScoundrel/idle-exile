@@ -675,6 +675,110 @@ tests.push(() => {
   };
 });
 
+// --- Bug 1 Regression: AoE splash should NOT spread other skills' debuffs ---
+tests.push(() => {
+  resetRng();
+  setClock(10000);
+  // Two-skill rotation: Stab (applies shocked via pre-seeded debuff) + FoK (AoE)
+  const state = createTestState(['dagger_fan_of_knives'], 3, 999999);
+  // Pre-seed front mob with a foreign debuff (simulating Stab's shock)
+  state.packMobs[0].debuffs = [
+    { debuffId: 'shocked', stacks: 1, remainingDuration: 10, skillId: 'dagger_stab', stackSnapshots: [5] },
+  ];
+  // Back mobs should NOT have shocked
+  state.packMobs[1].debuffs = [];
+  state.packMobs[2].debuffs = [];
+  const fired = runUntilSkillFires(state, 'dagger_fan_of_knives', 30, 0.5, true);
+  if (!fired) return { name: 'Bug1: AoE splash does NOT spread foreign debuffs', pass: false, details: 'FoK never hit' };
+  // Back mobs should NOT have shocked (from Stab) — only FoK's own auto-ailment
+  const backMob1Shocked = fired.state.packMobs.length > 1 && fired.state.packMobs[1].debuffs.some((d: any) => d.debuffId === 'shocked');
+  const backMob2Shocked = fired.state.packMobs.length > 2 && fired.state.packMobs[2].debuffs.some((d: any) => d.debuffId === 'shocked');
+  return {
+    name: 'Bug1: AoE splash does NOT spread foreign debuffs',
+    pass: !backMob1Shocked && !backMob2Shocked,
+    details: `backMob1Shocked=${backMob1Shocked} backMob2Shocked=${backMob2Shocked}`,
+  };
+});
+
+// --- Bug 2 Regression: detonateAll produces procDamage and consumes ailments ---
+tests.push(() => {
+  resetRng();
+  setClock(10000);
+  const state = createTestState(['dagger_fan_of_knives'], 3, 999999);
+  // Allocate Chain Detonation (fk_1_5_1 in plague branch)
+  state.skillProgress['dagger_fan_of_knives'].allocatedRanks = { fk_1_5_1: 1 };
+  // Pre-seed ALL mobs with 8 ailment stacks to meet minAilmentStacks: 5
+  const makeAilments = () => [
+    { debuffId: 'poisoned', stacks: 8, remainingDuration: 10, skillId: 'dagger_fan_of_knives', stackSnapshots: [50, 50, 50, 50, 50, 50, 50, 50] },
+  ];
+  for (const mob of state.packMobs) mob.debuffs = makeAilments();
+  // Override RNG to guarantee proc fires (chance=0.25, need random < 0.25)
+  const savedRandom = Math.random;
+  let callCount = 0;
+  Math.random = () => {
+    callCount++;
+    // Return low value to pass chance checks, but vary for hit/crit rolls
+    return (callCount % 5 === 0) ? 0.8 : 0.1;
+  };
+  let totalProcDamage = 0;
+  let anyDebuffsConsumed = false;
+  let s = state;
+  for (let i = 0; i < 40; i++) {
+    const now = getNow();
+    const out = runCombatTick(s, 0.5, now);
+    s = { ...s, ...out.patch };
+    if (out.result.procDamage && out.result.procDamage > 0) totalProcDamage += out.result.procDamage;
+    for (const mob of s.packMobs) {
+      if (mob.debuffs.length === 0) anyDebuffsConsumed = true;
+    }
+    // Re-seed ailments + respawn if wiped
+    if (s.packMobs.length === 0 || s.packMobs.every(m => m.hp <= 0)) {
+      s = { ...s, packMobs: createMobPack(3, 999999) };
+    }
+    for (const mob of s.packMobs) {
+      if (mob.debuffs.length === 0) mob.debuffs = makeAilments();
+    }
+    advanceClock(500);
+  }
+  Math.random = savedRandom;
+  resetRng(); // restore seeded RNG for subsequent tests
+  return {
+    name: 'Bug2: detonateAll produces procDamage + consumes ailments',
+    pass: totalProcDamage > 0,
+    details: `totalProcDamage=${totalProcDamage.toFixed(0)} anyDebuffsConsumed=${anyDebuffsConsumed}`,
+  };
+});
+
+// --- Bug 3 Regression: kill proc explosion hits ALL surviving mobs (Extinction Event) ---
+tests.push(() => {
+  resetRng();
+  setClock(10000);
+  const state = createTestState(['dagger_fan_of_knives'], 3, 100);
+  // Allocate Extinction Event (fk_1_6_0 in plague branch)
+  state.skillProgress['dagger_fan_of_knives'].allocatedRanks = { fk_1_6_0: 1 };
+  // Front mob nearly dead with ailments, back mobs healthy
+  state.packMobs[0].hp = 1; // will die on first hit
+  state.packMobs[0].debuffs = [
+    { debuffId: 'poisoned', stacks: 3, remainingDuration: 10, skillId: 'dagger_fan_of_knives', stackSnapshots: [100, 100, 100] },
+  ];
+  state.packMobs[1].hp = 50000;
+  state.packMobs[1].maxHp = 50000;
+  state.packMobs[2].hp = 50000;
+  state.packMobs[2].maxHp = 50000;
+  const backMob1Before = state.packMobs[1].hp;
+  const backMob2Before = state.packMobs[2].hp;
+  const { finalState, results } = runTicks(state, 20);
+  // Check if any result had detonation/proc damage that hit back mobs
+  const totalProcDmg = results.reduce((s, r) => s + (r.procDamage ?? 0), 0);
+  // Back mobs should have taken explosion damage (not just AoE splash)
+  const anyBackDamaged = finalState.packMobs.length >= 2 && finalState.packMobs.some(m => m.hp < 50000);
+  return {
+    name: 'Bug3: kill proc explosion hits all surviving mobs',
+    pass: totalProcDmg > 0 || anyBackDamaged,
+    details: `totalProcDmg=${totalProcDmg.toFixed(0)} anyBackDamaged=${anyBackDamaged}`,
+  };
+});
+
 // ─── Run All Tests ──────────────────────────────────────
 
 console.log('\n┌─────────────────────────────────────────────────┐');

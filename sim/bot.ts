@@ -2,9 +2,13 @@
 // Bot — Core per-clear state machine for headless simulation
 // ============================================================
 
-import type { Character, ZoneDef, EquippedSkill, SkillProgress, Item, GearSlot, CurrencyType, ClassResourceState } from '../src/types';
+import type { Character, ZoneDef, EquippedSkill, SkillProgress, Item, GearSlot, CurrencyType, ClassResourceState, Gem, GemType, GemTier } from '../src/types';
+import { SOCKETABLE_SLOTS } from '../src/types';
 import { createCharacter, resolveStats, addXp } from '../src/engine/character';
 import { applyCurrency } from '../src/engine/crafting';
+import { rollGemForBoss, canUpgradeGem, upgradeGem, getGemStat } from '../src/engine/gems';
+import { isGemValidForSlot, DEFENSIVE_GEM_TYPES, OFFENSIVE_GEM_TYPES } from '../src/data/gems';
+import { GEM_INVENTORY_CAP } from '../src/data/balance';
 import {
   calcPlayerDps, calcClearTime, simulateSingleClear, simulateClearDefense,
   calcBossMaxHp, calcBossAttackProfile, generateBossLoot, rollZoneAttack,
@@ -152,6 +156,12 @@ export class Bot {
   // Class resource tracking
   private resourceState: ClassResourceState;
 
+  // Gem system tracking
+  private gemInventory: Gem[] = [];
+  private gemsSocketed = 0;
+  private gemsUpgraded = 0;
+  private gemsCollected = 0;
+
   // Rolling window for zone advancement
   private recentClearTimes: number[] = [];
   private recentDeaths: number[] = []; // 1 = died, 0 = survived
@@ -252,12 +262,28 @@ export class Bot {
       };
     }
 
+    // Build gem metrics snapshot
+    const socketedGems: { slot: GearSlot; gemType: typeof this.gemInventory[0]['type']; gemTier: typeof this.gemInventory[0]['tier'] }[] = [];
+    for (const slot of SOCKETABLE_SLOTS) {
+      const item = this.char.equipment[slot];
+      if (!item?.sockets) continue;
+      for (const gem of item.sockets) {
+        if (gem) socketedGems.push({ slot, gemType: gem.type, gemTier: gem.tier });
+      }
+    }
+
     return this.logger.buildSummary(this.char, this.totalSimTime, this.config.armorPreference, this.totalDeathPenaltyTime, {
       craftingAttempts: this.craftingAttempts,
       craftingUpgrades: this.craftingUpgrades,
       currencySpent: { ...this.currencySpent },
       currencyEarned: { ...this.currencyEarned },
-    }, finalDps, finalRefDmg, finalRefAcc, skillProgressSnapshot);
+    }, finalDps, finalRefDmg, finalRefAcc, skillProgressSnapshot, {
+      gemsCollected: this.gemsCollected,
+      gemsSocketed: this.gemsSocketed,
+      gemsUpgraded: this.gemsUpgraded,
+      finalGemInventory: this.gemInventory.map(g => ({ type: g.type, tier: g.tier })),
+      socketedGems,
+    });
   }
 
   private simulateClear(zone: ZoneDef): void {
@@ -313,6 +339,12 @@ export class Bot {
       }
     }
 
+    // 4c. Collect gem drop
+    if (clearResult.gemDrop && this.gemInventory.length < GEM_INVENTORY_CAP) {
+      this.gemInventory.push(clearResult.gemDrop);
+      this.gemsCollected++;
+    }
+
     // 5. Add XP
     const prevLevel = this.char.level;
     this.char = addXp(this.char, clearResult.xpGained);
@@ -350,6 +382,11 @@ export class Bot {
     // 7b. Attempt crafting every 25 clears
     if (this.totalClears % 25 === 0) {
       this.attemptCrafting();
+    }
+
+    // 7c. Manage gems every 10 clears
+    if (this.totalClears % 10 === 0) {
+      this.manageGems();
     }
 
     // 8. Boss fight every BOSS_INTERVAL clears
@@ -473,6 +510,12 @@ export class Bot {
       const loot = generateBossLoot(zone);
       for (const item of loot) {
         this.tryEquipUpgrade(item);
+      }
+      // Boss guaranteed gem drop
+      const bossGem = rollGemForBoss(zone.band);
+      if (this.gemInventory.length < GEM_INVENTORY_CAP) {
+        this.gemInventory.push(bossGem);
+        this.gemsCollected++;
       }
       // Heal after victory
       this.currentHp = Math.min(
@@ -799,5 +842,191 @@ export class Bot {
         this.allocateGraphNodes();
       }
     }
+  }
+
+  // ─── Gem Management ───
+
+  /** Top-level gem management: use socket shards, upgrade gems, socket best gems. */
+  private manageGems(): void {
+    this.useSocketShards();
+    this.upgradeAvailableGems();
+    this.socketBestGems();
+  }
+
+  /** Spend socket currency on highest-value unsocketed items. */
+  private useSocketShards(): void {
+    if (this.currency.socket <= 0) return;
+
+    // Prioritize defensive slots (for resist gems) then offensive
+    const priorityOrder: GearSlot[] = [
+      'chest', 'helmet', 'pants', 'boots', 'shoulders', 'gloves', // defensive
+      'mainhand', 'ring1', 'ring2', // offensive
+    ];
+
+    for (const slot of priorityOrder) {
+      if (this.currency.socket <= 0) break;
+      const item = this.char.equipment[slot];
+      if (!item) continue;
+      if (!SOCKETABLE_SLOTS.includes(slot)) continue;
+      // Skip items that already have a socket
+      if (item.sockets && item.sockets.length > 0) continue;
+
+      const result = applyCurrency(item, 'socket');
+      if (result.success) {
+        this.currency.socket--;
+        this.currencySpent.socket++;
+        // Re-equip the socketed item
+        this.char = equipItem(this.char, result.item);
+      }
+    }
+  }
+
+  /** Combine 3 gems of same type+tier into 1 higher-tier gem. Repeat until exhausted. */
+  private upgradeAvailableGems(): void {
+    let upgraded = true;
+    while (upgraded) {
+      upgraded = false;
+      // Check all type+tier combos (tier 5→2, since tier 1 is max)
+      for (const gem of [...this.gemInventory]) {
+        if (gem.tier <= 1) continue;
+        if (canUpgradeGem(this.gemInventory, gem.type, gem.tier)) {
+          const { newGem, remainingGems } = upgradeGem(this.gemInventory, gem.type, gem.tier);
+          this.gemInventory = remainingGems;
+          this.gemInventory.push(newGem);
+          this.gemsUpgraded++;
+          upgraded = true;
+          break; // restart scan since inventory changed
+        }
+      }
+    }
+  }
+
+  /** Socket best available gems into empty sockets on equipped items. */
+  private socketBestGems(): void {
+    if (this.gemInventory.length === 0) return;
+
+    // Find all equipped items with empty sockets
+    for (const slot of SOCKETABLE_SLOTS) {
+      const item = this.char.equipment[slot];
+      if (!item?.sockets) continue;
+
+      for (let si = 0; si < item.sockets.length; si++) {
+        if (item.sockets[si] !== null) continue; // already filled
+        if (this.gemInventory.length === 0) return;
+
+        const bestGem = this.pickBestGemForSlot(slot);
+        if (!bestGem) continue;
+
+        // Socket the gem: clone item, fill socket, re-equip
+        const newItem: Item = {
+          ...item,
+          prefixes: [...item.prefixes],
+          suffixes: [...item.suffixes],
+          baseStats: { ...item.baseStats },
+          sockets: [...item.sockets],
+        };
+        newItem.sockets![si] = bestGem;
+
+        // Remove gem from inventory
+        const gemIdx = this.gemInventory.findIndex(g => g.id === bestGem.id);
+        if (gemIdx >= 0) this.gemInventory.splice(gemIdx, 1);
+
+        // Re-equip and re-resolve stats
+        this.char = equipItem(this.char, newItem);
+        this.gemsSocketed++;
+      }
+    }
+  }
+
+  /** Pick the best gem from inventory for a given gear slot. */
+  private pickBestGemForSlot(slot: GearSlot): Gem | null {
+    // Filter to valid gems for this slot
+    const validGems = this.gemInventory.filter(g => isGemValidForSlot(g.type, slot));
+    if (validGems.length === 0) return null;
+
+    // Defensive slots: resistance-gap-aware scoring
+    const isDefensiveSlot = ['helmet', 'shoulders', 'chest', 'gloves', 'pants', 'boots'].includes(slot);
+
+    if (isDefensiveSlot) {
+      return this.pickBestDefensiveGem(validGems);
+    } else {
+      return this.pickBestOffensiveGem(validGems);
+    }
+  }
+
+  /** Pick defensive gem: prioritize lowest resistance, fall back to life/armor. */
+  private pickBestDefensiveGem(gems: Gem[]): Gem {
+    const stats = this.char.stats;
+    const resists: { type: GemType; value: number }[] = [
+      { type: 'ruby',     value: stats.fireResist ?? 0 },
+      { type: 'sapphire', value: stats.coldResist ?? 0 },
+      { type: 'topaz',    value: stats.lightningResist ?? 0 },
+      { type: 'amethyst', value: stats.chaosResist ?? 0 },
+    ];
+
+    // Sort by lowest resist first
+    resists.sort((a, b) => a.value - b.value);
+    const lowestResist = resists[0].value;
+    const secondLowest = resists[1].value;
+
+    // If lowest resist is meaningfully behind (>5 gap or <40%), prioritize resist gem
+    if (lowestResist < 40 || lowestResist < secondLowest - 5) {
+      const resistType = resists[0].type;
+      const resistGems = gems
+        .filter(g => g.type === resistType)
+        .sort((a, b) => a.tier - b.tier); // lower tier = better
+      if (resistGems.length > 0) return resistGems[0];
+    }
+
+    // All resists are reasonable — fall back to garnet (life), jade (armor), or emerald (evasion)
+    // Prefer garnet for general survivability
+    const fallbackOrder: GemType[] = ['garnet', 'jade', 'emerald', 'opal'];
+    for (const type of fallbackOrder) {
+      const fallbackGems = gems
+        .filter(g => g.type === type)
+        .sort((a, b) => a.tier - b.tier);
+      if (fallbackGems.length > 0) return fallbackGems[0];
+    }
+
+    // Still nothing? Pick any resist gem that helps the lowest resist
+    for (const r of resists) {
+      const rGems = gems
+        .filter(g => g.type === r.type)
+        .sort((a, b) => a.tier - b.tier);
+      if (rGems.length > 0) return rGems[0];
+    }
+
+    // Absolute fallback: best tier of any valid gem
+    return gems.sort((a, b) => a.tier - b.tier)[0];
+  }
+
+  /** Pick offensive gem: simulate DPS delta for each candidate, pick best. */
+  private pickBestOffensiveGem(gems: Gem[]): Gem {
+    const { refDamage, refAccuracy } = this.getZoneEhpParams();
+    let bestGem = gems[0];
+    let bestScore = -Infinity;
+
+    for (const gem of gems) {
+      // Temporarily socket gem to measure DPS impact
+      const { stat, value } = getGemStat(gem);
+      // Quick score: use stat contribution as proxy (avoid full re-resolve per gem)
+      let score = value;
+      // Weight offensive stats by their DPS impact
+      switch (stat) {
+        case 'critChance':       score = value * 3; break;   // crit is high-leverage
+        case 'critMultiplier':   score = value * 2; break;
+        case 'attackSpeed':      score = value * 2.5; break;
+        case 'flatPhysDamage':   score = value * 1.5; break;
+        case 'incElementalDamage': score = value * 1.2; break;
+        default:                 score = value; break;        // flat ele damage
+      }
+      // Prefer higher tier (lower number = better)
+      if (score > bestScore || (score === bestScore && gem.tier < bestGem.tier)) {
+        bestScore = score;
+        bestGem = gem;
+      }
+    }
+
+    return bestGem;
   }
 }

@@ -84,16 +84,16 @@ export default function ZoneScreen() {
       <div className="xl:grid xl:grid-cols-[1fr_380px] xl:gap-4">
         {/* LEFT COLUMN: zone browser */}
         <div className="space-y-3">
-          <h2 className="text-lg font-bold text-yellow-400">Zones</h2>
+          <h2 className="text-lg font-bold text-yellow-400 heading-fantasy">Zones</h2>
 
           {/* Combat / Gathering Toggle */}
-          <div className="flex gap-1 bg-gray-800 rounded-lg p-1">
+          <div className="flex gap-1 panel-stone p-1">
             <button
               onClick={() => handleModeSwitch('combat')}
               className={`flex-1 py-2 px-3 rounded-md text-sm font-bold transition-all ${
                 idleMode === 'combat'
                   ? 'bg-red-600 text-white'
-                  : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                  : 'bg-stone-mid text-gray-400 hover:bg-stone-dark'
               }`}
             >
               {'\u2694\uFE0F'} Combat
@@ -103,7 +103,7 @@ export default function ZoneScreen() {
               className={`flex-1 py-2 px-3 rounded-md text-sm font-bold transition-all ${
                 idleMode === 'gathering'
                   ? 'bg-green-600 text-white'
-                  : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                  : 'bg-stone-mid text-gray-400 hover:bg-stone-dark'
               } ${tutorialStep === 4 ? 'ring-2 ring-yellow-400 animate-pulse' : ''}`}
             >
               {'\u26CF\uFE0F'} Gathering
@@ -113,7 +113,7 @@ export default function ZoneScreen() {
           {/* Gathering Profession Selector */}
           {idleMode === 'gathering' && (
             <div className="space-y-2">
-              <div className="flex gap-1 bg-gray-800/50 rounded-lg p-1">
+              <div className="flex gap-1 panel-inset p-1">
                 {GATHERING_PROFESSION_DEFS.map(prof => {
                   const skill = gatheringSkills[prof.id];
                   const isActive = selectedGatheringProfession === prof.id;
@@ -140,14 +140,14 @@ export default function ZoneScreen() {
 
               {/* Gathering skill XP bar */}
               {selectedGatheringProfession && (
-                <div className="bg-gray-800 rounded-lg px-3 py-2">
+                <div className="panel-stone px-3 py-2">
                   <div className="flex justify-between text-xs mb-1">
                     <span className="text-green-400 font-semibold">
                       {PROFESSION_ICONS[selectedGatheringProfession]} {selectedGatheringProfession.charAt(0).toUpperCase() + selectedGatheringProfession.slice(1)} Lv.{currentGatheringLevel}
                     </span>
                     <span className="text-gray-500">{currentGatheringXp}/{gatheringXpToNext} XP</span>
                   </div>
-                  <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                  <div className="h-1.5 bar-track overflow-hidden">
                     <div
                       className="h-full bg-green-500 rounded-full transition-all duration-300"
                       style={{ width: `${(currentGatheringXp / gatheringXpToNext) * 100}%` }}

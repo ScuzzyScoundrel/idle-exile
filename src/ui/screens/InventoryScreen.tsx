@@ -135,7 +135,7 @@ const AUTO_SALVAGE_OPTIONS: { value: Rarity; label: string }[] = [
   { value: 'epic', label: '≤ Rare' },
 ];
 
-export default function InventoryScreen() {
+export default function InventoryScreen({ embedded = false }: { embedded?: boolean } = {}) {
   const {
     character, inventory, currencies, gold,
     bagSlots, bagStash, equipBag, sellBag, salvageBag,
@@ -612,12 +612,12 @@ export default function InventoryScreen() {
   };
 
   const renderEquippedGear = () => (
-    <div className="bg-gray-800 rounded-lg">
+    <div className="panel-stone">
       {isMobile ? (
         <>
           <button
             onClick={() => setEquippedOpen(!equippedOpen)}
-            className="w-full flex items-center justify-between px-3 py-2 text-sm font-bold text-gray-300 hover:bg-gray-700 transition-colors rounded-t-lg"
+            className="w-full flex items-center justify-between px-3 py-2 text-sm font-bold text-gray-300 heading-fantasy hover:bg-stone-mid transition-colors rounded-t-lg"
           >
             <span>Equipped Gear</span>
             <span className="text-xs text-gray-500">{equippedOpen ? '\u25B2' : '\u25BC'}</span>
@@ -687,7 +687,7 @@ export default function InventoryScreen() {
   const renderLootColumn = () => (
     <div className="space-y-3">
       {/* Currency Summary Strip */}
-      <div className="flex flex-wrap gap-2 bg-gray-800 rounded-lg px-3 py-2 items-center">
+      <div className="flex flex-wrap gap-2 panel-iron px-3 py-2 items-center">
         <span className="text-xs font-semibold text-yellow-400">{'\uD83D\uDCB0'} {gold}g</span>
         {CURRENCY_DEFS.map((cur) => (
           <div
@@ -742,7 +742,7 @@ export default function InventoryScreen() {
         </div>
         {/* Collapsible bag management panel */}
         {bagsExpanded && (
-          <div className="bg-gray-800/60 rounded-lg p-2 mb-2 space-y-2">
+          <div className="panel-inset p-2 mb-2 space-y-2">
             {/* Equipped bag slots */}
             <div className="flex gap-1">
               {bagSlots.map((slotId, i) => {
@@ -989,7 +989,7 @@ export default function InventoryScreen() {
 
       {/* Bank item detail panel */}
       {!isMobile && selectedBankSlot && (
-        <div className="mt-2 bg-gray-800/60 rounded-lg p-3 space-y-2">
+        <div className="mt-2 panel-inset p-3 space-y-2">
           <div className="flex items-center gap-2">
             <ItemIcon item={selectedBankSlot.item} size="lg" />
             <div>
@@ -1023,22 +1023,31 @@ export default function InventoryScreen() {
   );
 
   return (
-    <div className="max-w-4xl xl:max-w-7xl mx-auto overflow-x-hidden">
-      {/* Desktop: two-column layout */}
-      <div className="hidden lg:grid lg:grid-cols-[320px_1fr] lg:gap-4">
-        {/* Left: equipped gear (sticky) */}
-        <div className="lg:sticky lg:top-16 lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
-          {renderEquippedGear()}
+    <div className={embedded ? 'overflow-x-hidden' : 'max-w-4xl xl:max-w-7xl mx-auto overflow-x-hidden'}>
+      {embedded ? (
+        /* Embedded mode: just the loot column, no equipped gear (parent shows equipment) */
+        <div className="space-y-3">
+          {renderLootColumn()}
         </div>
-        {/* Right: loot grid + inline detail */}
-        {renderLootColumn()}
-      </div>
+      ) : (
+        <>
+          {/* Desktop: two-column layout */}
+          <div className="hidden lg:grid lg:grid-cols-[320px_1fr] lg:gap-4">
+            {/* Left: equipped gear (sticky) */}
+            <div className="lg:sticky lg:top-16 lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
+              {renderEquippedGear()}
+            </div>
+            {/* Right: loot grid + inline detail */}
+            {renderLootColumn()}
+          </div>
 
-      {/* Mobile / small screen: stacked */}
-      <div className="lg:hidden space-y-3">
-        {renderEquippedGear()}
-        {renderLootColumn()}
-      </div>
+          {/* Mobile / small screen: stacked */}
+          <div className="lg:hidden space-y-3">
+            {renderEquippedGear()}
+            {renderLootColumn()}
+          </div>
+        </>
+      )}
 
       {/* Mobile bottom sheet overlay — bank item */}
       {isMobile && selectedBankSlot && (
@@ -1336,7 +1345,7 @@ function ComparisonPanel({ selected, equipped }: { selected: Item; equipped: Ite
   const allKeys = [...new Set([...Object.keys(selectedStats), ...Object.keys(equippedStats)])] as StatKey[];
 
   return (
-    <div className="bg-gray-900 rounded-lg border border-gray-700 p-3 space-y-2">
+    <div className="panel-iron p-3 space-y-2">
       <div className="text-xs font-semibold text-gray-400">vs Equipped ({slotLabel(equipped.slot)})</div>
       {allKeys.length > 0 && (
         <div className="space-y-0.5">

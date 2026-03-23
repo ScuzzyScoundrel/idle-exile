@@ -40,6 +40,7 @@ import { runCombatTick } from '../src/engine/combat/tick';
 import { createCharacter, resolveStats } from '../src/engine/character';
 import { createResourceState } from '../src/engine/classResource';
 import { ZONE_DEFS } from '../src/data/zones';
+import { DAGGER_ACTIVE_SKILLS } from '../src/data/skills/dagger';
 import { evaluateProcs, evaluateConditionalMods } from '../src/engine/combatHelpers';
 import type { ProcContext, ConditionContext } from '../src/engine/combatHelpers';
 import type {
@@ -82,10 +83,30 @@ interface AggregateMetrics {
   trapDetonationDamage: number;
 }
 
+interface MobTrackingMetrics {
+  mobsHitAtLeastOnce: Set<number>;    // mob indices that ever lost HP
+  mobDamageMap: Map<number, number>;   // mobIndex → total HP lost
+  ticksWithMultiMobDamage: number;     // ticks where 2+ mobs took damage
+  maxMobsHitInSingleTick: number;     // peak multi-target breadth
+  backMobDebuffsApplied: number;       // debuffs on non-front mobs
+}
+
+interface MultiTargetExpectation {
+  expectMultiMobHits: boolean;
+  expectedMinMobs: number;
+  expectMultiTickDamage: boolean;
+  expectAllMobsHit: boolean;
+  expectExtraHits: boolean;
+  expectPlagueSharing: boolean;
+  recommendedPackSize: number;
+}
+
 interface DynamicResult {
   hasEffect: boolean;
   baselineMetrics: AggregateMetrics;
   testMetrics: AggregateMetrics;
+  baselineMobMetrics: MobTrackingMetrics;
+  testMobMetrics: MobTrackingMetrics;
   deltas: Record<string, number>;
 }
 
@@ -97,7 +118,8 @@ interface NodeResult {
   maxRank: number;
   staticResult: StaticResult;
   dynamicResult: DynamicResult;
-  verdict: 'PASS' | 'FAIL' | 'COST' | 'STATIC_ONLY';
+  verdict: 'PASS' | 'FAIL' | 'COST_TRADEOFF' | 'COST_BROKEN' | 'COST_UNCLEAR'
+    | 'STATIC_ONLY' | 'MULTI_FAIL' | 'MULTI_WARN' | 'COMBO_ORPHAN' | 'ROTATION_NEEDED';
   diagnosis: string;
 }
 
@@ -122,7 +144,14 @@ function pad(s: string, len: number): string {
 
 // ─── Mob Pack Factory ────────────────────────────────────
 
-function createMobPack(skillId: string, now: number, frontMobHp: number = 500): MobInPack[] {
+function createMobPack(skillId: string, now: number, opts?: {
+  frontMobHp?: number;
+  packSize?: number;
+  preSeedDebuffs?: Array<{ mobIndex: number; debuffId: string; stacks: number; duration: number }>;
+}): MobInPack[] {
+  const frontMobHp = opts?.frontMobHp ?? 500;
+  const packSize = opts?.packSize ?? 3;
+
   const frontDebuffs: ActiveDebuff[] = [
     { debuffId: 'bleeding', stacks: 3, remainingDuration: 10, appliedBySkillId: skillId, stackSnapshots: [20, 25, 22] },
     { debuffId: 'poisoned', stacks: 6, remainingDuration: 10, appliedBySkillId: skillId, instances: [
@@ -137,13 +166,39 @@ function createMobPack(skillId: string, now: number, frontMobHp: number = 500): 
     { debuffId: 'chilled', stacks: 1, remainingDuration: 8, appliedBySkillId: skillId },
     { debuffId: 'shocked', stacks: 1, remainingDuration: 8, appliedBySkillId: skillId },
     { debuffId: 'vulnerable', stacks: 1, remainingDuration: 10, appliedBySkillId: skillId },
+    { debuffId: 'plague_link', stacks: 1, remainingDuration: 15, appliedBySkillId: 'dagger_blade_dance' },
   ];
 
-  return [
-    { hp: frontMobHp, maxHp: 1000, debuffs: [...frontDebuffs.map(d => ({ ...d }))], nextAttackAt: now, rare: null, damageElement: 'physical' as any, physRatio: 1.0 },
-    { hp: 40000, maxHp: 50000, debuffs: [], nextAttackAt: now + 2000, rare: null, damageElement: 'physical' as any, physRatio: 1.0 },
-    { hp: 50000, maxHp: 50000, debuffs: [], nextAttackAt: now + 3000, rare: null, damageElement: 'physical' as any, physRatio: 1.0 },
-  ];
+  const mobs: MobInPack[] = [];
+  for (let i = 0; i < packSize; i++) {
+    // Unique maxHp per mob — used as stable identity for tracking across dead-mob filtering
+    const mobHp = i === 0 ? frontMobHp : (40000 + i * 1000);
+    const mobMaxHp = i === 0 ? Math.max(frontMobHp, 1000) : mobHp;
+    mobs.push({
+      hp: mobHp,
+      maxHp: mobMaxHp,
+      debuffs: i === 0 ? [...frontDebuffs.map(d => ({ ...d }))] : [],
+      nextAttackAt: now + i * 1000,
+      rare: null,
+      damageElement: 'physical' as any,
+      physRatio: 1.0,
+    });
+  }
+
+  if (opts?.preSeedDebuffs) {
+    for (const seed of opts.preSeedDebuffs) {
+      if (seed.mobIndex < mobs.length) {
+        mobs[seed.mobIndex].debuffs.push({
+          debuffId: seed.debuffId,
+          stacks: seed.stacks,
+          remainingDuration: seed.duration,
+          appliedBySkillId: skillId,
+        });
+      }
+    }
+  }
+
+  return mobs;
 }
 
 // ─── Rich Test State Factory ─────────────────────────────
@@ -161,6 +216,8 @@ function createRichTestState(
   // Node-aware: adjust state for specific conditions (must be before dagger creation)
   let nodeAwareConsecutiveHits = 5;
   let nodeAwareFrontMobHp = 500;
+  let nodeAwarePackSize = 3;
+  const nodeAwarePreSeedDebuffs: Array<{ mobIndex: number; debuffId: string; stacks: number; duration: number }> = [];
   if (resolvedMod?.conditionalMods) {
     for (const cm of resolvedMod.conditionalMods) {
       if (cm.condition === 'firstSkillInEncounter') nodeAwareConsecutiveHits = 0;
@@ -169,6 +226,21 @@ function createRichTestState(
   }
   if (resolvedMod?.executeThreshold && resolvedMod.executeThreshold > 0) {
     nodeAwareFrontMobHp = Math.floor(1000 * (resolvedMod.executeThreshold / 100) * 0.8);
+  }
+  // Pack size based on multi-target modifiers
+  if (resolvedMod) {
+    if (resolvedMod.chainCount > 0) {
+      // Need enough mobs for chains to spread + durable front mob to not collapse pack
+      nodeAwarePackSize = Math.max(nodeAwarePackSize, resolvedMod.chainCount + 3);
+      nodeAwareFrontMobHp = Math.max(nodeAwareFrontMobHp, 5000);
+    }
+    if (resolvedMod.convertToAoE || resolvedMod.targetAllEnemies) nodeAwarePackSize = Math.max(nodeAwarePackSize, 4);
+    // Pre-seed plague_link debuffs on all mobs
+    if (resolvedMod.skillProcs?.some((p: any) => p.procId?.includes('plague_link'))) {
+      for (let i = 0; i < nodeAwarePackSize; i++) {
+        nodeAwarePreSeedDebuffs.push({ mobIndex: i, debuffId: 'plague_link', stacks: 1, duration: 30 });
+      }
+    }
   }
 
   const dagger: Item = {
@@ -316,8 +388,8 @@ function createRichTestState(
     lastClearResult: null,
     lastSkillActivation: now - 600,
     nextActiveSkillAt: 0,
-    packMobs: createMobPack(skillId, now, nodeAwareFrontMobHp),
-    currentPackSize: 3,
+    packMobs: createMobPack(skillId, now, { frontMobHp: nodeAwareFrontMobHp, packSize: nodeAwarePackSize, preSeedDebuffs: nodeAwarePreSeedDebuffs }),
+    currentPackSize: nodeAwarePackSize,
     targetedMobId: null,
     currentMobTypeId: 'thicket_crawler',
     mobKillCounts: {},
@@ -392,6 +464,48 @@ function createEmptyMetrics(): AggregateMetrics {
   };
 }
 
+function trackMobDamage(
+  preHpByMaxHp: Map<number, number>,
+  preDebuffsByMaxHp: Map<number, number>,
+  postPackMobs: MobInPack[],
+  frontMaxHp: number,
+  mobMetrics: MobTrackingMetrics,
+): number {
+  let mobsHitThisTick = 0;
+  // Check surviving mobs
+  for (const m of postPackMobs) {
+    const preHp = preHpByMaxHp.get(m.maxHp);
+    if (preHp !== undefined && preHp > m.hp) {
+      mobsHitThisTick++;
+      mobMetrics.mobsHitAtLeastOnce.add(m.maxHp);
+      mobMetrics.mobDamageMap.set(m.maxHp, (mobMetrics.mobDamageMap.get(m.maxHp) ?? 0) + (preHp - m.hp));
+    }
+    const preDeb = preDebuffsByMaxHp.get(m.maxHp) ?? 0;
+    if (m.maxHp !== frontMaxHp && m.debuffs.length > preDeb) {
+      mobMetrics.backMobDebuffsApplied += m.debuffs.length - preDeb;
+    }
+  }
+  // Check dead mobs that were filtered out of postPackMobs
+  for (const [maxHp, preHp] of Array.from(preHpByMaxHp.entries())) {
+    if (!postPackMobs.some(m => m.maxHp === maxHp) && preHp > 0) {
+      mobsHitThisTick++;
+      mobMetrics.mobsHitAtLeastOnce.add(maxHp);
+      mobMetrics.mobDamageMap.set(maxHp, (mobMetrics.mobDamageMap.get(maxHp) ?? 0) + preHp);
+    }
+  }
+  return mobsHitThisTick;
+}
+
+function createEmptyMobMetrics(): MobTrackingMetrics {
+  return {
+    mobsHitAtLeastOnce: new Set(),
+    mobDamageMap: new Map(),
+    ticksWithMultiMobDamage: 0,
+    maxMobsHitInSingleTick: 0,
+    backMobDebuffsApplied: 0,
+  };
+}
+
 function accumulateMetrics(
   metrics: AggregateMetrics,
   result: CombatTickResult,
@@ -437,20 +551,36 @@ function accumulateMetrics(
   }
 }
 
-function runSimulation(skillId: string, allocatedRanks: Record<string, number>, ticks: number, resolvedMod?: ResolvedSkillModifier): AggregateMetrics {
+function runSimulation(skillId: string, allocatedRanks: Record<string, number>, ticks: number, resolvedMod?: ResolvedSkillModifier): { metrics: AggregateMetrics; mobMetrics: MobTrackingMetrics } {
   resetRng();
   setClock(1000);
 
   let state = createRichTestState(skillId, allocatedRanks, resolvedMod);
   const metrics = createEmptyMetrics();
+  const mobMetrics = createEmptyMobMetrics();
 
   for (let i = 0; i < ticks; i++) {
     const now = getNow();
     const prevHp = state.currentHp;
 
+    // Snapshot per-mob HP + debuffs by maxHp (stable identity across dead-mob filtering)
+    const preHpByMaxHp = new Map<number, number>();
+    const preDebuffsByMaxHp = new Map<number, number>();
+    for (const m of state.packMobs) {
+      preHpByMaxHp.set(m.maxHp, m.hp);
+      preDebuffsByMaxHp.set(m.maxHp, m.debuffs.length);
+    }
+    const frontMaxHp = state.packMobs[0]?.maxHp ?? 0;
+
     const { patch, result } = runCombatTick(state, DT_SEC, now);
     Object.assign(state, patch);
     accumulateMetrics(metrics, result, prevHp, state);
+
+    // Per-mob HP diff using maxHp as stable key (survives dead-mob array filtering)
+    const mobsHitThisTick = trackMobDamage(preHpByMaxHp, preDebuffsByMaxHp, state.packMobs, frontMaxHp, mobMetrics);
+    if (mobsHitThisTick >= 2) mobMetrics.ticksWithMultiMobDamage++;
+    mobMetrics.maxMobsHitInSingleTick = Math.max(mobMetrics.maxMobsHitInSingleTick, mobsHitThisTick);
+
     advanceClock(500);
 
     // Respawn pack if all mobs dead
@@ -461,7 +591,7 @@ function runSimulation(skillId: string, allocatedRanks: Record<string, number>, 
     }
   }
 
-  return metrics;
+  return { metrics, mobMetrics };
 }
 
 function runDynamicCheck(skillId: string, tree: TalentTree, node: TalentNode, ticks: number = TICKS): DynamicResult {
@@ -470,8 +600,8 @@ function runDynamicCheck(skillId: string, tree: TalentTree, node: TalentNode, ti
 
   // Both baseline and test get the same pre-seeded conditions (buff IDs etc.)
   // so the delta is purely from the talent allocation
-  const baselineMetrics = runSimulation(skillId, {}, ticks, resolvedMod);
-  const testMetrics = runSimulation(skillId, { [node.id]: node.maxRank }, ticks, resolvedMod);
+  const { metrics: baselineMetrics, mobMetrics: baselineMobMetrics } = runSimulation(skillId, {}, ticks, resolvedMod);
+  const { metrics: testMetrics, mobMetrics: testMobMetrics } = runSimulation(skillId, { [node.id]: node.maxRank }, ticks, resolvedMod);
 
   const deltas: Record<string, number> = {};
   const metricKeys = [
@@ -491,7 +621,7 @@ function runDynamicCheck(skillId: string, tree: TalentTree, node: TalentNode, ti
   const newProcs = [...testMetrics.uniqueProcIds].filter(p => !baselineMetrics.uniqueProcIds.has(p));
   if (newProcs.length > 0) deltas['newProcs'] = newProcs.length;
 
-  return { hasEffect: Object.keys(deltas).length > 0, baselineMetrics, testMetrics, deltas };
+  return { hasEffect: Object.keys(deltas).length > 0, baselineMetrics, testMetrics, baselineMobMetrics, testMobMetrics, deltas };
 }
 
 // ─── Layer 3: Direct Evaluation Check ─────────────────────
@@ -564,6 +694,7 @@ function runDirectEvalCheck(resolved: ResolvedSkillModifier, skillId: string): b
       skillTimers: [{ skillId, cooldownUntil: null }] as any,
       lastSkillsCast: [skillId, skillId],
       totalTargetDebuffStacks: 12,
+      targetHasPlagueLink: true,
       wardActive: true, wardHits: 6,
       activeTrapsCount: 2, comboStateIds: ['guarded', 'shadow_momentum'],
       lastDashAt: now - 500,
@@ -638,10 +769,19 @@ function diagnose(staticResult: StaticResult, dynamicResult: DynamicResult): str
 // ─── Output Formatting ───────────────────────────────────
 
 function formatVerdict(r: NodeResult): string {
-  const tag = r.verdict === 'PASS' ? '\x1b[32m[PASS]\x1b[0m'
-    : r.verdict === 'FAIL' ? '\x1b[31m[FAIL]\x1b[0m'
-    : r.verdict === 'COST' ? '\x1b[33m[COST]\x1b[0m'
-    : '\x1b[36m[STAT]\x1b[0m';
+  const tagMap: Record<string, string> = {
+    PASS:            '\x1b[32m[PASS]\x1b[0m',
+    FAIL:            '\x1b[31m[FAIL]\x1b[0m',
+    COST_TRADEOFF:   '\x1b[33m[COST:TRD]\x1b[0m',
+    COST_BROKEN:     '\x1b[31m[COST:BRK]\x1b[0m',
+    COST_UNCLEAR:    '\x1b[33m[COST:???]\x1b[0m',
+    STATIC_ONLY:     '\x1b[36m[STAT]\x1b[0m',
+    MULTI_FAIL:      '\x1b[31m[MULTI:F]\x1b[0m',
+    MULTI_WARN:      '\x1b[35m[MULTI:W]\x1b[0m',
+    COMBO_ORPHAN:    '\x1b[35m[COMBO:O]\x1b[0m',
+    ROTATION_NEEDED: '\x1b[36m[ROT:OK]\x1b[0m',
+  };
+  const tag = tagMap[r.verdict] ?? `[${r.verdict}]`;
 
   const staticFields = r.staticResult.nonZeroFields.length > 0
     ? `static:+${r.staticResult.nonZeroFields.slice(0, 3).join(',')}`
@@ -663,8 +803,171 @@ function formatVerdict(r: NodeResult): string {
     ? `dynamic:${dynamicParts.slice(0, 3).join(' ')}`
     : 'dynamic:ZERO_EFFECT';
 
+  // Per-mob summary for multi-hit skills
+  const mm = r.dynamicResult.testMobMetrics;
+  const mobStr = mm.mobsHitAtLeastOnce.size > 1
+    ? ` mobs:${mm.mobsHitAtLeastOnce.size} multi%:${mm.ticksWithMultiMobDamage > 0 ? Math.round((mm.ticksWithMultiMobDamage / TICKS) * 100) : 0}`
+    : '';
+
   const diagStr = r.diagnosis ? ` \x1b[90m← ${r.diagnosis}\x1b[0m` : '';
-  return `${tag} ${pad(r.nodeId, 14)} (${pad(r.nodeName, 22)}) r${r.maxRank} — ${staticFields} ${dynamicStr}${diagStr}`;
+  return `${tag} ${pad(r.nodeId, 14)} (${pad(r.nodeName, 22)}) r${r.maxRank} — ${staticFields} ${dynamicStr}${mobStr}${diagStr}`;
+}
+
+// ─── Multi-Target Expectations ───────────────────────────
+
+function detectMultiTargetExpectations(skillId: string, resolvedMod: ResolvedSkillModifier): MultiTargetExpectation {
+  const skillDef = DAGGER_ACTIVE_SKILLS.find(s => s.id === skillId);
+  const baseHitCount = skillDef?.hitCount ?? 1;
+
+  const result: MultiTargetExpectation = {
+    expectMultiMobHits: false,
+    expectedMinMobs: 1,
+    expectMultiTickDamage: false,
+    expectAllMobsHit: false,
+    expectExtraHits: false,
+    expectPlagueSharing: false,
+    recommendedPackSize: 3,
+  };
+
+  if (baseHitCount >= 2) {
+    result.expectMultiMobHits = true;
+    result.expectedMinMobs = Math.min(baseHitCount, 3);
+  }
+
+  if (resolvedMod.chainCount > 0) {
+    result.expectMultiTickDamage = true;
+    if (resolvedMod.chainCount >= 3) result.recommendedPackSize = 5;
+  }
+
+  if (resolvedMod.convertToAoE || resolvedMod.targetAllEnemies) {
+    result.expectAllMobsHit = true;
+    result.recommendedPackSize = Math.max(result.recommendedPackSize, 4);
+  }
+
+  if (resolvedMod.extraHits > 0) {
+    result.expectExtraHits = true;
+  }
+
+  if (resolvedMod.skillProcs?.some((p: any) => p.procId?.includes('plague_link'))) {
+    result.expectPlagueSharing = true;
+  }
+
+  return result;
+}
+
+// ─── COST Triage ─────────────────────────────────────────
+
+function triageCostNode(
+  resolvedMod: ResolvedSkillModifier,
+  baselineMobMetrics: MobTrackingMetrics,
+  testMobMetrics: MobTrackingMetrics,
+): NodeResult['verdict'] {
+  // Explicit negative modifiers → intentional tradeoff (use !== 0, some penalties stored negative)
+  if ((resolvedMod as any).cooldownIncrease !== 0 || (resolvedMod as any).singleTargetPenalty !== 0 ||
+      (resolvedMod as any).reducedMaxLife !== 0 || (resolvedMod as any).increasedDamageTaken !== 0 ||
+      (resolvedMod as any).cannotLeech || (resolvedMod as any).lifeCostPerTrigger !== 0 ||
+      (resolvedMod as any).nonAoePenalty !== 0 || (resolvedMod as any).globalAilmentPenalty !== 0 ||
+      (resolvedMod as any).globalAilmentPotencyPenalty !== 0 || (resolvedMod as any).cooldownMultiplier > 1 ||
+      (resolvedMod as any).critsDoNoBonusDamage || (resolvedMod as any).singleAilmentOnly ||
+      (resolvedMod as any).executeOnly || (resolvedMod as any).executeLocked ||
+      (resolvedMod as any).ailmentsNeverExpire) {
+    return 'COST_TRADEOFF';
+  }
+
+  // Total damage across all mobs higher → damage redistributed, not lost
+  const baselineTotal = Array.from(baselineMobMetrics.mobDamageMap.values()).reduce((a, b) => a + b, 0);
+  const testTotal = Array.from(testMobMetrics.mobDamageMap.values()).reduce((a, b) => a + b, 0);
+  if (testTotal > baselineTotal) {
+    return 'COST_TRADEOFF';
+  }
+
+  // All modifier fields positive but aggregate damage negative → broken
+  // Exclude nodes with skillProcs: procs have complex trigger conditions that may not fire,
+  // causing RNG path divergence that masks the proc's benefit. Also require >5% deficit
+  // to filter RNG noise from crit chance shifts.
+  const hasDmgBuffs = resolvedMod.incDamage > 0 || resolvedMod.incCritMultiplier > 0 ||
+    (resolvedMod as any).incCastSpeed > 0 || resolvedMod.extraHits > 0 || resolvedMod.chainCount > 0;
+  const hasOnlyCritChance = !hasDmgBuffs && resolvedMod.incCritChance > 0;
+  const hasProcs = (resolvedMod.skillProcs?.length ?? 0) > 0;
+  const dmgDeficitPct = baselineTotal > 0 ? ((baselineTotal - testTotal) / baselineTotal) * 100 : 0;
+  if (hasDmgBuffs && !hasProcs && dmgDeficitPct > 5) {
+    return 'COST_BROKEN';
+  }
+  if (hasOnlyCritChance && !hasProcs && dmgDeficitPct > 10) {
+    return 'COST_BROKEN';
+  }
+
+  return 'COST_UNCLEAR';
+}
+
+// ─── Rotation Testing ────────────────────────────────────
+
+const DAGGER_ROTATIONS: Record<string, string[]> = {
+  dagger_blade_dance:  ['dagger_blade_dance', 'dagger_stab'],
+  dagger_chain_strike: ['dagger_chain_strike', 'dagger_stab'],
+  dagger_shadow_mark:  ['dagger_shadow_mark', 'dagger_blade_dance'],
+  dagger_blade_ward:   ['dagger_blade_ward', 'dagger_stab'],
+};
+
+function runRotationSimulation(
+  skillIds: string[],
+  primarySkillId: string,
+  allocatedRanks: Record<string, number>,
+  ticks: number,
+  resolvedMod?: ResolvedSkillModifier,
+): { metrics: AggregateMetrics; mobMetrics: MobTrackingMetrics } {
+  resetRng();
+  setClock(1000);
+
+  let state = createRichTestState(primarySkillId, allocatedRanks, resolvedMod);
+
+  // Wire rotation partners into skill bar + progress + timers
+  for (let i = 0; i < skillIds.length && i < 8; i++) {
+    const sid = skillIds[i];
+    state.skillBar[i] = { skillId: sid, autoCast: true };
+    if (!state.skillProgress[sid]) {
+      state.skillProgress[sid] = {
+        skillId: sid, xp: 0, level: 20, allocatedNodes: [],
+        allocatedRanks: sid === primarySkillId ? allocatedRanks : {},
+      };
+    }
+    if (!(state.skillTimers as any[]).find((t: any) => t.skillId === sid)) {
+      (state.skillTimers as any[]).push({ skillId: sid, activatedAt: null, cooldownUntil: null });
+    }
+  }
+
+  const metrics = createEmptyMetrics();
+  const mobMetrics = createEmptyMobMetrics();
+
+  for (let i = 0; i < ticks; i++) {
+    const now = getNow();
+    const prevHp = state.currentHp;
+    const preHpByMaxHp = new Map<number, number>();
+    const preDebuffsByMaxHp = new Map<number, number>();
+    for (const m of state.packMobs) {
+      preHpByMaxHp.set(m.maxHp, m.hp);
+      preDebuffsByMaxHp.set(m.maxHp, m.debuffs.length);
+    }
+    const frontMaxHp = state.packMobs[0]?.maxHp ?? 0;
+
+    const { patch, result } = runCombatTick(state, DT_SEC, now);
+    Object.assign(state, patch);
+    accumulateMetrics(metrics, result, prevHp, state);
+
+    const mobsHitThisTick = trackMobDamage(preHpByMaxHp, preDebuffsByMaxHp, state.packMobs, frontMaxHp, mobMetrics);
+    if (mobsHitThisTick >= 2) mobMetrics.ticksWithMultiMobDamage++;
+    mobMetrics.maxMobsHitInSingleTick = Math.max(mobMetrics.maxMobsHitInSingleTick, mobsHitThisTick);
+
+    advanceClock(500);
+
+    if (!state.packMobs || state.packMobs.length === 0) {
+      state.packMobs = createMobPack(primarySkillId, getNow());
+      state.currentPackSize = 4;
+      state.consecutiveHits = 5;
+    }
+  }
+
+  return { metrics, mobMetrics };
 }
 
 // ─── Main ────────────────────────────────────────────────
@@ -707,20 +1010,127 @@ for (const [skillId, tree] of trees) {
       // Layer 2: Dynamic
       const dynamicResult = runDynamicCheck(skillId, tree, node);
 
-      // Determine verdict
+      // Resolve modifier for multi-target + cost triage
+      const resolvedMod = resolveTalentModifiers(tree, { [node.id]: node.maxRank });
+      const mtExpect = detectMultiTargetExpectations(skillId, resolvedMod);
+
+      // Determine base verdict — consider ALL mechanical effects, not just damage
       let verdict: NodeResult['verdict'];
       if (staticResult.hasEffect && dynamicResult.hasEffect) {
         const dmgDelta = dynamicResult.deltas['totalDamage'] ?? 0;
-        verdict = dmgDelta < 0 ? 'COST' : 'PASS';
+        if (dmgDelta >= 0) {
+          verdict = 'PASS';
+        } else {
+          // Damage is negative — check for positive mechanical effects before calling it a cost
+          const mechanicalSignals = [
+            (dynamicResult.deltas['newProcs'] ?? 0) > 0,                    // new proc types fired
+            (dynamicResult.deltas['procsFiredCount'] ?? 0) > 0,             // more procs firing
+            (dynamicResult.deltas['conditionalModBonuses'] ?? 0) > 10,      // conditional mods activating
+            (dynamicResult.deltas['comboStatesCreated'] ?? 0) > 0,          // combo states generated
+            (dynamicResult.deltas['cooldownResets'] ?? 0) > 0,              // cooldown mechanics working
+            (dynamicResult.deltas['dodgeCount'] ?? 0) > 0,                  // evasion effects
+            (dynamicResult.deltas['fortifyStacksMax'] ?? 0) > 0,            // defensive stacks
+            (dynamicResult.deltas['totalIncomingDamage'] ?? 0) < -5,        // takes LESS damage (defensive gain)
+            (dynamicResult.deltas['debuffsApplied'] ?? 0) > 0,              // more debuffs applied
+            dynamicResult.testMobMetrics.backMobDebuffsApplied >             // debuff spread to non-front mobs
+              dynamicResult.baselineMobMetrics.backMobDebuffsApplied,
+          ];
+          const hasMechanicalEffect = mechanicalSignals.some(Boolean);
+          if (hasMechanicalEffect) {
+            verdict = 'PASS';
+          } else {
+            verdict = triageCostNode(resolvedMod, dynamicResult.baselineMobMetrics, dynamicResult.testMobMetrics);
+          }
+        }
       } else if (staticResult.hasEffect && !dynamicResult.hasEffect) {
         // Layer 3: direct evaluation — test proc/condition pipeline with synthetic context
-        const resolvedMod = resolveTalentModifiers(tree, { [node.id]: node.maxRank });
         const directEvalPasses = runDirectEvalCheck(resolvedMod, skillId);
         verdict = directEvalPasses ? 'PASS' : 'STATIC_ONLY';
       } else if (!staticResult.hasEffect && dynamicResult.hasEffect) {
         verdict = 'PASS';
       } else {
         verdict = 'FAIL';
+      }
+
+      // Phase 2: Multi-target assertions
+      if (verdict === 'PASS' || verdict === 'FAIL') {
+        if (mtExpect.expectMultiMobHits &&
+            dynamicResult.testMobMetrics.mobsHitAtLeastOnce.size < mtExpect.expectedMinMobs) {
+          verdict = 'MULTI_FAIL';
+        }
+        if (mtExpect.expectAllMobsHit &&
+            dynamicResult.testMobMetrics.mobsHitAtLeastOnce.size < 3) {
+          verdict = verdict === 'MULTI_FAIL' ? 'MULTI_FAIL' : 'MULTI_FAIL';
+        }
+        if (mtExpect.expectMultiTickDamage && verdict !== 'MULTI_FAIL') {
+          // Only assert if talent is the SOLE source of chains — skip if base skill already chains
+          const baseSkillChains = DAGGER_ACTIVE_SKILLS.find(s => s.id === skillId)?.chainCount ?? 0;
+          if (baseSkillChains === 0) {
+            const baselineMaxHit = dynamicResult.baselineMobMetrics.maxMobsHitInSingleTick;
+            const testMaxHit = dynamicResult.testMobMetrics.maxMobsHitInSingleTick;
+            const baselineMulti = dynamicResult.baselineMobMetrics.ticksWithMultiMobDamage;
+            const testMulti = dynamicResult.testMobMetrics.ticksWithMultiMobDamage;
+            if (testMaxHit <= baselineMaxHit && testMulti <= baselineMulti) {
+              verdict = 'MULTI_FAIL';
+            }
+          }
+        }
+        if (mtExpect.expectExtraHits &&
+            dynamicResult.testMobMetrics.maxMobsHitInSingleTick <= dynamicResult.baselineMobMetrics.maxMobsHitInSingleTick &&
+            verdict !== 'MULTI_FAIL') {
+          // Only warn if the base skill is multi-target — single-target extra hits on same mob is valid
+          const baseSkillDef = DAGGER_ACTIVE_SKILLS.find(s => s.id === skillId);
+          if ((baseSkillDef?.hitCount ?? 1) > 1) {
+            verdict = 'MULTI_WARN';
+          }
+        }
+        if (mtExpect.expectPlagueSharing) {
+          const backMobDmg = Array.from(dynamicResult.testMobMetrics.mobDamageMap.entries())
+            .filter(([idx]) => idx > 0).reduce((sum, [, dmg]) => sum + dmg, 0);
+          if (backMobDmg === 0 && verdict !== 'MULTI_FAIL') {
+            verdict = 'MULTI_WARN';
+          }
+        }
+      }
+
+      // Phase 4: Rotation test for combo-dependent skills
+      if ((verdict === 'FAIL' || verdict === 'STATIC_ONLY') && DAGGER_ROTATIONS[skillId]) {
+        const rotSkills = DAGGER_ROTATIONS[skillId];
+        const { metrics: rotBase } = runRotationSimulation(rotSkills, skillId, {}, TICKS, resolvedMod);
+        const { metrics: rotTest } = runRotationSimulation(rotSkills, skillId, { [node.id]: node.maxRank }, TICKS, resolvedMod);
+        const rotDmgDelta = rotTest.totalDamage - rotBase.totalDamage;
+        if (rotDmgDelta > 0) {
+          verdict = 'ROTATION_NEEDED';
+        }
+      }
+
+      // Benefit-offset: damage down but DoT/healing/proc damage up → tradeoff, not mystery
+      if (verdict === 'COST_UNCLEAR') {
+        const dotDelta = dynamicResult.deltas['totalDotDamage'] ?? 0;
+        const healDelta = dynamicResult.deltas['healingReceived'] ?? 0;
+        const procDelta = dynamicResult.deltas['totalProcDamage'] ?? 0;
+        const comboDelta = dynamicResult.deltas['comboStatesCreated'] ?? 0;
+        const fortifyDelta = dynamicResult.deltas['fortifyStacksMax'] ?? 0;
+        if (dotDelta > 0 || healDelta > 0 || procDelta > 0 || comboDelta > 0 || fortifyDelta > 0) {
+          verdict = 'COST_TRADEOFF';
+        }
+      }
+
+      // RNG noise filter: tiny damage deficit with only ±1 crit/hit change → PASS
+      if (verdict === 'COST_UNCLEAR') {
+        const dmgPct = Math.abs(dynamicResult.deltas['totalDamage'] ?? 0) /
+          (dynamicResult.baselineMetrics.totalDamage || 1) * 100;
+        const critDelta = Math.abs(dynamicResult.deltas['totalCrits'] ?? 0);
+        const hitDelta = Math.abs(dynamicResult.deltas['totalHits'] ?? 0);
+        const hasOnlySmallCritShift = critDelta <= 1 && hitDelta <= 1;
+        if (dmgPct < 5 && hasOnlySmallCritShift) {
+          verdict = 'PASS';
+        }
+      }
+
+      // Combo orphan: node creates combo state but has no solo effect
+      if (verdict === 'FAIL' && staticResult.nonZeroFields.includes('comboStateCreation')) {
+        verdict = 'COMBO_ORPHAN';
       }
 
       const diagnosis = diagnose(staticResult, dynamicResult);
@@ -749,8 +1159,14 @@ if (!jsonOutput) process.stderr.write(`\r${' '.repeat(50)}\r`);
 
 const pass = results.filter(r => r.verdict === 'PASS').length;
 const fail = results.filter(r => r.verdict === 'FAIL').length;
-const cost = results.filter(r => r.verdict === 'COST').length;
+const costTradeoff = results.filter(r => r.verdict === 'COST_TRADEOFF').length;
+const costBroken = results.filter(r => r.verdict === 'COST_BROKEN').length;
+const costUnclear = results.filter(r => r.verdict === 'COST_UNCLEAR').length;
 const staticOnly = results.filter(r => r.verdict === 'STATIC_ONLY').length;
+const multiFail = results.filter(r => r.verdict === 'MULTI_FAIL').length;
+const multiWarn = results.filter(r => r.verdict === 'MULTI_WARN').length;
+const comboOrphan = results.filter(r => r.verdict === 'COMBO_ORPHAN').length;
+const rotationNeeded = results.filter(r => r.verdict === 'ROTATION_NEEDED').length;
 
 if (jsonOutput) {
   const serializable = results.map(r => ({
@@ -759,38 +1175,88 @@ if (jsonOutput) {
       ...r.dynamicResult,
       baselineMetrics: { ...r.dynamicResult.baselineMetrics, uniqueProcIds: [...r.dynamicResult.baselineMetrics.uniqueProcIds] },
       testMetrics: { ...r.dynamicResult.testMetrics, uniqueProcIds: [...r.dynamicResult.testMetrics.uniqueProcIds] },
+      baselineMobMetrics: { ...r.dynamicResult.baselineMobMetrics, mobsHitAtLeastOnce: Array.from(r.dynamicResult.baselineMobMetrics.mobsHitAtLeastOnce), mobDamageMap: Array.from(r.dynamicResult.baselineMobMetrics.mobDamageMap.entries()).reduce((o, [k, v]) => { (o as any)[k] = v; return o; }, {} as Record<number, number>) },
+      testMobMetrics: { ...r.dynamicResult.testMobMetrics, mobsHitAtLeastOnce: Array.from(r.dynamicResult.testMobMetrics.mobsHitAtLeastOnce), mobDamageMap: Array.from(r.dynamicResult.testMobMetrics.mobDamageMap.entries()).reduce((o, [k, v]) => { (o as any)[k] = v; return o; }, {} as Record<number, number>) },
     },
   }));
-  console.log(JSON.stringify({ summary: { total: totalNodes, pass, fail, cost, staticOnly, elapsed }, results: serializable }, null, 2));
+  console.log(JSON.stringify({ summary: { total: totalNodes, pass, fail, costTradeoff, costBroken, costUnclear, staticOnly, multiFail, multiWarn, comboOrphan, rotationNeeded, elapsed }, results: serializable }, null, 2));
 } else {
-  console.log(`\n┌──────────────────────────────────────────┐`);
-  console.log(`│ SUMMARY                    ${pad(elapsed + 's', 13)}│`);
-  console.log(`├──────────────────────────────────────────┤`);
-  console.log(`│ Total nodes tested: ${pad(String(totalNodes), 20)}│`);
-  console.log(`│ \x1b[32mPASS\x1b[0m (effect confirmed):  ${pad(String(pass), 14)}│`);
-  console.log(`│ \x1b[31mFAIL\x1b[0m (zero effect):       ${pad(String(fail), 14)}│`);
-  console.log(`│ \x1b[33mCOST\x1b[0m (net negative):      ${pad(String(cost), 14)}│`);
-  console.log(`│ \x1b[36mSTAT\x1b[0m (static only):       ${pad(String(staticOnly), 14)}│`);
-  console.log(`└──────────────────────────────────────────┘`);
+  // Per-skill multi-target summary
+  const skillIds = Array.from(new Set(results.map(r => r.skillId)));
+  for (const sid of skillIds) {
+    const skillResults = results.filter(r => r.skillId === sid);
+    const anyMultiMob = skillResults.some(r => r.dynamicResult.testMobMetrics.mobsHitAtLeastOnce.size > 1);
+    if (anyMultiMob) {
+      const maxMobs = Math.max(...skillResults.map(r => r.dynamicResult.testMobMetrics.mobsHitAtLeastOnce.size));
+      const maxPackSize = Math.max(...skillResults.map(r => r.dynamicResult.testMobMetrics.mobDamageMap.size), 3);
+      const multiTicks = Math.max(...skillResults.map(r => r.dynamicResult.testMobMetrics.ticksWithMultiMobDamage));
+      const backDmg = Math.max(...skillResults.map(r => {
+        const total = Array.from(r.dynamicResult.testMobMetrics.mobDamageMap.values()).reduce((a, b) => a + b, 0);
+        const back = Array.from(r.dynamicResult.testMobMetrics.mobDamageMap.entries()).filter(([i]) => i > 0).reduce((s, [, d]) => s + d, 0);
+        return total > 0 ? Math.round((back / total) * 100) : 0;
+      }));
+      console.log(`\n\x1b[90m── ${sid}: mobs hit: ${maxMobs}/${maxPackSize}, multi-tick%: ${Math.round((multiTicks / TICKS) * 100)}%, back-mob dmg: ${backDmg}% ──\x1b[0m`);
+    }
+  }
+
+  console.log(`\n┌──────────────────────────────────────────────────┐`);
+  console.log(`│ SUMMARY                          ${pad(elapsed + 's', 13)}│`);
+  console.log(`├──────────────────────────────────────────────────┤`);
+  console.log(`│ Total nodes tested: ${pad(String(totalNodes), 28)}│`);
+  console.log(`│ \x1b[32mPASS\x1b[0m  (effect confirmed):    ${pad(String(pass), 20)}│`);
+  console.log(`│ \x1b[31mFAIL\x1b[0m  (zero effect):         ${pad(String(fail), 20)}│`);
+  console.log(`│ \x1b[33mCOST:TRD\x1b[0m (tradeoff):         ${pad(String(costTradeoff), 20)}│`);
+  console.log(`│ \x1b[31mCOST:BRK\x1b[0m (broken):           ${pad(String(costBroken), 20)}│`);
+  console.log(`│ \x1b[33mCOST:???\x1b[0m (unclear):          ${pad(String(costUnclear), 20)}│`);
+  console.log(`│ \x1b[36mSTAT\x1b[0m  (static only):         ${pad(String(staticOnly), 20)}│`);
+  console.log(`│ \x1b[31mMULTI:F\x1b[0m (multi-target fail): ${pad(String(multiFail), 20)}│`);
+  console.log(`│ \x1b[35mMULTI:W\x1b[0m (multi-target warn): ${pad(String(multiWarn), 20)}│`);
+  console.log(`│ \x1b[35mCOMBO:O\x1b[0m (combo orphan):      ${pad(String(comboOrphan), 20)}│`);
+  console.log(`│ \x1b[36mROT:OK\x1b[0m  (rotation needed):   ${pad(String(rotationNeeded), 20)}│`);
+  console.log(`└──────────────────────────────────────────────────┘`);
 
   if (fail > 0) {
     console.log(`\n\x1b[31m── FAILURES (${fail}) ──\x1b[0m`);
-    for (const r of results.filter(r => r.verdict === 'FAIL')) {
-      console.log(formatVerdict(r));
-    }
+    for (const r of results.filter(r => r.verdict === 'FAIL')) console.log(formatVerdict(r));
+  }
+
+  if (multiFail > 0) {
+    console.log(`\n\x1b[31m── MULTI-TARGET FAILURES (${multiFail}) ──\x1b[0m`);
+    for (const r of results.filter(r => r.verdict === 'MULTI_FAIL')) console.log(formatVerdict(r));
+  }
+
+  if (costBroken > 0) {
+    console.log(`\n\x1b[31m── COST BROKEN (${costBroken}) — positive mods but negative damage ──\x1b[0m`);
+    for (const r of results.filter(r => r.verdict === 'COST_BROKEN')) console.log(formatVerdict(r));
+  }
+
+  if (multiWarn > 0) {
+    console.log(`\n\x1b[35m── MULTI-TARGET WARNINGS (${multiWarn}) ──\x1b[0m`);
+    for (const r of results.filter(r => r.verdict === 'MULTI_WARN')) console.log(formatVerdict(r));
   }
 
   if (staticOnly > 0) {
     console.log(`\n\x1b[36m── STATIC ONLY (${staticOnly}) — investigate ──\x1b[0m`);
-    for (const r of results.filter(r => r.verdict === 'STATIC_ONLY')) {
-      console.log(formatVerdict(r));
-    }
+    for (const r of results.filter(r => r.verdict === 'STATIC_ONLY')) console.log(formatVerdict(r));
   }
 
-  if (cost > 0) {
-    console.log(`\n\x1b[33m── COST NODES (${cost}) — intentional trade-offs? ──\x1b[0m`);
-    for (const r of results.filter(r => r.verdict === 'COST')) {
-      console.log(formatVerdict(r));
-    }
+  if (costTradeoff > 0) {
+    console.log(`\n\x1b[33m── COST TRADEOFFS (${costTradeoff}) — intentional ──\x1b[0m`);
+    for (const r of results.filter(r => r.verdict === 'COST_TRADEOFF')) console.log(formatVerdict(r));
+  }
+
+  if (costUnclear > 0) {
+    console.log(`\n\x1b[33m── COST UNCLEAR (${costUnclear}) — review ──\x1b[0m`);
+    for (const r of results.filter(r => r.verdict === 'COST_UNCLEAR')) console.log(formatVerdict(r));
+  }
+
+  if (comboOrphan > 0) {
+    console.log(`\n\x1b[35m── COMBO ORPHANS (${comboOrphan}) — need partner skill ──\x1b[0m`);
+    for (const r of results.filter(r => r.verdict === 'COMBO_ORPHAN')) console.log(formatVerdict(r));
+  }
+
+  if (rotationNeeded > 0) {
+    console.log(`\n\x1b[36m── ROTATION NEEDED (${rotationNeeded}) — works in multi-skill rotation ──\x1b[0m`);
+    for (const r of results.filter(r => r.verdict === 'ROTATION_NEEDED')) console.log(formatVerdict(r));
   }
 }

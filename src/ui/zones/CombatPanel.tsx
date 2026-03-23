@@ -21,6 +21,8 @@ import BagStatus from './BagStatus';
 import PlayerHpBar from './PlayerHpBar';
 import MobDisplay from './MobDisplay';
 import BossFightDisplay from './BossFightDisplay';
+import CombatScene from './CombatScene';
+import CombatDataDrawer from './CombatDataDrawer';
 
 const BUFF_DISPLAY: Record<string, { label: string; color: string; description: string }> = {
   // ── Shared / cross-skill buffs ──
@@ -516,43 +518,16 @@ export default function CombatPanel() {
         <>
           {/* Mob display (combat) or progress bar (gathering) */}
           {idleMode === 'combat' && runningZone ? (
-            <div
-              className="rounded-lg overflow-hidden relative border border-gray-700/50"
-              style={{ height: '15rem' }}
-            >
-              {/* Zone background image */}
-              <div
-                className="absolute inset-0 bg-cover bg-center"
-                style={{
-                  backgroundImage: `url(/images/zones/${runningZone.id}.webp)`,
-                  opacity: 0.3,
-                }}
+            <CombatScene zoneId={runningZone.id}>
+              <MobDisplay
+                mobName={currentMobTypeId ? (getMobTypeDef(currentMobTypeId)?.name ?? runningZone.mobName) : runningZone.mobName}
+                mobs={packMobs}
+                bossIn={BOSS_INTERVAL - ((zoneClearCounts[currentZoneId!] || 0) % BOSS_INTERVAL)}
+                signatureDrop={currentMobTypeId ? (getMobTypeDef(currentMobTypeId)?.drops.find(d => d.rarity === 'rare') ?? getMobTypeDef(currentMobTypeId)?.drops[0]) : undefined}
               />
-              {/* Gradient overlay: dark top for readability, image shows through bottom half */}
-              <div
-                className="absolute inset-0"
-                style={{
-                  background: `linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.5) 45%, rgba(0,0,0,0.3) 100%)`,
-                }}
-              />
-              {/* Accent glow */}
-              <div
-                className="absolute inset-0 rounded-lg pointer-events-none"
-                style={{
-                  boxShadow: `inset 0 0 30px 8px rgb(var(--theme-accent) / 0.06)`,
-                }}
-              />
-              <div className="relative z-10 p-0.5">
-                <MobDisplay
-                  mobName={currentMobTypeId ? (getMobTypeDef(currentMobTypeId)?.name ?? runningZone.mobName) : runningZone.mobName}
-                  mobs={packMobs}
-                  bossIn={BOSS_INTERVAL - ((zoneClearCounts[currentZoneId!] || 0) % BOSS_INTERVAL)}
-                  signatureDrop={currentMobTypeId ? (getMobTypeDef(currentMobTypeId)?.drops.find(d => d.rarity === 'rare') ?? getMobTypeDef(currentMobTypeId)?.drops[0]) : undefined}
-                />
-              </div>
-            </div>
+            </CombatScene>
           ) : (
-            <div className="bg-gray-800 rounded-lg p-3">
+            <div className="panel-stone p-3">
               <div className="flex justify-between text-sm mb-1">
                 <span className="text-gray-300">
                   {runningZone?.name}
@@ -564,7 +539,7 @@ export default function CombatPanel() {
                 </span>
                 <span className="text-yellow-400 font-mono">{Math.floor(elapsed)}s</span>
               </div>
-              <div className="h-2 bg-gray-700 rounded-full overflow-hidden mb-1">
+              <div className="h-2 bar-track overflow-hidden mb-1">
                 <div
                   className="h-full bg-green-500 rounded-full transition-all duration-200"
                   style={{ width: `${clearProgress * 100}%` }}
@@ -597,9 +572,10 @@ export default function CombatPanel() {
         </div>
       )}
 
-      {/* Last Hit Dashboard — fixed-height: skills + incoming | events */}
+      {/* Last Hit Dashboard — collapsible drawer */}
       {idleMode === 'combat' && (combatPhase === 'clearing' || combatPhase === 'boss_fight') && (
-        <div className="text-[11px] bg-gray-900/50 rounded px-2 py-1.5 font-mono min-h-[7rem]">
+        <CombatDataDrawer summaryText={lastClearResult ? `${lastClearResult.clearTime.toFixed(1)}s | ${lastClearResult.hits} hits | ${lastClearResult.crits} crits` : 'Waiting for first clear...'}>
+          <div className="text-[11px] font-mono">
           <div className="grid grid-cols-[1fr_auto] gap-x-3">
             {/* Left column: skill rows */}
             <div className="space-y-0.5">
@@ -697,7 +673,8 @@ export default function CombatPanel() {
                 <div className="text-gray-700 text-[10px]">No recent events</div>
               )}
           </div>
-        </div>
+          </div>
+        </CombatDataDrawer>
       )}
 
       {/* Bags status + overflow warning */}

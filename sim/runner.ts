@@ -137,7 +137,8 @@ for (const archetype of selectedArchetypes) {
 
         if (verbose) {
           const armorTag = armorPref !== 'any' ? `/${armorPref}` : '';
-          console.log(`  [${archetype.name}/${stratName}${armorTag}] Seed ${seed}: Lv${summary.finalLevel} Zone ${summary.finalZoneIndex + 1} (${summary.finalZoneId}) | ${summary.totalClears} clears, ${summary.totalDeaths} deaths, DPS ${Math.round(summary.finalDps)}, Penalty ${summary.totalDeathPenaltyTime.toFixed(0)}s`);
+          const gemTag = summary.gemsSocketed > 0 ? `, Gems ${summary.gemsCollected}c/${summary.gemsSocketed}s/${summary.gemsUpgraded}u` : '';
+          console.log(`  [${archetype.name}/${stratName}${armorTag}] Seed ${seed}: Lv${summary.finalLevel} Zone ${summary.finalZoneIndex + 1} (${summary.finalZoneId}) | ${summary.totalClears} clears, ${summary.totalDeaths} deaths, DPS ${Math.round(summary.finalDps)}, Penalty ${summary.totalDeathPenaltyTime.toFixed(0)}s${gemTag}`);
         }
 
         // Progress indicator

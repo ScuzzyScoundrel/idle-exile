@@ -254,7 +254,7 @@ function NodeDetailPanel({ node, isAllocated, canAlloc, onAllocate }: {
   const connNames = node.connections;
 
   return (
-    <div className="bg-gray-800/90 border border-gray-600 rounded-lg p-3 mt-2">
+    <div className="panel-iron p-3 mt-2">
       <div className="flex items-center gap-2">
         <span className={`text-sm font-bold ${
           node.nodeType === 'keystone' ? 'text-yellow-300' :
@@ -388,7 +388,7 @@ export default function SkillGraphView({ skill, progress, gold, onAllocate, onRe
       {/* ─── Desktop: SVG Graph ─── */}
       {!isMobile && (
         <>
-          <div className="relative overflow-x-auto bg-gray-900/60 rounded-lg border border-gray-700" style={{ minHeight: Math.min(svgHeight, 500) }}>
+          <div className="relative overflow-x-auto panel-inset" style={{ minHeight: Math.min(svgHeight, 500) }}>
             <svg
               width={svgWidth}
               height={svgHeight}

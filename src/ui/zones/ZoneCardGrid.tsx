@@ -28,7 +28,7 @@ export interface ZoneCardGridProps {
 export default function ZoneCardGrid({
   gridZones, bossZone, selectedBand, selectedZone, isRunning, currentZoneId,
   idleMode, characterStats, charLevel, selectedProfession, gatheringSkillLevel,
-  totalZoneClears, zoneMasteryClaimed, invasionState, bossKillCounts, onSelectZone,
+  totalZoneClears, zoneMasteryClaimed, invasionState, bossKillCounts: _bossKillCounts, onSelectZone,
 }: ZoneCardGridProps) {
   const [expanded, setExpanded] = useState(() =>
     localStorage.getItem('ie-zones-collapsed') !== 'true'
@@ -38,10 +38,9 @@ export default function ZoneCardGrid({
     localStorage.setItem('ie-zones-collapsed', String(!val));
   };
 
-  const isZoneUnlocked = (z: ZoneDef): boolean => {
-    if (idleMode === 'gathering') return true; // gathering uses skill level gating instead
-    if (!z.unlockRequirement) return true;
-    return (bossKillCounts[z.unlockRequirement] ?? 0) >= 1;
+  // DEV: hardcoded unlock for visual testing — remove before merge
+  const isZoneUnlocked = (_z: ZoneDef): boolean => {
+    return true;
   };
 
   // Auto-collapse: when running, show a compact bar with active zone + expand toggle

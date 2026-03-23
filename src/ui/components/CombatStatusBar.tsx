@@ -52,29 +52,25 @@ export default function CombatStatusBar() {
       : 0;
 
     return (
-      <div className="fixed top-[41px] left-0 right-0 z-40 bg-gray-900/95 backdrop-blur-sm border-b border-theme-accent-muted/20 theme-transition px-3 py-1.5">
-        <div className="flex items-center gap-3 max-w-4xl xl:max-w-7xl mx-auto text-xs">
-          {/* Zone */}
-          <span className="text-gray-300 font-semibold truncate shrink-0">{zone.name}</span>
-
-          {/* Profession + Level */}
-          <span className="text-emerald-400 shrink-0">
-            {profDef?.icon} {profDef?.name} Lv.{skill.level}
-          </span>
-
-          {/* XP bar */}
-          <div className="flex-1 min-w-0">
-            <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-              <div className="h-full bg-emerald-500 rounded-full transition-all duration-150"
-                   style={{ width: `${xpPct}%` }} />
+      <div className="fixed bottom-14 left-0 right-0 z-40 px-2 py-1">
+        <div className="flex items-center gap-2 max-w-4xl xl:max-w-7xl mx-auto text-xs">
+          <div className="flex items-center gap-3 flex-1 bg-gray-950/90 backdrop-blur-md
+            rounded-lg px-3 py-1.5 border border-white/10">
+            <span className="text-gray-300 font-semibold truncate shrink-0">{zone.name}</span>
+            <span className="text-emerald-400 shrink-0">
+              {profDef?.icon} {profDef?.name} Lv.{skill.level}
+            </span>
+            <div className="flex-1 min-w-0">
+              <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+                <div className="h-full bg-emerald-500 rounded-full transition-all duration-150"
+                     style={{ width: `${xpPct}%` }} />
+              </div>
             </div>
-          </div>
-
-          {/* Gather progress */}
-          <div className="w-16 shrink-0">
-            <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-              <div className="h-full bg-cyan-500 rounded-full"
-                   style={{ width: `${gatherProgress}%` }} />
+            <div className="w-16 shrink-0">
+              <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+                <div className="h-full bg-cyan-500 rounded-full"
+                     style={{ width: `${gatherProgress}%` }} />
+              </div>
             </div>
           </div>
         </div>
@@ -116,8 +112,9 @@ export default function CombatStatusBar() {
     : 0;
 
   return (
-    <div className="fixed top-[41px] left-0 right-0 z-40 bg-gray-900/95 backdrop-blur-sm border-b border-theme-accent-muted/20 theme-transition px-3 py-1.5">
-      <div className="flex items-center gap-3 max-w-4xl xl:max-w-7xl mx-auto text-xs">
+    <div className="fixed bottom-14 left-0 right-0 z-40 px-2 py-1">
+      <div className="flex items-center gap-2 max-w-4xl xl:max-w-7xl mx-auto text-xs
+        bg-gray-950/90 backdrop-blur-md rounded-lg px-3 py-1.5 border border-white/10">
         {/* Zone name */}
         <span className="text-gray-300 font-semibold truncate shrink-0">{zone.name}</span>
 

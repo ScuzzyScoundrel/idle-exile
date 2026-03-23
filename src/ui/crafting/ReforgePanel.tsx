@@ -72,7 +72,7 @@ export default function ReforgePanel() {
 
   if (uniqueItems.length === 0) {
     return (
-      <div className="bg-gray-800 rounded-lg p-6 text-center text-gray-500 text-sm">
+      <div className="panel-stone p-6 text-center text-gray-500 text-sm">
         No unique items to reforge. Craft a unique first!
       </div>
     );
@@ -95,7 +95,7 @@ export default function ReforgePanel() {
               className={`w-full text-left px-3 py-2 rounded-lg border transition-colors ${
                 selectedItemId === item.id
                   ? 'border-amber-500 bg-amber-950/40'
-                  : 'border-gray-700 bg-gray-800 hover:border-gray-600'
+                  : 'border-iron bg-stone-dark hover:border-gray-600'
               }`}
             >
               <div className="flex items-center justify-between">
@@ -112,7 +112,7 @@ export default function ReforgePanel() {
 
       {/* Reforge controls */}
       {selectedItem && uniqueDef && (
-        <div className="bg-gray-800 rounded-lg border border-amber-900/50 p-3 space-y-3">
+        <div className="panel-leather border-amber-900/50 p-3 space-y-3">
           <div className="text-sm font-bold text-amber-300">{selectedItem.name}</div>
           <div className="text-[10px] text-gray-500">Current iLvl: {selectedItem.iLvl} | {selectedItem.prefixes.length + selectedItem.suffixes.length} affixes</div>
 

@@ -48,6 +48,7 @@ export interface ConditionContext {
   wardExpiresAt?: number;         // blade ward expiry timestamp (ms)
   trapArmedAt?: number;           // timestamp when trap was armed (ms)
   totalTargetDebuffStacks?: number; // sum of all debuff stacks on target
+  targetHasPlagueLink?: boolean;    // target mob has plague_link debuff active
 }
 
 export function evaluateCondition(
@@ -166,6 +167,7 @@ export function evaluateCondition(
     case 'ailmentKillAfterFoK': return ctx.lastSkillId === 'dagger_fan_of_knives' && (ctx.killStreak ?? 0) > 0;
     case 'enemyAttacksAfterBeingHit': return true; // approximate: enemies attack after being hit
     case 'enemyAttacksSinceLast': return true; // approximate: enemies have attacked
+    case 'whileTargetLinked': return ctx.targetHasPlagueLink === true;
     default: return false;
   }
 }
@@ -657,7 +659,7 @@ export function evaluateProcs(
       result.fortifyDRPerStack = Math.max(result.fortifyDRPerStack, proc.fortifyOnProc.damageReduction);
     }
     // Sprint 3A: ailment detonation — sum remaining ailment damage as burst
-    if (proc.detonateAilments || proc.explodeAilments || proc.consumeAllAilments) {
+    if (proc.detonateAilments || proc.explodeAilments || proc.consumeAllAilments || proc.detonateAll) {
       const targetDebs = ctx.targetDebuffs ?? [];
       let ailmentTotal = 0;
       for (const deb of targetDebs) {
@@ -675,6 +677,11 @@ export function evaluateProcs(
         result.detonationDamage += ailmentTotal * (proc.explodeAilments.aoeScaleRatio ?? 0.5);
       }
       if (proc.consumeAllAilments) {
+        result.detonationDamage += ailmentTotal;
+        result.consumeAilments = true;
+      }
+      if (proc.detonateAll) {
+        // 100% of remaining ailment damage as instant burst, consume all stacks
         result.detonationDamage += ailmentTotal;
         result.consumeAilments = true;
       }

@@ -2,7 +2,7 @@
 // Simulator Type Definitions
 // ============================================================
 
-import type { Character, Item, GearSlot, Affix, ZoneDef, CurrencyType, CharacterClass } from '../../src/types';
+import type { Character, Item, GearSlot, Affix, ZoneDef, CurrencyType, CharacterClass, GemType, GemTier } from '../../src/types';
 
 // --- Gear Strategy ---
 
@@ -208,6 +208,12 @@ export interface BotSummary {
   upgradeRecords: UpgradeRecord[];
   // Skill progress with graph + talent allocations
   skillProgress: Record<string, { skillId: string; level: number; allocatedNodes: string[]; allocatedRanks: Record<string, number> }>;
+  // Gem system metrics
+  gemsCollected: number;
+  gemsSocketed: number;
+  gemsUpgraded: number;
+  finalGemInventory: { type: GemType; tier: GemTier }[];
+  socketedGems: { slot: GearSlot; gemType: GemType; gemTier: GemTier }[];
 }
 
 // --- Aggregate Stats ---

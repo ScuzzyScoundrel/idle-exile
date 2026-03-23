@@ -1,16 +1,13 @@
-import { useState, Component, type ReactNode, type ErrorInfo } from 'react';
+import { useState, useEffect, Component, type ReactNode, type ErrorInfo } from 'react';
 import TooltipProvider from './ui/components/TooltipProvider';
-import TopBar from './ui/components/TopBar';
 import NavBar from './ui/components/NavBar';
 import TutorialOverlay from './ui/components/TutorialOverlay';
 import OfflineProgressModal from './ui/components/OfflineProgressModal';
 import ClassPicker from './ui/components/ClassPicker';
-import ZoneScreen from './ui/screens/ZoneScreen';
-import InventoryScreen from './ui/screens/InventoryScreen';
-import CharacterScreen from './ui/screens/CharacterScreen';
+import WorldScreen from './ui/screens/WorldScreen';
+import HeroScreen from './ui/screens/HeroScreen';
 import CraftingScreen from './ui/screens/CraftingScreen';
 import ArenaScreen from './ui/arena/ArenaScreen';
-import CombatStatusBar from './ui/components/CombatStatusBar';
 import { useGameStore } from './store/gameStore';
 import { useTabGuard } from './ui/hooks/useTabGuard';
 import { useZoneTheme } from './ui/hooks/useZoneTheme';
@@ -64,10 +61,22 @@ function App() {
   const tutorialStep = useGameStore((s) => s.tutorialStep);
   const offlineProgress = useGameStore((s) => s.offlineProgress);
   const classSelected = useGameStore((s) => s.classSelected);
-  const isRunning = useGameStore((s) => s.idleStartTime !== null);
+  const currentZoneId = useGameStore((s) => s.currentZoneId);
   const [activeTab, setActiveTab] = useState(() =>
-    tutorialStep === 1 ? 'inventory' : 'zones'
+    tutorialStep === 1 ? 'hero' : 'world'
   );
+
+  // DEV: max level for visual testing — remove before merge
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      const state = useGameStore.getState();
+      if (state.character.level < 60) {
+        useGameStore.setState({
+          character: { ...state.character, level: 60, xp: 0, xpToNext: 0 },
+        });
+      }
+    }
+  }, []);
 
   // Block duplicate tabs to prevent localStorage conflicts
   if (tabBlocked) {
@@ -102,14 +111,33 @@ function App() {
   const vignetteClass = band > 0 ? `vignette-band-${band}` : 'vignette-none';
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100">
+    <div className="min-h-screen bg-dungeon text-gray-100" data-band={band}>
+      {/* Full scene background — unique illustration per zone */}
+      <div className="fixed inset-0 pointer-events-none z-0 bg-cover bg-center transition-all duration-[2s]"
+        style={{
+          backgroundImage: `url(/images/backgrounds/${currentZoneId ?? 'idle-tavern'}.png)`,
+          opacity: currentZoneId ? 0.7 : 0.35,
+        }} />
+      {/* Soft vignette to keep edges readable */}
+      <div className="fixed inset-0 pointer-events-none z-[1]"
+        style={{
+          background: `radial-gradient(ellipse at 50% 40%, transparent 45%, rgba(0,0,0,0.15) 100%)`,
+        }} />
+      {/* Zone foreground layers — transparent border overlays from top/bottom edges */}
+      <div className="fixed top-0 left-0 right-0 pointer-events-none z-40 transition-all duration-[2s]"
+        style={{
+          backgroundImage: 'var(--fg-top)',
+          backgroundSize: 'auto 100%',
+          backgroundPosition: 'center top',
+          backgroundRepeat: 'repeat-x',
+          height: '80px',
+          opacity: 1,
+        }} />
+      {/* Footer frame disabled — header-only for cleaner UI */}
       {/* Zone vignette overlay */}
       <div className={`fixed inset-0 pointer-events-none z-30 vignette-overlay ${vignetteClass}`} />
       {/* Ambient floating particles */}
       {band > 0 && <AmbientParticles band={band} />}
-
-      <TopBar />
-      <CombatStatusBar />
 
       {offlineProgress && <OfflineProgressModal />}
 
@@ -117,14 +145,13 @@ function App() {
 
       {/* Main content area — padded for top and bottom bars + optional combat status bar.
           All screens stay mounted (hidden via CSS) so local state persists across tab switches. */}
-      <main className={`px-3 ${isRunning ? 'pt-[88px]' : 'pt-16'} pb-20`}>
-        {/* Arena and Zones both drive tickCombat — only mount one at a time */}
-        {activeTab === 'arena'
-          ? <ArenaScreen />
-          : <div className={activeTab === 'zones' ? '' : 'hidden'}><ZoneScreen /></div>}
-        <div className={activeTab === 'inventory' ? '' : 'hidden'}><InventoryScreen /></div>
-        <div className={activeTab === 'crafting' ? '' : 'hidden'}><CraftingScreen /></div>
-        <div className={activeTab === 'character' ? '' : 'hidden'}><CharacterScreen /></div>
+      <main className="relative z-10 mx-2 mt-10 mb-20">
+        <div className="p-3">
+          <div className={activeTab === 'world' ? '' : 'hidden'}><WorldScreen /></div>
+          <div className={activeTab === 'hero' ? '' : 'hidden'}><HeroScreen /></div>
+          <div className={activeTab === 'crafting' ? '' : 'hidden'}><CraftingScreen /></div>
+          {activeTab === 'arena' && <ArenaScreen />}
+        </div>
       </main>
 
       <NavBar activeTab={activeTab} onTabChange={setActiveTab} tutorialStep={tutorialStep} />

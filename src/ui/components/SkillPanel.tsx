@@ -73,10 +73,7 @@ export default function SkillPanel() {
 
   if (!weaponType) {
     return (
-      <div className="bg-gray-800 rounded-lg p-3">
-        <h3 className="text-sm font-bold text-gray-300">Skills</h3>
-        <div className="text-xs text-gray-500 mt-2">Equip a weapon to use skills</div>
-      </div>
+      <div className="text-xs text-gray-500">Equip a weapon to use skills</div>
     );
   }
 
@@ -130,10 +127,7 @@ export default function SkillPanel() {
   };
 
   return (
-    <div className="bg-gray-800 rounded-lg p-3 space-y-3">
-      {/* Header */}
-      <h3 className="text-sm font-bold text-gray-300">Skills</h3>
-
+    <div className="panel-stone p-3 space-y-3">
       {/* Section 1: Equipped Skill Bar (compact overview) */}
       <div className="flex gap-1">
         {skillBar.slice(0, 5).map((equipped, idx) => {

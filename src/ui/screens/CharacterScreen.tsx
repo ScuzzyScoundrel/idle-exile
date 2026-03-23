@@ -207,20 +207,20 @@ export default function CharacterScreen() {
   return (
     <div className="max-w-4xl xl:max-w-7xl mx-auto space-y-4">
       {/* Character Header */}
-      <div className="bg-gray-800 rounded-lg p-3">
+      <div className="panel-leather p-3">
         <div className="flex items-center gap-3">
-          <div className="w-14 h-14 bg-gray-700 rounded-full flex items-center justify-center text-2xl border-2 border-yellow-600">
+          <div className="w-14 h-14 bg-stone-dark rounded-full flex items-center justify-center text-2xl border-2 border-yellow-600">
             {CLASS_ICONS_HERO[character.class] ?? '\u2694\uFE0F'}
           </div>
           <div className="flex-1">
-            <div className="text-xl font-bold text-white">{character.name}</div>
+            <div className="text-xl font-bold text-white heading-fantasy">{character.name}</div>
             <div className="text-sm text-gray-400">Level {character.level} {CLASS_DEFS[character.class]?.name ?? 'Exile'}</div>
             <div className="mt-1">
               <div className="flex justify-between text-xs text-gray-400 mb-0.5">
                 <span>XP</span>
                 <span>{character.xp} / {character.xpToNext}</span>
               </div>
-              <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+              <div className="h-2 bar-track overflow-hidden">
                 <div
                   className="h-full bg-purple-500 rounded-full transition-all"
                   style={{ width: `${(character.xp / character.xpToNext) * 100}%` }}
@@ -232,7 +232,7 @@ export default function CharacterScreen() {
 
         {/* Class resource mechanic description */}
         {CLASS_DEFS[character.class] && (
-          <div className="mt-2 bg-gray-900/50 rounded-lg p-2 text-xs text-gray-300">
+          <div className="mt-2 panel-inset p-2 text-xs text-gray-300">
             <span className={`font-semibold ${CLASS_TEXT_COLORS[character.class] ?? 'text-gray-400'}`}>
               {CLASS_DEFS[character.class].resourceType.replace(/_/g, ' ').toUpperCase()}
             </span>
@@ -245,8 +245,8 @@ export default function CharacterScreen() {
       {/* Class Talent Tree removed (Skill Tree Overhaul Phase 0) */}
 
       {/* Paper Doll — icon grid layout */}
-      <div className="bg-gray-800 rounded-lg p-3 overflow-hidden">
-        <h3 className="text-sm font-bold text-gray-300 mb-2">Equipment</h3>
+      <div className="panel-stone p-3 overflow-hidden">
+        <h3 className="text-sm font-bold text-gray-300 mb-2 heading-fantasy">Equipment</h3>
 
         <div className="flex gap-1.5">
           {/* Left column */}
@@ -265,7 +265,7 @@ export default function CharacterScreen() {
 
           {/* Center — ASCII character silhouette */}
           <div className="flex-1 min-w-0 flex items-center justify-center">
-            <div className="w-full h-full bg-gray-900 rounded-lg border border-gray-700 flex items-center justify-center">
+            <div className="w-full h-full panel-inset rounded-lg flex items-center justify-center">
               <div className="text-center">
                 <pre className="font-mono text-gray-600 text-lg leading-tight select-none">{ASCII_SILHOUETTE}</pre>
                 <div className="text-xs text-gray-500 mt-2 font-semibold">{character.name}</div>
@@ -321,17 +321,17 @@ export default function CharacterScreen() {
         </div>
       )}
       {hoveredSlot && !hoveredItem && (
-        <div className="bg-gray-900 rounded-lg border border-gray-700 p-3 text-center text-xs text-gray-500">
+        <div className="panel-inset p-3 text-center text-xs text-gray-500">
           {slotLabel(hoveredSlot)} — Empty
         </div>
       )}
 
       {/* Stats Grid */}
-      <div className="bg-gray-800 rounded-lg p-3 space-y-3">
-        <h3 className="text-sm font-bold text-gray-300">Stats</h3>
+      <div className="panel-stone p-3 space-y-3">
+        <h3 className="text-sm font-bold text-gray-300 heading-fantasy">Stats</h3>
         {/* Skill DPS summary */}
         {skillDps > 0 && (
-          <div className="flex items-center gap-2 bg-gray-900/50 rounded-lg p-2">
+          <div className="flex items-center gap-2 panel-inset p-2">
             <span className="text-sm">{'\u2694\uFE0F'}</span>
             <div className="flex-1">
               <div className="text-xs text-gray-400">Rotation DPS</div>
@@ -372,7 +372,7 @@ export default function CharacterScreen() {
       <DefensePanel />
 
       {/* Reset */}
-      <div className="pt-4 border-t border-gray-700">
+      <div className="pt-4 border-t border-iron">
         <button
           onClick={() => {
             if (confirm('Reset all progress? This cannot be undone!')) {
@@ -459,8 +459,8 @@ function DefensePanel() {
   const physReduction = Math.round((character.stats.armor / (character.stats.armor + zonePressure)) * 100);
 
   return (
-    <div className="bg-gray-800 rounded-lg p-3 space-y-3">
-      <h3 className="text-sm font-bold text-gray-300">Defense</h3>
+    <div className="panel-stone p-3 space-y-3">
+      <h3 className="text-sm font-bold text-gray-300 heading-fantasy">Defense</h3>
 
       {/* Band selector */}
       <div className="flex items-center gap-1">
@@ -491,7 +491,7 @@ function DefensePanel() {
           {(defEff * 100).toFixed(1)}%
         </div>
       </div>
-      <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+      <div className="h-1.5 bar-track overflow-hidden">
         <div
           className={`h-full rounded-full transition-all ${defEff >= 0.9 ? 'bg-green-500' : defEff >= 0.8 ? 'bg-yellow-500' : 'bg-red-500'}`}
           style={{ width: `${((defEff - 0.7) / 0.3) * 100}%` }}
@@ -568,7 +568,7 @@ function DefensePanel() {
         }
         if (gemEntries.length === 0) return null;
         return (
-          <div className="space-y-0.5 pt-1 border-t border-gray-700">
+          <div className="space-y-0.5 pt-1 border-t border-iron">
             <div className="text-xs font-semibold text-gray-400">Socketed Gems</div>
             {gemEntries.map((g, i) => (
               <div key={i} className="flex items-center gap-1 text-xs">
@@ -582,7 +582,7 @@ function DefensePanel() {
       })()}
 
       {setBonuses.length > 0 && (
-        <div className="space-y-2 pt-1 border-t border-gray-700">
+        <div className="space-y-2 pt-1 border-t border-iron">
           <div className="text-xs font-semibold text-gray-400">Set Bonuses</div>
           {setBonuses.map((sb) => {
             const fullDef = SET_BONUS_DEFS[sb.armorType];
@@ -650,9 +650,9 @@ function GearSlotCard({
     return (
       <div
         className={`
-          aspect-square rounded-lg border-2 border-dashed border-gray-700 bg-gray-900/50
+          aspect-square rounded-lg border-2 border-dashed border-iron bg-stone-dark/50
           flex items-center justify-center cursor-pointer
-          hover:border-gray-500 transition-all
+          hover:border-iron-mid transition-all
           ${isShowingTooltip ? 'ring-2 ring-yellow-400' : ''}
           ${className ?? 'w-full'}
         `}
@@ -736,7 +736,7 @@ function ItemTooltip({ item }: { item: Item }) {
       </div>
 
       {item.sockets && item.sockets.length > 0 && (
-        <div className="border-t border-gray-700 pt-1 space-y-0.5">
+        <div className="border-t border-iron pt-1 space-y-0.5">
           {item.sockets.map((gem, i) => (
             <div key={i} className="text-xs flex items-center gap-1">
               {gem ? (

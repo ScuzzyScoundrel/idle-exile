@@ -126,7 +126,7 @@ export default function OfflineProgressModal() {
 
           {/* Items found */}
           {progress.items.length > 0 && (
-            <div className="bg-gray-800/50 rounded-lg p-3">
+            <div className="panel-inset p-3">
               <p className="text-sm text-gray-300 mb-2">
                 <span className="font-semibold text-white">{progress.items.length}</span> items found
               </p>
@@ -155,7 +155,7 @@ export default function OfflineProgressModal() {
 
           {/* Resources */}
           {hasResources && (
-            <div className="bg-gray-800/50 rounded-lg p-3 space-y-2">
+            <div className="panel-inset p-3 space-y-2">
               <p className="text-xs text-gray-400 uppercase tracking-wide">Resources</p>
 
               {/* Materials */}
@@ -213,7 +213,7 @@ export default function OfflineProgressModal() {
         </div>
 
         {/* Claim button */}
-        <div className="px-4 py-3 sm:px-6 sm:py-4 bg-gray-900 border-t border-gray-700">
+        <div className="px-4 py-3 sm:px-6 sm:py-4 bg-stone-dark border-t border-iron">
           <button
             onClick={claimOfflineProgress}
             className="w-full py-3 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-lg transition-all active:scale-[0.98]"
@@ -228,7 +228,7 @@ export default function OfflineProgressModal() {
 
 function StatCard({ label, value, icon }: { label: string; value: string; icon: string }) {
   return (
-    <div className="bg-gray-800 rounded-lg p-3 text-center">
+    <div className="panel-iron p-3 text-center">
       <div className="text-lg">{icon}</div>
       <p className="text-lg font-bold text-white">{value}</p>
       <p className="text-xs text-gray-400">{label}</p>

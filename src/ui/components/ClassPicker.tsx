@@ -50,7 +50,7 @@ function ClassCard({ classDef, isSelected, onSelect }: {
         w-full text-left rounded-xl border-2 p-4 transition-all
         ${isSelected
           ? `${colors.border} ${colors.bg} ring-2 ${colors.ring} scale-[1.02]`
-          : 'border-gray-700 bg-gray-800/50 hover:border-gray-500 hover:bg-gray-800'}
+          : 'border-iron bg-stone-dark/50 hover:border-gray-500 hover:bg-stone-dark'}
       `}
     >
       <div className="flex items-center gap-3 mb-2">

@@ -2,7 +2,7 @@
 // Simulator Logger — Structured stats tracking & aggregation
 // ============================================================
 
-import type { Character, GearSlot, Item, CurrencyType } from '../src/types';
+import type { Character, GearSlot, Item, CurrencyType, Gem, GemType, GemTier } from '../src/types';
 import { getAffixDef } from '../src/engine/items';
 import { calcEhp } from './gear-eval';
 import type {
@@ -84,6 +84,7 @@ export class BotLogger {
     craftingMetrics?: { craftingAttempts: number; craftingUpgrades: number; currencySpent: Record<CurrencyType, number>; currencyEarned: Record<CurrencyType, number> },
     finalDps: number = 0, refDamage?: number, refAccuracy?: number,
     skillProgress?: Record<string, { skillId: string; level: number; allocatedNodes: string[]; allocatedRanks: Record<string, number> }>,
+    gemMetrics?: { gemsCollected: number; gemsSocketed: number; gemsUpgraded: number; finalGemInventory: { type: GemType; tier: GemTier }[]; socketedGems: { slot: GearSlot; gemType: GemType; gemTier: GemTier }[] },
   ): BotSummary {
     const zoneIndex = ZONE_DEFS.findIndex(z => z.id === this.currentZoneId);
     const zoneSummaries = this.buildZoneSummaries(char);
@@ -134,6 +135,11 @@ export class BotLogger {
       currencyEarned: craftingMetrics?.currencyEarned ?? { augment: 0, chaos: 0, divine: 0, annul: 0, exalt: 0, greater_exalt: 0, perfect_exalt: 0, socket: 0 },
       upgradeRecords: this.upgradeRecords,
       skillProgress: skillProgress ?? {},
+      gemsCollected: gemMetrics?.gemsCollected ?? 0,
+      gemsSocketed: gemMetrics?.gemsSocketed ?? 0,
+      gemsUpgraded: gemMetrics?.gemsUpgraded ?? 0,
+      finalGemInventory: gemMetrics?.finalGemInventory ?? [],
+      socketedGems: gemMetrics?.socketedGems ?? [],
     };
   }
 

@@ -236,6 +236,8 @@ export function runCombatTick(
     if (graphMod.weaponMastery) effectiveStats.weaponMastery += graphMod.weaponMastery;
     if (graphMod.ailmentDuration) effectiveStats.ailmentDuration += graphMod.ailmentDuration;
     if (graphMod.ailmentPotency) effectiveStats.ailmentPotency = (effectiveStats.ailmentPotency ?? 0) + graphMod.ailmentPotency;
+    if (graphMod.incCritChance) effectiveStats.critChance += graphMod.incCritChance;
+    if (graphMod.incCritMultiplier) effectiveStats.critMultiplier += graphMod.incCritMultiplier;
     if (graphMod.allResist) {
       effectiveStats.fireResist += graphMod.allResist;
       effectiveStats.coldResist += graphMod.allResist;
@@ -354,6 +356,7 @@ export function runCombatTick(
       fortifyStacks: state.fortifyStacks,
       packSize: state.packMobs.length,
       targetDebuffCount: targetDebuffs.length,
+      targetHasPlagueLink: targetDebuffs.some(d => d.debuffId === 'plague_link'),
       lastSkillId: skill.id,
       skillTimers: state.skillTimers as any,
       lastSkillsCast: state.lastSkillsCast,
@@ -444,6 +447,8 @@ export function runCombatTick(
   let comboFocusBurst = false;
   let comboCounterDamageMult = 1;
   let cdAcceleration = 0;
+  let preRollHealAmount = 0;
+  let comboContagionSpread = 0;
   const consumedComboStateIds: string[] = [];
   if (weaponMod?.preRoll) {
     const pr = weaponMod.preRoll({
@@ -465,6 +470,8 @@ export function runCombatTick(
     comboCounterDamageMult = pr.counterDamageMult;
     cdAcceleration = pr.cdAcceleration;
     consumedComboStateIds.push(...pr.consumedStateIds);
+    preRollHealAmount = pr.healAmount;
+    if (pr.contagionSpreadCount > 0) comboContagionSpread = pr.contagionSpreadCount;
   }
 
   // Weapon mastery: multiplicative damage bonus (mirrors zones/dps.ts masteryMult)
@@ -478,7 +485,8 @@ export function runCombatTick(
   // Sprint 2C: keystone ailment potency modifiers
   const keystoneAilmentPenalty = (graphMod?.globalAilmentPenalty ?? 0) + (graphMod?.globalAilmentPotencyPenalty ?? 0);
   const keystoneAilmentPerStack = (graphMod?.ailmentPotencyPerStack ?? 0) * (targetDebuffs.reduce((s, d) => s + d.stacks, 0));
-  let ailmentPotencyMult = 1 + ((effectiveStats.ailmentPotency ?? 0) + (graphMod?.ailmentPotency ?? 0) + comboAilmentPotency + condAilmentPotency + keystoneAilmentPerStack - keystoneAilmentPenalty) / 100;
+  // effectiveStats.ailmentPotency already includes graphMod.ailmentPotency (folded at line 238)
+  let ailmentPotencyMult = 1 + ((effectiveStats.ailmentPotency ?? 0) + comboAilmentPotency + condAilmentPotency + keystoneAilmentPerStack - keystoneAilmentPenalty) / 100;
   if (graphMod?.ailmentPotencyMult) ailmentPotencyMult *= (1 + graphMod.ailmentPotencyMult / 100);
   if (graphMod?.ailmentPotencyOverride) ailmentPotencyMult = graphMod.ailmentPotencyOverride / 100;
   const ailmentSnapshot = roll.damage * ailmentPotencyMult;
@@ -500,6 +508,7 @@ export function runCombatTick(
       fortifyStacks: state.fortifyStacks,
       packSize: state.packMobs.length,
       targetDebuffCount: targetDebuffs.length,
+      targetHasPlagueLink: targetDebuffs.some(d => d.debuffId === 'plague_link'),
       lastSkillId: skill.id,
       skillTimers: state.skillTimers as any,
       lastSkillsCast: state.lastSkillsCast,
@@ -770,7 +779,7 @@ export function runCombatTick(
 
   // Proc evaluation (onHit + onCrit triggers)
   let procDamage = 0;
-  let procHeal = 0;
+  let procHeal = preRollHealAmount;
   let procCooldownResets: string[] = [];
   let procGcdWasReset = false;
   const allProcsFired: string[] = [];
@@ -1363,6 +1372,17 @@ export function runCombatTick(
       totalDamage = effectiveDmg;
       front.debuffs = newDebuffs;
 
+      // Contagion Surge: spread this cast's ailments to N adjacent enemies
+      if (comboContagionSpread > 0 && updatedPackMobs.length > 1) {
+        for (let ci = 1; ci <= comboContagionSpread && ci < updatedPackMobs.length; ci++) {
+          const spreadTarget = updatedPackMobs[ci];
+          for (const ailment of castAilments) {
+            applyDebuffToList(spreadTarget.debuffs, ailment.debuffId, 1,
+              ailment.remainingDuration, skill.id, ailment.stackSnapshots?.[0] ?? 0);
+          }
+        }
+      }
+
       // Dance Momentum splash: also hit 1 adjacent enemy for X% damage
       if (comboSplashPercent > 0 && updatedPackMobs.length > 1) {
         const splashTarget = updatedPackMobs[1];
@@ -1384,7 +1404,8 @@ export function runCombatTick(
       }
 
       // Skill-intrinsic chain: hit additional targets with decaying damage (e.g. Chain Strike)
-      const skillChains = (skill as ActiveSkillDef).chainCount ?? 0;
+      // Merge base skill chains + talent-added chains (graphMod.chainCount)
+      const skillChains = ((skill as ActiveSkillDef).chainCount ?? 0) + (graphMod?.chainCount ?? 0);
       if (skillChains > 0 && updatedPackMobs.length > 1) {
         const chainDecay = [0.7, 0.5, 0.35]; // 70%, 50%, 35% per successive chain
         for (let c = 0; c < skillChains && c + 1 < updatedPackMobs.length; c++) {
@@ -1399,6 +1420,18 @@ export function runCombatTick(
             applyDebuffToList(chainTarget.debuffs, ailment.debuffId, 1,
               ailment.remainingDuration, skill.id, ailment.stackSnapshots?.[0] ?? 0);
           }
+          // Contagion Chains: carry previous target's ailments to chain target at reduced duration
+          if (graphMod?.rawBehaviors?.spreadAilments) {
+            const sourceIndex = c; // chain 0 spreads from front mob (idx 0), chain 1 from idx 1, etc.
+            const source = updatedPackMobs[sourceIndex];
+            const retain = (graphMod.rawBehaviors.spreadAilments as any).durationRetain ?? 0.75;
+            for (const deb of source.debuffs) {
+              // Skip ailments already applied by this cast to avoid duplication
+              if (castAilments.some(a => a.debuffId === deb.debuffId)) continue;
+              applyDebuffToList(chainTarget.debuffs, deb.debuffId, 1,
+                deb.remainingDuration * retain, skill.id, (deb as any).stackSnapshots?.[0] ?? 0);
+            }
+          }
         }
       }
     }
@@ -1410,13 +1443,46 @@ export function runCombatTick(
       const mob = updatedPackMobs[i];
       const mobDR = mob.rare?.combinedDamageTakenMult ?? 1;
       mob.hp -= rawSkillDamage * mobDR;
-      // AoE debuff application: apply same debuffs to back mobs
-      for (const debuffInfo of newDebuffs) {
-        const existingIdx = mob.debuffs.findIndex(d => d.debuffId === debuffInfo.debuffId);
-        if (existingIdx >= 0) {
-          mob.debuffs[existingIdx] = { ...debuffInfo };
-        } else {
-          mob.debuffs.push({ ...debuffInfo });
+      // AoE debuff application: apply only THIS cast's ailments to back mobs
+      // (not all newDebuffs, which includes pre-existing front mob debuffs from other skills)
+      for (const ailment of castAilments) {
+        applyDebuffToList(mob.debuffs, ailment.debuffId, 1,
+          ailment.remainingDuration, skill.id, ailment.stackSnapshots?.[0] ?? 0);
+      }
+    }
+  }
+
+  // Per-target proc evaluation for AoE skills (Chain Detonation's perTarget: true)
+  if (skillIsAoE && graphMod?.skillProcs?.length && roll.isHit) {
+    const perTargetProcs = graphMod.skillProcs.filter((p: any) => p.perTarget);
+    if (perTargetProcs.length > 0) {
+      for (const mob of updatedPackMobs) {
+        if (mob.debuffs.length === 0) continue; // skip mobs with no ailments
+        const perTargetCtx: ProcContext = {
+          isHit: roll.isHit, isCrit: roll.isCrit,
+          skillId: skill.id, effectiveMaxLife,
+          stats: effectiveStats,
+          weaponAvgDmg: avgDamage, weaponSpellPower: spellPower,
+          damageMult, now,
+          lastProcTriggerAt: newLastProcTriggerAt,
+          ...cpShared,
+          targetDebuffs: mob.debuffs, // override with THIS mob's debuffs
+        };
+        const ptResult = evaluateProcs(perTargetProcs, 'onHit', perTargetCtx);
+        Object.assign(newLastProcTriggerAt, ptResult.procTriggeredAt);
+        allProcsFired.push(...ptResult.procsFired);
+        allProcEvents.push(...buildProcEvents(ptResult, skill.id));
+        // Apply detonation damage to this specific mob
+        if (ptResult.detonationDamage > 0) {
+          const mobDR = mob.rare?.combinedDamageTakenMult ?? 1;
+          mob.hp -= ptResult.detonationDamage * mobDR;
+          procDamage += ptResult.detonationDamage;
+          if (ptResult.consumeAilments) {
+            mob.debuffs = [];
+          }
+        }
+        for (const buff of ptResult.newTempBuffs) {
+          activeTempBuffs = mergeProcTempBuff(activeTempBuffs, buff);
         }
       }
     }
@@ -1713,8 +1779,17 @@ export function runCombatTick(
       allProcsFired.push(...pr.procsFired);
       allProcEvents.push(...buildProcEvents(pr, skill.id));
       procDamage += pr.bonusDamage;
+      procDamage += pr.detonationDamage;
       procHeal += pr.healAmount;
-      if (pr.bonusDamage > 0 && updatedPackMobs.length > 0) {
+      // Explosion-type kill procs (Extinction Event): AoE to all surviving mobs
+      if (pr.detonationDamage > 0 && updatedPackMobs.length > 0) {
+        for (const mob of updatedPackMobs) {
+          mob.hp -= pr.detonationDamage * (mob.rare?.combinedDamageTakenMult ?? 1);
+        }
+        if (pr.consumeAilments && updatedPackMobs.length > 0) {
+          updatedPackMobs[0].debuffs = [];
+        }
+      } else if (pr.bonusDamage > 0 && updatedPackMobs.length > 0) {
         updatedPackMobs[0].hp -= pr.bonusDamage;
       }
       for (const buff of pr.newTempBuffs) {

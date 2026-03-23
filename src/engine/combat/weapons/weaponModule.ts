@@ -91,6 +91,8 @@ export interface PreRollResult {
   markPassthrough: boolean;
   cdAcceleration: number;
   consumedStateIds: string[];
+  healAmount: number;
+  contagionSpreadCount: number;
 }
 
 export interface PostCastResult {

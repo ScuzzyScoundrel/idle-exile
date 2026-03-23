@@ -7,7 +7,7 @@ export default function BagStatus({ inventoryCount, capacity, salvageTally }: {
     <div className={`rounded-lg px-3 py-2 text-xs ${
       inventoryCount >= capacity
         ? 'bg-amber-950 border border-amber-700'
-        : 'bg-gray-800'
+        : 'panel-iron'
     }`}>
       <div className="flex items-center justify-between">
         <span className={inventoryCount >= capacity ? 'text-amber-300 font-semibold' : 'text-gray-400'}>

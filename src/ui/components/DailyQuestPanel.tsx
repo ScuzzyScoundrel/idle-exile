@@ -136,7 +136,7 @@ export default function DailyQuestPanel({ currentZoneId }: { currentZoneId?: str
   }
 
   return (
-    <div className="bg-gray-800/60 rounded-lg border border-gray-700 overflow-hidden">
+    <div className="panel-stone overflow-hidden">
       {/* Header */}
       <button
         onClick={() => setCollapsed(!collapsed)}

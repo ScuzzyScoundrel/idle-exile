@@ -15,7 +15,7 @@ export default function CraftOutputPanel() {
   if (buffer.length === 0) return null;
 
   return (
-    <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+    <div className="panel-leather overflow-hidden">
       {/* Header */}
       <button
         onClick={() => setCollapsed(c => !c)}

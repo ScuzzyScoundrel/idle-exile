@@ -23,11 +23,11 @@ export default function MaterialDetailModal({ materialId, onClose }: MaterialDet
 
       {/* Modal */}
       <div
-        className="relative bg-gray-900 rounded-xl border border-gray-700 w-full max-w-md max-h-[80vh] overflow-y-auto shadow-2xl"
+        className="relative bg-stone-dark rounded-xl border border-iron w-full max-w-md max-h-[80vh] overflow-y-auto shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center gap-3 p-4 border-b border-gray-700">
+        <div className="flex items-center gap-3 p-4 border-b border-iron">
           {meta
             ? <CraftIcon category={meta.category} id={materialId} fallback={meta.emoji} size="xl" />
             : <span className="text-3xl">{icon}</span>
@@ -117,7 +117,7 @@ function Section({ title, icon, children }: { title: string; icon: string; child
   return (
     <div>
       <div className="text-sm font-semibold text-gray-300 mb-1">{icon} {title}</div>
-      <div className="bg-gray-800/60 rounded-lg p-2">{children}</div>
+      <div className="panel-inset p-2">{children}</div>
     </div>
   );
 }

@@ -87,7 +87,7 @@ export default function TooltipProvider({ children }: { children: ReactNode }) {
       {tooltip && createPortal(
         <div
           ref={tooltipRef}
-          className="px-2.5 py-1.5 rounded bg-gray-900 border border-gray-600 shadow-lg text-xs text-gray-200 max-w-[220px] whitespace-normal"
+          className="px-2.5 py-1.5 panel-iron shadow-lg text-xs text-gray-200 max-w-[220px] whitespace-normal"
           style={style}
         >
           {tooltip.content}
