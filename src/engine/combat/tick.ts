@@ -236,6 +236,8 @@ export function runCombatTick(
     if (graphMod.weaponMastery) effectiveStats.weaponMastery += graphMod.weaponMastery;
     if (graphMod.ailmentDuration) effectiveStats.ailmentDuration += graphMod.ailmentDuration;
     if (graphMod.ailmentPotency) effectiveStats.ailmentPotency = (effectiveStats.ailmentPotency ?? 0) + graphMod.ailmentPotency;
+    if (graphMod.incCritChance) effectiveStats.critChance += graphMod.incCritChance;
+    if (graphMod.incCritMultiplier) effectiveStats.critMultiplier += graphMod.incCritMultiplier;
     if (graphMod.allResist) {
       effectiveStats.fireResist += graphMod.allResist;
       effectiveStats.coldResist += graphMod.allResist;
@@ -478,7 +480,8 @@ export function runCombatTick(
   // Sprint 2C: keystone ailment potency modifiers
   const keystoneAilmentPenalty = (graphMod?.globalAilmentPenalty ?? 0) + (graphMod?.globalAilmentPotencyPenalty ?? 0);
   const keystoneAilmentPerStack = (graphMod?.ailmentPotencyPerStack ?? 0) * (targetDebuffs.reduce((s, d) => s + d.stacks, 0));
-  let ailmentPotencyMult = 1 + ((effectiveStats.ailmentPotency ?? 0) + (graphMod?.ailmentPotency ?? 0) + comboAilmentPotency + condAilmentPotency + keystoneAilmentPerStack - keystoneAilmentPenalty) / 100;
+  // effectiveStats.ailmentPotency already includes graphMod.ailmentPotency (folded at line 238)
+  let ailmentPotencyMult = 1 + ((effectiveStats.ailmentPotency ?? 0) + comboAilmentPotency + condAilmentPotency + keystoneAilmentPerStack - keystoneAilmentPenalty) / 100;
   if (graphMod?.ailmentPotencyMult) ailmentPotencyMult *= (1 + graphMod.ailmentPotencyMult / 100);
   if (graphMod?.ailmentPotencyOverride) ailmentPotencyMult = graphMod.ailmentPotencyOverride / 100;
   const ailmentSnapshot = roll.damage * ailmentPotencyMult;
@@ -1381,7 +1384,8 @@ export function runCombatTick(
       }
 
       // Skill-intrinsic chain: hit additional targets with decaying damage (e.g. Chain Strike)
-      const skillChains = (skill as ActiveSkillDef).chainCount ?? 0;
+      // Merge base skill chains + talent-added chains (graphMod.chainCount)
+      const skillChains = ((skill as ActiveSkillDef).chainCount ?? 0) + (graphMod?.chainCount ?? 0);
       if (skillChains > 0 && updatedPackMobs.length > 1) {
         const chainDecay = [0.7, 0.5, 0.35]; // 70%, 50%, 35% per successive chain
         for (let c = 0; c < skillChains && c + 1 < updatedPackMobs.length; c++) {
