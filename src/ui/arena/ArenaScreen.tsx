@@ -28,6 +28,7 @@ import {
   tickArenaSpawns,
   tickOutOfRangeDoTs,
   tickRangedProjectiles,
+  tickMeleeAttacks,
   placeArenaTrap,
   detonateOldestArenaTrap,
   dashPlayerForward,
@@ -189,6 +190,36 @@ export default function ArenaScreen() {
           }
         }
       } catch (e) { console.error('[arena] projectile tick error:', e); }
+
+      // Tick melee mob attacks (per-frame, proximity-based)
+      try {
+        if (currentPhase === 'clearing') {
+          const meleeZone = ZONE_DEFS.find(z => z.id === gs.currentZoneId);
+          if (meleeZone) {
+            let meleeStats: ReturnType<typeof resolveStats> | null = null;
+            try { meleeStats = resolveStats(gs.character); } catch { /* */ }
+            if (meleeStats) {
+              const meleeHits = tickMeleeAttacks(
+                arena, dt, meleeZone.band, meleeZone.iLvlMin,
+                gs.character.level, meleeStats,
+              );
+              for (const hit of meleeHits) {
+                addPlayerHitFloater(arena, hit.damage, hit.isDodged, hit.isBlocked);
+                if (!hit.isDodged && !hit.isBlocked && hit.damage > 0) {
+                  triggerIFrames(arena);
+                  const curHp = useGameStore.getState().currentHp;
+                  useGameStore.setState({ currentHp: Math.max(0, curHp - hit.damage) });
+                  logCombat(arena, `Melee hit → ${Math.round(hit.damage)}`, '#f87171');
+                } else if (hit.isDodged) {
+                  logCombat(arena, 'DODGE melee', '#67e8f9');
+                } else if (hit.isBlocked) {
+                  logCombat(arena, 'BLOCK melee', '#93c5fd');
+                }
+              }
+            }
+          }
+        }
+      } catch (e) { console.error('[arena] melee tick error:', e); }
 
       // Trap proximity detonation — visual only, engine handles damage
       if (arena.traps.length > 0) {

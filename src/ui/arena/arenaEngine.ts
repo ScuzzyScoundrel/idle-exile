@@ -557,6 +557,51 @@ export function tickRangedProjectiles(
 // We need ProjectileHitResult for the return type — it's re-exported from arenaTypes
 import type { ProjectileHitResult } from './arenaTypes';
 
+/** Tick melee mob attacks — mobs within melee range attack on their own timer.
+ *  Same damage/dodge/block formula as ranged projectiles.
+ *  Called per-frame alongside tickRangedProjectiles. */
+export function tickMeleeAttacks(
+  state: ArenaState,
+  dt: number,
+  zoneBand: number,
+  zoneILvlMin: number,
+  playerLevel: number,
+  playerStats: ResolvedStats,
+): ProjectileHitResult[] {
+  const hits: ProjectileHitResult[] = [];
+  const levelMult = calcLevelDamageMult(playerLevel, zoneILvlMin);
+  const zoneAccuracy = calcZoneAccuracy(zoneBand, playerLevel, zoneILvlMin);
+
+  for (const mob of state.mobs) {
+    if (mob.dead || mob.behavior === 'ranged') continue;
+
+    mob.attackTimer -= dt;
+    if (mob.attackTimer > 0) continue;
+    if (!mobCanAttackPlayer(state, mob)) {
+      // Not in range — don't reset timer, let it stay at 0 so attack fires immediately on contact
+      mob.attackTimer = 0;
+      continue;
+    }
+
+    // Attack — reset timer with variance
+    mob.attackTimer = SPATIAL_ATTACK_INTERVAL * (0.8 + Math.random() * 0.4);
+
+    // Fast mobs hit lighter but more often
+    const dmgMult = mob.behavior === 'fast' ? 0.6 : 1.0;
+    const variance = 0.8 + Math.random() * 0.4;
+    const rawDmg = (SPATIAL_DMG_BASE * zoneBand + SPATIAL_DMG_ILVL_SCALE * zoneILvlMin) * levelMult * variance * dmgMult;
+
+    const roll = rollZoneAttack(rawDmg, 0.7, zoneAccuracy, playerStats, undefined, undefined, zoneBand);
+    hits.push({
+      damage: Math.round(roll.damage),
+      isDodged: roll.isDodged,
+      isBlocked: roll.isBlocked,
+    });
+  }
+
+  return hits;
+}
+
 // ── Update ──
 
 export function updateArena(
