@@ -681,6 +681,7 @@ export function evaluateProcs(
         result.consumeAilments = true;
       }
       if (proc.detonateAll) {
+        // 100% of remaining ailment damage as instant burst, consume all stacks
         result.detonationDamage += ailmentTotal;
         result.consumeAilments = true;
       }

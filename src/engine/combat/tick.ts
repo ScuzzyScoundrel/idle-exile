@@ -1454,7 +1454,7 @@ export function runCombatTick(
     const perTargetProcs = graphMod.skillProcs.filter((p: any) => p.perTarget);
     if (perTargetProcs.length > 0) {
       for (const mob of updatedPackMobs) {
-        if (mob.debuffs.length === 0) continue;
+        if (mob.debuffs.length === 0) continue; // skip mobs with no ailments
         const perTargetCtx: ProcContext = {
           isHit: roll.isHit, isCrit: roll.isCrit,
           skillId: skill.id, effectiveMaxLife,
@@ -1463,12 +1463,13 @@ export function runCombatTick(
           damageMult, now,
           lastProcTriggerAt: newLastProcTriggerAt,
           ...cpShared,
-          targetDebuffs: mob.debuffs,
+          targetDebuffs: mob.debuffs, // override with THIS mob's debuffs
         };
         const ptResult = evaluateProcs(perTargetProcs, 'onHit', perTargetCtx);
         Object.assign(newLastProcTriggerAt, ptResult.procTriggeredAt);
         allProcsFired.push(...ptResult.procsFired);
         allProcEvents.push(...buildProcEvents(ptResult, skill.id));
+        // Apply detonation damage to this specific mob
         if (ptResult.detonationDamage > 0) {
           const mobDR = mob.rare?.combinedDamageTakenMult ?? 1;
           mob.hp -= ptResult.detonationDamage * mobDR;
