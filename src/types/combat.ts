@@ -139,6 +139,7 @@ export interface DebuffDef {
     percentMaxHp?: number;         // % of enemy max HP as DPS (burning)
     incCritChanceTaken?: number;   // +crit chance on target per stack (shocked)
     shatterOverkillPercent?: number; // % of overkill dealt to next mob (chilled)
+    sharedDamagePercent?: number;    // Plague Link: % of damage shared to other linked targets
   };
   instanceBased?: boolean;        // true = each application creates independent instance (poison)
   dotTickInterval?: number;       // seconds between batched DoT ticks (e.g. 0.5 for poison)

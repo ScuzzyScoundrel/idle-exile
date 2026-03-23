@@ -1295,6 +1295,9 @@ export function runCombatTick(
   const allSpreadEvents: SpreadResult[] = [];
   const skillIsAoE = isSkillAoE(state.skillBar, skill.id, state.skillProgress) || (graphMod?.targetAllEnemies === true);
 
+  // Snapshot HP for Plague Link damage sharing (before any damage applied)
+  const preLinkHp = updatedPackMobs.map(m => m.hp);
+
   // Compute total damage to apply (before per-mob DR)
   let rawSkillDamage = 0;
   if (roll.isHit) {
@@ -1414,6 +1417,37 @@ export function runCombatTick(
           mob.debuffs[existingIdx] = { ...debuffInfo };
         } else {
           mob.debuffs.push({ ...debuffInfo });
+        }
+      }
+    }
+  }
+
+  // Plague Link damage sharing: linked mobs share damage with each other
+  {
+    const linkDef = getDebuffDef('plague_link');
+    const sharedPct = (linkDef?.effect.sharedDamagePercent ?? 15) / 100;
+    const linkedIndices: number[] = [];
+    for (let i = 0; i < updatedPackMobs.length; i++) {
+      if (updatedPackMobs[i].debuffs.some(d => d.debuffId === 'plague_link')) {
+        linkedIndices.push(i);
+      }
+    }
+    if (linkedIndices.length >= 2) {
+      // Calculate damage each linked mob took this tick
+      const linkDamages = linkedIndices.map(i => {
+        // preLinkHp uses the original index mapping — find the mob's pre-damage HP
+        // After reordering by arena, the mob at updatedPackMobs[i] may have shifted.
+        // But preLinkHp was captured at the same point as updatedPackMobs, so index matches.
+        return Math.max(0, preLinkHp[i] - updatedPackMobs[i].hp);
+      });
+      // Apply shared damage (single pass — no recursion)
+      for (let li = 0; li < linkedIndices.length; li++) {
+        if (linkDamages[li] <= 0) continue;
+        const sharedDmg = linkDamages[li] * sharedPct;
+        for (let lj = 0; lj < linkedIndices.length; lj++) {
+          if (li === lj) continue;
+          updatedPackMobs[linkedIndices[lj]].hp -= sharedDmg;
+          totalDamage += sharedDmg;
         }
       }
     }

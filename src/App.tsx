@@ -9,6 +9,7 @@ import ZoneScreen from './ui/screens/ZoneScreen';
 import InventoryScreen from './ui/screens/InventoryScreen';
 import CharacterScreen from './ui/screens/CharacterScreen';
 import CraftingScreen from './ui/screens/CraftingScreen';
+import ArenaScreen from './ui/arena/ArenaScreen';
 import CombatStatusBar from './ui/components/CombatStatusBar';
 import { useGameStore } from './store/gameStore';
 import { useTabGuard } from './ui/hooks/useTabGuard';
@@ -117,7 +118,10 @@ function App() {
       {/* Main content area — padded for top and bottom bars + optional combat status bar.
           All screens stay mounted (hidden via CSS) so local state persists across tab switches. */}
       <main className={`px-3 ${isRunning ? 'pt-[88px]' : 'pt-16'} pb-20`}>
-        <div className={activeTab === 'zones' ? '' : 'hidden'}><ZoneScreen /></div>
+        {/* Arena and Zones both drive tickCombat — only mount one at a time */}
+        {activeTab === 'arena'
+          ? <ArenaScreen />
+          : <div className={activeTab === 'zones' ? '' : 'hidden'}><ZoneScreen /></div>}
         <div className={activeTab === 'inventory' ? '' : 'hidden'}><InventoryScreen /></div>
         <div className={activeTab === 'crafting' ? '' : 'hidden'}><CraftingScreen /></div>
         <div className={activeTab === 'character' ? '' : 'hidden'}><CharacterScreen /></div>

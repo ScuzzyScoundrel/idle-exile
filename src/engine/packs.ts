@@ -76,8 +76,8 @@ export function rollRareAffixes(band: number): RareAffixId[] {
  *  @param mobElement  Damage element from MobTypeDef (default 'physical')
  *  @param mobPhysRatio  Physical ratio from MobTypeDef (default 1.0 for physical, 0.5 for elemental)
  */
-export function spawnPack(zone: ZoneDef, hpMult: number, invMult: number, startAttackAt: number, mobElement?: MobDamageElement, mobPhysRatio?: number): MobInPack[] {
-  const packSize = rollPackSize(zone.band);
+export function spawnPack(zone: ZoneDef, hpMult: number, invMult: number, startAttackAt: number, mobElement?: MobDamageElement, mobPhysRatio?: number, packSizeOverride?: number): MobInPack[] {
+  const packSize = packSizeOverride ?? rollPackSize(zone.band);
   const baseInterval = ZONE_ATTACK_INTERVAL * 1000; // ms
   const mobs: MobInPack[] = [];
 

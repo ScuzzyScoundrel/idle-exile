@@ -6,6 +6,7 @@ interface NavBarProps {
 
 const TABS = [
   { id: 'zones', label: 'Zones', icon: '\uD83C\uDF0D' },
+  { id: 'arena', label: 'Arena', icon: '\uD83C\uDFAE' },
   { id: 'inventory', label: 'Loot', icon: '\uD83C\uDF92' },
   { id: 'crafting', label: 'Craft', icon: '\uD83D\uDD28' },
   { id: 'character', label: 'Hero', icon: '\u2694\uFE0F' },

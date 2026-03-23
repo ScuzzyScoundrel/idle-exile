@@ -99,6 +99,14 @@ export const DEBUFF_DEFS: DebuffDef[] = [
     effect: { incDamageTaken: 20 },
   },
   {
+    id: 'plague_link',
+    name: 'Plague Link',
+    description: 'Linked targets share 15% of damage taken with other linked targets.',
+    stackable: false,
+    maxStacks: 1,
+    effect: { sharedDamagePercent: 15 },
+  },
+  {
     id: 'deathMark',
     name: 'Death Mark',
     description: 'Marked for death. Next hit deals bonus damage and removes the mark.',
