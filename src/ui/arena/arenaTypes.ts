@@ -31,6 +31,11 @@ export interface ArenaMob {
   activeDebuffs: string[]; // debuff IDs for visual rendering (e.g. ['poisoned','bleeding'])
   // Behavior
   behavior: 'melee' | 'fast' | 'ranged'; // movement style
+  // Arena affixes (spatial mechanics)
+  arenaAffixes: ArenaAffixId[];
+  teleportTimer: number;     // seconds until next teleport (teleporter affix)
+  mortarTimer: number;       // seconds until next mortar shot (mortar affix)
+  shieldAuraRadius: number;  // >0 if shielding affix active
 }
 
 export interface DamageFloater {
@@ -98,6 +103,7 @@ export interface ArenaProjectile {
   damage: number;             // pre-rolled
   sourceMobId: number;
   hit: boolean;
+  isMortar?: boolean;        // mortar affix: slow projectile → fire hazard on impact
 }
 
 export interface ArenaTrap {
@@ -252,6 +258,9 @@ export interface ArenaState {
   nextShrineId: number;
   activeShrineEffects: ArenaShrineEffect[];
   totalKillsForShrines: number;  // kills since last shrine spawn
+  // Phase 14: Arena affixes + ground hazards
+  hazards: ArenaHazard[];
+  nextHazardId: number;
 }
 
 export interface ProjectileHitResult {
@@ -296,3 +305,19 @@ export const SPLASH_DAMAGE_SINGLE = 0.6;    // 60% damage for single-target spla
 export const KILLS_PER_CLEAR = 5;           // kills needed for 1 processNewClears call
 
 export const FLOATER_MAX_AGE = 1.4;
+
+// ── Arena Affixes (spatial mob mechanics) ──
+
+export type ArenaAffixId = 'explosive' | 'toxic' | 'shielding' | 'teleporter' | 'mortar';
+
+export interface ArenaHazard {
+  id: number;
+  x: number;
+  y: number;
+  radius: number;
+  type: 'fire' | 'poison';
+  age: number;
+  maxAge: number;
+  damagePerSec: number;
+  lastDamageTick: number;  // totalTime of last player damage tick
+}

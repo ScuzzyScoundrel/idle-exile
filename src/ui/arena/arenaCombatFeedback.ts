@@ -3,8 +3,9 @@
 // skill visuals, screen shake, gems, knockback
 // ============================================================
 
-import type { ArenaState, ArenaMob, Vec2, SkillVisualType } from './arenaTypes';
+import type { ArenaState, ArenaMob, Vec2, SkillVisualType, ArenaHazard } from './arenaTypes';
 import { FLOATER_MAX_AGE } from './arenaTypes';
+import { ARENA_AFFIX_DEFS } from './arenaAffixes';
 
 // ── Combat Log ──
 
@@ -434,6 +435,41 @@ export function addKillFloater(state: ArenaState, pos: Vec2): void {
     isCrit: false,
     vy: -45,
   });
+}
+
+// ── Death Hazards (explosive/toxic on-death pools) ──
+
+/** Spawn fire/poison ground hazards when a mob with explosive/toxic affixes dies. */
+export function spawnDeathHazards(state: ArenaState, mob: ArenaMob, zoneBand: number): void {
+  if (!mob.arenaAffixes || mob.arenaAffixes.length === 0) return;
+  for (const affixId of mob.arenaAffixes) {
+    const def = ARENA_AFFIX_DEFS[affixId];
+    if (!def.hazardType) continue;
+    // Scale DPS slightly with zone band
+    const dps = (def.hazardDps ?? 6) * (1 + (zoneBand - 1) * 0.15);
+    state.hazards.push({
+      id: state.nextHazardId++,
+      x: mob.x, y: mob.y,
+      radius: def.hazardRadius ?? 40,
+      type: def.hazardType,
+      age: 0,
+      maxAge: def.hazardDuration ?? 3,
+      damagePerSec: dps,
+      lastDamageTick: 0,
+    });
+    // Visual particles at spawn
+    const pColor = def.hazardType === 'fire' ? '#f97316' : '#4ade80';
+    for (let i = 0; i < 4; i++) {
+      const pa = Math.random() * Math.PI * 2;
+      state.particles.push({
+        x: mob.x, y: mob.y,
+        vx: Math.cos(pa) * 30, vy: Math.sin(pa) * 30,
+        size: 2 + Math.random() * 2,
+        color: pColor,
+        age: 0, maxAge: 0.4,
+      });
+    }
+  }
 }
 
 export function addPlayerHitFloater(state: ArenaState, damage: number, dodged: boolean, blocked: boolean): void {

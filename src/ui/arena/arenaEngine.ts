@@ -9,6 +9,7 @@ export * from './arenaTypes';
 export * from './arenaCombatFeedback';
 export * from './arenaMovement';
 export * from './arenaTraps';
+export * from './arenaAffixes';
 export * from './arenaRendering';
 
 import type { ArenaGroundItem } from './arenaLoot';
@@ -20,7 +21,7 @@ import type { ResolvedStats, ZoneDef } from '../../types';
 import type { MobInPack } from '../../types/combat';
 import type { MobDamageElement } from '../../types/zones';
 
-import type { ArenaState, ArenaMob, Vec2 } from './arenaTypes';
+import type { ArenaState, ArenaMob, Vec2, ArenaProjectile } from './arenaTypes';
 import { PLAYER_ATTACK_RANGE, MOB_ATTACK_RANGE } from './arenaTypes';
 import {
   addKillFloater,
@@ -30,9 +31,12 @@ import {
   markMobHit,
   applyKnockback,
   updateGems,
+  spawnDeathHazards,
 } from './arenaCombatFeedback';
 import { triggerShake } from './arenaCombatFeedback';
 import { moveMobsTowardPlayer, PLAYER_SPEED } from './arenaMovement';
+import { rollArenaAffixes, ARENA_AFFIX_DEFS } from './arenaAffixes';
+import type { ArenaHazard } from './arenaTypes';
 
 // ── Constants (kept in arenaEngine) ──
 
@@ -147,6 +151,9 @@ export function createArenaState(width: number, height: number): ArenaState {
     activeShrineEffects: [],
     totalKillsForShrines: 0,
     nextTrapId: 1,
+    // Phase 14: Arena affixes + ground hazards
+    hazards: [],
+    nextHazardId: 1,
   };
 }
 
@@ -220,6 +227,10 @@ export function syncMobsFromPack(
         attackTimer: Math.random() * SPATIAL_ATTACK_INTERVAL,
         activeDebuffs: [],
         behavior: rollMobBehavior(),
+        arenaAffixes: [],
+        teleportTimer: 0,
+        mortarTimer: 0,
+        shieldAuraRadius: 0,
       };
     });
     state.lastKnownPackLength = len;
@@ -280,9 +291,23 @@ export function spawnArenaPack(
       attackTimer: Math.random() * SPATIAL_ATTACK_INTERVAL,
       activeDebuffs: [],
       behavior: rollMobBehavior(),
+      arenaAffixes: [],
+      teleportTimer: 0,
+      mortarTimer: 0,
+      shieldAuraRadius: 0,
     };
   });
   state.lastKnownPackLength = pack.length;
+
+  // Roll arena affixes on initial pack
+  for (const vm of state.mobs) {
+    const affixes = rollArenaAffixes(vm.isRare, state.currentWave);
+    vm.arenaAffixes = affixes;
+    if (affixes.includes('shielding')) vm.shieldAuraRadius = 60;
+    if (affixes.includes('teleporter')) vm.teleportTimer = 3 + Math.random() * 2;
+    if (affixes.includes('mortar')) vm.mortarTimer = 4 + Math.random() * 2;
+    if (vm.isRare && affixes.length > 0) vm.radius = 17; // bigger rares with affixes
+  }
 
   return pack;
 }
@@ -322,6 +347,7 @@ export function mergeAfterTick(
   postSlice: ReadonlyArray<MobInPack>,
   mobKills: number,
   isCrit: boolean,
+  zoneBand: number = 1,
 ): MobInPack[] {
   // Engine popped mobKills dead mobs from front of slice.
   // Dead: slicePackIndices[0..mobKills-1]
@@ -338,6 +364,7 @@ export function mergeAfterTick(
       visMob.deathTimer = 0;
       addKillFloater(state, visMob);
       spawnDeathParticles(state, visMob);
+      spawnDeathHazards(state, visMob, zoneBand);
       spawnGems(state, visMob, 2 + Math.floor(Math.random() * 3));
       if (Math.random() < 0.3) spawnGems(state, visMob, 1, true);
     }
@@ -371,6 +398,7 @@ export function mergeAfterTick(
       deadSet.add(origIdx);
       addKillFloater(state, visMob);
       spawnDeathParticles(state, visMob);
+      spawnDeathHazards(state, visMob, zoneBand);
       spawnGems(state, visMob, 2 + Math.floor(Math.random() * 3));
       if (Math.random() < 0.3) spawnGems(state, visMob, 1, true);
     }
@@ -466,7 +494,19 @@ export function tickArenaSpawns(
       attackTimer: Math.random() * SPATIAL_ATTACK_INTERVAL,
       activeDebuffs: [],
       behavior: rollMobBehavior(),
+      arenaAffixes: [],
+      teleportTimer: 0,
+      mortarTimer: 0,
+      shieldAuraRadius: 0,
     });
+    // Roll arena affixes on spawned mob
+    const spawnedMob = state.mobs[state.mobs.length - 1];
+    const affixes = rollArenaAffixes(spawnedMob.isRare, state.currentWave);
+    spawnedMob.arenaAffixes = affixes;
+    if (affixes.includes('shielding')) spawnedMob.shieldAuraRadius = 60;
+    if (affixes.includes('teleporter')) spawnedMob.teleportTimer = 3 + Math.random() * 2;
+    if (affixes.includes('mortar')) spawnedMob.mortarTimer = 4 + Math.random() * 2;
+    if (spawnedMob.isRare && affixes.length > 0) spawnedMob.radius = 17;
     state.lastKnownPackLength = currentPackLen + 1;
     allPack.push(...pack);
   }
@@ -536,7 +576,7 @@ export function triggerDodgeRoll(state: ArenaState, keys: Set<string>): boolean 
 import type { ShrineType } from './arenaTypes';
 
 const SHRINE_TYPES: ShrineType[] = ['damage', 'speed', 'magnet', 'bomb'];
-const SHRINE_SPAWN_KILLS = 25; // kills between shrine spawns
+const SHRINE_SPAWN_KILLS = 12; // kills between shrine spawns
 
 /** Spawn a shrine at a random position near the player. */
 export function spawnShrine(state: ArenaState): void {
@@ -990,6 +1030,104 @@ export function updateArena(
     proj.y += proj.vy * dt;
   }
   state.projectiles = state.projectiles.filter(p => !p.hit && p.age < p.maxAge);
+
+  // ── Ground Hazards (fire/poison pools) ──
+  for (const h of state.hazards) h.age += dt;
+  state.hazards = state.hazards.filter(h => h.age < h.maxAge);
+  // Cap at 30 hazards
+  if (state.hazards.length > 30) {
+    state.hazards = state.hazards.slice(-30);
+  }
+
+  // ── Teleporter Affix: blink to near player ──
+  for (const mob of state.mobs) {
+    if (mob.dead || !mob.arenaAffixes.includes('teleporter')) continue;
+    mob.teleportTimer -= dt;
+    if (mob.teleportTimer <= 0) {
+      mob.teleportTimer = 3 + Math.random() * 2;
+      // Blink to random position within 80px of player
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 40 + Math.random() * 40;
+      mob.x = Math.max(mob.radius, Math.min(state.worldWidth - mob.radius,
+        state.player.x + Math.cos(angle) * dist));
+      mob.y = Math.max(mob.radius, Math.min(state.worldHeight - mob.radius,
+        state.player.y + Math.sin(angle) * dist));
+      mob.vx = 0;
+      mob.vy = 0;
+      // Purple teleport particles
+      for (let i = 0; i < 6; i++) {
+        const pa = Math.random() * Math.PI * 2;
+        state.particles.push({
+          x: mob.x, y: mob.y,
+          vx: Math.cos(pa) * 60, vy: Math.sin(pa) * 60,
+          size: 2 + Math.random() * 2,
+          color: '#a78bfa',
+          age: 0, maxAge: 0.3 + Math.random() * 0.2,
+        });
+      }
+    }
+  }
+
+  // ── Mortar Affix: fire slow AoE projectile → fire hazard on impact ──
+  for (const mob of state.mobs) {
+    if (mob.dead || !mob.arenaAffixes.includes('mortar')) continue;
+    mob.mortarTimer -= dt;
+    if (mob.mortarTimer <= 0) {
+      mob.mortarTimer = 4 + Math.random() * 2;
+      const dx = state.player.x - mob.x;
+      const dy = state.player.y - mob.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > 1 && dist < 500) {
+        const MORTAR_SPEED = 100;
+        state.projectiles.push({
+          id: state.nextProjectileId++,
+          x: mob.x, y: mob.y,
+          vx: (dx / dist) * MORTAR_SPEED,
+          vy: (dy / dist) * MORTAR_SPEED,
+          radius: 8,
+          color: '#fb923c',
+          age: 0, maxAge: 3.0,
+          damage: 0, // mortar doesn't deal direct damage — spawns hazard
+          sourceMobId: mob.mobId,
+          hit: false,
+          isMortar: true,
+        });
+      }
+    }
+  }
+
+  // ── Mortar impact → spawn fire hazard ──
+  for (const proj of state.projectiles) {
+    if (proj.hit || !proj.isMortar) continue;
+    // Check if mortar reached player vicinity (within 20px) or expired
+    const pdx = state.player.x - proj.x;
+    const pdy = state.player.y - proj.y;
+    const pDist = Math.sqrt(pdx * pdx + pdy * pdy);
+    if (pDist < 25 || proj.age >= proj.maxAge - 0.05) {
+      proj.hit = true;
+      // Spawn fire hazard at impact point
+      state.hazards.push({
+        id: state.nextHazardId++,
+        x: proj.x, y: proj.y,
+        radius: 40,
+        type: 'fire',
+        age: 0, maxAge: 3,
+        damagePerSec: 8,
+        lastDamageTick: 0,
+      });
+      // Impact particles
+      for (let i = 0; i < 5; i++) {
+        const pa = Math.random() * Math.PI * 2;
+        state.particles.push({
+          x: proj.x, y: proj.y,
+          vx: Math.cos(pa) * 40, vy: Math.sin(pa) * 40,
+          size: 2 + Math.random() * 2,
+          color: '#f97316',
+          age: 0, maxAge: 0.3,
+        });
+      }
+    }
+  }
 
   // ── I-frame decay ──
   if (state.iFrameTimer > 0) state.iFrameTimer -= dt;

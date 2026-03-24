@@ -189,6 +189,24 @@ export default function ArenaScreen() {
       // Update spatial simulation
       updateArena(arena, dt, keysRef.current);
 
+      // ── Hazard DPS to player (fire/poison pools) ──
+      if (arena.hazards.length > 0 && arena.iFrameTimer <= 0 && currentPhase === 'clearing') {
+        for (const h of arena.hazards) {
+          const hdx = arena.player.x - h.x;
+          const hdy = arena.player.y - h.y;
+          const hDist = Math.sqrt(hdx * hdx + hdy * hdy);
+          if (hDist < h.radius + arena.playerRadius) {
+            // Tick damage every 0.5s
+            if (arena.totalTime - h.lastDamageTick >= 0.5) {
+              h.lastDamageTick = arena.totalTime;
+              const hazardDmg = h.damagePerSec * 0.5;
+              applySpatialDamage(arena, hazardDmg, h.type === 'fire' ? 'Fire Pool' : 'Poison Cloud');
+              addPlayerHitFloater(arena, hazardDmg, false, false);
+            }
+          }
+        }
+      }
+
       // Tick ranged mob projectiles (per-frame, not per-tick)
       try {
         if (currentPhase === 'clearing') {
@@ -372,9 +390,11 @@ export default function ArenaScreen() {
         const postSlice = useGameStore.getState().packMobs;
 
         // Merge results back into full pack
+        const mergeZone = ZONE_DEFS.find(z => z.id === gs.currentZoneId);
         const newFullPack = mergeAfterTick(
           arena, fullPack, slicePackIndices,
           postSlice, result.mobKills, result.isCrit,
+          mergeZone?.band ?? 1,
         );
 
         // Detect engine auto-respawn (killed all slice mobs → engine spawned tiny pack)

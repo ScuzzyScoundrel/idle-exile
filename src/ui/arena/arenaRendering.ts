@@ -3,7 +3,8 @@
 // Pure Canvas2D rendering, zero dependencies on game engine.
 // ============================================================
 
-import type { ArenaState, SkillCooldownInfo, ArenaRenderOpts } from './arenaTypes';
+import type { ArenaState, SkillCooldownInfo, ArenaRenderOpts, ArenaAffixId } from './arenaTypes';
+import { ARENA_AFFIX_DEFS } from './arenaAffixes';
 import { PLAYER_ATTACK_RANGE, SPLASH_RADIUS_AOE } from './arenaTypes';
 import { GEM_COLLECT_ANIM } from './arenaCombatFeedback';
 import { anyMobInRange, mobCanAttackPlayer } from './arenaEngine';
@@ -288,6 +289,33 @@ export function renderArena(
     ctx.setLineDash([]);
   }
 
+  // ── Ground Hazards (fire/poison pools) ──
+  for (const h of state.hazards) {
+    const ht = h.age / h.maxAge;
+    const hAlpha = Math.max(0, ht < 0.1 ? ht / 0.1 : ht > 0.8 ? (1 - ht) / 0.2 : 1) * 0.6;
+    const isFire = h.type === 'fire';
+    const hColor1 = isFire ? 'rgba(249, 115, 22,' : 'rgba(74, 222, 128,';
+    const hColor2 = isFire ? 'rgba(239, 68, 68,' : 'rgba(34, 197, 94,';
+
+    // Outer glow
+    const hGlow = ctx.createRadialGradient(h.x, h.y, 0, h.x, h.y, h.radius);
+    hGlow.addColorStop(0, `${hColor1} ${(hAlpha * 0.5).toFixed(3)})`);
+    hGlow.addColorStop(0.6, `${hColor2} ${(hAlpha * 0.25).toFixed(3)})`);
+    hGlow.addColorStop(1, `${hColor1} 0)`);
+    ctx.beginPath();
+    ctx.arc(h.x, h.y, h.radius, 0, Math.PI * 2);
+    ctx.fillStyle = hGlow;
+    ctx.fill();
+
+    // Pulsing inner ring
+    const pulse = 0.5 + Math.sin(totalTime * 5 + h.id) * 0.3;
+    ctx.beginPath();
+    ctx.arc(h.x, h.y, h.radius * 0.5 * pulse, 0, Math.PI * 2);
+    ctx.strokeStyle = `${hColor1} ${(hAlpha * 0.7).toFixed(3)})`;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
   // ── Projectiles (ranged mob attacks) ──
   for (const proj of state.projectiles) {
     if (proj.hit) continue;
@@ -480,6 +508,59 @@ export function renderArena(
         ctx.fill();
         ctx.globalAlpha = 1;
       }
+    }
+
+
+    // ── Arena Affix Visuals ──
+    if (mob.arenaAffixes && mob.arenaAffixes.length > 0) {
+      // Shielding aura ring
+      if (mob.arenaAffixes.includes('shielding')) {
+        const sPulse = 0.3 + Math.sin(totalTime * 2 + mob.mobId) * 0.1;
+        ctx.beginPath();
+        ctx.arc(mob.x, mob.y, mob.shieldAuraRadius, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(96, 165, 250, ${sPulse.toFixed(3)})`;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = `rgba(96, 165, 250, ${(sPulse * 0.08).toFixed(3)})`;
+        ctx.fill();
+      }
+
+      // Teleporter shimmer
+      if (mob.arenaAffixes.includes('teleporter')) {
+        const tPulse = 0.3 + Math.sin(totalTime * 6 + mob.mobId * 0.7) * 0.2;
+        ctx.beginPath();
+        ctx.arc(mob.x, mob.y, mob.radius + 3, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(167, 139, 252, ${tPulse.toFixed(3)})`;
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 3]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // Mortar orange dots orbiting
+      if (mob.arenaAffixes.includes('mortar')) {
+        for (let mi = 0; mi < 3; mi++) {
+          const mAng = totalTime * 3 + (Math.PI * 2 / 3) * mi;
+          const mOx = mob.x + Math.cos(mAng) * (mob.radius + 5);
+          const mOy = mob.y + Math.sin(mAng) * (mob.radius + 5);
+          ctx.beginPath();
+          ctx.arc(mOx, mOy, 2, 0, Math.PI * 2);
+          ctx.fillStyle = '#fb923c';
+          ctx.fill();
+        }
+      }
+
+      // Affix name labels above HP bar
+      const labelY = barY - 10;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = 'bold 8px monospace';
+      const affixLabels = mob.arenaAffixes.map(a => ARENA_AFFIX_DEFS[a]?.label ?? a);
+      const labelText = affixLabels.join(' · ');
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillText(labelText, mob.x + 1, labelY + 1);
+      ctx.fillStyle = mob.isRare ? '#fbbf24' : '#d4d4d8';
+      ctx.fillText(labelText, mob.x, labelY);
     }
   }
 
