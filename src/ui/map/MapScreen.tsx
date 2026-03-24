@@ -22,6 +22,11 @@ import type { MapHudExtra } from './mapRendering';
 import { rollArenaLoot, rollBossArenaLoot } from '../arena/arenaLoot';
 import { calcXpScale } from '../../engine/zones/scaling';
 import { PLAYER_ATTACK_RANGE } from '../arena/arenaTypes';
+import { addDotFloater, addProcFloater } from '../arena/arenaCombatFeedback';
+import { placeArenaTrap, detonateOldestArenaTrap } from '../arena/arenaTraps';
+import { dashPlayerForward } from '../arena/arenaMovement';
+import { buildSpatialSlice } from '../arena/spatialTargeting';
+import { getNextRotationSkill, getSkillGraphModifier } from '../../engine/unifiedSkills';
 import {
   addDamageFloater, addKillFloater,
   addPlayerHitFloater, spawnDeathParticles, spawnGems, markMobHit,
@@ -692,7 +697,6 @@ export default function MapScreen() {
 
           const tickGs = useGameStore.getState();
           const mobsInRange = getMapMobsInRange(map, PLAYER_ATTACK_RANGE);
-          if (mobsInRange.length === 0) continue;
 
           // Build a temporary pack from in-range mobs for the engine
           const now = Date.now();
@@ -710,9 +714,44 @@ export default function MapScreen() {
             nextAttackAt: now + 5000,
           }));
 
-          // Set store to temp pack, tick combat, read results
+          // Predict next skill for spatial targeting (defensive — fallback to null skill)
+          let skillDef: import('../../types/skills').SkillDef | null = null;
+          let graphMod: ReturnType<typeof getSkillGraphModifier> | null = null;
+          try {
+            const nextSkill = getNextRotationSkill(
+              tickGs.skillBar,
+              tickGs.skillTimers ?? [],
+              Date.now(),
+              tickGs.skillProgress,
+            );
+            skillDef = nextSkill?.skill ?? null;
+            graphMod = skillDef && tickGs.skillProgress
+              ? getSkillGraphModifier(skillDef, tickGs.skillProgress[skillDef.id])
+              : null;
+          } catch (e) { console.error('[map] skill prediction error:', e); }
+
+          // Set store to temp pack for spatial slice
           useGameStore.setState({ packMobs: tempPack, currentPackSize: tempPack.length });
-          const result = tickGs.tickCombat(0.25);
+
+          // Build spatial slice (skill-aware targeting: AoE, Chain, Fan, etc.)
+          const { slice, slicePackIndices, targetMobs, strategyUsed } = buildSpatialSlice(
+            map as any, tempPack, skillDef, graphMod,
+          );
+
+          // Allow Movement/Trap skills to fire even with no mobs in range
+          const isUtilitySkill = skillDef && (
+            skillDef.tags.includes('Movement') || skillDef.tags.includes('Trap')
+          );
+          if (slice.length === 0 && !isUtilitySkill) {
+            useGameStore.setState({ packMobs: [], currentPackSize: 0 });
+            continue;
+          }
+
+          // Swap store to combat slice (engine only sees spatially-selected mobs)
+          useGameStore.setState({ packMobs: slice, currentPackSize: slice.length });
+
+          // Engine combat tick — full pipeline on in-range mobs only
+          const result = useGameStore.getState().tickCombat(0.25);
           const postPack = useGameStore.getState().packMobs;
 
           // Restore store so engine doesn't accumulate ghost packs
@@ -720,12 +759,15 @@ export default function MapScreen() {
 
           // Engine pops dead mobs from the FRONT of the pack.
           // postPack[0] corresponds to mobsInRange[kills], not mobsInRange[0].
+          // Map slice indices back to mobsInRange indices
           let kills = result.mobKills;
           let rareKills = 0;
 
-          // Mark killed mobs (popped from front of pack)
-          for (let i = 0; i < kills && i < mobsInRange.length; i++) {
-            const visMob = mobsInRange[i];
+          // Mark killed mobs (popped from front of slice → map back to mobsInRange)
+          for (let i = 0; i < kills && i < slicePackIndices.length; i++) {
+            const mobIdx = slicePackIndices[i];
+            if (mobIdx >= mobsInRange.length) continue;
+            const visMob = mobsInRange[mobIdx];
             if (!visMob.dead) {
               visMob.dead = true;
               visMob.deathTimer = 0;
@@ -750,9 +792,11 @@ export default function MapScreen() {
             }
           }
 
-          // Sync surviving mobs (postPack[j] = mobsInRange[kills + j])
-          for (let j = 0; j < postPack.length && kills + j < mobsInRange.length; j++) {
-            const visMob = mobsInRange[kills + j];
+          // Sync surviving mobs (postPack[j] maps back via slicePackIndices[kills + j])
+          for (let j = 0; j < postPack.length && kills + j < slicePackIndices.length; j++) {
+            const mobIdx = slicePackIndices[kills + j];
+            if (mobIdx >= mobsInRange.length) continue;
+            const visMob = mobsInRange[mobIdx];
             const prevHp = visMob.hp;
             visMob.hp = postPack[j].hp;
             visMob.maxHp = postPack[j].maxHp;
@@ -790,15 +834,143 @@ export default function MapScreen() {
             }
           }
 
-          // Skill visual feedback
+          // ── Visual feedback + combat log: consume ALL result fields ──
+          // Use spatially-resolved targets for visuals (fallback to closest alive mob)
+          const visTarget = targetMobs[0] ?? mobsInRange.find(m => !m.dead) ?? null;
+
+          // Skill fired
           if (result.skillFired && result.skillId) {
             markSkillCast(map as any, result.skillId);
             const visDef = getUnifiedSkillDef(result.skillId);
-            const visTarget = mobsInRange.find(m => !m.dead) ?? null;
-            if (visDef?.tags) spawnSkillVisual(map as any, visDef.tags, visTarget as any);
+
+            // Shadow Dash: always dash in facing direction, even with no targets
+            if (result.skillId === 'dagger_shadow_dash') {
+              if (visDef?.tags) spawnSkillVisual(map as any, visDef.tags, null, []);
+              dashPlayerForward(map as any, 100);
+              triggerShake(map as any, 3);
+            } else if (result.skillId === 'dagger_blade_trap') {
+              // Blade Trap: place persistent spinning trap in front of player
+              const trapX = map.player.x + map.playerFacing.x * 40;
+              const trapY = map.player.y + map.playerFacing.y * 40;
+              placeArenaTrap(map as any, trapX, trapY);
+              if (visDef?.tags) spawnSkillVisual(map as any, visDef.tags, visTarget as any, targetMobs.slice(1));
+            } else {
+              if (visDef?.tags) spawnSkillVisual(map as any, visDef.tags, visTarget as any, targetMobs.slice(1));
+            }
+
+            const dmgStr = result.damageDealt > 0 ? ` -> ${Math.round(result.damageDealt)}` : '';
+            const critStr = result.isCrit ? ' CRIT!' : '';
+            const stratStr = targetMobs.length > 1 ? ` [${strategyUsed} x${targetMobs.length}]` : '';
+            logCombat(map as any, `${visDef?.name ?? result.skillId}${dmgStr}${critStr}${stratStr}`, result.isCrit ? '#fbbf24' : '#e5e7eb');
           }
 
-          // Crit feedback
+          // DoT damage (poison + burning ticks)
+          if (result.dotDamage && result.dotDamage > 0 && visTarget) {
+            addDotFloater(map as any, result.dotDamage, { x: visTarget.x + 15, y: visTarget.y });
+            logCombat(map as any, `DoT tick -> ${Math.round(result.dotDamage)}`, '#86efac');
+          }
+
+          // Bleed trigger damage (fires when enemy attacks)
+          if (result.bleedTriggerDamage && result.bleedTriggerDamage > 0 && visTarget) {
+            addDotFloater(map as any, result.bleedTriggerDamage, { x: visTarget.x - 15, y: visTarget.y - 5 });
+            logCombat(map as any, `Bleed trigger -> ${Math.round(result.bleedTriggerDamage)}`, '#f87171');
+          }
+
+          // Shatter damage (cold overkill burst)
+          if (result.shatterDamage && result.shatterDamage > 0 && visTarget) {
+            addProcFloater(map as any, `SHATTER ${Math.round(result.shatterDamage)}`, visTarget);
+            logCombat(map as any, `Shatter -> ${Math.round(result.shatterDamage)}`, '#22d3ee');
+          }
+
+          // Counter-hit damage (dagger weapon module)
+          if (result.counterHitDamage && result.counterHitDamage > 0 && visTarget) {
+            addProcFloater(map as any, `COUNTER ${Math.round(result.counterHitDamage)}`, visTarget);
+            logCombat(map as any, `Counter-hit -> ${Math.round(result.counterHitDamage)}`, '#c4b5fd');
+          }
+
+          // Trap detonation damage (trap weapon module)
+          if (result.trapDetonationDamage && result.trapDetonationDamage > 0 && visTarget) {
+            detonateOldestArenaTrap(map as any);
+            addProcFloater(map as any, `TRAP ${Math.round(result.trapDetonationDamage)}`, visTarget);
+            logCombat(map as any, `Trap detonate -> ${Math.round(result.trapDetonationDamage)}`, '#f97316');
+          }
+
+          // Structured proc events (talent procs, on-hit effects)
+          if (result.procEvents && result.procEvents.length > 0) {
+            for (const pe of result.procEvents) {
+              if (pe.damage > 0 && visTarget) {
+                addProcFloater(map as any, `${pe.label} ${Math.round(pe.damage)}`, visTarget);
+              } else if (pe.label && visTarget) {
+                addProcFloater(map as any, pe.label, visTarget);
+              }
+              const peDmg = pe.damage > 0 ? ` -> ${Math.round(pe.damage)}` : '';
+              logCombat(map as any, `${pe.label}${peDmg}`, '#c4b5fd');
+            }
+          } else if (result.procDamage && result.procDamage > 0 && visTarget) {
+            addProcFloater(map as any, result.procLabel || 'PROC', visTarget);
+            logCombat(map as any, `${result.procLabel || 'Proc'} -> ${Math.round(result.procDamage)}`, '#c4b5fd');
+          }
+
+          // Debuff spread events (on-kill spread to new mob)
+          if (result.spreadEvents && result.spreadEvents.length > 0 && visTarget) {
+            addProcFloater(map as any, 'SPREAD', visTarget);
+            for (const se of result.spreadEvents) {
+              logCombat(map as any, `Spread ${se.debuffId} x${se.stacks}`, '#a78bfa');
+            }
+          } else if (result.didSpreadDebuffs && visTarget) {
+            addProcFloater(map as any, 'SPREAD', visTarget);
+            logCombat(map as any, 'Debuffs spread', '#a78bfa');
+          }
+
+          // Cooldown reset indicator
+          if (result.gcdWasReset) {
+            map.floaters.push({
+              x: map.player.x, y: map.player.y - 40,
+              text: 'INSTANT', color: '#60a5fa',
+              age: 0, maxAge: 0.8, isCrit: false, vy: -50,
+            });
+            logCombat(map as any, 'Instant cast!', '#60a5fa');
+          }
+          if (result.cooldownWasReset) {
+            map.floaters.push({
+              x: map.player.x + (Math.random() - 0.5) * 30, y: map.player.y - 45,
+              text: 'CD RESET', color: '#34d399',
+              age: 0, maxAge: 1.0, isCrit: false, vy: -55,
+            });
+            logCombat(map as any, 'Cooldown reset!', '#34d399');
+          }
+
+          // Player-received damage (engine zone attacks)
+          if (result.zoneAttack) {
+            addPlayerHitFloater(map as any, result.zoneAttack.damage, result.zoneAttack.isDodged, result.zoneAttack.isBlocked);
+            if (!result.zoneAttack.isDodged && !result.zoneAttack.isBlocked && result.zoneAttack.damage > 0) {
+              triggerIFrames(map as any);
+              logCombat(map as any, `Hit for ${Math.round(result.zoneAttack.damage)}`, '#f87171');
+            } else if (result.zoneAttack.isDodged) {
+              logCombat(map as any, 'DODGE', '#67e8f9');
+              const ds = useGameStore.getState();
+              useGameStore.setState({ pendingSpatialDodges: (ds.pendingSpatialDodges ?? 0) + 1 });
+            } else if (result.zoneAttack.isBlocked) {
+              logCombat(map as any, 'BLOCK', '#93c5fd');
+              const bs = useGameStore.getState();
+              useGameStore.setState({ pendingSpatialBlocks: (bs.pendingSpatialBlocks ?? 0) + 1 });
+            }
+          }
+
+          // Player death from zone attacks
+          if (result.zoneDeath) {
+            logCombat(map as any, 'DEFEATED', '#fca5a5');
+            const deathGs = useGameStore.getState();
+            if (deathGs.combatPhase === 'clearing') {
+              useGameStore.setState({
+                combatPhase: 'zone_defeat' as never,
+                combatPhaseStartedAt: Date.now(),
+              });
+              map.phase = 'failed';
+            }
+          }
+
+          // Crit feedback + hit-stop
           if (result.isCrit && result.damageDealt > 0) {
             triggerShake(map as any, 4);
             map.critFlashTimer = 0.03;

@@ -93,10 +93,11 @@ export function renderMap(
     }
   }
 
-  // ── Walls ──
+  // ── Walls (only for explored rooms — unexplored stay hidden) ──
   ctx.strokeStyle = '#3f3f46';
   ctx.lineWidth = 3;
   for (const room of state.layout.rooms) {
+    if (!room.entered) continue;
     for (const wall of room.walls) {
       ctx.beginPath();
       ctx.moveTo(wall.x1, wall.y1);
@@ -104,10 +105,11 @@ export function renderMap(
       ctx.stroke();
     }
   }
-  // Wall glow for visibility
+  // Wall glow for visibility (explored rooms only)
   ctx.strokeStyle = 'rgba(63, 63, 70, 0.3)';
   ctx.lineWidth = 6;
   for (const room of state.layout.rooms) {
+    if (!room.entered) continue;
     for (const wall of room.walls) {
       ctx.beginPath();
       ctx.moveTo(wall.x1, wall.y1);
