@@ -318,6 +318,8 @@ function createInitialState(): GameState {
     gemInventory: [],
     zoneMasteryClaimed: {},
     invasionState: { activeInvasions: {}, bandCooldowns: {} },
+    mapFragments: 0,
+    mapCompletedCounts: {},
     tutorialStep: 1,
     hasSeenCraftingHint: false,
     lastSaveTime: Date.now(),
@@ -1328,7 +1330,7 @@ export const useGameStore = create<GameState & GameActions>()(
     })) as import('zustand').StateCreator<GameState & GameActions, [['zustand/persist', unknown]], []>,
     {
       name: 'idle-exile-save',
-      version: 60,
+      version: 61,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;

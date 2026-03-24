@@ -184,6 +184,10 @@ export interface GameState {
   tutorialStep: number;
   hasSeenCraftingHint: boolean;
 
+  // Map system
+  mapFragments: number;
+  mapCompletedCounts: Record<string, number>;  // zoneId → maps completed (resets after boss)
+
   // Meta
   lastSaveTime: number;
 }

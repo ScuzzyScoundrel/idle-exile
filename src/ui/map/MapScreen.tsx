@@ -1,12 +1,14 @@
 // ============================================================
 // Map Screen — PoE-style room-based active play mode
 // WASD + mouse aim + auto-cast through room-based dungeons.
+// Phase 3: Zone selection, map fragments, downfarm penalty,
+//          per-zone map completion tracking.
 // ============================================================
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { resolveStats } from '../../engine/character';
-import { ZONE_DEFS } from '../../data/zones';
+import { ZONE_DEFS, BAND_NAMES } from '../../data/zones';
 import { rollZoneAttack, calcZoneAccuracy, calcLevelDamageMult } from '../../engine/zones';
 import { getUnifiedSkillDef } from '../../data/skills';
 
@@ -15,6 +17,7 @@ import { createMapState, updateMap, getMapMobsInRange, mobCanAttackMapPlayer,
   spawnMapBoss, bossCanAttackMapPlayer,
   BOSS_SLAM_DAMAGE_MULT, BOSS_BARRAGE_DAMAGE_MULT, BOSS_HAZARD_DPS_MULT } from './mapEngine';
 import { renderMap } from './mapRendering';
+import type { MapHudExtra } from './mapRendering';
 import { rollArenaLoot, rollBossArenaLoot } from '../arena/arenaLoot';
 import { calcXpScale } from '../../engine/zones/scaling';
 import { PLAYER_ATTACK_RANGE } from '../arena/arenaTypes';
@@ -38,6 +41,125 @@ const PROJECTILE_MAX_AGE = 2.0;
 const MAP_XP_MULTIPLIER = 2.5;
 const MAPS_BEFORE_BOSS = 5;       // complete 5 normal maps, then boss map
 const BOSS_MELEE_INTERVAL = 1.5;  // seconds between boss melee swings
+const DOWNFARM_ZONE_GAP = 5;      // zone index gap for downfarm penalty
+const DOWNFARM_XP_MULT = 0.5;     // 50% XP reduction when downfarming
+const FRAGMENT_RARE_DROP_CHANCE = 0.5;  // 50% chance from rare mob kills
+const FRAGMENT_BOSS_MIN = 3;
+const FRAGMENT_BOSS_MAX = 5;
+
+// ── Helpers ──
+
+/** Get the ordered index of a zone in the ZONE_DEFS array. */
+function getZoneIndex(zoneId: string): number {
+  return ZONE_DEFS.findIndex(z => z.id === zoneId);
+}
+
+/** Determine the highest unlocked zone index based on boss kills. */
+function getHighestUnlockedZoneIndex(bossKillCounts: Record<string, number>): number {
+  let highest = 0; // zone 0 is always unlocked
+  for (let i = 1; i < ZONE_DEFS.length; i++) {
+    const zone = ZONE_DEFS[i];
+    if (!zone.unlockRequirement) { highest = Math.max(highest, i); continue; }
+    if ((bossKillCounts[zone.unlockRequirement] ?? 0) >= 1) {
+      highest = Math.max(highest, i);
+    } else {
+      break; // linear progression — once one is locked, all after are too
+    }
+  }
+  return highest;
+}
+
+/** Check if a zone is unlocked. */
+function isZoneUnlocked(zoneId: string, bossKillCounts: Record<string, number>): boolean {
+  const zone = ZONE_DEFS.find(z => z.id === zoneId);
+  if (!zone) return false;
+  if (!zone.unlockRequirement) return true; // first zone
+  return (bossKillCounts[zone.unlockRequirement] ?? 0) >= 1;
+}
+
+// ── Zone Picker Component ──
+
+function ZonePicker({ onSelectZone }: { onSelectZone: (zoneId: string) => void }) {
+  const bossKillCounts = useGameStore(s => s.bossKillCounts);
+  const mapCompletedCounts = useGameStore(s => s.mapCompletedCounts);
+  const highestIdx = getHighestUnlockedZoneIndex(bossKillCounts);
+
+  // Group unlocked zones by band
+  const unlockedZones = ZONE_DEFS.filter(z => isZoneUnlocked(z.id, bossKillCounts));
+  const bandGroups = new Map<number, typeof unlockedZones>();
+  for (const z of unlockedZones) {
+    const list = bandGroups.get(z.band) ?? [];
+    list.push(z);
+    bandGroups.set(z.band, list);
+  }
+
+  return (
+    <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/80">
+      <div className="bg-gray-900 border border-gray-700 rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+        <h2 className="text-xl font-bold text-gray-100 mb-1 text-center">Select a Zone</h2>
+        <p className="text-xs text-gray-500 mb-4 text-center">Choose where to run your next map</p>
+
+        {Array.from(bandGroups.entries()).sort((a, b) => b[0] - a[0]).map(([band, zones]) => (
+          <div key={band} className="mb-4">
+            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 border-b border-gray-800 pb-1">
+              Band {band} — {BAND_NAMES[band] ?? '???'}
+            </div>
+            <div className="grid grid-cols-1 gap-1">
+              {zones.map(zone => {
+                const idx = getZoneIndex(zone.id);
+                const isRecommended = idx === highestIdx;
+                const mapsForZone = mapCompletedCounts[zone.id] ?? 0;
+                const bossReady = mapsForZone > 0 && mapsForZone % MAPS_BEFORE_BOSS === 0;
+                const bossKills = bossKillCounts[zone.id] ?? 0;
+
+                return (
+                  <button
+                    key={zone.id}
+                    onClick={() => onSelectZone(zone.id)}
+                    className={`flex items-center justify-between px-3 py-2 rounded text-left transition-colors
+                      ${isRecommended
+                        ? 'bg-blue-900/40 border border-blue-500/50 hover:bg-blue-900/60'
+                        : 'bg-gray-800/50 border border-gray-700/50 hover:bg-gray-800/80'}
+                    `}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm font-medium ${isRecommended ? 'text-blue-300' : 'text-gray-200'}`}>
+                          {zone.name}
+                        </span>
+                        {isRecommended && (
+                          <span className="text-[10px] px-1.5 py-0.5 bg-blue-600/40 text-blue-300 rounded font-bold">
+                            RECOMMENDED
+                          </span>
+                        )}
+                        {bossReady && (
+                          <span className="text-[10px] px-1.5 py-0.5 bg-yellow-600/40 text-yellow-300 rounded font-bold animate-pulse">
+                            BOSS READY
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-gray-500 mt-0.5">
+                        iLvl {zone.iLvlMin}–{zone.iLvlMax} · Boss: {zone.bossName}
+                        {bossKills > 0 && <span className="text-green-500 ml-2">({bossKills}x killed)</span>}
+                      </div>
+                    </div>
+                    <div className="text-right ml-3 flex-shrink-0">
+                      <div className="text-xs text-gray-400">
+                        Map {mapsForZone % MAPS_BEFORE_BOSS}/{MAPS_BEFORE_BOSS}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Main Map Screen ──
 
 export default function MapScreen() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -46,13 +168,31 @@ export default function MapScreen() {
   const animFrameRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
   const killCountRef = useRef(0);
-  const mapsCompletedRef = useRef(0);   // maps completed this session (resets on zone change)
   const bossSpawnedRef = useRef(false);  // prevent double-spawning boss
   const bossMeleeTimerRef = useRef(0);   // boss melee attack cooldown
+  const selectedZoneRef = useRef<string | null>(null);  // zone chosen for current map session
+  const downfarmedRef = useRef(false);
 
-  const currentZoneId = useGameStore(s => s.currentZoneId);
+  const [picking, setPicking] = useState(true); // start in zone-picker mode
 
+  const handleSelectZone = useCallback((zoneId: string) => {
+    selectedZoneRef.current = zoneId;
+
+    // Compute downfarm status
+    const gs = useGameStore.getState();
+    const highestIdx = getHighestUnlockedZoneIndex(gs.bossKillCounts);
+    const selectedIdx = getZoneIndex(zoneId);
+    downfarmedRef.current = (highestIdx - selectedIdx) >= DOWNFARM_ZONE_GAP;
+
+    setPicking(false);
+  }, []);
+
+  // When picking changes from true→false, start a map
   useEffect(() => {
+    if (picking) return;
+    const zoneId = selectedZoneRef.current;
+    if (!zoneId) { setPicking(true); return; }
+
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -72,13 +212,14 @@ export default function MapScreen() {
     resize();
     window.addEventListener('resize', resize);
 
-    // Init map state
+    // Init map state for selected zone
     const gs0 = useGameStore.getState();
-    const zone = ZONE_DEFS.find(z => z.id === gs0.currentZoneId);
-    if (zone) {
-      const isBoss = mapsCompletedRef.current > 0 && mapsCompletedRef.current % MAPS_BEFORE_BOSS === 0;
-      stateRef.current = createMapState(canvas.width, canvas.height, zone.band, 1, isBoss);
-    }
+    const zone = ZONE_DEFS.find(z => z.id === zoneId);
+    if (!zone) { setPicking(true); return; }
+
+    const mapsForZone = gs0.mapCompletedCounts[zoneId] ?? 0;
+    const isBoss = mapsForZone > 0 && mapsForZone % MAPS_BEFORE_BOSS === 0;
+    stateRef.current = createMapState(canvas.width, canvas.height, zone.band, 1, isBoss);
     killCountRef.current = 0;
     lastTimeRef.current = 0;
     bossSpawnedRef.current = false;
@@ -101,7 +242,13 @@ export default function MapScreen() {
           mapState.phase = 'failed';
         }
       }
-      logCombat(mapState as any, `${source} → ${Math.round(rawDamage)}`, '#f87171');
+      logCombat(mapState as any, `${source} -> ${Math.round(rawDamage)}`, '#f87171');
+    };
+
+    // Helper: grant map fragments
+    const grantFragments = (count: number) => {
+      const cur = useGameStore.getState().mapFragments;
+      useGameStore.setState({ mapFragments: cur + count });
     };
 
     // ── Game Loop ──
@@ -115,21 +262,14 @@ export default function MapScreen() {
 
       const map = stateRef.current;
       const gs = useGameStore.getState();
+      const zoneData = zone; // captured from outer scope — always the selected zone
 
-      if (!gs.currentZoneId) {
-        ctx.fillStyle = '#08080e'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = '18px monospace'; ctx.textAlign = 'center';
-        ctx.fillText('Select a zone to enter a map', canvas.width / 2, canvas.height / 2);
-        animFrameRef.current = requestAnimationFrame(loop);
-        return;
-      }
+      const isDownfarmed = downfarmedRef.current;
+      const xpMult = isDownfarmed ? DOWNFARM_XP_MULT : 1.0;
 
       if (!map.paused && map.phase !== 'complete' && map.phase !== 'failed') {
         // Update spatial simulation
         updateMap(map, dt, keysRef.current);
-
-        const zoneData = ZONE_DEFS.find(z => z.id === gs.currentZoneId);
-        if (!zoneData) { animFrameRef.current = requestAnimationFrame(loop); return; }
 
         // ── Hazard DPS to player ──
         if (map.hazards.length > 0 && map.iFrameTimer <= 0) {
@@ -382,15 +522,29 @@ export default function MapScreen() {
                     }
                   }
 
-                  // XP bonus for boss kill
+                  // Boss kill: guaranteed map fragments (3-5)
+                  const bossFrags = FRAGMENT_BOSS_MIN + Math.floor(Math.random() * (FRAGMENT_BOSS_MAX - FRAGMENT_BOSS_MIN + 1));
+                  grantFragments(bossFrags);
+                  map.floaters.push({
+                    x: boss.x + 30, y: boss.y - boss.radius - 50,
+                    text: `+${bossFrags} Fragments`, color: '#c084fc',
+                    age: 0, maxAge: 1.5, isCrit: false, vy: -50,
+                  });
+
+                  // XP bonus for boss kill (with downfarm penalty)
                   const xpScale = Math.max(0.1, calcXpScale(gs.character.level, zoneData.iLvlMin));
-                  const bossXp = Math.max(1, Math.round(50 * zoneData.band * xpScale * MAP_XP_MULTIPLIER));
+                  const bossXp = Math.max(1, Math.round(50 * zoneData.band * xpScale * MAP_XP_MULTIPLIER * xpMult));
                   useGameStore.getState().grantIdleXp(bossXp);
                   map.floaters.push({
                     x: boss.x, y: boss.y - boss.radius - 30,
                     text: `+${bossXp} XP`, color: '#fbbf24',
                     age: 0, maxAge: 1.5, isCrit: true, vy: -70,
                   });
+
+                  // Reset map completion counter for this zone after boss kill
+                  const bossMapCounts = { ...useGameStore.getState().mapCompletedCounts };
+                  bossMapCounts[zoneId] = 0;
+                  useGameStore.setState({ mapCompletedCounts: bossMapCounts });
 
                   // Gem explosion
                   for (let g = 0; g < 15; g++) {
@@ -456,6 +610,7 @@ export default function MapScreen() {
 
           // Count kills and sync HP back to visual mobs
           let kills = 0;
+          let rareKills = 0;
           for (let i = 0; i < mobsInRange.length; i++) {
             const visMob = mobsInRange[i];
             if (i < postPack.length) {
@@ -473,6 +628,7 @@ export default function MapScreen() {
                 visMob.dead = true;
                 visMob.deathTimer = 0;
                 kills++;
+                if (visMob.isRare) rareKills++;
                 addKillFloater(map as any, visMob);
                 spawnDeathParticles(map as any, visMob);
                 spawnDeathHazards(map as any, visMob, zoneData.band);
@@ -485,6 +641,7 @@ export default function MapScreen() {
                 visMob.dead = true;
                 visMob.deathTimer = 0;
                 kills++;
+                if (visMob.isRare) rareKills++;
                 addKillFloater(map as any, visMob);
                 spawnDeathParticles(map as any, visMob);
                 spawnDeathHazards(map as any, visMob, zoneData.band);
@@ -515,9 +672,26 @@ export default function MapScreen() {
             trackKillStreak(map as any, kills);
             trackMultiKill(map as any, kills);
 
-            // XP (with map multiplier)
+            // Map fragment drops from rare kills (50% chance each)
+            if (rareKills > 0) {
+              let fragDrops = 0;
+              for (let r = 0; r < rareKills; r++) {
+                if (Math.random() < FRAGMENT_RARE_DROP_CHANCE) fragDrops++;
+              }
+              if (fragDrops > 0) {
+                grantFragments(fragDrops);
+                map.floaters.push({
+                  x: map.player.x + (Math.random() - 0.5) * 30,
+                  y: map.player.y - 45,
+                  text: `+${fragDrops} Fragment${fragDrops > 1 ? 's' : ''}`, color: '#c084fc',
+                  age: 0, maxAge: 1.0, isCrit: false, vy: -50,
+                });
+              }
+            }
+
+            // XP (with map multiplier + downfarm penalty)
             const xpScale = Math.max(0.1, calcXpScale(gs.character.level, zoneData.iLvlMin));
-            const xpGrant = Math.max(1, Math.round(10 * zoneData.band * kills * xpScale * MAP_XP_MULTIPLIER));
+            const xpGrant = Math.max(1, Math.round(10 * zoneData.band * kills * xpScale * MAP_XP_MULTIPLIER * xpMult));
             const latestGs = useGameStore.getState();
             latestGs.grantIdleXp(xpGrant);
             map.floaters.push({
@@ -548,34 +722,53 @@ export default function MapScreen() {
         }
       }
 
-      // ── Map Completion — auto-start next map after delay ──
+      // ── Map Completion — increment per-zone counter, auto-start next or return to picker ──
       if (map.phase === 'complete') {
         // Wait 3 seconds after completion, then start a new map
         if (map.totalTime > 0 && Date.now() - map.mapStartTime > (map.totalTime * 1000 + 3000)) {
-          mapsCompletedRef.current++;
+          // Increment maps completed for this zone in store
+          const completionGs = useGameStore.getState();
+          const newCounts = { ...completionGs.mapCompletedCounts };
+          newCounts[zoneId] = (newCounts[zoneId] ?? 0) + 1;
+          useGameStore.setState({ mapCompletedCounts: newCounts });
+
           bossSpawnedRef.current = false;
           bossMeleeTimerRef.current = 0;
 
-          const nextGs = useGameStore.getState();
-          const nextZone = ZONE_DEFS.find(z => z.id === nextGs.currentZoneId);
-          if (nextZone) {
-            const isBoss = mapsCompletedRef.current > 0 && mapsCompletedRef.current % MAPS_BEFORE_BOSS === 0;
-            stateRef.current = createMapState(canvas.width, canvas.height, nextZone.band, 1, isBoss);
-            killCountRef.current = 0;
-          }
+          const updatedCount = newCounts[zoneId] ?? 0;
+          const isBossNext = updatedCount > 0 && updatedCount % MAPS_BEFORE_BOSS === 0;
+          stateRef.current = createMapState(canvas.width, canvas.height, zoneData.band, 1, isBossNext);
+          killCountRef.current = 0;
+        }
+      }
+
+      // ── Failed — return to zone picker after 3 seconds ──
+      if (map.phase === 'failed') {
+        if (map.totalTime > 0 && Date.now() - map.mapStartTime > (map.totalTime * 1000 + 3000)) {
+          stateRef.current = null;
+          setPicking(true);
+          return;
         }
       }
 
       // ── Render ──
       const renderGs = useGameStore.getState();
-      const rZone = ZONE_DEFS.find(z => z.id === renderGs.currentZoneId);
       let renderMaxHp = 100;
       try { renderMaxHp = resolveStats(renderGs.character).maxLife; } catch { /* */ }
+
+      const mapHud: MapHudExtra = {
+        mapFragments: renderGs.mapFragments,
+        mapsCompleted: renderGs.mapCompletedCounts[zoneId] ?? 0,
+        mapsBeforeBoss: MAPS_BEFORE_BOSS,
+        isDownfarmed: downfarmedRef.current,
+        selectedZoneName: zoneData.name,
+      };
+
       renderMap(ctx, map, renderGs.currentHp, renderMaxHp, renderGs.currentEs ?? 0, killCountRef.current, undefined, {
-        zoneName: rZone?.name,
-        zoneBand: rZone?.band,
+        zoneName: zoneData.name,
+        zoneBand: zoneData.band,
         combatPhase: renderGs.combatPhase,
-      });
+      }, mapHud);
 
       animFrameRef.current = requestAnimationFrame(loop);
     };
@@ -627,11 +820,12 @@ export default function MapScreen() {
       window.removeEventListener('keyup', onKeyUp);
       canvas.removeEventListener('mousemove', onMouseMove);
     };
-  }, [currentZoneId]);
+  }, [picking]);
 
   return (
     <div className="w-full h-[calc(100vh-120px)] bg-gray-950 rounded-lg overflow-hidden relative">
-      <canvas ref={canvasRef} className="w-full h-full" />
+      {picking && <ZonePicker onSelectZone={handleSelectZone} />}
+      <canvas ref={canvasRef} className={`w-full h-full ${picking ? 'hidden' : ''}`} />
     </div>
   );
 }

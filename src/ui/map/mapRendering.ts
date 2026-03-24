@@ -10,6 +10,14 @@ import { GEM_COLLECT_ANIM } from '../arena/arenaCombatFeedback';
 import { ARENA_AFFIX_DEFS } from '../arena/arenaAffixes';
 import { anyMapMobInRange, mobCanAttackMapPlayer } from './mapEngine';
 
+export interface MapHudExtra {
+  mapFragments?: number;
+  mapsCompleted?: number;
+  mapsBeforeBoss?: number;
+  isDownfarmed?: boolean;
+  selectedZoneName?: string;
+}
+
 export function renderMap(
   ctx: CanvasRenderingContext2D,
   state: MapState,
@@ -19,6 +27,7 @@ export function renderMap(
   _killCount: number,
   _skillCooldowns?: SkillCooldownInfo[],
   _opts?: ArenaRenderOpts,
+  _mapHud?: MapHudExtra,
 ): void {
   const { width, height, totalTime } = state;
 
@@ -633,6 +642,47 @@ export function renderMap(
     ctx.fillText('MAP COMPLETE', width / 2, height * 0.35);
     ctx.font = '14px monospace'; ctx.fillStyle = '#93c5fd';
     ctx.fillText(`${state.totalKills} kills · ${state.roomsCleared} rooms`, width / 2, height * 0.35 + 35);
+  }
+
+  // ── Map HUD extras (fragments, map counter, downfarm) ──
+  if (_mapHud) {
+    ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+    let hudY = 8;
+
+    // Zone name
+    if (_mapHud.selectedZoneName) {
+      ctx.font = 'bold 12px monospace'; ctx.fillStyle = '#60a5fa';
+      ctx.fillText(_mapHud.selectedZoneName, width - 8, hudY);
+      hudY += 16;
+    }
+
+    // Map counter (X/5 → BOSS READY)
+    if (_mapHud.mapsCompleted !== undefined && _mapHud.mapsBeforeBoss !== undefined) {
+      const count = _mapHud.mapsCompleted % _mapHud.mapsBeforeBoss;
+      const bossReady = count === 0 && _mapHud.mapsCompleted > 0;
+      ctx.font = '12px monospace';
+      if (bossReady || state.isBossMap) {
+        ctx.fillStyle = '#fbbf24';
+        ctx.fillText(state.isBossMap ? 'BOSS MAP' : 'BOSS READY', width - 8, hudY);
+      } else {
+        ctx.fillStyle = '#9ca3af';
+        ctx.fillText(`Map ${count}/${_mapHud.mapsBeforeBoss}`, width - 8, hudY);
+      }
+      hudY += 16;
+    }
+
+    // Map fragments
+    if (_mapHud.mapFragments !== undefined) {
+      ctx.font = '12px monospace'; ctx.fillStyle = '#c084fc';
+      ctx.fillText(`Fragments: ${_mapHud.mapFragments}`, width - 8, hudY);
+      hudY += 16;
+    }
+
+    // Downfarm warning
+    if (_mapHud.isDownfarmed) {
+      ctx.font = 'bold 12px monospace'; ctx.fillStyle = '#ef4444';
+      ctx.fillText('DOWNFARMED (-50% XP)', width - 8, hudY);
+    }
   }
 
   // Crit flash

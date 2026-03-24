@@ -873,5 +873,11 @@ export function runMigrations(
     if (!raw.activeTraps) raw.activeTraps = [];
   }
 
+  if (version < 61) {
+    // v61: Map fragments currency + per-zone map completion tracking
+    if (raw.mapFragments === undefined) raw.mapFragments = 0;
+    if (!raw.mapCompletedCounts) raw.mapCompletedCounts = {};
+  }
+
   return state;
 }
