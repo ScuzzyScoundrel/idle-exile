@@ -3,7 +3,7 @@
 // skill visuals, screen shake, gems, knockback
 // ============================================================
 
-import type { ArenaState, ArenaMob, Vec2, SkillVisualType, ArenaHazard } from './arenaTypes';
+import type { ArenaState, ArenaMob, Vec2, SkillVisualType } from './arenaTypes';
 import { FLOATER_MAX_AGE } from './arenaTypes';
 import { ARENA_AFFIX_DEFS } from './arenaAffixes';
 

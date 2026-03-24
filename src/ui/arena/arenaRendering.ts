@@ -3,7 +3,7 @@
 // Pure Canvas2D rendering, zero dependencies on game engine.
 // ============================================================
 
-import type { ArenaState, SkillCooldownInfo, ArenaRenderOpts, ArenaAffixId } from './arenaTypes';
+import type { ArenaState, SkillCooldownInfo, ArenaRenderOpts } from './arenaTypes';
 import { ARENA_AFFIX_DEFS } from './arenaAffixes';
 import { PLAYER_ATTACK_RANGE, SPLASH_RADIUS_AOE } from './arenaTypes';
 import { GEM_COLLECT_ANIM } from './arenaCombatFeedback';
@@ -25,13 +25,6 @@ export function renderArena(
   opts?: ArenaRenderOpts,
 ): void {
   const { width, height, totalTime } = state;
-
-  // DEBUG: log affix counts every 2 seconds
-  if (Math.floor(totalTime * 0.5) !== Math.floor((totalTime - 0.017) * 0.5)) {
-    const affixed = state.mobs.filter(m => !m.dead && m.arenaAffixes && m.arenaAffixes.length > 0);
-    const total = state.mobs.filter(m => !m.dead).length;
-    console.log(`[arena-render] ${affixed.length}/${total} mobs have affixes`, affixed.slice(0, 3).map(m => ({ id: m.mobId, affixes: m.arenaAffixes })));
-  }
 
   // ── Background ──
   ctx.fillStyle = '#08080e';
@@ -519,14 +512,6 @@ export function renderArena(
 
 
     // ── Arena Affix Visuals ──
-    // DEBUG: huge bright ring for ANY mob with affixes
-    if (mob.arenaAffixes && mob.arenaAffixes.length > 0) {
-      ctx.beginPath();
-      ctx.arc(mob.x, mob.y, mob.radius + 12, 0, Math.PI * 2);
-      ctx.strokeStyle = '#ff0000';
-      ctx.lineWidth = 4;
-      ctx.stroke();
-    }
     if (mob.arenaAffixes && mob.arenaAffixes.length > 0) {
       // Shielding aura ring
       if (mob.arenaAffixes.includes('shielding')) {

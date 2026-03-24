@@ -58,7 +58,7 @@ const ALL_AFFIX_IDS: ArenaAffixId[] = ['explosive', 'toxic', 'shielding', 'telep
  *  Non-rare: 35% chance for 1 affix. */
 export function rollArenaAffixes(isRare: boolean, wave: number): ArenaAffixId[] {
   if (!isRare) {
-    // Every non-rare mob gets 1 affix (debug: was 35%)
+    if (Math.random() >= 0.35) return [];
     return [ALL_AFFIX_IDS[Math.floor(Math.random() * ALL_AFFIX_IDS.length)]];
   }
 

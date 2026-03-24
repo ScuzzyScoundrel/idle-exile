@@ -21,7 +21,7 @@ import type { ResolvedStats, ZoneDef } from '../../types';
 import type { MobInPack } from '../../types/combat';
 import type { MobDamageElement } from '../../types/zones';
 
-import type { ArenaState, ArenaMob, Vec2, ArenaProjectile } from './arenaTypes';
+import type { ArenaState, ArenaMob, Vec2 } from './arenaTypes';
 import { PLAYER_ATTACK_RANGE, MOB_ATTACK_RANGE } from './arenaTypes';
 import {
   addKillFloater,
@@ -35,8 +35,7 @@ import {
 } from './arenaCombatFeedback';
 import { triggerShake } from './arenaCombatFeedback';
 import { moveMobsTowardPlayer, PLAYER_SPEED } from './arenaMovement';
-import { rollArenaAffixes, ARENA_AFFIX_DEFS } from './arenaAffixes';
-import type { ArenaHazard } from './arenaTypes';
+import { rollArenaAffixes } from './arenaAffixes';
 
 // ── Constants (kept in arenaEngine) ──
 
