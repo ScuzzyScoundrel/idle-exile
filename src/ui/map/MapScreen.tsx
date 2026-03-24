@@ -25,8 +25,6 @@ import { PLAYER_ATTACK_RANGE } from '../arena/arenaTypes';
 import { addDotFloater, addProcFloater } from '../arena/arenaCombatFeedback';
 import { placeArenaTrap, detonateOldestArenaTrap } from '../arena/arenaTraps';
 import { dashPlayerForward } from '../arena/arenaMovement';
-import { buildSpatialSlice } from '../arena/spatialTargeting';
-import { getNextRotationSkill, getSkillGraphModifier } from '../../engine/unifiedSkills';
 import {
   addDamageFloater, addKillFloater,
   addPlayerHitFloater, spawnDeathParticles, spawnGems, markMobHit,
@@ -695,7 +693,6 @@ export default function MapScreen() {
         while (map.tickAccumulator >= 0.25) {
           map.tickAccumulator -= 0.25;
 
-          const tickGs = useGameStore.getState();
           const mobsInRange = getMapMobsInRange(map, PLAYER_ATTACK_RANGE);
 
           // Build a temporary pack from in-range mobs for the engine
@@ -714,43 +711,14 @@ export default function MapScreen() {
             nextAttackAt: now + 5000,
           }));
 
-          // Predict next skill for spatial targeting (defensive — fallback to null skill)
-          let skillDef: import('../../types/skills').SkillDef | null = null;
-          let graphMod: ReturnType<typeof getSkillGraphModifier> | null = null;
-          try {
-            const nextSkill = getNextRotationSkill(
-              tickGs.skillBar,
-              tickGs.skillTimers ?? [],
-              Date.now(),
-              tickGs.skillProgress,
-            );
-            skillDef = nextSkill?.skill ?? null;
-            graphMod = skillDef && tickGs.skillProgress
-              ? getSkillGraphModifier(skillDef, tickGs.skillProgress[skillDef.id])
-              : null;
-          } catch (e) { console.error('[map] skill prediction error:', e); }
-
-          // Set store to temp pack for spatial slice
-          useGameStore.setState({ packMobs: tempPack, currentPackSize: tempPack.length });
-
-          // Build spatial slice (skill-aware targeting: AoE, Chain, Fan, etc.)
-          const { slice, slicePackIndices, targetMobs, strategyUsed } = buildSpatialSlice(
-            map as any, tempPack, skillDef, graphMod,
-          );
-
-          // Allow Movement/Trap skills to fire even with no mobs in range
-          const isUtilitySkill = skillDef && (
-            skillDef.tags.includes('Movement') || skillDef.tags.includes('Trap')
-          );
-          if (slice.length === 0 && !isUtilitySkill) {
-            useGameStore.setState({ packMobs: [], currentPackSize: 0 });
+          if (mobsInRange.length === 0) {
             continue;
           }
 
-          // Swap store to combat slice (engine only sees spatially-selected mobs)
-          useGameStore.setState({ packMobs: slice, currentPackSize: slice.length });
+          // Set store to temp pack with proper sequential indices
+          useGameStore.setState({ packMobs: tempPack, currentPackSize: tempPack.length });
 
-          // Engine combat tick — full pipeline on in-range mobs only
+          // Engine combat tick — full pipeline on in-range mobs
           const result = useGameStore.getState().tickCombat(0.25);
           const postPack = useGameStore.getState().packMobs;
 
@@ -758,16 +726,13 @@ export default function MapScreen() {
           useGameStore.setState({ packMobs: [], currentPackSize: 0 });
 
           // Engine pops dead mobs from the FRONT of the pack.
-          // postPack[0] corresponds to mobsInRange[kills], not mobsInRange[0].
-          // Map slice indices back to mobsInRange indices
+          // result.mobKills = number of mobs popped from front.
           let kills = result.mobKills;
           let rareKills = 0;
 
-          // Mark killed mobs (popped from front of slice → map back to mobsInRange)
-          for (let i = 0; i < kills && i < slicePackIndices.length; i++) {
-            const mobIdx = slicePackIndices[i];
-            if (mobIdx >= mobsInRange.length) continue;
-            const visMob = mobsInRange[mobIdx];
+          // Mark killed mobs (front-popped from tempPack → sequential mobsInRange)
+          for (let i = 0; i < kills && i < mobsInRange.length; i++) {
+            const visMob = mobsInRange[i];
             if (!visMob.dead) {
               visMob.dead = true;
               visMob.deathTimer = 0;
@@ -792,11 +757,9 @@ export default function MapScreen() {
             }
           }
 
-          // Sync surviving mobs (postPack[j] maps back via slicePackIndices[kills + j])
-          for (let j = 0; j < postPack.length && kills + j < slicePackIndices.length; j++) {
-            const mobIdx = slicePackIndices[kills + j];
-            if (mobIdx >= mobsInRange.length) continue;
-            const visMob = mobsInRange[mobIdx];
+          // Sync surviving mobs (postPack[j] → mobsInRange[kills + j])
+          for (let j = 0; j < postPack.length && kills + j < mobsInRange.length; j++) {
+            const visMob = mobsInRange[kills + j];
             const prevHp = visMob.hp;
             visMob.hp = postPack[j].hp;
             visMob.maxHp = postPack[j].maxHp;
@@ -835,8 +798,8 @@ export default function MapScreen() {
           }
 
           // ── Visual feedback + combat log: consume ALL result fields ──
-          // Use spatially-resolved targets for visuals (fallback to closest alive mob)
-          const visTarget = targetMobs[0] ?? mobsInRange.find(m => !m.dead) ?? null;
+          // Use first non-dead mob in range for visual targeting
+          const visTarget = mobsInRange.find(m => !m.dead) ?? null;
 
           // Skill fired
           if (result.skillFired && result.skillId) {
@@ -853,15 +816,14 @@ export default function MapScreen() {
               const trapX = map.player.x + map.playerFacing.x * 40;
               const trapY = map.player.y + map.playerFacing.y * 40;
               placeArenaTrap(map as any, trapX, trapY);
-              if (visDef?.tags) spawnSkillVisual(map as any, visDef.tags, visTarget as any, targetMobs.slice(1));
+              if (visDef?.tags) spawnSkillVisual(map as any, visDef.tags, visTarget as any, []);
             } else {
-              if (visDef?.tags) spawnSkillVisual(map as any, visDef.tags, visTarget as any, targetMobs.slice(1));
+              if (visDef?.tags) spawnSkillVisual(map as any, visDef.tags, visTarget as any, []);
             }
 
             const dmgStr = result.damageDealt > 0 ? ` -> ${Math.round(result.damageDealt)}` : '';
             const critStr = result.isCrit ? ' CRIT!' : '';
-            const stratStr = targetMobs.length > 1 ? ` [${strategyUsed} x${targetMobs.length}]` : '';
-            logCombat(map as any, `${visDef?.name ?? result.skillId}${dmgStr}${critStr}${stratStr}`, result.isCrit ? '#fbbf24' : '#e5e7eb');
+            logCombat(map as any, `${visDef?.name ?? result.skillId}${dmgStr}${critStr}`, result.isCrit ? '#fbbf24' : '#e5e7eb');
           }
 
           // DoT damage (poison + burning ticks)

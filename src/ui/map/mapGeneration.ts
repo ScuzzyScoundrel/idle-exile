@@ -38,9 +38,9 @@ export function hasModifier(modifiers: MapModifier[], id: string): boolean {
 
 // ── Constants ──
 
-const CORRIDOR_WIDTH = 80;
-const CORRIDOR_LENGTH = 120;
-const DOOR_WIDTH = 60;
+const CORRIDOR_WIDTH = 200;
+const CORRIDOR_LENGTH = 300;
+const DOOR_WIDTH = 150;
 const MOB_RADIUS = 11;
 const RARE_MOB_RADIUS = 15;
 const RARE_AFFIX_MOB_RADIUS = 17;
@@ -48,12 +48,12 @@ const RARE_AFFIX_MOB_RADIUS = 17;
 // ── Room Size Presets ──
 
 const ROOM_SIZES: Record<RoomType, { w: number; h: number }> = {
-  entry:    { w: 300, h: 250 },
-  pack:     { w: 350, h: 300 },
-  large:    { w: 450, h: 400 },
-  side:     { w: 250, h: 250 },
+  entry:    { w: 750, h: 625 },
+  pack:     { w: 875, h: 750 },
+  large:    { w: 1125, h: 1000 },
+  side:     { w: 625, h: 625 },
   corridor: { w: CORRIDOR_WIDTH, h: CORRIDOR_LENGTH },
-  boss:     { w: 500, h: 450 },
+  boss:     { w: 1250, h: 1125 },
 };
 
 // ── Wall Builders ──
@@ -465,17 +465,49 @@ export function generateMap(_zoneBand: number, _wave: number, isBossMap: boolean
     }
   }
 
-  // Compute world bounds
-  let maxX = 0, maxY = 0;
+  // After all rooms are generated, center the map in the world
+  const padding = 400;
+  let minX = Infinity, minY = Infinity, maxX = 0, maxY = 0;
   for (const room of rooms) {
+    minX = Math.min(minX, room.x);
+    minY = Math.min(minY, room.y);
     maxX = Math.max(maxX, room.x + room.width);
     maxY = Math.max(maxY, room.y + room.height);
+  }
+  const mapW = maxX - minX;
+  const mapH = maxY - minY;
+  const worldW = mapW + padding * 2;
+  const worldH = mapH + padding * 2;
+  const offsetX = padding - minX;
+  const offsetY = padding - minY;
+
+  // Offset all room positions, walls, doors, spawns, chests, shrines
+  for (const room of rooms) {
+    room.x += offsetX;
+    room.y += offsetY;
+    for (const wall of room.walls) {
+      wall.x1 += offsetX; wall.y1 += offsetY;
+      wall.x2 += offsetX; wall.y2 += offsetY;
+    }
+    for (const door of room.doors) {
+      door.x += offsetX; door.y += offsetY;
+    }
+    for (const sp of room.spawnPoints) {
+      sp.x += offsetX; sp.y += offsetY;
+    }
+    for (const chest of room.chests) {
+      chest.x += offsetX; chest.y += offsetY;
+    }
+    if (room.shrinePos) {
+      room.shrinePos.x += offsetX;
+      room.shrinePos.y += offsetY;
+    }
   }
 
   return {
     rooms,
-    worldWidth: maxX + 100,  // padding
-    worldHeight: maxY + 100,
+    worldWidth: worldW,
+    worldHeight: worldH,
     startRoomId: 0,
     exitRoomId: rooms[rooms.length - 1].type === 'side'
       ? rooms[rooms.length - 2].id  // skip trailing side room
