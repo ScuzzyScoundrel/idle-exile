@@ -551,6 +551,14 @@ export function spawnShrine(state: ArenaState): void {
     age: 0,
     collected: false,
   });
+  // Floater + log so the player knows a shrine spawned
+  state.floaters.push({
+    x, y: y - 20,
+    text: `${type.toUpperCase()} SHRINE`,
+    color: type === 'damage' ? '#ef4444' : type === 'speed' ? '#60a5fa' : type === 'magnet' ? '#c084fc' : '#f97316',
+    age: 0, maxAge: 2.0, isCrit: false, vy: -30,
+  });
+  console.log(`[arena] Shrine spawned: ${type} at (${Math.round(x)}, ${Math.round(y)}), totalKillsForShrines was ${state.totalKillsForShrines}`);
 }
 
 /** Apply a shrine effect. */

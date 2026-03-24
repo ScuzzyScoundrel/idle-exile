@@ -732,7 +732,7 @@ export function renderArena(
 
   // Rarity order for beam sizing
   const RARITY_BEAM: Record<string, number> = {
-    common: 0, uncommon: 0, rare: 40, epic: 60, legendary: 80, unique: 80,
+    common: 0, uncommon: 0, rare: 70, epic: 100, legendary: 140, unique: 140,
   };
   const RARITY_IS_HIGH: Record<string, boolean> = {
     legendary: true, unique: true,
@@ -771,12 +771,15 @@ export function renderArena(
       beamGrad.addColorStop(0, beamColor + Math.round(beamAlpha * 180).toString(16).padStart(2, '0'));
       beamGrad.addColorStop(1, beamColor + '00');
       ctx.fillStyle = beamGrad;
-      ctx.fillRect(gi.x - 1.5, gi.y - beamH, 3, beamH);
-      // Wider glow for legendary/unique/trophy
+      ctx.fillRect(gi.x - 2, gi.y - beamH, 4, beamH);
+      // Wider glow for rare+ drops
+      ctx.globalAlpha = beamAlpha * 0.35;
+      ctx.fillRect(gi.x - 6, gi.y - beamH, 12, beamH);
+      ctx.globalAlpha = 1;
+      // Extra-wide glow for legendary/unique/trophy
       if (isHigh) {
-        ctx.globalAlpha = beamAlpha * 0.4;
-        ctx.fillStyle = beamGrad;
-        ctx.fillRect(gi.x - 4, gi.y - beamH, 8, beamH);
+        ctx.globalAlpha = beamAlpha * 0.2;
+        ctx.fillRect(gi.x - 10, gi.y - beamH, 20, beamH);
         ctx.globalAlpha = 1;
       }
     }

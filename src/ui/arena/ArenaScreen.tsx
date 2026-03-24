@@ -481,6 +481,14 @@ export default function ArenaScreen() {
           });
           logCombat(arena, 'Instant cast!', '#60a5fa');
         }
+        if (result.cooldownWasReset) {
+          arena.floaters.push({
+            x: arena.player.x + (Math.random() - 0.5) * 30, y: arena.player.y - 45,
+            text: 'CD RESET', color: '#34d399',
+            age: 0, maxAge: 1.0, isCrit: false, vy: -55,
+          });
+          logCombat(arena, 'Cooldown reset!', '#34d399');
+        }
 
         // Player-received damage (engine zone attacks)
         if (result.zoneAttack) {
