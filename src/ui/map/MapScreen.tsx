@@ -11,9 +11,11 @@ import { rollZoneAttack, calcZoneAccuracy, calcLevelDamageMult } from '../../eng
 import { getUnifiedSkillDef } from '../../data/skills';
 
 import type { MapState } from './mapTypes';
-import { createMapState, updateMap, getMapMobsInRange, mobCanAttackMapPlayer } from './mapEngine';
+import { createMapState, updateMap, getMapMobsInRange, mobCanAttackMapPlayer,
+  spawnMapBoss, bossCanAttackMapPlayer,
+  BOSS_SLAM_DAMAGE_MULT, BOSS_BARRAGE_DAMAGE_MULT, BOSS_HAZARD_DPS_MULT } from './mapEngine';
 import { renderMap } from './mapRendering';
-import { rollArenaLoot } from '../arena/arenaLoot';
+import { rollArenaLoot, rollBossArenaLoot } from '../arena/arenaLoot';
 import { calcXpScale } from '../../engine/zones/scaling';
 import { PLAYER_ATTACK_RANGE } from '../arena/arenaTypes';
 import {
@@ -34,7 +36,8 @@ const PROJECTILE_SPEED = 200;
 const PROJECTILE_RADIUS = 6;
 const PROJECTILE_MAX_AGE = 2.0;
 const MAP_XP_MULTIPLIER = 2.5;
-// MAP_LOOT_QUALITY_BOOST will be used in Phase 2 for rarity weight adjustment
+const MAPS_BEFORE_BOSS = 5;       // complete 5 normal maps, then boss map
+const BOSS_MELEE_INTERVAL = 1.5;  // seconds between boss melee swings
 
 export default function MapScreen() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -43,6 +46,9 @@ export default function MapScreen() {
   const animFrameRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
   const killCountRef = useRef(0);
+  const mapsCompletedRef = useRef(0);   // maps completed this session (resets on zone change)
+  const bossSpawnedRef = useRef(false);  // prevent double-spawning boss
+  const bossMeleeTimerRef = useRef(0);   // boss melee attack cooldown
 
   const currentZoneId = useGameStore(s => s.currentZoneId);
 
@@ -70,10 +76,13 @@ export default function MapScreen() {
     const gs0 = useGameStore.getState();
     const zone = ZONE_DEFS.find(z => z.id === gs0.currentZoneId);
     if (zone) {
-      stateRef.current = createMapState(canvas.width, canvas.height, zone.band, 1, false);
+      const isBoss = mapsCompletedRef.current > 0 && mapsCompletedRef.current % MAPS_BEFORE_BOSS === 0;
+      stateRef.current = createMapState(canvas.width, canvas.height, zone.band, 1, isBoss);
     }
     killCountRef.current = 0;
     lastTimeRef.current = 0;
+    bossSpawnedRef.current = false;
+    bossMeleeTimerRef.current = 0;
 
     // Spatial damage helper (ES absorption + death detection)
     const applySpatialDamage = (mapState: MapState, rawDamage: number, source: string) => {
@@ -208,7 +217,215 @@ export default function MapScreen() {
           }
         }
 
-        // ── Combat Ticks (auto-cast skill rotation) ──
+        // ── Boss Spawn (when engine sets phase to boss_fight) ──
+        if (map.phase === 'boss_fight' && !bossSpawnedRef.current && !map.bossMob) {
+          bossSpawnedRef.current = true;
+          const bossName = zoneData.bossName ?? `${zoneData.name} Guardian`;
+          spawnMapBoss(map, zoneData.band, bossName);
+          // Set hazard DPS for any boss-spawned ground hazards
+          for (const h of map.hazards) {
+            if (h.damagePerSec === 0) {
+              h.damagePerSec = SPATIAL_DMG_BASE * zoneData.band * BOSS_HAZARD_DPS_MULT;
+            }
+          }
+        }
+
+        // ── Boss Hazard DPS Fixup (set DPS on newly spawned boss hazards) ──
+        if (map.bossMob && !map.bossMob.dead) {
+          for (const h of map.hazards) {
+            if (h.damagePerSec === 0) {
+              h.damagePerSec = SPATIAL_DMG_BASE * zoneData.band * BOSS_HAZARD_DPS_MULT;
+            }
+          }
+        }
+
+        // ── Boss Damage to Player ──
+        if (map.bossMob && !map.bossMob.dead && projStats && map.iFrameTimer <= 0) {
+          const boss = map.bossMob;
+          const levelMult = calcLevelDamageMult(gs.character.level, zoneData.iLvlMin);
+          const zoneAccuracy = calcZoneAccuracy(zoneData.band, gs.character.level, zoneData.iLvlMin);
+
+          // Boss slam damage (check if slam just landed)
+          if (boss.slamTelegraph <= 0 && boss.slamTelegraph > -dt * 2) {
+            const sdx = map.player.x - boss.slamX;
+            const sdy = map.player.y - boss.slamY;
+            const sDist = Math.sqrt(sdx * sdx + sdy * sdy);
+            if (sDist < 80 + map.playerRadius) {
+              const slamDmg = SPATIAL_DMG_BASE * zoneData.band * BOSS_SLAM_DAMAGE_MULT * levelMult;
+              const roll = rollZoneAttack(slamDmg, 0.7, zoneAccuracy, projStats!, undefined, undefined, zoneData.band);
+              addPlayerHitFloater(map as any, Math.round(roll.damage), roll.isDodged, roll.isBlocked);
+              if (!roll.isDodged && !roll.isBlocked && roll.damage > 0) {
+                triggerIFrames(map as any);
+                applySpatialDamage(map, roll.damage, 'Boss Slam');
+              }
+            }
+          }
+
+          // Boss barrage projectile damage (sourceMobId === -999)
+          for (const proj of map.projectiles) {
+            if (proj.hit || proj.sourceMobId !== -999) continue;
+            const pdx = map.player.x - proj.x;
+            const pdy = map.player.y - proj.y;
+            if (Math.sqrt(pdx * pdx + pdy * pdy) > proj.radius + map.playerRadius) continue;
+            proj.hit = true;
+            if (map.iFrameTimer > 0) continue;
+            const barrageDmg = SPATIAL_DMG_BASE * zoneData.band * BOSS_BARRAGE_DAMAGE_MULT * levelMult;
+            const roll = rollZoneAttack(barrageDmg, 0.7, zoneAccuracy, projStats!, undefined, undefined, zoneData.band);
+            addPlayerHitFloater(map as any, Math.round(roll.damage), roll.isDodged, roll.isBlocked);
+            if (!roll.isDodged && !roll.isBlocked && roll.damage > 0) {
+              triggerIFrames(map as any);
+              applySpatialDamage(map, roll.damage, 'Boss Barrage');
+            }
+          }
+
+          // Boss melee attacks
+          bossMeleeTimerRef.current -= dt;
+          if (bossMeleeTimerRef.current <= 0 && bossCanAttackMapPlayer(map)) {
+            bossMeleeTimerRef.current = BOSS_MELEE_INTERVAL;
+            const meleeDmg = SPATIAL_DMG_BASE * zoneData.band * 1.5 * levelMult * (0.8 + Math.random() * 0.4);
+            const roll = rollZoneAttack(meleeDmg, 0.7, zoneAccuracy, projStats!, undefined, undefined, zoneData.band);
+            addPlayerHitFloater(map as any, Math.round(roll.damage), roll.isDodged, roll.isBlocked);
+            if (!roll.isDodged && !roll.isBlocked && roll.damage > 0) {
+              triggerIFrames(map as any);
+              applySpatialDamage(map, roll.damage, 'Boss Melee');
+            }
+          }
+        }
+
+        // ── Boss Combat (player skills damage boss) ──
+        if (map.bossMob && !map.bossMob.dead) {
+          const boss = map.bossMob;
+          const bossDistX = map.player.x - boss.x;
+          const bossDistY = map.player.y - boss.y;
+          const bossDist = Math.sqrt(bossDistX * bossDistX + bossDistY * bossDistY);
+
+          if (bossDist <= PLAYER_ATTACK_RANGE + boss.radius) {
+            // Boss is in player attack range — tick combat against boss
+            while (map.tickAccumulator >= 0.25) {
+              map.tickAccumulator -= 0.25;
+
+              const tickGs = useGameStore.getState();
+              // Create a single-mob pack representing the boss
+              const now = Date.now();
+              const bossPack: import('../../types/combat').MobInPack[] = [{
+                hp: boss.hp,
+                maxHp: boss.maxHp,
+                rare: {
+                  affixes: [] as import('../../types/combat').RareAffixId[],
+                  combinedHpMult: 1, combinedLootMult: 1, combinedDamageMult: 1,
+                  combinedAtkSpeedMult: 1, combinedDamageTakenMult: 1, combinedRegenPerSec: 0,
+                },
+                damageElement: (zoneData.bossDamageElement ?? 'physical') as any,
+                physRatio: zoneData.bossPhysRatio ?? 1,
+                debuffs: [] as import('../../types/combat').ActiveDebuff[],
+                nextAttackAt: now + 10000,
+              }];
+
+              useGameStore.setState({ packMobs: bossPack, currentPackSize: 1 });
+              const result = tickGs.tickCombat(0.25);
+              const postPack = useGameStore.getState().packMobs;
+
+              // Sync boss HP
+              if (postPack.length > 0) {
+                const prevBossHp = boss.hp;
+                boss.hp = postPack[0].hp;
+                const hpDelta = prevBossHp - postPack[0].hp;
+
+                if (hpDelta > 0) {
+                  boss.lastHitTime = map.totalTime;
+                  // Small knockback on boss
+                  if (bossDist > 1) {
+                    const kbForce = 30;
+                    boss.knockbackVx = (bossDistX / bossDist) * -kbForce;
+                    boss.knockbackVy = (bossDistY / bossDist) * -kbForce;
+                  }
+                  // Damage floater at boss position
+                  map.floaters.push({
+                    x: boss.x + (Math.random() - 0.5) * 30,
+                    y: boss.y - boss.radius - 5,
+                    text: result.isCrit ? `${Math.round(hpDelta)}!` : `${Math.round(hpDelta)}`,
+                    color: result.isCrit ? '#fbbf24' : '#ffffff',
+                    age: 0, maxAge: 0.8, isCrit: result.isCrit, vy: -60,
+                  });
+                }
+
+                // Boss death
+                if (postPack[0].hp <= 0 && prevBossHp > 0) {
+                  boss.dead = true;
+                  boss.deathTimer = 0;
+                  map.bossDefeatedBanner = 3.0;
+
+                  // Screen shake + particles
+                  map.shakeIntensity = 15;
+                  map.shakeTimer = 0.5;
+                  for (let i = 0; i < 30; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    map.particles.push({
+                      x: boss.x, y: boss.y,
+                      vx: Math.cos(angle) * (100 + Math.random() * 120),
+                      vy: Math.sin(angle) * (100 + Math.random() * 120),
+                      size: 3 + Math.random() * 4,
+                      color: boss.color,
+                      age: 0, maxAge: 0.8 + Math.random() * 0.5,
+                    });
+                  }
+
+                  // Handle boss victory in store
+                  const bossVictoryGs = useGameStore.getState();
+                  bossVictoryGs.startBossFight(); // set combatPhase to boss_fight
+                  const bossResult = useGameStore.getState().handleBossVictory();
+                  if (bossResult) {
+                    const loot = rollBossArenaLoot(bossResult, { x: boss.x, y: boss.y });
+                    map.groundItems.push(...loot);
+                    for (const gi of loot) {
+                      logCombat(map as any, `BOSS DROP: ${gi.label}`, gi.color);
+                    }
+                  }
+
+                  // XP bonus for boss kill
+                  const xpScale = Math.max(0.1, calcXpScale(gs.character.level, zoneData.iLvlMin));
+                  const bossXp = Math.max(1, Math.round(50 * zoneData.band * xpScale * MAP_XP_MULTIPLIER));
+                  useGameStore.getState().grantIdleXp(bossXp);
+                  map.floaters.push({
+                    x: boss.x, y: boss.y - boss.radius - 30,
+                    text: `+${bossXp} XP`, color: '#fbbf24',
+                    age: 0, maxAge: 1.5, isCrit: true, vy: -70,
+                  });
+
+                  // Gem explosion
+                  for (let g = 0; g < 15; g++) {
+                    const gAngle = Math.random() * Math.PI * 2;
+                    const gDist = 20 + Math.random() * 40;
+                    map.gems.push({
+                      x: boss.x + Math.cos(gAngle) * gDist,
+                      y: boss.y + Math.sin(gAngle) * gDist,
+                      color: g < 5 ? '#fbbf24' : '#60a5fa',
+                      size: 4 + Math.random() * 3,
+                      age: 0, collected: false, collectTimer: 0,
+                    });
+                  }
+
+                  logCombat(map as any, `${boss.name} DEFEATED!`, '#fbbf24');
+                }
+              }
+
+              // Skill visuals
+              if (result.skillFired && result.skillId) {
+                markSkillCast(map as any, result.skillId);
+                const visDef = getUnifiedSkillDef(result.skillId);
+                // Target the boss for skill visuals
+                if (visDef?.tags) spawnSkillVisual(map as any, visDef.tags, { x: boss.x, y: boss.y, radius: boss.radius } as any);
+              }
+              if (result.isCrit && result.damageDealt > 0) {
+                triggerShake(map as any, 4);
+                map.critFlashTimer = 0.03;
+                map.hitStopTimer = 0.03;
+              }
+            }
+          }
+        }
+
+        // ── Combat Ticks (auto-cast skill rotation — normal mobs) ──
         while (map.tickAccumulator >= 0.25) {
           map.tickAccumulator -= 0.25;
 
@@ -327,6 +544,24 @@ export default function MapScreen() {
               const clearGs = useGameStore.getState();
               clearGs.processNewClears(1);
             }
+          }
+        }
+      }
+
+      // ── Map Completion — auto-start next map after delay ──
+      if (map.phase === 'complete') {
+        // Wait 3 seconds after completion, then start a new map
+        if (map.totalTime > 0 && Date.now() - map.mapStartTime > (map.totalTime * 1000 + 3000)) {
+          mapsCompletedRef.current++;
+          bossSpawnedRef.current = false;
+          bossMeleeTimerRef.current = 0;
+
+          const nextGs = useGameStore.getState();
+          const nextZone = ZONE_DEFS.find(z => z.id === nextGs.currentZoneId);
+          if (nextZone) {
+            const isBoss = mapsCompletedRef.current > 0 && mapsCompletedRef.current % MAPS_BEFORE_BOSS === 0;
+            stateRef.current = createMapState(canvas.width, canvas.height, nextZone.band, 1, isBoss);
+            killCountRef.current = 0;
           }
         }
       }

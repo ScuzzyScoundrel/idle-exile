@@ -474,6 +474,71 @@ export function renderMap(
     ctx.globalAlpha = 1;
   }
 
+  // ── Boss (world-space) ──
+  if (state.bossMob) {
+    const boss = state.bossMob;
+
+    // Slam telegraph (pulsing red circle on ground)
+    if (boss.slamTelegraph > 0) {
+      const telegraphPct = 1 - boss.slamTelegraph / 1.0; // 0→1 as slam approaches
+      const telegraphRadius = 80 * telegraphPct;
+      const telegraphAlpha = 0.15 + telegraphPct * 0.35;
+      // Filled warning area
+      ctx.beginPath(); ctx.arc(boss.slamX, boss.slamY, telegraphRadius, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(239, 68, 68, ${telegraphAlpha.toFixed(3)})`; ctx.fill();
+      // Pulsing ring
+      const ringPulse = 0.5 + Math.sin(totalTime * 12) * 0.3;
+      ctx.beginPath(); ctx.arc(boss.slamX, boss.slamY, 80, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(239, 68, 68, ${(ringPulse * telegraphPct).toFixed(3)})`;
+      ctx.lineWidth = 2 + telegraphPct * 2; ctx.stroke();
+    }
+
+    if (boss.dead) {
+      // Death animation
+      const dt = boss.deathTimer / 2.0;
+      const alpha = Math.max(0, 1 - dt);
+      ctx.beginPath(); ctx.arc(boss.x, boss.y, boss.radius + dt * 60, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(239, 68, 68, ${(alpha * 0.5).toFixed(2)})`; ctx.fill();
+      if (dt < 0.3) {
+        ctx.beginPath(); ctx.arc(boss.x, boss.y, boss.radius * (1 - dt * 3), 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 255, 255, ${(0.8 - dt * 2.5).toFixed(2)})`; ctx.fill();
+      }
+    } else {
+      // Glow aura
+      const auraPulse = 0.3 + Math.sin(totalTime * 2) * 0.1;
+      const auraGlow = ctx.createRadialGradient(boss.x, boss.y, boss.radius * 0.5, boss.x, boss.y, boss.radius * 2.5);
+      auraGlow.addColorStop(0, boss.color + Math.round(auraPulse * 80).toString(16).padStart(2, '0'));
+      auraGlow.addColorStop(1, boss.color + '00');
+      ctx.beginPath(); ctx.arc(boss.x, boss.y, boss.radius * 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = auraGlow; ctx.fill();
+
+      // Boss body (large circle)
+      ctx.beginPath(); ctx.arc(boss.x, boss.y, boss.radius, 0, Math.PI * 2);
+      ctx.fillStyle = boss.color; ctx.fill();
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.stroke();
+
+      // Inner detail — phase indicator rings
+      for (let i = 0; i < boss.phase; i++) {
+        const ringR = boss.radius * (0.3 + i * 0.15);
+        ctx.beginPath(); ctx.arc(boss.x, boss.y, ringR, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(255, 255, 255, ${(0.3 - i * 0.05).toFixed(2)})`;
+        ctx.lineWidth = 1.5; ctx.stroke();
+      }
+
+      // Hit flash
+      if (boss.lastHitTime >= 0 && totalTime - boss.lastHitTime < 0.05) {
+        ctx.beginPath(); ctx.arc(boss.x, boss.y, boss.radius, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'; ctx.fill();
+      }
+
+      // Name label above boss
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = 'bold 14px monospace';
+      ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillText(boss.name, boss.x + 1, boss.y - boss.radius - 18 + 1);
+      ctx.fillStyle = boss.color; ctx.fillText(boss.name, boss.x, boss.y - boss.radius - 18);
+    }
+  }
+
   // ── Floaters ──
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   for (const f of state.floaters) {
@@ -513,6 +578,53 @@ export function renderMap(
   const mins = Math.floor(elapsed / 60);
   const secs = elapsed % 60;
   ctx.fillText(`${mins}:${secs.toString().padStart(2, '0')}`, 8, 40);
+
+  // Boss HP bar (wide, top of screen)
+  if (state.bossMob && !state.bossMob.dead) {
+    const boss = state.bossMob;
+    const bossBarW = Math.min(400, width * 0.6);
+    const bossBarH = 12;
+    const bossBarX = (width - bossBarW) / 2;
+    const bossBarY = 56;
+    const bossHpPct = Math.max(0, boss.hp / boss.maxHp);
+
+    // Background
+    ctx.fillStyle = 'rgba(0,0,0,0.8)';
+    ctx.fillRect(bossBarX - 2, bossBarY - 2, bossBarW + 4, bossBarH + 4);
+    // HP fill
+    const bossHpColor = bossHpPct > 0.5 ? boss.color : bossHpPct > 0.25 ? '#eab308' : '#ef4444';
+    ctx.fillStyle = bossHpColor;
+    ctx.fillRect(bossBarX, bossBarY, bossBarW * bossHpPct, bossBarH);
+    // Border
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(bossBarX - 1, bossBarY - 1, bossBarW + 2, bossBarH + 2);
+    // Boss name above bar
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.font = 'bold 13px monospace';
+    ctx.fillStyle = boss.color;
+    ctx.fillText(boss.name, width / 2, bossBarY - 5);
+    // Phase indicator
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.font = '10px monospace'; ctx.fillStyle = '#9ca3af';
+    ctx.fillText(`Phase ${boss.phase}`, bossBarX + bossBarW, bossBarY + bossBarH + 14);
+    // HP text
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = '10px monospace'; ctx.fillStyle = '#ffffff';
+    ctx.fillText(`${Math.ceil(boss.hp)} / ${boss.maxHp}`, width / 2, bossBarY + bossBarH / 2);
+  }
+
+  // Boss defeated banner
+  if (state.bossDefeatedBanner > 0) {
+    const bannerAlpha = Math.min(1, state.bossDefeatedBanner / 0.5);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.globalAlpha = bannerAlpha;
+    ctx.font = 'bold 36px monospace'; ctx.fillStyle = '#fbbf24';
+    ctx.fillText('BOSS DEFEATED', width / 2, height * 0.3);
+    ctx.font = '16px monospace'; ctx.fillStyle = '#fde68a';
+    ctx.fillText('Loot dropped!', width / 2, height * 0.3 + 40);
+    ctx.globalAlpha = 1;
+  }
 
   // Map complete banner
   if (state.phase === 'complete') {

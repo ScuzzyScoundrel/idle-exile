@@ -3,7 +3,7 @@
 // mob aggro, room transitions
 // ============================================================
 
-import type { MapState, MapLayout, WallSegment, MapRoom, Vec2 } from './mapTypes';
+import type { MapState, MapLayout, WallSegment, MapRoom, Vec2, MapBoss } from './mapTypes';
 import type { ArenaMob, ShrineType } from '../arena/arenaTypes';
 import { generateMap, createMobFromSpawn, getAllWalls, getRoomAtPosition } from './mapGeneration';
 import { PLAYER_SPEED, moveMobsTowardPlayer } from '../arena/arenaMovement';
@@ -15,6 +15,31 @@ const PLAYER_RADIUS = 16;
 const AGGRO_RANGE = 200;          // px — mobs wake up when player enters this range
 const MOB_ROOM_LEASH = 40;        // px — mobs won't chase past room bounds + leash
 const WALL_PUSH_DISTANCE = 1;     // px — how far to push entity out of wall
+
+// Boss constants
+const BOSS_RADIUS = 45;
+const BOSS_SPEED_RATIO = 0.6;     // 60% of PLAYER_SPEED
+const BOSS_PREFERRED_DIST = 80;   // px — boss prefers this distance from player
+const BOSS_SLAM_RADIUS = 80;
+const BOSS_SLAM_TELEGRAPH = 1.0;  // seconds warning before slam
+const BOSS_BARRAGE_COUNT = 8;     // projectiles in a ring
+const BOSS_BARRAGE_SPEED = 200;   // px/sec
+const BOSS_HAZARD_RADIUS = 40;
+const BOSS_HAZARD_DURATION = 3.0;
+export const BOSS_SLAM_DAMAGE_MULT = 3;
+export const BOSS_BARRAGE_DAMAGE_MULT = 1;
+export const BOSS_HAZARD_DPS_MULT = 1.5;
+
+// Zone band → boss color
+const BOSS_COLORS: Record<number, string> = {
+  1: '#ef4444',  // red
+  2: '#f97316',  // orange
+  3: '#eab308',  // yellow
+  4: '#22d3ee',  // cyan
+};
+function getBossColor(band: number): string {
+  return BOSS_COLORS[band] ?? '#a78bfa'; // purple for band 5+
+}
 
 // ── State Creation ──
 
@@ -94,6 +119,8 @@ export function createMapState(
     totalRooms: layout.rooms.filter(r => r.type !== 'corridor').length,
     totalKills: 0,
     mapStartTime: Date.now(),
+    isBossMap: isBossMap,
+    bossDefeatedBanner: 0,
 
     mouseWorldPos: null,
 
@@ -342,6 +369,13 @@ export function updateMap(state: MapState, dt: number, keys: Set<string>): void 
     }
   }
 
+  // ── Boss Spawn Detection (when player enters boss room) ──
+  // Actual boss spawning is handled in MapScreen (needs store/zone data).
+  // This just flags the phase transition so MapScreen knows to call spawnMapBoss().
+  if (state.isBossMap && !state.bossMob && currentRoom?.type === 'boss' && state.phase !== 'boss_fight') {
+    state.phase = 'boss_fight';
+  }
+
   // ── Mob Aggro + Movement ──
   // Only move mobs that are in entered rooms and within aggro range
   const activeMobs: ArenaMob[] = [];
@@ -588,10 +622,27 @@ export function updateMap(state: MapState, dt: number, keys: Set<string>): void 
     }
   }
 
+  // ── Boss AI Tick ──
+  if (state.bossMob && !state.bossMob.dead) {
+    updateMapBoss(state, dt, allWalls);
+  }
+
+  // ── Boss Defeated Banner Decay ──
+  if (state.bossDefeatedBanner > 0) {
+    state.bossDefeatedBanner -= dt;
+  }
+
   // ── Map Complete Check ──
-  const exitRoom = state.layout.rooms.find(r => r.id === state.layout.exitRoomId);
-  if (exitRoom && exitRoom.cleared && state.phase !== 'complete') {
-    state.phase = 'complete';
+  if (state.isBossMap) {
+    // Boss map: complete when boss is dead
+    if (state.bossMob && state.bossMob.dead && state.bossMob.deathTimer > 2.0 && state.phase !== 'complete') {
+      state.phase = 'complete';
+    }
+  } else {
+    const exitRoom = state.layout.rooms.find(r => r.id === state.layout.exitRoomId);
+    if (exitRoom && exitRoom.cleared && state.phase !== 'complete') {
+      state.phase = 'complete';
+    }
   }
 
   // ── Tick Accumulator ──
@@ -633,4 +684,249 @@ export function mobCanAttackMapPlayer(state: MapState, mob: ArenaMob): boolean {
   const dx = state.player.x - mob.x;
   const dy = state.player.y - mob.y;
   return Math.sqrt(dx * dx + dy * dy) <= 35 + state.playerRadius + mob.radius;
+}
+
+// ============================================================
+// Boss System
+// ============================================================
+
+/** Spawn a boss in the boss room. Called from MapScreen when player enters boss room. */
+export function spawnMapBoss(state: MapState, zoneBand: number, bossName: string): void {
+  const bossRoom = state.layout.rooms.find(r => r.type === 'boss');
+  if (!bossRoom) return;
+
+  const baseHp = 500 + zoneBand * 300;
+  const boss: MapBoss = {
+    x: bossRoom.x + bossRoom.width / 2,
+    y: bossRoom.y + bossRoom.height * 0.35,
+    radius: BOSS_RADIUS,
+    hp: baseHp,
+    maxHp: baseHp,
+    name: bossName,
+    color: getBossColor(zoneBand),
+    vx: 0, vy: 0,
+    lastHitTime: -1,
+    knockbackVx: 0, knockbackVy: 0,
+    dead: false, deathTimer: 0,
+    phase: 1,
+    slamTimer: 4.0 + Math.random() * 2,
+    barrageTimer: 6.0 + Math.random() * 2,
+    hazardTimer: 5.0 + Math.random() * 2,
+    slamTelegraph: 0,
+    slamX: 0, slamY: 0,
+    entranceTimer: 1.0,
+  };
+
+  state.bossMob = boss;
+  state.phase = 'boss_fight';
+
+  // Screen shake for entrance
+  state.shakeIntensity = 6;
+  state.shakeTimer = 0.4;
+
+  // Entrance particles
+  for (let i = 0; i < 20; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    state.particles.push({
+      x: boss.x, y: boss.y,
+      vx: Math.cos(angle) * (80 + Math.random() * 60),
+      vy: Math.sin(angle) * (80 + Math.random() * 60),
+      size: 3 + Math.random() * 3,
+      color: boss.color,
+      age: 0, maxAge: 0.6 + Math.random() * 0.4,
+    });
+  }
+}
+
+/** Update boss AI: movement, phase transitions, attack patterns. */
+function updateMapBoss(state: MapState, dt: number, allWalls: WallSegment[]): void {
+  const boss = state.bossMob;
+  if (!boss || boss.dead) return;
+
+  // Entrance animation — boss stands still
+  if (boss.entranceTimer > 0) {
+    boss.entranceTimer -= dt;
+    return;
+  }
+
+  // ── Phase Detection ──
+  const hpPct = boss.hp / boss.maxHp;
+  const prevPhase = boss.phase;
+  if (hpPct > 0.75) boss.phase = 1;
+  else if (hpPct > 0.5) boss.phase = 2;
+  else if (hpPct > 0.25) boss.phase = 3;
+  else boss.phase = 4;
+
+  // Phase transition effects
+  if (boss.phase !== prevPhase) {
+    state.shakeIntensity = 8;
+    state.shakeTimer = 0.3;
+    for (let i = 0; i < 15; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      state.particles.push({
+        x: boss.x, y: boss.y,
+        vx: Math.cos(angle) * (100 + Math.random() * 80),
+        vy: Math.sin(angle) * (100 + Math.random() * 80),
+        size: 2 + Math.random() * 3,
+        color: boss.color,
+        age: 0, maxAge: 0.5 + Math.random() * 0.3,
+      });
+    }
+  }
+
+  // ── Enrage Speed Multiplier ──
+  const enrageMult = boss.phase === 4 ? 1.5 : 1.0;
+
+  // ── Boss Movement (toward player, prefer BOSS_PREFERRED_DIST) ──
+  const pdx = state.player.x - boss.x;
+  const pdy = state.player.y - boss.y;
+  const pDist = Math.sqrt(pdx * pdx + pdy * pdy);
+
+  if (pDist > 1) {
+    const bossSpeed = PLAYER_SPEED * BOSS_SPEED_RATIO * enrageMult;
+    let moveX = 0, moveY = 0;
+
+    if (pDist > BOSS_PREFERRED_DIST + 10) {
+      // Move toward player
+      moveX = (pdx / pDist) * bossSpeed * dt;
+      moveY = (pdy / pDist) * bossSpeed * dt;
+    } else if (pDist < BOSS_PREFERRED_DIST - 20) {
+      // Back away slightly
+      moveX = -(pdx / pDist) * bossSpeed * 0.3 * dt;
+      moveY = -(pdy / pDist) * bossSpeed * 0.3 * dt;
+    }
+
+    boss.x += moveX;
+    boss.y += moveY;
+  }
+
+  // Knockback decay
+  if (boss.knockbackVx !== 0 || boss.knockbackVy !== 0) {
+    boss.x += boss.knockbackVx * dt;
+    boss.y += boss.knockbackVy * dt;
+    const friction = 8;
+    boss.knockbackVx *= Math.max(0, 1 - friction * dt);
+    boss.knockbackVy *= Math.max(0, 1 - friction * dt);
+    if (Math.abs(boss.knockbackVx) < 1) boss.knockbackVx = 0;
+    if (Math.abs(boss.knockbackVy) < 1) boss.knockbackVy = 0;
+  }
+
+  // Wall collision for boss
+  const bossPush = resolveWallCollision({ x: boss.x, y: boss.y }, boss.radius, allWalls);
+  if (bossPush) {
+    boss.x += bossPush.x;
+    boss.y += bossPush.y;
+  }
+
+  // Clamp boss to boss room
+  const bossRoom = state.layout.rooms.find(r => r.type === 'boss');
+  if (bossRoom) {
+    boss.x = Math.max(bossRoom.x + boss.radius, Math.min(bossRoom.x + bossRoom.width - boss.radius, boss.x));
+    boss.y = Math.max(bossRoom.y + boss.radius, Math.min(bossRoom.y + bossRoom.height - boss.radius, boss.y));
+  }
+
+  // ── Attack Pattern: Slam AoE (all phases) ──
+  if (boss.slamTelegraph > 0) {
+    boss.slamTelegraph -= dt;
+    if (boss.slamTelegraph <= 0) {
+      // Slam hits!
+      const sdx = state.player.x - boss.slamX;
+      const sdy = state.player.y - boss.slamY;
+      const sDist = Math.sqrt(sdx * sdx + sdy * sdy);
+      if (sDist < BOSS_SLAM_RADIUS + state.playerRadius) {
+        // Damage applied in MapScreen (needs store access)
+        // Mark slam hit on state for MapScreen to read
+        state.shakeIntensity = 10;
+        state.shakeTimer = 0.2;
+      }
+      // Visual explosion at slam position
+      for (let i = 0; i < 12; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        state.particles.push({
+          x: boss.slamX, y: boss.slamY,
+          vx: Math.cos(angle) * (60 + Math.random() * 80),
+          vy: Math.sin(angle) * (60 + Math.random() * 80),
+          size: 2 + Math.random() * 3,
+          color: '#ef4444',
+          age: 0, maxAge: 0.4 + Math.random() * 0.3,
+        });
+      }
+    }
+  } else {
+    boss.slamTimer -= dt * enrageMult;
+    if (boss.slamTimer <= 0) {
+      // Start slam telegraph
+      boss.slamTelegraph = BOSS_SLAM_TELEGRAPH;
+      boss.slamX = state.player.x;
+      boss.slamY = state.player.y;
+      boss.slamTimer = 5.0 + Math.random() * 2;
+    }
+  }
+
+  // ── Attack Pattern: Projectile Barrage (phases 2+) ──
+  if (boss.phase >= 2) {
+    boss.barrageTimer -= dt * enrageMult;
+    if (boss.barrageTimer <= 0) {
+      boss.barrageTimer = 4.0 + Math.random() * 2;
+      for (let i = 0; i < BOSS_BARRAGE_COUNT; i++) {
+        const angle = (Math.PI * 2 / BOSS_BARRAGE_COUNT) * i;
+        state.projectiles.push({
+          id: state.nextProjectileId++,
+          x: boss.x, y: boss.y,
+          vx: Math.cos(angle) * BOSS_BARRAGE_SPEED,
+          vy: Math.sin(angle) * BOSS_BARRAGE_SPEED,
+          radius: 7, color: boss.color,
+          age: 0, maxAge: 2.5,
+          damage: 0, // Damage calculated in MapScreen with zone data
+          sourceMobId: -999, // sentinel for boss projectile
+          hit: false,
+        });
+      }
+      // Visual burst
+      state.shakeIntensity = 4;
+      state.shakeTimer = 0.1;
+    }
+  }
+
+  // ── Attack Pattern: Ground Hazard Drops (phases 3+) ──
+  if (boss.phase >= 3) {
+    boss.hazardTimer -= dt * enrageMult;
+    if (boss.hazardTimer <= 0) {
+      boss.hazardTimer = 3.0;
+      state.hazards.push({
+        id: state.nextHazardId++,
+        x: state.player.x,
+        y: state.player.y,
+        radius: BOSS_HAZARD_RADIUS,
+        type: 'fire',
+        age: 0,
+        maxAge: BOSS_HAZARD_DURATION,
+        damagePerSec: 0, // DPS set by MapScreen with zone scaling
+        lastDamageTick: 0,
+      });
+    }
+  }
+}
+
+/** Check if a boss slam just landed and player is in range. Returns true if player should take slam damage. */
+export function checkBossSlamHit(state: MapState): boolean {
+  const boss = state.bossMob;
+  if (!boss || boss.dead) return false;
+  // Slam just finished telegraph (within this frame)
+  if (boss.slamTelegraph <= 0 && boss.slamTelegraph > -0.05) {
+    const sdx = state.player.x - boss.slamX;
+    const sdy = state.player.y - boss.slamY;
+    const sDist = Math.sqrt(sdx * sdx + sdy * sdy);
+    return sDist < BOSS_SLAM_RADIUS + state.playerRadius;
+  }
+  return false;
+}
+
+/** Check if boss is in melee range of player. */
+export function bossCanAttackMapPlayer(state: MapState): boolean {
+  const boss = state.bossMob;
+  if (!boss || boss.dead) return false;
+  const dx = state.player.x - boss.x;
+  const dy = state.player.y - boss.y;
+  return Math.sqrt(dx * dx + dy * dy) <= 50 + state.playerRadius + boss.radius;
 }

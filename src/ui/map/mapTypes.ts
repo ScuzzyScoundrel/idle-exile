@@ -4,11 +4,31 @@
 
 import type { ArenaMob, ArenaHazard, ArenaProjectile, ArenaGem,
   ArenaParticle, DamageFloater, ArenaSplash, ArenaSkillVisual, ArenaTrailDot,
-  ArenaTrap, ArenaShrine, ArenaShrineEffect, ArenaBoss, CombatLogEntry,
+  ArenaTrap, ArenaShrine, ArenaShrineEffect, CombatLogEntry,
   Vec2 } from '../arena/arenaTypes';
 import type { ArenaGroundItem } from '../arena/arenaLoot';
 
 export type { Vec2 } from '../arena/arenaTypes';
+
+// ── Map Boss ──
+
+export interface MapBoss {
+  x: number; y: number;
+  radius: number;           // 45px
+  hp: number; maxHp: number;
+  name: string; color: string;
+  vx: number; vy: number;
+  lastHitTime: number;
+  knockbackVx: number; knockbackVy: number;
+  dead: boolean; deathTimer: number;
+  phase: 1 | 2 | 3 | 4;
+  slamTimer: number;        // countdown to next AoE slam
+  barrageTimer: number;     // countdown to next projectile barrage
+  hazardTimer: number;      // countdown to next ground hazard drop
+  slamTelegraph: number;    // >0 during telegraph warning before slam
+  slamX: number; slamY: number; // slam target position
+  entranceTimer: number;    // walk-in animation
+}
 
 // ── Wall / Room Geometry ──
 
@@ -86,7 +106,7 @@ export interface MapState {
 
   // Mobs (same as arena)
   mobs: ArenaMob[];
-  bossMob: ArenaBoss | null;
+  bossMob: MapBoss | null;
   nextMobId: number;
 
   // Combat visuals (reused from arena)
@@ -138,11 +158,13 @@ export interface MapState {
   sessionStartTime: number;
 
   // Map progress
-  phase: 'exploring' | 'combat' | 'complete' | 'failed';
+  phase: 'exploring' | 'combat' | 'boss_fight' | 'complete' | 'failed';
   roomsCleared: number;
   totalRooms: number;         // excludes corridors
   totalKills: number;
   mapStartTime: number;
+  isBossMap: boolean;
+  bossDefeatedBanner: number; // >0 shows "BOSS DEFEATED" banner (countdown)
 
   // Mouse
   mouseWorldPos: Vec2 | null;
