@@ -531,10 +531,41 @@ export function renderArena(
         ctx.beginPath();
         ctx.arc(mob.x, mob.y, mob.radius + 3, 0, Math.PI * 2);
         ctx.strokeStyle = `rgba(167, 139, 252, ${tPulse.toFixed(3)})`;
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 1.5;
         ctx.setLineDash([3, 3]);
         ctx.stroke();
         ctx.setLineDash([]);
+      }
+
+      // Explosive: flame arcs orbiting mob
+      if (mob.arenaAffixes.includes('explosive')) {
+        for (let fi = 0; fi < 4; fi++) {
+          const fAng = totalTime * 4 + (Math.PI / 2) * fi + mob.mobId;
+          const fR = mob.radius + 4;
+          ctx.beginPath();
+          ctx.arc(mob.x, mob.y, fR, fAng, fAng + 0.6);
+          ctx.strokeStyle = `rgba(249, 115, 22, ${(0.5 + Math.sin(totalTime * 6 + fi) * 0.2).toFixed(3)})`;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+      }
+
+      // Toxic: green drip particles below mob
+      if (mob.arenaAffixes.includes('toxic')) {
+        for (let ti = 0; ti < 3; ti++) {
+          const tPhase = (totalTime * 1.5 + ti * 0.33 + mob.mobId * 0.1) % 1;
+          const tAlpha = 0.6 * (1 - tPhase);
+          ctx.globalAlpha = tAlpha;
+          ctx.beginPath();
+          ctx.arc(
+            mob.x + Math.sin(totalTime * 2 + ti * 2) * (mob.radius * 0.5),
+            mob.y + mob.radius + tPhase * 12,
+            2, 0, Math.PI * 2,
+          );
+          ctx.fillStyle = '#4ade80';
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
       }
 
       // Mortar orange dots orbiting
@@ -544,22 +575,23 @@ export function renderArena(
           const mOx = mob.x + Math.cos(mAng) * (mob.radius + 5);
           const mOy = mob.y + Math.sin(mAng) * (mob.radius + 5);
           ctx.beginPath();
-          ctx.arc(mOx, mOy, 2, 0, Math.PI * 2);
+          ctx.arc(mOx, mOy, 2.5, 0, Math.PI * 2);
           ctx.fillStyle = '#fb923c';
           ctx.fill();
         }
       }
 
       // Affix name labels above HP bar
-      const labelY = barY - 10;
+      const labelY = barY - 12;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.font = 'bold 8px monospace';
+      ctx.font = 'bold 10px monospace';
       const affixLabels = mob.arenaAffixes.map(a => ARENA_AFFIX_DEFS[a]?.label ?? a);
       const labelText = affixLabels.join(' · ');
-      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      // Shadow for readability
+      ctx.fillStyle = 'rgba(0,0,0,0.8)';
       ctx.fillText(labelText, mob.x + 1, labelY + 1);
-      ctx.fillStyle = mob.isRare ? '#fbbf24' : '#d4d4d8';
+      ctx.fillStyle = mob.isRare ? '#fbbf24' : '#e5e7eb';
       ctx.fillText(labelText, mob.x, labelY);
     }
   }

@@ -55,10 +55,10 @@ const ALL_AFFIX_IDS: ArenaAffixId[] = ['explosive', 'toxic', 'shielding', 'telep
 
 /** Roll arena affixes for a mob.
  *  Rare: 1 + floor(wave/3), capped at 3.
- *  Non-rare: 10% chance for 1 affix. */
+ *  Non-rare: 35% chance for 1 affix. */
 export function rollArenaAffixes(isRare: boolean, wave: number): ArenaAffixId[] {
   if (!isRare) {
-    if (Math.random() >= 0.10) return [];
+    if (Math.random() >= 0.35) return [];
     return [ALL_AFFIX_IDS[Math.floor(Math.random() * ALL_AFFIX_IDS.length)]];
   }
 

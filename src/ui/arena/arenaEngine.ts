@@ -300,6 +300,7 @@ export function spawnArenaPack(
   state.lastKnownPackLength = pack.length;
 
   // Roll arena affixes on initial pack
+  let affixCount = 0;
   for (const vm of state.mobs) {
     const affixes = rollArenaAffixes(vm.isRare, state.currentWave);
     vm.arenaAffixes = affixes;
@@ -307,7 +308,9 @@ export function spawnArenaPack(
     if (affixes.includes('teleporter')) vm.teleportTimer = 3 + Math.random() * 2;
     if (affixes.includes('mortar')) vm.mortarTimer = 4 + Math.random() * 2;
     if (vm.isRare && affixes.length > 0) vm.radius = 17; // bigger rares with affixes
+    if (affixes.length > 0) affixCount++;
   }
+  console.log(`[arena] spawnArenaPack: ${state.mobs.length} mobs, ${affixCount} with affixes, wave ${state.currentWave}`);
 
   return pack;
 }
