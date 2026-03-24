@@ -244,6 +244,8 @@ export default function MapScreen() {
   const downfarmedRef = useRef(false);
   const corruptedTierRef = useRef(0);       // 0 = normal map, 1+ = corrupted
   const corruptedModsRef = useRef<MapModifier[]>([]);
+  const mobDebuffsRef = useRef<Map<number, import('../../types/combat').ActiveDebuff[]>>(new Map());
+  const bossDebuffsRef = useRef<import('../../types/combat').ActiveDebuff[]>([]);
 
   const [picking, setPicking] = useState(true); // start in zone-picker mode
 
@@ -320,6 +322,8 @@ export default function MapScreen() {
     lastTimeRef.current = 0;
     bossSpawnedRef.current = false;
     bossMeleeTimerRef.current = 0;
+    mobDebuffsRef.current.clear();
+    bossDebuffsRef.current = [];
 
     // Spatial damage helper (ES absorption + death detection)
     const applySpatialDamage = (mapState: MapState, rawDamage: number, source: string) => {
@@ -554,7 +558,7 @@ export default function MapScreen() {
                 },
                 damageElement: (zoneData.bossDamageElement ?? 'physical') as any,
                 physRatio: zoneData.bossPhysRatio ?? 1,
-                debuffs: [] as import('../../types/combat').ActiveDebuff[],
+                debuffs: bossDebuffsRef.current.length > 0 ? bossDebuffsRef.current : [] as import('../../types/combat').ActiveDebuff[],
                 nextAttackAt: now + 10000,
               }];
 
@@ -562,8 +566,12 @@ export default function MapScreen() {
               const result = tickGs.tickCombat(0.25);
               const postPack = useGameStore.getState().packMobs;
 
-              // Sync boss HP
+              // Restore store so engine doesn't accumulate ghost packs
+              useGameStore.setState({ packMobs: [], currentPackSize: 0 });
+
+              // Sync boss HP + debuffs
               if (postPack.length > 0) {
+                bossDebuffsRef.current = postPack[0].debuffs ?? [];
                 const prevBossHp = boss.hp;
                 boss.hp = postPack[0].hp;
                 const hpDelta = prevBossHp - postPack[0].hp;
@@ -698,7 +706,7 @@ export default function MapScreen() {
             } : null,
             damageElement: 'physical' as const,
             physRatio: 1,
-            debuffs: [] as import('../../types/combat').ActiveDebuff[],
+            debuffs: mobDebuffsRef.current.get(m.mobId) ?? [],
             nextAttackAt: now + 5000,
           }));
 
@@ -707,66 +715,77 @@ export default function MapScreen() {
           const result = tickGs.tickCombat(0.25);
           const postPack = useGameStore.getState().packMobs;
 
-          // Count kills and sync HP back to visual mobs
-          let kills = 0;
-          let rareKills = 0;
-          for (let i = 0; i < mobsInRange.length; i++) {
-            const visMob = mobsInRange[i];
-            if (i < postPack.length) {
-              const prevHp = visMob.hp;
-              visMob.hp = postPack[i].hp;
-              visMob.maxHp = postPack[i].maxHp;
-              const hpDelta = prevHp - postPack[i].hp;
+          // Restore store so engine doesn't accumulate ghost packs
+          useGameStore.setState({ packMobs: [], currentPackSize: 0 });
 
-              if (hpDelta > 0 && postPack[i].hp > 0) {
-                markMobHit(map as any, visMob);
-                applyKnockback(map as any, visMob);
-                addDamageFloater(map as any, hpDelta, result.isCrit, visMob);
+          // Engine pops dead mobs from the FRONT of the pack.
+          // postPack[0] corresponds to mobsInRange[kills], not mobsInRange[0].
+          let kills = result.mobKills;
+          let rareKills = 0;
+
+          // Mark killed mobs (popped from front of pack)
+          for (let i = 0; i < kills && i < mobsInRange.length; i++) {
+            const visMob = mobsInRange[i];
+            if (!visMob.dead) {
+              visMob.dead = true;
+              visMob.deathTimer = 0;
+              rareKills += visMob.isRare ? 1 : 0;
+              mobDebuffsRef.current.delete(visMob.mobId);
+              addKillFloater(map as any, visMob);
+              spawnDeathParticles(map as any, visMob);
+              spawnDeathHazards(map as any, visMob, zoneData.band);
+              spawnGems(map as any, visMob, 2 + Math.floor(Math.random() * 3));
+              if (Math.random() < 0.3) spawnGems(map as any, visMob, 1, true);
+              // Volatile modifier: fire pool on every mob death
+              if (hasModifier(map.modifiers, 'volatile')) {
+                map.hazards.push({
+                  id: map.nextHazardId++,
+                  x: visMob.x, y: visMob.y,
+                  radius: 30, type: 'fire',
+                  age: 0, maxAge: 2,
+                  damagePerSec: 8 + zoneData.band * 2,
+                  lastDamageTick: 0,
+                });
               }
-              if (postPack[i].hp <= 0 && prevHp > 0) {
-                visMob.dead = true;
-                visMob.deathTimer = 0;
-                kills++;
-                if (visMob.isRare) rareKills++;
-                addKillFloater(map as any, visMob);
-                spawnDeathParticles(map as any, visMob);
-                spawnDeathHazards(map as any, visMob, zoneData.band);
-                spawnGems(map as any, visMob, 2 + Math.floor(Math.random() * 3));
-                if (Math.random() < 0.3) spawnGems(map as any, visMob, 1, true);
-                // Volatile modifier: fire pool on every mob death
-                if (hasModifier(map.modifiers, 'volatile')) {
-                  map.hazards.push({
-                    id: map.nextHazardId++,
-                    x: visMob.x, y: visMob.y,
-                    radius: 30, type: 'fire',
-                    age: 0, maxAge: 2,
-                    damagePerSec: 8 + zoneData.band * 2,
-                    lastDamageTick: 0,
-                  });
-                }
-              }
-            } else {
-              // Engine killed this mob (popped from front)
-              if (!visMob.dead) {
-                visMob.dead = true;
-                visMob.deathTimer = 0;
-                kills++;
-                if (visMob.isRare) rareKills++;
-                addKillFloater(map as any, visMob);
-                spawnDeathParticles(map as any, visMob);
-                spawnDeathHazards(map as any, visMob, zoneData.band);
-                spawnGems(map as any, visMob, 2 + Math.floor(Math.random() * 3));
-                // Volatile modifier: fire pool on every mob death
-                if (hasModifier(map.modifiers, 'volatile')) {
-                  map.hazards.push({
-                    id: map.nextHazardId++,
-                    x: visMob.x, y: visMob.y,
-                    radius: 30, type: 'fire',
-                    age: 0, maxAge: 2,
-                    damagePerSec: 8 + zoneData.band * 2,
-                    lastDamageTick: 0,
-                  });
-                }
+            }
+          }
+
+          // Sync surviving mobs (postPack[j] = mobsInRange[kills + j])
+          for (let j = 0; j < postPack.length && kills + j < mobsInRange.length; j++) {
+            const visMob = mobsInRange[kills + j];
+            const prevHp = visMob.hp;
+            visMob.hp = postPack[j].hp;
+            visMob.maxHp = postPack[j].maxHp;
+            visMob.activeDebuffs = postPack[j].debuffs?.map(d => d.debuffId) ?? [];
+            mobDebuffsRef.current.set(visMob.mobId, postPack[j].debuffs ?? []);
+            const hpDelta = prevHp - postPack[j].hp;
+
+            if (hpDelta > 0 && postPack[j].hp > 0) {
+              markMobHit(map as any, visMob);
+              applyKnockback(map as any, visMob);
+              addDamageFloater(map as any, hpDelta, result.isCrit, visMob);
+            }
+            if (postPack[j].hp <= 0 && prevHp > 0) {
+              visMob.dead = true;
+              visMob.deathTimer = 0;
+              kills++;
+              rareKills += visMob.isRare ? 1 : 0;
+              mobDebuffsRef.current.delete(visMob.mobId);
+              addKillFloater(map as any, visMob);
+              spawnDeathParticles(map as any, visMob);
+              spawnDeathHazards(map as any, visMob, zoneData.band);
+              spawnGems(map as any, visMob, 2 + Math.floor(Math.random() * 3));
+              if (Math.random() < 0.3) spawnGems(map as any, visMob, 1, true);
+              // Volatile modifier: fire pool on every mob death
+              if (hasModifier(map.modifiers, 'volatile')) {
+                map.hazards.push({
+                  id: map.nextHazardId++,
+                  x: visMob.x, y: visMob.y,
+                  radius: 30, type: 'fire',
+                  age: 0, maxAge: 2,
+                  damagePerSec: 8 + zoneData.band * 2,
+                  lastDamageTick: 0,
+                });
               }
             }
           }
@@ -961,10 +980,25 @@ export default function MapScreen() {
     };
   }, [picking]);
 
-  return (
+  // ESC key returns to zone picker from active map
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !picking) {
+        stateRef.current = null;
+        setPicking(true);
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [picking]);
+
+  return picking ? (
     <div className="w-full h-[calc(100vh-120px)] bg-gray-950 rounded-lg overflow-hidden relative">
-      {picking && <ZonePicker onSelectZone={handleSelectZone} onSelectCorrupted={handleSelectCorrupted} />}
-      <canvas ref={canvasRef} className={`w-full h-full ${picking ? 'hidden' : ''}`} />
+      <ZonePicker onSelectZone={handleSelectZone} onSelectCorrupted={handleSelectCorrupted} />
+    </div>
+  ) : (
+    <div className="fixed inset-0 z-50 bg-black overflow-hidden">
+      <canvas ref={canvasRef} className="w-full h-full" />
     </div>
   );
 }

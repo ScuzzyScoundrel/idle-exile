@@ -47,18 +47,22 @@ export function renderMap(
   }
   ctx.translate(-state.camera.x, -state.camera.y);
 
-  // ── Room Floors ──
+  // ── Fog of War — fill entire world with darkness, punch out entered rooms ──
+  const fogPad = 200; // extra padding around world bounds
+  ctx.fillStyle = '#08080e';
+  ctx.fillRect(
+    -fogPad, -fogPad,
+    state.layout.worldWidth + fogPad * 2,
+    state.layout.worldHeight + fogPad * 2,
+  );
+
+  // ── Room Floors (entered rooms punched out of the fog) ──
+  const isCorrupted = state.corruptedTier > 0;
   for (const room of state.layout.rooms) {
-    if (!room.entered) {
-      // Unexplored: dark silhouette
-      ctx.fillStyle = 'rgba(15, 15, 25, 0.95)';
-      ctx.fillRect(room.x, room.y, room.width, room.height);
-      continue;
-    }
+    if (!room.entered) continue; // stays dark — fog covers it
 
     // Explored room floor — corrupted maps get purple tint
     const isCurrentRoom = room.id === state.currentRoomId;
-    const isCorrupted = state.corruptedTier > 0;
     if (isCorrupted) {
       ctx.fillStyle = isCurrentRoom ? '#140f1e' : '#0e0a16';
     } else {
