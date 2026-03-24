@@ -187,6 +187,7 @@ export interface GameState {
   // Map system
   mapFragments: number;
   mapCompletedCounts: Record<string, number>;  // zoneId → maps completed (resets after boss)
+  highestCorruptedTier: number;  // highest corrupted map tier completed
 
   // Meta
   lastSaveTime: number;

@@ -3,9 +3,9 @@
 // mob aggro, room transitions
 // ============================================================
 
-import type { MapState, MapLayout, WallSegment, MapRoom, Vec2, MapBoss } from './mapTypes';
+import type { MapState, MapLayout, WallSegment, MapRoom, Vec2, MapBoss, MapModifier } from './mapTypes';
 import type { ArenaMob, ShrineType } from '../arena/arenaTypes';
-import { generateMap, createMobFromSpawn, getAllWalls, getRoomAtPosition } from './mapGeneration';
+import { generateMap, createMobFromSpawn, getAllWalls, getRoomAtPosition, hasModifier } from './mapGeneration';
 import { PLAYER_SPEED, moveMobsTowardPlayer } from '../arena/arenaMovement';
 import { updateGems } from '../arena/arenaCombatFeedback';
 
@@ -49,8 +49,10 @@ export function createMapState(
   zoneBand: number,
   wave: number,
   isBossMap: boolean,
+  corruptedTier: number = 0,
+  modifiers: MapModifier[] = [],
 ): MapState {
-  const layout = generateMap(zoneBand, wave, isBossMap);
+  const layout = generateMap(zoneBand, wave, isBossMap, modifiers);
   const startRoom = layout.rooms.find(r => r.id === layout.startRoomId)!;
 
   // Player starts in center of entry room
@@ -131,10 +133,14 @@ export function createMapState(
     frenzyTimer: 0,
     multiKillTimer: 0,
     multiKillCount: 0,
+
+    corruptedTier,
+    modifiers,
+    timerRemaining: hasModifier(modifiers, 'temporal') ? 180 : null, // 3 minutes
   };
 
   // Populate mobs for all rooms
-  populateAllRooms(state, zoneBand, wave);
+  populateAllRooms(state, zoneBand, wave, corruptedTier, modifiers);
 
   // Place shrines in rooms that have shrine spots
   for (const room of layout.rooms) {
@@ -148,11 +154,11 @@ export function createMapState(
 
 // ── Mob Population ──
 
-function populateAllRooms(state: MapState, zoneBand: number, wave: number): void {
+function populateAllRooms(state: MapState, zoneBand: number, wave: number, corruptedTier: number = 0, modifiers: MapModifier[] = []): void {
   let packIndex = 0;
   for (const room of state.layout.rooms) {
     for (const spawn of room.spawnPoints) {
-      const mob = createMobFromSpawn(spawn, state.nextMobId++, packIndex++, wave, zoneBand);
+      const mob = createMobFromSpawn(spawn, state.nextMobId++, packIndex++, wave, zoneBand, corruptedTier, modifiers);
       room.mobIds.push(mob.mobId);
       state.mobs.push(mob);
     }
@@ -645,6 +651,15 @@ export function updateMap(state: MapState, dt: number, keys: Set<string>): void 
     }
   }
 
+  // ── Temporal Modifier Timer ──
+  if (state.timerRemaining !== null && state.phase !== 'complete' && state.phase !== 'failed') {
+    state.timerRemaining -= dt;
+    if (state.timerRemaining <= 0) {
+      state.timerRemaining = 0;
+      state.phase = 'failed';
+    }
+  }
+
   // ── Tick Accumulator ──
   state.tickAccumulator += dt;
 }
@@ -695,7 +710,11 @@ export function spawnMapBoss(state: MapState, zoneBand: number, bossName: string
   const bossRoom = state.layout.rooms.find(r => r.type === 'boss');
   if (!bossRoom) return;
 
-  const baseHp = 500 + zoneBand * 300;
+  let baseHp = 500 + zoneBand * 300;
+  // Corrupted tier scaling: +8% HP per tier
+  if (state.corruptedTier > 0) baseHp = Math.round(baseHp * (1 + state.corruptedTier * 0.08));
+  // Empowered modifier: +50% boss HP
+  if (hasModifier(state.modifiers, 'empowered')) baseHp = Math.round(baseHp * 1.5);
   const boss: MapBoss = {
     x: bossRoom.x + bossRoom.width / 2,
     y: bossRoom.y + bossRoom.height * 0.35,

@@ -178,6 +178,23 @@ export interface MapState {
   frenzyTimer: number;
   multiKillTimer: number;
   multiKillCount: number;
+
+  // Corrupted map state
+  corruptedTier: number;           // 0 = normal map, 1+ = corrupted
+  modifiers: MapModifier[];        // active map modifiers
+  timerRemaining: number | null;   // temporal modifier countdown (null = no timer)
+}
+
+// ── Map Modifiers (Corrupted Maps) ──
+
+export interface MapModifier {
+  id: string;
+  label: string;
+  description: string;
+  /** Multiplicative reward bonuses: xp, loot, fragments */
+  xpMult: number;
+  lootMult: number;
+  fragMult: number;
 }
 
 // ── Room Templates ──

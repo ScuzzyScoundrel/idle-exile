@@ -12,10 +12,11 @@ import { ZONE_DEFS, BAND_NAMES } from '../../data/zones';
 import { rollZoneAttack, calcZoneAccuracy, calcLevelDamageMult } from '../../engine/zones';
 import { getUnifiedSkillDef } from '../../data/skills';
 
-import type { MapState } from './mapTypes';
+import type { MapState, MapModifier } from './mapTypes';
 import { createMapState, updateMap, getMapMobsInRange, mobCanAttackMapPlayer,
   spawnMapBoss, bossCanAttackMapPlayer,
   BOSS_SLAM_DAMAGE_MULT, BOSS_BARRAGE_DAMAGE_MULT, BOSS_HAZARD_DPS_MULT } from './mapEngine';
+import { rollMapModifiers, hasModifier } from './mapGeneration';
 import { renderMap } from './mapRendering';
 import type { MapHudExtra } from './mapRendering';
 import { rollArenaLoot, rollBossArenaLoot } from '../arena/arenaLoot';
@@ -46,6 +47,22 @@ const DOWNFARM_XP_MULT = 0.5;     // 50% XP reduction when downfarming
 const FRAGMENT_RARE_DROP_CHANCE = 0.5;  // 50% chance from rare mob kills
 const FRAGMENT_BOSS_MIN = 3;
 const FRAGMENT_BOSS_MAX = 5;
+
+// Corrupted map constants
+const CORRUPTED_BASE_COST = 3;         // tier 1 costs 3 fragments
+const CORRUPTED_COST_PER_TIER = 1;     // +1 per tier
+const CORRUPTED_MAX_COST = 10;         // cap at 10 fragments
+
+/** Fragment cost to enter a corrupted map at the given tier. */
+function corruptedMapCost(tier: number): number {
+  return Math.min(CORRUPTED_MAX_COST, CORRUPTED_BASE_COST + (tier - 1) * CORRUPTED_COST_PER_TIER);
+}
+
+/** Check if player has beaten the last zone (unlocks corrupted maps). */
+function hasBeatenLastZone(bossKillCounts: Record<string, number>): boolean {
+  const lastZone = ZONE_DEFS[ZONE_DEFS.length - 1];
+  return (bossKillCounts[lastZone.id] ?? 0) >= 1;
+}
 
 // ── Helpers ──
 
@@ -79,10 +96,16 @@ function isZoneUnlocked(zoneId: string, bossKillCounts: Record<string, number>):
 
 // ── Zone Picker Component ──
 
-function ZonePicker({ onSelectZone }: { onSelectZone: (zoneId: string) => void }) {
+function ZonePicker({ onSelectZone, onSelectCorrupted }: {
+  onSelectZone: (zoneId: string) => void;
+  onSelectCorrupted: (tier: number) => void;
+}) {
   const bossKillCounts = useGameStore(s => s.bossKillCounts);
   const mapCompletedCounts = useGameStore(s => s.mapCompletedCounts);
+  const mapFragments = useGameStore(s => s.mapFragments);
+  const highestCorruptedTier = useGameStore(s => s.highestCorruptedTier);
   const highestIdx = getHighestUnlockedZoneIndex(bossKillCounts);
+  const corruptedUnlocked = hasBeatenLastZone(bossKillCounts);
 
   // Group unlocked zones by band
   const unlockedZones = ZONE_DEFS.filter(z => isZoneUnlocked(z.id, bossKillCounts));
@@ -98,6 +121,53 @@ function ZonePicker({ onSelectZone }: { onSelectZone: (zoneId: string) => void }
       <div className="bg-gray-900 border border-gray-700 rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
         <h2 className="text-xl font-bold text-gray-100 mb-1 text-center">Select a Zone</h2>
         <p className="text-xs text-gray-500 mb-4 text-center">Choose where to run your next map</p>
+
+        {/* ── Corrupted Maps Section ── */}
+        {corruptedUnlocked && (() => {
+          const nextTier = highestCorruptedTier + 1;
+          const cost = corruptedMapCost(nextTier);
+          const canAfford = mapFragments >= cost;
+          const previewMods = rollMapModifiers(nextTier);
+          return (
+            <div className="mb-5">
+              <div className="text-xs font-bold text-purple-400 uppercase tracking-wider mb-1 border-b border-purple-800 pb-1">
+                Corrupted Maps
+              </div>
+              <div className="bg-purple-950/30 border border-purple-700/50 rounded p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <span className="text-sm font-bold text-purple-300">Tier {nextTier}</span>
+                    <span className="text-xs text-gray-400 ml-2">
+                      (Highest cleared: T{highestCorruptedTier})
+                    </span>
+                  </div>
+                  <div className="text-xs text-purple-300">
+                    Cost: <span className={canAfford ? 'text-green-400' : 'text-red-400'}>{cost}</span> Fragments
+                    <span className="text-gray-500 ml-1">({mapFragments} owned)</span>
+                  </div>
+                </div>
+                <div className="text-[11px] text-gray-400 mb-1">
+                  Mob HP +{Math.round(nextTier * 8)}% · Mob DMG +{Math.round(nextTier * 5)}%
+                  {nextTier % 5 === 0 && <span className="text-yellow-400 ml-1">· BOSS TIER</span>}
+                </div>
+                <div className="text-[11px] text-purple-300 mb-2">
+                  Modifiers: {previewMods.map(m => m.label).join(', ')}
+                </div>
+                <button
+                  onClick={() => canAfford && onSelectCorrupted(nextTier)}
+                  disabled={!canAfford}
+                  className={`w-full px-3 py-1.5 rounded text-sm font-bold transition-colors
+                    ${canAfford
+                      ? 'bg-purple-700/60 hover:bg-purple-600/70 text-purple-100 border border-purple-500/50'
+                      : 'bg-gray-800/50 text-gray-600 border border-gray-700/30 cursor-not-allowed'}
+                  `}
+                >
+                  Enter Corrupted Map (T{nextTier})
+                </button>
+              </div>
+            </div>
+          );
+        })()}
 
         {Array.from(bandGroups.entries()).sort((a, b) => b[0] - a[0]).map(([band, zones]) => (
           <div key={band} className="mb-4">
@@ -172,17 +242,39 @@ export default function MapScreen() {
   const bossMeleeTimerRef = useRef(0);   // boss melee attack cooldown
   const selectedZoneRef = useRef<string | null>(null);  // zone chosen for current map session
   const downfarmedRef = useRef(false);
+  const corruptedTierRef = useRef(0);       // 0 = normal map, 1+ = corrupted
+  const corruptedModsRef = useRef<MapModifier[]>([]);
 
   const [picking, setPicking] = useState(true); // start in zone-picker mode
 
   const handleSelectZone = useCallback((zoneId: string) => {
     selectedZoneRef.current = zoneId;
+    corruptedTierRef.current = 0;
+    corruptedModsRef.current = [];
 
     // Compute downfarm status
     const gs = useGameStore.getState();
     const highestIdx = getHighestUnlockedZoneIndex(gs.bossKillCounts);
     const selectedIdx = getZoneIndex(zoneId);
     downfarmedRef.current = (highestIdx - selectedIdx) >= DOWNFARM_ZONE_GAP;
+
+    setPicking(false);
+  }, []);
+
+  const handleSelectCorrupted = useCallback((tier: number) => {
+    const gs = useGameStore.getState();
+    const cost = corruptedMapCost(tier);
+    if (gs.mapFragments < cost) return;
+
+    // Deduct fragments
+    useGameStore.setState({ mapFragments: gs.mapFragments - cost });
+
+    // Use last zone as base
+    const lastZone = ZONE_DEFS[ZONE_DEFS.length - 1];
+    selectedZoneRef.current = lastZone.id;
+    corruptedTierRef.current = tier;
+    corruptedModsRef.current = rollMapModifiers(tier);
+    downfarmedRef.current = false;
 
     setPicking(false);
   }, []);
@@ -217,9 +309,13 @@ export default function MapScreen() {
     const zone = ZONE_DEFS.find(z => z.id === zoneId);
     if (!zone) { setPicking(true); return; }
 
+    const cTier = corruptedTierRef.current;
+    const cMods = corruptedModsRef.current;
     const mapsForZone = gs0.mapCompletedCounts[zoneId] ?? 0;
-    const isBoss = mapsForZone > 0 && mapsForZone % MAPS_BEFORE_BOSS === 0;
-    stateRef.current = createMapState(canvas.width, canvas.height, zone.band, 1, isBoss);
+    const isBoss = cTier > 0
+      ? (cTier % 5 === 0) // corrupted boss every 5 tiers
+      : (mapsForZone > 0 && mapsForZone % MAPS_BEFORE_BOSS === 0);
+    stateRef.current = createMapState(canvas.width, canvas.height, zone.band, 1, isBoss, cTier, cMods);
     killCountRef.current = 0;
     lastTimeRef.current = 0;
     bossSpawnedRef.current = false;
@@ -266,6 +362,7 @@ export default function MapScreen() {
 
       const isDownfarmed = downfarmedRef.current;
       const xpMult = isDownfarmed ? DOWNFARM_XP_MULT : 1.0;
+      const corruptedDmgMult = map.corruptedTier > 0 ? (1 + map.corruptedTier * 0.05) : 1;
 
       if (!map.paused && map.phase !== 'complete' && map.phase !== 'failed') {
         // Update spatial simulation
@@ -304,7 +401,7 @@ export default function MapScreen() {
 
           const variance = 0.8 + Math.random() * 0.4;
           const levelMult = calcLevelDamageMult(gs.character.level, zoneData.iLvlMin);
-          const rawDmg = (SPATIAL_DMG_BASE * zoneData.band + SPATIAL_DMG_ILVL_SCALE * zoneData.iLvlMin) * levelMult * variance;
+          const rawDmg = (SPATIAL_DMG_BASE * zoneData.band + SPATIAL_DMG_ILVL_SCALE * zoneData.iLvlMin) * levelMult * variance * corruptedDmgMult;
 
           map.projectiles.push({
             id: map.nextProjectileId++,
@@ -347,7 +444,7 @@ export default function MapScreen() {
             mob.attackTimer = SPATIAL_ATTACK_INTERVAL * (0.8 + Math.random() * 0.4);
             const dmgMult = mob.behavior === 'fast' ? 0.6 : 1.0;
             const variance = 0.8 + Math.random() * 0.4;
-            const rawDmg = (SPATIAL_DMG_BASE * zoneData.band + SPATIAL_DMG_ILVL_SCALE * zoneData.iLvlMin) * levelMult * variance * dmgMult;
+            const rawDmg = (SPATIAL_DMG_BASE * zoneData.band + SPATIAL_DMG_ILVL_SCALE * zoneData.iLvlMin) * levelMult * variance * dmgMult * corruptedDmgMult;
             const roll = rollZoneAttack(rawDmg, 0.7, zoneAccuracy, projStats!, undefined, undefined, zoneData.band);
             addPlayerHitFloater(map as any, Math.round(roll.damage), roll.isDodged, roll.isBlocked);
             if (!roll.isDodged && !roll.isBlocked && roll.damage > 0) {
@@ -391,7 +488,7 @@ export default function MapScreen() {
             const sdy = map.player.y - boss.slamY;
             const sDist = Math.sqrt(sdx * sdx + sdy * sdy);
             if (sDist < 80 + map.playerRadius) {
-              const slamDmg = SPATIAL_DMG_BASE * zoneData.band * BOSS_SLAM_DAMAGE_MULT * levelMult;
+              const slamDmg = SPATIAL_DMG_BASE * zoneData.band * BOSS_SLAM_DAMAGE_MULT * levelMult * corruptedDmgMult;
               const roll = rollZoneAttack(slamDmg, 0.7, zoneAccuracy, projStats!, undefined, undefined, zoneData.band);
               addPlayerHitFloater(map as any, Math.round(roll.damage), roll.isDodged, roll.isBlocked);
               if (!roll.isDodged && !roll.isBlocked && roll.damage > 0) {
@@ -409,7 +506,7 @@ export default function MapScreen() {
             if (Math.sqrt(pdx * pdx + pdy * pdy) > proj.radius + map.playerRadius) continue;
             proj.hit = true;
             if (map.iFrameTimer > 0) continue;
-            const barrageDmg = SPATIAL_DMG_BASE * zoneData.band * BOSS_BARRAGE_DAMAGE_MULT * levelMult;
+            const barrageDmg = SPATIAL_DMG_BASE * zoneData.band * BOSS_BARRAGE_DAMAGE_MULT * levelMult * corruptedDmgMult;
             const roll = rollZoneAttack(barrageDmg, 0.7, zoneAccuracy, projStats!, undefined, undefined, zoneData.band);
             addPlayerHitFloater(map as any, Math.round(roll.damage), roll.isDodged, roll.isBlocked);
             if (!roll.isDodged && !roll.isBlocked && roll.damage > 0) {
@@ -422,7 +519,7 @@ export default function MapScreen() {
           bossMeleeTimerRef.current -= dt;
           if (bossMeleeTimerRef.current <= 0 && bossCanAttackMapPlayer(map)) {
             bossMeleeTimerRef.current = BOSS_MELEE_INTERVAL;
-            const meleeDmg = SPATIAL_DMG_BASE * zoneData.band * 1.5 * levelMult * (0.8 + Math.random() * 0.4);
+            const meleeDmg = SPATIAL_DMG_BASE * zoneData.band * 1.5 * levelMult * (0.8 + Math.random() * 0.4) * corruptedDmgMult;
             const roll = rollZoneAttack(meleeDmg, 0.7, zoneAccuracy, projStats!, undefined, undefined, zoneData.band);
             addPlayerHitFloater(map as any, Math.round(roll.damage), roll.isDodged, roll.isBlocked);
             if (!roll.isDodged && !roll.isBlocked && roll.damage > 0) {
@@ -522,8 +619,9 @@ export default function MapScreen() {
                     }
                   }
 
-                  // Boss kill: guaranteed map fragments (3-5)
-                  const bossFrags = FRAGMENT_BOSS_MIN + Math.floor(Math.random() * (FRAGMENT_BOSS_MAX - FRAGMENT_BOSS_MIN + 1));
+                  // Boss kill: guaranteed map fragments (3-5, + modifier bonus)
+                  const bossModFragBonus = 1 + map.modifiers.reduce((s, m) => s + m.fragMult, 0);
+                  const bossFrags = Math.round((FRAGMENT_BOSS_MIN + Math.floor(Math.random() * (FRAGMENT_BOSS_MAX - FRAGMENT_BOSS_MIN + 1))) * bossModFragBonus);
                   grantFragments(bossFrags);
                   map.floaters.push({
                     x: boss.x + 30, y: boss.y - boss.radius - 50,
@@ -531,9 +629,10 @@ export default function MapScreen() {
                     age: 0, maxAge: 1.5, isCrit: false, vy: -50,
                   });
 
-                  // XP bonus for boss kill (with downfarm penalty)
+                  // XP bonus for boss kill (with downfarm penalty + modifier bonus)
+                  const bossModXpBonus = 1 + map.modifiers.reduce((s, m) => s + m.xpMult, 0);
                   const xpScale = Math.max(0.1, calcXpScale(gs.character.level, zoneData.iLvlMin));
-                  const bossXp = Math.max(1, Math.round(50 * zoneData.band * xpScale * MAP_XP_MULTIPLIER * xpMult));
+                  const bossXp = Math.max(1, Math.round(50 * zoneData.band * xpScale * MAP_XP_MULTIPLIER * xpMult * bossModXpBonus));
                   useGameStore.getState().grantIdleXp(bossXp);
                   map.floaters.push({
                     x: boss.x, y: boss.y - boss.radius - 30,
@@ -634,6 +733,17 @@ export default function MapScreen() {
                 spawnDeathHazards(map as any, visMob, zoneData.band);
                 spawnGems(map as any, visMob, 2 + Math.floor(Math.random() * 3));
                 if (Math.random() < 0.3) spawnGems(map as any, visMob, 1, true);
+                // Volatile modifier: fire pool on every mob death
+                if (hasModifier(map.modifiers, 'volatile')) {
+                  map.hazards.push({
+                    id: map.nextHazardId++,
+                    x: visMob.x, y: visMob.y,
+                    radius: 30, type: 'fire',
+                    age: 0, maxAge: 2,
+                    damagePerSec: 8 + zoneData.band * 2,
+                    lastDamageTick: 0,
+                  });
+                }
               }
             } else {
               // Engine killed this mob (popped from front)
@@ -646,6 +756,17 @@ export default function MapScreen() {
                 spawnDeathParticles(map as any, visMob);
                 spawnDeathHazards(map as any, visMob, zoneData.band);
                 spawnGems(map as any, visMob, 2 + Math.floor(Math.random() * 3));
+                // Volatile modifier: fire pool on every mob death
+                if (hasModifier(map.modifiers, 'volatile')) {
+                  map.hazards.push({
+                    id: map.nextHazardId++,
+                    x: visMob.x, y: visMob.y,
+                    radius: 30, type: 'fire',
+                    age: 0, maxAge: 2,
+                    damagePerSec: 8 + zoneData.band * 2,
+                    lastDamageTick: 0,
+                  });
+                }
               }
             }
           }
@@ -672,12 +793,14 @@ export default function MapScreen() {
             trackKillStreak(map as any, kills);
             trackMultiKill(map as any, kills);
 
-            // Map fragment drops from rare kills (50% chance each)
+            // Map fragment drops from rare kills (50% chance each, + modifier bonus)
             if (rareKills > 0) {
+              const modFragBonus = 1 + map.modifiers.reduce((s, m) => s + m.fragMult, 0);
               let fragDrops = 0;
               for (let r = 0; r < rareKills; r++) {
                 if (Math.random() < FRAGMENT_RARE_DROP_CHANCE) fragDrops++;
               }
+              fragDrops = Math.round(fragDrops * modFragBonus);
               if (fragDrops > 0) {
                 grantFragments(fragDrops);
                 map.floaters.push({
@@ -689,9 +812,10 @@ export default function MapScreen() {
               }
             }
 
-            // XP (with map multiplier + downfarm penalty)
+            // XP (with map multiplier + downfarm penalty + modifier bonuses)
+            const modXpBonus = 1 + map.modifiers.reduce((s, m) => s + m.xpMult, 0);
             const xpScale = Math.max(0.1, calcXpScale(gs.character.level, zoneData.iLvlMin));
-            const xpGrant = Math.max(1, Math.round(10 * zoneData.band * kills * xpScale * MAP_XP_MULTIPLIER * xpMult));
+            const xpGrant = Math.max(1, Math.round(10 * zoneData.band * kills * xpScale * MAP_XP_MULTIPLIER * xpMult * modXpBonus));
             const latestGs = useGameStore.getState();
             latestGs.grantIdleXp(xpGrant);
             map.floaters.push({
@@ -726,8 +850,20 @@ export default function MapScreen() {
       if (map.phase === 'complete') {
         // Wait 3 seconds after completion, then start a new map
         if (map.totalTime > 0 && Date.now() - map.mapStartTime > (map.totalTime * 1000 + 3000)) {
-          // Increment maps completed for this zone in store
           const completionGs = useGameStore.getState();
+
+          if (map.corruptedTier > 0) {
+            // Corrupted map completion: update highest tier, return to picker
+            const prevHighest = completionGs.highestCorruptedTier;
+            if (map.corruptedTier > prevHighest) {
+              useGameStore.setState({ highestCorruptedTier: map.corruptedTier });
+            }
+            stateRef.current = null;
+            setPicking(true);
+            return;
+          }
+
+          // Normal map: increment maps completed for this zone in store
           const newCounts = { ...completionGs.mapCompletedCounts };
           newCounts[zoneId] = (newCounts[zoneId] ?? 0) + 1;
           useGameStore.setState({ mapCompletedCounts: newCounts });
@@ -761,7 +897,10 @@ export default function MapScreen() {
         mapsCompleted: renderGs.mapCompletedCounts[zoneId] ?? 0,
         mapsBeforeBoss: MAPS_BEFORE_BOSS,
         isDownfarmed: downfarmedRef.current,
-        selectedZoneName: zoneData.name,
+        selectedZoneName: map.corruptedTier > 0 ? `Corrupted ${zoneData.name}` : zoneData.name,
+        corruptedTier: map.corruptedTier,
+        modifierLabels: map.modifiers.map(m => m.label),
+        timerRemaining: map.timerRemaining,
       };
 
       renderMap(ctx, map, renderGs.currentHp, renderMaxHp, renderGs.currentEs ?? 0, killCountRef.current, undefined, {
@@ -824,7 +963,7 @@ export default function MapScreen() {
 
   return (
     <div className="w-full h-[calc(100vh-120px)] bg-gray-950 rounded-lg overflow-hidden relative">
-      {picking && <ZonePicker onSelectZone={handleSelectZone} />}
+      {picking && <ZonePicker onSelectZone={handleSelectZone} onSelectCorrupted={handleSelectCorrupted} />}
       <canvas ref={canvasRef} className={`w-full h-full ${picking ? 'hidden' : ''}`} />
     </div>
   );

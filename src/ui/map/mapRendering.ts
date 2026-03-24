@@ -16,6 +16,9 @@ export interface MapHudExtra {
   mapsBeforeBoss?: number;
   isDownfarmed?: boolean;
   selectedZoneName?: string;
+  corruptedTier?: number;
+  modifierLabels?: string[];
+  timerRemaining?: number | null;
 }
 
 export function renderMap(
@@ -53,10 +56,20 @@ export function renderMap(
       continue;
     }
 
-    // Explored room floor
+    // Explored room floor — corrupted maps get purple tint
     const isCurrentRoom = room.id === state.currentRoomId;
-    ctx.fillStyle = isCurrentRoom ? '#0f0f18' : '#0a0a12';
+    const isCorrupted = state.corruptedTier > 0;
+    if (isCorrupted) {
+      ctx.fillStyle = isCurrentRoom ? '#140f1e' : '#0e0a16';
+    } else {
+      ctx.fillStyle = isCurrentRoom ? '#0f0f18' : '#0a0a12';
+    }
     ctx.fillRect(room.x, room.y, room.width, room.height);
+    // Purple vignette overlay for corrupted maps
+    if (isCorrupted) {
+      ctx.fillStyle = 'rgba(88, 28, 135, 0.06)';
+      ctx.fillRect(room.x, room.y, room.width, room.height);
+    }
 
     // Subtle grid
     ctx.strokeStyle = 'rgba(255,255,255,0.02)';
@@ -676,6 +689,33 @@ export function renderMap(
       ctx.font = '12px monospace'; ctx.fillStyle = '#c084fc';
       ctx.fillText(`Fragments: ${_mapHud.mapFragments}`, width - 8, hudY);
       hudY += 16;
+    }
+
+    // Corrupted tier
+    if (_mapHud.corruptedTier && _mapHud.corruptedTier > 0) {
+      ctx.font = 'bold 13px monospace'; ctx.fillStyle = '#c084fc';
+      ctx.fillText(`CORRUPTED T${_mapHud.corruptedTier}`, width - 8, hudY);
+      hudY += 16;
+
+      // Modifier badges
+      if (_mapHud.modifierLabels && _mapHud.modifierLabels.length > 0) {
+        ctx.font = '10px monospace'; ctx.fillStyle = '#a78bfa';
+        for (const label of _mapHud.modifierLabels) {
+          ctx.fillText(label, width - 8, hudY);
+          hudY += 13;
+        }
+      }
+    }
+
+    // Temporal timer
+    if (_mapHud.timerRemaining !== undefined && _mapHud.timerRemaining !== null) {
+      const mins = Math.floor(_mapHud.timerRemaining / 60);
+      const secs = Math.floor(_mapHud.timerRemaining % 60);
+      const urgent = _mapHud.timerRemaining < 30;
+      ctx.font = `bold 14px monospace`;
+      ctx.fillStyle = urgent ? '#ef4444' : '#fbbf24';
+      ctx.fillText(`${mins}:${secs.toString().padStart(2, '0')}`, width - 8, hudY);
+      hudY += 18;
     }
 
     // Downfarm warning

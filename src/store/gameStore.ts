@@ -320,6 +320,7 @@ function createInitialState(): GameState {
     invasionState: { activeInvasions: {}, bandCooldowns: {} },
     mapFragments: 0,
     mapCompletedCounts: {},
+    highestCorruptedTier: 0,
     tutorialStep: 1,
     hasSeenCraftingHint: false,
     lastSaveTime: Date.now(),
@@ -1330,7 +1331,7 @@ export const useGameStore = create<GameState & GameActions>()(
     })) as import('zustand').StateCreator<GameState & GameActions, [['zustand/persist', unknown]], []>,
     {
       name: 'idle-exile-save',
-      version: 61,
+      version: 62,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;

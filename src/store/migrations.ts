@@ -879,5 +879,10 @@ export function runMigrations(
     if (!raw.mapCompletedCounts) raw.mapCompletedCounts = {};
   }
 
+  if (version < 62) {
+    // v62: Corrupted maps — highest tier tracking
+    if (raw.highestCorruptedTier === undefined) raw.highestCorruptedTier = 0;
+  }
+
   return state;
 }

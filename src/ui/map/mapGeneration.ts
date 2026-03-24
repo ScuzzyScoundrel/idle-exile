@@ -2,9 +2,39 @@
 // Map Generation — Room templates, linear assembly, mob placement
 // ============================================================
 
-import type { MapRoom, MapLayout, WallSegment, RoomDoor, MobSpawnPoint, RoomType, Vec2 } from './mapTypes';
+import type { MapRoom, MapLayout, WallSegment, RoomDoor, MobSpawnPoint, RoomType, Vec2, MapModifier } from './mapTypes';
 import { rollArenaAffixes } from '../arena/arenaAffixes';
 import type { ArenaMob } from '../arena/arenaTypes';
+
+// ── Map Modifier Pool ──
+
+const MAP_MODIFIER_POOL: MapModifier[] = [
+  { id: 'dense',     label: 'Dense Pack',      description: '+30% more mobs per room',          xpMult: 0.20, lootMult: 0,    fragMult: 0 },
+  { id: 'armored',   label: 'Armored',          description: 'Mob HP +25%',                      xpMult: 0,    lootMult: 0.15, fragMult: 0 },
+  { id: 'volatile',  label: 'Volatile',         description: 'Mobs explode on death (fire pool)', xpMult: 0,    lootMult: 0,    fragMult: 0.20 },
+  { id: 'temporal',  label: 'Temporal',          description: 'Map timer: 3 minutes',             xpMult: 0.25, lootMult: 0,    fragMult: 0 },
+  { id: 'hexproof',  label: 'Hexproof',         description: 'Mob debuff duration -50%',         xpMult: 0.15, lootMult: 0,    fragMult: 0 },
+  { id: 'swarm',     label: 'Swarm',            description: '+3 white mobs per room',           xpMult: 0.30, lootMult: 0,    fragMult: 0 },
+  { id: 'empowered', label: 'Boss Empowered',   description: 'Boss HP +50%',                     xpMult: 0,    lootMult: 0,    fragMult: 0.50 },
+];
+
+/** Roll 1-3 random modifiers based on corrupted tier. */
+export function rollMapModifiers(tier: number): MapModifier[] {
+  const count = tier <= 5 ? 1 : tier <= 15 ? 2 : 3;
+  const pool = [...MAP_MODIFIER_POOL];
+  const result: MapModifier[] = [];
+  for (let i = 0; i < count && pool.length > 0; i++) {
+    const idx = Math.floor(Math.random() * pool.length);
+    result.push(pool[idx]);
+    pool.splice(idx, 1);
+  }
+  return result;
+}
+
+/** Check if a modifier ID is active in a list. */
+export function hasModifier(modifiers: MapModifier[], id: string): boolean {
+  return modifiers.some(m => m.id === id);
+}
 
 // ── Constants ──
 
@@ -174,13 +204,17 @@ function tierColor(tier: 'white' | 'magic' | 'rare'): string {
   }
 }
 
-/** Create an ArenaMob from a spawn point. */
+/** Create an ArenaMob from a spawn point.
+ *  corruptedTier > 0 applies +8% HP per tier.
+ *  armoredMod applies an additional 1.25x HP multiplier. */
 export function createMobFromSpawn(
   spawn: MobSpawnPoint,
   mobId: number,
   packIndex: number,
   wave: number,
   zoneBand: number,
+  corruptedTier: number = 0,
+  modifiers: MapModifier[] = [],
 ): ArenaMob {
   const isRare = spawn.tier === 'rare';
   const isMagic = spawn.tier === 'magic';
@@ -188,7 +222,11 @@ export function createMobFromSpawn(
   // HP scaling: white=1x, magic=3x, rare=8x base
   const hpBase = 20 + zoneBand * 15;
   const hpMult = isRare ? 8 : isMagic ? 3 : 1;
-  const hp = Math.round(hpBase * hpMult);
+  let hp = Math.round(hpBase * hpMult);
+  // Corrupted tier scaling: +8% HP per tier
+  if (corruptedTier > 0) hp = Math.round(hp * (1 + corruptedTier * 0.08));
+  // Armored modifier: +25% HP
+  if (hasModifier(modifiers, 'armored')) hp = Math.round(hp * 1.25);
 
   const affixes = isRare
     ? rollArenaAffixes(true, wave)
@@ -228,9 +266,45 @@ export function createMobFromSpawn(
 
 // ── Map Generation ──
 
+/** Apply dense/swarm modifiers to spawn points after generation. */
+function applyModifierSpawns(
+  points: MobSpawnPoint[],
+  rx: number, ry: number, rw: number, rh: number,
+  modifiers: MapModifier[],
+): MobSpawnPoint[] {
+  let result = [...points];
+  const margin = 30;
+
+  // Dense: multiply white mob count by 1.3 (round up)
+  if (hasModifier(modifiers, 'dense')) {
+    const whites = result.filter(p => p.tier === 'white');
+    const toAdd = Math.ceil(whites.length * 0.3);
+    for (let i = 0; i < toAdd; i++) {
+      result.push({
+        x: rx + margin + Math.random() * (rw - margin * 2),
+        y: ry + margin + Math.random() * (rh - margin * 2),
+        tier: 'white',
+      });
+    }
+  }
+
+  // Swarm: +3 extra white spawn points per room
+  if (hasModifier(modifiers, 'swarm')) {
+    for (let i = 0; i < 3; i++) {
+      result.push({
+        x: rx + margin + Math.random() * (rw - margin * 2),
+        y: ry + margin + Math.random() * (rh - margin * 2),
+        tier: 'white',
+      });
+    }
+  }
+
+  return result;
+}
+
 /** Generate a linear map: entry → pack rooms → large room → exit.
  *  Optionally attaches 0-2 side rooms. */
-export function generateMap(_zoneBand: number, _wave: number, isBossMap: boolean): MapLayout {
+export function generateMap(_zoneBand: number, _wave: number, isBossMap: boolean, modifiers: MapModifier[] = []): MapLayout {
   const rooms: MapRoom[] = [];
   let nextRoomId = 0;
   let cursorX = 0;
@@ -285,7 +359,8 @@ export function generateMap(_zoneBand: number, _wave: number, isBossMap: boolean
       });
     }
 
-    const spawnPoints = generateSpawnPoints(rx, ry, rw, rh, roomType);
+    const baseSpawns = generateSpawnPoints(rx, ry, rw, rh, roomType);
+    const spawnPoints = applyModifierSpawns(baseSpawns, rx, ry, rw, rh, modifiers);
     const hasShrineSpot = roomType === 'side' || (roomType === 'large' && Math.random() < 0.3);
 
     rooms.push({
@@ -325,7 +400,7 @@ export function generateMap(_zoneBand: number, _wave: number, isBossMap: boolean
       const lastDoor = rooms[rooms.length - 1].doors.find(d => d.direction === 'south');
       if (lastDoor) lastDoor.connectsTo = corridorId;
 
-      const corridorSpawns = generateSpawnPoints(cx, cy, CORRIDOR_WIDTH, CORRIDOR_LENGTH, 'corridor');
+      const corridorSpawns = applyModifierSpawns(generateSpawnPoints(cx, cy, CORRIDOR_WIDTH, CORRIDOR_LENGTH, 'corridor'), cx, cy, CORRIDOR_WIDTH, CORRIDOR_LENGTH, modifiers);
 
       rooms.push({
         id: corridorId,
@@ -364,7 +439,7 @@ export function generateMap(_zoneBand: number, _wave: number, isBossMap: boolean
           cx, cy, CORRIDOR_WIDTH, CORRIDOR_LENGTH, rooms[rooms.length - 1].doors,
         );
 
-        const sideSpawns = generateSpawnPoints(sx, sy, sideSize.w, sideSize.h, 'side');
+        const sideSpawns = applyModifierSpawns(generateSpawnPoints(sx, sy, sideSize.w, sideSize.h, 'side'), sx, sy, sideSize.w, sideSize.h, modifiers);
         rooms.push({
           id: sideId,
           type: 'side',
