@@ -8,6 +8,7 @@ import WorldScreen from './ui/screens/WorldScreen';
 import HeroScreen from './ui/screens/HeroScreen';
 import CraftingScreen from './ui/screens/CraftingScreen';
 import ArenaScreen from './ui/arena/ArenaScreen';
+import MapScreen from './ui/map/MapScreen';
 import { useGameStore } from './store/gameStore';
 import { useTabGuard } from './ui/hooks/useTabGuard';
 import { useZoneTheme } from './ui/hooks/useZoneTheme';
@@ -66,8 +67,8 @@ function App() {
     tutorialStep === 1 ? 'hero' : 'world'
   );
   const setActiveTab = (tab: string) => {
-    // Leaving arena: restart idle run so it spawns a fresh zone-appropriate pack
-    if (activeTab === 'arena' && tab !== 'arena') {
+    // Leaving arena/map: restart idle run so it spawns a fresh zone-appropriate pack
+    if ((activeTab === 'arena' || activeTab === 'map') && tab !== 'arena' && tab !== 'map') {
       const gs = useGameStore.getState();
       if (gs.currentZoneId && gs.idleStartTime) {
         gs.startIdleRun(gs.currentZoneId);
@@ -157,10 +158,11 @@ function App() {
           All screens stay mounted (hidden via CSS) so local state persists across tab switches. */}
       <main className="relative z-10 mx-2 mt-10 mb-20">
         <div className="p-3">
-          {/* WorldScreen unmounted during arena to stop idle tick loop from running in parallel */}
-          {activeTab !== 'arena' && <div className={activeTab === 'world' ? '' : 'hidden'}><WorldScreen /></div>}
+          {/* WorldScreen unmounted during arena/map to stop idle tick loop from running in parallel */}
+          {activeTab !== 'arena' && activeTab !== 'map' && <div className={activeTab === 'world' ? '' : 'hidden'}><WorldScreen /></div>}
           <div className={activeTab === 'hero' ? '' : 'hidden'}><HeroScreen /></div>
           <div className={activeTab === 'crafting' ? '' : 'hidden'}><CraftingScreen /></div>
+          {activeTab === 'map' && <MapScreen />}
           {activeTab === 'arena' && <ArenaScreen />}
         </div>
       </main>

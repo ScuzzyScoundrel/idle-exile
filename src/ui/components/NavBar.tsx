@@ -22,6 +22,7 @@ const CLASS_HERO_ICONS: Record<CharacterClass, string> = {
 
 const TABS = [
   { id: 'world', label: 'World', icon: '\uD83E\uDDED' },
+  { id: 'map', label: 'Map', icon: '\uD83D\uDDFA\uFE0F' },
   { id: 'arena', label: 'Arena', icon: '\uD83C\uDFAE' },
   { id: 'hero', label: 'Hero', icon: null as string | null },
   { id: 'crafting', label: 'Forge', icon: '\uD83D\uDD28' },
