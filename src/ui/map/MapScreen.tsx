@@ -363,6 +363,7 @@ export default function MapScreen() {
       const corruptedDmgMult = map.corruptedTier > 0 ? (1 + map.corruptedTier * 0.05) : 1;
 
       if (!map.paused && map.phase !== 'complete' && map.phase !== 'failed') {
+       try { // ── Master try/catch: prevents game loop freeze from any combat error ──
         // Update spatial simulation
         updateMap(map, dt, keysRef.current);
 
@@ -408,8 +409,8 @@ export default function MapScreen() {
           }
         }
 
-        // ── Rare Mob Ability Damage ──
-        for (const [mobId, ability] of map.rareAbilityStates) {
+        // ── Rare Mob Ability Damage ── (copy entries to avoid Map iteration crash)
+        for (const [mobId, ability] of [...map.rareAbilityStates]) {
           const mob = map.mobs.find(m => m.mobId === mobId);
           if (!mob || mob.dead) continue;
 
@@ -1102,6 +1103,7 @@ export default function MapScreen() {
             }
           }
         }
+       } catch (e) { console.error('[map] simulation error:', e); } // ── End master try/catch ──
       }
 
       // ── Map Completion — wait for ENTER or 5s auto-advance ──
