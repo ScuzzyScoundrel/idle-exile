@@ -326,230 +326,285 @@ function generatePillars(rx: number, ry: number, rw: number, rh: number, count: 
   return pillars;
 }
 
-/** Generate a linear map: entry → pack rooms → large room → exit.
- *  Optionally attaches 0-2 side rooms. */
+/** Generate a branching 2D map: rooms connect in multiple directions,
+ *  creating winding PoE-style dungeon layouts. */
 export function generateMap(_zoneBand: number, _wave: number, isBossMap: boolean, modifiers: MapModifier[] = []): MapLayout {
   const rooms: MapRoom[] = [];
   let nextRoomId = 0;
-  let cursorX = 0;
-  let cursorY = 0;
 
-  // Room sequence: entry, 2-3 pack rooms, 1 large room, exit/boss
+  // Room sequence
   const sequence: RoomType[] = ['entry'];
-  const packCount = 2 + Math.floor(Math.random() * 2); // 2-3 pack rooms
+  const packCount = 2 + Math.floor(Math.random() * 2);
   for (let i = 0; i < packCount; i++) sequence.push('pack');
   sequence.push('large');
-  if (isBossMap) {
-    sequence.push('boss');
+  if (isBossMap) sequence.push('boss');
+
+  // ── Direction helpers ──
+  type Dir = 'north' | 'south' | 'east' | 'west';
+  const OPP: Record<Dir, Dir> = { north: 'south', south: 'north', east: 'west', west: 'east' };
+  const isHoriz = (d: Dir) => d === 'east' || d === 'west';
+
+  // ── Overlap detection ──
+  interface Rect { x: number; y: number; w: number; h: number }
+  const placed: Rect[] = [];
+  function overlaps(r: Rect): boolean {
+    const m = 20;
+    return placed.some(p =>
+      r.x < p.x + p.w + m && r.x + r.w + m > p.x &&
+      r.y < p.y + p.h + m && r.y + r.h + m > p.y);
   }
 
-  // Side room candidates: after pack rooms (50% chance each)
-  const sideRoomAfter = new Set<number>();
-  for (let i = 1; i <= packCount; i++) {
-    if (Math.random() < 0.5) sideRoomAfter.add(i);
+  // ── Weighted direction picker (biased south, avoids backtrack) ──
+  function pickDir(exclude: Dir | null): Dir {
+    const pool: [Dir, number][] = [['south', 40], ['east', 25], ['west', 25], ['north', 10]];
+    const filtered = exclude ? pool.filter(([d]) => d !== exclude) : pool;
+    const total = filtered.reduce((s, [, w]) => s + w, 0);
+    let r = Math.random() * total;
+    for (const [d, w] of filtered) { r -= w; if (r <= 0) return d; }
+    return filtered[filtered.length - 1][0];
   }
 
-  // Track corridor center so next room aligns with it
-  // Init to first room's center (computed from first room width)
-  const firstRoomW = ROOM_SIZES[sequence[0]].w;
-  let lastCorridorCenterX = firstRoomW / 2;
+  // ── Door factory ──
+  function makeDoor(dir: Dir, rx: number, ry: number, rw: number, rh: number, gap: number, connectsTo: number): RoomDoor {
+    // gap = center of opening along the wall's axis (X for N/S walls, Y for E/W walls)
+    switch (dir) {
+      case 'south': return { x: gap, y: ry + rh, width: DOOR_WIDTH, direction: 'south', connectsTo };
+      case 'north': return { x: gap, y: ry, width: DOOR_WIDTH, direction: 'north', connectsTo };
+      case 'east':  return { x: rx + rw, y: gap, width: DOOR_WIDTH, direction: 'east', connectsTo };
+      case 'west':  return { x: rx, y: gap, width: DOOR_WIDTH, direction: 'west', connectsTo };
+    }
+  }
 
-  for (let seqIdx = 0; seqIdx < sequence.length; seqIdx++) {
-    const roomType = sequence[seqIdx];
+  // ── Helper: create a MapRoom ──
+  function makeRoom(id: number, type: RoomType, rx: number, ry: number, rw: number, rh: number, doors: RoomDoor[]): MapRoom {
+    const walls = buildRectWalls(rx, ry, rw, rh, doors);
+    if (type === 'large' || type === 'boss') {
+      walls.push(...generatePillars(rx, ry, rw, rh, type === 'boss' ? 4 : 2 + Math.floor(Math.random() * 3)));
+    }
+    const hasShrineSpot = type === 'side' || (type === 'large' && Math.random() < 0.3);
+    return {
+      id, type, x: rx, y: ry, width: rw, height: rh,
+      walls, doors,
+      spawnPoints: applyModifierSpawns(generateSpawnPoints(rx, ry, rw, rh, type), rx, ry, rw, rh, modifiers),
+      chests: type === 'side' ? [{ id: id * 100, x: rx + rw / 2, y: ry + rh / 2, opened: false, tier: Math.random() < 0.2 ? 'rare' as const : 'normal' as const }] : [],
+      hasShrineSpot,
+      shrinePos: hasShrineSpot ? { x: rx + rw / 2, y: ry + rh * 0.3 } : undefined,
+      entered: false, cleared: false, mobIds: [],
+    };
+  }
+
+  // ── Place entry room at origin ──
+  const eSize = ROOM_SIZES.entry;
+  const ew = eSize.w + Math.floor(Math.random() * 60 - 30);
+  const eh = eSize.h + Math.floor(Math.random() * 60 - 30);
+  const entryRoom = makeRoom(nextRoomId++, 'entry', 0, 0, ew, eh, []);
+  entryRoom.entered = true;
+  rooms.push(entryRoom);
+  placed.push({ x: 0, y: 0, w: ew, h: eh });
+
+  let prevRoom = entryRoom;
+  let cameFrom: Dir | null = null;
+
+  // ── Place main path rooms with branching corridors ──
+  for (let si = 1; si < sequence.length; si++) {
+    const roomType = sequence[si];
     const size = ROOM_SIZES[roomType];
-    // Add some random size variance
     const rw = size.w + Math.floor(Math.random() * 60 - 30);
     const rh = size.h + Math.floor(Math.random() * 60 - 30);
 
-    const roomId = nextRoomId++;
-    // First room at origin; subsequent rooms centered on the corridor feeding them
-    const rx = seqIdx === 0 ? cursorX : lastCorridorCenterX - rw / 2;
-    const ry = cursorY;
+    let success = false;
+    const tried = new Set<Dir>();
 
-    // Doors: south door to previous corridor, north door to next corridor
-    const doors: RoomDoor[] = [];
-    if (seqIdx > 0) {
-      // South door (entrance from corridor)
-      doors.push({
-        x: rx + rw / 2,
-        y: ry,
-        width: DOOR_WIDTH,
-        direction: 'north',
-        connectsTo: roomId - 1, // connects to corridor before this room
-      });
-    }
-    if (seqIdx < sequence.length - 1) {
-      // North door (exit to next corridor)
-      doors.push({
-        x: rx + rw / 2,
-        y: ry + rh,
-        width: DOOR_WIDTH,
-        direction: 'south',
-        connectsTo: -1, // will be set when corridor is created
-      });
-    }
-
-    const baseSpawns = generateSpawnPoints(rx, ry, rw, rh, roomType);
-    const spawnPoints = applyModifierSpawns(baseSpawns, rx, ry, rw, rh, modifiers);
-    const hasShrineSpot = roomType === 'side' || (roomType === 'large' && Math.random() < 0.3);
-
-    // Build walls + add pillars for large/boss rooms
-    const roomWalls = buildRectWalls(rx, ry, rw, rh, doors);
-    if (roomType === 'large' || roomType === 'boss') {
-      roomWalls.push(...generatePillars(rx, ry, rw, rh, roomType === 'boss' ? 4 : 2 + Math.floor(Math.random() * 3)));
-    }
-
-    rooms.push({
-      id: roomId,
-      type: roomType,
-      x: rx, y: ry,
-      width: rw, height: rh,
-      walls: roomWalls,
-      doors,
-      spawnPoints,
-      chests: roomType === 'side' ? [{
-        id: roomId * 100,
-        x: rx + rw / 2,
-        y: ry + rh / 2,
-        opened: false,
-        tier: 'normal',
-      }] : [],
-      hasShrineSpot,
-      shrinePos: hasShrineSpot ? { x: rx + rw / 2, y: ry + rh * 0.3 } : undefined,
-      entered: seqIdx === 0, // first room starts entered
-      cleared: false,
-      mobIds: [],
-    });
-
-    // Add corridor after this room (except last)
-    if (seqIdx < sequence.length - 1) {
-      const corridorId = nextRoomId++;
-      const cx = rx + rw / 2 - CORRIDOR_WIDTH / 2;
-      const cy = ry + rh;
-
-      const corridorDoors: RoomDoor[] = [
-        { x: cx + CORRIDOR_WIDTH / 2, y: cy, width: DOOR_WIDTH, direction: 'north', connectsTo: roomId },
-        { x: cx + CORRIDOR_WIDTH / 2, y: cy + CORRIDOR_LENGTH, width: DOOR_WIDTH, direction: 'south', connectsTo: -1 },
-      ];
-
-      // Fix the previous room's south door to point to corridor
-      const lastDoor = rooms[rooms.length - 1].doors.find(d => d.direction === 'south');
-      if (lastDoor) lastDoor.connectsTo = corridorId;
-
-      const corridorSpawns = applyModifierSpawns(generateSpawnPoints(cx, cy, CORRIDOR_WIDTH, CORRIDOR_LENGTH, 'corridor'), cx, cy, CORRIDOR_WIDTH, CORRIDOR_LENGTH, modifiers);
-
-      rooms.push({
-        id: corridorId,
-        type: 'corridor',
-        x: cx, y: cy,
-        width: CORRIDOR_WIDTH, height: CORRIDOR_LENGTH,
-        walls: buildRectWalls(cx, cy, CORRIDOR_WIDTH, CORRIDOR_LENGTH, corridorDoors),
-        doors: corridorDoors,
-        spawnPoints: corridorSpawns,
-        chests: [],
-        hasShrineSpot: false,
-        entered: false,
-        cleared: false,
-        mobIds: [],
-      });
-
-      cursorY = cy + CORRIDOR_LENGTH;
-      lastCorridorCenterX = cx + CORRIDOR_WIDTH / 2;
-
-      // Side room branch (east side)
-      if (sideRoomAfter.has(seqIdx)) {
-        const sideId = nextRoomId++;
-        const sideSize = ROOM_SIZES.side;
-        const sx = cx + CORRIDOR_WIDTH;
-        const sy = cy + CORRIDOR_LENGTH / 2 - sideSize.h / 2;
-
-        const sideDoors: RoomDoor[] = [
-          { x: sx, y: sy + sideSize.h / 2, width: DOOR_WIDTH, direction: 'west', connectsTo: corridorId },
-        ];
-        // Add east door to corridor
-        rooms[rooms.length - 1].doors.push({
-          x: cx + CORRIDOR_WIDTH, y: cy + CORRIDOR_LENGTH / 2,
-          width: DOOR_WIDTH, direction: 'east', connectsTo: sideId,
-        });
-        // Rebuild corridor walls with new door
-        rooms[rooms.length - 1].walls = buildRectWalls(
-          cx, cy, CORRIDOR_WIDTH, CORRIDOR_LENGTH, rooms[rooms.length - 1].doors,
-        );
-
-        const sideSpawns = applyModifierSpawns(generateSpawnPoints(sx, sy, sideSize.w, sideSize.h, 'side'), sx, sy, sideSize.w, sideSize.h, modifiers);
-        rooms.push({
-          id: sideId,
-          type: 'side',
-          x: sx, y: sy,
-          width: sideSize.w, height: sideSize.h,
-          walls: buildRectWalls(sx, sy, sideSize.w, sideSize.h, sideDoors),
-          doors: sideDoors,
-          spawnPoints: sideSpawns,
-          chests: [{
-            id: sideId * 100,
-            x: sx + sideSize.w / 2,
-            y: sy + sideSize.h / 2,
-            opened: false,
-            tier: Math.random() < 0.2 ? 'rare' : 'normal',
-          }],
-          hasShrineSpot: true,
-          shrinePos: { x: sx + sideSize.w * 0.3, y: sy + sideSize.h * 0.3 },
-          entered: false,
-          cleared: false,
-          mobIds: [],
-        });
+    for (let attempt = 0; attempt < 8 && !success; attempt++) {
+      // Pick direction
+      let dir: Dir;
+      if (attempt < 4) {
+        dir = pickDir(cameFrom ? OPP[cameFrom] : null);
+        if (tried.has(dir)) continue;
+      } else {
+        const untried = (['south', 'east', 'west', 'north'] as Dir[]).filter(d => !tried.has(d));
+        if (untried.length === 0) break;
+        dir = untried[0];
       }
+      tried.add(dir);
+
+      // Random jog: corridor attaches at 30-70% along prevRoom wall
+      const jog = 0.35 + Math.random() * 0.3;
+      // Random offset: next room isn't centered on corridor
+      const roomJog = (Math.random() - 0.5) * 150;
+
+      // Corridor dimensions (swap width/height for horizontal)
+      const cw = isHoriz(dir) ? CORRIDOR_LENGTH : CORRIDOR_WIDTH;
+      const ch = isHoriz(dir) ? CORRIDOR_WIDTH : CORRIDOR_LENGTH;
+
+      // Calculate corridor position
+      let cx: number, cy: number;
+      switch (dir) {
+        case 'south': cx = prevRoom.x + prevRoom.width * jog - CORRIDOR_WIDTH / 2; cy = prevRoom.y + prevRoom.height; break;
+        case 'north': cx = prevRoom.x + prevRoom.width * jog - CORRIDOR_WIDTH / 2; cy = prevRoom.y - CORRIDOR_LENGTH; break;
+        case 'east':  cx = prevRoom.x + prevRoom.width; cy = prevRoom.y + prevRoom.height * jog - CORRIDOR_WIDTH / 2; break;
+        case 'west':  cx = prevRoom.x - CORRIDOR_LENGTH; cy = prevRoom.y + prevRoom.height * jog - CORRIDOR_WIDTH / 2; break;
+      }
+
+      // Calculate room position at corridor end
+      let rx: number, ry: number;
+      switch (dir) {
+        case 'south': rx = cx + CORRIDOR_WIDTH / 2 - rw / 2 + roomJog; ry = cy + CORRIDOR_LENGTH; break;
+        case 'north': rx = cx + CORRIDOR_WIDTH / 2 - rw / 2 + roomJog; ry = cy - rh; break;
+        case 'east':  rx = cx + CORRIDOR_LENGTH; ry = cy + CORRIDOR_WIDTH / 2 - rh / 2 + roomJog; break;
+        case 'west':  rx = cx - rw; ry = cy + CORRIDOR_WIDTH / 2 - rh / 2 + roomJog; break;
+      }
+
+      const corrRect: Rect = { x: cx, y: cy, w: cw, h: ch };
+      const roomRect: Rect = { x: rx, y: ry, w: rw, h: rh };
+      if (overlaps(corrRect) || overlaps(roomRect)) continue;
+
+      // ── Success — place corridor + room ──
+      const corrId = nextRoomId++;
+      const roomId = nextRoomId++;
+
+      // Gap center (X for vertical corridors, Y for horizontal)
+      const gapV = cx + CORRIDOR_WIDTH / 2;   // X center for N/S
+      const gapH = cy + CORRIDOR_WIDTH / 2;   // Y center for E/W
+      const gap = isHoriz(dir) ? gapH : gapV;
+
+      // Add exit door to prevRoom
+      prevRoom.doors.push(makeDoor(dir, prevRoom.x, prevRoom.y, prevRoom.width, prevRoom.height, gap, corrId));
+      // Rebuild prevRoom walls with new door
+      const prevWalls = buildRectWalls(prevRoom.x, prevRoom.y, prevRoom.width, prevRoom.height, prevRoom.doors);
+      if (prevRoom.type === 'large' || prevRoom.type === 'boss') {
+        prevWalls.push(...generatePillars(prevRoom.x, prevRoom.y, prevRoom.width, prevRoom.height, prevRoom.type === 'boss' ? 4 : 2 + Math.floor(Math.random() * 3)));
+      }
+      prevRoom.walls = prevWalls;
+
+      // Corridor
+      const corrDoors: RoomDoor[] = [
+        makeDoor(OPP[dir], cx, cy, cw, ch, gap, prevRoom.id),
+        makeDoor(dir, cx, cy, cw, ch, gap, roomId),
+      ];
+      const corrSpawns = applyModifierSpawns(
+        generateSpawnPoints(cx, cy, cw, ch, 'corridor'), cx, cy, cw, ch, modifiers);
+      rooms.push({
+        id: corrId, type: 'corridor', x: cx, y: cy, width: cw, height: ch,
+        walls: buildRectWalls(cx, cy, cw, ch, corrDoors),
+        doors: corrDoors, spawnPoints: corrSpawns,
+        chests: [], hasShrineSpot: false, entered: false, cleared: false, mobIds: [],
+      });
+      placed.push(corrRect);
+
+      // Room
+      const roomDoors = [makeDoor(OPP[dir], rx, ry, rw, rh, gap, corrId)];
+      const newRoom = makeRoom(roomId, roomType, rx, ry, rw, rh, roomDoors);
+      rooms.push(newRoom);
+      placed.push(roomRect);
+
+      prevRoom = newRoom;
+      cameFrom = dir;
+      success = true;
+    }
+
+    // Emergency fallback: extend south with extra gap to avoid overlap
+    if (!success) {
+      const maxY = placed.reduce((m, p) => Math.max(m, p.y + p.h), 0);
+      const corrId = nextRoomId++;
+      const roomId = nextRoomId++;
+      const cx = prevRoom.x + prevRoom.width / 2 - CORRIDOR_WIDTH / 2;
+      const cy = maxY + 50;
+      const rx = cx + CORRIDOR_WIDTH / 2 - rw / 2;
+      const ry = cy + CORRIDOR_LENGTH;
+      const gapV = cx + CORRIDOR_WIDTH / 2;
+
+      prevRoom.doors.push(makeDoor('south', prevRoom.x, prevRoom.y, prevRoom.width, prevRoom.height, gapV, corrId));
+      prevRoom.walls = buildRectWalls(prevRoom.x, prevRoom.y, prevRoom.width, prevRoom.height, prevRoom.doors);
+
+      const corrDoors: RoomDoor[] = [
+        makeDoor('north', cx, cy, CORRIDOR_WIDTH, CORRIDOR_LENGTH, gapV, prevRoom.id),
+        makeDoor('south', cx, cy, CORRIDOR_WIDTH, CORRIDOR_LENGTH, gapV, roomId),
+      ];
+      rooms.push({
+        id: corrId, type: 'corridor', x: cx, y: cy, width: CORRIDOR_WIDTH, height: CORRIDOR_LENGTH,
+        walls: buildRectWalls(cx, cy, CORRIDOR_WIDTH, CORRIDOR_LENGTH, corrDoors),
+        doors: corrDoors,
+        spawnPoints: applyModifierSpawns(generateSpawnPoints(cx, cy, CORRIDOR_WIDTH, CORRIDOR_LENGTH, 'corridor'), cx, cy, CORRIDOR_WIDTH, CORRIDOR_LENGTH, modifiers),
+        chests: [], hasShrineSpot: false, entered: false, cleared: false, mobIds: [],
+      });
+      placed.push({ x: cx, y: cy, w: CORRIDOR_WIDTH, h: CORRIDOR_LENGTH });
+
+      const roomDoors = [makeDoor('north', rx, ry, rw, rh, gapV, corrId)];
+      const newRoom = makeRoom(roomId, roomType, rx, ry, rw, rh, roomDoors);
+      rooms.push(newRoom);
+      placed.push({ x: rx, y: ry, w: rw, h: rh });
+
+      prevRoom = newRoom;
+      cameFrom = 'south' as Dir;
     }
   }
 
-  // After all rooms are generated, center the map in the world
+  // ── Side rooms off corridors (40% chance per corridor, perpendicular direction) ──
+  const corridors = rooms.filter(r => r.type === 'corridor');
+  for (const corr of corridors) {
+    if (Math.random() > 0.4) continue;
+    const corrIsVert = corr.height > corr.width;
+    const sideDirs: Dir[] = corrIsVert ? ['east', 'west'] : ['north', 'south'];
+    const sideDir = sideDirs[Math.floor(Math.random() * sideDirs.length)];
+    const sSize = ROOM_SIZES.side;
+
+    let sx: number, sy: number;
+    switch (sideDir) {
+      case 'east':  sx = corr.x + corr.width; sy = corr.y + corr.height / 2 - sSize.h / 2; break;
+      case 'west':  sx = corr.x - sSize.w; sy = corr.y + corr.height / 2 - sSize.h / 2; break;
+      case 'south': sx = corr.x + corr.width / 2 - sSize.w / 2; sy = corr.y + corr.height; break;
+      case 'north': sx = corr.x + corr.width / 2 - sSize.w / 2; sy = corr.y - sSize.h; break;
+    }
+
+    const sideRect = { x: sx, y: sy, w: sSize.w, h: sSize.h };
+    if (overlaps(sideRect)) continue;
+
+    const sideId = nextRoomId++;
+    // Gap on corridor wall
+    const sideGap = isHoriz(sideDir)
+      ? corr.y + corr.height / 2   // Y center for E/W
+      : corr.x + corr.width / 2;   // X center for N/S
+
+    // Add door to corridor
+    corr.doors.push(makeDoor(sideDir, corr.x, corr.y, corr.width, corr.height, sideGap, sideId));
+    corr.walls = buildRectWalls(corr.x, corr.y, corr.width, corr.height, corr.doors);
+
+    // Side room
+    const sideDoor = makeDoor(OPP[sideDir], sx, sy, sSize.w, sSize.h, sideGap, corr.id);
+    const sideRoom = makeRoom(sideId, 'side', sx, sy, sSize.w, sSize.h, [sideDoor]);
+    rooms.push(sideRoom);
+    placed.push(sideRect);
+  }
+
+  // ── Center the map in the world ──
   const padding = 400;
-  let minX = Infinity, minY = Infinity, maxX = 0, maxY = 0;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const room of rooms) {
     minX = Math.min(minX, room.x);
     minY = Math.min(minY, room.y);
     maxX = Math.max(maxX, room.x + room.width);
     maxY = Math.max(maxY, room.y + room.height);
   }
-  const mapW = maxX - minX;
-  const mapH = maxY - minY;
-  const worldW = mapW + padding * 2;
-  const worldH = mapH + padding * 2;
+  const worldW = (maxX - minX) + padding * 2;
+  const worldH = (maxY - minY) + padding * 2;
   const offsetX = padding - minX;
   const offsetY = padding - minY;
 
-  // Offset all room positions, walls, doors, spawns, chests, shrines
   for (const room of rooms) {
-    room.x += offsetX;
-    room.y += offsetY;
-    for (const wall of room.walls) {
-      wall.x1 += offsetX; wall.y1 += offsetY;
-      wall.x2 += offsetX; wall.y2 += offsetY;
-    }
-    for (const door of room.doors) {
-      door.x += offsetX; door.y += offsetY;
-    }
-    for (const sp of room.spawnPoints) {
-      sp.x += offsetX; sp.y += offsetY;
-    }
-    for (const chest of room.chests) {
-      chest.x += offsetX; chest.y += offsetY;
-    }
-    if (room.shrinePos) {
-      room.shrinePos.x += offsetX;
-      room.shrinePos.y += offsetY;
-    }
+    room.x += offsetX; room.y += offsetY;
+    for (const wall of room.walls) { wall.x1 += offsetX; wall.y1 += offsetY; wall.x2 += offsetX; wall.y2 += offsetY; }
+    for (const door of room.doors) { door.x += offsetX; door.y += offsetY; }
+    for (const sp of room.spawnPoints) { sp.x += offsetX; sp.y += offsetY; }
+    for (const chest of room.chests) { chest.x += offsetX; chest.y += offsetY; }
+    if (room.shrinePos) { room.shrinePos.x += offsetX; room.shrinePos.y += offsetY; }
   }
 
-  return {
-    rooms,
-    worldWidth: worldW,
-    worldHeight: worldH,
-    startRoomId: 0,
-    exitRoomId: rooms[rooms.length - 1].type === 'side'
-      ? rooms[rooms.length - 2].id  // skip trailing side room
-      : rooms[rooms.length - 1].id,
-  };
+  // Exit room = last main-path room (not side/corridor)
+  const mainRooms = rooms.filter(r => r.type !== 'side' && r.type !== 'corridor');
+  const exitRoom = mainRooms[mainRooms.length - 1];
+
+  return { rooms, worldWidth: worldW, worldHeight: worldH, startRoomId: 0, exitRoomId: exitRoom.id };
 }
 
 // ── All Walls Helper ──
