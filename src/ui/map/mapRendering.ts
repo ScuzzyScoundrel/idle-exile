@@ -358,6 +358,40 @@ export function renderMap(
       ctx.lineWidth = mob.isRare ? 2.5 : 1.5; ctx.stroke();
     }
 
+    // Ailment body tints — colored overlays on the mob
+    if (mob.activeDebuffs && mob.activeDebuffs.length > 0) {
+      const ailmentTints: Record<string, string> = {
+        poisoned: 'rgba(74, 222, 128, 0.3)',
+        bleeding: 'rgba(248, 113, 113, 0.25)',
+        burning:  'rgba(249, 115, 22, 0.3)',
+        shocked:  'rgba(250, 204, 21, 0.3)',
+        chilled:  'rgba(34, 211, 238, 0.3)',
+        plague_link: 'rgba(167, 139, 252, 0.3)',
+        vulnerable: 'rgba(248, 113, 113, 0.2)',
+        cursed:   'rgba(192, 132, 252, 0.25)',
+      };
+      const drawn = new Set<string>();
+      for (const dId of mob.activeDebuffs) {
+        if (drawn.has(dId)) continue;
+        const tint = ailmentTints[dId];
+        if (!tint) continue;
+        drawn.add(dId);
+        ctx.beginPath();
+        ctx.arc(mob.x, mob.y, mob.radius + 1, 0, Math.PI * 2);
+        ctx.fillStyle = tint;
+        ctx.fill();
+      }
+      // Poison drip particles
+      if (mob.activeDebuffs.includes('poisoned')) {
+        const dripPhase = (totalTime * 2 + mob.x * 0.1) % 1;
+        ctx.globalAlpha = 0.5 * (1 - dripPhase);
+        ctx.beginPath();
+        ctx.arc(mob.x + Math.sin(totalTime * 3 + mob.y) * 4, mob.y + mob.radius + dripPhase * 8, 1.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#4ade80'; ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+    }
+
     // Hit flash
     if (mob.lastHitTime >= 0 && totalTime - mob.lastHitTime < 0.05) {
       ctx.beginPath(); ctx.arc(mob.x, mob.y, mob.radius, 0, Math.PI * 2);
@@ -373,6 +407,32 @@ export function renderMap(
     ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
     ctx.fillStyle = hpPct > 0.5 ? '#22c55e' : hpPct > 0.25 ? '#eab308' : '#ef4444';
     ctx.fillRect(barX, barY, barW * hpPct, barH);
+
+    // Debuff indicator dots below HP bar
+    if (mob.activeDebuffs && mob.activeDebuffs.length > 0) {
+      const dotY = barY + barH + 3;
+      const dotSpacing = 6;
+      const dotStartX = mob.x - ((mob.activeDebuffs.length - 1) * dotSpacing) / 2;
+      const debuffColors: Record<string, string> = {
+        poisoned: '#4ade80', poison: '#4ade80',
+        bleeding: '#f87171', bleed: '#f87171',
+        burning: '#f97316', ignite: '#f97316',
+        chilled: '#22d3ee', frozen: '#60a5fa',
+        shocked: '#facc15',
+      };
+      const seen = new Set<string>();
+      for (const dId of mob.activeDebuffs) {
+        if (seen.has(dId)) continue;
+        seen.add(dId);
+        const c = debuffColors[dId] ?? '#c4b5fd';
+        const dx = dotStartX + seen.size * dotSpacing - dotSpacing;
+        const pulse = 0.6 + Math.sin(totalTime * 4 + mob.x) * 0.3;
+        ctx.globalAlpha = pulse;
+        ctx.beginPath(); ctx.arc(dx, dotY, 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = c; ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+    }
 
     // Affix visuals
     if (mob.arenaAffixes && mob.arenaAffixes.length > 0) {
