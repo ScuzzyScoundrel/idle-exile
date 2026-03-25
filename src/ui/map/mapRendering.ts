@@ -21,6 +21,20 @@ export interface MapHudExtra {
   timerRemaining?: number | null;
 }
 
+/** Pre-loaded sprite images for map rendering. */
+export interface MapSprites {
+  player?: HTMLImageElement;
+  floorTile?: HTMLImageElement;
+  /** Array of mob sprites — mobs pick one via mobId % length */
+  mobSprites: HTMLImageElement[];
+  boss?: HTMLImageElement;
+}
+
+/** Check if image is loaded and ready to draw. */
+function spriteReady(img?: HTMLImageElement): img is HTMLImageElement {
+  return !!img && img.complete && img.naturalWidth > 0;
+}
+
 export function renderMap(
   ctx: CanvasRenderingContext2D,
   state: MapState,
@@ -31,6 +45,7 @@ export function renderMap(
   _skillCooldowns?: SkillCooldownInfo[],
   _opts?: ArenaRenderOpts,
   _mapHud?: MapHudExtra,
+  _sprites?: MapSprites,
 ): void {
   const { width, height, totalTime } = state;
 
@@ -49,27 +64,46 @@ export function renderMap(
 
   // ── Room Floors (draw ALL rooms — fog canvas will hide unexplored) ──
   const isCorrupted = state.corruptedTier > 0;
+  // Create floor tile pattern once (cached across frames by canvas internals)
+  let floorPattern: CanvasPattern | null = null;
+  if (spriteReady(_sprites?.floorTile)) {
+    floorPattern = ctx.createPattern(_sprites!.floorTile!, 'repeat');
+  }
+
   for (const room of state.layout.rooms) {
-    if (isCorrupted) {
-      ctx.fillStyle = '#0e0a16';
+    if (floorPattern) {
+      // Tile the floor sprite across the room
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(room.x, room.y, room.width, room.height);
+      ctx.clip();
+      ctx.fillStyle = floorPattern;
+      ctx.fillRect(room.x, room.y, room.width, room.height);
+      // Darken slightly for depth
+      ctx.fillStyle = 'rgba(0,0,0,0.15)';
+      ctx.fillRect(room.x, room.y, room.width, room.height);
+      ctx.restore();
     } else {
-      ctx.fillStyle = '#0a0a12';
+      if (isCorrupted) {
+        ctx.fillStyle = '#0e0a16';
+      } else {
+        ctx.fillStyle = '#0a0a12';
+      }
+      ctx.fillRect(room.x, room.y, room.width, room.height);
+      // Subtle grid fallback
+      ctx.strokeStyle = 'rgba(255,255,255,0.02)';
+      ctx.lineWidth = 1;
+      const gridSize = 32;
+      for (let gx = room.x; gx < room.x + room.width; gx += gridSize) {
+        ctx.beginPath(); ctx.moveTo(gx, room.y); ctx.lineTo(gx, room.y + room.height); ctx.stroke();
+      }
+      for (let gy = room.y; gy < room.y + room.height; gy += gridSize) {
+        ctx.beginPath(); ctx.moveTo(room.x, gy); ctx.lineTo(room.x + room.width, gy); ctx.stroke();
+      }
     }
-    ctx.fillRect(room.x, room.y, room.width, room.height);
     if (isCorrupted) {
       ctx.fillStyle = 'rgba(88, 28, 135, 0.06)';
       ctx.fillRect(room.x, room.y, room.width, room.height);
-    }
-
-    // Subtle grid
-    ctx.strokeStyle = 'rgba(255,255,255,0.02)';
-    ctx.lineWidth = 1;
-    const gridSize = 32;
-    for (let gx = room.x; gx < room.x + room.width; gx += gridSize) {
-      ctx.beginPath(); ctx.moveTo(gx, room.y); ctx.lineTo(gx, room.y + room.height); ctx.stroke();
-    }
-    for (let gy = room.y; gy < room.y + room.height; gy += gridSize) {
-      ctx.beginPath(); ctx.moveTo(room.x, gy); ctx.lineTo(room.x + room.width, gy); ctx.stroke();
     }
 
     // Room cleared indicator
@@ -323,8 +357,18 @@ export function renderMap(
       ctx.beginPath(); ctx.arc(mob.x, mob.y, mob.radius * 2.2, 0, Math.PI * 2); ctx.fillStyle = glow; ctx.fill();
     }
 
-    // Body
-    if (mob.behavior === 'ranged') {
+    // Body — use sprite if available, fallback to shapes
+    const mobSprArr = _sprites?.mobSprites;
+    const mobSprite = mobSprArr && mobSprArr.length > 0 ? mobSprArr[mob.mobId % mobSprArr.length] : undefined;
+    if (spriteReady(mobSprite)) {
+      const drawSize = mob.radius * 3;
+      ctx.drawImage(mobSprite, mob.x - drawSize / 2, mob.y - drawSize / 2, drawSize, drawSize);
+      // Tier-colored ring around sprite for readability
+      if (mob.isRare) {
+        ctx.beginPath(); ctx.arc(mob.x, mob.y, mob.radius + 2, 0, Math.PI * 2);
+        ctx.strokeStyle = '#fcd34d'; ctx.lineWidth = 2; ctx.stroke();
+      }
+    } else if (mob.behavior === 'ranged') {
       ctx.beginPath();
       ctx.moveTo(mob.x, mob.y - mob.radius); ctx.lineTo(mob.x + mob.radius, mob.y);
       ctx.lineTo(mob.x, mob.y + mob.radius); ctx.lineTo(mob.x - mob.radius, mob.y);
@@ -511,14 +555,24 @@ export function renderMap(
 
   const iFrameVisible = state.iFrameTimer <= 0 || Math.floor(totalTime * 20) % 2 === 0;
   if (iFrameVisible) {
-    const glow = ctx.createRadialGradient(player.x, player.y, 0, player.x, player.y, playerRadius * 3);
-    glow.addColorStop(0, 'rgba(59, 130, 246, 0.25)'); glow.addColorStop(1, 'rgba(59, 130, 246, 0)');
-    ctx.beginPath(); ctx.arc(player.x, player.y, playerRadius * 3, 0, Math.PI * 2); ctx.fillStyle = glow; ctx.fill();
-    ctx.beginPath(); ctx.arc(player.x, player.y, playerRadius, 0, Math.PI * 2);
-    ctx.fillStyle = '#3b82f6'; ctx.fill(); ctx.strokeStyle = '#93c5fd'; ctx.lineWidth = 2; ctx.stroke();
-    const fx = player.x + state.playerFacing.x * playerRadius * 0.7;
-    const fy = player.y + state.playerFacing.y * playerRadius * 0.7;
-    ctx.beginPath(); ctx.arc(fx, fy, 3, 0, Math.PI * 2); ctx.fillStyle = '#dbeafe'; ctx.fill();
+    if (spriteReady(_sprites?.player)) {
+      // Glow behind player sprite
+      const glow = ctx.createRadialGradient(player.x, player.y, 0, player.x, player.y, playerRadius * 2.5);
+      glow.addColorStop(0, 'rgba(59, 130, 246, 0.2)'); glow.addColorStop(1, 'rgba(59, 130, 246, 0)');
+      ctx.beginPath(); ctx.arc(player.x, player.y, playerRadius * 2.5, 0, Math.PI * 2); ctx.fillStyle = glow; ctx.fill();
+      // Draw player sprite
+      const plSize = playerRadius * 3.5;
+      ctx.drawImage(_sprites!.player!, player.x - plSize / 2, player.y - plSize / 2, plSize, plSize);
+    } else {
+      const glow = ctx.createRadialGradient(player.x, player.y, 0, player.x, player.y, playerRadius * 3);
+      glow.addColorStop(0, 'rgba(59, 130, 246, 0.25)'); glow.addColorStop(1, 'rgba(59, 130, 246, 0)');
+      ctx.beginPath(); ctx.arc(player.x, player.y, playerRadius * 3, 0, Math.PI * 2); ctx.fillStyle = glow; ctx.fill();
+      ctx.beginPath(); ctx.arc(player.x, player.y, playerRadius, 0, Math.PI * 2);
+      ctx.fillStyle = '#3b82f6'; ctx.fill(); ctx.strokeStyle = '#93c5fd'; ctx.lineWidth = 2; ctx.stroke();
+      const fx = player.x + state.playerFacing.x * playerRadius * 0.7;
+      const fy = player.y + state.playerFacing.y * playerRadius * 0.7;
+      ctx.beginPath(); ctx.arc(fx, fy, 3, 0, Math.PI * 2); ctx.fillStyle = '#dbeafe'; ctx.fill();
+    }
   }
 
   // ── Player Debuff Visuals ──
@@ -767,10 +821,17 @@ export function renderMap(
       ctx.beginPath(); ctx.arc(boss.x, boss.y, boss.radius * 2.5, 0, Math.PI * 2);
       ctx.fillStyle = auraGlow; ctx.fill();
 
-      // Boss body (large circle)
-      ctx.beginPath(); ctx.arc(boss.x, boss.y, boss.radius, 0, Math.PI * 2);
-      ctx.fillStyle = boss.color; ctx.fill();
-      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.stroke();
+      // Boss body — sprite or large circle fallback
+      if (spriteReady(_sprites?.boss)) {
+        const bossDrawSize = boss.radius * 3;
+        ctx.drawImage(_sprites!.boss!, boss.x - bossDrawSize / 2, boss.y - bossDrawSize / 2, bossDrawSize, bossDrawSize);
+        ctx.beginPath(); ctx.arc(boss.x, boss.y, boss.radius + 2, 0, Math.PI * 2);
+        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
+      } else {
+        ctx.beginPath(); ctx.arc(boss.x, boss.y, boss.radius, 0, Math.PI * 2);
+        ctx.fillStyle = boss.color; ctx.fill();
+        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.stroke();
+      }
 
       // Inner detail — phase indicator rings
       for (let i = 0; i < boss.phase; i++) {

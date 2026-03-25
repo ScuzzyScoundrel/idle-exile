@@ -20,7 +20,7 @@ import { createMapState, updateMap, getMapMobsInRange, mobCanAttackMapPlayer,
   tryPickupMapGroundItem } from './mapEngine';
 import { rollMapModifiers, hasModifier } from './mapGeneration';
 import { renderMap } from './mapRendering';
-import type { MapHudExtra } from './mapRendering';
+import type { MapHudExtra, MapSprites } from './mapRendering';
 import { rollArenaLoot, rollBossArenaLoot } from '../arena/arenaLoot';
 import { calcXpScale } from '../../engine/zones/scaling';
 import { PLAYER_ATTACK_RANGE } from '../arena/arenaTypes';
@@ -246,13 +246,49 @@ export default function MapScreen() {
   const corruptedModsRef = useRef<MapModifier[]>([]);
   const mobDebuffsRef = useRef<Map<number, import('../../types/combat').ActiveDebuff[]>>(new Map());
   const bossDebuffsRef = useRef<import('../../types/combat').ActiveDebuff[]>([]);
+  const spritesRef = useRef<MapSprites>({ mobSprites: [] });
 
   const [picking, setPicking] = useState(true); // start in zone-picker mode
+
+  // ── Sprite preloader — loads zone-specific sprites ──
+  const loadZoneSprites = useCallback((zoneId: string) => {
+    const sprites: MapSprites = { mobSprites: [] };
+    const load = (src: string): HTMLImageElement => {
+      const img = new Image();
+      img.src = src;
+      return img;
+    };
+
+    // Zone sprite mappings (add more zones as art is audited)
+    const ZONE_SPRITES: Record<string, { floor: string; mobs: string[]; boss: string }> = {
+      ashwood_thicket: {
+        floor: '/images/map/floors/ashwood_thicket_00001_.png',
+        mobs: [
+          '/images/map/mobs/ashwood_thicket/bark_beetle_00001_.png',
+          '/images/map/mobs/ashwood_thicket/canopy_bat_00001_.png',
+          '/images/map/mobs/ashwood_thicket/thicket_crawler_00001_.png',
+        ],
+        boss: '/images/map/bosses/ashwood_thicket/elder_brambleback_00001_.png',
+      },
+    };
+
+    const zoneDef = ZONE_SPRITES[zoneId];
+    if (zoneDef) {
+      sprites.floorTile = load(zoneDef.floor);
+      sprites.mobSprites = zoneDef.mobs.map(load);
+      sprites.boss = load(zoneDef.boss);
+    }
+    // Player sprite (always loaded)
+    sprites.player = load('/images/map/player/adventurer_00001_.png');
+
+    spritesRef.current = sprites;
+  }, []);
 
   const handleSelectZone = useCallback((zoneId: string) => {
     selectedZoneRef.current = zoneId;
     corruptedTierRef.current = 0;
     corruptedModsRef.current = [];
+    loadZoneSprites(zoneId);
 
     // Compute downfarm status
     const gs = useGameStore.getState();
@@ -274,6 +310,7 @@ export default function MapScreen() {
     // Use last zone as base
     const lastZone = ZONE_DEFS[ZONE_DEFS.length - 1];
     selectedZoneRef.current = lastZone.id;
+    loadZoneSprites(lastZone.id);
     corruptedTierRef.current = tier;
     corruptedModsRef.current = rollMapModifiers(tier);
     downfarmedRef.current = false;
@@ -1264,7 +1301,7 @@ export default function MapScreen() {
           zoneName: zoneData.name,
           zoneBand: zoneData.band,
           combatPhase: renderGs.combatPhase,
-        }, mapHud);
+        }, mapHud, spritesRef.current);
       } catch (e) { console.error('[map] render error:', e); }
 
       animFrameRef.current = requestAnimationFrame(loop);

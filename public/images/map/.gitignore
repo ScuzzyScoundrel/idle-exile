@@ -1,0 +1,8 @@
+# Only commit sprites for zones we've wired up
+# Remove lines as zones are integrated
+floors/*
+!floors/ashwood_thicket_00001_.png
+mobs/*
+!mobs/ashwood_thicket/
+bosses/*
+!bosses/ashwood_thicket/
