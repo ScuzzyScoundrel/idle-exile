@@ -8,6 +8,7 @@ import type { ArenaMob, ShrineType } from '../arena/arenaTypes';
 import { generateMap, createMobFromSpawn, getAllWalls, getRoomAtPosition, hasModifier } from './mapGeneration';
 import { PLAYER_SPEED, moveMobsTowardPlayer } from '../arena/arenaMovement';
 import { updateGems } from '../arena/arenaCombatFeedback';
+import { applyGroundItemPickup } from '../arena/arenaLoot';
 
 // ── Constants ──
 
@@ -15,6 +16,13 @@ const PLAYER_RADIUS = 16;
 const AGGRO_RANGE = 200;          // px — mobs wake up when player enters this range
 const MOB_ROOM_LEASH = 40;        // px — mobs won't chase past room bounds + leash
 const WALL_PUSH_DISTANCE = 1;     // px — how far to push entity out of wall
+
+// Ground item constants
+const GROUND_ITEM_PICKUP_RADIUS = 50;
+const GROUND_ITEM_HOVER_RADIUS = 40;
+const GROUND_ITEM_MAX_AGE = 30;
+export const GROUND_ITEM_COLLECT_ANIM = 0.25;
+const GROUND_ITEM_DRIFT_SPEED = 250;
 
 // Boss constants
 const BOSS_RADIUS = 45;
@@ -663,8 +671,82 @@ export function updateMap(state: MapState, dt: number, keys: Set<string>): void 
     }
   }
 
+  // ── Ground Items ──
+  updateMapGroundItems(state, dt);
+
   // ── Tick Accumulator ──
   state.tickAccumulator += dt;
+}
+
+// ── Ground Items ──
+
+export function updateMapGroundItems(state: MapState, dt: number): void {
+  for (const gi of state.groundItems) {
+    gi.age += dt;
+
+    if (gi.collected) {
+      gi.collectTimer += dt;
+      continue;
+    }
+
+    // Auto-pickup items drift toward player
+    if (gi.autoPickup) {
+      const dx = state.player.x - gi.x;
+      const dy = state.player.y - gi.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist < GROUND_ITEM_PICKUP_RADIUS) {
+        const speed = GROUND_ITEM_DRIFT_SPEED * (1 - dist / GROUND_ITEM_PICKUP_RADIUS + 0.3);
+        gi.x += (dx / dist) * speed * dt;
+        gi.y += (dy / dist) * speed * dt;
+
+        if (dist < state.playerRadius + 8) {
+          gi.collected = true;
+          gi.collectTimer = 0;
+          applyGroundItemPickup(gi);
+        }
+      }
+    }
+
+    // Hover detection for equipment items (click-to-loot)
+    if (!gi.autoPickup && state.mouseWorldPos) {
+      const dx = state.mouseWorldPos.x - gi.x;
+      const dy = state.mouseWorldPos.y - gi.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      gi.hovered = dist < GROUND_ITEM_HOVER_RADIUS;
+    } else {
+      gi.hovered = false;
+    }
+  }
+
+  // Remove collected (after animation) and expired
+  state.groundItems = state.groundItems.filter(gi => {
+    if (gi.collected) return gi.collectTimer < GROUND_ITEM_COLLECT_ANIM;
+    return gi.age < GROUND_ITEM_MAX_AGE;
+  });
+}
+
+/** Click-to-pickup: find closest non-collected equipment item near click pos. */
+export function tryPickupMapGroundItem(state: MapState, worldX: number, worldY: number): void {
+  let closest: (typeof state.groundItems)[number] | null = null;
+  let closestDist = Infinity;
+
+  for (const gi of state.groundItems) {
+    if (gi.collected || gi.autoPickup) continue;
+    const dx = worldX - gi.x;
+    const dy = worldY - gi.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < GROUND_ITEM_HOVER_RADIUS && dist < closestDist) {
+      closest = gi;
+      closestDist = dist;
+    }
+  }
+
+  if (closest) {
+    closest.collected = true;
+    closest.collectTimer = 0;
+    applyGroundItemPickup(closest);
+  }
 }
 
 // ── Helpers ──

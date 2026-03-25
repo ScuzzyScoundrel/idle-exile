@@ -15,7 +15,8 @@ import { getUnifiedSkillDef } from '../../data/skills';
 import type { MapState, MapModifier } from './mapTypes';
 import { createMapState, updateMap, getMapMobsInRange, mobCanAttackMapPlayer,
   spawnMapBoss, bossCanAttackMapPlayer,
-  BOSS_SLAM_DAMAGE_MULT, BOSS_BARRAGE_DAMAGE_MULT, BOSS_HAZARD_DPS_MULT } from './mapEngine';
+  BOSS_SLAM_DAMAGE_MULT, BOSS_BARRAGE_DAMAGE_MULT, BOSS_HAZARD_DPS_MULT,
+  tryPickupMapGroundItem } from './mapEngine';
 import { rollMapModifiers, hasModifier } from './mapGeneration';
 import { renderMap } from './mapRendering';
 import type { MapHudExtra } from './mapRendering';
@@ -1104,9 +1105,18 @@ export default function MapScreen() {
       };
     };
 
+    const onMouseClick = (e: MouseEvent) => {
+      if (!stateRef.current || !canvasRef.current) return;
+      const rect = canvasRef.current.getBoundingClientRect();
+      const worldX = (e.clientX - rect.left) + stateRef.current.camera.x;
+      const worldY = (e.clientY - rect.top) + stateRef.current.camera.y;
+      tryPickupMapGroundItem(stateRef.current, worldX, worldY);
+    };
+
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
     canvas.addEventListener('mousemove', onMouseMove);
+    canvas.addEventListener('click', onMouseClick);
 
     return () => {
       cancelAnimationFrame(animFrameRef.current);
@@ -1114,6 +1124,7 @@ export default function MapScreen() {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
       canvas.removeEventListener('mousemove', onMouseMove);
+      canvas.removeEventListener('click', onMouseClick);
     };
   }, [picking]);
 

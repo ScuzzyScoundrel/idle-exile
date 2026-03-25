@@ -8,7 +8,7 @@ import type { SkillCooldownInfo, ArenaRenderOpts } from '../arena/arenaTypes';
 import { PLAYER_ATTACK_RANGE, SPLASH_RADIUS_AOE } from '../arena/arenaTypes';
 import { GEM_COLLECT_ANIM } from '../arena/arenaCombatFeedback';
 import { ARENA_AFFIX_DEFS } from '../arena/arenaAffixes';
-import { anyMapMobInRange, mobCanAttackMapPlayer } from './mapEngine';
+import { anyMapMobInRange, mobCanAttackMapPlayer, GROUND_ITEM_COLLECT_ANIM } from './mapEngine';
 
 export interface MapHudExtra {
   mapFragments?: number;
@@ -565,6 +565,120 @@ export function renderMap(
       ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillText(boss.name, boss.x + 1, boss.y - boss.radius - 18 + 1);
       ctx.fillStyle = boss.color; ctx.fillText(boss.name, boss.x, boss.y - boss.radius - 18);
     }
+  }
+
+  // ── Ground Items ──
+  const GROUND_ITEM_MAX_AGE = 30;
+  const RARITY_BEAM: Record<string, number> = {
+    common: 0, uncommon: 0, rare: 70, epic: 100, legendary: 140, unique: 140,
+  };
+  const RARITY_IS_HIGH: Record<string, boolean> = {
+    legendary: true, unique: true,
+  };
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  for (const gi of state.groundItems) {
+    if (gi.collected) {
+      // Collect animation: float up + fade
+      const t = gi.collectTimer / GROUND_ITEM_COLLECT_ANIM;
+      const alpha = Math.max(0, 1 - t);
+      const yOff = -t * 20;
+      ctx.globalAlpha = alpha;
+      const cFontSize = gi.kind === 'equipment' || gi.kind === 'trophy' ? 11 : 9;
+      ctx.font = `bold ${cFontSize}px monospace`;
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillText(gi.label, gi.x + 1, gi.y + yOff + 1);
+      ctx.fillStyle = gi.color;
+      ctx.fillText(gi.label, gi.x, gi.y + yOff);
+      ctx.globalAlpha = 1;
+      continue;
+    }
+
+    // Fade in/out
+    const fadeIn = Math.min(1, gi.age / 0.3);
+    const fadeOut = gi.age > GROUND_ITEM_MAX_AGE - 3 ? (GROUND_ITEM_MAX_AGE - gi.age) / 3 : 1;
+    const baseFade = fadeIn * fadeOut;
+
+    // ── Loot beam for rare+ drops ──
+    const dRarity = gi.displayRarity ?? gi.rarity ?? 'common';
+    const beamH = gi.kind === 'trophy' ? 100 : (RARITY_BEAM[dRarity] ?? 0);
+    if (beamH > 0) {
+      const isHighBeam = gi.kind === 'trophy' || (RARITY_IS_HIGH[dRarity] ?? false);
+      const beamAlpha = baseFade * (0.3 + Math.sin(totalTime * 2 + gi.id) * 0.1);
+      const beamGrad = ctx.createLinearGradient(gi.x, gi.y, gi.x, gi.y - beamH);
+      const beamColor = gi.kind === 'trophy' ? '#ffffff' : gi.color;
+      beamGrad.addColorStop(0, beamColor + Math.round(beamAlpha * 180).toString(16).padStart(2, '0'));
+      beamGrad.addColorStop(1, beamColor + '00');
+      ctx.fillStyle = beamGrad;
+      ctx.fillRect(gi.x - 2, gi.y - beamH, 4, beamH);
+      // Wider glow for rare+ drops
+      ctx.globalAlpha = beamAlpha * 0.35;
+      ctx.fillRect(gi.x - 6, gi.y - beamH, 12, beamH);
+      ctx.globalAlpha = 1;
+      // Extra-wide glow for legendary/unique/trophy
+      if (isHighBeam) {
+        ctx.globalAlpha = beamAlpha * 0.2;
+        ctx.fillRect(gi.x - 10, gi.y - beamH, 20, beamH);
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    // ── Pill rendering for ALL drop types ──
+    const isEquipOrTrophy = gi.kind === 'equipment' || gi.kind === 'trophy';
+    const isHigh = RARITY_IS_HIGH[dRarity] ?? false;
+    const fontSize = isEquipOrTrophy ? 11 : isHigh ? 13 : 9;
+    ctx.font = `bold ${fontSize}px monospace`;
+    const textW = ctx.measureText(gi.label).width;
+    const padX = isEquipOrTrophy ? 8 : 6;
+    const padY = isEquipOrTrophy ? 4 : 3;
+    const pillW = textW + padX * 2;
+    const pillH = fontSize + padY * 2;
+    const px = gi.x - pillW / 2;
+    const py = gi.y - pillH / 2;
+
+    // Subtle pulse
+    const pulse = 0.85 + Math.sin(totalTime * 3 + gi.id) * 0.1;
+
+    ctx.globalAlpha = baseFade;
+
+    // Background
+    const bgAlpha = gi.hovered ? 0.9 : 0.75;
+    ctx.fillStyle = `rgba(15, 15, 25, ${(bgAlpha * pulse).toFixed(3)})`;
+    ctx.beginPath();
+    ctx.roundRect(px, py, pillW, pillH, 4);
+    ctx.fill();
+
+    // Border + glow
+    const borderColor = gi.kind === 'trophy' ? '#fbbf24' : gi.color;
+    if (gi.hovered || gi.kind === 'trophy') {
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.shadowColor = borderColor;
+      ctx.shadowBlur = gi.kind === 'trophy' ? 12 : 8;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    } else if (isHigh) {
+      ctx.strokeStyle = gi.color;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.shadowColor = gi.color;
+      ctx.shadowBlur = 12;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    } else {
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    // Text
+    ctx.fillStyle = gi.kind === 'trophy' ? '#ffffff' : gi.color;
+    ctx.globalAlpha = baseFade * pulse;
+    ctx.fillText(gi.label, gi.x, gi.y);
+    ctx.globalAlpha = 1;
   }
 
   // ── Floaters ──
