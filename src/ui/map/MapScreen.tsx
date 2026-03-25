@@ -732,6 +732,9 @@ export default function MapScreen() {
           let kills = result.mobKills;
           let rareKills = 0;
 
+          // Capture visTarget BEFORE kill processing (mobs may all become .dead)
+          const visTarget = mobsInRange.find(m => !m.dead) ?? (mobsInRange.length > 0 ? mobsInRange[0] : null);
+
           // Mark killed mobs (front-popped from tempPack → sequential mobsInRange)
           for (let i = 0; i < kills && i < mobsInRange.length; i++) {
             const visMob = mobsInRange[i];
@@ -800,8 +803,6 @@ export default function MapScreen() {
           }
 
           // ── Visual feedback + combat log: consume ALL result fields ──
-          // Use first non-dead mob in range for visual targeting
-          const visTarget = mobsInRange.find(m => !m.dead) ?? null;
 
           // Skill fired
           if (result.skillFired && result.skillId) {
@@ -1074,6 +1075,10 @@ export default function MapScreen() {
 
     // ── Input Handlers ──
     const onKeyDown = (e: KeyboardEvent) => {
+      // Prevent default for game keys (space scrolls page, arrows scroll too)
+      if (['w','a','s','d',' ','arrowup','arrowdown','arrowleft','arrowright'].includes(e.key.toLowerCase())) {
+        e.preventDefault();
+      }
       keysRef.current.add(e.key.toLowerCase());
       // Dodge roll on space
       if (e.key === ' ' && stateRef.current) {

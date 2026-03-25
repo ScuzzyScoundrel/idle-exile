@@ -408,8 +408,8 @@ export function updateMap(state: MapState, dt: number, keys: Set<string>): void 
     }
   }
 
-  // Move aggroed mobs toward player
-  moveMobsTowardPlayer(state as any, activeMobs, dt);
+  // Move aggroed mobs toward player (faster base speed for maps: 90 vs arena's 55)
+  moveMobsTowardPlayer(state as any, activeMobs, dt, 90);
 
   // Wall collision for mobs
   for (const mob of activeMobs) {
