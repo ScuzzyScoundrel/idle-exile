@@ -239,6 +239,7 @@ export default function MapScreen() {
   const killCountRef = useRef(0);
   const bossSpawnedRef = useRef(false);  // prevent double-spawning boss
   const bossMeleeTimerRef = useRef(0);   // boss melee attack cooldown
+  const oorDotTimerRef = useRef(0);      // out-of-range DoT tick accumulator
   const selectedZoneRef = useRef<string | null>(null);  // zone chosen for current map session
   const downfarmedRef = useRef(false);
   const corruptedTierRef = useRef(0);       // 0 = normal map, 1+ = corrupted
@@ -317,6 +318,7 @@ export default function MapScreen() {
     lastTimeRef.current = 0;
     bossSpawnedRef.current = false;
     bossMeleeTimerRef.current = 0;
+    oorDotTimerRef.current = 0;
     mobDebuffsRef.current.clear();
     bossDebuffsRef.current = [];
 
@@ -1123,65 +1125,72 @@ export default function MapScreen() {
         }
 
         // ── Out-of-range DoT ticking (poison/bleed on mobs player walked away from) ──
-        for (const [mobId, debuffs] of mobDebuffsRef.current) {
-          if (debuffs.length === 0) continue;
-          const mob = map.mobs.find(m => m.mobId === mobId);
-          if (!mob || mob.dead) { mobDebuffsRef.current.delete(mobId); continue; }
+        // Accumulate time, tick every 0.25s (not every frame)
+        oorDotTimerRef.current += dt;
+        if (oorDotTimerRef.current >= 0.25) {
+          oorDotTimerRef.current -= 0.25;
+          const oorToDelete: number[] = [];
 
-          // Skip mobs that are in combat range (already handled by tickCombat)
-          const ddx = map.player.x - mob.x;
-          const ddy = map.player.y - mob.y;
-          if (Math.sqrt(ddx * ddx + ddy * ddy) <= PLAYER_ATTACK_RANGE) continue;
+          for (const [mobId, debuffs] of mobDebuffsRef.current) {
+            if (debuffs.length === 0) { oorToDelete.push(mobId); continue; }
+            const mob = map.mobs.find(m => m.mobId === mobId);
+            if (!mob || mob.dead) { oorToDelete.push(mobId); continue; }
 
-          // Tick DoTs using debuff definitions
-          let totalDotDmg = 0;
-          const survivingDebuffs: typeof debuffs = [];
-          for (const deb of debuffs) {
-            const def = getDebuffDef(deb.debuffId);
-            const newDuration = deb.remainingDuration - 0.25;
-            if (newDuration <= 0) continue; // expired
+            // Skip mobs in combat range (already handled by tickCombat)
+            const ddx = map.player.x - mob.x;
+            const ddy = map.player.y - mob.y;
+            if (Math.sqrt(ddx * ddx + ddy * ddy) <= PLAYER_ATTACK_RANGE) continue;
 
-            if (def?.instanceBased && deb.instances && deb.instances.length > 0) {
-              // Instance-based DoT (poison): each instance ticks independently
-              const snapshotPct = (def.effect.snapshotPercent ?? 15) / 100;
-              const living = deb.instances
-                .map(inst => ({ ...inst, remainingDuration: inst.remainingDuration - 0.25 }))
-                .filter(inst => inst.remainingDuration > 0);
-              if (living.length > 0) {
-                const snapSum = living.reduce((a, inst) => a + inst.snapshot, 0);
-                totalDotDmg += snapSum * snapshotPct * 0.25;
-                survivingDebuffs.push({ ...deb, remainingDuration: newDuration, instances: living, stacks: living.length });
+            // Tick DoTs at 0.25s interval
+            let totalDotDmg = 0;
+            const survivingDebuffs: typeof debuffs = [];
+            for (const deb of debuffs) {
+              const def = getDebuffDef(deb.debuffId);
+              const newDuration = deb.remainingDuration - 0.25;
+              if (newDuration <= 0) continue; // expired
+
+              if (def?.instanceBased && deb.instances && deb.instances.length > 0) {
+                const snapshotPct = (def.effect.snapshotPercent ?? 15) / 100;
+                const living = deb.instances
+                  .map(inst => ({ ...inst, remainingDuration: inst.remainingDuration - 0.25 }))
+                  .filter(inst => inst.remainingDuration > 0);
+                if (living.length > 0) {
+                  const snapSum = living.reduce((a, inst) => a + inst.snapshot, 0);
+                  totalDotDmg += snapSum * snapshotPct * 0.25;
+                  survivingDebuffs.push({ ...deb, remainingDuration: newDuration, instances: living, stacks: living.length });
+                }
+              } else if (def?.dotType === 'percentMaxHp') {
+                const pctPerSec = (def.effect.percentMaxHp ?? 1) / 100;
+                totalDotDmg += mob.maxHp * pctPerSec * deb.stacks * 0.25;
+                survivingDebuffs.push({ ...deb, remainingDuration: newDuration });
+              } else {
+                // Non-damage debuffs (bleed trigger-based, chill, etc.) — keep alive
+                survivingDebuffs.push({ ...deb, remainingDuration: newDuration });
               }
-            } else if (def?.dotType === 'percentMaxHp') {
-              // Percent max HP DoT (burning/ignite)
-              const pctPerSec = (def.effect.percentMaxHp ?? 1) / 100;
-              totalDotDmg += mob.maxHp * pctPerSec * deb.stacks * 0.25;
-              survivingDebuffs.push({ ...deb, remainingDuration: newDuration });
-            } else {
-              // Non-damage debuffs or bleed (trigger-based, no passive DPS out of range)
-              survivingDebuffs.push({ ...deb, remainingDuration: newDuration });
+            }
+            mobDebuffsRef.current.set(mobId, survivingDebuffs);
+            if (survivingDebuffs.length === 0) oorToDelete.push(mobId);
+
+            // Update mob activeDebuffs for visual tints
+            mob.activeDebuffs = survivingDebuffs.map(d => d.debuffId);
+
+            if (totalDotDmg > 0) {
+              mob.hp -= totalDotDmg;
+              addDotFloater(map as any, totalDotDmg, { x: mob.x, y: mob.y });
+
+              if (mob.hp <= 0) {
+                mob.dead = true;
+                mob.deathTimer = 0;
+                map.totalKills++;
+                killCountRef.current++;
+                spawnDeathParticles(map as any, mob);
+                spawnGems(map as any, mob, 2);
+                oorToDelete.push(mobId);
+              }
             }
           }
-          mobDebuffsRef.current.set(mobId, survivingDebuffs);
-          if (survivingDebuffs.length === 0) mobDebuffsRef.current.delete(mobId);
-
-          // Update mob activeDebuffs for visual tints
-          mob.activeDebuffs = survivingDebuffs.map(d => d.debuffId);
-
-          if (totalDotDmg > 0) {
-            mob.hp -= totalDotDmg;
-            addDotFloater(map as any, totalDotDmg, { x: mob.x, y: mob.y });
-
-            if (mob.hp <= 0) {
-              mob.dead = true;
-              mob.deathTimer = 0;
-              map.totalKills++;
-              killCountRef.current++;
-              spawnDeathParticles(map as any, mob);
-              spawnGems(map as any, mob, 2);
-              mobDebuffsRef.current.delete(mobId);
-            }
-          }
+          // Clean up outside iteration
+          for (const id of oorToDelete) mobDebuffsRef.current.delete(id);
         }
 
        } catch (e) { console.error('[map] simulation error:', e); } // ── End master try/catch ──
