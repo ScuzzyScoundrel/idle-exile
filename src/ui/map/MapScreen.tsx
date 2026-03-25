@@ -11,7 +11,7 @@ import { resolveStats } from '../../engine/character';
 import { ZONE_DEFS, BAND_NAMES } from '../../data/zones';
 import { rollZoneAttack, calcZoneAccuracy, calcLevelDamageMult } from '../../engine/zones';
 import { getUnifiedSkillDef } from '../../data/skills';
-import { getDebuffDef } from '../../data/debuffs';
+import { tickDebuffDoT } from '../../engine/combat/helpers';
 
 import type { MapState, MapModifier } from './mapTypes';
 import { createMapState, updateMap, getMapMobsInRange, mobCanAttackMapPlayer,
@@ -1124,9 +1124,17 @@ export default function MapScreen() {
           }
         }
 
-        // ── Out-of-range DoT ticking — every frame with dt, matching arena's tickOutOfRangeDoTs ──
+        // ── Out-of-range DoT ticking — uses engine's tickDebuffDoT for identical behavior ──
         {
           const oorToDelete: number[] = [];
+          // Get player stats for DoT multipliers (effectBonus, incDoTDamage)
+          let oorEffectBonus = 1;
+          let oorIncDoTDmg = 0;
+          try {
+            const oorStats = resolveStats(gs.character);
+            oorIncDoTDmg = oorStats.incDoTDamage ?? 0;
+          } catch { /* fallback to 0 */ }
+
           for (const [mobId, debuffs] of mobDebuffsRef.current) {
             if (debuffs.length === 0) { oorToDelete.push(mobId); continue; }
             const mob = map.mobs.find(m => m.mobId === mobId);
@@ -1137,47 +1145,17 @@ export default function MapScreen() {
             const ddy = map.player.y - mob.y;
             if (Math.sqrt(ddx * ddx + ddy * ddy) <= PLAYER_ATTACK_RANGE) continue;
 
-            // Tick DoTs with dt (same as arena's tickOutOfRangeDoTs)
-            let totalDotDmg = 0;
-            const survivingDebuffs: typeof debuffs = [];
-            for (const deb of debuffs) {
-              const def = getDebuffDef(deb.debuffId);
-              const newDuration = deb.remainingDuration - dt;
-              if (newDuration <= 0) continue; // expired
+            // Use the EXACT same engine function as idle combat
+            const dotResult = tickDebuffDoT(debuffs, dt, oorEffectBonus, oorIncDoTDmg, mob.maxHp);
+            mobDebuffsRef.current.set(mobId, dotResult.updatedDebuffs);
+            if (dotResult.updatedDebuffs.length === 0) oorToDelete.push(mobId);
 
-              if (def?.instanceBased && deb.instances && deb.instances.length > 0) {
-                // Instance-based DoT (poison): each instance ticks independently
-                const snapshotPct = (def.effect.snapshotPercent ?? 15) / 100;
-                const living = deb.instances
-                  .map(inst => ({ ...inst, remainingDuration: inst.remainingDuration - dt }))
-                  .filter(inst => inst.remainingDuration > 0);
-                if (living.length > 0) {
-                  const snapSum = living.reduce((a, inst) => a + inst.snapshot, 0);
-                  totalDotDmg += snapSum * snapshotPct * dt;
-                  survivingDebuffs.push({ ...deb, remainingDuration: newDuration, instances: living, stacks: living.length });
-                }
-              } else if (def?.dotType === 'percentMaxHp') {
-                // Burning/ignite: % max HP per second per stack
-                const pctPerSec = (def.effect.percentMaxHp ?? 1) / 100;
-                totalDotDmg += mob.maxHp * pctPerSec * deb.stacks * dt;
-                survivingDebuffs.push({ ...deb, remainingDuration: newDuration });
-              } else if (def?.dotType === 'snapshot' && !def.instanceBased) {
-                // Bleed: trigger-based, no passive DPS out of range. Just tick duration.
-                survivingDebuffs.push({ ...deb, remainingDuration: newDuration });
-              } else {
-                // Non-damage debuffs (chill, etc.) — keep alive
-                survivingDebuffs.push({ ...deb, remainingDuration: newDuration });
-              }
-            }
-            mobDebuffsRef.current.set(mobId, survivingDebuffs);
-            if (survivingDebuffs.length === 0) oorToDelete.push(mobId);
+            // Update mob visual debuff indicators
+            mob.activeDebuffs = dotResult.updatedDebuffs.map(d => d.debuffId);
 
-            // Update mob activeDebuffs for visual tints
-            mob.activeDebuffs = survivingDebuffs.map(d => d.debuffId);
-
-            if (totalDotDmg > 0) {
-              mob.hp -= totalDotDmg;
-              addDotFloater(map as any, totalDotDmg, { x: mob.x, y: mob.y });
+            if (dotResult.damage > 0) {
+              mob.hp -= dotResult.damage;
+              addDotFloater(map as any, dotResult.damage, { x: mob.x, y: mob.y });
 
               if (mob.hp <= 0) {
                 mob.dead = true;
@@ -1190,7 +1168,6 @@ export default function MapScreen() {
               }
             }
           }
-          // Clean up outside iteration
           for (const id of oorToDelete) mobDebuffsRef.current.delete(id);
         }
 
