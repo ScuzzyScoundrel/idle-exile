@@ -999,14 +999,14 @@ export default function MapScreen() {
         }
       }
 
-      // ── Map Completion — increment per-zone counter, auto-start next or return to picker ──
-      if (map.phase === 'complete') {
-        // Wait 3 seconds after completion, then start a new map
-        if (map.totalTime > 0 && Date.now() - map.mapStartTime > (map.totalTime * 1000 + 3000)) {
+      // ── Map Completion — wait for ENTER or 5s auto-advance ──
+      if (map.phase === 'complete' && map.completedAt > 0) {
+        const sinceComplete = Date.now() - map.completedAt;
+        if (sinceComplete > 5000 || keysRef.current.has('enter')) {
+          keysRef.current.delete('enter');
           const completionGs = useGameStore.getState();
 
           if (map.corruptedTier > 0) {
-            // Corrupted map completion: update highest tier, return to picker
             const prevHighest = completionGs.highestCorruptedTier;
             if (map.corruptedTier > prevHighest) {
               useGameStore.setState({ highestCorruptedTier: map.corruptedTier });
@@ -1031,9 +1031,12 @@ export default function MapScreen() {
         }
       }
 
-      // ── Failed — return to zone picker after 3 seconds ──
+      // ── Failed — wait for ENTER or 5s to return to picker ──
       if (map.phase === 'failed') {
-        if (map.totalTime > 0 && Date.now() - map.mapStartTime > (map.totalTime * 1000 + 3000)) {
+        if (map.completedAt === 0) map.completedAt = Date.now(); // reuse field for failed timing
+        const sinceFailed = Date.now() - map.completedAt;
+        if (sinceFailed > 5000 || keysRef.current.has('enter')) {
+          keysRef.current.delete('enter');
           stateRef.current = null;
           setPicking(true);
           return;

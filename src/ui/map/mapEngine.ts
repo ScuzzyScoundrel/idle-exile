@@ -123,6 +123,7 @@ export function createMapState(
     mapStartTime: Date.now(),
     isBossMap: isBossMap,
     bossDefeatedBanner: 0,
+    completedAt: 0,
 
     mouseWorldPos: null,
 
@@ -643,11 +644,13 @@ export function updateMap(state: MapState, dt: number, keys: Set<string>): void 
     // Boss map: complete when boss is dead
     if (state.bossMob && state.bossMob.dead && state.bossMob.deathTimer > 2.0 && state.phase !== 'complete') {
       state.phase = 'complete';
+      state.completedAt = Date.now();
     }
   } else {
     const exitRoom = state.layout.rooms.find(r => r.id === state.layout.exitRoomId);
     if (exitRoom && exitRoom.cleared && state.phase !== 'complete') {
       state.phase = 'complete';
+      state.completedAt = Date.now();
     }
   }
 

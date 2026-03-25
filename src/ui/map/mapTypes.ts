@@ -165,6 +165,7 @@ export interface MapState {
   mapStartTime: number;
   isBossMap: boolean;
   bossDefeatedBanner: number; // >0 shows "BOSS DEFEATED" banner (countdown)
+  completedAt: number;        // Date.now() when map completed (0 = not yet)
 
   // Mouse
   mouseWorldPos: Vec2 | null;

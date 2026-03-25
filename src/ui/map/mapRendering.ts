@@ -656,11 +656,32 @@ export function renderMap(
 
   // Map complete banner
   if (state.phase === 'complete') {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+    ctx.fillRect(0, 0, width, height);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.font = 'bold 32px monospace'; ctx.fillStyle = '#60a5fa';
+    ctx.font = 'bold 36px monospace'; ctx.fillStyle = '#60a5fa';
     ctx.fillText('MAP COMPLETE', width / 2, height * 0.35);
-    ctx.font = '14px monospace'; ctx.fillStyle = '#93c5fd';
-    ctx.fillText(`${state.totalKills} kills · ${state.roomsCleared} rooms`, width / 2, height * 0.35 + 35);
+    ctx.font = '16px monospace'; ctx.fillStyle = '#93c5fd';
+    ctx.fillText(`${state.totalKills} kills · ${state.roomsCleared} rooms`, width / 2, height * 0.35 + 40);
+    if (Math.floor(totalTime * 2) % 2 === 0) {
+      ctx.font = '13px monospace'; ctx.fillStyle = '#6b7280';
+      ctx.fillText('Press ENTER to continue', width / 2, height * 0.35 + 70);
+    }
+  }
+
+  // Failed banner
+  if (state.phase === 'failed') {
+    ctx.fillStyle = 'rgba(127, 29, 29, 0.5)';
+    ctx.fillRect(0, 0, width, height);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = 'bold 36px monospace'; ctx.fillStyle = '#fca5a5';
+    ctx.fillText('DEFEATED', width / 2, height * 0.35);
+    ctx.font = '14px monospace'; ctx.fillStyle = '#d4d4d8';
+    ctx.fillText('Map failed', width / 2, height * 0.35 + 40);
+    if (Math.floor(totalTime * 2) % 2 === 0) {
+      ctx.font = '13px monospace'; ctx.fillStyle = '#6b7280';
+      ctx.fillText('Press ENTER to return', width / 2, height * 0.35 + 70);
+    }
   }
 
   // ── Map HUD extras (fragments, map counter, downfarm) ──
