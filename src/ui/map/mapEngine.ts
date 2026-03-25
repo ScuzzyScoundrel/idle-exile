@@ -150,7 +150,22 @@ export function createMapState(
     playerDebuffs: [],
     rareAbilityStates: new Map(),
     portal: null,
+    fogCanvas: null,
+    fogCtx: null,
   };
+
+  // Initialize fog of war canvas (full world size, starts opaque black)
+  try {
+    const fogW = Math.ceil(layout.worldWidth / 4); // 1/4 resolution for performance
+    const fogH = Math.ceil(layout.worldHeight / 4);
+    state.fogCanvas = new OffscreenCanvas(fogW, fogH);
+    state.fogCtx = state.fogCanvas.getContext('2d');
+    if (state.fogCtx) {
+      // Start fully black (unexplored)
+      state.fogCtx.fillStyle = '#000000';
+      state.fogCtx.fillRect(0, 0, fogW, fogH);
+    }
+  } catch { /* OffscreenCanvas not supported — fog disabled */ }
 
   // Populate mobs for all rooms
   populateAllRooms(state, zoneBand, wave, corruptedTier, modifiers);
@@ -622,6 +637,26 @@ export function updateMap(state: MapState, dt: number, keys: Set<string>): void 
     console.error('[map] rare ability tick error:', e);
     // Clear all ability states to prevent repeated errors
     state.rareAbilityStates.clear();
+  }
+
+  // ── Fog of War: reveal around player ──
+  if (state.fogCtx && state.fogCanvas) {
+    const VISION_RADIUS = 250;
+    const scale = state.fogCanvas.width / state.layout.worldWidth;
+    const fx = state.player.x * scale;
+    const fy = state.player.y * scale;
+    const fr = VISION_RADIUS * scale;
+    // Erase a circle (reveal) at player position using destination-out
+    state.fogCtx.globalCompositeOperation = 'destination-out';
+    const grad = state.fogCtx.createRadialGradient(fx, fy, 0, fx, fy, fr);
+    grad.addColorStop(0, 'rgba(0,0,0,1)');    // full reveal at center
+    grad.addColorStop(0.7, 'rgba(0,0,0,0.8)'); // mostly revealed
+    grad.addColorStop(1, 'rgba(0,0,0,0)');     // soft edge
+    state.fogCtx.fillStyle = grad;
+    state.fogCtx.beginPath();
+    state.fogCtx.arc(fx, fy, fr, 0, Math.PI * 2);
+    state.fogCtx.fill();
+    state.fogCtx.globalCompositeOperation = 'source-over';
   }
 
   // ── Portal Check ──

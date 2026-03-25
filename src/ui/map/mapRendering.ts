@@ -47,29 +47,15 @@ export function renderMap(
   }
   ctx.translate(-state.camera.x, -state.camera.y);
 
-  // ── Fog of War — fill entire world with darkness, punch out entered rooms ──
-  const fogPad = 200; // extra padding around world bounds
-  ctx.fillStyle = '#08080e';
-  ctx.fillRect(
-    -fogPad, -fogPad,
-    state.layout.worldWidth + fogPad * 2,
-    state.layout.worldHeight + fogPad * 2,
-  );
-
-  // ── Room Floors (entered rooms punched out of the fog) ──
+  // ── Room Floors (draw ALL rooms — fog canvas will hide unexplored) ──
   const isCorrupted = state.corruptedTier > 0;
   for (const room of state.layout.rooms) {
-    if (!room.entered) continue; // stays dark — fog covers it
-
-    // Explored room floor — corrupted maps get purple tint
-    const isCurrentRoom = room.id === state.currentRoomId;
     if (isCorrupted) {
-      ctx.fillStyle = isCurrentRoom ? '#140f1e' : '#0e0a16';
+      ctx.fillStyle = '#0e0a16';
     } else {
-      ctx.fillStyle = isCurrentRoom ? '#0f0f18' : '#0a0a12';
+      ctx.fillStyle = '#0a0a12';
     }
     ctx.fillRect(room.x, room.y, room.width, room.height);
-    // Purple vignette overlay for corrupted maps
     if (isCorrupted) {
       ctx.fillStyle = 'rgba(88, 28, 135, 0.06)';
       ctx.fillRect(room.x, room.y, room.width, room.height);
@@ -93,11 +79,10 @@ export function renderMap(
     }
   }
 
-  // ── Walls (only for explored rooms — unexplored stay hidden) ──
+  // ── Walls (draw all rooms — fog will hide unexplored) ──
   ctx.strokeStyle = '#3f3f46';
   ctx.lineWidth = 3;
   for (const room of state.layout.rooms) {
-    if (!room.entered) continue;
     for (const wall of room.walls) {
       ctx.beginPath();
       ctx.moveTo(wall.x1, wall.y1);
@@ -105,11 +90,9 @@ export function renderMap(
       ctx.stroke();
     }
   }
-  // Wall glow for visibility (explored rooms only)
   ctx.strokeStyle = 'rgba(63, 63, 70, 0.3)';
   ctx.lineWidth = 6;
   for (const room of state.layout.rooms) {
-    if (!room.entered) continue;
     for (const wall of room.walls) {
       ctx.beginPath();
       ctx.moveTo(wall.x1, wall.y1);
@@ -317,12 +300,8 @@ export function renderMap(
   }
   ctx.globalAlpha = 1;
 
-  // ── Mobs ──
+  // ── Mobs (fog canvas hides unexplored areas — render all mobs) ──
   for (const mob of state.mobs) {
-    // Only render mobs in entered rooms
-    const mobRoom = state.layout.rooms.find(r => r.mobIds.includes(mob.mobId));
-    if (mobRoom && !mobRoom.entered) continue;
-
     if (mob.dead) {
       const t = mob.deathTimer / 0.6;
       const alpha = Math.max(0, 1 - t);
@@ -940,6 +919,15 @@ export function renderMap(
     ctx.fillStyle = f.color; ctx.fillText(f.text, f.x, f.y);
   }
   ctx.globalAlpha = 1;
+
+  // ── Fog of War Overlay (radius-based) ──
+  if (state.fogCanvas) {
+    ctx.drawImage(
+      state.fogCanvas,
+      0, 0, state.fogCanvas.width, state.fogCanvas.height,
+      0, 0, state.layout.worldWidth, state.layout.worldHeight,
+    );
+  }
 
   // Restore from camera
   ctx.restore();

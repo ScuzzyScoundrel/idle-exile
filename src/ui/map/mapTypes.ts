@@ -212,6 +212,10 @@ export interface MapState {
 
   // Exit portal (spawns when boss dies)
   portal: { x: number; y: number; active: boolean } | null;
+
+  // Fog of war (radius-based reveal)
+  fogCanvas: OffscreenCanvas | null;
+  fogCtx: OffscreenCanvasRenderingContext2D | null;
 }
 
 // ── Map Modifiers (Corrupted Maps) ──
