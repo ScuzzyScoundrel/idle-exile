@@ -1189,11 +1189,13 @@ export default function MapScreen() {
         }
       }
 
-      renderMap(ctx, map, renderGs.currentHp, renderMaxHp, renderGs.currentEs ?? 0, killCountRef.current, skillCooldowns, {
-        zoneName: zoneData.name,
-        zoneBand: zoneData.band,
-        combatPhase: renderGs.combatPhase,
-      }, mapHud);
+      try {
+        renderMap(ctx, map, renderGs.currentHp, renderMaxHp, renderGs.currentEs ?? 0, killCountRef.current, skillCooldowns, {
+          zoneName: zoneData.name,
+          zoneBand: zoneData.band,
+          combatPhase: renderGs.combatPhase,
+        }, mapHud);
+      } catch (e) { console.error('[map] render error:', e); }
 
       animFrameRef.current = requestAnimationFrame(loop);
     };

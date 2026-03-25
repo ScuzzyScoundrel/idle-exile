@@ -274,13 +274,13 @@ export function renderMap(
       }
       case 'chain': {
         // Thicker lines
-        ctx.lineWidth = 4 * (1 - t);
+        ctx.lineWidth = Math.max(0.5, 4 * (1 - t));
         ctx.strokeStyle = sv.color;
         let prev = { x: sv.x, y: sv.y };
         for (const tgt of sv.targets ?? []) {
           ctx.beginPath(); ctx.moveTo(prev.x, prev.y); ctx.lineTo(tgt.x, tgt.y); ctx.stroke();
           // Small explosion at each target point
-          const expR = 8 * (1 - t);
+          const expR = Math.max(1, 8 * (1 - t));
           const expGlow = ctx.createRadialGradient(tgt.x, tgt.y, 0, tgt.x, tgt.y, expR);
           expGlow.addColorStop(0, '#ffffff');
           expGlow.addColorStop(0.4, sv.color);
