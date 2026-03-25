@@ -649,8 +649,10 @@ export default function MapScreen() {
 
           if (bossDist <= PLAYER_ATTACK_RANGE + boss.radius) {
             // Boss is in player attack range — tick combat against boss
-            while (map.tickAccumulator >= 0.25) {
-              map.tickAccumulator -= 0.25;
+            // Use local budget so boss doesn't consume ticks needed by normal mobs
+            let bossTickBudget = map.tickAccumulator;
+            while (bossTickBudget >= 0.25) {
+              bossTickBudget -= 0.25;
 
               const tickGs = useGameStore.getState();
               // Create a single-mob pack representing the boss

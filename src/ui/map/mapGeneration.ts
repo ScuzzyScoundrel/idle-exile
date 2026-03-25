@@ -164,11 +164,12 @@ function generateSpawnPoints(
     case 'pack':
       addRandom('white', 8 + Math.floor(Math.random() * 8));
       addRandom('magic', 1 + Math.floor(Math.random() * 2));
+      if (Math.random() < 0.5) addRandom('rare', 1); // 50% chance of a rare in pack rooms
       break;
     case 'large':
       addRandom('white', 15 + Math.floor(Math.random() * 11));
       addRandom('magic', 2 + Math.floor(Math.random() * 2));
-      addRandom('rare', 1);
+      addRandom('rare', 1 + Math.floor(Math.random() * 2)); // 1-2 rares
       break;
     case 'side':
       addRandom('white', 5 + Math.floor(Math.random() * 4));
@@ -180,7 +181,7 @@ function generateSpawnPoints(
     case 'boss':
       addRandom('white', 6 + Math.floor(Math.random() * 5));
       addRandom('magic', 1 + Math.floor(Math.random() * 2));
-      // Boss itself is spawned separately
+      addRandom('rare', 2); // 2 rares guard the boss
       break;
   }
 

@@ -1257,4 +1257,138 @@ export function renderMap(
       ctx.textAlign = 'center';
     }
   }
+
+  // ── Large HP / ES Bar (bottom-left, PoE-style globe substitute) ──
+  {
+    const hpBarW = 220, hpBarH = 22;
+    const skillBarOffset = _skillCooldowns && _skillCooldowns.length > 0 ? 48 + 16 + 8 : 0;
+    const hpBarX = 16;
+    const hpY = height - hpBarH - 16 - skillBarOffset;
+
+    // Background
+    ctx.fillStyle = 'rgba(0,0,0,0.75)';
+    ctx.fillRect(hpBarX - 2, hpY - 2, hpBarW + 4, hpBarH + 4);
+
+    // HP fill
+    const hpPct = playerMaxHp > 0 ? Math.max(0, playerHp / playerMaxHp) : 0;
+    const hpColor = hpPct > 0.5 ? '#dc2626' : hpPct > 0.25 ? '#eab308' : '#7f1d1d';
+    ctx.fillStyle = hpColor;
+    ctx.fillRect(hpBarX, hpY, hpBarW * hpPct, hpBarH);
+
+    // ES overlay (blue, on top of HP)
+    if (playerEs > 0 && playerMaxHp > 0) {
+      const esPct = Math.min(1, playerEs / playerMaxHp);
+      ctx.fillStyle = 'rgba(96, 165, 250, 0.6)';
+      ctx.fillRect(hpBarX, hpY, hpBarW * esPct, hpBarH);
+    }
+
+    // Border
+    ctx.strokeStyle = 'rgba(150,150,170,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(hpBarX, hpY, hpBarW, hpBarH);
+
+    // Text: HP / MaxHP
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = 'bold 12px monospace';
+    ctx.fillStyle = '#ffffff';
+    const hpText = playerEs > 0
+      ? `${Math.round(playerEs)} ES / ${Math.round(playerHp)} HP`
+      : `${Math.round(playerHp)} / ${Math.round(playerMaxHp)}`;
+    ctx.fillText(hpText, hpBarX + hpBarW / 2, hpY + hpBarH / 2);
+  }
+
+  // ── Minimap (top-right corner) ──
+  {
+    const mmW = 160, mmH = 160;
+    const mmX = width - mmW - 12, mmY = 12;
+    const mmPad = 6;
+
+    // Find world bounds from layout
+    const rooms = state.layout.rooms;
+    let wMinX = Infinity, wMinY = Infinity, wMaxX = -Infinity, wMaxY = -Infinity;
+    for (const r of rooms) {
+      wMinX = Math.min(wMinX, r.x);
+      wMinY = Math.min(wMinY, r.y);
+      wMaxX = Math.max(wMaxX, r.x + r.width);
+      wMaxY = Math.max(wMaxY, r.y + r.height);
+    }
+    const worldW = wMaxX - wMinX || 1;
+    const worldH = wMaxY - wMinY || 1;
+    const scaleX = (mmW - mmPad * 2) / worldW;
+    const scaleY = (mmH - mmPad * 2) / worldH;
+    const sc = Math.min(scaleX, scaleY);
+    const offX = mmX + mmPad + ((mmW - mmPad * 2) - worldW * sc) / 2;
+    const offY = mmY + mmPad + ((mmH - mmPad * 2) - worldH * sc) / 2;
+
+    // Background
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillRect(mmX, mmY, mmW, mmH);
+    ctx.strokeStyle = 'rgba(100,100,120,0.5)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(mmX, mmY, mmW, mmH);
+
+    // Rooms
+    for (const r of rooms) {
+      const rx = offX + (r.x - wMinX) * sc;
+      const ry = offY + (r.y - wMinY) * sc;
+      const rw = r.width * sc;
+      const rh = r.height * sc;
+
+      if (r.entered) {
+        ctx.fillStyle = r.cleared ? 'rgba(34, 197, 94, 0.25)' : 'rgba(100, 116, 139, 0.35)';
+      } else {
+        ctx.fillStyle = 'rgba(50, 50, 60, 0.3)';
+      }
+      ctx.fillRect(rx, ry, rw, rh);
+      ctx.strokeStyle = r.entered ? 'rgba(148,163,184,0.5)' : 'rgba(60,60,70,0.3)';
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(rx, ry, rw, rh);
+    }
+
+    // Mob dots (only in entered rooms)
+    for (const mob of state.mobs) {
+      if (mob.dead) continue;
+      const mx = offX + (mob.x - wMinX) * sc;
+      const my = offY + (mob.y - wMinY) * sc;
+      ctx.fillStyle = mob.isRare ? '#f59e0b' : '#ef4444';
+      ctx.fillRect(mx - 1, my - 1, 2, 2);
+    }
+
+    // Boss dot
+    if (state.bossMob && !state.bossMob.dead) {
+      const bx = offX + (state.bossMob.x - wMinX) * sc;
+      const by = offY + (state.bossMob.y - wMinY) * sc;
+      ctx.fillStyle = '#fbbf24';
+      ctx.beginPath();
+      // Star shape for boss
+      for (let i = 0; i < 5; i++) {
+        const a = -Math.PI / 2 + (i * 2 * Math.PI) / 5;
+        const r1 = 4, r2 = 2;
+        ctx.lineTo(bx + Math.cos(a) * r1, by + Math.sin(a) * r1);
+        const a2 = a + Math.PI / 5;
+        ctx.lineTo(bx + Math.cos(a2) * r2, by + Math.sin(a2) * r2);
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Portal dot
+    if (state.portal?.active) {
+      const px = offX + (state.portal.x - wMinX) * sc;
+      const py = offY + (state.portal.y - wMinY) * sc;
+      ctx.fillStyle = '#a78bfa';
+      ctx.beginPath();
+      ctx.arc(px, py, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Player dot (pulsing)
+    const plX = offX + (state.player.x - wMinX) * sc;
+    const plY = offY + (state.player.y - wMinY) * sc;
+    const pulse = 2.5 + Math.sin(totalTime * 4) * 0.8;
+    ctx.fillStyle = '#22d3ee';
+    ctx.beginPath();
+    ctx.arc(plX, plY, pulse, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }

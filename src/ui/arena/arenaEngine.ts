@@ -16,7 +16,9 @@ import type { ArenaGroundItem } from './arenaLoot';
 import { applyGroundItemPickup } from './arenaLoot';
 import { rollZoneAttack, calcZoneAccuracy, calcLevelDamageMult } from '../../engine/zones';
 import { spawnPack } from '../../engine/packs';
-import { getDebuffDef } from '../../data/debuffs';
+import { tickDebuffDoT } from '../../engine/combat/helpers';
+import { resolveStats } from '../../engine/character';
+import { useGameStore } from '../../store/gameStore';
 import type { ResolvedStats, ZoneDef } from '../../types';
 import type { MobInPack } from '../../types/combat';
 import type { MobDamageElement } from '../../types/zones';
@@ -1232,71 +1234,45 @@ export function tickOutOfRangeDoTs(
     }
   }
 
+  // Get player stats for DoT multipliers (same as map OOR DoTs)
+  let oorIncDoTDmg = 0;
+  try {
+    const gs = useGameStore.getState();
+    const oorStats = resolveStats(gs.character);
+    oorIncDoTDmg = oorStats.incDoTDamage ?? 0;
+  } catch { /* fallback to 0 */ }
+
   for (let i = 0; i < fullPack.length; i++) {
     if (inRangeSet.has(i)) continue; // engine handles in-range mobs
     const mob = fullPack[i];
     if (mob.hp <= 0 || mob.debuffs.length === 0) continue;
 
-    let dotDmg = 0;
-    const updatedDebuffs = [];
-    for (const debuff of mob.debuffs) {
-      const def = getDebuffDef(debuff.debuffId);
-      const newDuration = debuff.remainingDuration - dt;
-      if (newDuration <= 0) continue; // expired, drop it
+    // Use the EXACT same engine function as idle combat
+    const dotResult = tickDebuffDoT(mob.debuffs, dt, 1, oorIncDoTDmg, mob.maxHp);
+    mob.debuffs = dotResult.updatedDebuffs;
 
-      if (def?.instanceBased && debuff.instances && debuff.instances.length > 0) {
-        // Instance-based DoT (poison): each instance ticks independently
-        const snapshotPct = (def.effect.snapshotPercent ?? 15) / 100;
-        const living = debuff.instances
-          .map(inst => ({ ...inst, remainingDuration: inst.remainingDuration - dt }))
-          .filter(inst => inst.remainingDuration > 0);
-        if (living.length > 0) {
-          const snapSum = living.reduce((a, inst) => a + inst.snapshot, 0);
-          dotDmg += snapSum * snapshotPct * dt;
-          updatedDebuffs.push({ ...debuff, remainingDuration: newDuration, instances: living, stacks: living.length });
-        }
-      } else if (def?.dotType === 'snapshot' && !def.instanceBased) {
-        // Bleed: trigger-based (fires when mob attacks player), NOT passive DPS.
-        // Out-of-range mobs can't attack → bleed doesn't deal damage. Just tick duration.
-        updatedDebuffs.push({ ...debuff, remainingDuration: newDuration });
-      } else if (def?.dotType === 'percentMaxHp') {
-        // Percent max HP DoT (burning/ignite): X% per second per stack
-        const pctPerSec = (def.effect.percentMaxHp ?? 1) / 100;
-        dotDmg += mob.maxHp * pctPerSec * debuff.stacks * dt;
-        updatedDebuffs.push({ ...debuff, remainingDuration: newDuration });
-      } else {
-        // Non-damage debuff (shocked, chilled, etc.) — keep it, no damage
-        updatedDebuffs.push({ ...debuff, remainingDuration: newDuration });
+    // Update visual mob
+    const visMob = state.mobs.find(m => m.packIndex === i);
+    if (!visMob || visMob.dead) continue;
+    visMob.activeDebuffs = dotResult.updatedDebuffs.map(d => d.debuffId);
+
+    if (dotResult.damage > 0) {
+      mob.hp -= dotResult.damage;
+      visMob.hp = mob.hp;
+
+      if (mob.hp <= 0) {
+        mob.hp = 0;
+        visMob.hp = 0;
+        visMob.dead = true;
+        visMob.deathTimer = 0;
+        kills++;
+        addKillFloater(state, visMob);
+        spawnDeathParticles(state, visMob);
+        spawnGems(state, visMob, 2 + Math.floor(Math.random() * 3));
+        if (Math.random() < 0.3) spawnGems(state, visMob, 1, true);
+      } else if (dotResult.damage > 1) {
+        addDamageFloater(state, dotResult.damage, false, visMob);
       }
-    }
-
-    mob.debuffs = updatedDebuffs;
-
-    if (dotDmg > 0) {
-      mob.hp -= dotDmg;
-      // Update visual mob
-      const visMob = state.mobs.find(m => m.packIndex === i);
-      if (visMob && !visMob.dead) {
-        visMob.hp = mob.hp;
-        visMob.activeDebuffs = updatedDebuffs.map(d => d.debuffId);
-        if (mob.hp <= 0) {
-          mob.hp = 0;
-          visMob.hp = 0;
-          visMob.dead = true;
-          visMob.deathTimer = 0;
-          kills++;
-          addKillFloater(state, visMob);
-          spawnDeathParticles(state, visMob);
-          spawnGems(state, visMob, 2 + Math.floor(Math.random() * 3));
-          if (Math.random() < 0.3) spawnGems(state, visMob, 1, true);
-        } else if (dotDmg > 1) {
-          addDamageFloater(state, dotDmg, false, visMob);
-        }
-      }
-    } else {
-      // No damage debuffs but debuffs updated (duration decremented)
-      const visMob = state.mobs.find(m => m.packIndex === i);
-      if (visMob) visMob.activeDebuffs = updatedDebuffs.map(d => d.debuffId);
     }
   }
   return kills;
