@@ -11,6 +11,7 @@ import { resolveStats } from '../../engine/character';
 import { ZONE_DEFS, BAND_NAMES } from '../../data/zones';
 import { rollZoneAttack, calcZoneAccuracy, calcLevelDamageMult } from '../../engine/zones';
 import { getUnifiedSkillDef } from '../../data/skills';
+import { getDebuffDef } from '../../data/debuffs';
 
 import type { MapState, MapModifier } from './mapTypes';
 import { createMapState, updateMap, getMapMobsInRange, mobCanAttackMapPlayer,
@@ -722,10 +723,26 @@ export default function MapScreen() {
                     });
                   }
 
-                  // Handle boss victory in store
+                  // Handle boss victory in store — save/restore idle combat phase
+                  // so handleBossVictory doesn't trigger the idle recovery timer.
                   const bossVictoryGs = useGameStore.getState();
-                  bossVictoryGs.startBossFight(); // set combatPhase to boss_fight
+                  const prevPhase = bossVictoryGs.combatPhase;
+                  const prevPhaseStart = bossVictoryGs.combatPhaseStartedAt;
+                  bossVictoryGs.startBossFight(); // set combatPhase to boss_fight (needed for handleBossVictory)
                   const bossResult = useGameStore.getState().handleBossVictory();
+                  // Restore idle combat phase so the idle state machine isn't disrupted
+                  useGameStore.setState({ combatPhase: prevPhase as any, combatPhaseStartedAt: prevPhaseStart });
+
+                  // Ensure boss kill count is incremented (handleBossVictory does this,
+                  // but we also set it explicitly to guarantee zone unlock)
+                  const bkGs = useGameStore.getState();
+                  const newBossKills = { ...(bkGs.bossKillCounts ?? {}) };
+                  if ((newBossKills[zoneId] ?? 0) < 1 || !bossResult) {
+                    // handleBossVictory may not have run — ensure kill count is set
+                    newBossKills[zoneId] = (newBossKills[zoneId] ?? 0) + (bossResult ? 0 : 1);
+                    useGameStore.setState({ bossKillCounts: newBossKills });
+                  }
+
                   if (bossResult) {
                     const loot = rollBossArenaLoot(bossResult, { x: boss.x, y: boss.y });
                     map.groundItems.push(...loot);
@@ -775,8 +792,8 @@ export default function MapScreen() {
 
                   logCombat(map as any, `${boss.name} DEFEATED!`, '#fbbf24');
 
-                  // Spawn exit portal at boss position
-                  map.portal = { x: boss.x, y: boss.y, active: true };
+                  // Spawn exit portal SOUTH of boss so loot isn't overlapped
+                  map.portal = { x: boss.x, y: boss.y + 150, active: true };
               }
 
               // Skill visuals
@@ -1104,6 +1121,69 @@ export default function MapScreen() {
             }
           }
         }
+
+        // ── Out-of-range DoT ticking (poison/bleed on mobs player walked away from) ──
+        for (const [mobId, debuffs] of mobDebuffsRef.current) {
+          if (debuffs.length === 0) continue;
+          const mob = map.mobs.find(m => m.mobId === mobId);
+          if (!mob || mob.dead) { mobDebuffsRef.current.delete(mobId); continue; }
+
+          // Skip mobs that are in combat range (already handled by tickCombat)
+          const ddx = map.player.x - mob.x;
+          const ddy = map.player.y - mob.y;
+          if (Math.sqrt(ddx * ddx + ddy * ddy) <= PLAYER_ATTACK_RANGE) continue;
+
+          // Tick DoTs using debuff definitions
+          let totalDotDmg = 0;
+          const survivingDebuffs: typeof debuffs = [];
+          for (const deb of debuffs) {
+            const def = getDebuffDef(deb.debuffId);
+            const newDuration = deb.remainingDuration - 0.25;
+            if (newDuration <= 0) continue; // expired
+
+            if (def?.instanceBased && deb.instances && deb.instances.length > 0) {
+              // Instance-based DoT (poison): each instance ticks independently
+              const snapshotPct = (def.effect.snapshotPercent ?? 15) / 100;
+              const living = deb.instances
+                .map(inst => ({ ...inst, remainingDuration: inst.remainingDuration - 0.25 }))
+                .filter(inst => inst.remainingDuration > 0);
+              if (living.length > 0) {
+                const snapSum = living.reduce((a, inst) => a + inst.snapshot, 0);
+                totalDotDmg += snapSum * snapshotPct * 0.25;
+                survivingDebuffs.push({ ...deb, remainingDuration: newDuration, instances: living, stacks: living.length });
+              }
+            } else if (def?.dotType === 'percentMaxHp') {
+              // Percent max HP DoT (burning/ignite)
+              const pctPerSec = (def.effect.percentMaxHp ?? 1) / 100;
+              totalDotDmg += mob.maxHp * pctPerSec * deb.stacks * 0.25;
+              survivingDebuffs.push({ ...deb, remainingDuration: newDuration });
+            } else {
+              // Non-damage debuffs or bleed (trigger-based, no passive DPS out of range)
+              survivingDebuffs.push({ ...deb, remainingDuration: newDuration });
+            }
+          }
+          mobDebuffsRef.current.set(mobId, survivingDebuffs);
+          if (survivingDebuffs.length === 0) mobDebuffsRef.current.delete(mobId);
+
+          // Update mob activeDebuffs for visual tints
+          mob.activeDebuffs = survivingDebuffs.map(d => d.debuffId);
+
+          if (totalDotDmg > 0) {
+            mob.hp -= totalDotDmg;
+            addDotFloater(map as any, totalDotDmg, { x: mob.x, y: mob.y });
+
+            if (mob.hp <= 0) {
+              mob.dead = true;
+              mob.deathTimer = 0;
+              map.totalKills++;
+              killCountRef.current++;
+              spawnDeathParticles(map as any, mob);
+              spawnGems(map as any, mob, 2);
+              mobDebuffsRef.current.delete(mobId);
+            }
+          }
+        }
+
        } catch (e) { console.error('[map] simulation error:', e); } // ── End master try/catch ──
       }
 

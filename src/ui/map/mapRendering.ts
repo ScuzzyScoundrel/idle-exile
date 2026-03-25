@@ -932,6 +932,58 @@ export function renderMap(
   // Restore from camera
   ctx.restore();
 
+  // ── Mob Direction Indicators (for stragglers hidden by fog) ──
+  for (const room of state.layout.rooms) {
+    if (!room.entered || room.cleared) continue;
+    const aliveMobs = room.mobIds
+      .map(id => state.mobs.find(m => m.mobId === id))
+      .filter(m => m && !m.dead);
+    if (aliveMobs.length === 0 || aliveMobs.length > 3) continue;
+
+    for (const mob of aliveMobs) {
+      if (!mob) continue;
+      // Check if mob is off-screen (screen-space coords)
+      const screenX = mob.x - state.camera.x;
+      const screenY = mob.y - state.camera.y;
+      if (screenX > -50 && screenX < width + 50 && screenY > -50 && screenY < height + 50) continue;
+
+      // Draw arrow at viewport edge pointing toward mob (screen space)
+      const dx = mob.x - state.player.x;
+      const dy = mob.y - state.player.y;
+      const angle = Math.atan2(dy, dx);
+      const margin = 30;
+      // Clamp arrow to viewport edge
+      const cx = width / 2;
+      const cy = height / 2;
+      const maxExtent = Math.min(cx - margin, cy - margin);
+      const edgeX = cx + Math.cos(angle) * maxExtent;
+      const edgeY = cy + Math.sin(angle) * maxExtent;
+
+      // Arrow triangle
+      const arrowSize = 10;
+      ctx.save();
+      ctx.translate(edgeX, edgeY);
+      ctx.rotate(angle);
+      ctx.beginPath();
+      ctx.moveTo(arrowSize, 0);
+      ctx.lineTo(-arrowSize, -arrowSize * 0.6);
+      ctx.lineTo(-arrowSize, arrowSize * 0.6);
+      ctx.closePath();
+      ctx.fillStyle = mob.isRare ? '#fbbf24' : (mob.color === '#60a5fa' ? '#60a5fa' : '#ef4444');
+      ctx.globalAlpha = 0.6 + Math.sin(totalTime * 3) * 0.2;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.restore();
+
+      // Count label
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = 'bold 9px monospace';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(`${aliveMobs.length}`, edgeX, edgeY - 12);
+      break; // one arrow per room is enough
+    }
+  }
+
   // ── HUD (screen-space) ──
 
   // Low HP warning
