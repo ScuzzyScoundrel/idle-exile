@@ -183,7 +183,6 @@ function ZonePicker({ onSelectZone, onSelectCorrupted }: {
                 const idx = getZoneIndex(zone.id);
                 const isRecommended = idx === highestIdx;
                 const mapsForZone = mapCompletedCounts[zone.id] ?? 0;
-                const bossReady = mapsForZone > 0 && mapsForZone % MAPS_BEFORE_BOSS === 0;
                 const bossKills = bossKillCounts[zone.id] ?? 0;
 
                 return (
@@ -206,11 +205,6 @@ function ZonePicker({ onSelectZone, onSelectCorrupted }: {
                             RECOMMENDED
                           </span>
                         )}
-                        {bossReady && (
-                          <span className="text-[10px] px-1.5 py-0.5 bg-yellow-600/40 text-yellow-300 rounded font-bold animate-pulse">
-                            BOSS READY
-                          </span>
-                        )}
                       </div>
                       <div className="text-[11px] text-gray-500 mt-0.5">
                         iLvl {zone.iLvlMin}–{zone.iLvlMax} · Boss: {zone.bossName}
@@ -219,7 +213,7 @@ function ZonePicker({ onSelectZone, onSelectCorrupted }: {
                     </div>
                     <div className="text-right ml-3 flex-shrink-0">
                       <div className="text-xs text-gray-400">
-                        Map {mapsForZone % MAPS_BEFORE_BOSS}/{MAPS_BEFORE_BOSS}
+                        {mapsForZone} maps cleared
                       </div>
                     </div>
                   </button>
@@ -311,17 +305,13 @@ export default function MapScreen() {
     window.addEventListener('resize', resize);
 
     // Init map state for selected zone
-    const gs0 = useGameStore.getState();
     const zone = ZONE_DEFS.find(z => z.id === zoneId);
     if (!zone) { setPicking(true); return; }
 
     const cTier = corruptedTierRef.current;
     const cMods = corruptedModsRef.current;
-    const mapsForZone = gs0.mapCompletedCounts[zoneId] ?? 0;
-    const isBoss = cTier > 0
-      ? (cTier % 5 === 0) // corrupted boss every 5 tiers
-      : (mapsForZone > 0 && mapsForZone % MAPS_BEFORE_BOSS === 0);
-    stateRef.current = createMapState(canvas.width, canvas.height, zone.band, 1, isBoss, cTier, cMods);
+    // Every map has a boss at the end (1 boss per map)
+    stateRef.current = createMapState(canvas.width, canvas.height, zone.band, 1, true, cTier, cMods);
     killCountRef.current = 0;
     lastTimeRef.current = 0;
     bossSpawnedRef.current = false;
@@ -1027,9 +1017,8 @@ export default function MapScreen() {
           bossSpawnedRef.current = false;
           bossMeleeTimerRef.current = 0;
 
-          const updatedCount = newCounts[zoneId] ?? 0;
-          const isBossNext = updatedCount > 0 && updatedCount % MAPS_BEFORE_BOSS === 0;
-          stateRef.current = createMapState(canvas.width, canvas.height, zoneData.band, 1, isBossNext);
+          // Every map has a boss
+          stateRef.current = createMapState(canvas.width, canvas.height, zoneData.band, 1, true);
           killCountRef.current = 0;
         }
       }
