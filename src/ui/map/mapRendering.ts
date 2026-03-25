@@ -1184,56 +1184,77 @@ export function renderMap(
     ctx.fillStyle = `rgba(255, 255, 255, ${(cf * 0.1).toFixed(3)})`; ctx.fillRect(0, 0, width, height);
   }
 
-  // ── Skill Cooldown Bar (bottom center) ──
+  // ── Skill Cooldown Bar (bottom center, large and readable) ──
   if (_skillCooldowns && _skillCooldowns.length > 0) {
-    const slotW = 64;
-    const slotH = 32;
-    const gap = 4;
+    const slotW = 100;
+    const slotH = 48;
+    const gap = 6;
     const totalW = _skillCooldowns.length * (slotW + gap) - gap;
     const barX = (width - totalW) / 2;
-    const barY = height - slotH - 12;
+    const barY = height - slotH - 16;
+
+    // Bar background strip
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(barX - 8, barY - 4, totalW + 16, slotH + 8);
 
     for (let i = 0; i < _skillCooldowns.length; i++) {
       const sk = _skillCooldowns[i];
       const sx = barX + i * (slotW + gap);
 
-      // Background
-      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      // Slot background
+      ctx.fillStyle = 'rgba(15, 15, 25, 0.85)';
       ctx.fillRect(sx, barY, slotW, slotH);
 
-      // Cooldown overlay (fills from top)
+      // Cooldown overlay (fills from top, darkens slot)
       if (sk.cooldownPct > 0) {
         const cdH = slotH * sk.cooldownPct;
-        ctx.fillStyle = 'rgba(0,0,0,0.6)';
-        ctx.fillRect(sx, barY, slotW, cdH);
-        ctx.fillStyle = 'rgba(100, 100, 120, 0.3)';
+        ctx.fillStyle = 'rgba(30, 30, 50, 0.7)';
         ctx.fillRect(sx, barY, slotW, cdH);
       }
 
-      // Active cast highlight
+      // Active cast highlight (bright blue border + glow)
       const isCasting = sk.skillId === state.lastCastSkillId && state.lastCastTimer > 0;
       if (isCasting) {
         ctx.strokeStyle = '#60a5fa';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 3;
         ctx.strokeRect(sx, barY, slotW, slotH);
-      } else {
-        ctx.strokeStyle = sk.cooldownPct > 0 ? 'rgba(100,100,120,0.4)' : 'rgba(150,150,170,0.5)';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(sx, barY, slotW, slotH);
-      }
-
-      // Skill name
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.font = '10px monospace';
-      ctx.fillStyle = sk.cooldownPct > 0 ? '#6b7280' : '#d1d5db';
-      const displayName = sk.name.length > 8 ? sk.name.slice(0, 7) + '.' : sk.name;
-      ctx.fillText(displayName, sx + slotW / 2, barY + slotH / 2);
-
-      // Ready glow
-      if (sk.cooldownPct <= 0 && !sk.isOnGcd) {
-        ctx.fillStyle = 'rgba(34, 197, 94, 0.15)';
+        ctx.fillStyle = 'rgba(96, 165, 250, 0.1)';
         ctx.fillRect(sx, barY, slotW, slotH);
+      } else {
+        ctx.strokeStyle = sk.cooldownPct > 0 ? 'rgba(80,80,100,0.5)' : 'rgba(120,120,150,0.6)';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(sx, barY, slotW, slotH);
       }
+
+      // Skill name (larger font, two lines if needed)
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = 'bold 12px monospace';
+      ctx.fillStyle = sk.cooldownPct > 0 ? '#6b7280' : '#e5e7eb';
+      const displayName = sk.name.length > 12 ? sk.name.slice(0, 11) + '.' : sk.name;
+      ctx.fillText(displayName, sx + slotW / 2, barY + slotH / 2 - 6);
+
+      // Cooldown remaining text or "READY"
+      ctx.font = '10px monospace';
+      if (sk.cooldownPct > 0) {
+        ctx.fillStyle = '#ef4444';
+        ctx.fillText('CD', sx + slotW / 2, barY + slotH / 2 + 10);
+      } else if (!sk.isOnGcd) {
+        ctx.fillStyle = '#22c55e';
+        ctx.fillText('READY', sx + slotW / 2, barY + slotH / 2 + 10);
+        // Green glow for ready skills
+        ctx.fillStyle = 'rgba(34, 197, 94, 0.08)';
+        ctx.fillRect(sx, barY, slotW, slotH);
+      } else {
+        ctx.fillStyle = '#6b7280';
+        ctx.fillText('GCD', sx + slotW / 2, barY + slotH / 2 + 10);
+      }
+
+      // Keybind hint (slot number)
+      ctx.font = '9px monospace';
+      ctx.fillStyle = 'rgba(150,150,170,0.4)';
+      ctx.textAlign = 'left';
+      ctx.fillText(`${i + 1}`, sx + 4, barY + 12);
+      ctx.textAlign = 'center';
     }
   }
 }
