@@ -1062,7 +1062,31 @@ export default function MapScreen() {
         timerRemaining: map.timerRemaining,
       };
 
-      renderMap(ctx, map, renderGs.currentHp, renderMaxHp, renderGs.currentEs ?? 0, killCountRef.current, undefined, {
+      // Build skill cooldown info
+      const skillCooldowns: import('../arena/arenaTypes').SkillCooldownInfo[] = [];
+      if (renderGs.skillBar) {
+        const now = Date.now();
+        for (let i = 0; i < renderGs.skillBar.length; i++) {
+          const slot = renderGs.skillBar[i];
+          if (!slot) continue;
+          const def = getUnifiedSkillDef(slot.skillId);
+          if (!def || !('baseDamage' in def)) continue;
+          const timer = renderGs.skillTimers?.[i];
+          let cooldownPct = 0;
+          if (timer?.cooldownUntil && timer.cooldownUntil > now && def.cooldown > 0) {
+            cooldownPct = Math.min(1, (timer.cooldownUntil - now) / 1000 / def.cooldown);
+          }
+          skillCooldowns.push({
+            skillId: slot.skillId,
+            name: def.name,
+            cooldownPct,
+            isActive: slot.skillId === map.lastCastSkillId,
+            isOnGcd: (renderGs.nextActiveSkillAt ?? 0) > now,
+          });
+        }
+      }
+
+      renderMap(ctx, map, renderGs.currentHp, renderMaxHp, renderGs.currentEs ?? 0, killCountRef.current, skillCooldowns, {
         zoneName: zoneData.name,
         zoneBand: zoneData.band,
         combatPhase: renderGs.combatPhase,
