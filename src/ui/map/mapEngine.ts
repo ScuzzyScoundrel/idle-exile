@@ -616,7 +616,7 @@ export function updateMap(state: MapState, dt: number, keys: Set<string>): void 
   }
 
   // ── Rare Mob Signature Abilities ──
-  tickRareMobAbilities(state, dt);
+  try { tickRareMobAbilities(state, dt); } catch (e) { console.error('[map] rare ability tick error:', e); }
 
   // ── Portal Check ──
   if (state.portal && state.portal.active) {
@@ -931,12 +931,16 @@ function tickRareMobAbilities(state: MapState, dt: number): void {
     }
   }
 
-  // Clean up states for dead mobs
+  // Clean up states for dead/removed mobs (collect first, then delete to avoid iterator invalidation)
+  const toDelete: number[] = [];
   for (const [mobId] of state.rareAbilityStates) {
     const mob = state.mobs.find(m => m.mobId === mobId);
     if (!mob || mob.dead) {
-      state.rareAbilityStates.delete(mobId);
+      toDelete.push(mobId);
     }
+  }
+  for (const id of toDelete) {
+    state.rareAbilityStates.delete(id);
   }
 }
 
