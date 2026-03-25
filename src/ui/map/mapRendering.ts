@@ -153,7 +153,7 @@ export function renderMap(
     ctx.fill();
   }
 
-  // ── Skill Visuals ──
+  // ── Skill Visuals (safe versions — no color string concatenation) ──
   for (const sv of state.skillVisuals) {
     const t = sv.age / sv.maxAge;
     const alpha = Math.max(0, 1 - t);
@@ -162,131 +162,59 @@ export function renderMap(
       case 'slash': {
         const ang = sv.angle ?? 0;
         const r = 30 + t * 20;
-        // Primary arc
         ctx.beginPath();
         ctx.arc(sv.x, sv.y, r, ang - 0.8, ang + 0.8);
-        ctx.lineWidth = 4 * (1 - t);
+        ctx.lineWidth = Math.max(0.5, 4 * (1 - t));
         ctx.strokeStyle = sv.color;
         ctx.stroke();
-        // Secondary arc at offset angle
-        ctx.beginPath();
-        ctx.arc(sv.x, sv.y, r * 0.85, ang - 0.6, ang + 0.6);
-        ctx.lineWidth = 2 * (1 - t);
-        ctx.strokeStyle = sv.color;
-        ctx.globalAlpha = alpha * 0.5;
-        ctx.stroke();
-        ctx.globalAlpha = alpha;
-        // Spark particles at the tip
-        for (let si = 0; si < 4; si++) {
-          const sparkAng = ang - 0.8 + (1.6 / 3) * si;
-          const sx = sv.x + Math.cos(sparkAng) * r;
-          const sy = sv.y + Math.sin(sparkAng) * r;
-          ctx.beginPath();
-          ctx.arc(sx, sy, 2 * (1 - t), 0, Math.PI * 2);
-          ctx.fillStyle = '#ffffff';
-          ctx.globalAlpha = alpha * 0.7;
-          ctx.fill();
-        }
-        ctx.globalAlpha = alpha;
         break;
       }
       case 'ring': {
         const r = SPLASH_RADIUS_AOE * Math.min(1, t * 3);
-        // Ground pulse effect (expanding circle that fades)
-        if (t < 0.5) {
-          const pulseR = r * (1 + t * 0.6);
-          ctx.beginPath();
-          ctx.arc(sv.x, sv.y, pulseR, 0, Math.PI * 2);
-          ctx.fillStyle = sv.color + '15';
-          ctx.fill();
-        }
-        // Main ring — thicker stroke
         ctx.beginPath();
         ctx.arc(sv.x, sv.y, r, 0, Math.PI * 2);
         ctx.strokeStyle = sv.color;
-        ctx.lineWidth = 4 * (1 - t);
+        ctx.lineWidth = Math.max(0.5, 3 * (1 - t));
         ctx.stroke();
-        // Inner ring glow
-        ctx.beginPath();
-        ctx.arc(sv.x, sv.y, r * 0.7, 0, Math.PI * 2);
-        ctx.strokeStyle = sv.color;
-        ctx.lineWidth = 1.5 * (1 - t);
-        ctx.globalAlpha = alpha * 0.4;
-        ctx.stroke();
-        ctx.globalAlpha = alpha;
         break;
       }
       case 'cone': {
         const ang = sv.angle ?? 0;
         const half = sv.halfAngle ?? Math.PI / 4;
         const len = (sv.length ?? 50) * Math.min(1, t * 5);
-        // Brighter fill
         ctx.beginPath();
         ctx.moveTo(sv.x, sv.y);
         ctx.arc(sv.x, sv.y, len, ang - half, ang + half);
         ctx.closePath();
-        ctx.fillStyle = sv.color + '50';
+        ctx.fillStyle = `rgba(200, 200, 220, ${(alpha * 0.3).toFixed(3)})`;
         ctx.fill();
         ctx.strokeStyle = sv.color;
-        ctx.lineWidth = 2 * (1 - t);
+        ctx.lineWidth = Math.max(0.5, 2 * (1 - t));
         ctx.stroke();
-        // Shockwave ring at the edge
-        if (t < 0.6) {
-          ctx.beginPath();
-          ctx.arc(sv.x, sv.y, len, ang - half * 0.8, ang + half * 0.8);
-          ctx.strokeStyle = '#ffffff';
-          ctx.lineWidth = 1.5 * (1 - t);
-          ctx.globalAlpha = alpha * 0.4;
-          ctx.stroke();
-          ctx.globalAlpha = alpha;
-        }
         break;
       }
       case 'projectile': {
-        // Brighter glow core
-        const projGlow = ctx.createRadialGradient(sv.x, sv.y, 0, sv.x, sv.y, 10);
-        projGlow.addColorStop(0, '#ffffff');
-        projGlow.addColorStop(0.3, sv.color);
-        projGlow.addColorStop(1, sv.color + '00');
-        ctx.beginPath();
-        ctx.arc(sv.x, sv.y, 10, 0, Math.PI * 2);
-        ctx.fillStyle = projGlow;
-        ctx.fill();
-        // Solid core
         ctx.beginPath();
         ctx.arc(sv.x, sv.y, 4, 0, Math.PI * 2);
-        ctx.fillStyle = '#ffffff';
+        ctx.fillStyle = sv.color;
         ctx.fill();
-        // Longer trail (5 dots)
         if (sv.dx !== undefined && sv.dy !== undefined) {
-          for (let ti = 1; ti <= 5; ti++) {
-            const tx = sv.x - sv.dx * 400 * 0.02 * ti;
-            const ty = sv.y - sv.dy * 400 * 0.02 * ti;
-            ctx.beginPath();
-            ctx.arc(tx, ty, 3 - ti * 0.4, 0, Math.PI * 2);
-            ctx.fillStyle = sv.color;
-            ctx.globalAlpha = alpha * (1 - ti * 0.18);
-            ctx.fill();
-          }
-          ctx.globalAlpha = alpha;
+          ctx.beginPath();
+          ctx.arc(sv.x - sv.dx * 12, sv.y - sv.dy * 12, 2, 0, Math.PI * 2);
+          ctx.globalAlpha = alpha * 0.4;
+          ctx.fillStyle = sv.color;
+          ctx.fill();
         }
         break;
       }
       case 'chain': {
-        // Thicker lines
-        ctx.lineWidth = Math.max(0.5, 4 * (1 - t));
+        ctx.lineWidth = Math.max(0.5, 2 * (1 - t));
         ctx.strokeStyle = sv.color;
         let prev = { x: sv.x, y: sv.y };
         for (const tgt of sv.targets ?? []) {
           ctx.beginPath(); ctx.moveTo(prev.x, prev.y); ctx.lineTo(tgt.x, tgt.y); ctx.stroke();
-          // Small explosion at each target point
-          const expR = Math.max(1, 8 * (1 - t));
-          const expGlow = ctx.createRadialGradient(tgt.x, tgt.y, 0, tgt.x, tgt.y, expR);
-          expGlow.addColorStop(0, '#ffffff');
-          expGlow.addColorStop(0.4, sv.color);
-          expGlow.addColorStop(1, sv.color + '00');
-          ctx.beginPath(); ctx.arc(tgt.x, tgt.y, expR, 0, Math.PI * 2);
-          ctx.fillStyle = expGlow; ctx.fill();
+          ctx.beginPath(); ctx.arc(tgt.x, tgt.y, Math.max(1, 5 * (1 - t)), 0, Math.PI * 2);
+          ctx.fillStyle = sv.color; ctx.fill();
           prev = tgt;
         }
         break;
