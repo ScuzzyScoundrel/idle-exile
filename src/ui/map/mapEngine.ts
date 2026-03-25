@@ -616,7 +616,13 @@ export function updateMap(state: MapState, dt: number, keys: Set<string>): void 
   }
 
   // ── Rare Mob Signature Abilities ──
-  try { tickRareMobAbilities(state, dt); } catch (e) { console.error('[map] rare ability tick error:', e); }
+  try {
+    tickRareMobAbilities(state, dt);
+  } catch (e) {
+    console.error('[map] rare ability tick error:', e);
+    // Clear all ability states to prevent repeated errors
+    state.rareAbilityStates.clear();
+  }
 
   // ── Portal Check ──
   if (state.portal && state.portal.active) {

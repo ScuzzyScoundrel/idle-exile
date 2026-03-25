@@ -674,8 +674,11 @@ export default function MapScreen() {
               useGameStore.setState({ packMobs: [], currentPackSize: 0 });
 
               // Sync boss HP + debuffs
-              const bossKilledByEngine = postPack.length === 0 && result.mobKills > 0;
-              if (postPack.length > 0) {
+              // Key: if engine killed the boss (mobKills > 0), don't sync HP from postPack
+              // because the engine may have auto-spawned a fresh mob in the pack
+              const bossWasKilled = result.mobKills > 0;
+
+              if (!bossWasKilled && postPack.length > 0) {
                 bossDebuffsRef.current = postPack[0].debuffs ?? [];
                 const prevBossHp = boss.hp;
                 boss.hp = postPack[0].hp;
@@ -683,13 +686,11 @@ export default function MapScreen() {
 
                 if (hpDelta > 0) {
                   boss.lastHitTime = map.totalTime;
-                  // Small knockback on boss
                   if (bossDist > 1) {
                     const kbForce = 30;
                     boss.knockbackVx = (bossDistX / bossDist) * -kbForce;
                     boss.knockbackVy = (bossDistY / bossDist) * -kbForce;
                   }
-                  // Damage floater at boss position
                   map.floaters.push({
                     x: boss.x + (Math.random() - 0.5) * 30,
                     y: boss.y - boss.radius - 5,
@@ -700,8 +701,8 @@ export default function MapScreen() {
                 }
               }
 
-              // Boss death — either HP <= 0 in postPack OR engine popped the dead boss
-              if (bossKilledByEngine || (boss.hp <= 0 && !boss.dead)) {
+              // Boss death — engine killed it OR HP dropped to 0
+              if (bossWasKilled || (boss.hp <= 0 && !boss.dead)) {
                   boss.dead = true;
                   boss.deathTimer = 0;
                   map.bossDefeatedBanner = 3.0;
