@@ -262,7 +262,7 @@ export default function MapScreen() {
     // Zone sprite mappings (add more zones as art is audited)
     const ZONE_SPRITES: Record<string, { floor: string; mobs: string[]; boss: string }> = {
       ashwood_thicket: {
-        floor: '/images/map/floors/ashwood_thicket_00001_.png',
+        floor: '/images/map/floors/bogmire_marsh_00002_.png',
         mobs: [
           '/images/map/mobs/ashwood_thicket/bark_beetle_00001_.png',
           '/images/map/mobs/ashwood_thicket/canopy_bat_00001_.png',
