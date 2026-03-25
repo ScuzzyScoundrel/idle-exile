@@ -382,6 +382,82 @@ export default function MapScreen() {
           }
         }
 
+        // ── Player Debuff DPS (poison + bleed) ──
+        if (map.playerDebuffs.length > 0) {
+          for (const deb of map.playerDebuffs) {
+            if (deb.type === 'poison') {
+              // Poison: deal magnitude DPS every frame (scaled by dt)
+              const poisonDmg = deb.magnitude * dt;
+              if (poisonDmg > 0.1) {
+                applySpatialDamage(map, poisonDmg, 'Poison');
+                // Floater every 0.5s approximately
+                if (Math.random() < dt * 2) {
+                  addPlayerHitFloater(map as any, Math.round(deb.magnitude * 0.5), false, false);
+                }
+              }
+            } else if (deb.type === 'bleed' && map.playerMoving) {
+              // Bleed: deal magnitude * 0.5 DPS when moving
+              const bleedDmg = deb.magnitude * 0.5 * dt;
+              if (bleedDmg > 0.05) {
+                applySpatialDamage(map, bleedDmg, 'Bleed');
+                if (Math.random() < dt * 2) {
+                  addPlayerHitFloater(map as any, Math.round(deb.magnitude * 0.25), false, false);
+                }
+              }
+            }
+          }
+        }
+
+        // ── Rare Mob Ability Damage ──
+        for (const [mobId, ability] of map.rareAbilityStates) {
+          const mob = map.mobs.find(m => m.mobId === mobId);
+          if (!mob || mob.dead) continue;
+
+          // Charge: damage if mob reaches melee range during charge
+          if (ability.type === 'charge' && ability.activeTimer > 0 && map.iFrameTimer <= 0) {
+            const cdx = map.player.x - mob.x;
+            const cdy = map.player.y - mob.y;
+            const cDist = Math.sqrt(cdx * cdx + cdy * cdy);
+            if (cDist < 35 + map.playerRadius + mob.radius) {
+              const chargeDmg = (SPATIAL_DMG_BASE * zoneData.band + SPATIAL_DMG_ILVL_SCALE * zoneData.iLvlMin) * 2 * corruptedDmgMult;
+              applySpatialDamage(map, chargeDmg, 'Rare Charge');
+              addPlayerHitFloater(map as any, Math.round(chargeDmg), false, false);
+              triggerIFrames(map as any);
+              triggerShake(map as any, 5);
+            }
+          }
+
+          // Leap: AoE damage on landing (telegraphTimer just crossed 0 → activeTimer just started)
+          if (ability.type === 'leap' && ability.activeTimer > 0 && ability.activeTimer < 0.1 && map.iFrameTimer <= 0) {
+            const ldx = map.player.x - ability.targetX;
+            const ldy = map.player.y - ability.targetY;
+            const lDist = Math.sqrt(ldx * ldx + ldy * ldy);
+            if (lDist < 80 + map.playerRadius) {
+              const leapDmg = (SPATIAL_DMG_BASE * zoneData.band + SPATIAL_DMG_ILVL_SCALE * zoneData.iLvlMin) * 2.5 * corruptedDmgMult;
+              applySpatialDamage(map, leapDmg, 'Rare Leap');
+              addPlayerHitFloater(map as any, Math.round(leapDmg), false, false);
+              triggerIFrames(map as any);
+            }
+          }
+
+          // Spin: continuous damage in 60px radius during activeTimer
+          if (ability.type === 'spin' && ability.activeTimer > 0 && map.iFrameTimer <= 0) {
+            const sdx = map.player.x - mob.x;
+            const sdy = map.player.y - mob.y;
+            const sDist = Math.sqrt(sdx * sdx + sdy * sdy);
+            if (sDist < 60 + map.playerRadius) {
+              const spinDmg = (SPATIAL_DMG_BASE * zoneData.band + SPATIAL_DMG_ILVL_SCALE * zoneData.iLvlMin) * 1.5 * dt * corruptedDmgMult;
+              if (spinDmg > 0.1) {
+                applySpatialDamage(map, spinDmg, 'Rare Spin');
+                if (Math.random() < dt * 4) {
+                  addPlayerHitFloater(map as any, Math.round(spinDmg / dt), false, false);
+                }
+                triggerIFrames(map as any);
+              }
+            }
+          }
+        }
+
         // ── Ranged Mob Projectile Spawning ──
         let projStats: ReturnType<typeof resolveStats> | null = null;
         try { projStats = resolveStats(gs.character); } catch { /* */ }
@@ -426,6 +502,15 @@ export default function MapScreen() {
             if (!roll.isDodged && !roll.isBlocked && roll.damage > 0) {
               triggerIFrames(map as any);
               applySpatialDamage(map, roll.damage, 'Projectile');
+              // Roll ailment from projectile source mob
+              const srcMob = map.mobs.find(m => m.mobId === proj.sourceMobId);
+              if (srcMob) {
+                const ailmentChance = srcMob.isRare ? 0.6 : (srcMob.color === '#60a5fa' ? 0.3 : 0);
+                if (ailmentChance > 0 && Math.random() < ailmentChance) {
+                  const duration = srcMob.isRare ? 3 : 2;
+                  map.playerDebuffs.push({ type: 'slow', remainingTime: duration, magnitude: 0.5 });
+                }
+              }
             }
           }
         }
@@ -448,6 +533,18 @@ export default function MapScreen() {
             if (!roll.isDodged && !roll.isBlocked && roll.damage > 0) {
               triggerIFrames(map as any);
               applySpatialDamage(map, roll.damage, 'Melee');
+              // Roll ailment from melee mob
+              const ailmentChance = mob.isRare ? 0.6 : (mob.color === '#60a5fa' ? 0.3 : 0);
+              if (ailmentChance > 0 && Math.random() < ailmentChance) {
+                const duration = mob.isRare ? 3 : 2;
+                if (mob.color === '#22d3ee') {
+                  map.playerDebuffs.push({ type: 'slow', remainingTime: duration, magnitude: 0.5 });
+                } else if (mob.color === '#4ade80' || mob.arenaAffixes?.includes('toxic')) {
+                  map.playerDebuffs.push({ type: 'poison', remainingTime: duration + 1, magnitude: roll.damage * 0.15 });
+                } else {
+                  map.playerDebuffs.push({ type: 'bleed', remainingTime: duration, magnitude: roll.damage * 0.15 });
+                }
+              }
             }
           }
         }
@@ -492,6 +589,10 @@ export default function MapScreen() {
               if (!roll.isDodged && !roll.isBlocked && roll.damage > 0) {
                 triggerIFrames(map as any);
                 applySpatialDamage(map, roll.damage, 'Boss Slam');
+                // Boss slam ailment: 80% chance, 4s slow
+                if (Math.random() < 0.8) {
+                  map.playerDebuffs.push({ type: 'slow', remainingTime: 4, magnitude: 0.5 });
+                }
               }
             }
           }
@@ -510,6 +611,10 @@ export default function MapScreen() {
             if (!roll.isDodged && !roll.isBlocked && roll.damage > 0) {
               triggerIFrames(map as any);
               applySpatialDamage(map, roll.damage, 'Boss Barrage');
+              // Boss barrage ailment: 80% chance, 4s poison
+              if (Math.random() < 0.8) {
+                map.playerDebuffs.push({ type: 'poison', remainingTime: 4, magnitude: roll.damage * 0.1 });
+              }
             }
           }
 
@@ -523,6 +628,10 @@ export default function MapScreen() {
             if (!roll.isDodged && !roll.isBlocked && roll.damage > 0) {
               triggerIFrames(map as any);
               applySpatialDamage(map, roll.damage, 'Boss Melee');
+              // Boss melee ailment: 80% chance, 4s bleed
+              if (Math.random() < 0.8) {
+                map.playerDebuffs.push({ type: 'bleed', remainingTime: 4, magnitude: roll.damage * 0.12 });
+              }
             }
           }
         }
@@ -663,6 +772,9 @@ export default function MapScreen() {
                   }
 
                   logCombat(map as any, `${boss.name} DEFEATED!`, '#fbbf24');
+
+                  // Spawn exit portal at boss position
+                  map.portal = { x: boss.x, y: boss.y, active: true };
               }
 
               // Skill visuals

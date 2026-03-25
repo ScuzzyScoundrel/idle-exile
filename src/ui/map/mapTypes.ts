@@ -10,6 +10,25 @@ import type { ArenaGroundItem } from '../arena/arenaLoot';
 
 export type { Vec2 } from '../arena/arenaTypes';
 
+// ── Player Debuffs ──
+
+export interface PlayerDebuff {
+  type: 'slow' | 'poison' | 'chill' | 'curse' | 'bleed';
+  remainingTime: number;  // seconds
+  magnitude: number;      // slow: speed mult (0.5 = 50% slow), poison: DPS, curse: dmg taken mult, bleed: DPS when moving
+}
+
+// ── Rare Mob Signature Attacks ──
+
+export interface RareAbilityState {
+  type: 'charge' | 'leap' | 'spin';
+  cooldown: number;       // seconds until next ability
+  telegraphTimer: number; // >0 during telegraph
+  activeTimer: number;    // >0 during ability execution
+  targetX: number;
+  targetY: number;
+}
+
 // ── Map Boss ──
 
 export interface MapBoss {
@@ -184,6 +203,15 @@ export interface MapState {
   corruptedTier: number;           // 0 = normal map, 1+ = corrupted
   modifiers: MapModifier[];        // active map modifiers
   timerRemaining: number | null;   // temporal modifier countdown (null = no timer)
+
+  // Player debuffs (from mob hits)
+  playerDebuffs: PlayerDebuff[];
+
+  // Rare mob signature attacks
+  rareAbilityStates: Map<number, RareAbilityState>;
+
+  // Exit portal (spawns when boss dies)
+  portal: { x: number; y: number; active: boolean } | null;
 }
 
 // ── Map Modifiers (Corrupted Maps) ──

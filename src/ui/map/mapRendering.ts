@@ -162,51 +162,131 @@ export function renderMap(
       case 'slash': {
         const ang = sv.angle ?? 0;
         const r = 30 + t * 20;
+        // Primary arc
         ctx.beginPath();
         ctx.arc(sv.x, sv.y, r, ang - 0.8, ang + 0.8);
         ctx.lineWidth = 4 * (1 - t);
         ctx.strokeStyle = sv.color;
         ctx.stroke();
+        // Secondary arc at offset angle
+        ctx.beginPath();
+        ctx.arc(sv.x, sv.y, r * 0.85, ang - 0.6, ang + 0.6);
+        ctx.lineWidth = 2 * (1 - t);
+        ctx.strokeStyle = sv.color;
+        ctx.globalAlpha = alpha * 0.5;
+        ctx.stroke();
+        ctx.globalAlpha = alpha;
+        // Spark particles at the tip
+        for (let si = 0; si < 4; si++) {
+          const sparkAng = ang - 0.8 + (1.6 / 3) * si;
+          const sx = sv.x + Math.cos(sparkAng) * r;
+          const sy = sv.y + Math.sin(sparkAng) * r;
+          ctx.beginPath();
+          ctx.arc(sx, sy, 2 * (1 - t), 0, Math.PI * 2);
+          ctx.fillStyle = '#ffffff';
+          ctx.globalAlpha = alpha * 0.7;
+          ctx.fill();
+        }
+        ctx.globalAlpha = alpha;
         break;
       }
       case 'ring': {
         const r = SPLASH_RADIUS_AOE * Math.min(1, t * 3);
+        // Ground pulse effect (expanding circle that fades)
+        if (t < 0.5) {
+          const pulseR = r * (1 + t * 0.6);
+          ctx.beginPath();
+          ctx.arc(sv.x, sv.y, pulseR, 0, Math.PI * 2);
+          ctx.fillStyle = sv.color + '15';
+          ctx.fill();
+        }
+        // Main ring — thicker stroke
         ctx.beginPath();
         ctx.arc(sv.x, sv.y, r, 0, Math.PI * 2);
         ctx.strokeStyle = sv.color;
-        ctx.lineWidth = 3 * (1 - t);
+        ctx.lineWidth = 4 * (1 - t);
         ctx.stroke();
+        // Inner ring glow
+        ctx.beginPath();
+        ctx.arc(sv.x, sv.y, r * 0.7, 0, Math.PI * 2);
+        ctx.strokeStyle = sv.color;
+        ctx.lineWidth = 1.5 * (1 - t);
+        ctx.globalAlpha = alpha * 0.4;
+        ctx.stroke();
+        ctx.globalAlpha = alpha;
         break;
       }
       case 'cone': {
         const ang = sv.angle ?? 0;
         const half = sv.halfAngle ?? Math.PI / 4;
         const len = (sv.length ?? 50) * Math.min(1, t * 5);
+        // Brighter fill
         ctx.beginPath();
         ctx.moveTo(sv.x, sv.y);
         ctx.arc(sv.x, sv.y, len, ang - half, ang + half);
         ctx.closePath();
-        ctx.fillStyle = sv.color + '30';
+        ctx.fillStyle = sv.color + '50';
         ctx.fill();
         ctx.strokeStyle = sv.color;
         ctx.lineWidth = 2 * (1 - t);
         ctx.stroke();
+        // Shockwave ring at the edge
+        if (t < 0.6) {
+          ctx.beginPath();
+          ctx.arc(sv.x, sv.y, len, ang - half * 0.8, ang + half * 0.8);
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1.5 * (1 - t);
+          ctx.globalAlpha = alpha * 0.4;
+          ctx.stroke();
+          ctx.globalAlpha = alpha;
+        }
         break;
       }
       case 'projectile': {
+        // Brighter glow core
+        const projGlow = ctx.createRadialGradient(sv.x, sv.y, 0, sv.x, sv.y, 10);
+        projGlow.addColorStop(0, '#ffffff');
+        projGlow.addColorStop(0.3, sv.color);
+        projGlow.addColorStop(1, sv.color + '00');
+        ctx.beginPath();
+        ctx.arc(sv.x, sv.y, 10, 0, Math.PI * 2);
+        ctx.fillStyle = projGlow;
+        ctx.fill();
+        // Solid core
         ctx.beginPath();
         ctx.arc(sv.x, sv.y, 4, 0, Math.PI * 2);
-        ctx.fillStyle = sv.color;
+        ctx.fillStyle = '#ffffff';
         ctx.fill();
+        // Longer trail (5 dots)
+        if (sv.dx !== undefined && sv.dy !== undefined) {
+          for (let ti = 1; ti <= 5; ti++) {
+            const tx = sv.x - sv.dx * 400 * 0.02 * ti;
+            const ty = sv.y - sv.dy * 400 * 0.02 * ti;
+            ctx.beginPath();
+            ctx.arc(tx, ty, 3 - ti * 0.4, 0, Math.PI * 2);
+            ctx.fillStyle = sv.color;
+            ctx.globalAlpha = alpha * (1 - ti * 0.18);
+            ctx.fill();
+          }
+          ctx.globalAlpha = alpha;
+        }
         break;
       }
       case 'chain': {
-        ctx.lineWidth = 2 * (1 - t);
+        // Thicker lines
+        ctx.lineWidth = 4 * (1 - t);
         ctx.strokeStyle = sv.color;
         let prev = { x: sv.x, y: sv.y };
         for (const tgt of sv.targets ?? []) {
           ctx.beginPath(); ctx.moveTo(prev.x, prev.y); ctx.lineTo(tgt.x, tgt.y); ctx.stroke();
-          ctx.beginPath(); ctx.arc(tgt.x, tgt.y, 5 * (1 - t), 0, Math.PI * 2); ctx.fillStyle = sv.color; ctx.fill();
+          // Small explosion at each target point
+          const expR = 8 * (1 - t);
+          const expGlow = ctx.createRadialGradient(tgt.x, tgt.y, 0, tgt.x, tgt.y, expR);
+          expGlow.addColorStop(0, '#ffffff');
+          expGlow.addColorStop(0.4, sv.color);
+          expGlow.addColorStop(1, sv.color + '00');
+          ctx.beginPath(); ctx.arc(tgt.x, tgt.y, expR, 0, Math.PI * 2);
+          ctx.fillStyle = expGlow; ctx.fill();
           prev = tgt;
         }
         break;
@@ -534,6 +614,186 @@ export function renderMap(
     ctx.beginPath(); ctx.arc(fx, fy, 3, 0, Math.PI * 2); ctx.fillStyle = '#dbeafe'; ctx.fill();
   }
 
+  // ── Player Debuff Visuals ──
+  if (state.playerDebuffs.length > 0 && iFrameVisible) {
+    for (const deb of state.playerDebuffs) {
+      switch (deb.type) {
+        case 'slow':
+        case 'chill': {
+          // Blue tint overlay on player body
+          ctx.beginPath();
+          ctx.arc(player.x, player.y, playerRadius + 2, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(34, 211, 238, 0.25)';
+          ctx.fill();
+          break;
+        }
+        case 'poison': {
+          // Green pulsing particles around player
+          const pPhase = (totalTime * 3 + deb.remainingTime) % 1;
+          for (let pi = 0; pi < 3; pi++) {
+            const pAngle = (Math.PI * 2 / 3) * pi + totalTime * 2;
+            const pr = playerRadius + 6 + Math.sin(totalTime * 4 + pi) * 3;
+            ctx.beginPath();
+            ctx.arc(player.x + Math.cos(pAngle) * pr, player.y + Math.sin(pAngle) * pr, 2, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(74, 222, 128, ${(0.6 + pPhase * 0.3).toFixed(2)})`;
+            ctx.fill();
+          }
+          break;
+        }
+        case 'bleed': {
+          // Red drip particles when moving
+          if (state.playerMoving) {
+            const bPhase = (totalTime * 2.5) % 1;
+            ctx.globalAlpha = 0.6 * (1 - bPhase);
+            ctx.beginPath();
+            ctx.arc(player.x + Math.sin(totalTime * 3) * 4, player.y + playerRadius + bPhase * 10, 2, 0, Math.PI * 2);
+            ctx.fillStyle = '#f87171';
+            ctx.fill();
+            ctx.globalAlpha = 1;
+          }
+          break;
+        }
+        case 'curse': {
+          // Purple aura ring
+          const cPulse = 0.3 + Math.sin(totalTime * 3) * 0.1;
+          ctx.beginPath();
+          ctx.arc(player.x, player.y, playerRadius + 8, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(192, 132, 252, ${cPulse.toFixed(3)})`;
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+          break;
+        }
+      }
+    }
+  }
+
+  // ── Rare Mob Ability Telegraphs ──
+  for (const [mobId, ability] of state.rareAbilityStates) {
+    const mob = state.mobs.find(m => m.mobId === mobId);
+    if (!mob || mob.dead) continue;
+
+    if (ability.telegraphTimer > 0) {
+      switch (ability.type) {
+        case 'charge': {
+          // Draw a line from mob to target position
+          ctx.beginPath();
+          ctx.moveTo(mob.x, mob.y);
+          ctx.lineTo(ability.targetX, ability.targetY);
+          const chgAlpha = 0.3 + (1 - ability.telegraphTimer / 0.8) * 0.4;
+          ctx.strokeStyle = `rgba(239, 68, 68, ${chgAlpha.toFixed(3)})`;
+          ctx.lineWidth = 3;
+          ctx.setLineDash([6, 4]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          break;
+        }
+        case 'leap': {
+          // Red circle at target position (80px radius)
+          const leapPct = 1 - ability.telegraphTimer / 1.0;
+          const leapAlpha = 0.15 + leapPct * 0.35;
+          ctx.beginPath();
+          ctx.arc(ability.targetX, ability.targetY, 80 * leapPct, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(239, 68, 68, ${leapAlpha.toFixed(3)})`;
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(ability.targetX, ability.targetY, 80, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(239, 68, 68, ${(0.5 * leapPct).toFixed(3)})`;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          break;
+        }
+        case 'spin': {
+          // Mob glows bright
+          const spinAlpha = 0.4 + (1 - ability.telegraphTimer / 0.5) * 0.4;
+          ctx.beginPath();
+          ctx.arc(mob.x, mob.y, mob.radius + 6, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(249, 115, 22, ${spinAlpha.toFixed(3)})`;
+          ctx.fill();
+          break;
+        }
+      }
+    }
+
+    if (ability.activeTimer > 0) {
+      switch (ability.type) {
+        case 'charge': {
+          // Speed trail behind charging mob
+          for (let ci = 1; ci <= 3; ci++) {
+            const cdx = ability.targetX - mob.x;
+            const cdy = ability.targetY - mob.y;
+            const cLen = Math.sqrt(cdx * cdx + cdy * cdy);
+            if (cLen < 1) break;
+            const tx = mob.x - (cdx / cLen) * 12 * ci;
+            const ty = mob.y - (cdy / cLen) * 12 * ci;
+            ctx.beginPath();
+            ctx.arc(tx, ty, mob.radius * (0.7 - ci * 0.15), 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(239, 68, 68, ${(0.3 - ci * 0.08).toFixed(2)})`;
+            ctx.fill();
+          }
+          break;
+        }
+        case 'spin': {
+          // Spinning damage ring
+          const spinR = 60;
+          const spinAngle = totalTime * 12;
+          ctx.beginPath();
+          ctx.arc(mob.x, mob.y, spinR, spinAngle, spinAngle + Math.PI * 1.5);
+          ctx.strokeStyle = 'rgba(249, 115, 22, 0.6)';
+          ctx.lineWidth = 4;
+          ctx.stroke();
+          // Inner glow
+          ctx.beginPath();
+          ctx.arc(mob.x, mob.y, spinR * 0.5, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(249, 115, 22, 0.15)';
+          ctx.fill();
+          break;
+        }
+      }
+    }
+  }
+
+  // ── Portal ──
+  if (state.portal && state.portal.active) {
+    const px = state.portal.x;
+    const py = state.portal.y;
+    const portalR = 30;
+    const portalPulse = 0.8 + Math.sin(totalTime * 3) * 0.2;
+
+    // Swirling blue/purple gradient circle
+    const portalGrad = ctx.createRadialGradient(px, py, 0, px, py, portalR);
+    portalGrad.addColorStop(0, 'rgba(96, 165, 250, 0.8)');
+    portalGrad.addColorStop(0.5, 'rgba(139, 92, 246, 0.5)');
+    portalGrad.addColorStop(1, 'rgba(139, 92, 246, 0)');
+    ctx.beginPath();
+    ctx.arc(px, py, portalR, 0, Math.PI * 2);
+    ctx.fillStyle = portalGrad;
+    ctx.fill();
+
+    // Pulsing glow ring
+    ctx.beginPath();
+    ctx.arc(px, py, portalR * portalPulse, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(147, 197, 253, ${(0.6 + Math.sin(totalTime * 5) * 0.2).toFixed(3)})`;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    // Small orbiting particles
+    for (let oi = 0; oi < 4; oi++) {
+      const oAngle = totalTime * 4 + (Math.PI * 2 / 4) * oi;
+      const oR = portalR + 5;
+      ctx.beginPath();
+      ctx.arc(px + Math.cos(oAngle) * oR, py + Math.sin(oAngle) * oR, 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#93c5fd';
+      ctx.fill();
+    }
+
+    // "EXIT" label below
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.font = 'bold 11px monospace';
+    ctx.fillStyle = '#93c5fd';
+    ctx.fillText('EXIT', px, py + portalR + 6);
+  }
+
   // Player HP bar
   const pBarW = 48, pBarH = 6;
   const pBarX = player.x - pBarW / 2, pBarY = player.y - playerRadius - 16;
@@ -780,6 +1040,30 @@ export function renderMap(
   const mins = Math.floor(elapsed / 60);
   const secs = elapsed % 60;
   ctx.fillText(`${mins}:${secs.toString().padStart(2, '0')}`, 8, 40);
+
+  // ── Player Debuff HUD Icons (below room/kills/time) ──
+  if (state.playerDebuffs.length > 0) {
+    let debHudY = 58;
+    const debuffColors: Record<string, string> = {
+      slow: '#22d3ee', poison: '#4ade80', bleed: '#f87171', chill: '#22d3ee', curse: '#c084fc',
+    };
+    const debuffLabels: Record<string, string> = {
+      slow: 'SLOW', poison: 'POISON', bleed: 'BLEED', chill: 'CHILL', curse: 'CURSE',
+    };
+    for (const deb of state.playerDebuffs) {
+      const c = debuffColors[deb.type] ?? '#e5e7eb';
+      // Small colored square
+      ctx.fillStyle = c;
+      ctx.globalAlpha = 0.8;
+      ctx.fillRect(8, debHudY, 10, 10);
+      ctx.globalAlpha = 1;
+      // Label + remaining time
+      ctx.font = '10px monospace';
+      ctx.fillStyle = c;
+      ctx.fillText(`${debuffLabels[deb.type] ?? deb.type} ${deb.remainingTime.toFixed(1)}s`, 22, debHudY + 8);
+      debHudY += 14;
+    }
+  }
 
   // Boss HP bar (wide, top of screen)
   if (state.bossMob && !state.bossMob.dead) {

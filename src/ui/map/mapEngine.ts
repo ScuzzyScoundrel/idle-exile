@@ -146,6 +146,10 @@ export function createMapState(
     corruptedTier,
     modifiers,
     timerRemaining: hasModifier(modifiers, 'temporal') ? 180 : null, // 3 minutes
+
+    playerDebuffs: [],
+    rareAbilityStates: new Map(),
+    portal: null,
   };
 
   // Populate mobs for all rooms
@@ -337,6 +341,12 @@ export function updateMap(state: MapState, dt: number, keys: Set<string>): void 
   const hasSpeedBuff = state.activeShrineEffects.some(e => e.type === 'speed');
   const speedMult = hasSpeedBuff ? 1.5 : 1;
 
+  // Slow debuff from player debuffs — worst slow magnitude wins
+  let slowMult = 1;
+  for (const deb of state.playerDebuffs) {
+    if (deb.type === 'slow' && deb.magnitude < slowMult) slowMult = deb.magnitude;
+  }
+
   // Dodge roll
   if (state.dodgeRollCooldown > 0) state.dodgeRollCooldown -= dt;
   if (state.dodgeRollTimer > 0) {
@@ -347,8 +357,8 @@ export function updateMap(state: MapState, dt: number, keys: Set<string>): void 
     state.iFrameTimer = 0.1;
     state.playerMoving = true;
   } else {
-    state.player.x += dx * PLAYER_SPEED * speedMult * dt;
-    state.player.y += dy * PLAYER_SPEED * speedMult * dt;
+    state.player.x += dx * PLAYER_SPEED * speedMult * slowMult * dt;
+    state.player.y += dy * PLAYER_SPEED * speedMult * slowMult * dt;
   }
   state.playerMoving = dx !== 0 || dy !== 0 || state.dodgeRollTimer > 0;
 
@@ -594,6 +604,30 @@ export function updateMap(state: MapState, dt: number, keys: Set<string>): void 
   for (const eff of state.activeShrineEffects) eff.remainingTime -= dt;
   state.activeShrineEffects = state.activeShrineEffects.filter(e => e.remainingTime > 0);
 
+  // ── Player Debuff Ticking ──
+  for (let i = state.playerDebuffs.length - 1; i >= 0; i--) {
+    const deb = state.playerDebuffs[i];
+    deb.remainingTime -= dt;
+    if (deb.remainingTime <= 0) {
+      state.playerDebuffs.splice(i, 1);
+      continue;
+    }
+    // Poison + Bleed DPS: damage application handled in MapScreen (needs store access)
+  }
+
+  // ── Rare Mob Signature Abilities ──
+  tickRareMobAbilities(state, dt);
+
+  // ── Portal Check ──
+  if (state.portal && state.portal.active) {
+    const pdx = state.player.x - state.portal.x;
+    const pdy = state.player.y - state.portal.y;
+    if (Math.sqrt(pdx * pdx + pdy * pdy) < 40 + state.playerRadius) {
+      state.phase = 'complete';
+      state.completedAt = Date.now();
+    }
+  }
+
   // ── Timer Decays ──
   if (state.iFrameTimer > 0) state.iFrameTimer -= dt;
   if (state.frenzyTimer > 0) state.frenzyTimer -= dt;
@@ -649,11 +683,8 @@ export function updateMap(state: MapState, dt: number, keys: Set<string>): void 
 
   // ── Map Complete Check ──
   if (state.isBossMap) {
-    // Boss map: complete when boss is dead
-    if (state.bossMob && state.bossMob.dead && state.bossMob.deathTimer > 2.0 && state.phase !== 'complete') {
-      state.phase = 'complete';
-      state.completedAt = Date.now();
-    }
+    // Boss map: complete when player walks into portal (portal check is above)
+    // Portal spawns in MapScreen on boss death — no auto-complete here
   } else {
     const exitRoom = state.layout.rooms.find(r => r.id === state.layout.exitRoomId);
     if (exitRoom && exitRoom.cleared && state.phase !== 'complete') {
@@ -784,6 +815,129 @@ export function mobCanAttackMapPlayer(state: MapState, mob: ArenaMob): boolean {
   const dx = state.player.x - mob.x;
   const dy = state.player.y - mob.y;
   return Math.sqrt(dx * dx + dy * dy) <= 35 + state.playerRadius + mob.radius;
+}
+
+// ============================================================
+// Rare Mob Signature Abilities
+// ============================================================
+
+function tickRareMobAbilities(state: MapState, dt: number): void {
+  for (const mob of state.mobs) {
+    if (mob.dead || !mob.isRare) continue;
+
+    // Only tick abilities for mobs in entered rooms within 300px
+    const room = state.layout.rooms.find(r => r.mobIds.includes(mob.mobId));
+    if (!room || !room.entered) continue;
+    const pdx = state.player.x - mob.x;
+    const pdy = state.player.y - mob.y;
+    const pDist = Math.sqrt(pdx * pdx + pdy * pdy);
+    if (pDist > 300) continue;
+
+    // Initialize ability state if not present
+    if (!state.rareAbilityStates.has(mob.mobId)) {
+      // Assign ability type based on affixes or random
+      let abilityType: 'charge' | 'leap' | 'spin';
+      if (mob.arenaAffixes.includes('teleporter')) {
+        abilityType = 'charge';
+      } else if (mob.arenaAffixes.includes('explosive')) {
+        abilityType = 'leap';
+      } else {
+        abilityType = 'spin';
+      }
+      state.rareAbilityStates.set(mob.mobId, {
+        type: abilityType,
+        cooldown: 3 + Math.random() * 3,
+        telegraphTimer: 0,
+        activeTimer: 0,
+        targetX: 0,
+        targetY: 0,
+      });
+    }
+
+    const ability = state.rareAbilityStates.get(mob.mobId)!;
+
+    // During active ability execution
+    if (ability.activeTimer > 0) {
+      ability.activeTimer -= dt;
+
+      if (ability.type === 'charge') {
+        // Dash toward target at 4x speed
+        const cdx = ability.targetX - mob.x;
+        const cdy = ability.targetY - mob.y;
+        const cDist = Math.sqrt(cdx * cdx + cdy * cdy);
+        if (cDist > 5) {
+          const chargeSpeed = 90 * 4; // 4x base mob speed
+          mob.x += (cdx / cDist) * chargeSpeed * dt;
+          mob.y += (cdy / cDist) * chargeSpeed * dt;
+        }
+      } else if (ability.type === 'leap') {
+        // Teleport to landing on completion
+        if (ability.activeTimer <= 0) {
+          mob.x = ability.targetX;
+          mob.y = ability.targetY;
+          // Landing particles
+          for (let i = 0; i < 8; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            state.particles.push({
+              x: mob.x, y: mob.y,
+              vx: Math.cos(angle) * (60 + Math.random() * 40),
+              vy: Math.sin(angle) * (60 + Math.random() * 40),
+              size: 2 + Math.random() * 2,
+              color: '#ef4444',
+              age: 0, maxAge: 0.4 + Math.random() * 0.2,
+            });
+          }
+          state.shakeIntensity = 5;
+          state.shakeTimer = 0.15;
+        }
+      }
+      // Spin: mob just stays in place, damage checked in MapScreen
+      continue;
+    }
+
+    // During telegraph
+    if (ability.telegraphTimer > 0) {
+      ability.telegraphTimer -= dt;
+      if (ability.telegraphTimer <= 0) {
+        // Telegraph complete — activate ability
+        if (ability.type === 'charge') {
+          ability.activeTimer = 0.3;
+        } else if (ability.type === 'leap') {
+          ability.activeTimer = 0.1; // quick teleport
+        } else {
+          ability.activeTimer = 1.0; // spin duration
+        }
+      }
+      continue;
+    }
+
+    // Cooldown tick
+    ability.cooldown -= dt;
+    if (ability.cooldown <= 0) {
+      // Start telegraph
+      ability.targetX = state.player.x;
+      ability.targetY = state.player.y;
+
+      if (ability.type === 'charge') {
+        ability.telegraphTimer = 0.8;
+        ability.cooldown = 5 + Math.random() * 2;
+      } else if (ability.type === 'leap') {
+        ability.telegraphTimer = 1.0;
+        ability.cooldown = 6 + Math.random() * 2;
+      } else {
+        ability.telegraphTimer = 0.5;
+        ability.cooldown = 4 + Math.random() * 2;
+      }
+    }
+  }
+
+  // Clean up states for dead mobs
+  for (const [mobId] of state.rareAbilityStates) {
+    const mob = state.mobs.find(m => m.mobId === mobId);
+    if (!mob || mob.dead) {
+      state.rareAbilityStates.delete(mobId);
+    }
+  }
 }
 
 // ============================================================

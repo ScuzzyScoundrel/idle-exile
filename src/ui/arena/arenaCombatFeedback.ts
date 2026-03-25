@@ -62,11 +62,11 @@ export function markMobHit(state: ArenaState, mob: ArenaMob): void {
 
 /** Spawn 5-8 particles on mob death, colored by mob color. */
 export function spawnDeathParticles(state: ArenaState, mob: ArenaMob, color?: string): void {
-  const count = 5 + Math.floor(Math.random() * 4);
+  const count = 8 + Math.floor(Math.random() * 5);
   const c = color || mob.color;
   for (let i = 0; i < count; i++) {
     const angle = Math.random() * Math.PI * 2;
-    const speed = 40 + Math.random() * 80;
+    const speed = 60 + Math.random() * 100;
     state.particles.push({
       x: mob.x,
       y: mob.y,
