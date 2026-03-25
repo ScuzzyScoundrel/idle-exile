@@ -1124,13 +1124,9 @@ export default function MapScreen() {
           }
         }
 
-        // ── Out-of-range DoT ticking (poison/bleed on mobs player walked away from) ──
-        // Accumulate time, tick every 0.25s (not every frame)
-        oorDotTimerRef.current += dt;
-        if (oorDotTimerRef.current >= 0.25) {
-          oorDotTimerRef.current -= 0.25;
+        // ── Out-of-range DoT ticking — every frame with dt, matching arena's tickOutOfRangeDoTs ──
+        {
           const oorToDelete: number[] = [];
-
           for (const [mobId, debuffs] of mobDebuffsRef.current) {
             if (debuffs.length === 0) { oorToDelete.push(mobId); continue; }
             const mob = map.mobs.find(m => m.mobId === mobId);
@@ -1141,30 +1137,35 @@ export default function MapScreen() {
             const ddy = map.player.y - mob.y;
             if (Math.sqrt(ddx * ddx + ddy * ddy) <= PLAYER_ATTACK_RANGE) continue;
 
-            // Tick DoTs at 0.25s interval
+            // Tick DoTs with dt (same as arena's tickOutOfRangeDoTs)
             let totalDotDmg = 0;
             const survivingDebuffs: typeof debuffs = [];
             for (const deb of debuffs) {
               const def = getDebuffDef(deb.debuffId);
-              const newDuration = deb.remainingDuration - 0.25;
+              const newDuration = deb.remainingDuration - dt;
               if (newDuration <= 0) continue; // expired
 
               if (def?.instanceBased && deb.instances && deb.instances.length > 0) {
+                // Instance-based DoT (poison): each instance ticks independently
                 const snapshotPct = (def.effect.snapshotPercent ?? 15) / 100;
                 const living = deb.instances
-                  .map(inst => ({ ...inst, remainingDuration: inst.remainingDuration - 0.25 }))
+                  .map(inst => ({ ...inst, remainingDuration: inst.remainingDuration - dt }))
                   .filter(inst => inst.remainingDuration > 0);
                 if (living.length > 0) {
                   const snapSum = living.reduce((a, inst) => a + inst.snapshot, 0);
-                  totalDotDmg += snapSum * snapshotPct * 0.25;
+                  totalDotDmg += snapSum * snapshotPct * dt;
                   survivingDebuffs.push({ ...deb, remainingDuration: newDuration, instances: living, stacks: living.length });
                 }
               } else if (def?.dotType === 'percentMaxHp') {
+                // Burning/ignite: % max HP per second per stack
                 const pctPerSec = (def.effect.percentMaxHp ?? 1) / 100;
-                totalDotDmg += mob.maxHp * pctPerSec * deb.stacks * 0.25;
+                totalDotDmg += mob.maxHp * pctPerSec * deb.stacks * dt;
+                survivingDebuffs.push({ ...deb, remainingDuration: newDuration });
+              } else if (def?.dotType === 'snapshot' && !def.instanceBased) {
+                // Bleed: trigger-based, no passive DPS out of range. Just tick duration.
                 survivingDebuffs.push({ ...deb, remainingDuration: newDuration });
               } else {
-                // Non-damage debuffs (bleed trigger-based, chill, etc.) — keep alive
+                // Non-damage debuffs (chill, etc.) — keep alive
                 survivingDebuffs.push({ ...deb, remainingDuration: newDuration });
               }
             }
