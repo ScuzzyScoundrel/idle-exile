@@ -302,6 +302,29 @@ function applyModifierSpawns(
   return result;
 }
 
+/** Generate pillar obstacles inside a room (cross-shaped wall segments). */
+function generatePillars(rx: number, ry: number, rw: number, rh: number, count: number): WallSegment[] {
+  const pillars: WallSegment[] = [];
+  const pillarSize = 40;
+  const margin = 120; // keep pillars away from walls/doors
+
+  for (let i = 0; i < count; i++) {
+    // Distribute pillars evenly with some randomness
+    const col = count <= 2 ? (i === 0 ? 0.33 : 0.67) : (i + 0.5) / count;
+    const row = 0.3 + Math.random() * 0.4; // vertical spread
+    const px = rx + margin + col * (rw - margin * 2);
+    const py = ry + margin + row * (rh - margin * 2);
+    const half = pillarSize / 2;
+
+    // Cross shape: horizontal + vertical segments
+    pillars.push(
+      { x1: px - half, y1: py, x2: px + half, y2: py },     // horizontal
+      { x1: px, y1: py - half, x2: px, y2: py + half },     // vertical
+    );
+  }
+  return pillars;
+}
+
 /** Generate a linear map: entry → pack rooms → large room → exit.
  *  Optionally attaches 0-2 side rooms. */
 export function generateMap(_zoneBand: number, _wave: number, isBossMap: boolean, modifiers: MapModifier[] = []): MapLayout {
@@ -325,6 +348,11 @@ export function generateMap(_zoneBand: number, _wave: number, isBossMap: boolean
     if (Math.random() < 0.5) sideRoomAfter.add(i);
   }
 
+  // Track corridor center so next room aligns with it
+  // Init to first room's center (computed from first room width)
+  const firstRoomW = ROOM_SIZES[sequence[0]].w;
+  let lastCorridorCenterX = firstRoomW / 2;
+
   for (let seqIdx = 0; seqIdx < sequence.length; seqIdx++) {
     const roomType = sequence[seqIdx];
     const size = ROOM_SIZES[roomType];
@@ -333,7 +361,8 @@ export function generateMap(_zoneBand: number, _wave: number, isBossMap: boolean
     const rh = size.h + Math.floor(Math.random() * 60 - 30);
 
     const roomId = nextRoomId++;
-    const rx = cursorX;
+    // First room at origin; subsequent rooms centered on the corridor feeding them
+    const rx = seqIdx === 0 ? cursorX : lastCorridorCenterX - rw / 2;
     const ry = cursorY;
 
     // Doors: south door to previous corridor, north door to next corridor
@@ -363,12 +392,18 @@ export function generateMap(_zoneBand: number, _wave: number, isBossMap: boolean
     const spawnPoints = applyModifierSpawns(baseSpawns, rx, ry, rw, rh, modifiers);
     const hasShrineSpot = roomType === 'side' || (roomType === 'large' && Math.random() < 0.3);
 
+    // Build walls + add pillars for large/boss rooms
+    const roomWalls = buildRectWalls(rx, ry, rw, rh, doors);
+    if (roomType === 'large' || roomType === 'boss') {
+      roomWalls.push(...generatePillars(rx, ry, rw, rh, roomType === 'boss' ? 4 : 2 + Math.floor(Math.random() * 3)));
+    }
+
     rooms.push({
       id: roomId,
       type: roomType,
       x: rx, y: ry,
       width: rw, height: rh,
-      walls: buildRectWalls(rx, ry, rw, rh, doors),
+      walls: roomWalls,
       doors,
       spawnPoints,
       chests: roomType === 'side' ? [{
@@ -418,6 +453,7 @@ export function generateMap(_zoneBand: number, _wave: number, isBossMap: boolean
       });
 
       cursorY = cy + CORRIDOR_LENGTH;
+      lastCorridorCenterX = cx + CORRIDOR_WIDTH / 2;
 
       // Side room branch (east side)
       if (sideRoomAfter.has(seqIdx)) {
