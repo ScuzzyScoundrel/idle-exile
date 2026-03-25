@@ -574,6 +574,7 @@ export default function MapScreen() {
               useGameStore.setState({ packMobs: [], currentPackSize: 0 });
 
               // Sync boss HP + debuffs
+              const bossKilledByEngine = postPack.length === 0 && result.mobKills > 0;
               if (postPack.length > 0) {
                 bossDebuffsRef.current = postPack[0].debuffs ?? [];
                 const prevBossHp = boss.hp;
@@ -597,9 +598,10 @@ export default function MapScreen() {
                     age: 0, maxAge: 0.8, isCrit: result.isCrit, vy: -60,
                   });
                 }
+              }
 
-                // Boss death
-                if (postPack[0].hp <= 0 && prevBossHp > 0) {
+              // Boss death — either HP <= 0 in postPack OR engine popped the dead boss
+              if (bossKilledByEngine || (boss.hp <= 0 && !boss.dead)) {
                   boss.dead = true;
                   boss.deathTimer = 0;
                   map.bossDefeatedBanner = 3.0;
@@ -671,7 +673,6 @@ export default function MapScreen() {
                   }
 
                   logCombat(map as any, `${boss.name} DEFEATED!`, '#fbbf24');
-                }
               }
 
               // Skill visuals
