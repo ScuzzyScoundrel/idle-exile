@@ -368,10 +368,6 @@ export function updateMap(state: MapState, dt: number, keys: Set<string>): void 
     if (deb.type === 'slow' && deb.magnitude < slowMult) slowMult = deb.magnitude;
   }
 
-  // Save position before movement (for grid collision revert)
-  const preX = state.player.x;
-  const preY = state.player.y;
-
   // Dodge roll
   if (state.dodgeRollCooldown > 0) state.dodgeRollCooldown -= dt;
   if (state.dodgeRollTimer > 0) {
@@ -394,60 +390,8 @@ export function updateMap(state: MapState, dt: number, keys: Set<string>): void 
     state.player.y += playerPush.y;
   }
 
-  // Image-based collision grid (follows tree lines from background)
-  // Applied PER-ROOM: each room maps its area to the full image,
-  // so the clearing is always centered inside the room.
-  if (state.collisionGrid && state.collisionGridW > 0) {
-    const grid = state.collisionGrid;
-    const gw = state.collisionGridW;
-    const gh = state.collisionGridH;
-    const rooms = state.layout.rooms;
-    const r = state.playerRadius;
-
-    // Check if a circle at (cx,cy) with given radius is fully walkable
-    const isCircleWalkable = (cx: number, cy: number): boolean => {
-      // Check center + 4 cardinal points at radius
-      const pts = [
-        [cx, cy], [cx + r, cy], [cx - r, cy], [cx, cy + r], [cx, cy - r],
-      ];
-      for (const [px, py] of pts) {
-        let inRoom = false;
-        for (const room of rooms) {
-          if (px >= room.x && px <= room.x + room.width &&
-              py >= room.y && py <= room.y + room.height) {
-            inRoom = true;
-            const rx = (px - room.x) / room.width;
-            const ry = (py - room.y) / room.height;
-            const gx = Math.floor(rx * (gw - 1));
-            const gy = Math.floor(ry * (gh - 1));
-            if (gx >= 0 && gx < gw && gy >= 0 && gy < gh) {
-              if (grid[gy * gw + gx] === 0) return false; // blocked cell
-            }
-            break;
-          }
-        }
-        if (!inRoom) return false; // outside all rooms
-      }
-      return true;
-    };
-
-    // Validate position after movement — revert if blocked, allow wall-sliding
-    if (!isCircleWalkable(state.player.x, state.player.y)) {
-      // Try X-only move (slide along Y wall)
-      if (isCircleWalkable(state.player.x, preY)) {
-        state.player.y = preY;
-      }
-      // Try Y-only move (slide along X wall)
-      else if (isCircleWalkable(preX, state.player.y)) {
-        state.player.x = preX;
-      }
-      // Both blocked — full revert
-      else {
-        state.player.x = preX;
-        state.player.y = preY;
-      }
-    }
-  } else if (state.layout.props) {
+  // Prop collision for player (interior obstacles only — circle-vs-circle)
+  if (state.layout.props) {
     // Fallback: circle-based prop collision (for zones without background images)
     for (const prop of state.layout.props) {
       if (prop.collisionRadius <= 0) continue;

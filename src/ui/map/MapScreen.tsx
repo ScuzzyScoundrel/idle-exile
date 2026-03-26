@@ -291,36 +291,7 @@ export default function MapScreen() {
     if (zoneDef) {
       sprites.floorTile = load(zoneDef.floor);
       if (zoneDef.background) {
-        const bgImg = load(zoneDef.background);
-        sprites.roomBackground = bgImg;
-        // When background loads, build collision grid from pixel brightness
-        bgImg.onload = () => {
-          const state = stateRef.current;
-          if (!state || !bgImg.complete) return;
-          const cellSize = 8; // 8 world-px per grid cell (less noise-sensitive)
-          const gw = Math.ceil(bgImg.naturalWidth / cellSize);
-          const gh = Math.ceil(bgImg.naturalHeight / cellSize);
-          const offscreen = new OffscreenCanvas(gw, gh);
-          const octx = offscreen.getContext('2d')!;
-          octx.drawImage(bgImg, 0, 0, gw, gh);
-          const imgData = octx.getImageData(0, 0, gw, gh);
-          const grid = new Uint8Array(gw * gh);
-          for (let i = 0; i < gw * gh; i++) {
-            const r = imgData.data[i * 4];
-            const g = imgData.data[i * 4 + 1];
-            const b = imgData.data[i * 4 + 2];
-            // Brightness threshold: only dense tree canopy (<35) is blocked
-            // Dirt (~70-120), shadows (~50-70), rocks (~60-90) are all walkable
-            const brightness = (r + g + b) / 3;
-            grid[i] = brightness > 35 ? 1 : 0;
-          }
-          state.collisionGrid = grid;
-          state.collisionGridW = gw;
-          state.collisionGridH = gh;
-          state.collisionCellSize = cellSize;
-          state.collisionBgW = bgImg.naturalWidth;
-          state.collisionBgH = bgImg.naturalHeight;
-        };
+        sprites.roomBackground = load(zoneDef.background);
       }
       sprites.mobSprites = zoneDef.mobs.map(load);
       sprites.boss = load(zoneDef.boss);
