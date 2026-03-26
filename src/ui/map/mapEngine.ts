@@ -368,6 +368,10 @@ export function updateMap(state: MapState, dt: number, keys: Set<string>): void 
     if (deb.type === 'slow' && deb.magnitude < slowMult) slowMult = deb.magnitude;
   }
 
+  // Save position before movement (for grid collision revert)
+  const preX = state.player.x;
+  const preY = state.player.y;
+
   // Dodge roll
   if (state.dodgeRollCooldown > 0) state.dodgeRollCooldown -= dt;
   if (state.dodgeRollTimer > 0) {
@@ -398,54 +402,49 @@ export function updateMap(state: MapState, dt: number, keys: Set<string>): void 
     const gw = state.collisionGridW;
     const gh = state.collisionGridH;
     const rooms = state.layout.rooms;
-
-    // Check if position is walkable by finding which room it's in
-    // and mapping room-relative coords → image-relative coords
-    const isWalkable = (wx: number, wy: number): boolean => {
-      for (const room of rooms) {
-        if (wx >= room.x && wx <= room.x + room.width &&
-            wy >= room.y && wy <= room.y + room.height) {
-          // Map position within room (0..1) → grid cell
-          const rx = (wx - room.x) / room.width;
-          const ry = (wy - room.y) / room.height;
-          const gx = Math.floor(rx * (gw - 1));
-          const gy = Math.floor(ry * (gh - 1));
-          if (gx >= 0 && gx < gw && gy >= 0 && gy < gh) {
-            return grid[gy * gw + gx] > 0;
-          }
-          return true;
-        }
-      }
-      return false; // outside all rooms = blocked
-    };
-
-    // Sample 8 points around player circle — push away from blocked cells
     const r = state.playerRadius;
-    for (let a = 0; a < 8; a++) {
-      const angle = (a / 8) * Math.PI * 2;
-      const sx = state.player.x + Math.cos(angle) * r;
-      const sy = state.player.y + Math.sin(angle) * r;
-      if (!isWalkable(sx, sy)) {
-        state.player.x -= Math.cos(angle) * 2;
-        state.player.y -= Math.sin(angle) * 2;
-      }
-    }
-    // If center is blocked, spiral outward to find walkable space
-    if (!isWalkable(state.player.x, state.player.y)) {
-      for (let dist = 8; dist < 200; dist += 8) {
-        let found = false;
-        for (let a = 0; a < 16; a++) {
-          const angle = (a / 16) * Math.PI * 2;
-          const tx = state.player.x + Math.cos(angle) * dist;
-          const ty = state.player.y + Math.sin(angle) * dist;
-          if (isWalkable(tx, ty)) {
-            state.player.x = tx;
-            state.player.y = ty;
-            found = true;
+
+    // Check if a circle at (cx,cy) with given radius is fully walkable
+    const isCircleWalkable = (cx: number, cy: number): boolean => {
+      // Check center + 4 cardinal points at radius
+      const pts = [
+        [cx, cy], [cx + r, cy], [cx - r, cy], [cx, cy + r], [cx, cy - r],
+      ];
+      for (const [px, py] of pts) {
+        let inRoom = false;
+        for (const room of rooms) {
+          if (px >= room.x && px <= room.x + room.width &&
+              py >= room.y && py <= room.y + room.height) {
+            inRoom = true;
+            const rx = (px - room.x) / room.width;
+            const ry = (py - room.y) / room.height;
+            const gx = Math.floor(rx * (gw - 1));
+            const gy = Math.floor(ry * (gh - 1));
+            if (gx >= 0 && gx < gw && gy >= 0 && gy < gh) {
+              if (grid[gy * gw + gx] === 0) return false; // blocked cell
+            }
             break;
           }
         }
-        if (found) break;
+        if (!inRoom) return false; // outside all rooms
+      }
+      return true;
+    };
+
+    // Validate position after movement — revert if blocked, allow wall-sliding
+    if (!isCircleWalkable(state.player.x, state.player.y)) {
+      // Try X-only move (slide along Y wall)
+      if (isCircleWalkable(state.player.x, preY)) {
+        state.player.y = preY;
+      }
+      // Try Y-only move (slide along X wall)
+      else if (isCircleWalkable(preX, state.player.y)) {
+        state.player.x = preX;
+      }
+      // Both blocked — full revert
+      else {
+        state.player.x = preX;
+        state.player.y = preY;
       }
     }
   } else if (state.layout.props) {
