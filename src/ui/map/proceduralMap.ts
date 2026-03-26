@@ -130,18 +130,44 @@ export function generateProceduralTerrain(seed: number): { terrain: TerrainGrid;
     carveCircle(grid, gw, gh, c.cx, c.cy, c.radius);
   }
 
-  // ── Connect clearings with paths ──
-  // Sort by x position, connect sequentially + some cross-connections
-  const sorted = [...clearings].sort((a, b) => a.cx - b.cx);
-  for (let i = 0; i < sorted.length - 1; i++) {
-    carvePath(grid, gw, gh, sorted[i].cx, sorted[i].cy, sorted[i + 1].cx, sorted[i + 1].cy, 3, seed + i * 100);
+  // ── Connect clearings with DENSE paths (no dead ends) ──
+  // Every clearing connects to its 2-3 nearest neighbors + loop paths
+
+  // Helper: distance between clearings
+  const clearDist = (a: Clearing, b: Clearing) =>
+    Math.sqrt((a.cx - b.cx) ** 2 + (a.cy - b.cy) ** 2);
+
+  // Connect each clearing to its 3 nearest neighbors
+  for (let i = 0; i < clearings.length; i++) {
+    const sorted = clearings
+      .map((c, j) => ({ c, j, d: clearDist(clearings[i], c) }))
+      .filter(e => e.j !== i)
+      .sort((a, b) => a.d - b.d);
+
+    const connectCount = Math.min(3, sorted.length);
+    for (let k = 0; k < connectCount; k++) {
+      carvePath(grid, gw, gh,
+        clearings[i].cx, clearings[i].cy,
+        sorted[k].c.cx, sorted[k].c.cy,
+        3, seed + i * 100 + k * 37);
+    }
   }
-  // Extra connections for loops (connect some non-adjacent clearings)
-  if (sorted.length > 3) {
-    carvePath(grid, gw, gh, sorted[0].cx, sorted[0].cy, sorted[Math.floor(sorted.length / 2)].cx, sorted[Math.floor(sorted.length / 2)].cy, 2, seed + 500);
+
+  // Guaranteed start→boss main path (wide highway)
+  const startClearing = clearings.find(c => c.type === 'start')!;
+  const bossClearing = clearings.find(c => c.type === 'boss');
+  if (bossClearing) {
+    carvePath(grid, gw, gh, startClearing.cx, startClearing.cy, bossClearing.cx, bossClearing.cy, 4, seed + 900);
   }
-  if (sorted.length > 5) {
-    carvePath(grid, gw, gh, sorted[2].cx, sorted[2].cy, sorted[sorted.length - 1].cx, sorted[sorted.length - 1].cy, 2, seed + 600);
+
+  // Extra loop paths: connect first↔last, and random pairs
+  if (clearings.length > 4) {
+    const byX = [...clearings].sort((a, b) => a.cx - b.cx);
+    // Bottom loop
+    carvePath(grid, gw, gh, byX[0].cx, byX[0].cy, byX[byX.length - 1].cx, byX[byX.length - 1].cy, 3, seed + 700);
+    // Cross loop
+    const mid = Math.floor(byX.length / 2);
+    carvePath(grid, gw, gh, byX[1].cx, byX[1].cy, byX[mid + 1]?.cx ?? byX[mid].cx, byX[mid + 1]?.cy ?? byX[mid].cy, 2, seed + 800);
   }
 
   // ── Smooth the terrain (remove isolated blocked/open cells) ──
