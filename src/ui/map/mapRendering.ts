@@ -66,59 +66,69 @@ export function renderMap(
   }
   ctx.translate(-state.camera.x, -state.camera.y);
 
-  // ── Room Floors (draw ALL rooms — fog canvas will hide unexplored) ──
+  // ── World Background (continuous environment — fog hides unexplored) ──
   const isCorrupted = state.corruptedTier > 0;
-  // Create floor tile pattern once (cached across frames by canvas internals)
-  let floorPattern: CanvasPattern | null = null;
-  if (spriteReady(_sprites?.floorTile)) {
-    floorPattern = ctx.createPattern(_sprites!.floorTile!, 'repeat');
-  }
 
-  for (const room of state.layout.rooms) {
-    if (spriteReady(_sprites?.roomBackground)) {
-      // Large unique background stretched to fit room
-      ctx.drawImage(_sprites!.roomBackground!, room.x, room.y, room.width, room.height);
-      // Darken slightly for depth
-      ctx.fillStyle = 'rgba(0,0,0,0.1)';
-      ctx.fillRect(room.x, room.y, room.width, room.height);
-    } else if (floorPattern) {
-      // Tile the floor sprite across the room
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(room.x, room.y, room.width, room.height);
-      ctx.clip();
-      ctx.fillStyle = floorPattern;
-      ctx.fillRect(room.x, room.y, room.width, room.height);
-      ctx.fillStyle = 'rgba(0,0,0,0.15)';
-      ctx.fillRect(room.x, room.y, room.width, room.height);
-      ctx.restore();
-    } else {
-      if (isCorrupted) {
-        ctx.fillStyle = '#0e0a16';
+  if (spriteReady(_sprites?.roomBackground)) {
+    // Tile the background image across the ENTIRE visible world
+    // No per-room clipping — the environment is one continuous space
+    const bgImg = _sprites!.roomBackground!;
+    const bgW = bgImg.naturalWidth;
+    const bgH = bgImg.naturalHeight;
+    // Calculate visible area in world coords
+    const viewLeft = Math.floor(state.camera.x / bgW) * bgW;
+    const viewTop = Math.floor(state.camera.y / bgH) * bgH;
+    const viewRight = state.camera.x + width + bgW;
+    const viewBottom = state.camera.y + height + bgH;
+    for (let tx = viewLeft; tx < viewRight; tx += bgW) {
+      for (let ty = viewTop; ty < viewBottom; ty += bgH) {
+        ctx.drawImage(bgImg, tx, ty, bgW, bgH);
+      }
+    }
+    // Subtle darken for depth
+    ctx.fillStyle = 'rgba(0,0,0,0.05)';
+    ctx.fillRect(state.camera.x, state.camera.y, width, height);
+  } else {
+    // Fallback: draw per-room floors
+    let floorPattern: CanvasPattern | null = null;
+    if (spriteReady(_sprites?.floorTile)) {
+      floorPattern = ctx.createPattern(_sprites!.floorTile!, 'repeat');
+    }
+
+    for (const room of state.layout.rooms) {
+      if (floorPattern) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(room.x, room.y, room.width, room.height);
+        ctx.clip();
+        ctx.fillStyle = floorPattern;
+        ctx.fillRect(room.x, room.y, room.width, room.height);
+        ctx.fillStyle = 'rgba(0,0,0,0.15)';
+        ctx.fillRect(room.x, room.y, room.width, room.height);
+        ctx.restore();
       } else {
-        ctx.fillStyle = '#0a0a12';
+        ctx.fillStyle = isCorrupted ? '#0e0a16' : '#0a0a12';
+        ctx.fillRect(room.x, room.y, room.width, room.height);
+        ctx.strokeStyle = 'rgba(255,255,255,0.02)';
+        ctx.lineWidth = 1;
+        const gridSize = 32;
+        for (let gx = room.x; gx < room.x + room.width; gx += gridSize) {
+          ctx.beginPath(); ctx.moveTo(gx, room.y); ctx.lineTo(gx, room.y + room.height); ctx.stroke();
+        }
+        for (let gy = room.y; gy < room.y + room.height; gy += gridSize) {
+          ctx.beginPath(); ctx.moveTo(room.x, gy); ctx.lineTo(room.x + room.width, gy); ctx.stroke();
+        }
       }
-      ctx.fillRect(room.x, room.y, room.width, room.height);
-      // Subtle grid fallback
-      ctx.strokeStyle = 'rgba(255,255,255,0.02)';
-      ctx.lineWidth = 1;
-      const gridSize = 32;
-      for (let gx = room.x; gx < room.x + room.width; gx += gridSize) {
-        ctx.beginPath(); ctx.moveTo(gx, room.y); ctx.lineTo(gx, room.y + room.height); ctx.stroke();
+      if (isCorrupted) {
+        ctx.fillStyle = 'rgba(88, 28, 135, 0.06)';
+        ctx.fillRect(room.x, room.y, room.width, room.height);
       }
-      for (let gy = room.y; gy < room.y + room.height; gy += gridSize) {
-        ctx.beginPath(); ctx.moveTo(room.x, gy); ctx.lineTo(room.x + room.width, gy); ctx.stroke();
-      }
-    }
-    if (isCorrupted) {
-      ctx.fillStyle = 'rgba(88, 28, 135, 0.06)';
-      ctx.fillRect(room.x, room.y, room.width, room.height);
-    }
 
-    // Room cleared indicator
-    if (room.cleared && room.type !== 'corridor') {
-      ctx.fillStyle = 'rgba(34, 197, 94, 0.03)';
-      ctx.fillRect(room.x, room.y, room.width, room.height);
+      // Room cleared indicator
+      if (room.cleared && room.type !== 'corridor') {
+        ctx.fillStyle = 'rgba(34, 197, 94, 0.03)';
+        ctx.fillRect(room.x, room.y, room.width, room.height);
+      }
     }
   }
 
