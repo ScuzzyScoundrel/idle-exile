@@ -62,113 +62,106 @@ export interface Clearing {
   worldRadius: number;     // world pixels
 }
 
-/** Generate the full procedural terrain */
+/** Generate the full procedural terrain — elongated corridor layout */
 export function generateProceduralTerrain(seed: number): { terrain: TerrainGrid; clearings: Clearing[] } {
-  const gw = 200, gh = 200;
+  // Elongated map: wide corridor, start left → boss right
+  const gw = 320, gh = 120;
   const cellSize = 20;
   const grid = new Uint8Array(gw * gh);
 
-  // Generate base noise terrain
+  // Generate base noise terrain (denser trees — noise threshold higher)
   for (let y = 0; y < gh; y++) {
     for (let x = 0; x < gw; x++) {
-      const n = fbm(x * 0.035, y * 0.035, seed, 5);
-      // Higher threshold = more trees, lower = more open
-      grid[y * gw + x] = n > 0.48 ? 1 : 0;
+      const n = fbm(x * 0.04, y * 0.04, seed, 5);
+      grid[y * gw + x] = n > 0.50 ? 1 : 0;
     }
   }
 
-  // Force border to be trees (2-cell thick border)
+  // Force border to be trees
   for (let y = 0; y < gh; y++) {
     for (let x = 0; x < gw; x++) {
-      if (x < 3 || x >= gw - 3 || y < 3 || y >= gh - 3) {
-        grid[y * gw + x] = 0;
-      }
+      if (x < 3 || x >= gw - 3 || y < 3 || y >= gh - 3) grid[y * gw + x] = 0;
     }
   }
 
-  // ── Place clearings ──
+  // ── Place clearings along the main corridor (left → right) ──
   const clearings: Clearing[] = [];
-  const margin = 20; // cells from edge
+  const margin = 12;
+  const midY = gh / 2;
 
-  // Start clearing (center-ish)
-  const startCx = margin + Math.floor(hash2d(1, 1, seed) * (gw / 3 - margin));
-  const startCy = gh / 2 + Math.floor((hash2d(2, 2, seed) - 0.5) * gh / 3);
-  clearings.push({ cx: startCx, cy: startCy, radius: 8, type: 'start',
-    wx: startCx * cellSize, wy: startCy * cellSize, worldRadius: 8 * cellSize });
+  // Start clearing (far left)
+  const startCx = margin + 5;
+  const startCy = midY + Math.floor((hash2d(1, 1, seed) - 0.5) * 20);
+  clearings.push({ cx: startCx, cy: startCy, radius: 7, type: 'start',
+    wx: startCx * cellSize, wy: startCy * cellSize, worldRadius: 7 * cellSize });
 
-  // Boss clearing (far from start)
-  const bossCx = gw - margin - Math.floor(hash2d(3, 3, seed) * (gw / 3 - margin));
-  const bossCy = gh / 2 + Math.floor((hash2d(4, 4, seed) - 0.5) * gh / 3);
+  // Boss clearing (far right)
+  const bossCx = gw - margin - 5;
+  const bossCy = midY + Math.floor((hash2d(3, 3, seed) - 0.5) * 20);
   clearings.push({ cx: bossCx, cy: bossCy, radius: 10, type: 'boss',
     wx: bossCx * cellSize, wy: bossCy * cellSize, worldRadius: 10 * cellSize });
 
-  // Pack clearings (scattered between start and boss)
-  const packCount = 4 + Math.floor(hash2d(5, 5, seed) * 3); // 4-6
-  for (let i = 0; i < packCount; i++) {
-    const t = (i + 1) / (packCount + 1); // spread evenly along x axis
-    const pcx = Math.floor(margin + t * (gw - margin * 2) + (hash2d(10 + i, 10, seed) - 0.5) * 30);
-    const pcy = Math.floor(margin + hash2d(10, 10 + i, seed) * (gh - margin * 2));
-    const pr = 5 + Math.floor(hash2d(20 + i, 20, seed) * 4); // radius 5-8
+  // Main path pack clearings (8-12 along the corridor)
+  const mainPackCount = 8 + Math.floor(hash2d(5, 5, seed) * 5);
+  for (let i = 0; i < mainPackCount; i++) {
+    const t = (i + 1) / (mainPackCount + 1);
+    const pcx = Math.floor(margin + t * (gw - margin * 2));
+    // Slight vertical wander around center — keeps it linear but not a straight line
+    const pcy = Math.floor(midY + (hash2d(10 + i, 10, seed) - 0.5) * 40);
+    const pr = 5 + Math.floor(hash2d(20 + i, 20, seed) * 3);
     clearings.push({ cx: pcx, cy: pcy, radius: pr, type: 'pack',
       wx: pcx * cellSize, wy: pcy * cellSize, worldRadius: pr * cellSize });
   }
 
-  // One large clearing
-  const lgCx = Math.floor(gw * 0.5 + (hash2d(30, 30, seed) - 0.5) * 40);
-  const lgCy = Math.floor(gh * 0.35 + (hash2d(31, 31, seed) - 0.5) * 30);
+  // Large arena clearing (around 60% of the way)
+  const lgCx = Math.floor(gw * 0.6 + (hash2d(30, 30, seed) - 0.5) * 20);
+  const lgCy = Math.floor(midY + (hash2d(31, 31, seed) - 0.5) * 15);
   clearings.push({ cx: lgCx, cy: lgCy, radius: 9, type: 'large',
     wx: lgCx * cellSize, wy: lgCy * cellSize, worldRadius: 9 * cellSize });
 
-  // Secret clearing (small, off the beaten path)
-  const secCx = Math.floor(margin + hash2d(40, 40, seed) * (gw - margin * 2));
-  const secCy = Math.floor(margin / 2 + hash2d(41, 41, seed) * margin); // near top edge
-  clearings.push({ cx: secCx, cy: secCy, radius: 4, type: 'secret',
-    wx: secCx * cellSize, wy: secCy * cellSize, worldRadius: 4 * cellSize });
+  // Side branch clearings (off the main path, top and bottom)
+  for (let i = 0; i < 3; i++) {
+    const t = 0.2 + i * 0.25; // 20%, 45%, 70% along
+    const scx = Math.floor(margin + t * (gw - margin * 2) + (hash2d(40 + i, 40, seed) - 0.5) * 15);
+    const topOrBottom = hash2d(50 + i, 50, seed) > 0.5;
+    const scy = topOrBottom
+      ? Math.floor(margin + hash2d(60 + i, 60, seed) * 15) // near top
+      : Math.floor(gh - margin - hash2d(61 + i, 61, seed) * 15); // near bottom
+    const sType = i === 1 ? 'secret' as const : 'pack' as const;
+    clearings.push({ cx: scx, cy: scy, radius: sType === 'secret' ? 4 : 5, type: sType,
+      wx: scx * cellSize, wy: scy * cellSize, worldRadius: (sType === 'secret' ? 4 : 5) * cellSize });
+  }
 
-  // Carve all clearings into the grid
+  // Carve all clearings
   for (const c of clearings) {
     carveCircle(grid, gw, gh, c.cx, c.cy, c.radius);
   }
 
-  // ── Connect clearings with DENSE paths (no dead ends) ──
-  // Every clearing connects to its 2-3 nearest neighbors + loop paths
-
-  // Helper: distance between clearings
+  // ── Paths: wide main highway + side branches ──
   const clearDist = (a: Clearing, b: Clearing) =>
     Math.sqrt((a.cx - b.cx) ** 2 + (a.cy - b.cy) ** 2);
 
-  // Connect each clearing to its 3 nearest neighbors
+  // Main highway: connect all clearings sorted by X (left to right flow)
+  const byX = [...clearings].sort((a, b) => a.cx - b.cx);
+  for (let i = 0; i < byX.length - 1; i++) {
+    const pathWidth = (byX[i].type === 'start' || byX[i + 1].type === 'boss') ? 5 : 3;
+    carvePath(grid, gw, gh, byX[i].cx, byX[i].cy, byX[i + 1].cx, byX[i + 1].cy, pathWidth, seed + i * 100);
+  }
+
+  // Each clearing also connects to 2 nearest (creates loops, avoids dead ends)
   for (let i = 0; i < clearings.length; i++) {
-    const sorted = clearings
+    const nearest = clearings
       .map((c, j) => ({ c, j, d: clearDist(clearings[i], c) }))
       .filter(e => e.j !== i)
       .sort((a, b) => a.d - b.d);
-
-    const connectCount = Math.min(3, sorted.length);
-    for (let k = 0; k < connectCount; k++) {
-      carvePath(grid, gw, gh,
-        clearings[i].cx, clearings[i].cy,
-        sorted[k].c.cx, sorted[k].c.cy,
-        3, seed + i * 100 + k * 37);
+    for (let k = 0; k < Math.min(2, nearest.length); k++) {
+      carvePath(grid, gw, gh, clearings[i].cx, clearings[i].cy,
+        nearest[k].c.cx, nearest[k].c.cy, 2, seed + 500 + i * 50 + k * 17);
     }
   }
 
-  // Guaranteed start→boss main path (wide highway)
-  const startClearing = clearings.find(c => c.type === 'start')!;
-  const bossClearing = clearings.find(c => c.type === 'boss');
-  if (bossClearing) {
-    carvePath(grid, gw, gh, startClearing.cx, startClearing.cy, bossClearing.cx, bossClearing.cy, 4, seed + 900);
-  }
-
-  // Extra loop paths: connect first↔last, and random pairs
-  if (clearings.length > 4) {
-    const byX = [...clearings].sort((a, b) => a.cx - b.cx);
-    // Bottom loop
-    carvePath(grid, gw, gh, byX[0].cx, byX[0].cy, byX[byX.length - 1].cx, byX[byX.length - 1].cy, 3, seed + 700);
-    // Cross loop
-    const mid = Math.floor(byX.length / 2);
-    carvePath(grid, gw, gh, byX[1].cx, byX[1].cy, byX[mid + 1]?.cx ?? byX[mid].cx, byX[mid + 1]?.cy ?? byX[mid].cy, 2, seed + 800);
-  }
+  // Wide start→boss direct highway
+  carvePath(grid, gw, gh, startCx, startCy, bossCx, bossCy, 4, seed + 900);
 
   // ── Smooth the terrain (remove isolated blocked/open cells) ──
   smoothGrid(grid, gw, gh);
@@ -280,26 +273,27 @@ function generateClearingSpawns(c: Clearing, modifiers: MapModifier[]): MobSpawn
 
   switch (c.type) {
     case 'start':
-      addRandom('white', 4 + Math.floor(Math.random() * 3));
+      addRandom('white', 8 + Math.floor(Math.random() * 5));
+      addRandom('magic', 1);
       break;
     case 'pack':
-      addRandom('white', 6 + Math.floor(Math.random() * 6));
-      addRandom('magic', 1 + Math.floor(Math.random() * 2));
-      if (Math.random() < 0.5) addRandom('rare', 1);
+      addRandom('white', 15 + Math.floor(Math.random() * 10));
+      addRandom('magic', 2 + Math.floor(Math.random() * 3));
+      if (Math.random() < 0.6) addRandom('rare', 1);
       break;
     case 'large':
-      addRandom('white', 12 + Math.floor(Math.random() * 8));
-      addRandom('magic', 2 + Math.floor(Math.random() * 2));
-      addRandom('rare', 1 + Math.floor(Math.random() * 2));
+      addRandom('white', 25 + Math.floor(Math.random() * 15));
+      addRandom('magic', 4 + Math.floor(Math.random() * 3));
+      addRandom('rare', 2 + Math.floor(Math.random() * 2));
       break;
     case 'boss':
-      addRandom('white', 6 + Math.floor(Math.random() * 4));
-      addRandom('magic', 1 + Math.floor(Math.random() * 2));
+      addRandom('white', 12 + Math.floor(Math.random() * 8));
+      addRandom('magic', 3 + Math.floor(Math.random() * 2));
       addRandom('rare', 2);
       break;
     case 'secret':
-      addRandom('magic', 2);
-      addRandom('rare', 1);
+      addRandom('magic', 3);
+      addRandom('rare', 2);
       break;
   }
 
