@@ -112,6 +112,15 @@ export interface MapLayout {
   startRoomId: number;
   exitRoomId: number;        // final room (or boss room)
   props: MapProp[];          // world-space props (rocks, trees, etc.)
+  /** Procedural terrain grid: 0=blocked, 1=walkable. Null for room-based maps. */
+  terrain?: {
+    grid: Uint8Array;
+    width: number;
+    height: number;
+    cellSize: number;
+    worldWidth: number;
+    worldHeight: number;
+  };
 }
 
 // ── Map State (extends arena-compatible fields) ──

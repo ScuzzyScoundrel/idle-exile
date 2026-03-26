@@ -19,6 +19,7 @@ import { createMapState, updateMap, getMapMobsInRange, mobCanAttackMapPlayer,
   BOSS_SLAM_DAMAGE_MULT, BOSS_BARRAGE_DAMAGE_MULT, BOSS_HAZARD_DPS_MULT,
   tryPickupMapGroundItem } from './mapEngine';
 import { rollMapModifiers, hasModifier } from './mapGeneration';
+import { generateProceduralMap } from './proceduralMap';
 import { renderMap } from './mapRendering';
 import type { MapHudExtra, MapSprites } from './mapRendering';
 import { rollArenaLoot, rollBossArenaLoot } from '../arena/arenaLoot';
@@ -381,8 +382,12 @@ export default function MapScreen() {
 
     const cTier = corruptedTierRef.current;
     const cMods = corruptedModsRef.current;
+    // Use procedural terrain for zones that support it
+    const PROCEDURAL_ZONES = ['ashwood_thicket'];
+    const useProc = PROCEDURAL_ZONES.includes(zoneId);
+    const procLayout = useProc ? generateProceduralMap(zone.band, 1, true, cMods) : undefined;
     // Every map has a boss at the end (1 boss per map)
-    stateRef.current = createMapState(canvas.width, canvas.height, zone.band, 1, true, cTier, cMods);
+    stateRef.current = createMapState(canvas.width, canvas.height, zone.band, 1, true, cTier, cMods, procLayout);
     killCountRef.current = 0;
     lastTimeRef.current = 0;
     bossSpawnedRef.current = false;

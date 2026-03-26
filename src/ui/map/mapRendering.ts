@@ -66,10 +66,86 @@ export function renderMap(
   }
   ctx.translate(-state.camera.x, -state.camera.y);
 
-  // ── World Background (continuous environment — fog hides unexplored) ──
+  // ── World Background ──
   const isCorrupted = state.corruptedTier > 0;
+  const ter = state.layout.terrain;
 
-  if (spriteReady(_sprites?.roomBackground)) {
+  if (ter && ter.grid.length > 0) {
+    // Procedural terrain: render visible cells from the grid
+    const { grid: tGrid, width: tw, cellSize: tcs } = ter;
+    const camX = state.camera.x;
+    const camY = state.camera.y;
+
+    // Only render cells visible in viewport (with 1-cell margin)
+    const startCol = Math.max(0, Math.floor(camX / tcs) - 1);
+    const startRow = Math.max(0, Math.floor(camY / tcs) - 1);
+    const endCol = Math.min(ter.width, Math.ceil((camX + width) / tcs) + 1);
+    const endRow = Math.min(ter.height, Math.ceil((camY + height) / tcs) + 1);
+
+    // Ground tile pattern for walkable cells
+    let groundPattern: CanvasPattern | null = null;
+    if (spriteReady(_sprites?.floorTile)) {
+      groundPattern = ctx.createPattern(_sprites!.floorTile!, 'repeat');
+    }
+
+    for (let gy = startRow; gy < endRow; gy++) {
+      for (let gx = startCol; gx < endCol; gx++) {
+        const wx = gx * tcs;
+        const wy = gy * tcs;
+        const walkable = tGrid[gy * tw + gx] > 0;
+
+        if (walkable) {
+          // Ground: use tile pattern or brown fallback
+          if (groundPattern) {
+            ctx.fillStyle = groundPattern;
+          } else {
+            ctx.fillStyle = '#2a231a';
+          }
+          ctx.fillRect(wx, wy, tcs, tcs);
+        } else {
+          // Trees/blocked: dark green with variation
+          const shade = 0.6 + (((gx * 7 + gy * 13) % 17) / 17) * 0.4;
+          const r = Math.floor(15 * shade);
+          const g = Math.floor(35 * shade);
+          const b = Math.floor(12 * shade);
+          ctx.fillStyle = `rgb(${r},${g},${b})`;
+          ctx.fillRect(wx, wy, tcs, tcs);
+        }
+      }
+    }
+
+    // Draw tree canopy sprites on top of blocked cells (sparse, for depth)
+    // Only render every ~3 cells to avoid overdraw
+    for (let gy = startRow; gy < endRow; gy += 2) {
+      for (let gx = startCol; gx < endCol; gx += 2) {
+        if (tGrid[gy * tw + gx] > 0) continue; // walkable, skip
+        // Check if this is near a walkable cell (edge tree — most visible)
+        let isEdge = false;
+        for (let dy = -1; dy <= 1 && !isEdge; dy++) {
+          for (let dx = -1; dx <= 1 && !isEdge; dx++) {
+            const nx = gx + dx, ny = gy + dy;
+            if (nx >= 0 && nx < ter.width && ny >= 0 && ny < ter.height) {
+              if (tGrid[ny * tw + nx] > 0) isEdge = true;
+            }
+          }
+        }
+        if (!isEdge) continue; // deep forest, base color is enough
+
+        // Draw a tree canopy circle for depth
+        const wx = gx * tcs + tcs / 2;
+        const wy = gy * tcs + tcs / 2;
+        const treeR = tcs * 1.2 + ((gx * 3 + gy * 7) % 5) * 2;
+        const grad = ctx.createRadialGradient(wx, wy, 0, wx, wy, treeR);
+        grad.addColorStop(0, 'rgba(25, 50, 20, 0.8)');
+        grad.addColorStop(0.6, 'rgba(20, 40, 15, 0.5)');
+        grad.addColorStop(1, 'rgba(15, 30, 10, 0)');
+        ctx.beginPath();
+        ctx.arc(wx, wy, treeR, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+      }
+    }
+  } else if (spriteReady(_sprites?.roomBackground)) {
     // Stretch ONE background image across the ENTIRE world
     // One image = one polygon = one organic space
     const ww = state.layout.worldWidth;

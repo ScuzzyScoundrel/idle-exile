@@ -59,8 +59,9 @@ export function createMapState(
   isBossMap: boolean,
   corruptedTier: number = 0,
   modifiers: MapModifier[] = [],
+  overrideLayout?: MapLayout,
 ): MapState {
-  const layout = generateMap(zoneBand, wave, isBossMap, modifiers);
+  const layout = overrideLayout ?? generateMap(zoneBand, wave, isBossMap, modifiers);
   const startRoom = layout.rooms.find(r => r.id === layout.startRoomId)!;
 
   // Player starts in center of entry room
@@ -389,31 +390,16 @@ export function updateMap(state: MapState, dt: number, keys: Set<string>): void 
     state.player.y += playerPush.y;
   }
 
-  // Polygon collision (pre-traced from background image tree lines)
-  // Maps to the ENTIRE world bounds — one polygon, one organic space
-  if (state.collisionPolygon && state.collisionPolygon.length > 2) {
-    const poly = state.collisionPolygon;
-    const ww = state.layout.worldWidth;
-    const wh = state.layout.worldHeight;
+  // Terrain grid collision (procedural maps — direct grid lookup)
+  const ter = state.layout.terrain;
+  if (ter && ter.grid.length > 0) {
+    const { grid: tGrid, width: tw, height: th, cellSize: tcs } = ter;
 
-    // Ray-casting point-in-polygon test (normalized coords)
-    const pointInPoly = (nx: number, ny: number): boolean => {
-      let inside = false;
-      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-        const xi = poly[i][0], yi = poly[i][1];
-        const xj = poly[j][0], yj = poly[j][1];
-        if ((yi > ny) !== (yj > ny) && nx < (xj - xi) * (ny - yi) / (yj - yi) + xi) {
-          inside = !inside;
-        }
-      }
-      return inside;
-    };
-
-    // Check if world position is inside the polygon (mapped to full world)
     const isWalkable = (wx: number, wy: number): boolean => {
-      const nx = wx / ww;
-      const ny = wy / wh;
-      return pointInPoly(nx, ny);
+      const gx = Math.floor(wx / tcs);
+      const gy = Math.floor(wy / tcs);
+      if (gx < 0 || gx >= tw || gy < 0 || gy >= th) return false;
+      return tGrid[gy * tw + gx] > 0;
     };
 
     // Check player center + 4 cardinal points
@@ -425,18 +411,18 @@ export function updateMap(state: MapState, dt: number, keys: Set<string>): void 
       isWalkable(state.player.x, state.player.y - r);
 
     if (!walkable) {
-      // Try X-only (slide along Y)
-      const xOnly = isWalkable(state.player.x, preY) &&
+      // Try X-only (slide along Y wall)
+      const xOk = isWalkable(state.player.x, preY) &&
         isWalkable(state.player.x + r, preY) &&
         isWalkable(state.player.x - r, preY);
-      if (xOnly) {
+      if (xOk) {
         state.player.y = preY;
       } else {
-        // Try Y-only (slide along X)
-        const yOnly = isWalkable(preX, state.player.y) &&
+        // Try Y-only (slide along X wall)
+        const yOk = isWalkable(preX, state.player.y) &&
           isWalkable(preX + r, state.player.y) &&
           isWalkable(preX - r, state.player.y);
-        if (yOnly) {
+        if (yOk) {
           state.player.x = preX;
         } else {
           state.player.x = preX;
