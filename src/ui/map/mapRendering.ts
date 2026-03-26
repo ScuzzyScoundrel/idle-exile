@@ -122,25 +122,27 @@ export function renderMap(
     }
   }
 
-  // ── Walls (draw all rooms — fog will hide unexplored) ──
-  ctx.strokeStyle = '#3f3f46';
-  ctx.lineWidth = 3;
-  for (const room of state.layout.rooms) {
-    for (const wall of room.walls) {
-      ctx.beginPath();
-      ctx.moveTo(wall.x1, wall.y1);
-      ctx.lineTo(wall.x2, wall.y2);
-      ctx.stroke();
+  // ── Walls (only draw if no room background — background trees act as walls) ──
+  if (!spriteReady(_sprites?.roomBackground)) {
+    ctx.strokeStyle = '#3f3f46';
+    ctx.lineWidth = 3;
+    for (const room of state.layout.rooms) {
+      for (const wall of room.walls) {
+        ctx.beginPath();
+        ctx.moveTo(wall.x1, wall.y1);
+        ctx.lineTo(wall.x2, wall.y2);
+        ctx.stroke();
+      }
     }
-  }
-  ctx.strokeStyle = 'rgba(63, 63, 70, 0.3)';
-  ctx.lineWidth = 6;
-  for (const room of state.layout.rooms) {
-    for (const wall of room.walls) {
-      ctx.beginPath();
-      ctx.moveTo(wall.x1, wall.y1);
-      ctx.lineTo(wall.x2, wall.y2);
-      ctx.stroke();
+    ctx.strokeStyle = 'rgba(63, 63, 70, 0.3)';
+    ctx.lineWidth = 6;
+    for (const room of state.layout.rooms) {
+      for (const wall of room.walls) {
+        ctx.beginPath();
+        ctx.moveTo(wall.x1, wall.y1);
+        ctx.lineTo(wall.x2, wall.y2);
+        ctx.stroke();
+      }
     }
   }
 
@@ -343,11 +345,12 @@ export function renderMap(
   }
   ctx.globalAlpha = 1;
 
-  // ── Props (rocks, trees, ruins — rendered between floor and mobs) ──
+  // ── Props (collision-only trees are invisible; sprite props render normally) ──
   if (state.layout.props) {
     const propSprites = _sprites?.propSprites;
     for (const prop of state.layout.props) {
-      // Cull: skip props outside viewport (with margin)
+      if (prop.spriteIdx < 0) continue; // invisible collision tree — background provides visuals
+
       const sx = prop.x - state.camera.x;
       const sy = prop.y - state.camera.y;
       if (sx < -prop.width || sx > width + prop.width || sy < -prop.height || sy > height + prop.height) continue;
@@ -358,21 +361,6 @@ export function renderMap(
 
       if (spriteReady(spr)) {
         ctx.drawImage(spr, prop.x - prop.width / 2, prop.y - prop.height / 2, prop.width, prop.height);
-      } else {
-        // Fallback: dark rock-like circles
-        const r = prop.width * 0.4;
-        ctx.beginPath();
-        ctx.arc(prop.x, prop.y, r, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(40, 35, 30, 0.9)';
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(60, 55, 45, 0.6)';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-        // Highlight for depth
-        ctx.beginPath();
-        ctx.arc(prop.x - r * 0.2, prop.y - r * 0.3, r * 0.5, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(70, 65, 55, 0.4)';
-        ctx.fill();
       }
     }
   }

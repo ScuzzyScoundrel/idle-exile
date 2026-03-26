@@ -584,59 +584,84 @@ export function generateMap(_zoneBand: number, _wave: number, isBossMap: boolean
     placed.push(sideRect);
   }
 
-  // ── Generate props along walls and inside rooms ──
+  // ── Generate organic tree collision circles around room perimeters ──
+  // These match where trees appear in the background images.
+  // No sprites needed — the background provides the visuals.
   const props: import('./mapTypes').MapProp[] = [];
   for (const room of rooms) {
-    if (room.type === 'corridor') continue; // corridors stay clean for navigation
+    if (room.type === 'corridor') continue; // corridors use wall collision only
 
-    // Wall props: place along each wall segment with some spacing
-    for (const wall of room.walls) {
-      const dx = wall.x2 - wall.x1;
-      const dy = wall.y2 - wall.y1;
-      const wallLen = Math.sqrt(dx * dx + dy * dy);
-      if (wallLen < 80) continue; // skip tiny segments (pillar parts)
+    const treeInset = 70; // how far inward from room edge the tree ring starts
+    const treeDepth = 50; // depth of the tree collision band
 
-      const spacing = 60 + Math.random() * 40; // 60-100px apart
-      const count = Math.floor(wallLen / spacing);
-      const nx = dy / wallLen; // normal direction (perpendicular, pointing inward)
-      const ny = -dx / wallLen;
+    // ── Perimeter tree ring (irregular circle-cluster along edges) ──
+    // Walk around the room perimeter and place collision circles
+    const perimeterPoints: Array<{ x: number; y: number }> = [];
+    const step = 35; // spacing between circle centers
 
-      for (let i = 0; i < count; i++) {
-        if (Math.random() > 0.7) continue; // 70% fill rate — not every spot gets a prop
-        const t = (i + 0.3 + Math.random() * 0.4) / count; // jittered position along wall
-        const px = wall.x1 + dx * t + nx * (15 + Math.random() * 10); // offset inward from wall
-        const py = wall.y1 + dy * t + ny * (15 + Math.random() * 10);
-
-        // Skip if too close to a door
-        const nearDoor = room.doors.some(d => {
-          const ddx = px - d.x; const ddy = py - d.y;
-          return Math.sqrt(ddx * ddx + ddy * ddy) < DOOR_WIDTH * 0.8;
-        });
-        if (nearDoor) continue;
-
-        const size = 40 + Math.random() * 30; // 40-70px render size
-        props.push({
-          x: px, y: py, width: size, height: size,
-          spriteIdx: Math.floor(Math.random() * 8), // 8 prop variants
-          collisionRadius: size * 0.3, // collision slightly smaller than visual
-        });
-      }
+    // Top edge
+    for (let px = room.x + step; px < room.x + room.width - step; px += step + Math.random() * 15) {
+      perimeterPoints.push({ x: px + (Math.random() - 0.5) * 20, y: room.y + treeInset + Math.random() * treeDepth });
+    }
+    // Bottom edge
+    for (let px = room.x + step; px < room.x + room.width - step; px += step + Math.random() * 15) {
+      perimeterPoints.push({ x: px + (Math.random() - 0.5) * 20, y: room.y + room.height - treeInset - Math.random() * treeDepth });
+    }
+    // Left edge
+    for (let py = room.y + step; py < room.y + room.height - step; py += step + Math.random() * 15) {
+      perimeterPoints.push({ x: room.x + treeInset + Math.random() * treeDepth, y: py + (Math.random() - 0.5) * 20 });
+    }
+    // Right edge
+    for (let py = room.y + step; py < room.y + room.height - step; py += step + Math.random() * 15) {
+      perimeterPoints.push({ x: room.x + room.width - treeInset - Math.random() * treeDepth, y: py + (Math.random() - 0.5) * 20 });
     }
 
-    // Interior scatter: a few random props inside larger rooms
-    if (room.type === 'pack' || room.type === 'large' || room.type === 'boss') {
-      const interiorCount = room.type === 'boss' ? 3 + Math.floor(Math.random() * 3)
-        : room.type === 'large' ? 2 + Math.floor(Math.random() * 3)
-        : Math.floor(Math.random() * 3); // 0-2 for pack
-      const margin = 80;
-      for (let i = 0; i < interiorCount; i++) {
-        const px = room.x + margin + Math.random() * (room.width - margin * 2);
-        const py = room.y + margin + Math.random() * (room.height - margin * 2);
-        const size = 50 + Math.random() * 40;
+    // Filter out circles near doors (leave gaps for navigation)
+    for (const pt of perimeterPoints) {
+      const nearDoor = room.doors.some(d => {
+        const ddx = pt.x - d.x; const ddy = pt.y - d.y;
+        return Math.sqrt(ddx * ddx + ddy * ddy) < DOOR_WIDTH * 1.2;
+      });
+      if (nearDoor) continue;
+
+      const radius = 18 + Math.random() * 14; // 18-32px collision radius
+      props.push({
+        x: pt.x, y: pt.y,
+        width: radius * 2, height: radius * 2,
+        spriteIdx: -1, // no sprite — background image provides visuals
+        collisionRadius: radius,
+      });
+    }
+
+    // ── Interior tree clusters (2-5 small groups for combat positioning) ──
+    const clusterCount = room.type === 'boss' ? 2 + Math.floor(Math.random() * 2)
+      : room.type === 'large' ? 3 + Math.floor(Math.random() * 3)
+      : 1 + Math.floor(Math.random() * 3);
+    const innerMargin = treeInset + treeDepth + 40; // stay clear of perimeter ring
+
+    for (let c = 0; c < clusterCount; c++) {
+      const clusterX = room.x + innerMargin + Math.random() * (room.width - innerMargin * 2);
+      const clusterY = room.y + innerMargin + Math.random() * (room.height - innerMargin * 2);
+
+      // Skip clusters near doors
+      const clusterNearDoor = room.doors.some(d => {
+        const ddx = clusterX - d.x; const ddy = clusterY - d.y;
+        return Math.sqrt(ddx * ddx + ddy * ddy) < DOOR_WIDTH * 1.5;
+      });
+      if (clusterNearDoor) continue;
+
+      // Each cluster = 2-4 overlapping circles
+      const treeCount = 2 + Math.floor(Math.random() * 3);
+      for (let t = 0; t < treeCount; t++) {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = Math.random() * 25;
+        const radius = 15 + Math.random() * 12;
         props.push({
-          x: px, y: py, width: size, height: size,
-          spriteIdx: Math.floor(Math.random() * 8),
-          collisionRadius: size * 0.3,
+          x: clusterX + Math.cos(angle) * dist,
+          y: clusterY + Math.sin(angle) * dist,
+          width: radius * 2, height: radius * 2,
+          spriteIdx: -1,
+          collisionRadius: radius,
         });
       }
     }
