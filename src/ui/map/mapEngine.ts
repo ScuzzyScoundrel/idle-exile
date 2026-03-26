@@ -152,6 +152,12 @@ export function createMapState(
     portal: null,
     fogCanvas: null,
     fogCtx: null,
+    collisionGrid: null,
+    collisionGridW: 0,
+    collisionGridH: 0,
+    collisionCellSize: 4,
+    collisionBgW: 0,
+    collisionBgH: 0,
   };
 
   // Initialize fog of war canvas (full world size, starts opaque black)
@@ -384,8 +390,55 @@ export function updateMap(state: MapState, dt: number, keys: Set<string>): void 
     state.player.y += playerPush.y;
   }
 
-  // Prop collision for player (circle-vs-circle push)
-  if (state.layout.props) {
+  // Image-based collision grid (follows tree lines from background)
+  if (state.collisionGrid && state.collisionGridW > 0) {
+    const grid = state.collisionGrid;
+    const gw = state.collisionGridW;
+    const gh = state.collisionGridH;
+    const cs = state.collisionCellSize;
+    const bgW = state.collisionBgW;
+    const bgH = state.collisionBgH;
+
+    // Check if position is walkable (with tiling wrap)
+    const isWalkable = (wx: number, wy: number): boolean => {
+      const gx = Math.floor((((wx % bgW) + bgW) % bgW) / cs);
+      const gy = Math.floor((((wy % bgH) + bgH) % bgH) / cs);
+      if (gx < 0 || gx >= gw || gy < 0 || gy >= gh) return false;
+      return grid[gy * gw + gx] > 0;
+    };
+
+    // Sample 8 points around player circle — push away from blocked cells
+    const r = state.playerRadius;
+    for (let a = 0; a < 8; a++) {
+      const angle = (a / 8) * Math.PI * 2;
+      const sx = state.player.x + Math.cos(angle) * r;
+      const sy = state.player.y + Math.sin(angle) * r;
+      if (!isWalkable(sx, sy)) {
+        state.player.x -= Math.cos(angle) * 2;
+        state.player.y -= Math.sin(angle) * 2;
+      }
+    }
+    // If center itself is blocked, push toward nearest walkable
+    if (!isWalkable(state.player.x, state.player.y)) {
+      // Search outward in a spiral for walkable space
+      for (let dist = cs; dist < cs * 10; dist += cs) {
+        let found = false;
+        for (let a = 0; a < 16; a++) {
+          const angle = (a / 16) * Math.PI * 2;
+          const tx = state.player.x + Math.cos(angle) * dist;
+          const ty = state.player.y + Math.sin(angle) * dist;
+          if (isWalkable(tx, ty)) {
+            state.player.x = tx;
+            state.player.y = ty;
+            found = true;
+            break;
+          }
+        }
+        if (found) break;
+      }
+    }
+  } else if (state.layout.props) {
+    // Fallback: circle-based prop collision (for zones without background images)
     for (const prop of state.layout.props) {
       if (prop.collisionRadius <= 0) continue;
       const pdx = state.player.x - prop.x;

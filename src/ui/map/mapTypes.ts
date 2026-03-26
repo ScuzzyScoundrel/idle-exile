@@ -225,6 +225,15 @@ export interface MapState {
   // Fog of war (radius-based reveal)
   fogCanvas: OffscreenCanvas | null;
   fogCtx: OffscreenCanvasRenderingContext2D | null;
+
+  // Image-based collision grid (derived from background pixel brightness)
+  // 0 = blocked (tree/dark), 1 = walkable (dirt/light)
+  collisionGrid: Uint8Array | null;
+  collisionGridW: number;   // grid width in cells
+  collisionGridH: number;   // grid height in cells
+  collisionCellSize: number; // world pixels per grid cell
+  collisionBgW: number;     // background image width (for tiling wrap)
+  collisionBgH: number;     // background image height
 }
 
 // ── Map Modifiers (Corrupted Maps) ──
