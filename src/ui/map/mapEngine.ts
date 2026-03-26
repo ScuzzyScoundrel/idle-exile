@@ -384,6 +384,22 @@ export function updateMap(state: MapState, dt: number, keys: Set<string>): void 
     state.player.y += playerPush.y;
   }
 
+  // Prop collision for player (circle-vs-circle push)
+  if (state.layout.props) {
+    for (const prop of state.layout.props) {
+      if (prop.collisionRadius <= 0) continue;
+      const pdx = state.player.x - prop.x;
+      const pdy = state.player.y - prop.y;
+      const dist = Math.sqrt(pdx * pdx + pdy * pdy);
+      const minDist = state.playerRadius + prop.collisionRadius;
+      if (dist < minDist && dist > 0.01) {
+        const push = (minDist - dist) / dist;
+        state.player.x += pdx * push;
+        state.player.y += pdy * push;
+      }
+    }
+  }
+
   // World bounds clamp
   state.player.x = Math.max(state.playerRadius, Math.min(state.layout.worldWidth - state.playerRadius, state.player.x));
   state.player.y = Math.max(state.playerRadius, Math.min(state.layout.worldHeight - state.playerRadius, state.player.y));

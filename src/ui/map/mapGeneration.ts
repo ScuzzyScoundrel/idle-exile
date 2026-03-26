@@ -584,6 +584,64 @@ export function generateMap(_zoneBand: number, _wave: number, isBossMap: boolean
     placed.push(sideRect);
   }
 
+  // ── Generate props along walls and inside rooms ──
+  const props: import('./mapTypes').MapProp[] = [];
+  for (const room of rooms) {
+    if (room.type === 'corridor') continue; // corridors stay clean for navigation
+
+    // Wall props: place along each wall segment with some spacing
+    for (const wall of room.walls) {
+      const dx = wall.x2 - wall.x1;
+      const dy = wall.y2 - wall.y1;
+      const wallLen = Math.sqrt(dx * dx + dy * dy);
+      if (wallLen < 80) continue; // skip tiny segments (pillar parts)
+
+      const spacing = 60 + Math.random() * 40; // 60-100px apart
+      const count = Math.floor(wallLen / spacing);
+      const nx = dy / wallLen; // normal direction (perpendicular, pointing inward)
+      const ny = -dx / wallLen;
+
+      for (let i = 0; i < count; i++) {
+        if (Math.random() > 0.7) continue; // 70% fill rate — not every spot gets a prop
+        const t = (i + 0.3 + Math.random() * 0.4) / count; // jittered position along wall
+        const px = wall.x1 + dx * t + nx * (15 + Math.random() * 10); // offset inward from wall
+        const py = wall.y1 + dy * t + ny * (15 + Math.random() * 10);
+
+        // Skip if too close to a door
+        const nearDoor = room.doors.some(d => {
+          const ddx = px - d.x; const ddy = py - d.y;
+          return Math.sqrt(ddx * ddx + ddy * ddy) < DOOR_WIDTH * 0.8;
+        });
+        if (nearDoor) continue;
+
+        const size = 40 + Math.random() * 30; // 40-70px render size
+        props.push({
+          x: px, y: py, width: size, height: size,
+          spriteIdx: Math.floor(Math.random() * 8), // 8 prop variants
+          collisionRadius: size * 0.3, // collision slightly smaller than visual
+        });
+      }
+    }
+
+    // Interior scatter: a few random props inside larger rooms
+    if (room.type === 'pack' || room.type === 'large' || room.type === 'boss') {
+      const interiorCount = room.type === 'boss' ? 3 + Math.floor(Math.random() * 3)
+        : room.type === 'large' ? 2 + Math.floor(Math.random() * 3)
+        : Math.floor(Math.random() * 3); // 0-2 for pack
+      const margin = 80;
+      for (let i = 0; i < interiorCount; i++) {
+        const px = room.x + margin + Math.random() * (room.width - margin * 2);
+        const py = room.y + margin + Math.random() * (room.height - margin * 2);
+        const size = 50 + Math.random() * 40;
+        props.push({
+          x: px, y: py, width: size, height: size,
+          spriteIdx: Math.floor(Math.random() * 8),
+          collisionRadius: size * 0.3,
+        });
+      }
+    }
+  }
+
   // ── Center the map in the world ──
   const padding = 400;
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -606,12 +664,14 @@ export function generateMap(_zoneBand: number, _wave: number, isBossMap: boolean
     for (const chest of room.chests) { chest.x += offsetX; chest.y += offsetY; }
     if (room.shrinePos) { room.shrinePos.x += offsetX; room.shrinePos.y += offsetY; }
   }
+  // Offset props too
+  for (const prop of props) { prop.x += offsetX; prop.y += offsetY; }
 
   // Exit room = last main-path room (not side/corridor)
   const mainRooms = rooms.filter(r => r.type !== 'side' && r.type !== 'corridor');
   const exitRoom = mainRooms[mainRooms.length - 1];
 
-  return { rooms, worldWidth: worldW, worldHeight: worldH, startRoomId: 0, exitRoomId: exitRoom.id };
+  return { rooms, props, worldWidth: worldW, worldHeight: worldH, startRoomId: 0, exitRoomId: exitRoom.id };
 }
 
 // ── All Walls Helper ──

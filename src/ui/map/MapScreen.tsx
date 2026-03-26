@@ -246,13 +246,13 @@ export default function MapScreen() {
   const corruptedModsRef = useRef<MapModifier[]>([]);
   const mobDebuffsRef = useRef<Map<number, import('../../types/combat').ActiveDebuff[]>>(new Map());
   const bossDebuffsRef = useRef<import('../../types/combat').ActiveDebuff[]>([]);
-  const spritesRef = useRef<MapSprites>({ mobSprites: [] });
+  const spritesRef = useRef<MapSprites>({ mobSprites: [], propSprites: [] });
 
   const [picking, setPicking] = useState(true); // start in zone-picker mode
 
   // ── Sprite preloader — loads zone-specific sprites ──
   const loadZoneSprites = useCallback((zoneId: string) => {
-    const sprites: MapSprites = { mobSprites: [] };
+    const sprites: MapSprites = { mobSprites: [], propSprites: [] };
     const load = (src: string): HTMLImageElement => {
       const img = new Image();
       img.src = src;

@@ -97,12 +97,21 @@ export interface MapRoom {
   mobIds: number[];          // mobId references into MapState.mobs
 }
 
+/** A decorative/collision prop placed in a room (rocks, trees, ruins). */
+export interface MapProp {
+  x: number; y: number;
+  width: number; height: number;    // render size
+  spriteIdx: number;                // index into prop sprite array
+  collisionRadius: number;          // 0 = decorative only, >0 = blocks movement
+}
+
 export interface MapLayout {
   rooms: MapRoom[];
   worldWidth: number;
   worldHeight: number;
   startRoomId: number;
   exitRoomId: number;        // final room (or boss room)
+  props: MapProp[];          // world-space props (rocks, trees, etc.)
 }
 
 // ── Map State (extends arena-compatible fields) ──
