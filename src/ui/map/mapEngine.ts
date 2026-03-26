@@ -391,20 +391,32 @@ export function updateMap(state: MapState, dt: number, keys: Set<string>): void 
   }
 
   // Image-based collision grid (follows tree lines from background)
+  // Applied PER-ROOM: each room maps its area to the full image,
+  // so the clearing is always centered inside the room.
   if (state.collisionGrid && state.collisionGridW > 0) {
     const grid = state.collisionGrid;
     const gw = state.collisionGridW;
     const gh = state.collisionGridH;
-    const cs = state.collisionCellSize;
-    const bgW = state.collisionBgW;
-    const bgH = state.collisionBgH;
+    const rooms = state.layout.rooms;
 
-    // Check if position is walkable (with tiling wrap)
+    // Check if position is walkable by finding which room it's in
+    // and mapping room-relative coords → image-relative coords
     const isWalkable = (wx: number, wy: number): boolean => {
-      const gx = Math.floor((((wx % bgW) + bgW) % bgW) / cs);
-      const gy = Math.floor((((wy % bgH) + bgH) % bgH) / cs);
-      if (gx < 0 || gx >= gw || gy < 0 || gy >= gh) return false;
-      return grid[gy * gw + gx] > 0;
+      for (const room of rooms) {
+        if (wx >= room.x && wx <= room.x + room.width &&
+            wy >= room.y && wy <= room.y + room.height) {
+          // Map position within room (0..1) → grid cell
+          const rx = (wx - room.x) / room.width;
+          const ry = (wy - room.y) / room.height;
+          const gx = Math.floor(rx * (gw - 1));
+          const gy = Math.floor(ry * (gh - 1));
+          if (gx >= 0 && gx < gw && gy >= 0 && gy < gh) {
+            return grid[gy * gw + gx] > 0;
+          }
+          return true;
+        }
+      }
+      return false; // outside all rooms = blocked
     };
 
     // Sample 8 points around player circle — push away from blocked cells
@@ -418,10 +430,9 @@ export function updateMap(state: MapState, dt: number, keys: Set<string>): void 
         state.player.y -= Math.sin(angle) * 2;
       }
     }
-    // If center itself is blocked, push toward nearest walkable
+    // If center is blocked, spiral outward to find walkable space
     if (!isWalkable(state.player.x, state.player.y)) {
-      // Search outward in a spiral for walkable space
-      for (let dist = cs; dist < cs * 10; dist += cs) {
+      for (let dist = 8; dist < 200; dist += 8) {
         let found = false;
         for (let a = 0; a < 16; a++) {
           const angle = (a / 16) * Math.PI * 2;
