@@ -297,7 +297,7 @@ export default function MapScreen() {
         bgImg.onload = () => {
           const state = stateRef.current;
           if (!state || !bgImg.complete) return;
-          const cellSize = 4; // 4 world-px per grid cell
+          const cellSize = 8; // 8 world-px per grid cell (less noise-sensitive)
           const gw = Math.ceil(bgImg.naturalWidth / cellSize);
           const gh = Math.ceil(bgImg.naturalHeight / cellSize);
           const offscreen = new OffscreenCanvas(gw, gh);
@@ -309,9 +309,10 @@ export default function MapScreen() {
             const r = imgData.data[i * 4];
             const g = imgData.data[i * 4 + 1];
             const b = imgData.data[i * 4 + 2];
-            // Brightness threshold: trees are dark (<55), dirt/rocks are light (>55)
+            // Brightness threshold: only dense tree canopy (<35) is blocked
+            // Dirt (~70-120), shadows (~50-70), rocks (~60-90) are all walkable
             const brightness = (r + g + b) / 3;
-            grid[i] = brightness > 55 ? 1 : 0;
+            grid[i] = brightness > 35 ? 1 : 0;
           }
           state.collisionGrid = grid;
           state.collisionGridW = gw;
