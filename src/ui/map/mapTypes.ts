@@ -226,14 +226,9 @@ export interface MapState {
   fogCanvas: OffscreenCanvas | null;
   fogCtx: OffscreenCanvasRenderingContext2D | null;
 
-  // Image-based collision grid (derived from background pixel brightness)
-  // 0 = blocked (tree/dark), 1 = walkable (dirt/light)
-  collisionGrid: Uint8Array | null;
-  collisionGridW: number;   // grid width in cells
-  collisionGridH: number;   // grid height in cells
-  collisionCellSize: number; // world pixels per grid cell
-  collisionBgW: number;     // background image width (for tiling wrap)
-  collisionBgH: number;     // background image height
+  // Collision polygon (pre-traced from background image tree lines)
+  // Vertices are normalized 0..1 — mapped per-room at runtime
+  collisionPolygon: number[][] | null;
 }
 
 // ── Map Modifiers (Corrupted Maps) ──

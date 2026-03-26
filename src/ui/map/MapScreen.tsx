@@ -261,13 +261,14 @@ export default function MapScreen() {
 
     // Zone sprite mappings (add more zones as art is audited)
     const ZONE_SPRITES: Record<string, {
-      floor: string; background?: string;
+      floor: string; background?: string; collisionPoly?: string;
       mobs: string[]; boss: string;
       props?: string[];
     }> = {
       ashwood_thicket: {
         floor: '/images/map/floors/bogmire_marsh_00002_.png',
         background: '/images/map/backgrounds/forest_clearing_00001_.png',
+        collisionPoly: '/data/collision/forest_clearing_00001__collision.json',
         mobs: [
           '/images/map/mobs/ashwood_thicket/bark_beetle_00001_.png',
           '/images/map/mobs/ashwood_thicket/canopy_bat_00001_.png',
@@ -296,6 +297,18 @@ export default function MapScreen() {
       sprites.mobSprites = zoneDef.mobs.map(load);
       sprites.boss = load(zoneDef.boss);
       if (zoneDef.props) sprites.propSprites = zoneDef.props.map(load);
+      // Load collision polygon (async)
+      if (zoneDef.collisionPoly) {
+        fetch(zoneDef.collisionPoly)
+          .then(r => r.json())
+          .then((data: { vertices: number[][] }) => {
+            const state = stateRef.current;
+            if (state && data.vertices) {
+              state.collisionPolygon = data.vertices;
+            }
+          })
+          .catch(() => { /* no polygon — falls back to wall collision */ });
+      }
     }
     // Player sprite (always loaded)
     sprites.player = load('/images/map/player/adventurer_00001_.png');

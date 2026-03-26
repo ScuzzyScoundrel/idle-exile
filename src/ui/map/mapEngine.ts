@@ -152,12 +152,7 @@ export function createMapState(
     portal: null,
     fogCanvas: null,
     fogCtx: null,
-    collisionGrid: null,
-    collisionGridW: 0,
-    collisionGridH: 0,
-    collisionCellSize: 4,
-    collisionBgW: 0,
-    collisionBgH: 0,
+    collisionPolygon: null,
   };
 
   // Initialize fog of war canvas (full world size, starts opaque black)
@@ -368,6 +363,10 @@ export function updateMap(state: MapState, dt: number, keys: Set<string>): void 
     if (deb.type === 'slow' && deb.magnitude < slowMult) slowMult = deb.magnitude;
   }
 
+  // Save position before movement (for polygon collision revert)
+  const preX = state.player.x;
+  const preY = state.player.y;
+
   // Dodge roll
   if (state.dodgeRollCooldown > 0) state.dodgeRollCooldown -= dt;
   if (state.dodgeRollTimer > 0) {
@@ -390,19 +389,65 @@ export function updateMap(state: MapState, dt: number, keys: Set<string>): void 
     state.player.y += playerPush.y;
   }
 
-  // Prop collision for player (interior obstacles only — circle-vs-circle)
-  if (state.layout.props) {
-    // Fallback: circle-based prop collision (for zones without background images)
-    for (const prop of state.layout.props) {
-      if (prop.collisionRadius <= 0) continue;
-      const pdx = state.player.x - prop.x;
-      const pdy = state.player.y - prop.y;
-      const dist = Math.sqrt(pdx * pdx + pdy * pdy);
-      const minDist = state.playerRadius + prop.collisionRadius;
-      if (dist < minDist && dist > 0.01) {
-        const push = (minDist - dist) / dist;
-        state.player.x += pdx * push;
-        state.player.y += pdy * push;
+  // Polygon collision (pre-traced from background image tree lines)
+  if (state.collisionPolygon && state.collisionPolygon.length > 2) {
+    const poly = state.collisionPolygon;
+    const rooms = state.layout.rooms;
+
+    // Ray-casting point-in-polygon test
+    const pointInPoly = (nx: number, ny: number): boolean => {
+      let inside = false;
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const xi = poly[i][0], yi = poly[i][1];
+        const xj = poly[j][0], yj = poly[j][1];
+        if ((yi > ny) !== (yj > ny) && nx < (xj - xi) * (ny - yi) / (yj - yi) + xi) {
+          inside = !inside;
+        }
+      }
+      return inside;
+    };
+
+    // Check if world position is inside the polygon for any room
+    const isWalkable = (wx: number, wy: number): boolean => {
+      for (const room of rooms) {
+        if (wx >= room.x && wx <= room.x + room.width &&
+            wy >= room.y && wy <= room.y + room.height) {
+          // Normalize to 0..1 within room
+          const nx = (wx - room.x) / room.width;
+          const ny = (wy - room.y) / room.height;
+          return pointInPoly(nx, ny);
+        }
+      }
+      return false; // outside all rooms
+    };
+
+    // Check player center + 4 cardinal points
+    const r = state.playerRadius;
+    const walkable = isWalkable(state.player.x, state.player.y) &&
+      isWalkable(state.player.x + r, state.player.y) &&
+      isWalkable(state.player.x - r, state.player.y) &&
+      isWalkable(state.player.x, state.player.y + r) &&
+      isWalkable(state.player.x, state.player.y - r);
+
+    if (!walkable) {
+      // Try X-only (slide along Y)
+      const xOnly = isWalkable(state.player.x, preY) &&
+        isWalkable(state.player.x + r, preY) &&
+        isWalkable(state.player.x - r, preY);
+      if (xOnly) {
+        state.player.y = preY;
+      } else {
+        // Try Y-only (slide along X)
+        const yOnly = isWalkable(preX, state.player.y) &&
+          isWalkable(preX + r, state.player.y) &&
+          isWalkable(preX - r, state.player.y);
+        if (yOnly) {
+          state.player.x = preX;
+        } else {
+          // Full revert
+          state.player.x = preX;
+          state.player.y = preY;
+        }
       }
     }
   }
