@@ -390,11 +390,13 @@ export function updateMap(state: MapState, dt: number, keys: Set<string>): void 
   }
 
   // Polygon collision (pre-traced from background image tree lines)
+  // Maps to the ENTIRE world bounds — one polygon, one organic space
   if (state.collisionPolygon && state.collisionPolygon.length > 2) {
     const poly = state.collisionPolygon;
-    const rooms = state.layout.rooms;
+    const ww = state.layout.worldWidth;
+    const wh = state.layout.worldHeight;
 
-    // Ray-casting point-in-polygon test
+    // Ray-casting point-in-polygon test (normalized coords)
     const pointInPoly = (nx: number, ny: number): boolean => {
       let inside = false;
       for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
@@ -407,18 +409,11 @@ export function updateMap(state: MapState, dt: number, keys: Set<string>): void 
       return inside;
     };
 
-    // Check if world position is inside the polygon for any room
+    // Check if world position is inside the polygon (mapped to full world)
     const isWalkable = (wx: number, wy: number): boolean => {
-      for (const room of rooms) {
-        if (wx >= room.x && wx <= room.x + room.width &&
-            wy >= room.y && wy <= room.y + room.height) {
-          // Normalize to 0..1 within room
-          const nx = (wx - room.x) / room.width;
-          const ny = (wy - room.y) / room.height;
-          return pointInPoly(nx, ny);
-        }
-      }
-      return false; // outside all rooms
+      const nx = wx / ww;
+      const ny = wy / wh;
+      return pointInPoly(nx, ny);
     };
 
     // Check player center + 4 cardinal points
@@ -444,7 +439,6 @@ export function updateMap(state: MapState, dt: number, keys: Set<string>): void 
         if (yOnly) {
           state.player.x = preX;
         } else {
-          // Full revert
           state.player.x = preX;
           state.player.y = preY;
         }

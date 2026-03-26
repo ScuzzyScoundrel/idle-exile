@@ -70,24 +70,14 @@ export function renderMap(
   const isCorrupted = state.corruptedTier > 0;
 
   if (spriteReady(_sprites?.roomBackground)) {
-    // Tile the background image across the ENTIRE visible world
-    // No per-room clipping — the environment is one continuous space
-    const bgImg = _sprites!.roomBackground!;
-    const bgW = bgImg.naturalWidth;
-    const bgH = bgImg.naturalHeight;
-    // Calculate visible area in world coords
-    const viewLeft = Math.floor(state.camera.x / bgW) * bgW;
-    const viewTop = Math.floor(state.camera.y / bgH) * bgH;
-    const viewRight = state.camera.x + width + bgW;
-    const viewBottom = state.camera.y + height + bgH;
-    for (let tx = viewLeft; tx < viewRight; tx += bgW) {
-      for (let ty = viewTop; ty < viewBottom; ty += bgH) {
-        ctx.drawImage(bgImg, tx, ty, bgW, bgH);
-      }
-    }
+    // Stretch ONE background image across the ENTIRE world
+    // One image = one polygon = one organic space
+    const ww = state.layout.worldWidth;
+    const wh = state.layout.worldHeight;
+    ctx.drawImage(_sprites!.roomBackground!, 0, 0, ww, wh);
     // Subtle darken for depth
     ctx.fillStyle = 'rgba(0,0,0,0.05)';
-    ctx.fillRect(state.camera.x, state.camera.y, width, height);
+    ctx.fillRect(0, 0, ww, wh);
   } else {
     // Fallback: draw per-room floors
     let floorPattern: CanvasPattern | null = null;
