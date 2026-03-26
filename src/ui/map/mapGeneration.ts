@@ -347,11 +347,16 @@ export function generateMap(_zoneBand: number, _wave: number, isBossMap: boolean
   // ── Overlap detection ──
   interface Rect { x: number; y: number; w: number; h: number }
   const placed: Rect[] = [];
-  function overlaps(r: Rect): boolean {
-    const m = 20;
-    return placed.some(p =>
-      r.x < p.x + p.w + m && r.x + r.w + m > p.x &&
-      r.y < p.y + p.h + m && r.y + r.h + m > p.y);
+  /** Check if rect overlaps any placed rect, optionally skipping one index (the room we're exiting). */
+  function overlaps(r: Rect, skipIdx = -1): boolean {
+    const m = 10;
+    for (let i = 0; i < placed.length; i++) {
+      if (i === skipIdx) continue;
+      const p = placed[i];
+      if (r.x < p.x + p.w + m && r.x + r.w + m > p.x &&
+          r.y < p.y + p.h + m && r.y + r.h + m > p.y) return true;
+    }
+    return false;
   }
 
   // ── Weighted direction picker (biased south, avoids backtrack) ──
@@ -457,7 +462,9 @@ export function generateMap(_zoneBand: number, _wave: number, isBossMap: boolean
 
       const corrRect: Rect = { x: cx, y: cy, w: cw, h: ch };
       const roomRect: Rect = { x: rx, y: ry, w: rw, h: rh };
-      if (overlaps(corrRect) || overlaps(roomRect)) continue;
+      // Skip prevRoom (last placed) when checking corridor adjacency
+      const prevIdx = placed.length - 1;
+      if (overlaps(corrRect, prevIdx) || overlaps(roomRect, prevIdx)) continue;
 
       // ── Success — place corridor + room ──
       const corrId = nextRoomId++;
