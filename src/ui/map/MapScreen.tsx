@@ -260,23 +260,40 @@ export default function MapScreen() {
     };
 
     // Zone sprite mappings (add more zones as art is audited)
-    const ZONE_SPRITES: Record<string, { floor: string; mobs: string[]; boss: string }> = {
+    const ZONE_SPRITES: Record<string, {
+      floor: string; background?: string;
+      mobs: string[]; boss: string;
+      props?: string[];
+    }> = {
       ashwood_thicket: {
         floor: '/images/map/floors/bogmire_marsh_00002_.png',
+        background: '/images/map/backgrounds/forest_clearing_00001_.png',
         mobs: [
           '/images/map/mobs/ashwood_thicket/bark_beetle_00001_.png',
           '/images/map/mobs/ashwood_thicket/canopy_bat_00001_.png',
           '/images/map/mobs/ashwood_thicket/thicket_crawler_00001_.png',
         ],
         boss: '/images/map/bosses/ashwood_thicket/elder_brambleback_00001_.png',
+        props: [
+          '/images/map/props/mossy_boulder_00001_.png',
+          '/images/map/props/dead_tree_00001_.png',
+          '/images/map/props/rock_cluster_00001_.png',
+          '/images/map/props/broken_pillar_00001_.png',
+          '/images/map/props/fallen_log_00001_.png',
+          '/images/map/props/thorn_bush_00001_.png',
+          '/images/map/props/crumbled_wall_00001_.png',
+          '/images/map/props/bone_pile_00001_.png',
+        ],
       },
     };
 
     const zoneDef = ZONE_SPRITES[zoneId];
     if (zoneDef) {
       sprites.floorTile = load(zoneDef.floor);
+      if (zoneDef.background) sprites.roomBackground = load(zoneDef.background);
       sprites.mobSprites = zoneDef.mobs.map(load);
       sprites.boss = load(zoneDef.boss);
+      if (zoneDef.props) sprites.propSprites = zoneDef.props.map(load);
     }
     // Player sprite (always loaded)
     sprites.player = load('/images/map/player/adventurer_00001_.png');
