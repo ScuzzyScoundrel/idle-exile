@@ -351,6 +351,63 @@ export function generateProceduralMap(
     });
   }
 
+  // ── Spawn wandering mobs along paths (between clearings) ──
+  // Sample walkable cells that aren't inside any clearing and add small packs
+  {
+    const pathSpawns: MobSpawnPoint[] = [];
+    const cs = terrain.cellSize;
+    const step = 8; // check every 8 cells
+
+    for (let gy = 5; gy < terrain.height - 5; gy += step) {
+      for (let gx = 5; gx < terrain.width - 5; gx += step) {
+        if (terrain.grid[gy * terrain.width + gx] === 0) continue; // tree cell
+
+        const wx = gx * cs + cs / 2;
+        const wy = gy * cs + cs / 2;
+
+        // Skip if inside a clearing
+        const inClearing = clearings.some(c => {
+          const dx = wx - c.wx, dy = wy - c.wy;
+          return Math.sqrt(dx * dx + dy * dy) < c.worldRadius + 40;
+        });
+        if (inClearing) continue;
+
+        // 30% chance to spawn a small wandering pack at this path point
+        if (hash2d(gx, gy, seed + 7777) > 0.30) continue;
+
+        // Small pack: 2-4 whites, maybe 1 magic
+        const packSize = 2 + Math.floor(hash2d(gx + 1, gy, seed + 8888) * 3);
+        for (let m = 0; m < packSize; m++) {
+          const angle = (m / packSize) * Math.PI * 2;
+          const dist = 15 + hash2d(gx, gy + m, seed + 9999) * 25;
+          pathSpawns.push({
+            x: wx + Math.cos(angle) * dist,
+            y: wy + Math.sin(angle) * dist,
+            tier: 'white',
+          });
+        }
+        if (hash2d(gx + 2, gy, seed + 6666) < 0.25) {
+          pathSpawns.push({ x: wx, y: wy, tier: 'magic' });
+        }
+      }
+    }
+
+    // Add path spawns as a "path" room so they get processed by the mob system
+    if (pathSpawns.length > 0) {
+      rooms.push({
+        id: nextRoomId++, type: 'pack',
+        x: 0, y: 0, width: terrain.worldWidth, height: terrain.worldHeight,
+        walls: [], doors: [],
+        spawnPoints: pathSpawns,
+        chests: [],
+        hasShrineSpot: false,
+        entered: true, // always "entered" so mobs spawn
+        cleared: false,
+        mobIds: [],
+      });
+    }
+  }
+
   // Ensure at least one room exists
   if (rooms.length === 0) {
     rooms.push({

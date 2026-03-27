@@ -114,12 +114,34 @@ export function renderMap(
       }
     }
 
-    // Draw tree canopy sprites on top of blocked cells (sparse, for depth)
-    // Only render every ~3 cells to avoid overdraw
-    for (let gy = startRow; gy < endRow; gy += 2) {
-      for (let gx = startCol; gx < endCol; gx += 2) {
-        if (tGrid[gy * tw + gx] > 0) continue; // walkable, skip
-        // Check if this is near a walkable cell (edge tree — most visible)
+    // Draw lush tree canopy on blocked cells — layered for depth
+    // Pass 1: large blobs for deep forest (every 3 cells)
+    for (let gy = startRow; gy < endRow; gy += 3) {
+      for (let gx = startCol; gx < endCol; gx += 3) {
+        if (tGrid[gy * tw + gx] > 0) continue;
+        const wx = gx * tcs + tcs / 2;
+        const wy = gy * tcs + tcs / 2;
+        // Seeded variation per tree
+        const v = ((gx * 7 + gy * 13 + 3) % 11) / 11;
+        const treeR = tcs * 2.5 + v * tcs * 1.5;
+        // Dark base canopy
+        const grad = ctx.createRadialGradient(wx, wy, treeR * 0.1, wx, wy, treeR);
+        const hue = 100 + v * 40; // 100-140 (green range variation)
+        const sat = 30 + v * 25;
+        const lit = 12 + v * 8;
+        grad.addColorStop(0, `hsla(${hue}, ${sat}%, ${lit + 5}%, 0.9)`);
+        grad.addColorStop(0.5, `hsla(${hue}, ${sat}%, ${lit}%, 0.7)`);
+        grad.addColorStop(1, `hsla(${hue}, ${sat}%, ${lit - 3}%, 0)`);
+        ctx.beginPath();
+        ctx.arc(wx, wy, treeR, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+      }
+    }
+    // Pass 2: edge canopies (near walkable cells) — brighter, more detailed
+    for (let gy = startRow; gy < endRow; gy += 1) {
+      for (let gx = startCol; gx < endCol; gx += 1) {
+        if (tGrid[gy * tw + gx] > 0) continue;
         let isEdge = false;
         for (let dy = -1; dy <= 1 && !isEdge; dy++) {
           for (let dx = -1; dx <= 1 && !isEdge; dx++) {
@@ -129,16 +151,17 @@ export function renderMap(
             }
           }
         }
-        if (!isEdge) continue; // deep forest, base color is enough
+        if (!isEdge) continue;
 
-        // Draw a tree canopy circle for depth
         const wx = gx * tcs + tcs / 2;
         const wy = gy * tcs + tcs / 2;
-        const treeR = tcs * 1.2 + ((gx * 3 + gy * 7) % 5) * 2;
-        const grad = ctx.createRadialGradient(wx, wy, 0, wx, wy, treeR);
-        grad.addColorStop(0, 'rgba(25, 50, 20, 0.8)');
-        grad.addColorStop(0.6, 'rgba(20, 40, 15, 0.5)');
-        grad.addColorStop(1, 'rgba(15, 30, 10, 0)');
+        const v = ((gx * 11 + gy * 7) % 13) / 13;
+        const treeR = tcs * 1.5 + v * tcs;
+        // Brighter edge canopy with highlight
+        const grad = ctx.createRadialGradient(wx - treeR * 0.15, wy - treeR * 0.15, 0, wx, wy, treeR);
+        grad.addColorStop(0, `hsla(${110 + v * 30}, ${40 + v * 20}%, ${18 + v * 8}%, 0.95)`);
+        grad.addColorStop(0.4, `hsla(${115 + v * 25}, ${35 + v * 15}%, ${14 + v * 5}%, 0.8)`);
+        grad.addColorStop(1, 'rgba(15, 25, 10, 0)');
         ctx.beginPath();
         ctx.arc(wx, wy, treeR, 0, Math.PI * 2);
         ctx.fillStyle = grad;
@@ -1471,22 +1494,14 @@ export function renderMap(
     const mmX = width - mmW - 12, mmY = 12;
     const mmPad = 6;
 
-    // Find world bounds from layout
-    const rooms = state.layout.rooms;
-    let wMinX = Infinity, wMinY = Infinity, wMaxX = -Infinity, wMaxY = -Infinity;
-    for (const r of rooms) {
-      wMinX = Math.min(wMinX, r.x);
-      wMinY = Math.min(wMinY, r.y);
-      wMaxX = Math.max(wMaxX, r.x + r.width);
-      wMaxY = Math.max(wMaxY, r.y + r.height);
-    }
-    const worldW = wMaxX - wMinX || 1;
-    const worldH = wMaxY - wMinY || 1;
-    const scaleX = (mmW - mmPad * 2) / worldW;
-    const scaleY = (mmH - mmPad * 2) / worldH;
+    // World bounds
+    const ww = state.layout.worldWidth || 1;
+    const wh = state.layout.worldHeight || 1;
+    const scaleX = (mmW - mmPad * 2) / ww;
+    const scaleY = (mmH - mmPad * 2) / wh;
     const sc = Math.min(scaleX, scaleY);
-    const offX = mmX + mmPad + ((mmW - mmPad * 2) - worldW * sc) / 2;
-    const offY = mmY + mmPad + ((mmH - mmPad * 2) - worldH * sc) / 2;
+    const offX = mmX + mmPad + ((mmW - mmPad * 2) - ww * sc) / 2;
+    const offY = mmY + mmPad + ((mmH - mmPad * 2) - wh * sc) / 2;
 
     // Background
     ctx.fillStyle = 'rgba(0,0,0,0.7)';
@@ -1495,37 +1510,51 @@ export function renderMap(
     ctx.lineWidth = 1;
     ctx.strokeRect(mmX, mmY, mmW, mmH);
 
-    // Rooms
-    for (const r of rooms) {
-      const rx = offX + (r.x - wMinX) * sc;
-      const ry = offY + (r.y - wMinY) * sc;
-      const rw = r.width * sc;
-      const rh = r.height * sc;
-
-      if (r.entered) {
-        ctx.fillStyle = r.cleared ? 'rgba(34, 197, 94, 0.25)' : 'rgba(100, 116, 139, 0.35)';
-      } else {
-        ctx.fillStyle = 'rgba(50, 50, 60, 0.3)';
+    // Terrain grid minimap (if procedural)
+    const mmTer = state.layout.terrain;
+    if (mmTer && mmTer.grid.length > 0) {
+      // Draw terrain at minimap scale — sample every N cells
+      const stepX = Math.max(1, Math.floor(mmTer.width / (mmW - mmPad * 2)));
+      const stepY = Math.max(1, Math.floor(mmTer.height / (mmH - mmPad * 2)));
+      for (let gy = 0; gy < mmTer.height; gy += stepY) {
+        for (let gx = 0; gx < mmTer.width; gx += stepX) {
+          const walkable = mmTer.grid[gy * mmTer.width + gx] > 0;
+          if (!walkable) continue; // black bg already shows trees
+          const px = offX + (gx * mmTer.cellSize) * sc;
+          const py = offY + (gy * mmTer.cellSize) * sc;
+          const pw = Math.max(1, mmTer.cellSize * stepX * sc);
+          const ph = Math.max(1, mmTer.cellSize * stepY * sc);
+          ctx.fillStyle = 'rgba(90, 75, 55, 0.6)';
+          ctx.fillRect(px, py, pw, ph);
+        }
       }
-      ctx.fillRect(rx, ry, rw, rh);
-      ctx.strokeStyle = r.entered ? 'rgba(148,163,184,0.5)' : 'rgba(60,60,70,0.3)';
-      ctx.lineWidth = 0.5;
-      ctx.strokeRect(rx, ry, rw, rh);
+    } else {
+      // Fallback: room-based minimap
+      for (const r of state.layout.rooms) {
+        const rx = offX + r.x * sc;
+        const ry = offY + r.y * sc;
+        const rw = r.width * sc;
+        const rh = r.height * sc;
+        ctx.fillStyle = r.entered
+          ? (r.cleared ? 'rgba(34, 197, 94, 0.25)' : 'rgba(100, 116, 139, 0.35)')
+          : 'rgba(50, 50, 60, 0.3)';
+        ctx.fillRect(rx, ry, rw, rh);
+      }
     }
 
-    // Mob dots (only in entered rooms)
+    // Mob dots
     for (const mob of state.mobs) {
       if (mob.dead) continue;
-      const mx = offX + (mob.x - wMinX) * sc;
-      const my = offY + (mob.y - wMinY) * sc;
+      const mx = offX + mob.x * sc;
+      const my = offY + mob.y * sc;
       ctx.fillStyle = mob.isRare ? '#f59e0b' : '#ef4444';
       ctx.fillRect(mx - 1, my - 1, 2, 2);
     }
 
     // Boss dot
     if (state.bossMob && !state.bossMob.dead) {
-      const bx = offX + (state.bossMob.x - wMinX) * sc;
-      const by = offY + (state.bossMob.y - wMinY) * sc;
+      const bx = offX + state.bossMob.x * sc;
+      const by = offY + state.bossMob.y * sc;
       ctx.fillStyle = '#fbbf24';
       ctx.beginPath();
       // Star shape for boss
@@ -1542,8 +1571,8 @@ export function renderMap(
 
     // Portal dot
     if (state.portal?.active) {
-      const px = offX + (state.portal.x - wMinX) * sc;
-      const py = offY + (state.portal.y - wMinY) * sc;
+      const px = offX + state.portal.x * sc;
+      const py = offY + state.portal.y * sc;
       ctx.fillStyle = '#a78bfa';
       ctx.beginPath();
       ctx.arc(px, py, 3, 0, Math.PI * 2);
@@ -1551,8 +1580,8 @@ export function renderMap(
     }
 
     // Player dot (pulsing)
-    const plX = offX + (state.player.x - wMinX) * sc;
-    const plY = offY + (state.player.y - wMinY) * sc;
+    const plX = offX + state.player.x * sc;
+    const plY = offY + state.player.y * sc;
     const pulse = 2.5 + Math.sin(totalTime * 4) * 0.8;
     ctx.fillStyle = '#22d3ee';
     ctx.beginPath();
