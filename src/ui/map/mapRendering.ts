@@ -71,102 +71,84 @@ export function renderMap(
   const ter = state.layout.terrain;
 
   if (ter && ter.grid.length > 0) {
-    // Procedural terrain: render visible cells from the grid
+    // Procedural terrain: pre-render to offscreen canvas (cached)
     const { grid: tGrid, width: tw, cellSize: tcs } = ter;
-    const camX = state.camera.x;
-    const camY = state.camera.y;
 
-    // Only render cells visible in viewport (with 1-cell margin)
-    const startCol = Math.max(0, Math.floor(camX / tcs) - 1);
-    const startRow = Math.max(0, Math.floor(camY / tcs) - 1);
-    const endCol = Math.min(ter.width, Math.ceil((camX + width) / tcs) + 1);
-    const endRow = Math.min(ter.height, Math.ceil((camY + height) / tcs) + 1);
+    // Lazy-init cached terrain canvas (only renders ONCE)
+    if (!(state as any)._terrainCanvas) {
+      const tCanvas = new OffscreenCanvas(ter.worldWidth, ter.worldHeight);
+      const tCtx = tCanvas.getContext('2d')!;
 
-    // Ground tile pattern for walkable cells
-    let groundPattern: CanvasPattern | null = null;
-    if (spriteReady(_sprites?.floorTile)) {
-      groundPattern = ctx.createPattern(_sprites!.floorTile!, 'repeat');
-    }
+      // Ground tile pattern
+      let groundPattern: CanvasPattern | null = null;
+      if (spriteReady(_sprites?.floorTile)) {
+        groundPattern = tCtx.createPattern(_sprites!.floorTile! as any, 'repeat') as CanvasPattern | null;
+      }
 
-    for (let gy = startRow; gy < endRow; gy++) {
-      for (let gx = startCol; gx < endCol; gx++) {
-        const wx = gx * tcs;
-        const wy = gy * tcs;
-        const walkable = tGrid[gy * tw + gx] > 0;
-
-        if (walkable) {
-          // Ground: use tile pattern or brown fallback
-          if (groundPattern) {
-            ctx.fillStyle = groundPattern;
+      // Draw all cells once
+      for (let gy = 0; gy < ter.height; gy++) {
+        for (let gx = 0; gx < tw; gx++) {
+          const wx = gx * tcs;
+          const wy = gy * tcs;
+          if (tGrid[gy * tw + gx] > 0) {
+            // Walkable ground
+            if (groundPattern) {
+              tCtx.fillStyle = groundPattern;
+            } else {
+              tCtx.fillStyle = '#2a231a';
+            }
+            tCtx.fillRect(wx, wy, tcs, tcs);
           } else {
-            ctx.fillStyle = '#2a231a';
+            // Trees: dark with subtle variation
+            const v = ((gx * 7 + gy * 13) % 17) / 17;
+            const shade = 8 + Math.floor(v * 12);
+            tCtx.fillStyle = `rgb(${shade},${shade + 15},${shade - 2})`;
+            tCtx.fillRect(wx, wy, tcs, tcs);
           }
-          ctx.fillRect(wx, wy, tcs, tcs);
-        } else {
-          // Trees/blocked: dark green with variation
-          const shade = 0.6 + (((gx * 7 + gy * 13) % 17) / 17) * 0.4;
-          const r = Math.floor(15 * shade);
-          const g = Math.floor(35 * shade);
-          const b = Math.floor(12 * shade);
-          ctx.fillStyle = `rgb(${r},${g},${b})`;
-          ctx.fillRect(wx, wy, tcs, tcs);
         }
       }
-    }
 
-    // Draw lush tree canopy on blocked cells — layered for depth
-    // Pass 1: large blobs for deep forest (every 3 cells)
-    for (let gy = startRow; gy < endRow; gy += 3) {
-      for (let gx = startCol; gx < endCol; gx += 3) {
-        if (tGrid[gy * tw + gx] > 0) continue;
-        const wx = gx * tcs + tcs / 2;
-        const wy = gy * tcs + tcs / 2;
-        // Seeded variation per tree
-        const v = ((gx * 7 + gy * 13 + 3) % 11) / 11;
-        const treeR = tcs * 2.5 + v * tcs * 1.5;
-        // Dark base canopy
-        const grad = ctx.createRadialGradient(wx, wy, treeR * 0.1, wx, wy, treeR);
-        const hue = 100 + v * 40; // 100-140 (green range variation)
-        const sat = 30 + v * 25;
-        const lit = 12 + v * 8;
-        grad.addColorStop(0, `hsla(${hue}, ${sat}%, ${lit + 5}%, 0.9)`);
-        grad.addColorStop(0.5, `hsla(${hue}, ${sat}%, ${lit}%, 0.7)`);
-        grad.addColorStop(1, `hsla(${hue}, ${sat}%, ${lit - 3}%, 0)`);
-        ctx.beginPath();
-        ctx.arc(wx, wy, treeR, 0, Math.PI * 2);
-        ctx.fillStyle = grad;
-        ctx.fill();
-      }
-    }
-    // Pass 2: edge canopies (near walkable cells) — brighter, more detailed
-    for (let gy = startRow; gy < endRow; gy += 1) {
-      for (let gx = startCol; gx < endCol; gx += 1) {
-        if (tGrid[gy * tw + gx] > 0) continue;
-        let isEdge = false;
-        for (let dy = -1; dy <= 1 && !isEdge; dy++) {
-          for (let dx = -1; dx <= 1 && !isEdge; dx++) {
-            const nx = gx + dx, ny = gy + dy;
-            if (nx >= 0 && nx < ter.width && ny >= 0 && ny < ter.height) {
-              if (tGrid[ny * tw + nx] > 0) isEdge = true;
+      // Edge softening: draw darker circles at tree edges for depth (one-time)
+      for (let gy = 0; gy < ter.height; gy++) {
+        for (let gx = 0; gx < tw; gx++) {
+          if (tGrid[gy * tw + gx] > 0) continue;
+          // Check if edge cell
+          let isEdge = false;
+          for (let dy = -1; dy <= 1 && !isEdge; dy++) {
+            for (let dx = -1; dx <= 1 && !isEdge; dx++) {
+              const nx = gx + dx, ny = gy + dy;
+              if (nx >= 0 && nx < tw && ny >= 0 && ny < ter.height && tGrid[ny * tw + nx] > 0) isEdge = true;
             }
           }
+          if (!isEdge) continue;
+          const wx = gx * tcs + tcs / 2;
+          const wy = gy * tcs + tcs / 2;
+          const v = ((gx * 11 + gy * 7) % 13) / 13;
+          const r = tcs * 1.2 + v * tcs * 0.8;
+          const grad = tCtx.createRadialGradient(wx, wy, r * 0.2, wx, wy, r);
+          grad.addColorStop(0, 'rgba(15, 30, 10, 0.9)');
+          grad.addColorStop(1, 'rgba(10, 20, 8, 0)');
+          tCtx.beginPath();
+          tCtx.arc(wx, wy, r, 0, Math.PI * 2);
+          tCtx.fillStyle = grad;
+          tCtx.fill();
         }
-        if (!isEdge) continue;
-
-        const wx = gx * tcs + tcs / 2;
-        const wy = gy * tcs + tcs / 2;
-        const v = ((gx * 11 + gy * 7) % 13) / 13;
-        const treeR = tcs * 1.5 + v * tcs;
-        // Brighter edge canopy with highlight
-        const grad = ctx.createRadialGradient(wx - treeR * 0.15, wy - treeR * 0.15, 0, wx, wy, treeR);
-        grad.addColorStop(0, `hsla(${110 + v * 30}, ${40 + v * 20}%, ${18 + v * 8}%, 0.95)`);
-        grad.addColorStop(0.4, `hsla(${115 + v * 25}, ${35 + v * 15}%, ${14 + v * 5}%, 0.8)`);
-        grad.addColorStop(1, 'rgba(15, 25, 10, 0)');
-        ctx.beginPath();
-        ctx.arc(wx, wy, treeR, 0, Math.PI * 2);
-        ctx.fillStyle = grad;
-        ctx.fill();
       }
+
+      (state as any)._terrainCanvas = tCanvas;
+    }
+
+    // Draw cached terrain (just one drawImage call per frame!)
+    const tCanvas = (state as any)._terrainCanvas as OffscreenCanvas;
+    const camX = state.camera.x;
+    const camY = state.camera.y;
+    // Only draw the visible portion
+    const sx = Math.max(0, Math.floor(camX));
+    const sy = Math.max(0, Math.floor(camY));
+    const sw = Math.min(ter.worldWidth - sx, width + 2);
+    const sh = Math.min(ter.worldHeight - sy, height + 2);
+    if (sw > 0 && sh > 0) {
+      ctx.drawImage(tCanvas, sx, sy, sw, sh, sx, sy, sw, sh);
     }
   } else if (spriteReady(_sprites?.roomBackground)) {
     // Stretch ONE background image across the ENTIRE world
