@@ -25,6 +25,8 @@ export interface MapHudExtra {
 export interface MapSprites {
   player?: HTMLImageElement;
   floorTile?: HTMLImageElement;
+  /** Tileable canopy texture for blocked/tree cells */
+  canopyTile?: HTMLImageElement;
   /** Large background image stretched per room (replaces tiling when available) */
   roomBackground?: HTMLImageElement;
   /** Array of mob sprites — mobs pick one via mobId % length */
@@ -74,15 +76,27 @@ export function renderMap(
     // Procedural terrain: pre-render to offscreen canvas (cached)
     const { grid: tGrid, width: tw, cellSize: tcs } = ter;
 
-    // Lazy-init cached terrain canvas (only renders ONCE)
+    // Lazy-init cached terrain canvas
+    // Wait for floor tile to be ready so textures apply (re-caches if sprites change)
+    const spritesReady = spriteReady(_sprites?.floorTile);
+    const cacheKey = spritesReady ? 'textured' : 'plain';
+    if ((state as any)._terrainCacheKey !== cacheKey) {
+      (state as any)._terrainCanvas = null; // invalidate
+    }
     if (!(state as any)._terrainCanvas) {
       const tCanvas = new OffscreenCanvas(ter.worldWidth, ter.worldHeight);
       const tCtx = tCanvas.getContext('2d')!;
 
-      // Ground tile pattern
+      // Ground tile pattern (dirt texture)
       let groundPattern: CanvasPattern | null = null;
       if (spriteReady(_sprites?.floorTile)) {
         groundPattern = tCtx.createPattern(_sprites!.floorTile! as any, 'repeat') as CanvasPattern | null;
+      }
+
+      // Canopy tile pattern (tree texture)
+      let canopyPattern: CanvasPattern | null = null;
+      if (spriteReady(_sprites?.canopyTile)) {
+        canopyPattern = tCtx.createPattern(_sprites!.canopyTile! as any, 'repeat') as CanvasPattern | null;
       }
 
       // Draw all cells once
@@ -97,22 +111,24 @@ export function renderMap(
             } else {
               tCtx.fillStyle = '#2a231a';
             }
-            tCtx.fillRect(wx, wy, tcs, tcs);
           } else {
-            // Trees: dark with subtle variation
-            const v = ((gx * 7 + gy * 13) % 17) / 17;
-            const shade = 8 + Math.floor(v * 12);
-            tCtx.fillStyle = `rgb(${shade},${shade + 15},${shade - 2})`;
-            tCtx.fillRect(wx, wy, tcs, tcs);
+            // Trees/blocked
+            if (canopyPattern) {
+              tCtx.fillStyle = canopyPattern;
+            } else {
+              const v = ((gx * 7 + gy * 13) % 17) / 17;
+              const shade = 8 + Math.floor(v * 12);
+              tCtx.fillStyle = `rgb(${shade},${shade + 15},${shade - 2})`;
+            }
           }
+          tCtx.fillRect(wx, wy, tcs, tcs);
         }
       }
 
-      // Edge softening: draw darker circles at tree edges for depth (one-time)
+      // Edge softening: darker gradient at tree/ground boundary
       for (let gy = 0; gy < ter.height; gy++) {
         for (let gx = 0; gx < tw; gx++) {
           if (tGrid[gy * tw + gx] > 0) continue;
-          // Check if edge cell
           let isEdge = false;
           for (let dy = -1; dy <= 1 && !isEdge; dy++) {
             for (let dx = -1; dx <= 1 && !isEdge; dx++) {
@@ -126,8 +142,8 @@ export function renderMap(
           const v = ((gx * 11 + gy * 7) % 13) / 13;
           const r = tcs * 1.2 + v * tcs * 0.8;
           const grad = tCtx.createRadialGradient(wx, wy, r * 0.2, wx, wy, r);
-          grad.addColorStop(0, 'rgba(15, 30, 10, 0.9)');
-          grad.addColorStop(1, 'rgba(10, 20, 8, 0)');
+          grad.addColorStop(0, 'rgba(10, 25, 8, 0.7)');
+          grad.addColorStop(1, 'rgba(5, 15, 5, 0)');
           tCtx.beginPath();
           tCtx.arc(wx, wy, r, 0, Math.PI * 2);
           tCtx.fillStyle = grad;
@@ -136,6 +152,7 @@ export function renderMap(
       }
 
       (state as any)._terrainCanvas = tCanvas;
+      (state as any)._terrainCacheKey = cacheKey;
     }
 
     // Draw cached terrain (just one drawImage call per frame!)

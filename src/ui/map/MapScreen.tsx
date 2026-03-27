@@ -262,12 +262,13 @@ export default function MapScreen() {
 
     // Zone sprite mappings (add more zones as art is audited)
     const ZONE_SPRITES: Record<string, {
-      floor: string; background?: string; collisionPoly?: string;
+      floor: string; canopy?: string; background?: string; collisionPoly?: string;
       mobs: string[]; boss: string;
       props?: string[];
     }> = {
       ashwood_thicket: {
         floor: '/images/map/floors/bogmire_marsh_00002_.png',
+        canopy: '/images/map/floors/ashwood_thicket_00001_.png',
         background: '/images/map/backgrounds/forest_clearing_00001_.png',
         collisionPoly: '/data/collision/forest_clearing_00001__collision.json',
         mobs: [
@@ -292,6 +293,7 @@ export default function MapScreen() {
     const zoneDef = ZONE_SPRITES[zoneId];
     if (zoneDef) {
       sprites.floorTile = load(zoneDef.floor);
+      if (zoneDef.canopy) sprites.canopyTile = load(zoneDef.canopy);
       if (zoneDef.background) {
         sprites.roomBackground = load(zoneDef.background);
       }
