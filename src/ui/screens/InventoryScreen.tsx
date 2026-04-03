@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useLayoutEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useGameStore, SELL_GOLD } from '../../store/gameStore';
 import { Item, Affix, GearSlot, CurrencyType, Rarity, StatKey, ArmorType } from '../../types';
 import { CURRENCY_DEFS, calcBagCapacity, getBagDef } from '../../data/items';
@@ -148,6 +149,8 @@ export default function InventoryScreen({ embedded = false }: { embedded?: boole
   const isMobile = useIsMobile();
   const inventoryCapacity = calcBagCapacity(bagSlots);
   const detailRef = useRef<HTMLDivElement>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTriggered = useRef(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [selectedCurrency, setSelectedCurrency] = useState<CurrencyType | null>(null);
   const [filter, setFilter] = useState<GearSlot | 'all'>('all');
@@ -894,11 +897,15 @@ export default function InventoryScreen({ embedded = false }: { embedded?: boole
               ${item.isCorrupted && selectedItem?.id !== item.id ? 'ring-2 ring-fuchsia-500/60' : ''}
               ${selectedItem?.id === item.id ? 'ring-2 ring-white scale-105' : ''}
               ${selectedCurrency ? 'hover:ring-2 hover:ring-purple-400' : 'hover:brightness-125'}
-              ${tutorialStep === 1 && item.slot === 'mainhand' ? 'ring-2 ring-yellow-400 animate-pulse' : ''}
+              ${tutorialStep === 2 && item.slot === 'mainhand' ? 'ring-2 ring-yellow-400 animate-pulse' : ''}
             `}
-            onClick={() => handleItemTileClick(item)}
+            onClick={() => {
+              if (longPressTriggered.current) { longPressTriggered.current = false; return; }
+              handleItemTileClick(item);
+            }}
             onContextMenu={(e) => {
               e.preventDefault();
+              if (isMobile) return;
               if (item.isProfessionGear) {
                 equipProfessionGear(item.id);
               } else {
@@ -906,6 +913,25 @@ export default function InventoryScreen({ embedded = false }: { embedded?: boole
               }
               setSelectedItem(null);
               setSelectedCurrency(null);
+            }}
+            onTouchStart={() => {
+              longPressTriggered.current = false;
+              longPressTimer.current = setTimeout(() => {
+                longPressTriggered.current = true;
+                if (item.isProfessionGear) {
+                  equipProfessionGear(item.id);
+                } else {
+                  equipItem(item);
+                }
+                setSelectedItem(null);
+                setSelectedCurrency(null);
+              }, 500);
+            }}
+            onTouchEnd={() => {
+              if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+            }}
+            onTouchMove={() => {
+              if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
             }}
             onMouseEnter={isMobile ? undefined : (e) => showTooltip(e, item, item.slot)}
             onMouseLeave={isMobile ? undefined : hideTooltip}
@@ -975,6 +1001,9 @@ export default function InventoryScreen({ embedded = false }: { embedded?: boole
         ))}
       </div>
 
+      {/* Inline detail panel below grid (desktop only) */}
+      {!isMobile && selectedItem && !selectedBankSlot && renderDetailPanel()}
+
       {/* Bank */}
       <BankPanel
         onSelectBankItem={(item, tabIndex, slotIndex) => {
@@ -1016,9 +1045,6 @@ export default function InventoryScreen({ embedded = false }: { embedded?: boole
           </div>
         </div>
       )}
-
-      {/* Inline detail panel below grid (desktop only) */}
-      {!isMobile && selectedItem && !selectedBankSlot && renderDetailPanel()}
     </div>
   );
 
@@ -1049,8 +1075,8 @@ export default function InventoryScreen({ embedded = false }: { embedded?: boole
         </>
       )}
 
-      {/* Mobile bottom sheet overlay — bank item */}
-      {isMobile && selectedBankSlot && (
+      {/* Mobile bottom sheet overlay — bank item (portaled to body for iOS Safari) */}
+      {isMobile && selectedBankSlot && createPortal(
         <div className="lg:hidden fixed inset-x-0 bottom-0 z-[9998] flex flex-col max-h-[60vh]">
           <div
             className="fixed inset-0 bg-black/40"
@@ -1083,11 +1109,12 @@ export default function InventoryScreen({ embedded = false }: { embedded?: boole
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
-      {/* Mobile bottom sheet overlay */}
-      {isMobile && selectedItem && (
+      {/* Mobile bottom sheet overlay (portaled to body for iOS Safari) */}
+      {isMobile && selectedItem && createPortal(
         <div className="lg:hidden fixed inset-x-0 bottom-0 z-[9998] flex flex-col max-h-[60vh]">
           <div
             className="fixed inset-0 bg-black/40"
@@ -1100,7 +1127,8 @@ export default function InventoryScreen({ embedded = false }: { embedded?: boole
             <div className="w-10 h-1 bg-gray-600 rounded-full mx-auto mb-2" />
             {renderDetailPanel()}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {/* Fixed-position hover tooltip */}
