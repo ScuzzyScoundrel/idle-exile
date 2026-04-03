@@ -30,8 +30,11 @@ const TABS = [
 
 const PULSE_MAP: Record<number, string> = {
   1: 'hero',
-  2: 'world',
-  5: 'crafting',
+  2: 'hero',
+  3: 'hero',
+  4: 'hero',
+  5: 'world',
+  8: 'crafting',
 };
 
 function CombatStrip() {

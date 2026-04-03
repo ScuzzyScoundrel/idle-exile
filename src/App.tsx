@@ -64,7 +64,7 @@ function App() {
   const classSelected = useGameStore((s) => s.classSelected);
   const currentZoneId = useGameStore((s) => s.currentZoneId);
   const [activeTab, setActiveTabRaw] = useState(() =>
-    tutorialStep === 1 ? 'hero' : 'world'
+    tutorialStep >= 1 && tutorialStep <= 4 ? 'hero' : 'world'
   );
   const setActiveTab = (tab: string) => {
     // Leaving arena/map: restart idle run so it spawns a fresh zone-appropriate pack

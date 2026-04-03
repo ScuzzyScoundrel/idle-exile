@@ -76,7 +76,7 @@ export default function WorldScreen() {
               onClick={() => handleModeSwitch('gathering')}
               className={`flex-1 py-2 px-3 rounded-md text-sm font-bold transition-all ${
                 idleMode === 'gathering' ? 'bg-green-600 text-white' : 'bg-stone-mid text-gray-400 hover:bg-stone-dark'
-              } ${tutorialStep === 4 ? 'ring-2 ring-yellow-400 animate-pulse' : ''}`}
+              } ${tutorialStep === 7 ? 'ring-2 ring-yellow-400 animate-pulse' : ''}`}
             >
               {'\u26CF\uFE0F'} Gathering
             </button>
@@ -167,7 +167,7 @@ export default function WorldScreen() {
                 idleMode === 'gathering' && (!selectedGatheringProfession || !canGatherInZone(currentGatheringLevel, zone))
                   ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
                   : 'bg-green-600 hover:bg-green-500 text-white'
-              } ${tutorialStep === 3 ? 'ring-2 ring-yellow-400 animate-pulse' : ''}`}
+              } ${tutorialStep === 6 ? 'ring-2 ring-yellow-400 animate-pulse' : ''}`}
             >
               {idleMode === 'gathering' && selectedGatheringProfession && !canGatherInZone(currentGatheringLevel, zone)
                 ? `Requires ${selectedGatheringProfession.charAt(0).toUpperCase() + selectedGatheringProfession.slice(1)} Lv.${getGatheringSkillRequirement(zone.band)}`
