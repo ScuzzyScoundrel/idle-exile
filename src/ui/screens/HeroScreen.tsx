@@ -209,13 +209,15 @@ export default function HeroScreen() {
           <h3 className="text-sm font-bold text-gray-300 heading-fantasy">
             {'\uD83C\uDF92'} Bags
           </h3>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-theme-text-accent font-semibold">{gold}g</span>
-            {Object.entries(currencies).map(([id, count]) => (
-              count > 0 && <span key={id} className="text-xs text-gray-400">{id} x{count}</span>
-            ))}
-            <span className="text-xs text-gray-400">{inventory.length}/{bagCapacity}</span>
-            <span className="text-xs text-gray-500">{bagsOpen ? '\u25BC' : '\u25B6'}</span>
+          <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+            <span className="text-xs text-theme-text-accent font-semibold shrink-0">{gold}g</span>
+            <div className="flex items-center gap-1.5 min-w-0 overflow-x-auto scrollbar-thin">
+              {Object.entries(currencies).map(([id, count]) => (
+                count > 0 && <span key={id} className="text-xs text-gray-400 shrink-0">{id} x{count}</span>
+              ))}
+            </div>
+            <span className="text-xs text-gray-400 shrink-0">{inventory.length}/{bagCapacity}</span>
+            <span className="text-xs text-gray-500 shrink-0">{bagsOpen ? '\u25BC' : '\u25B6'}</span>
           </div>
         </button>
         {bagsOpen && (

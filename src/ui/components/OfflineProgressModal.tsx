@@ -70,7 +70,7 @@ export default function OfflineProgressModal() {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div className="w-full max-w-lg bg-gray-900 rounded-xl border border-indigo-500/30 shadow-2xl overflow-hidden max-h-[85vh] flex flex-col">
+      <div className="w-full max-w-lg bg-gray-900 rounded-xl border border-indigo-500/30 shadow-2xl overflow-hidden max-h-[85dvh] flex flex-col">
         {/* Header */}
         <div className="bg-gradient-to-r from-indigo-900 via-purple-900 to-indigo-900 px-4 py-3 sm:px-6 sm:py-5 text-center">
           <h2 className="text-2xl font-bold text-white">Welcome Back, Exile!</h2>

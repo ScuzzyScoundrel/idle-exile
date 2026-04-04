@@ -598,12 +598,17 @@ export default function InventoryScreen({ embedded = false }: { embedded?: boole
           )}
 
           {selectedCurrency && selectedCurrencyDef && currencies[selectedCurrency] > 0 && (
-            <button
-              onClick={() => handleCraft(selectedItem)}
-              className="w-full py-2 bg-purple-600 hover:bg-purple-500 text-white text-sm rounded-lg font-semibold transition-all"
-            >
-              Apply {selectedCurrencyDef.name}
-            </button>
+            <div className="space-y-1.5">
+              <p className="text-[11px] text-purple-300/80 leading-snug px-1">
+                {selectedCurrencyDef.icon} <span className="font-semibold text-purple-200">{selectedCurrencyDef.name}:</span> {selectedCurrencyDef.description}
+              </p>
+              <button
+                onClick={() => handleCraft(selectedItem)}
+                className="w-full py-2 bg-purple-600 hover:bg-purple-500 text-white text-sm rounded-lg font-semibold transition-all"
+              >
+                Apply {selectedCurrencyDef.name}
+              </button>
+            </div>
           )}
         </div>
 
