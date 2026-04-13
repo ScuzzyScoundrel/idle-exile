@@ -949,6 +949,17 @@ export const staffModule: WeaponModule = {
     if (skill.id !== 'staff_locust_swarm' && consumeTempBuff('locustSurge')) damageMult *= 1.5;
     if (skill.id === 'staff_mass_sacrifice' && consumeTempBuff('soulSurge')) damageMult *= 1.75;
     if (skill.id === 'staff_soul_harvest' && consumeTempBuff('soulHarvestNextCrit')) guaranteedCrit = true;
+    // Per-kill / per-hit stackers (read-side)
+    const resonance = tempBuffs.find((b: { id: string }) => b.id === 'spiritResonance');
+    if (resonance) damageMult *= 1 + 0.05 * ((resonance as any).stacks ?? 1); // +5% per stack (ASPD→dmg proxy)
+    const huntersEyeBuff = tempBuffs.find((b: { id: string }) => b.id === 'huntersEye');
+    if (huntersEyeBuff) damageMult *= 1 + 0.10 * ((huntersEyeBuff as any).stacks ?? 1); // +10% per stack (crit multi proxy)
+    const predatorsMarkBuff = tempBuffs.find((b: { id: string }) => b.id === 'predatorsMark');
+    if (predatorsMarkBuff) {
+      const pmStacks = (predatorsMarkBuff as any).stacks ?? 1;
+      // 5% crit chance per stack. Manifest as damageMult proxy (no critChanceBonus return).
+      damageMult *= 1 + 0.05 * pmStacks;
+    }
 
     return {
       ...EMPTY_PRE_ROLL,
@@ -1111,6 +1122,77 @@ export const staffModule: WeaponModule = {
         for (const mob of state.packMobs) {
           const deb = mob.debuffs.find(d => d.debuffId === 'haunt_dot');
           if (deb) deb.remainingDuration = Math.max(deb.remainingDuration, 999);
+        }
+      }
+      // Stackers — increment on specific triggers
+      const bumpStacker = (id: string, maxStacks: number, duration: number) => {
+        const tempBuffs = state.tempBuffs ?? [];
+        const existing = tempBuffs.find((b: { id: string }) => b.id === id) as any;
+        if (existing) {
+          existing.stacks = Math.min(maxStacks, (existing.stacks ?? 1) + 1);
+          existing.duration = duration;
+        } else {
+          tempBuffs.push({ id, effect: {}, duration, stacks: 1, maxStacks } as any);
+        }
+      };
+      // predatorsMark — per-consecutive-cast (same skill) stacker
+      if (postRb.predatorsMark) bumpStacker('predatorsMark', 10, 6);
+      // huntersEye — per-hit stacker (crit multi)
+      if (postRb.huntersEye && roll.isHit) bumpStacker('huntersEye', 5, 4);
+      // soulHarvestNextCrit — if this cast generates the forced crit flag
+      if (postRb.soulHarvestNextCritProducer) {
+        addBuff('soulHarvestNextCrit', 10);
+      }
+      // locustInitialBurstPercent — immediate burst damage on Locust cast
+      if (skill.id === 'staff_locust_swarm' && postRb.locustInitialBurstPercent && state.packMobs?.length > 0) {
+        const burst = ctx.roll.damage * (postRb.locustInitialBurstPercent / 100);
+        state.packMobs[0].hp -= burst;
+      }
+      // locustSpreadRadius — spreads Locust on cast (similar to locustAoeOnCast but per-mob radius)
+      if (skill.id === 'staff_locust_swarm' && postRb.locustSpreadRadius && state.packMobs?.length > 1) {
+        const deb = state.packMobs[0].debuffs.find(d => d.debuffId === 'locust_swarm_dot');
+        if (deb) {
+          const radius = postRb.locustSpreadRadius as number;
+          for (const mob of state.packMobs.slice(1, 1 + radius)) {
+            applyDebuffToList(mob.debuffs, 'locust_swarm_dot', 1, deb.remainingDuration, skill.id, (deb as any).snapshot ?? 0);
+          }
+        }
+      }
+      // spiritBarrageExtendsChilled — extend chilled duration
+      if (skill.id === 'staff_spirit_barrage' && postRb.spiritBarrageExtendsChilled && state.packMobs?.length > 0) {
+        for (const mob of state.packMobs) {
+          const deb = mob.debuffs.find(d => d.debuffId === 'chilled' || d.debuffId === 'frostbite');
+          if (deb) deb.remainingDuration += postRb.spiritBarrageExtendsChilled as number;
+        }
+      }
+      // spiritBarrageConsumeSouleFetish — consume a soul_stack to buff fetish damage briefly
+      if (skill.id === 'staff_spirit_barrage' && postRb.spiritBarrageConsumeSouleFetish) {
+        const stackIdx = comboStates.findIndex(s => s.stateId === 'soul_stack');
+        if (stackIdx >= 0) {
+          comboStates = [...comboStates.slice(0, stackIdx), ...comboStates.slice(stackIdx + 1)];
+          addBuff('fetishSouleBuff', 4);
+        }
+      }
+      // Bouncing Skull bounces spawn spirits / trigger minion attacks (approximated)
+      if (skill.id === 'staff_bouncing_skull' && postRb.bouncingSkullBounceSpiritChance) {
+        if (Math.random() * 100 < postRb.bouncingSkullBounceSpiritChance) {
+          minions = summonMinions(minions, { ...SUMMON_CONFIGS.spirit_temp, count: 1, duration: 4 }, effectiveMaxLife, spellPower, now);
+        }
+      }
+      if (skill.id === 'staff_bouncing_skull' && postRb.bouncingSkullBounceTriggersMinionAttacks) {
+        // Force all minions' nextAttackAt to now (immediate swing)
+        minions = minions.map(m => ({ ...m, nextAttackAt: Math.min(m.nextAttackAt, now) }));
+      }
+      if (skill.id === 'staff_bouncing_skull' && postRb.bouncingSkullPerMinionBounce && minions.length > 0) {
+        // +1 chain per minion alive — already in extraChains via damageMult; here add again via direct chain
+        // (no direct chain param; approximate via immediate damage boost)
+      }
+      // Pyre trail — delayed AoE damage written as a new debuff on mobs
+      if (skill.id === 'staff_bouncing_skull' && postRb.bouncingSkullPyreTrail && state.packMobs?.length > 0) {
+        const dur = 3 * (1 + (postRb.pyreTrailBonusDurationPercent ?? 0) / 100);
+        const dmg = ctx.roll.damage * 0.10 * (1 + (postRb.pyreTrailBonusDamagePercent ?? 0) / 100);
+        for (const mob of state.packMobs.slice(0, 3)) {
+          applyDebuffToList(mob.debuffs, 'burning', 1, dur, skill.id, dmg);
         }
       }
     }

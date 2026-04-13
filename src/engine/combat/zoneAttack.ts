@@ -425,6 +425,17 @@ export function applyZoneDamage(
           }
           dotKillProcDamage += burst;
         }
+        // spiritResonance — per-kill ASPD stacker on the player buff
+        if (rb.spiritResonance) {
+          const tempBuffs = state.tempBuffs ?? [];
+          const existing = tempBuffs.find((b: { id: string }) => b.id === 'spiritResonance') as any;
+          if (existing) {
+            existing.stacks = Math.min(10, (existing.stacks ?? 1) + 1);
+            existing.duration = 6;
+          } else {
+            tempBuffs.push({ id: 'spiritResonance', effect: {}, duration: 6, stacks: 1, maxStacks: 10 } as any);
+          }
+        }
         // locustKillSpawnsPermMinion — on Locust kill, spawn a long-duration spirit
         if (rb.locustKillSpawnsPermMinion && skillId === 'staff_locust_swarm' &&
             mob.debuffs.some(d => d.debuffId === 'locust_swarm_dot')) {
