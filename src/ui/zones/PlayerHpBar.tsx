@@ -216,11 +216,13 @@ function MinionBadge({ minion, now }: { minion: MinionState; now: number }) {
     minion.element === 'fire' ? 'Ignite' :
     minion.element === 'lightning' ? 'Shocked' :
     'Bleeding';
+  const totalDealt = minion.damageDealt ?? 0;
   const tooltipContent = (
     <div className="space-y-0.5 text-[11px]">
       <div className="font-bold">{meta.icon} {meta.label}</div>
       <div className="text-gray-300">HP: {Math.ceil(minion.hp)}/{Math.ceil(minion.maxHp)}</div>
       <div className="text-gray-400">Damage: {minion.damage.toFixed(0)} every {minion.attackInterval.toFixed(1)}s ({minion.element})</div>
+      <div className="text-yellow-300">Total dealt: {Math.floor(totalDealt)}</div>
       <div className="text-gray-400">Next attack in {atkSecUntil.toFixed(1)}s</div>
       <div className="text-gray-400">On hit: applies {elementAilment}</div>
       <div className="text-gray-400">Expires in {remaining.toFixed(1)}s</div>

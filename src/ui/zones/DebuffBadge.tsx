@@ -23,6 +23,13 @@ function dotInlineText(debuff: ActiveDebuff): string | null {
     return `${dmg}/trg`;
   }
 
+  // Frostbite: stack-based snapshot DoT (cold) → tick damage per second
+  if (debuff.debuffId === 'frostbite' && def.effect.snapshotPercent && debuff.stackSnapshots?.length) {
+    const total = debuff.stackSnapshots.reduce((a, b) => a + b, 0);
+    const dps = Math.round(total * def.effect.snapshotPercent / 100);
+    return `${dps}/s`;
+  }
+
   // Burning: percentMaxHp
   if (debuff.debuffId === 'burning' && def.effect.percentMaxHp) {
     return `${def.effect.percentMaxHp}%/s`;

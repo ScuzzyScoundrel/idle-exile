@@ -18,6 +18,8 @@ export interface MinionState {
   expiresAt: number;        // timestamp (ms)
   element: DamageType;
   sourceSkillId: string;
+  /** Cumulative damage dealt by this minion since spawn (for tooltips). */
+  damageDealt?: number;
   /** If set, each bite applies this debuff to target. */
   appliesDebuffOnHit?: { debuffId: string; duration: number; stacks: number };
   /** If set, each bite creates this combo state (e.g., 'haunted' for zombie dogs). */
@@ -151,6 +153,7 @@ export function stepMinions(
     if (m.hp <= 0) continue;
 
     let next = m.nextAttackAt;
+    let attacksThisTick = 0;
     // Fire as many attacks as the interval allows this tick (normally 1)
     while (now >= next) {
       attacks.push({
@@ -160,10 +163,15 @@ export function stepMinions(
         appliesDebuffOnHit: m.appliesDebuffOnHit,
         createsComboStateOnHit: m.createsComboStateOnHit,
       });
+      attacksThisTick++;
       next += m.attackInterval * 1000;
     }
 
-    updated.push({ ...m, nextAttackAt: next });
+    updated.push({
+      ...m,
+      nextAttackAt: next,
+      damageDealt: (m.damageDealt ?? 0) + attacksThisTick * m.damage,
+    });
   }
 
   // dtSec currently unused — reserved for future continuous-damage minions (DoT auras, etc.)
