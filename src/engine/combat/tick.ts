@@ -191,8 +191,11 @@ export function runCombatTick(
     }
     state = { ...state, ...maintPatch };
   }
+  // out.patch wins over maintPatch — applyZoneDamage updates activeMinions/comboStates
+  // (DoT-kill onKill procs spawn spirits, gen soul_stacks). Maintenance fields not in
+  // out.patch (activeTraps, bladeWardExpiresAt, bladeWardHits) still pass through.
   const withMaint = (out: CombatTickOutput): CombatTickOutput =>
-    maintPatch ? { patch: { ...out.patch, ...maintPatch }, result: out.result } : out;
+    maintPatch ? { patch: { ...maintPatch, ...out.patch }, result: out.result } : out;
 
   // GCD check: can we fire any active skill yet?
   if (now < state.nextActiveSkillAt) {
