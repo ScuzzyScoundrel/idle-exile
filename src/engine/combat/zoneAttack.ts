@@ -226,81 +226,107 @@ export function applyZoneDamage(
       const hauntDeb = mob.debuffs.find(d => d.debuffId === 'haunt_dot');
       const toadsDeb = mob.debuffs.find(d => d.debuffId === 'toads_dot');
       const hexedDeb = mob.debuffs.find(d => d.debuffId === 'hexed');
+      // Helper: safely read a number from scalar or any of several object keys.
+      const numFrom = (v: any, ...keys: string[]): number => {
+        if (typeof v === 'number' && isFinite(v)) return v;
+        if (v && typeof v === 'object') {
+          for (const k of keys) {
+            const x = v[k];
+            if (typeof x === 'number' && isFinite(x)) return x;
+          }
+        }
+        return 0;
+      };
       // Locust execute threshold — low-HP bonus damage
       if (locustDeb) {
         const lMod = getDotSrcMod(locustDeb.appliedBySkillId ?? 'staff_locust_swarm');
         const lrb = lMod?.rawBehaviors as Record<string, any> | undefined;
-        if (lrb?.locustExecuteThreshold && mob.hp / enemyMaxHp <= (lrb.locustExecuteThreshold as number) / 100) {
-          dotDmg *= 1 + (lrb.locustExecuteBonus ?? 50) / 100;
+        if (lrb?.locustExecuteThreshold) {
+          const cfg = lrb.locustExecuteThreshold;
+          const hpPct = numFrom(cfg, 'hpPercent', 'threshold');
+          const bonus = numFrom(cfg, 'damageBonus', 'bonus');
+          if (hpPct > 0 && mob.hp / enemyMaxHp <= hpPct / 100) {
+            dotDmg *= 1 + (bonus || 50) / 100;
+          }
         }
         // Mini Pandemic — roll per tick; spread to adjacent (respects swarmTransferDamageBonus compound)
-        if (lrb?.miniPandemicChance && Math.random() * 100 < (lrb.miniPandemicChance as number) * dt) {
+        const miniChance = numFrom(lrb?.miniPandemicChance, 'chance', 'percent');
+        if (miniChance > 0 && Math.random() * 100 < miniChance * dt) {
           const adj = updatedMobs[mobIdx + 1] ?? updatedMobs[mobIdx - 1];
-          const hasChain = lrb?.swarmInfiniteChain
-            || ((locustDeb as any)._swarmTransfers ?? 0) < (lrb?.swarmTransferMaxHops ?? 4);
+          const transfers = ((locustDeb as any)._swarmTransfers ?? 0);
+          const maxHops = numFrom(lrb?.swarmTransferMaxHops, 'max') || 4;
+          const hasChain = !!lrb?.swarmInfiniteChain || transfers < maxHops;
           if (adj && adj.hp > 0 && hasChain && !adj.debuffs.some(d => d.debuffId === 'locust_swarm_dot')) {
             const baseSnap = (locustDeb as any).snapshot ?? 0;
-            const transfers = ((locustDeb as any)._swarmTransfers ?? 0) + 1;
-            const compoundMult = 1 + (lrb?.swarmTransferDamageBonus ?? 0) / 100 * transfers;
+            const newTransfers = transfers + 1;
+            const transferBonus = numFrom(lrb?.swarmTransferDamageBonus, 'perTransferPercent', 'percent');
+            const compoundMult = 1 + (transferBonus / 100) * newTransfers;
             applyDebuffToList(adj.debuffs, 'locust_swarm_dot', 1, locustDeb.remainingDuration,
               locustDeb.appliedBySkillId ?? 'staff_locust_swarm', baseSnap * compoundMult);
             const newDeb = adj.debuffs.find(d => d.debuffId === 'locust_swarm_dot') as any;
-            if (newDeb) newDeb._swarmTransfers = transfers;
+            if (newDeb) newDeb._swarmTransfers = newTransfers;
           }
         }
         // Heal minions per locust tick
-        if (lrb?.locustHealsMinionsPerTick && state.activeMinions) {
-          const healPct = lrb.locustHealsMinionsPerTick as number;
+        const healPct = numFrom(lrb?.locustHealsMinionsPerTick, 'percent');
+        if (healPct > 0 && state.activeMinions) {
           for (const m of state.activeMinions) {
             m.hp = Math.min(m.maxHp, m.hp + m.maxHp * (healPct / 100) * dt);
           }
         }
       }
-      // Haunt chain damage compound — accumulate per tick
+      // Haunt chain damage compound
       if (hauntDeb) {
         const hMod = getDotSrcMod(hauntDeb.appliedBySkillId ?? 'staff_haunt');
         const hrb = hMod?.rawBehaviors as Record<string, any> | undefined;
-        if (hrb?.hauntChainDamageCompound) {
-          // Every tick compounds: +X% damage per tick on this debuff. Store in a counter on the debuff.
+        const chainPct = numFrom(hrb?.hauntChainDamageCompound, 'perTickPercent', 'percent');
+        if (chainPct > 0) {
           const anyDeb = hauntDeb as any;
           anyDeb._chainCompoundTicks = (anyDeb._chainCompoundTicks ?? 0) + 1;
-          dotDmg *= 1 + (hrb.hauntChainDamageCompound as number / 100) * anyDeb._chainCompoundTicks;
+          dotDmg *= 1 + (chainPct / 100) * anyDeb._chainCompoundTicks;
         }
         if (hrb?.spiritConduit && state.activeMinions) {
-          // +X% damage per alive minion; cost: subtract minion HP each tick
+          const perMinion = numFrom(hrb.spiritConduit, 'damagePerMinionPercent', 'percent');
+          const selfPct = numFrom(hrb.spiritConduit, 'minionSelfDamagePercent', 'hpCost') || 1;
           const aliveMinions = state.activeMinions.filter(m => m.hp > 0);
-          if (aliveMinions.length > 0) {
-            dotDmg *= 1 + (hrb.spiritConduit as number / 100) * aliveMinions.length;
-            const cost = (hrb.spiritConduitHpCostPercent ?? 1) / 100;
-            for (const m of aliveMinions) m.hp = Math.max(1, m.hp - m.maxHp * cost * dt);
+          if (aliveMinions.length > 0 && perMinion > 0) {
+            dotDmg *= 1 + (perMinion / 100) * aliveMinions.length;
+            for (const m of aliveMinions) m.hp = Math.max(1, m.hp - m.maxHp * (selfPct / 100) * dt);
           }
         }
       }
-      // Toads — plague mark buildup (stack counter stored on debuff; detonate at max)
+      // Toads plague mark buildup
       if (toadsDeb) {
         const tMod = getDotSrcMod(toadsDeb.appliedBySkillId ?? 'staff_plague_of_toads');
         const trb = tMod?.rawBehaviors as Record<string, any> | undefined;
         if (trb?.plagueMarkBuildup) {
-          const cfg = trb.plagueMarkBuildup as { perTick: number; maxStacks: number; detonatePercent: number };
+          const cfg = trb.plagueMarkBuildup;
+          const perTick = numFrom(cfg, 'perTick') || 1;
+          const maxStacks = numFrom(cfg, 'maxStacks') || 10;
+          const detPct = numFrom(cfg, 'detonatePercent', 'detonationMultiplier', 'multiplier');
           const anyDeb = toadsDeb as any;
-          anyDeb._plagueMarks = (anyDeb._plagueMarks ?? 0) + (cfg.perTick ?? 1) * dt;
-          if (anyDeb._plagueMarks >= cfg.maxStacks) {
-            dotDmg += enemyMaxHp * (cfg.detonatePercent / 100);
+          anyDeb._plagueMarks = (anyDeb._plagueMarks ?? 0) + perTick * dt;
+          if (anyDeb._plagueMarks >= maxStacks) {
+            dotDmg += enemyMaxHp * (detPct / 100);
             anyDeb._plagueMarks = 0;
           }
         }
       }
-      // Hex decay — ramping damage-taken on hexed mobs
+      // Hex decay mark
       if (hexedDeb) {
         const xMod = getDotSrcMod(hexedDeb.appliedBySkillId ?? 'staff_hex');
         const xrb = xMod?.rawBehaviors as Record<string, any> | undefined;
         if (xrb?.hexedDecayMark) {
-          const cfg = xrb.hexedDecayMark as { perSec: number; maxPct: number };
+          const cfg = xrb.hexedDecayMark;
+          const perSec = numFrom(cfg, 'perSecondPercent', 'perSec') || 1;
+          const maxPct = numFrom(cfg, 'maxPercent', 'maxPct') || 30;
           const anyDeb = hexedDeb as any;
-          anyDeb._decayMark = Math.min(cfg.maxPct, (anyDeb._decayMark ?? 0) + (cfg.perSec ?? 1) * dt);
-          dotDmg *= 1 + anyDeb._decayMark / 100;
+          anyDeb._decayMark = Math.min(maxPct, (anyDeb._decayMark ?? 0) + perSec * dt);
+          dotDmg *= 1 + (anyDeb._decayMark || 0) / 100;
         }
       }
+      // Final NaN guard
+      if (!isFinite(dotDmg)) dotDmg = 0;
       helperDotDamage += dotDmg;
       mob.hp = Math.max(0, mob.hp - dotDmg);
       mob.debuffs = dot.updatedDebuffs;

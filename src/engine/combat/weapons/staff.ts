@@ -149,10 +149,10 @@ export const staffModule: WeaponModule = {
     // Helper: adjust debuff duration by talent bonus (dogAppliedDotDurationBonus / fetishAppliedDotDurationBonus).
     const durationForSource = (skillId: string, base: number, rb: Record<string, any> | undefined): number => {
       if (!rb) return base;
-      if (skillId === 'staff_zombie_dogs' && rb.dogAppliedDotDurationBonus) {
+      if (skillId === 'staff_zombie_dogs' && rb?.dogAppliedDotDurationBonus) {
         return base * (1 + rb.dogAppliedDotDurationBonus / 100);
       }
-      if (skillId === 'staff_fetish_swarm' && rb.fetishAppliedDotDurationBonus) {
+      if (skillId === 'staff_fetish_swarm' && rb?.fetishAppliedDotDurationBonus) {
         return base * (1 + rb.fetishAppliedDotDurationBonus / 100);
       }
       return base;
@@ -271,7 +271,7 @@ export const staffModule: WeaponModule = {
           }
         }
         // t3b Crit Bite — per-debuff extra stacks on crit (configured as a map)
-        if (isCrit && rb.dogCritExtraStacks && typeof rb.dogCritExtraStacks === 'object') {
+        if (isCrit && rb?.dogCritExtraStacks && typeof rb.dogCritExtraStacks === 'object') {
           for (const [debId, stacks] of Object.entries(rb.dogCritExtraStacks as Record<string, number>)) {
             if (typeof stacks !== 'number' || stacks <= 0) continue;
             minionDebuffs.push({
@@ -299,7 +299,7 @@ export const staffModule: WeaponModule = {
           }
         }
         // t3b Crit Soul
-        if (isCrit && rb.dogCritSoulStackChance && Math.random() * 100 < rb.dogCritSoulStackChance) {
+        if (isCrit && rb?.dogCritSoulStackChance && Math.random() * 100 < rb.dogCritSoulStackChance) {
           const icdKey = 'minion_icd_dogCritSoulStack';
           const icdMs = (rb.dogCritSoulStackICD ?? 2) * 1000;
           const lastAt = state.lastProcTriggerAt?.[icdKey] ?? 0;
@@ -371,7 +371,7 @@ export const staffModule: WeaponModule = {
           });
         }
         // t3b Bleed Darts — on crit
-        if (isCrit && rb.fetishCritBleedingStacks) {
+        if (isCrit && rb?.fetishCritBleedingStacks) {
           minionDebuffs.push({
             debuffId: 'bleeding', stacks: rb.fetishCritBleedingStacks,
             duration: durationForSource(a.sourceSkillId, 3, rb),
@@ -389,7 +389,7 @@ export const staffModule: WeaponModule = {
           }
         }
         // t3b Crit Soul
-        if (isCrit && rb.fetishCritSoulStackChance && Math.random() * 100 < rb.fetishCritSoulStackChance) {
+        if (isCrit && rb?.fetishCritSoulStackChance && Math.random() * 100 < rb.fetishCritSoulStackChance) {
           const icdKey = 'minion_icd_fetishCritSoulStack';
           const icdMs = (rb.fetishCritSoulStackICD ?? 1.5) * 1000;
           const lastAt = state.lastProcTriggerAt?.[icdKey] ?? 0;
@@ -399,7 +399,7 @@ export const staffModule: WeaponModule = {
           }
         }
         // t4b Predator Pack — crit cascades N next attacks forced-crit (per minion)
-        if (isCrit && rb.fetishCritCascadeAttacks) {
+        if (isCrit && rb?.fetishCritCascadeAttacks) {
           const minion = updatedMinions.find(m => m.id === a.minionId);
           if (minion) minion.forcedCritsRemaining = (minion.forcedCritsRemaining ?? 0) + rb.fetishCritCascadeAttacks;
         }
@@ -428,7 +428,7 @@ export const staffModule: WeaponModule = {
           });
         }
         // t4 Plague Volley — splash extra damage to 1 adjacent mob
-        if (rb.fetishAttackSplashTargets && rb.fetishSplashPercent) {
+        if (rb.fetishAttackSplashTargets && rb?.fetishSplashPercent) {
           const splashDamage = finalDamage * (rb.fetishSplashPercent / 100);
           minionAttackDamage += splashDamage; // simplification: adds to front-target damage (approx same mob)
         }
@@ -767,64 +767,90 @@ export const staffModule: WeaponModule = {
     }
 
     // ── Batch K: preRoll rawBehaviors ──
+    // graphMod has BOTH top-level fields (catchall-merged) and rawBehaviors object,
+    // depending on how each talent was authored. Read flexibly from either location.
     const rb = graphMod?.rawBehaviors as Record<string, any> | undefined;
-    if (rb) {
-      // Haunt first-ticks bonus — requires debuff-tick awareness; treated as burst via snapshot boost proxy.
-      // We approximate by boosting damageMult on the cast that APPLIES haunt.
-      if (skill.id === 'staff_haunt' && rb.hauntSnapshotBonus) {
-        damageMult *= 1 + rb.hauntSnapshotBonus / 100;
+    const gm = graphMod as any;
+    const numFrom = (v: any, ...keys: string[]): number => {
+      if (typeof v === 'number' && isFinite(v)) return v;
+      if (v && typeof v === 'object') {
+        for (const k of keys) {
+          const x = v[k];
+          if (typeof x === 'number' && isFinite(x)) return x;
+        }
       }
-      // Haunted execute threshold — if target below threshold %, bonus damage
-      if (skill.id === 'staff_haunt' && rb.hauntedExecuteThreshold) {
-        const cfg = rb.hauntedExecuteThreshold as { threshold: number; bonus: number };
-        if (ctx.state.packMobs?.[0]?.hp !== undefined && ctx.state.packMobs[0].maxHp > 0) {
+      return 0;
+    };
+    if (rb || gm) {
+      // Haunt snapshot bonus (scalar)
+      if (skill.id === 'staff_haunt') {
+        const v = numFrom(rb?.hauntSnapshotBonus ?? gm?.hauntSnapshotBonus);
+        if (v > 0) damageMult *= 1 + v / 100;
+      }
+      // Haunted execute threshold — at top-level on some talents, scalar percent
+      if (skill.id === 'staff_haunt') {
+        const thr = numFrom(rb?.hauntedExecuteThreshold ?? gm?.hauntedExecuteThreshold, 'hpPercent', 'threshold');
+        const bonus = numFrom(rb?.hauntedExecuteThreshold ?? gm?.hauntedExecuteThreshold, 'damageBonus', 'bonus') || 100;
+        if (thr > 0 && ctx.state.packMobs?.[0]?.maxHp > 0) {
           const pct = ctx.state.packMobs[0].hp / ctx.state.packMobs[0].maxHp;
-          if (pct <= cfg.threshold / 100) damageMult *= 1 + cfg.bonus / 100;
+          if (pct <= thr / 100) damageMult *= 1 + bonus / 100;
         }
       }
       // Damage per haunted enemy in pack
-      if (skill.id === 'staff_haunt' && rb.damagePerHauntedEnemyInPack) {
-        const hauntedCount = (ctx.state.packMobs ?? [])
-          .filter(m => m.debuffs?.some(d => d.debuffId === 'haunt_dot' || d.debuffId === 'haunted')).length;
-        if (hauntedCount > 0) damageMult *= 1 + (rb.damagePerHauntedEnemyInPack / 100) * hauntedCount;
+      if (skill.id === 'staff_haunt') {
+        const cfg = rb?.damagePerHauntedEnemyInPack ?? gm?.damagePerHauntedEnemyInPack;
+        const perEnemy = numFrom(cfg, 'perEnemy', 'percent');
+        const max = numFrom(cfg, 'max') || 99;
+        if (perEnemy > 0) {
+          const hauntedCount = Math.min(max, (ctx.state.packMobs ?? [])
+            .filter(m => m.debuffs?.some(d => d.debuffId === 'haunt_dot' || d.debuffId === 'haunted')).length);
+          if (hauntedCount > 0) damageMult *= 1 + (perEnemy / 100) * hauntedCount;
+        }
       }
-      // Puppeteer: Hex cast deals %maxHp per soul_stack (converts Hex cast damage)
-      if (skill.id === 'staff_hex' && rb.puppeteerHexCastDamage) {
+      // Puppeteer Hex cast damage
+      if (skill.id === 'staff_hex') {
+        const perStack = numFrom(rb?.puppeteerHexCastDamage ?? gm?.puppeteerHexCastDamage, 'perSoulStackPercent', 'percent');
         const stacks = comboStates.find(s => s.stateId === 'soul_stack')?.stacks ?? 0;
-        if (stacks > 0) {
+        if (perStack > 0 && stacks > 0) {
           const maxHp = ctx.state.packMobs?.[0]?.maxHp ?? 0;
-          burstDamage += maxHp * (rb.puppeteerHexCastDamage / 100) * stacks;
+          burstDamage += maxHp * (perStack / 100) * stacks;
         }
       }
       // Soul Harvest hexed consume bonus
       if (skill.id === 'staff_soul_harvest' && consumedStateIds.includes('hexed')) {
-        if (rb.soulHarvestHexedConsumeBonus) damageMult *= 1 + rb.soulHarvestHexedConsumeBonus / 100;
-        if (rb.soulHarvestHexedConsumeMult) damageMult *= rb.soulHarvestHexedConsumeMult;
+        const b = numFrom(rb?.soulHarvestHexedConsumeBonus ?? gm?.soulHarvestHexedConsumeBonus);
+        if (b > 0) damageMult *= 1 + b / 100;
+        const m = numFrom(rb?.soulHarvestHexedConsumeMult ?? gm?.soulHarvestHexedConsumeMult);
+        if (m > 0) damageMult *= m;
       }
-      // Soul Harvest consume all stacks keystone
-      if (skill.id === 'staff_soul_harvest' && rb.soulHarvestConsumesAllStacks) {
+      // Soul Harvest consume all stacks
+      if (skill.id === 'staff_soul_harvest' && (rb?.soulHarvestConsumesAllStacks || gm?.soulHarvestConsumesAllStacks)) {
         const stacks = comboStates.find(s => s.stateId === 'soul_stack')?.stacks ?? 0;
-        const perStackBonus = (rb.soulHarvestConsumesAllStacksBonus ?? 20) / 100;
-        damageMult *= 1 + perStackBonus * stacks;
+        const per = numFrom(rb?.soulHarvestConsumesAllStacksBonus ?? gm?.soulHarvestConsumesAllStacksBonus) || 20;
+        damageMult *= 1 + (per / 100) * stacks;
       }
       // Soul Harvest execute threshold
-      if (skill.id === 'staff_soul_harvest' && rb.soulHarvestExecuteThreshold) {
-        const cfg = rb.soulHarvestExecuteThreshold as { threshold: number; bonus: number };
-        if (ctx.state.packMobs?.[0]?.hp !== undefined && ctx.state.packMobs[0].maxHp > 0) {
+      if (skill.id === 'staff_soul_harvest') {
+        const cfg = rb?.soulHarvestExecuteThreshold ?? gm?.soulHarvestExecuteThreshold;
+        const thr = numFrom(cfg, 'hpPercent', 'threshold');
+        const bonus = numFrom(cfg, 'damageBonus', 'bonus') || 100;
+        if (thr > 0 && ctx.state.packMobs?.[0]?.maxHp > 0) {
           const pct = ctx.state.packMobs[0].hp / ctx.state.packMobs[0].maxHp;
-          if (pct <= cfg.threshold / 100) damageMult *= 1 + cfg.bonus / 100;
+          if (pct <= thr / 100) damageMult *= 1 + bonus / 100;
         }
       }
       // Toads execute threshold
-      if (skill.id === 'staff_plague_of_toads' && rb.toadsExecuteThreshold) {
-        const cfg = rb.toadsExecuteThreshold as { threshold: number; bonus: number };
-        if (ctx.state.packMobs?.[0]?.hp !== undefined && ctx.state.packMobs[0].maxHp > 0) {
+      if (skill.id === 'staff_plague_of_toads') {
+        const cfg = rb?.toadsExecuteThreshold ?? gm?.toadsExecuteThreshold;
+        const thr = numFrom(cfg, 'hpPercent', 'threshold');
+        const bonus = numFrom(cfg, 'damageBonus', 'bonus') || 100;
+        if (thr > 0 && ctx.state.packMobs?.[0]?.maxHp > 0) {
           const pct = ctx.state.packMobs[0].hp / ctx.state.packMobs[0].maxHp;
-          if (pct <= cfg.threshold / 100) damageMult *= 1 + cfg.bonus / 100;
+          if (pct <= thr / 100) damageMult *= 1 + bonus / 100;
         }
       }
       // Bouncing Skull damage compound (per consecutive cast)
-      if (skill.id === 'staff_bouncing_skull' && rb.bouncingSkullDamageCompound) {
+      if (skill.id === 'staff_bouncing_skull' && rb?.bouncingSkullDamageCompound) {
         const compoundKey = 'bouncing_skull_compound';
         const lastAt = ctx.state.lastProcTriggerAt?.[compoundKey] ?? 0;
         // reset compound if idle > 3s, else stack
@@ -833,47 +859,47 @@ export const staffModule: WeaponModule = {
           ctx.state.lastProcTriggerAt[compoundKey] = now;
           ctx.state.lastProcTriggerAt[compoundKey + '_stacks'] = compound;
         }
-        damageMult *= 1 + (rb.bouncingSkullDamageCompound / 100) * compound;
+        damageMult *= 1 + (rb?.bouncingSkullDamageCompound / 100) * compound;
       }
       // Spirit Barrage — consume soul stacks mode (pinpoint / single shot)
-      if (skill.id === 'staff_spirit_barrage' && rb.spiritBarrageConsumesSoulStacks) {
+      if (skill.id === 'staff_spirit_barrage' && rb?.spiritBarrageConsumesSoulStacks) {
         const stacks = comboStates.find(s => s.stateId === 'soul_stack')?.stacks ?? 0;
         if (stacks > 0) {
-          const perStack = (rb.spiritBarrageConsumesSoulStacksBonus ?? 25) / 100;
+          const perStack = (rb?.spiritBarrageConsumesSoulStacksBonus ?? 25) / 100;
           damageMult *= 1 + perStack * stacks;
           // consume
           const idx = newComboStates.findIndex(s => s.stateId === 'soul_stack');
           if (idx >= 0) newComboStates = [...newComboStates.slice(0, idx), ...newComboStates.slice(idx + 1)];
         }
       }
-      if (skill.id === 'staff_spirit_barrage' && rb.spiritBarragePinpointMode) {
-        damageMult *= 1 + (rb.spiritBarragePinpointMode as number) / 100;
+      if (skill.id === 'staff_spirit_barrage' && rb?.spiritBarragePinpointMode) {
+        damageMult *= 1 + (rb?.spiritBarragePinpointMode as number) / 100;
       }
-      if (skill.id === 'staff_spirit_barrage' && rb.spiritBarrageSingleShot) {
-        damageMult *= 1 + (rb.spiritBarrageSingleShot as number) / 100;
+      if (skill.id === 'staff_spirit_barrage' && rb?.spiritBarrageSingleShot) {
+        damageMult *= 1 + (rb?.spiritBarrageSingleShot as number) / 100;
       }
       // Bouncing Skull final bounce bonus & consumesAllStates
-      if (skill.id === 'staff_bouncing_skull' && rb.bouncingSkullFinalBounceBonus) {
-        damageMult *= 1 + (rb.bouncingSkullFinalBounceBonus as number) / 100;
+      if (skill.id === 'staff_bouncing_skull' && rb?.bouncingSkullFinalBounceBonus) {
+        damageMult *= 1 + (rb?.bouncingSkullFinalBounceBonus as number) / 100;
       }
-      if (skill.id === 'staff_bouncing_skull' && rb.soulConsumeChainBonus) {
+      if (skill.id === 'staff_bouncing_skull' && rb?.soulConsumeChainBonus) {
         const stacks = comboStates.find(s => s.stateId === 'soul_stack')?.stacks ?? 0;
-        damageMult *= 1 + (rb.soulConsumeChainBonus as number / 100) * stacks;
+        damageMult *= 1 + (rb?.soulConsumeChainBonus as number / 100) * stacks;
       }
-      if (skill.id === 'staff_bouncing_skull' && rb.bouncingSkullConsumesAllStates) {
+      if (skill.id === 'staff_bouncing_skull' && rb?.bouncingSkullConsumesAllStates) {
         const total = comboStates.reduce((s, st) => s + (st.stacks ?? 0), 0);
-        const perState = (rb.bouncingSkullConsumesAllStatesBonus ?? 20) / 100;
+        const perState = (rb?.bouncingSkullConsumesAllStatesBonus ?? 20) / 100;
         damageMult *= 1 + perState * total;
       }
       // Frog Prince random burst multiplier
-      if (skill.id === 'staff_plague_of_toads' && rb.frogPrinceChance) {
+      if (skill.id === 'staff_plague_of_toads' && rb?.frogPrinceChance) {
         if (Math.random() * 100 < rb.frogPrinceChance) {
           const mult = rb.frogPrinceMultiplier ?? 3;
           damageMult *= mult;
         }
       }
       // Toads stack compounder — stack per cast, bonus damage
-      if (skill.id === 'staff_plague_of_toads' && rb.toadsStackCompounder) {
+      if (skill.id === 'staff_plague_of_toads' && rb?.toadsStackCompounder) {
         const stackKey = 'toads_stack_compound';
         const lastAt = ctx.state.lastProcTriggerAt?.[stackKey] ?? 0;
         const compound = (now - lastAt) > 5000 ? 0 : (ctx.state.lastProcTriggerAt?.[stackKey + '_v'] ?? 0) + 1;
@@ -885,31 +911,33 @@ export const staffModule: WeaponModule = {
       }
       // Spirit Barrage projectile variants — approximated as damageMult (no projectile sim)
       if (skill.id === 'staff_spirit_barrage') {
-        if (rb.spiritBarrageProjectileExtraStack) damageMult *= 1 + (rb.spiritBarrageProjectileExtraStack / 100);
-        if (rb.spiritBarragePerMinionExtraProjectile && activeMinions.length > 0) {
-          damageMult *= 1 + (rb.spiritBarragePerMinionExtraProjectile / 100) * activeMinions.length;
+        if (rb?.spiritBarrageProjectileExtraStack) damageMult *= 1 + (rb?.spiritBarrageProjectileExtraStack / 100);
+        if (rb?.spiritBarragePerMinionExtraProjectile && activeMinions.length > 0) {
+          damageMult *= 1 + (rb?.spiritBarragePerMinionExtraProjectile / 100) * activeMinions.length;
         }
-        if (rb.spiritBarrageMassVolley) damageMult *= 1 + rb.spiritBarrageMassVolley / 100;
+        if (rb?.spiritBarrageMassVolley) damageMult *= 1 + rb.spiritBarrageMassVolley / 100;
         // Note: preRoll runs BEFORE the cast roll; crit-gated damage handled in postCast flow.
-        if (rb.spiritBarrageCritCascade && guaranteedCrit) damageMult *= 1 + rb.spiritBarrageCritCascade / 100;
-        if (rb.spiritBarrageSplit) extraChains += typeof rb.spiritBarrageSplit === 'number' ? rb.spiritBarrageSplit : 2;
-        if (rb.spiritBarrageFinalProjectileBonus) damageMult *= 1 + rb.spiritBarrageFinalProjectileBonus / 100;
+        if (rb?.spiritBarrageCritCascade && guaranteedCrit) damageMult *= 1 + rb.spiritBarrageCritCascade / 100;
+        if (rb?.spiritBarrageSplit) extraChains += typeof rb.spiritBarrageSplit === 'number' ? rb.spiritBarrageSplit : 2;
+        if (rb?.spiritBarrageFinalProjectileBonus) damageMult *= 1 + rb.spiritBarrageFinalProjectileBonus / 100;
       }
       // Bouncing Skull variants — treated as damageMult + extraChains
       if (skill.id === 'staff_bouncing_skull') {
-        if (rb.bouncingSkullMultiSkull) extraChains += rb.bouncingSkullMultiSkull as number;
-        if (rb.bouncingSkullEndlessBounces) extraChains += 5;
-        if (rb.bouncingSkullFinalAoeBonus) damageMult *= 1 + (rb.bouncingSkullFinalAoeBonus as number) / 100;
-        if (rb.burningWorldFirePool) damageMult *= 1 + (rb.burningWorldFirePool as number) / 100;
+        if (rb?.bouncingSkullMultiSkull) extraChains += rb.bouncingSkullMultiSkull as number;
+        if (rb?.bouncingSkullEndlessBounces) extraChains += 5;
+        if (rb?.bouncingSkullFinalAoeBonus) damageMult *= 1 + (rb?.bouncingSkullFinalAoeBonus as number) / 100;
+        if (rb?.burningWorldFirePool) damageMult *= 1 + (rb.burningWorldFirePool as number) / 100;
       }
       // Toads leap variants — approximated
       if (skill.id === 'staff_plague_of_toads') {
-        if (rb.toadLeapRange) extraChains += 1;
-        if (rb.toadHoppingBounces) extraChains += rb.toadHoppingBounces as number;
+        if (rb?.toadLeapRange) extraChains += 1;
+        if (rb?.toadHoppingBounces) extraChains += rb.toadHoppingBounces as number;
       }
-      // compoundingTick — per-target consecutive-tick damage buildup (caster-side stacker)
-      // Approximate via lastProcTriggerAt key: bonus grows while same skill keeps casting in short window.
-      if (rb.compoundingTick) {
+      // compoundingTick
+      const compCfg = rb?.compoundingTick ?? gm?.compoundingTick;
+      const compPerTick = numFrom(compCfg, 'perTickPercent', 'percent');
+      const compMax = numFrom(compCfg, 'maxPercent') || 50;
+      if (compPerTick > 0) {
         const compKey = `compounding_${skill.id}`;
         const lastAt = ctx.state.lastProcTriggerAt?.[compKey] ?? 0;
         const count = (now - lastAt) > 4000 ? 0 : (ctx.state.lastProcTriggerAt?.[compKey + '_c'] ?? 0) + 1;
@@ -917,22 +945,27 @@ export const staffModule: WeaponModule = {
           ctx.state.lastProcTriggerAt[compKey] = now;
           ctx.state.lastProcTriggerAt[compKey + '_c'] = count;
         }
-        damageMult *= 1 + (rb.compoundingTick as number / 100) * count;
+        const bonus = Math.min(compMax, compPerTick * count);
+        damageMult *= 1 + bonus / 100;
       }
-      // Haunt chain damage — preRoll boost if chain ticks have accumulated
-      // (reads from the _chainCompoundTicks counter stashed on active haunt_dot)
-      if (skill.id === 'staff_haunt' && rb.hauntChainDamageCompound && ctx.targetDebuffs) {
-        const hauntDeb = ctx.targetDebuffs.find(d => d.debuffId === 'haunt_dot');
-        const ticks = (hauntDeb as any)?._chainCompoundTicks ?? 0;
-        if (ticks > 0) damageMult *= 1 + (rb.hauntChainDamageCompound as number / 100) * ticks;
+      // Haunt chain damage compound (preRoll read)
+      if (skill.id === 'staff_haunt' && ctx.targetDebuffs) {
+        const chainPct = numFrom(rb?.hauntChainDamageCompound ?? gm?.hauntChainDamageCompound, 'perTickPercent', 'percent');
+        if (chainPct > 0) {
+          const hauntDeb = ctx.targetDebuffs.find(d => d.debuffId === 'haunt_dot');
+          const ticks = (hauntDeb as any)?._chainCompoundTicks ?? 0;
+          if (ticks > 0) damageMult *= 1 + (chainPct / 100) * ticks;
+        }
       }
-      // soulStackBuffsMinionsPercent — damage boost per minion proportional to soul_stacks
-      // Already captured via dog/fetishDamagePerSoulStack on per-bite basis; here it also buffs cast damage.
-      if (rb.soulStackBuffsMinionsPercent) {
+      // soulStackBuffsMinionsPercent
+      const ssBuff = numFrom(rb?.soulStackBuffsMinionsPercent ?? gm?.soulStackBuffsMinionsPercent);
+      if (ssBuff > 0) {
         const stacks = comboStates.find(s => s.stateId === 'soul_stack')?.stacks ?? 0;
-        damageMult *= 1 + (rb.soulStackBuffsMinionsPercent as number / 100) * stacks;
+        damageMult *= 1 + (ssBuff / 100) * stacks;
       }
     }
+    // NaN guard after all multiplications
+    if (!isFinite(damageMult) || damageMult <= 0) damageMult = 1;
 
     // ── Batch L: Cross-skill buff consume on cast ──
     // spiritEcho (consumed on next non-Spirit-Barrage) - buff set by Spirit Barrage
