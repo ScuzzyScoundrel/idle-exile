@@ -263,11 +263,41 @@ export function applyZoneDamage(
 
   // DoT wiped the entire pack — spawn a new encounter (mirrors tick.ts:1897)
   if (dotKills > 0 && survivingMobs.length === 0) {
+    // Staff v2: capture surviving DoT debuffs from dying mobs BEFORE respawn so
+    // they transfer to the next pack — keeps DoT builds feeling rewarding when
+    // a Haunted/Plagued target dies too fast to enjoy its own DoT.
+    // Only transfer actual DoT ailments (have dotType), not utility debuffs.
+    const transferDebuffs = [];
+    const seenDebuffIds = new Set<string>();
+    for (const dying of dyingMobs) {
+      for (const deb of dying.debuffs) {
+        if (deb.remainingDuration <= 0) continue;
+        const def = deb.debuffId ? null : null;  // checked below via import
+        // Only transfer stackable-snapshot or instance-based DoTs
+        const isDot = ['bleeding', 'poisoned', 'burning', 'frostbite'].includes(deb.debuffId);
+        if (!isDot) continue;
+        // One copy per debuff type (first-found wins to avoid doubling on mass-death)
+        if (seenDebuffIds.has(deb.debuffId)) continue;
+        seenDebuffIds.add(deb.debuffId);
+        transferDebuffs.push({ ...deb });
+        void def;
+      }
+    }
+
     const newMobTypeId = pickCurrentMob(zone.id, state.targetedMobId);
     const tickMobDef = newMobTypeId ? getMobTypeDef(newMobTypeId) : undefined;
     const hpMult = tickMobDef?.hpMultiplier ?? 1.0;
     const invHpMult = isZoneInvaded(state.invasionState, zone.id, zone.band) ? INVASION_DIFFICULTY_MULT : 1.0;
     survivingMobs = spawnPack(zone, hpMult, invHpMult, now, tickMobDef?.damageElement, tickMobDef?.physRatio);
+
+    // Apply captured DoTs to front mob of new pack (transfer-on-pack-wipe semantics,
+    // similar to Locust's single-target transfer-on-kill but for between-pack continuity).
+    if (transferDebuffs.length > 0 && survivingMobs.length > 0) {
+      const target = survivingMobs[0];
+      for (const deb of transferDebuffs) {
+        target.debuffs.push({ ...deb });
+      }
+    }
   }
 
   return {

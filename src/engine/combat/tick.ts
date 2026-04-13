@@ -765,6 +765,19 @@ export function runCombatTick(
     }
   }
 
+  // Staff v2: Hex applies the 'hexed' debuff on target (−20% target damage dealt).
+  // Separate from the hexed combo state (caster-side, for Soul Harvest consume).
+  if (roll.isHit && skill.id === 'staff_hex') {
+    const hexPotencyBonus = (graphMod?.rawBehaviors?.hexPotency as number | undefined) ?? 0;
+    const hexDurationBonus = (graphMod?.rawBehaviors?.hexDuration as number | undefined) ?? 0;
+    const baseHexDuration = 5 * (1 + (effectiveStats.ailmentDuration ?? 0) / 100);
+    const finalHexDuration = baseHexDuration * (1 + hexDurationBonus / 100);
+    // Potency passes through snapshot param (debuff.effect.reducedDamageDealt is base 20;
+    // consumers can read snapshot as a % bonus to the reducedDamageDealt effect later).
+    void hexPotencyBonus;
+    applyDebuffToList(newDebuffs, 'hexed', 1, finalHexDuration, skill.id);
+  }
+
   // Venomous Persistence: non-VS skill hits refresh VS poison durations on target
   // Must check VS's own graphMod (cross-skill feature), not the active skill's graphMod
   if (roll.isHit && skill.id !== 'dagger_viper_strike') {

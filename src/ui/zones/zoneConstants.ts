@@ -84,6 +84,8 @@ export const DEBUFF_META: Record<string, {
     fullName: 'Bleeding', description: 'Deals physical damage each time the enemy attacks. Each stack snapshots hit damage; 30% of total triggers per enemy attack. Max 5 stacks.' },
   weakened:   { text: 'text-gray-300',   bg: 'bg-gray-700/60',   label: 'WKN',
     fullName: 'Weakened', description: 'Enemy deals 10% less damage.' },
+  hexed:      { text: 'text-purple-300', bg: 'bg-purple-900/60', label: 'HEX',
+    fullName: 'Hexed', description: 'Enemy deals 20% less damage. Soul Harvest consumes Hexed for 2× damage.' },
   blinded:    { text: 'text-violet-300', bg: 'bg-violet-900/60', label: 'BLN',
     fullName: 'Blinded', description: 'Enemy has a 20% chance to miss attacks.' },
   vulnerable: { text: 'text-pink-400',   bg: 'bg-pink-900/60',   label: 'VLN',

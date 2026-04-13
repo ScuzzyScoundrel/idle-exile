@@ -76,6 +76,14 @@ export const DEBUFF_DEFS: DebuffDef[] = [
     effect: { reducedDamageDealt: 10 },
   },
   {
+    id: 'hexed',
+    name: 'Hexed',
+    description: 'Target deals 20% less damage. Consumed by Soul Harvest for 2× damage.',
+    stackable: false,
+    maxStacks: 1,
+    effect: { reducedDamageDealt: 20 },
+  },
+  {
     id: 'blinded',
     name: 'Blinded',
     description: 'Target has 20% chance to miss.',
