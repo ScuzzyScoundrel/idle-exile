@@ -25,6 +25,7 @@ void detonateMinions;
 import type { ResolvedSkillModifier } from '../../skillGraph';
 import { getSkillGraphModifier } from '../../unifiedSkills';
 import { getUnifiedSkillDef } from '../../../data/skills';
+import { applyDebuffToList } from '../helpers';
 
 const EMPTY_PRE_ROLL: PreRollResult = {
   comboStates: [],
@@ -882,6 +883,55 @@ export const staffModule: WeaponModule = {
         }
         damageMult *= 1 + (rb.toadsStackCompounder / 100) * compound;
       }
+      // Spirit Barrage projectile variants — approximated as damageMult (no projectile sim)
+      if (skill.id === 'staff_spirit_barrage') {
+        if (rb.spiritBarrageProjectileExtraStack) damageMult *= 1 + (rb.spiritBarrageProjectileExtraStack / 100);
+        if (rb.spiritBarragePerMinionExtraProjectile && activeMinions.length > 0) {
+          damageMult *= 1 + (rb.spiritBarragePerMinionExtraProjectile / 100) * activeMinions.length;
+        }
+        if (rb.spiritBarrageMassVolley) damageMult *= 1 + rb.spiritBarrageMassVolley / 100;
+        // Note: preRoll runs BEFORE the cast roll; crit-gated damage handled in postCast flow.
+        if (rb.spiritBarrageCritCascade && guaranteedCrit) damageMult *= 1 + rb.spiritBarrageCritCascade / 100;
+        if (rb.spiritBarrageSplit) extraChains += typeof rb.spiritBarrageSplit === 'number' ? rb.spiritBarrageSplit : 2;
+        if (rb.spiritBarrageFinalProjectileBonus) damageMult *= 1 + rb.spiritBarrageFinalProjectileBonus / 100;
+      }
+      // Bouncing Skull variants — treated as damageMult + extraChains
+      if (skill.id === 'staff_bouncing_skull') {
+        if (rb.bouncingSkullMultiSkull) extraChains += rb.bouncingSkullMultiSkull as number;
+        if (rb.bouncingSkullEndlessBounces) extraChains += 5;
+        if (rb.bouncingSkullFinalAoeBonus) damageMult *= 1 + (rb.bouncingSkullFinalAoeBonus as number) / 100;
+        if (rb.burningWorldFirePool) damageMult *= 1 + (rb.burningWorldFirePool as number) / 100;
+      }
+      // Toads leap variants — approximated
+      if (skill.id === 'staff_plague_of_toads') {
+        if (rb.toadLeapRange) extraChains += 1;
+        if (rb.toadHoppingBounces) extraChains += rb.toadHoppingBounces as number;
+      }
+      // compoundingTick — per-target consecutive-tick damage buildup (caster-side stacker)
+      // Approximate via lastProcTriggerAt key: bonus grows while same skill keeps casting in short window.
+      if (rb.compoundingTick) {
+        const compKey = `compounding_${skill.id}`;
+        const lastAt = ctx.state.lastProcTriggerAt?.[compKey] ?? 0;
+        const count = (now - lastAt) > 4000 ? 0 : (ctx.state.lastProcTriggerAt?.[compKey + '_c'] ?? 0) + 1;
+        if (ctx.state.lastProcTriggerAt) {
+          ctx.state.lastProcTriggerAt[compKey] = now;
+          ctx.state.lastProcTriggerAt[compKey + '_c'] = count;
+        }
+        damageMult *= 1 + (rb.compoundingTick as number / 100) * count;
+      }
+      // Haunt chain damage — preRoll boost if chain ticks have accumulated
+      // (reads from the _chainCompoundTicks counter stashed on active haunt_dot)
+      if (skill.id === 'staff_haunt' && rb.hauntChainDamageCompound && ctx.targetDebuffs) {
+        const hauntDeb = ctx.targetDebuffs.find(d => d.debuffId === 'haunt_dot');
+        const ticks = (hauntDeb as any)?._chainCompoundTicks ?? 0;
+        if (ticks > 0) damageMult *= 1 + (rb.hauntChainDamageCompound as number / 100) * ticks;
+      }
+      // soulStackBuffsMinionsPercent — damage boost per minion proportional to soul_stacks
+      // Already captured via dog/fetishDamagePerSoulStack on per-bite basis; here it also buffs cast damage.
+      if (rb.soulStackBuffsMinionsPercent) {
+        const stacks = comboStates.find(s => s.stateId === 'soul_stack')?.stacks ?? 0;
+        damageMult *= 1 + (rb.soulStackBuffsMinionsPercent as number / 100) * stacks;
+      }
     }
 
     // ── Batch L: Cross-skill buff consume on cast ──
@@ -1026,6 +1076,43 @@ export const staffModule: WeaponModule = {
       if (skill.id === 'staff_locust_swarm' && postRb.locustSurge) addBuff('locustSurge', 8);
       if (skill.id === 'staff_soul_harvest' && postRb.soulSurge) addBuff('soulSurge', 8);
       // soulHarvestNextCrit — set after a trigger (not a per-cast thing); leave to combat events
+
+      // hexCastBuffsMinions — on Hex cast, heal+buff all minions
+      if (skill.id === 'staff_hex' && postRb.hexCastBuffsMinions) {
+        const pct = postRb.hexCastBuffsMinions as number;
+        minions = minions.map(m => ({
+          ...m,
+          hp: Math.min(m.maxHp, m.hp + m.maxHp * (pct / 100)),
+        }));
+      }
+      // Spirit Barrage transfer/apply variants
+      if (skill.id === 'staff_spirit_barrage' && state.packMobs?.length > 0 && state.combatPhase === 'clearing') {
+        const front = state.packMobs[0];
+        if (postRb.spiritBarrageTransfersPlagued && front.debuffs.some(d => d.debuffId === 'plagued')) {
+          for (const mob of state.packMobs.slice(1, 4)) {
+            applyDebuffToList(mob.debuffs, 'plagued', 1, 5, 'staff_spirit_barrage');
+          }
+        }
+        if (postRb.spiritBarrageAppliesHaunted) {
+          applyDebuffToList(front.debuffs, 'haunt_dot', 1, 5, 'staff_spirit_barrage');
+        }
+      }
+      // Bouncing Skull summons
+      if (skill.id === 'staff_bouncing_skull' && postRb.boneTowerSummon) {
+        // Summon a temp spirit as a stand-in for bone tower
+        minions = summonMinions(minions, { ...SUMMON_CONFIGS.spirit_temp, count: 1, duration: 5 }, effectiveMaxLife, spellPower, now);
+      }
+      // Toads — permanentToadMinion / toadGodMinionAttacksSpawnToad
+      if (skill.id === 'staff_plague_of_toads' && postRb.permanentToadMinion) {
+        minions = summonMinions(minions, { ...SUMMON_CONFIGS.spirit_temp, count: 1, duration: 999 }, effectiveMaxLife, spellPower, now);
+      }
+      // eternalHaunt — mark haunt_dot with very long duration (LRU refresh stand-in)
+      if (skill.id === 'staff_haunt' && postRb.eternalHaunt && state.packMobs?.length > 0) {
+        for (const mob of state.packMobs) {
+          const deb = mob.debuffs.find(d => d.debuffId === 'haunt_dot');
+          if (deb) deb.remainingDuration = Math.max(deb.remainingDuration, 999);
+        }
+      }
     }
 
     return {

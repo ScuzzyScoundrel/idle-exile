@@ -233,12 +233,19 @@ export function applyZoneDamage(
         if (lrb?.locustExecuteThreshold && mob.hp / enemyMaxHp <= (lrb.locustExecuteThreshold as number) / 100) {
           dotDmg *= 1 + (lrb.locustExecuteBonus ?? 50) / 100;
         }
-        // Mini Pandemic — roll per tick; spread to adjacent
+        // Mini Pandemic — roll per tick; spread to adjacent (respects swarmTransferDamageBonus compound)
         if (lrb?.miniPandemicChance && Math.random() * 100 < (lrb.miniPandemicChance as number) * dt) {
           const adj = updatedMobs[mobIdx + 1] ?? updatedMobs[mobIdx - 1];
-          if (adj && adj.hp > 0 && !adj.debuffs.some(d => d.debuffId === 'locust_swarm_dot')) {
+          const hasChain = lrb?.swarmInfiniteChain
+            || ((locustDeb as any)._swarmTransfers ?? 0) < (lrb?.swarmTransferMaxHops ?? 4);
+          if (adj && adj.hp > 0 && hasChain && !adj.debuffs.some(d => d.debuffId === 'locust_swarm_dot')) {
+            const baseSnap = (locustDeb as any).snapshot ?? 0;
+            const transfers = ((locustDeb as any)._swarmTransfers ?? 0) + 1;
+            const compoundMult = 1 + (lrb?.swarmTransferDamageBonus ?? 0) / 100 * transfers;
             applyDebuffToList(adj.debuffs, 'locust_swarm_dot', 1, locustDeb.remainingDuration,
-              locustDeb.appliedBySkillId ?? 'staff_locust_swarm', (locustDeb as any).snapshot ?? 0);
+              locustDeb.appliedBySkillId ?? 'staff_locust_swarm', baseSnap * compoundMult);
+            const newDeb = adj.debuffs.find(d => d.debuffId === 'locust_swarm_dot') as any;
+            if (newDeb) newDeb._swarmTransfers = transfers;
           }
         }
         // Heal minions per locust tick
@@ -400,9 +407,45 @@ export function applyZoneDamage(
             timer.cooldownUntil = now + remaining * (1 - pct / 100);
           }
         }
-        // bouncingSkullKillRefundsBounces — reserved: bounce count reset infrastructure (TODO)
-        // hauntDeathTriggersSoulHarvest — if haunted mob dies, fire SH onCast procs
-        // (handled conservatively via evaluateProcs call above if SH has onKill procs too)
+        // bouncingSkullKillRefundsBounces — refund skill charge on BS kill (stand-in: reset CD partially)
+        if (rb.bouncingSkullKillRefundsBounces && skillId === 'staff_bouncing_skull') {
+          const pct = typeof rb.bouncingSkullKillRefundsBounces === 'number' ? rb.bouncingSkullKillRefundsBounces : 50;
+          const timer = state.skillTimers?.find(t => t.skillId === 'staff_bouncing_skull');
+          if (timer?.cooldownUntil && timer.cooldownUntil > now) {
+            const remaining = timer.cooldownUntil - now;
+            timer.cooldownUntil = now + remaining * (1 - pct / 100);
+          }
+        }
+        // hauntDeathTriggersSoulHarvest — if haunted mob dies, apply SH damage pulse to adjacents
+        if (rb.hauntDeathTriggersSoulHarvest && skillId === 'staff_haunt' &&
+            mob.debuffs.some(d => d.debuffId === 'haunt_dot' || d.debuffId === 'haunted')) {
+          const burst = (rb.hauntDeathTriggersSoulHarvest as number) * mob.maxHp / 100;
+          for (const tgt of updatedMobs.filter(m => m.hp > 0).slice(0, 3)) {
+            tgt.hp = Math.max(0, tgt.hp - burst);
+          }
+          dotKillProcDamage += burst;
+        }
+        // locustKillSpawnsPermMinion — on Locust kill, spawn a long-duration spirit
+        if (rb.locustKillSpawnsPermMinion && skillId === 'staff_locust_swarm' &&
+            mob.debuffs.some(d => d.debuffId === 'locust_swarm_dot')) {
+          const cfg = rb.locustKillSpawnsPermMinion as { chance: number; duration: number };
+          if (Math.random() * 100 < (cfg.chance ?? 100)) {
+            // Append a fresh spirit_temp MinionState
+            const spiritCfg = {
+              id: `spirit_locust_${now}_${Math.floor(Math.random() * 1e6)}`,
+              type: 'spirit_temp',
+              hp: killStats.maxLife * 0.10,
+              maxHp: killStats.maxLife * 0.10,
+              damage: (killStats.spellPower ?? 0) * 0.25,
+              attackInterval: 1.5,
+              nextAttackAt: now + 500,
+              expiresAt: now + (cfg.duration ?? 10) * 1000,
+              element: 'cold' as const,
+              sourceSkillId: 'staff_haunt',
+            };
+            newActiveMinions.push(spiritCfg);
+          }
+        }
       }
     }
   }
