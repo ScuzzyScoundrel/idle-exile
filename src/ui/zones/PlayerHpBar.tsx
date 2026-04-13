@@ -1,10 +1,18 @@
 import type { ClassResourceState, TempBuff } from '../../types';
+import type { MinionState } from '../../engine/combat/minions';
 import { getClassDef } from '../../data/classes';
 import Tooltip from '../components/Tooltip';
 import { useGameStore } from '../../store/gameStore';
 import { useSkillStore } from '../../store/skillStore';
 import { getUnifiedSkillDef } from '../../data/skills';
 import { getSkillEffectiveDuration, getSkillEffectiveCooldown, getSkillSpeedStat } from '../../engine/unifiedSkills';
+
+// Visual metadata for each minion type
+const MINION_META: Record<string, { icon: string; label: string; color: string }> = {
+  zombie_dog: { icon: '\uD83D\uDC15', label: 'Zombie Dog', color: 'border-emerald-500/50 bg-emerald-950/60' },
+  fetish:     { icon: '\uD83C\uDFAD', label: 'Fetish',     color: 'border-amber-500/50 bg-amber-950/60' },
+  spirit:     { icon: '\uD83D\uDC7B', label: 'Spirit',     color: 'border-cyan-400/50 bg-cyan-950/60' },
+};
 
 interface BuffMeta { label: string; color: string; description: string }
 
@@ -156,12 +164,57 @@ export default function PlayerHpBar({ currentHp, maxHp, trailHp, fortifyStacks, 
         </>
       )}
 
+      {/* Active minions (Witch Doctor staff: dogs / fetishes / spirits) */}
+      <ActiveMinionsRow />
+
       {/* Class resource (compact inline) */}
       {classDef && classResource && <CompactResource classDef={classDef} stacks={resourceStacks} max={resourceMax} />}
 
       {/* Compact skill icons */}
       <CompactSkills lastFiredSkillId={lastFiredSkillId} />
     </div>
+  );
+}
+
+function ActiveMinionsRow() {
+  const minions = useGameStore(s => s.activeMinions);
+  if (!minions || minions.length === 0) return null;
+  const now = Date.now();
+  return (
+    <div className="flex flex-wrap gap-1 pt-0.5">
+      {minions.map(m => <MinionBadge key={m.id} minion={m} now={now} />)}
+    </div>
+  );
+}
+
+function MinionBadge({ minion, now }: { minion: MinionState; now: number }) {
+  const meta = MINION_META[minion.type] ?? { icon: '\u2753', label: minion.type, color: 'border-gray-500/50 bg-gray-800/60' };
+  const hpPct = minion.maxHp > 0 ? Math.max(0, Math.min(100, (minion.hp / minion.maxHp) * 100)) : 0;
+  const remaining = Math.max(0, (minion.expiresAt - now) / 1000);
+  const hpBarColor = hpPct > 60 ? 'bg-emerald-500' : hpPct > 30 ? 'bg-yellow-500' : 'bg-red-500';
+  const tooltipContent = (
+    <div className="space-y-0.5 text-[11px]">
+      <div className="font-bold">{meta.icon} {meta.label}</div>
+      <div className="text-gray-300">HP: {Math.ceil(minion.hp)}/{Math.ceil(minion.maxHp)}</div>
+      <div className="text-gray-400">Damage: {minion.damage.toFixed(0)} every {minion.attackInterval.toFixed(1)}s ({minion.element})</div>
+      <div className="text-gray-400">Expires in {remaining.toFixed(1)}s</div>
+      {minion.createsComboStateOnHit && (
+        <div className="text-cyan-300">Bites apply: {minion.createsComboStateOnHit}</div>
+      )}
+    </div>
+  );
+  return (
+    <Tooltip content={tooltipContent}>
+      <div className={`flex items-center gap-1 px-1 py-0.5 rounded border ${meta.color} cursor-help`}>
+        <span className="text-[14px] leading-none">{meta.icon}</span>
+        <div className="flex flex-col gap-0.5 w-12">
+          <div className="h-1 bg-gray-800 rounded-full overflow-hidden">
+            <div className={`h-full ${hpBarColor} rounded-full transition-all duration-200`} style={{ width: `${hpPct}%` }} />
+          </div>
+          <span className="text-[8px] font-mono text-gray-300 leading-none">{remaining.toFixed(0)}s</span>
+        </div>
+      </div>
+    </Tooltip>
   );
 }
 

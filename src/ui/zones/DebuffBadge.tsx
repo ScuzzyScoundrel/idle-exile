@@ -1,6 +1,7 @@
 import type { ActiveDebuff } from '../../types';
 import { DEBUFF_META } from './zoneConstants';
 import { getDebuffDef } from '../../data/debuffs';
+import { getUnifiedSkillDef } from '../../data/skills';
 import Tooltip from '../components/Tooltip';
 
 /** Compute inline DPS/damage text for DoT debuffs */
@@ -46,9 +47,15 @@ export default function DebuffBadge({ debuff }: { debuff: ActiveDebuff }) {
   const inline = dotInlineText(debuff);
   const hasPulse = isDot(debuff.debuffId);
 
+  // Source skill: surface which skill applied this debuff (so staff DoTs feel skill-specific)
+  const sourceSkill = debuff.appliedBySkillId ? getUnifiedSkillDef(debuff.appliedBySkillId) : null;
+
   const tooltipContent = (
     <div className="space-y-0.5">
       <div className="font-bold">{meta?.fullName ?? def?.name ?? debuff.debuffId}</div>
+      {sourceSkill && (
+        <div className="text-cyan-300 text-[11px]">from {sourceSkill.icon} {sourceSkill.name}</div>
+      )}
       <div className="text-gray-400">{meta?.description ?? def?.description ?? ''}</div>
       {isInstanceBased ? (
         <>

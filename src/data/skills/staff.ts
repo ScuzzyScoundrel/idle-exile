@@ -37,7 +37,7 @@ export const STAFF_ACTIVE_SKILLS: ActiveSkillDef[] = [
     levelRequired: 1,
     icon: '\uD83E\uDD97',
     dotDuration: 5,
-    dotDamagePercent: 0.30,
+    dotDamagePercent: 0.40,
     baseConversion: { from: 'physical', to: 'chaos', percent: 100 },
   },
   // ── 3. Haunt ──
@@ -55,7 +55,7 @@ export const STAFF_ACTIVE_SKILLS: ActiveSkillDef[] = [
     levelRequired: 1,
     icon: '\uD83D\uDC7B',
     dotDuration: 6,
-    dotDamagePercent: 0.25,
+    dotDamagePercent: 0.35,
     baseConversion: { from: 'physical', to: 'cold', percent: 100 },
   },
   // ── 4. Hex ──
@@ -106,7 +106,7 @@ export const STAFF_ACTIVE_SKILLS: ActiveSkillDef[] = [
     levelRequired: 1,
     icon: '\uD83D\uDC38',
     dotDuration: 3,
-    dotDamagePercent: 0.20,
+    dotDamagePercent: 0.30,
     baseConversion: { from: 'physical', to: 'chaos', percent: 100 },
   },
   // ── 7. Fetish Swarm ──
