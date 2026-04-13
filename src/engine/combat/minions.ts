@@ -55,9 +55,9 @@ export const SUMMON_CONFIGS: Record<string, SummonConfig> = {
   fetish: {
     type: 'fetish',
     count: 4,
-    hpPercentOfPlayer: 0.10,
-    attackInterval: 1.25,           // was 1.5s — glass-cannon should feel twitchy
-    damagePerSpellPowerRatio: 0.40, // was 0.25 — buff per playtest
+    hpPercentOfPlayer: 0.05,        // was 0.10 — glass cannon should die in 1-2 hits
+    attackInterval: 1.25,           // was 1.5s — twitchy
+    damagePerSpellPowerRatio: 0.40, // was 0.25
     duration: 6,
     element: 'physical',
     sourceSkillId: 'staff_fetish_swarm',
@@ -179,8 +179,10 @@ export function stepMinions(
   return { minions: updated, attacks };
 }
 
-/** Incoming damage split evenly across active minions.
- *  Each minion absorbs up to its HP; overkill passes to remaining minions, then out to the player. */
+/** Incoming damage front-loads onto the first alive minion. Overkill cascades
+ *  to the next alive minion, then out to the player. This makes glass-cannon
+ *  fetishes pop in 1-2 hits instead of all chip-damaging in lockstep, while
+ *  dogs (tanks) still absorb several hits before dying. */
 export function absorbDamage(
   minions: MinionState[],
   incomingDamage: number,
@@ -188,33 +190,19 @@ export function absorbDamage(
   if (minions.length === 0 || incomingDamage <= 0) {
     return { minions, remainingDamage: incomingDamage };
   }
-
   const updated = minions.map(m => ({ ...m }));
   let remaining = incomingDamage;
-  const livingIdxs = updated.map((m, i) => (m.hp > 0 ? i : -1)).filter(i => i >= 0);
-
-  if (livingIdxs.length === 0) return { minions: updated, remainingDamage: remaining };
-
-  const share = remaining / livingIdxs.length;
-  let overkill = 0;
-
-  for (const idx of livingIdxs) {
-    const m = updated[idx];
-    if (share >= m.hp) {
-      overkill += share - m.hp;
+  for (const m of updated) {
+    if (remaining <= 0) break;
+    if (m.hp <= 0) continue;
+    if (remaining >= m.hp) {
+      remaining -= m.hp;
       m.hp = 0;
     } else {
-      m.hp -= share;
+      m.hp -= remaining;
+      remaining = 0;
     }
   }
-  remaining = overkill;
-
-  // If overkill remains and any minions still alive, absorb again recursively
-  if (remaining > 0 && updated.some(m => m.hp > 0)) {
-    const second = absorbDamage(updated, remaining);
-    return { minions: second.minions, remainingDamage: second.remainingDamage };
-  }
-
   return { minions: updated, remainingDamage: remaining };
 }
 

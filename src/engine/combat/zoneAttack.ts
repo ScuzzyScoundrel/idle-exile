@@ -40,6 +40,7 @@ import { evaluateProcs } from '../combatHelpers';
 import { createComboState, COMBO_STATE_CREATORS } from './combo';
 import { getUnifiedSkillDef } from '../../data/skills';
 import { getSkillGraphModifier } from '../unifiedSkills';
+import { absorbDamage } from './minions';
 
 /**
  * Apply zone per-hit attacks + passive regen during normal clearing.
@@ -111,6 +112,13 @@ export function applyZoneDamage(
         const esAbsorbed = Math.min(currentEs, mobZoneDmg);
         currentEs -= esAbsorbed;
         mobZoneDmg -= esAbsorbed;
+      }
+      // Staff v2: minions absorb the hit before it reaches player HP.
+      // Front-loaded — first alive minion takes full hit, overkill cascades.
+      if (mobZoneDmg > 0 && state.activeMinions && state.activeMinions.length > 0) {
+        const absorb = absorbDamage(state.activeMinions, mobZoneDmg);
+        state.activeMinions = absorb.minions;
+        mobZoneDmg = absorb.remainingDamage;
       }
       playerHp -= mobZoneDmg;
       // Report last attacking mob's roll as the zone attack result

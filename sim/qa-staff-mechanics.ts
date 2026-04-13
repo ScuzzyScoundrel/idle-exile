@@ -95,7 +95,7 @@ section('summonMinions');
   const now = getNow();
   const fetish = summonMinions([], SUMMON_CONFIGS.fetish, PLAYER_MAX_HP, SPELL_POWER, now);
   assert('Fetish Swarm summon produces 4 minions', fetish.length === 4, `got ${fetish.length}`);
-  assert('Each fetish has 10% player maxHp', fetish.every(m => near(m.hp, PLAYER_MAX_HP * 0.1)));
+  assert('Each fetish has 5% player maxHp', fetish.every(m => near(m.hp, PLAYER_MAX_HP * 0.05)));
   assert('Fetish element is physical', fetish.every(m => m.element === 'physical'));
   assert('Fetish attack interval = 1.25s', fetish.every(m => m.attackInterval === 1.25));
   assert('Fetish does NOT apply haunted on hit', fetish.every(m => !m.createsComboStateOnHit));
@@ -179,8 +179,8 @@ section('absorbDamage');
       nextAttackAt: 0, expiresAt: 99999, element: 'chaos', sourceSkillId: 's' },
   ];
   const { minions, remainingDamage } = absorbDamage(dogs, 100);
-  assert('100 damage split across 2 minions → each takes 50',
-    minions[0].hp === 50 && minions[1].hp === 50,
+  assert('100 damage front-loads onto first minion (front=100, second untouched)',
+    minions[0].hp === 100 && minions[1].hp === 200,
     `hp=[${minions[0].hp}, ${minions[1].hp}]`);
   assert('No damage passes through to player', remainingDamage === 0);
 }
@@ -534,8 +534,9 @@ section('staffModule.onEnemyAttack');
   const result = staffModule.onEnemyAttack!(ctx);
   assert('onEnemyAttack absorbs 100 across 2 dogs → 100 absorbed',
     result.damageAbsorbedByMinions === 100, `got ${result.damageAbsorbedByMinions}`);
-  assert('onEnemyAttack returns updated minion list with reduced HP',
-    result.activeMinions!.every(m => m.hp === 50));
+  assert('onEnemyAttack returns updated minion list — front dog takes 100, second untouched',
+    result.activeMinions![0].hp === 100 && result.activeMinions![1].hp === 200,
+    `hp=[${result.activeMinions![0].hp}, ${result.activeMinions![1].hp}]`);
 }
 
 {

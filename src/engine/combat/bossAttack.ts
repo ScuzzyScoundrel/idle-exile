@@ -6,6 +6,7 @@
 import type { GameState, CombatTickResult, TempBuff } from '../../types';
 import { resolveStats } from '../character';
 import { rollZoneAttack, applyAbilityResists } from '../zones';
+import { absorbDamage } from './minions';
 import { ZONE_DEFS } from '../../data/zones';
 import {
   BOSS_CRIT_CHANCE,
@@ -77,6 +78,12 @@ export function applyBossDamage(
           const esAbsorbed = Math.min(bossCurrentEs, cappedDmg);
           bossCurrentEs -= esAbsorbed;
           cappedDmg -= esAbsorbed;
+        }
+        // Staff v2: minions absorb boss hits between casts (front-loaded cascade).
+        if (cappedDmg > 0 && state.activeMinions && state.activeMinions.length > 0) {
+          const absorb = absorbDamage(state.activeMinions, cappedDmg);
+          state.activeMinions = absorb.minions;
+          cappedDmg = absorb.remainingDamage;
         }
         playerHp -= cappedDmg;
         bossAttackResult = { damage: cappedDmg, isDodged: roll.isDodged, isBlocked: roll.isBlocked, isCrit: isBossCrit };
