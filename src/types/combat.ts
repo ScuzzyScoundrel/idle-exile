@@ -2,7 +2,7 @@
 // Combat — combat results, boss state, rare mobs, debuffs
 // ============================================================
 
-import type { AbilityEffect } from './skills';
+import type { AbilityEffect, DamageType } from './skills';
 import type { MobDamageElement } from './zones';
 
 // --- Combat Results ---
@@ -160,6 +160,8 @@ export interface ActiveDebuff {
   instances?: PoisonInstance[];     // instance-based DoT (poison): each has own snapshot + duration
   dotTickAccumulator?: number;     // accumulates time between batched DoT ticks
   igniteAccumulatedDamage?: number;  // Ignite: total accumulated snapshot for ramp-on-refresh
+  /** Staff v2: skill-native DoT element carried per-instance (Locust/Haunt/Toads). */
+  damageElement?: DamageType;
 }
 
 export interface TempBuff {

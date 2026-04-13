@@ -59,6 +59,34 @@ export const DEBUFF_DEFS: DebuffDef[] = [
     dotType: 'snapshot',
     effect: { snapshotPercent: 15 },
   },
+  // ── Staff v2: skill-native DoTs (element chosen at Lv.5 element transform) ──
+  // These replace the generic ELEMENT_AILMENT mapping for DoT skills so the
+  // debuff reads as "Locust Swarm (Fire)" etc. and always uses the skill's own
+  // dotDamagePercent as the tick rate regardless of element.
+  {
+    id: 'locust_swarm_dot',
+    name: 'Locust Swarm',
+    description: 'Swarm damage over time. Each cast refreshes and snapshots current hit damage.',
+    stackable: true, maxStacks: 1,
+    dotType: 'snapshot',
+    effect: { snapshotPercent: 40 },  // matches skill.dotDamagePercent 0.40
+  },
+  {
+    id: 'haunt_dot',
+    name: 'Haunt',
+    description: 'Spirit damage over time. Each cast refreshes and snapshots current hit damage.',
+    stackable: true, maxStacks: 1,
+    dotType: 'snapshot',
+    effect: { snapshotPercent: 35 },  // matches skill.dotDamagePercent 0.35
+  },
+  {
+    id: 'toads_dot',
+    name: 'Plague of Toads',
+    description: 'Toad poison damage over time. Each cast refreshes and snapshots current hit damage.',
+    stackable: true, maxStacks: 1,
+    dotType: 'snapshot',
+    effect: { snapshotPercent: 30 },  // matches skill.dotDamagePercent 0.30
+  },
   {
     id: 'vulnerable',
     name: 'Vulnerable',

@@ -737,31 +737,45 @@ export function runCombatTick(
   // Auto-ailment: ALL skills apply signature ailment based on current element.
   // Physical is default before level 5. Element transform overrides at level 5+.
   // Viper Strike gets +50% ailment potency (1.5x snapshot, legacy hardcode).
-  // Skills with skill.dotDuration / skill.dotDamagePercent defined (staff DoTs)
-  // override duration + scale snapshot proportional to default 0.20 tick rate.
+  // Staff v2: DoT skills (Locust/Haunt/Toads) apply skill-native DoTs instead
+  // of the generic element ailment, so the debuff reads as "Locust Swarm (Fire)"
+  // and always uses the skill's own dotDamagePercent regardless of element.
   if (roll.isHit) {
     const ELEMENT_AILMENT: Record<string, string> = {
       physical: 'bleeding', fire: 'burning', cold: 'frostbite', lightning: 'shocked', chaos: 'poisoned',
     };
+    const STAFF_SKILL_DOT: Record<string, string> = {
+      staff_locust_swarm: 'locust_swarm_dot',
+      staff_haunt: 'haunt_dot',
+      staff_plague_of_toads: 'toads_dot',
+    };
     const currentElement = elementTransform ?? skill.baseConversion?.to ?? 'physical';
-    const autoAilment = ELEMENT_AILMENT[currentElement];
-    if (autoAilment) {
-      // Skill-defined DoT duration overrides the default 5s
+    const skillNativeDot = STAFF_SKILL_DOT[skill.id];
+    if (skillNativeDot) {
+      // Skill-native DoT: one refreshed instance, carries element per-instance
       const baseDur = skill.dotDuration ?? 5;
       const ailmentDur = graphMod?.ailmentsNeverExpire ? 999999 : baseDur * (1 + (effectiveStats.ailmentDuration ?? 0) / 100);
-      // Viper Strike: +50% ailment potency (applies to ALL ailments, not just poison)
-      const skillPotencyBonus = skill.id === 'dagger_viper_strike' ? 1.5 : 1.0;
-      // Skill-defined dotDamagePercent inflates snapshot proportional to default 0.20/sec rate.
-      // Locust 0.40 → 2.0× snapshot, Haunt 0.35 → 1.75×, Toads 0.30 → 1.5×, Viper kept on legacy path.
-      const STANDARD_DOT_RATE = 0.20;
-      const dotScale = (skill.dotDamagePercent && skill.id !== 'dagger_viper_strike')
-        ? skill.dotDamagePercent / STANDARD_DOT_RATE
-        : 1.0;
-      const finalSnapshot = ailmentSnapshot * skillPotencyBonus * dotScale;
-      applyDebuffToList(newDebuffs, autoAilment, 1, ailmentDur, skill.id, finalSnapshot);
-      // Track for sequential hit spreading
-      const applied = newDebuffs.find(d => d.debuffId === autoAilment);
-      if (applied) castAilments.push({ ...applied });
+      applyDebuffToList(newDebuffs, skillNativeDot, 1, ailmentDur, skill.id, ailmentSnapshot);
+      const applied = newDebuffs.find(d => d.debuffId === skillNativeDot);
+      if (applied) {
+        applied.damageElement = currentElement as any;
+        castAilments.push({ ...applied });
+      }
+    } else {
+      const autoAilment = ELEMENT_AILMENT[currentElement];
+      if (autoAilment) {
+        const baseDur = skill.dotDuration ?? 5;
+        const ailmentDur = graphMod?.ailmentsNeverExpire ? 999999 : baseDur * (1 + (effectiveStats.ailmentDuration ?? 0) / 100);
+        const skillPotencyBonus = skill.id === 'dagger_viper_strike' ? 1.5 : 1.0;
+        const STANDARD_DOT_RATE = 0.20;
+        const dotScale = (skill.dotDamagePercent && skill.id !== 'dagger_viper_strike')
+          ? skill.dotDamagePercent / STANDARD_DOT_RATE
+          : 1.0;
+        const finalSnapshot = ailmentSnapshot * skillPotencyBonus * dotScale;
+        applyDebuffToList(newDebuffs, autoAilment, 1, ailmentDur, skill.id, finalSnapshot);
+        const applied = newDebuffs.find(d => d.debuffId === autoAilment);
+        if (applied) castAilments.push({ ...applied });
+      }
     }
   }
 

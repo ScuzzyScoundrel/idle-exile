@@ -30,6 +30,13 @@ function dotInlineText(debuff: ActiveDebuff): string | null {
     return `${dps}/s`;
   }
 
+  // Staff v2 skill-native DoTs: stack-based snapshot, single-stack refresh
+  if (SKILL_NATIVE_DOTS.has(debuff.debuffId) && def.effect.snapshotPercent && debuff.stackSnapshots?.length) {
+    const total = debuff.stackSnapshots.reduce((a, b) => a + b, 0);
+    const dps = Math.round(total * def.effect.snapshotPercent / 100);
+    return `${dps}/s`;
+  }
+
   // Burning: percentMaxHp
   if (debuff.debuffId === 'burning' && def.effect.percentMaxHp) {
     return `${def.effect.percentMaxHp}%/s`;
@@ -38,24 +45,45 @@ function dotInlineText(debuff: ActiveDebuff): string | null {
   return null;
 }
 
+const SKILL_NATIVE_DOTS = new Set(['locust_swarm_dot', 'haunt_dot', 'toads_dot']);
+
+// Element-themed color overrides for skill-native DoTs (depends on debuff.damageElement)
+function skillNativeColor(element: string | undefined): { text: string; bg: string } | null {
+  switch (element) {
+    case 'fire':      return { text: 'text-orange-300', bg: 'bg-orange-900/50' };
+    case 'cold':      return { text: 'text-sky-300',    bg: 'bg-sky-900/50' };
+    case 'lightning': return { text: 'text-yellow-300', bg: 'bg-yellow-900/50' };
+    case 'chaos':     return { text: 'text-purple-300', bg: 'bg-purple-900/50' };
+    case 'physical':  return { text: 'text-red-300',    bg: 'bg-red-900/50' };
+    default: return null;
+  }
+}
+
 /** Is this a DoT debuff that should pulse? */
 function isDot(debuffId: string): boolean {
-  return debuffId === 'poisoned' || debuffId === 'bleeding' || debuffId === 'burning';
+  return debuffId === 'poisoned' || debuffId === 'bleeding' || debuffId === 'burning'
+    || debuffId === 'frostbite' || SKILL_NATIVE_DOTS.has(debuffId);
 }
 
 export default function DebuffBadge({ debuff }: { debuff: ActiveDebuff }) {
   const meta = DEBUFF_META[debuff.debuffId];
   const def = getDebuffDef(debuff.debuffId);
-  const label = meta?.label ?? debuff.debuffId.slice(0, 3).toUpperCase();
-  const text = meta?.text ?? 'text-gray-300';
-  const bg = meta?.bg ?? 'bg-gray-700/60';
+  const isSkillNative = SKILL_NATIVE_DOTS.has(debuff.debuffId);
+
+  // Source skill: surface which skill applied this debuff (so staff DoTs feel skill-specific)
+  const sourceSkill = debuff.appliedBySkillId ? getUnifiedSkillDef(debuff.appliedBySkillId) : null;
+
+  // Skill-native DoTs show skill icon + name as label, element-tinted color.
+  const elementTint = isSkillNative ? skillNativeColor(debuff.damageElement as string | undefined) : null;
+  const label = isSkillNative && sourceSkill
+    ? `${sourceSkill.icon} ${sourceSkill.name}${debuff.damageElement ? ` (${debuff.damageElement})` : ''}`
+    : (meta?.label ?? debuff.debuffId.slice(0, 3).toUpperCase());
+  const text = elementTint?.text ?? meta?.text ?? 'text-gray-300';
+  const bg = elementTint?.bg ?? meta?.bg ?? 'bg-gray-700/60';
 
   const isInstanceBased = def?.instanceBased && debuff.instances;
   const inline = dotInlineText(debuff);
   const hasPulse = isDot(debuff.debuffId);
-
-  // Source skill: surface which skill applied this debuff (so staff DoTs feel skill-specific)
-  const sourceSkill = debuff.appliedBySkillId ? getUnifiedSkillDef(debuff.appliedBySkillId) : null;
 
   const tooltipContent = (
     <div className="space-y-0.5">

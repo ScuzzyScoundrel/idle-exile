@@ -74,6 +74,13 @@ export const DEBUFF_META: Record<string, {
     fullName: 'Chilled', description: 'Enemy attack speed reduced by 20%.' },
   frostbite:  { text: 'text-sky-300',    bg: 'bg-sky-900/60',    label: 'FRB',
     fullName: 'Frostbite', description: 'Cold damage over time. Each stack snapshots hit damage; 15% of total snapshot per second. Max 5 stacks.' },
+  // Staff v2 skill-native DoTs — color re-themed per-badge in DebuffBadge based on debuff.damageElement
+  locust_swarm_dot: { text: 'text-purple-300', bg: 'bg-purple-900/50', label: 'LOC',
+    fullName: 'Locust Swarm DoT', description: 'Locust Swarm damage-over-time. Element matches your skill choice.' },
+  haunt_dot: { text: 'text-sky-300', bg: 'bg-sky-900/50', label: 'HNT',
+    fullName: 'Haunt DoT', description: 'Haunt damage-over-time. Element matches your skill choice.' },
+  toads_dot: { text: 'text-green-300', bg: 'bg-green-900/50', label: 'TOA',
+    fullName: 'Plague of Toads DoT', description: 'Plague of Toads damage-over-time. Element matches your skill choice.' },
   shocked:    { text: 'text-yellow-300', bg: 'bg-yellow-900/60', label: 'SHK',
     fullName: 'Shocked', description: 'Enemy takes 8% increased damage per stack (max 3 stacks).' },
   burning:    { text: 'text-orange-400', bg: 'bg-orange-900/60', label: 'BRN',
