@@ -1,181 +1,234 @@
 // ============================================================
 // Idle Exile — Staff v2 Plague of Toads Talent Tree
 // 3 branches × 13 nodes = 39 nodes.
-// Role: Chaos AoE DoT skill. Consumes plagued for pandemic spread.
+// Role: Chaos AoE DoT. Consumes plagued for pandemic spread.
+// Per docs/weapon-designs/staff-v2/plague_of_toads.json
 // ============================================================
 
 import type { TalentNode } from '../../types';
 import { createTalentTree } from './talentTreeBuilder';
 
 type NC = Omit<TalentNode, 'id' | 'tier' | 'branchIndex' | 'position'>;
-
 function bh(name: string, description: string, modifier: NC['modifier'], perRankModifiers?: NC['perRankModifiers']): NC {
   return { name, description, nodeType: 'behavior', maxRank: 2, modifier, perRankModifiers };
 }
 
 export const STAFF_PLAGUE_OF_TOADS_TALENT_TREE = createTalentTree({
   skillId: 'staff_plague_of_toads',
-  prefix: 'pt',
+  prefix: 'tp',
   branches: [
+    // ════ Branch 0 — Plague Doctor ════
     {
       name: 'Plague Doctor',
-      description: 'Primary home. Every toad carries sickness. Pandemic is your playbook.',
+      description: 'Toads as a delivery mechanism for plague. Pandemic mastered.',
       behaviorNodes: {
-        t1a: bh('Toxic Payload', '+15/30% DoT damage multiplier.', { dotMultiplier: 15 }, { 1: { dotMultiplier: 15 }, 2: { dotMultiplier: 30 } }),
-        t1b: bh('Virulent Leap', '+10/20% ailment potency.', { ailmentPotency: 10 }, { 1: { ailmentPotency: 10 }, 2: { ailmentPotency: 20 } }),
-        t2b: bh('Chaos Venom', '+10/20% chaos penetration.', { chaosPenetration: 10 }, { 1: { chaosPenetration: 10 }, 2: { chaosPenetration: 20 } }),
+        t1a: bh('Venomous Impact', 'Toads apply +1/2 extra Poisoned stacks per impact.',
+          { rawBehaviors: { poisonStackPerImpact: 1 } },
+          { 1: { rawBehaviors: { poisonStackPerImpact: 1 } }, 2: { rawBehaviors: { poisonStackPerImpact: 2 } } }),
+        t1b: bh('Toxic Burst', 'Toad impacts 25/50% chance to apply Bleeding (3s).',
+          { procs: [{ id: 'tp_toxic_burst', trigger: 'onHit', chance: 0.25, applyDebuff: { debuffId: 'bleeding', duration: 3, stacks: 1 } }] },
+          { 1: { procs: [{ id: 'tp_toxic_burst', trigger: 'onHit', chance: 0.25, applyDebuff: { debuffId: 'bleeding', duration: 3, stacks: 1 } }] },
+            2: { procs: [{ id: 'tp_toxic_burst', trigger: 'onHit', chance: 0.50, applyDebuff: { debuffId: 'bleeding', duration: 3, stacks: 1 } }] } }),
+        t2b: {
+          name: 'Disease Catalyst', description: '+5/10% Toads damage per debuff on target.',
+          nodeType: 'behavior', maxRank: 2,
+          modifier: { conditionalMods: [{ condition: 'perAilmentStackOnTarget', modifier: { incDamage: 5 } }] },
+          perRankModifiers: {
+            1: { conditionalMods: [{ condition: 'perAilmentStackOnTarget', modifier: { incDamage: 5 } }] },
+            2: { conditionalMods: [{ condition: 'perAilmentStackOnTarget', modifier: { incDamage: 10 } }] },
+          },
+        },
         t3a: {
-          name: 'Infection Amplifier', description: '+10/20% damage while 3+ debuffs on target.',
+          name: 'Toad Plague', description: '+20/40% Toads damage on Plagued targets.',
           nodeType: 'conditional', maxRank: 2,
-          modifier: { conditionalMods: [{ condition: 'whileTargetAilmentCount', threshold: 3, modifier: { incDamage: 10 } }] },
+          modifier: { conditionalMods: [{ condition: 'whileDebuffActive', debuffId: 'plagued', modifier: { incDamage: 20 } }] },
           perRankModifiers: {
-            1: { conditionalMods: [{ condition: 'whileTargetAilmentCount', threshold: 3, modifier: { incDamage: 10 } }] },
-            2: { conditionalMods: [{ condition: 'whileTargetAilmentCount', threshold: 3, modifier: { incDamage: 20 } }] },
+            1: { conditionalMods: [{ condition: 'whileDebuffActive', debuffId: 'plagued', modifier: { incDamage: 20 } }] },
+            2: { conditionalMods: [{ condition: 'whileDebuffActive', debuffId: 'plagued', modifier: { incDamage: 40 } }] },
           },
         },
-        t3b: {
-          name: 'Stack Scaler', description: '+3/6% damage per debuff stack on target.',
-          nodeType: 'conditional', maxRank: 2,
-          modifier: { conditionalMods: [{ condition: 'perAilmentStackOnTarget', modifier: { incDamage: 3 } }] },
-          perRankModifiers: {
-            1: { conditionalMods: [{ condition: 'perAilmentStackOnTarget', modifier: { incDamage: 3 } }] },
-            2: { conditionalMods: [{ condition: 'perAilmentStackOnTarget', modifier: { incDamage: 6 } }] },
-          },
-        },
-        t3c: bh('Persistent Toxin', '+15/30% ailment duration.', { ailmentDuration: 15 }, { 1: { ailmentDuration: 15 }, 2: { ailmentDuration: 30 } }),
-        t4b: bh('Plague Support', '+15/30% DoT damage multiplier.', { dotMultiplier: 15 }, { 1: { dotMultiplier: 15 }, 2: { dotMultiplier: 30 } }),
+        t3b: bh('Crit Splash', 'Toads crits apply 1/2 stacks each of Poisoned + Bleeding.',
+          { procs: [
+            { id: 'tp_crit_poison', trigger: 'onCrit', chance: 1.0, applyDebuff: { debuffId: 'poisoned', duration: 4, stacks: 1 } },
+            { id: 'tp_crit_bleed', trigger: 'onCrit', chance: 1.0, applyDebuff: { debuffId: 'bleeding', duration: 3, stacks: 1 } },
+          ] },
+          { 1: { procs: [
+              { id: 'tp_crit_poison', trigger: 'onCrit', chance: 1.0, applyDebuff: { debuffId: 'poisoned', duration: 4, stacks: 1 } },
+              { id: 'tp_crit_bleed', trigger: 'onCrit', chance: 1.0, applyDebuff: { debuffId: 'bleeding', duration: 3, stacks: 1 } },
+            ] },
+            2: { procs: [
+              { id: 'tp_crit_poison', trigger: 'onCrit', chance: 1.0, applyDebuff: { debuffId: 'poisoned', duration: 4, stacks: 2 } },
+              { id: 'tp_crit_bleed', trigger: 'onCrit', chance: 1.0, applyDebuff: { debuffId: 'bleeding', duration: 3, stacks: 2 } },
+            ] } }),
+        t3c: bh('Chaos Mastery', '+10/20% chaos penetration.',
+          { chaosPenetration: 10 }, { 1: { chaosPenetration: 10 }, 2: { chaosPenetration: 20 } }),
+        t4b: bh('DoT Support', '+15/30% damage to DoT-tagged skills.',
+          { incDamage: 15 }, { 1: { incDamage: 15 }, 2: { incDamage: 30 } }),
       },
       t2Notable: {
-        name: 'Croaking Swarm', description: '+2 additional toads per cast (5 total).',
+        name: 'Pandemic Master', description: 'Pandemic spread at 100% snapshot (was 50%).',
         nodeType: 'notable', maxRank: 1,
-        modifier: { extraHits: 2 },
+        modifier: { rawBehaviors: { pandemicFullSnapshot: true } },
       },
       t4Notable: {
-        name: 'Viral Spread', description: 'Pandemic triggered by Plague of Toads spreads DoTs with FULL remaining duration.',
+        name: 'Pandemic Burst', description: 'Pandemic deals 50% source DoT snapshot as direct chaos damage per target.',
         nodeType: 'notable', maxRank: 1,
-        modifier: { pandemicFullDuration: true },
+        modifier: { rawBehaviors: { pandemicBurstPercent: 50 } },
       },
       t5a: {
-        name: 'Desolation', description: 'Plague of Toads automatically triggers pandemic every cast, even without plagued.',
+        name: 'Eternal Pandemic', description: 'Pandemic-spread DoTs: +100% duration. Cost: −30% Toads direct damage.',
         nodeType: 'keystoneChoice', maxRank: 1,
-        modifier: { rawBehaviors: { toadsAlwaysTriggersPandemic: true } },
+        modifier: { incDamage: -30, rawBehaviors: { pandemicSpreadDurationBonus: 100 } },
       },
       t5b: {
-        name: 'Venom Bloom', description: '+3 additional toads (6 total). Cost: −25% direct damage.',
+        name: 'Toad Storm', description: 'Toads CD becomes 0.5s while Plagued active. Cost: −60% damage per cast.',
         nodeType: 'keystoneChoice', maxRank: 1,
-        modifier: { extraHits: 3, incDamage: -25 },
+        modifier: { rawBehaviors: { toadStormMode: { cooldownOverride: 0.5, damagePenaltyPercent: 60 } } },
       },
       t6Notable: {
-        name: 'Pestilent Earth', description: 'Plague of Toads leaves a toxic patch for 3s dealing chaos damage.',
+        name: 'Stack Compounder', description: '+5% Toads damage per Poisoned/Bleeding stack on target (max +50%).',
         nodeType: 'notable', maxRank: 1,
-        modifier: { rawBehaviors: { toadsLeaveDamagePatch: { duration: 3, element: 'chaos' } } },
+        modifier: { rawBehaviors: { toadsStackCompounder: { perStackPercent: 5, maxPercent: 50 } } },
       },
       t7Keystone: {
-        name: 'PLAGUE MASTER', description: 'Plague of Toads damage is multiplied by number of DoTs on target (×1 per DoT).',
+        name: 'THE PLAGUE COURT', description: 'All zone enemies permanently Plagued. Toads pandemic always fires. Cost: Toads CD +3s.',
         nodeType: 'keystone', maxRank: 1,
-        modifier: { rawBehaviors: { toadsDamagePerTargetDot: 100 } },
+        modifier: { cooldownIncrease: 3, rawBehaviors: { plagueCourtAllPlagued: true, toadsAlwaysPandemic: true } },
       },
     },
+
+    // ════ Branch 1 — Spirit Caller ════
     {
       name: 'Spirit Caller',
-      description: 'Toads become familiars. Each one leaves a ghost behind.',
+      description: 'Toads are minions. They count, they leap, they spawn more.',
       behaviorNodes: {
-        t1a: bh('Pack Hopper', '+15/30% damage.', { incDamage: 15 }, { 1: { incDamage: 15 }, 2: { incDamage: 30 } }),
-        t1b: bh('Totemic Skin', '+15/30% minion max HP.', { minionHpMult: 15 }, { 1: { minionHpMult: 15 }, 2: { minionHpMult: 30 } }),
-        t2b: bh('Persistent Pack', '+20/40% minion duration.', { minionDurationMult: 20 }, { 1: { minionDurationMult: 20 }, 2: { minionDurationMult: 40 } }),
-        t3a: {
-          name: 'Amphibious Bond', description: '+5/10% damage while any minion alive.',
-          nodeType: 'conditional', maxRank: 2,
-          modifier: { conditionalMods: [{ condition: 'whileMinionsAlive', modifier: { incDamage: 5 } }] },
+        t1a: bh('Extra Toad', '+1/2 toads spawned per cast.',
+          { rawBehaviors: { toadCount: 1 } },
+          { 1: { rawBehaviors: { toadCount: 1 } }, 2: { rawBehaviors: { toadCount: 2 } } }),
+        t1b: bh('Toad Leap', 'Toads 25/50% chance to leap to 2nd target at 50% damage.',
+          { procs: [{ id: 'tp_leap', trigger: 'onHit', chance: 0.25 }], rawBehaviors: { toadLeapNext: { damagePercent: 50 } } },
+          { 1: { procs: [{ id: 'tp_leap', trigger: 'onHit', chance: 0.25 }] },
+            2: { procs: [{ id: 'tp_leap', trigger: 'onHit', chance: 0.50 }] } }),
+        t2b: {
+          name: 'Bound Power', description: '+10/20% Toads damage while any minion alive.',
+          nodeType: 'behavior', maxRank: 2,
+          modifier: { conditionalMods: [{ condition: 'whileMinionsAlive', modifier: { incDamage: 10 } }] },
           perRankModifiers: {
-            1: { conditionalMods: [{ condition: 'whileMinionsAlive', modifier: { incDamage: 5 } }] },
-            2: { conditionalMods: [{ condition: 'whileMinionsAlive', modifier: { incDamage: 10 } }] },
+            1: { conditionalMods: [{ condition: 'whileMinionsAlive', modifier: { incDamage: 10 } }] },
+            2: { conditionalMods: [{ condition: 'whileMinionsAlive', modifier: { incDamage: 20 } }] },
           },
         },
-        t3b: bh('Swamp Walker', '+10/20% damage per active minion.', { damagePerMinionAlive: 10 }, { 1: { damagePerMinionAlive: 10 }, 2: { damagePerMinionAlive: 20 } }),
-        t3c: bh('Pond Scum', '+15/30% minion attack damage.', { minionDamageMult: 15 }, { 1: { minionDamageMult: 15 }, 2: { minionDamageMult: 30 } }),
-        t4b: bh('Minion Support', '+15/30% minion attack damage.', { minionDamageMult: 15 }, { 1: { minionDamageMult: 15 }, 2: { minionDamageMult: 30 } }),
+        t3a: {
+          name: 'Pack Hunter', description: '+20/40% Toads damage while 2+ minions alive.',
+          nodeType: 'conditional', maxRank: 2,
+          modifier: { conditionalMods: [{ condition: 'whileMinionsAlive', modifier: { incDamage: 20 } }] },
+          perRankModifiers: {
+            1: { conditionalMods: [{ condition: 'whileMinionsAlive', modifier: { incDamage: 20 } }] },
+            2: { conditionalMods: [{ condition: 'whileMinionsAlive', modifier: { incDamage: 40 } }] },
+          },
+        },
+        t3b: bh('Toad Spawn', 'Toad kills 20/40% chance to spawn a 2s spirit.',
+          { procs: [{ id: 'tp_toad_spawn', trigger: 'onKill', chance: 0.20, summonMinion: { type: 'spirit_temp', duration: 2 } }] },
+          { 1: { procs: [{ id: 'tp_toad_spawn', trigger: 'onKill', chance: 0.20, summonMinion: { type: 'spirit_temp', duration: 2 } }] },
+            2: { procs: [{ id: 'tp_toad_spawn', trigger: 'onKill', chance: 0.40, summonMinion: { type: 'spirit_temp', duration: 2 } }] } }),
+        t3c: bh('Leap Range', 'Toads leap to +1/2 additional adjacent targets at 50% damage.',
+          { rawBehaviors: { toadLeapRange: 1 } },
+          { 1: { rawBehaviors: { toadLeapRange: 1 } }, 2: { rawBehaviors: { toadLeapRange: 2 } } }),
+        t4b: bh('Minion Mastery Support', '+15/30% minion damage.',
+          { minionDamageMult: 15 }, { 1: { minionDamageMult: 15 }, 2: { minionDamageMult: 30 } }),
       },
       t2Notable: {
-        name: 'Spectral Toads', description: 'Each toad that hits a target spawns a 2s spirit that attacks.',
+        name: 'Living Toads', description: 'Toads count as minions for 3s after cast (enables whileMinionsAlive).',
         nodeType: 'notable', maxRank: 1,
-        modifier: { rawBehaviors: { toadHitsSpawnSpirit: { duration: 2 } } },
+        modifier: { rawBehaviors: { toadsCountAsMinionsSeconds: 3 } },
       },
       t4Notable: {
-        name: 'Frog Familiar', description: 'Plague of Toads grants all minions +20% damage for 5s.',
+        name: 'Minion Bond', description: 'Each living minion: +15% Toads damage AND +1 toad count.',
         nodeType: 'notable', maxRank: 1,
-        modifier: { rawBehaviors: { toadsBuffMinions: { damagePercent: 20, duration: 5 } } },
+        modifier: { rawBehaviors: { toadsPerMinionBonus: { damagePercentPerMinion: 15, toadCountPerMinion: 1 } } },
       },
       t5a: {
-        name: 'Living Plague', description: 'Plague of Toads also summons a zombie dog for 5s.',
+        name: 'Toad Swarm', description: 'Toad count doubled (3→6). Cost: −25% damage per toad.',
         nodeType: 'keystoneChoice', maxRank: 1,
-        modifier: { rawBehaviors: { toadsCastSummonsDog: { duration: 5 } } },
+        modifier: { incDamage: -25, rawBehaviors: { toadCount: 3 } },
       },
       t5b: {
-        name: 'Toad Mother', description: 'Minion kills spawn an additional toad that attacks once for spell power damage.',
+        name: 'Permanent Toad', description: '1 toad becomes a permanent 10s minion. Cost: −50% Toads on-cast damage.',
         nodeType: 'keystoneChoice', maxRank: 1,
-        modifier: { rawBehaviors: { minionKillSpawnsToad: true } },
+        modifier: { incDamage: -50, rawBehaviors: { permanentToadMinion: { duration: 10 } } },
       },
       t6Notable: {
-        name: 'Amphibian Pact', description: 'While at 3+ minions active, Plague of Toads deals +30% damage.',
+        name: 'Hopping Death', description: 'Toads bounce 2 extra times at 50% damage.',
         nodeType: 'notable', maxRank: 1,
-        modifier: { rawBehaviors: { toadsBonusAtMinionCount: { threshold: 3, percent: 30 } } },
+        modifier: { rawBehaviors: { toadHoppingBounces: { extraBounces: 2, damagePercent: 50 } } },
       },
       t7Keystone: {
-        name: 'SWAMP GOD', description: 'Toads count as minions (active for their DoT duration). +100% damagePerMinionAlive scaling.',
+        name: 'THE TOAD GOD', description: 'Minion attacks spawn 0.5s mini-toads at impact (25% Toads damage). Cost: −40% minion damage.',
         nodeType: 'keystone', maxRank: 1,
-        modifier: { damagePerMinionAlive: 100, rawBehaviors: { toadsCountAsMinions: true } },
+        modifier: { minionDamageMult: -40, rawBehaviors: { toadGodMinionAttacksSpawnToad: { duration: 0.5, damagePercent: 25 } } },
       },
     },
+
+    // ════ Branch 2 — Voodoo Master ════
     {
       name: 'Voodoo Master',
-      description: 'Toads hex. Toads burst. Toads crit.',
+      description: 'Toads as crit/burst payoff. Soul stacks empower impacts.',
       behaviorNodes: {
-        t1a: bh('Cursed Croak', '+10/20% damage.', { incDamage: 10 }, { 1: { incDamage: 10 }, 2: { incDamage: 20 } }),
-        t1b: bh('Sharp Jump', '+8/16% critical strike chance.', { incCritChance: 8 }, { 1: { incCritChance: 8 }, 2: { incCritChance: 16 } }),
-        t2b: bh('Venomous Crit', '+10/20% critical strike multiplier.', { incCritMultiplier: 10 }, { 1: { incCritMultiplier: 10 }, 2: { incCritMultiplier: 20 } }),
-        t3a: {
-          name: 'Finisher', description: '+15/30% damage vs targets below 50% HP.',
-          nodeType: 'conditional', maxRank: 2,
-          modifier: { conditionalMods: [{ condition: 'whileTargetBelowHp', threshold: 50, modifier: { incDamage: 15 } }] },
+        t1a: bh('Sharp Strike', '+10/20% Toads crit chance.',
+          { incCritChance: 10 }, { 1: { incCritChance: 10 }, 2: { incCritChance: 20 } }),
+        t1b: bh('Soul Hop', 'Toads crits 25/50% chance to gen 1 soul_stack. ICD 1.5s.',
+          { procs: [{ id: 'tp_soul_hop', trigger: 'onCrit', chance: 0.25, internalCooldown: 1.5, createComboState: { stateId: 'soul_stack', stacks: 1 } }] },
+          { 1: { procs: [{ id: 'tp_soul_hop', trigger: 'onCrit', chance: 0.25, internalCooldown: 1.5, createComboState: { stateId: 'soul_stack', stacks: 1 } }] },
+            2: { procs: [{ id: 'tp_soul_hop', trigger: 'onCrit', chance: 0.50, internalCooldown: 1.5, createComboState: { stateId: 'soul_stack', stacks: 1 } }] } }),
+        t2b: {
+          name: 'Hex Synergy', description: '+20/40% Toads damage on Hexed targets.',
+          nodeType: 'behavior', maxRank: 2,
+          modifier: { conditionalMods: [{ condition: 'whileDebuffActive', debuffId: 'hexed', modifier: { incDamage: 20 } }] },
           perRankModifiers: {
-            1: { conditionalMods: [{ condition: 'whileTargetBelowHp', threshold: 50, modifier: { incDamage: 15 } }] },
-            2: { conditionalMods: [{ condition: 'whileTargetBelowHp', threshold: 50, modifier: { incDamage: 30 } }] },
+            1: { conditionalMods: [{ condition: 'whileDebuffActive', debuffId: 'hexed', modifier: { incDamage: 20 } }] },
+            2: { conditionalMods: [{ condition: 'whileDebuffActive', debuffId: 'hexed', modifier: { incDamage: 40 } }] },
           },
         },
-        t3b: bh('Swift Toads', '−10/20% cooldown.', { cooldownReduction: 10 }, { 1: { cooldownReduction: 10 }, 2: { cooldownReduction: 20 } }),
-        t3c: bh('Cursed Payload', '+20/40% ailment potency.', { ailmentPotency: 20 }, { 1: { ailmentPotency: 20 }, 2: { ailmentPotency: 40 } }),
-        t4b: bh('Heavy Croak', '+20/40% damage.', { incDamage: 20 }, { 1: { incDamage: 20 }, 2: { incDamage: 40 } }),
+        t3a: bh('Stack Synergy', '+5/10% Toads damage per active soul_stack.',
+          { damagePerSoulStackActive: 5 }, { 1: { damagePerSoulStackActive: 5 }, 2: { damagePerSoulStackActive: 10 } }),
+        t3b: bh('Soul Volley', 'When Toads consumes Plagued: instantly cast Soul Harvest at 50/100% damage. ICD 6s.',
+          { procs: [{ id: 'tp_soul_volley', trigger: 'onCast', chance: 1.0, conditionParam: { consumedComboState: 'plagued' }, internalCooldown: 6.0, freeCast: { skillId: 'staff_soul_harvest', damageMult: 0.5 } }] },
+          { 1: { procs: [{ id: 'tp_soul_volley', trigger: 'onCast', chance: 1.0, conditionParam: { consumedComboState: 'plagued' }, internalCooldown: 6.0, freeCast: { skillId: 'staff_soul_harvest', damageMult: 0.5 } }] },
+            2: { procs: [{ id: 'tp_soul_volley', trigger: 'onCast', chance: 1.0, conditionParam: { consumedComboState: 'plagued' }, internalCooldown: 6.0, freeCast: { skillId: 'staff_soul_harvest', damageMult: 1.0 } }] } }),
+        t3c: bh('Quickdraw', '−15/30% Toads cooldown.',
+          { cooldownReduction: 15 }, { 1: { cooldownReduction: 15 }, 2: { cooldownReduction: 30 } }),
+        t4b: bh('Burst Mastery', '+20/40% damage to Heavy-tagged skills.',
+          { incDamage: 20 }, { 1: { incDamage: 20 }, 2: { incDamage: 40 } }),
       },
       t2Notable: {
-        name: 'Hexed Toads', description: 'Plague of Toads applies Hexed (4s) on hit.',
+        name: 'Toad Catalyst', description: 'When Toads consumes Plagued: gen 2 soul_stacks.',
         nodeType: 'notable', maxRank: 1,
-        modifier: { rawBehaviors: { toadsApplyHex: { duration: 4 } } },
+        modifier: { rawBehaviors: { toadsConsumePlaguedSoulStacks: 2 } },
       },
       t4Notable: {
-        name: 'Toads of Ruin', description: 'Each toad grants 1 soul_stack on cast.',
+        name: 'Toad Surge', description: 'On Toads cast: +30% damage to next non-Toads cast in 4s, max 3 stacks.',
         nodeType: 'notable', maxRank: 1,
-        modifier: { rawBehaviors: { toadsGrantSoulStackPerToad: 1 } },
+        modifier: { procs: [{ id: 'tp_toad_surge', trigger: 'onCast', chance: 1.0, applyBuff: { buffId: 'toadSurge', effect: { damageMult: 1.30 }, duration: 4, stacks: 1, maxStacks: 3 } }] },
       },
       t5a: {
-        name: 'Piercing Venom', description: 'Plague of Toads ignores 100% of chaos resistance.',
+        name: 'Frog Prince', description: 'Each toad 25% chance to be King Toad (3× damage). Cost: −25% normal toad damage.',
         nodeType: 'keystoneChoice', maxRank: 1,
-        modifier: { chaosPenetration: 100 },
+        modifier: { incDamage: -25, rawBehaviors: { frogPrinceChance: 25, frogPrinceMultiplier: 3.0 } },
       },
       t5b: {
-        name: 'Critical Hop', description: 'Toads have +40% critical strike chance. Cost: −20% direct damage.',
+        name: 'Cursed Toads', description: 'Toads apply Hexed (5s) on impact. Cost: Toads CD +2s.',
         nodeType: 'keystoneChoice', maxRank: 1,
-        modifier: { incCritChance: 40, incDamage: -20 },
+        modifier: { cooldownIncrease: 2, rawBehaviors: { toadsApplyHexed: { duration: 5 } } },
       },
       t6Notable: {
-        name: 'Burst Toads', description: 'Plague of Toads critical strikes deal +75% burst damage.',
+        name: 'Final Whisper', description: 'Toads +100% damage to enemies below 25% HP.',
         nodeType: 'notable', maxRank: 1,
-        modifier: { rawBehaviors: { toadsCritBurst: 75 } },
+        modifier: { rawBehaviors: { toadsExecuteThreshold: { hpPercent: 25, damageBonus: 100 } } },
       },
       t7Keystone: {
-        name: 'TOADS OF RUIN', description: 'Plague of Toads damage scales with active soul_stacks (+25% per stack).',
+        name: 'THE LEAP', description: 'Toads fires 1 massive toad (+200% damage). Each soul_stack consumed adds another toad.',
         nodeType: 'keystone', maxRank: 1,
-        modifier: { damagePerSoulStackActive: 25 },
+        modifier: { rawBehaviors: { toadsLeapMode: { perSoulStackToad: 1, soloDamagePercent: 200 } } },
       },
     },
   ],

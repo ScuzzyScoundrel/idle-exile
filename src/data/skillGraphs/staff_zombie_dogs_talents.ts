@@ -1,20 +1,15 @@
 // ============================================================
 // Idle Exile — Staff v2 Zombie Dogs Talent Tree
 // 3 branches × 13 nodes = 39 nodes.
-// Role: Minion summoner (2 dogs, 10s, 3s attack interval, chaos, haunted-on-bite).
-// Branches: Spirit Caller (pack identity) / Plague Doctor (disease bites) / Voodoo Master (crit+soul)
+// Role: Tank minion summon. Bites apply haunted + poisoned (chaos).
+// Per docs/weapon-designs/staff-v2/zombie_dogs.json
 // ============================================================
 
 import type { TalentNode } from '../../types';
 import { createTalentTree } from './talentTreeBuilder';
 
 type NC = Omit<TalentNode, 'id' | 'tier' | 'branchIndex' | 'position'>;
-
-function bh(
-  name: string, description: string,
-  modifier: NC['modifier'],
-  perRankModifiers?: NC['perRankModifiers'],
-): NC {
+function bh(name: string, description: string, modifier: NC['modifier'], perRankModifiers?: NC['perRankModifiers']): NC {
   return { name, description, nodeType: 'behavior', maxRank: 2, modifier, perRankModifiers };
 }
 
@@ -22,264 +17,202 @@ export const STAFF_ZOMBIE_DOGS_TALENT_TREE = createTalentTree({
   skillId: 'staff_zombie_dogs',
   prefix: 'zd',
   branches: [
-    // ════════════════════════════════════════════════════════════
-    // Branch 0 — Spirit Caller (primary home)
-    // ════════════════════════════════════════════════════════════
+    // ════ Branch 0 — Spirit Caller ════
     {
       name: 'Spirit Caller',
-      description: 'Your pack is an extension of you. Tankier, longer-lasting, more numerous.',
+      description: 'Bigger, stronger, more persistent. The pack is a fortress.',
       behaviorNodes: {
-        t1a: bh('Pack Leader', '+15/30% minion attack damage.',
-          { minionDamageMult: 15 },
-          { 1: { minionDamageMult: 15 }, 2: { minionDamageMult: 30 } }),
-        t1b: bh('Iron Hide', '+15/30% minion max HP.',
-          { minionHpMult: 15 },
-          { 1: { minionHpMult: 15 }, 2: { minionHpMult: 30 } }),
-        t2b: bh('Persistence', '+20/40% minion duration.',
-          { minionDurationMult: 20 },
-          { 1: { minionDurationMult: 20 }, 2: { minionDurationMult: 40 } }),
+        t1a: bh('Bone Warden', '+20/40% dog max HP.',
+          { minionHpMult: 20 }, { 1: { minionHpMult: 20 }, 2: { minionHpMult: 40 } }),
+        t1b: bh('Pack Spawn', 'On Zombie Dogs cast: 25/50% chance to summon a 3s spirit.',
+          { procs: [{ id: 'zd_pack_spawn', trigger: 'onCast', chance: 0.25, summonMinion: { type: 'spirit_temp', duration: 3 } }] },
+          { 1: { procs: [{ id: 'zd_pack_spawn', trigger: 'onCast', chance: 0.25, summonMinion: { type: 'spirit_temp', duration: 3 } }] },
+            2: { procs: [{ id: 'zd_pack_spawn', trigger: 'onCast', chance: 0.50, summonMinion: { type: 'spirit_temp', duration: 3 } }] } }),
+        t2b: bh('Pack Power', '+10/20% dog damage per dog alive.',
+          { rawBehaviors: { dogPackPowerPerDog: 10 } },
+          { 1: { rawBehaviors: { dogPackPowerPerDog: 10 } }, 2: { rawBehaviors: { dogPackPowerPerDog: 20 } } }),
         t3a: {
-          name: 'Wolfpack',
-          description: '+5/10% damage while any minion is alive.',
+          name: 'Pack Hunter', description: '+15/30% damage while 2+ minions alive.',
           nodeType: 'conditional', maxRank: 2,
-          modifier: {
-            conditionalMods: [{ condition: 'whileMinionsAlive', modifier: { incDamage: 5 } }],
+          modifier: { conditionalMods: [{ condition: 'whileMinionsAlive', modifier: { incDamage: 15 } }] },
+          perRankModifiers: {
+            1: { conditionalMods: [{ condition: 'whileMinionsAlive', modifier: { incDamage: 15 } }] },
+            2: { conditionalMods: [{ condition: 'whileMinionsAlive', modifier: { incDamage: 30 } }] },
           },
+        },
+        t3b: bh('Lifesteal', 'Dog bites 25/50% chance to heal you 1% max HP.',
+          { rawBehaviors: { dogBiteLifesteal: { chance: 25, healPercent: 1 } } },
+          { 1: { rawBehaviors: { dogBiteLifesteal: { chance: 25, healPercent: 1 } } },
+            2: { rawBehaviors: { dogBiteLifesteal: { chance: 50, healPercent: 1 } } } }),
+        t3c: bh('Quick Bite', 'Dog attack interval −0.5/1.0s.',
+          { zombieDogAttackIntervalReduction: 0.5 }, { 1: { zombieDogAttackIntervalReduction: 0.5 }, 2: { zombieDogAttackIntervalReduction: 1.0 } }),
+        t4b: bh('Minion Mastery Support', '+15/30% minion damage.',
+          { minionDamageMult: 15 }, { 1: { minionDamageMult: 15 }, 2: { minionDamageMult: 30 } }),
+      },
+      t2Notable: {
+        name: 'Alpha Pack', description: '+1 extra dog summoned (3 instead of 2).',
+        nodeType: 'notable', maxRank: 1,
+        modifier: { extraZombieDogCount: 1 },
+      },
+      t4Notable: {
+        name: 'Dog Regen', description: 'Dogs heal 5% max HP/sec while not taking damage (3s safe window).',
+        nodeType: 'notable', maxRank: 1,
+        modifier: { rawBehaviors: { dogRegenPercentPerSecond: 5, dogRegenSafeWindowSeconds: 3 } },
+      },
+      t5a: {
+        name: 'Pack of Five', description: '+3 extra dogs. Cost: −40% dog max HP.',
+        nodeType: 'keystoneChoice', maxRank: 1,
+        modifier: { extraZombieDogCount: 3, minionHpMult: -40 },
+      },
+      t5b: {
+        name: 'Endless Pack', description: 'Dogs auto-revive 3s after death at 50% HP. Cost: −25% dog max HP.',
+        nodeType: 'keystoneChoice', maxRank: 1,
+        modifier: { minionHpMult: -25, rawBehaviors: { dogAutoReviveSeconds: 3, dogAutoReviveHpPercent: 50 } },
+      },
+      t6Notable: {
+        name: 'Aura of Death', description: 'Each living dog: +10% all your damage (passive aura).',
+        nodeType: 'notable', maxRank: 1,
+        modifier: { rawBehaviors: { dogAuraDamagePerDog: 10 } },
+      },
+      t7Keystone: {
+        name: 'THE ALPHA', description: 'Summon only 1 Alpha dog (3× HP, 2× damage, 50% slower attacks).',
+        nodeType: 'keystone', maxRank: 1,
+        modifier: { rawBehaviors: { alphaDogMode: { hpMult: 3.0, damageMult: 2.0, intervalMult: 1.5 } } },
+      },
+    },
+
+    // ════ Branch 1 — Plague Doctor ════
+    {
+      name: 'Plague Doctor',
+      description: 'Every bite spreads disease. The pack as a debuff distribution system.',
+      behaviorNodes: {
+        t1a: bh('Rotting Fangs', 'Each dog bite applies 1/2 stacks of Poisoned (3s).',
+          { rawBehaviors: { dogBitePoisonStacks: 1 } },
+          { 1: { rawBehaviors: { dogBitePoisonStacks: 1 } }, 2: { rawBehaviors: { dogBitePoisonStacks: 2 } } }),
+        t1b: bh('Disease Carrier', 'Dog bites 25/50% chance to apply Bleeding (3s).',
+          { rawBehaviors: { dogBiteBleedingChance: 25 } },
+          { 1: { rawBehaviors: { dogBiteBleedingChance: 25 } }, 2: { rawBehaviors: { dogBiteBleedingChance: 50 } } }),
+        t2b: {
+          name: 'Pack Plague', description: '+5/10% damage per debuff on target.',
+          nodeType: 'behavior', maxRank: 2,
+          modifier: { conditionalMods: [{ condition: 'perAilmentStackOnTarget', modifier: { incDamage: 5 } }] },
+          perRankModifiers: {
+            1: { conditionalMods: [{ condition: 'perAilmentStackOnTarget', modifier: { incDamage: 5 } }] },
+            2: { conditionalMods: [{ condition: 'perAilmentStackOnTarget', modifier: { incDamage: 10 } }] },
+          },
+        },
+        t3a: bh('Putrid Bite', 'Dog bites +5/10% chance to apply +1 existing debuff stack.',
+          { rawBehaviors: { dogBiteExtraStackChance: 5 } },
+          { 1: { rawBehaviors: { dogBiteExtraStackChance: 5 } }, 2: { rawBehaviors: { dogBiteExtraStackChance: 10 } } }),
+        t3b: bh('Crit Bite', 'Dog crits apply 1/2 stacks each of Poisoned + Bleeding.',
+          { rawBehaviors: { dogCritExtraStacks: { poisoned: 1, bleeding: 1 } } },
+          { 1: { rawBehaviors: { dogCritExtraStacks: { poisoned: 1, bleeding: 1 } } },
+            2: { rawBehaviors: { dogCritExtraStacks: { poisoned: 2, bleeding: 2 } } } }),
+        t3c: bh('Chaos Mastery', '+10/20% chaos penetration.',
+          { chaosPenetration: 10 }, { 1: { chaosPenetration: 10 }, 2: { chaosPenetration: 20 } }),
+        t4b: bh('DoT Support', '+15/30% damage to DoT-tagged skills.',
+          { incDamage: 15 }, { 1: { incDamage: 15 }, 2: { incDamage: 30 } }),
+      },
+      t2Notable: {
+        name: 'Plague Hounds', description: 'Dogs deal +50% damage to Plagued targets.',
+        nodeType: 'notable', maxRank: 1,
+        modifier: { rawBehaviors: { dogsBonusDamageVsPlagued: 50 } },
+      },
+      t4Notable: {
+        name: 'Apply All DoTs', description: 'Dog bites 10% chance to apply ALL your active DoTs to target.',
+        nodeType: 'notable', maxRank: 1,
+        modifier: { rawBehaviors: { dogBiteApplyAllDotsChance: 10 } },
+      },
+      t5a: {
+        name: 'Eternal Plague', description: 'DoTs applied by dogs: +100% duration. Cost: −25% dog damage.',
+        nodeType: 'keystoneChoice', maxRank: 1,
+        modifier: { minionDamageMult: -25, rawBehaviors: { dogAppliedDotDurationBonus: 100 } },
+      },
+      t5b: {
+        name: 'Pestilent Pack', description: 'Dogs apply Plagued (5s) on every bite. Cost: dog attack interval +1s.',
+        nodeType: 'keystoneChoice', maxRank: 1,
+        modifier: { zombieDogAttackIntervalReduction: -1, rawBehaviors: { dogBiteAppliesPlagued: { duration: 5 } } },
+      },
+      t6Notable: {
+        name: 'Death Pulse', description: 'When a dog dies: explodes for 100% its max HP as chaos AoE.',
+        nodeType: 'notable', maxRank: 1,
+        modifier: { rawBehaviors: { dogDeathPulsePercent: 100 } },
+      },
+      t7Keystone: {
+        name: 'THE PLAGUE PACK', description: 'All dog bites apply Hexed + Haunted. Cost: −50% dog max HP.',
+        nodeType: 'keystone', maxRank: 1,
+        modifier: { minionHpMult: -50, rawBehaviors: { dogBiteAppliesHexedHaunted: true } },
+      },
+    },
+
+    // ════ Branch 2 — Voodoo Master ════
+    {
+      name: 'Voodoo Master',
+      description: 'Dogs feed soul stacks and hex synergy. Pack as burst-skill fuel.',
+      behaviorNodes: {
+        t1a: {
+          name: 'Pack Aura', description: '+5/10% all your damage while any dog alive.',
+          nodeType: 'behavior', maxRank: 2,
+          modifier: { conditionalMods: [{ condition: 'whileMinionsAlive', modifier: { incDamage: 5 } }] },
           perRankModifiers: {
             1: { conditionalMods: [{ condition: 'whileMinionsAlive', modifier: { incDamage: 5 } }] },
             2: { conditionalMods: [{ condition: 'whileMinionsAlive', modifier: { incDamage: 10 } }] },
           },
         },
-        t3b: {
-          name: 'Sanguine Bond',
-          description: '+5/10 life on hit while any minion is alive.',
-          nodeType: 'conditional', maxRank: 2,
-          modifier: {
-            conditionalMods: [{ condition: 'whileMinionsAlive', modifier: { lifeOnHit: 5 } }],
-          },
+        t1b: bh('Soul Bite', 'Dog bites 10/20% chance to gen 1 soul_stack. ICD 2s.',
+          { rawBehaviors: { dogBiteSoulStackChance: 10, dogBiteSoulStackICD: 2 } },
+          { 1: { rawBehaviors: { dogBiteSoulStackChance: 10, dogBiteSoulStackICD: 2 } },
+            2: { rawBehaviors: { dogBiteSoulStackChance: 20, dogBiteSoulStackICD: 2 } } }),
+        t2b: {
+          name: 'Hex Synergy', description: '+15/30% damage on Hexed targets.',
+          nodeType: 'behavior', maxRank: 2,
+          modifier: { conditionalMods: [{ condition: 'whileDebuffActive', debuffId: 'hexed', modifier: { incDamage: 15 } }] },
           perRankModifiers: {
-            1: { conditionalMods: [{ condition: 'whileMinionsAlive', modifier: { lifeOnHit: 5 } }] },
-            2: { conditionalMods: [{ condition: 'whileMinionsAlive', modifier: { lifeOnHit: 10 } }] },
+            1: { conditionalMods: [{ condition: 'whileDebuffActive', debuffId: 'hexed', modifier: { incDamage: 15 } }] },
+            2: { conditionalMods: [{ condition: 'whileDebuffActive', debuffId: 'hexed', modifier: { incDamage: 30 } }] },
           },
         },
-        t3c: bh('Savage Bite', '+15/30% minion attack damage.',
-          { minionDamageMult: 15 },
-          { 1: { minionDamageMult: 15 }, 2: { minionDamageMult: 30 } }),
-        t4b: bh('Kennel Master', '+10/20% damage per active minion.',
-          { damagePerMinionAlive: 10 },
-          { 1: { damagePerMinionAlive: 10 }, 2: { damagePerMinionAlive: 20 } }),
+        t3a: bh('Stack Synergy', '+5/10% dog damage per active soul_stack.',
+          { rawBehaviors: { dogDamagePerSoulStack: 5 } },
+          { 1: { rawBehaviors: { dogDamagePerSoulStack: 5 } }, 2: { rawBehaviors: { dogDamagePerSoulStack: 10 } } }),
+        t3b: bh('Crit Soul', 'Dog crits 50/100% chance to gen soul_stack. ICD 2s.',
+          { rawBehaviors: { dogCritSoulStackChance: 50, dogCritSoulStackICD: 2 } },
+          { 1: { rawBehaviors: { dogCritSoulStackChance: 50, dogCritSoulStackICD: 2 } },
+            2: { rawBehaviors: { dogCritSoulStackChance: 100, dogCritSoulStackICD: 2 } } }),
+        t3c: bh('Quickdraw', '−15/30% Zombie Dogs cooldown.',
+          { cooldownReduction: 15 }, { 1: { cooldownReduction: 15 }, 2: { cooldownReduction: 30 } }),
+        t4b: bh('Burst Mastery', '+20/40% damage to Heavy-tagged skills.',
+          { incDamage: 20 }, { 1: { incDamage: 20 }, 2: { incDamage: 40 } }),
       },
       t2Notable: {
-        name: 'Rabid Assault',
-        description: 'Zombie Dog attack interval reduced by 1.0s (from 3s to 2s).',
+        name: 'Cursed Pack', description: 'Dogs deal +50% damage to Hexed targets.',
         nodeType: 'notable', maxRank: 1,
-        modifier: { zombieDogAttackIntervalReduction: 1.0 },
+        modifier: { rawBehaviors: { dogsBonusDamageVsHexed: 50 } },
       },
       t4Notable: {
-        name: 'Third Dog',
-        description: 'Summon 3 Zombie Dogs instead of 2.',
+        name: 'Pack Catalyst', description: 'On Zombie Dogs cast: gen 2 soul_stacks.',
         nodeType: 'notable', maxRank: 1,
-        modifier: { extraZombieDogCount: 1 },
+        modifier: { procs: [{ id: 'zd_pack_catalyst', trigger: 'onCast', chance: 1.0, createComboState: { stateId: 'soul_stack', stacks: 2 } }] },
       },
       t5a: {
-        name: 'Pack of Nine',
-        description: '+50% max HP and +50% duration, but Zombie Dogs attack 30% slower (+0.9s interval).',
+        name: 'Bloodhounds', description: 'Dog bites +1% target max HP as chaos. Cost: dog max HP −30%.',
         nodeType: 'keystoneChoice', maxRank: 1,
-        modifier: {
-          minionHpMult: 50,
-          minionDurationMult: 50,
-          zombieDogAttackIntervalReduction: -0.9,
-        },
+        modifier: { minionHpMult: -30, rawBehaviors: { dogBiteMaxHpDamagePercent: 1 } },
       },
       t5b: {
-        name: 'Hellhounds',
-        description: '+100% Zombie Dog damage. Cost: −50% minion duration.',
+        name: 'Hex Pack', description: 'Every 3rd dog bite applies Hexed (5s). Cost: −25% dog damage.',
         nodeType: 'keystoneChoice', maxRank: 1,
-        modifier: {
-          minionDamageMult: 100,
-          minionDurationMult: -50,
-        },
+        modifier: { minionDamageMult: -25, rawBehaviors: { dogBiteEveryNHexed: { everyN: 3, duration: 5 } } },
       },
       t6Notable: {
-        name: 'Alpha Spirit',
-        description: '+15 to all resistances while any minion is alive.',
+        name: 'Pack Resonance', description: 'On crit of Hexed target: all dogs immediately attack (reset timers).',
         nodeType: 'notable', maxRank: 1,
-        modifier: {
-          conditionalMods: [{ condition: 'whileMinionsAlive', modifier: { allResist: 15 } }],
-        },
+        modifier: { rawBehaviors: { critHexedTriggersDogPackAttack: true } },
       },
       t7Keystone: {
-        name: 'ETERNAL KENNEL',
-        description: 'Zombie Dogs never expire (effectively permanent minion duration). Cost: +6s cooldown on Zombie Dogs cast.',
+        name: 'THE PACK LORD', description: 'Each soul_stack: +20% dog damage (uncapped). Cost: dog max HP −50%.',
         nodeType: 'keystone', maxRank: 1,
-        modifier: {
-          minionDurationMult: 900,
-          cooldownIncrease: 60,
-        },
-      },
-    },
-
-    // ════════════════════════════════════════════════════════════
-    // Branch 1 — Plague Doctor
-    // ════════════════════════════════════════════════════════════
-    {
-      name: 'Plague Doctor',
-      description: 'Your dogs carry disease. Bites spread DoTs, kills seed new plagues.',
-      behaviorNodes: {
-        t1a: bh('Venomous Teeth', '+15/30% DoT damage multiplier.',
-          { dotMultiplier: 15 },
-          { 1: { dotMultiplier: 15 }, 2: { dotMultiplier: 30 } }),
-        t1b: bh('Toxic Saliva', '+10/20% ailment potency.',
-          { ailmentPotency: 10 },
-          { 1: { ailmentPotency: 10 }, 2: { ailmentPotency: 20 } }),
-        t2b: bh('Chaos Channel', '+10/20% chaos penetration.',
-          { chaosPenetration: 10 },
-          { 1: { chaosPenetration: 10 }, 2: { chaosPenetration: 20 } }),
-        t3a: {
-          name: 'Viral Strike',
-          description: '+10/20% damage while 3+ debuffs on target.',
-          nodeType: 'conditional', maxRank: 2,
-          modifier: {
-            conditionalMods: [{ condition: 'whileTargetAilmentCount', threshold: 3, modifier: { incDamage: 10 } }],
-          },
-          perRankModifiers: {
-            1: { conditionalMods: [{ condition: 'whileTargetAilmentCount', threshold: 3, modifier: { incDamage: 10 } }] },
-            2: { conditionalMods: [{ condition: 'whileTargetAilmentCount', threshold: 3, modifier: { incDamage: 20 } }] },
-          },
-        },
-        t3b: {
-          name: 'Disease Growth',
-          description: '+3/6% damage per debuff stack on target.',
-          nodeType: 'conditional', maxRank: 2,
-          modifier: {
-            conditionalMods: [{ condition: 'perAilmentStackOnTarget', modifier: { incDamage: 3 } }],
-          },
-          perRankModifiers: {
-            1: { conditionalMods: [{ condition: 'perAilmentStackOnTarget', modifier: { incDamage: 3 } }] },
-            2: { conditionalMods: [{ condition: 'perAilmentStackOnTarget', modifier: { incDamage: 6 } }] },
-          },
-        },
-        t3c: bh('Lingering Bites', '+15/30% ailment duration.',
-          { ailmentDuration: 15 },
-          { 1: { ailmentDuration: 15 }, 2: { ailmentDuration: 30 } }),
-        t4b: bh('Plague Support', '+15/30% DoT damage multiplier.',
-          { dotMultiplier: 15 },
-          { 1: { dotMultiplier: 15 }, 2: { dotMultiplier: 30 } }),
-      },
-      t2Notable: {
-        name: 'Plague Fangs',
-        description: 'Zombie Dog bites apply 2 stacks of poison per hit.',
-        nodeType: 'notable', maxRank: 1,
-        modifier: { rawBehaviors: { minionBitesApplyPoison: 2 } },
-      },
-      t4Notable: {
-        name: 'Rotting Bite',
-        description: 'When a Zombie Dog kills an enemy, spread all of that enemy\'s DoTs to a nearby target.',
-        nodeType: 'notable', maxRank: 1,
-        modifier: { rawBehaviors: { minionKillSpreadsDots: true } },
-      },
-      t5a: {
-        name: 'Miasma Aura',
-        description: 'Zombie Dogs deal +30% damage to enemies with any DoT active.',
-        nodeType: 'keystoneChoice', maxRank: 1,
-        modifier: { rawBehaviors: { minionDamageBonusVsDotTarget: 30 } },
-      },
-      t5b: {
-        name: 'Breeding Ground',
-        description: 'Killed enemies spawn 1 temporary fetish (3s) that attacks with your pack.',
-        nodeType: 'keystoneChoice', maxRank: 1,
-        modifier: { rawBehaviors: { killSpawnsFetish: { duration: 3 } } },
-      },
-      t6Notable: {
-        name: 'Plague Conduit',
-        description: 'Zombie Dog bites also apply 1 stack of your most recent DoT (Locust / Haunt / Hex).',
-        nodeType: 'notable', maxRank: 1,
-        modifier: { rawBehaviors: { minionBitesApplyRecentDot: true } },
-      },
-      t7Keystone: {
-        name: 'ZOMBIE PLAGUE',
-        description: 'Zombie Dogs heal from chaos damage and ignore poison damage taken. Cost: +1s attack interval.',
-        nodeType: 'keystone', maxRank: 1,
-        modifier: {
-          zombieDogAttackIntervalReduction: -1,
-          rawBehaviors: { zombieDogsHealFromChaos: true, zombieDogsImmuneToPoison: true },
-        },
-      },
-    },
-
-    // ════════════════════════════════════════════════════════════
-    // Branch 2 — Voodoo Master
-    // ════════════════════════════════════════════════════════════
-    {
-      name: 'Voodoo Master',
-      description: 'Control the pack. Crit dogs, stack synergy, puppet mastery.',
-      behaviorNodes: {
-        t1a: bh('Predatory Curse', '+10/20% damage.',
-          { incDamage: 10 },
-          { 1: { incDamage: 10 }, 2: { incDamage: 20 } }),
-        t1b: bh('Keen Senses', '+8/16% critical strike chance.',
-          { incCritChance: 8 },
-          { 1: { incCritChance: 8 }, 2: { incCritChance: 16 } }),
-        t2b: bh('Vicious Edge', '+10/20% critical strike multiplier.',
-          { incCritMultiplier: 10 },
-          { 1: { incCritMultiplier: 10 }, 2: { incCritMultiplier: 20 } }),
-        t3a: {
-          name: 'Finisher',
-          description: '+15/30% damage vs targets below 50% HP.',
-          nodeType: 'conditional', maxRank: 2,
-          modifier: {
-            conditionalMods: [{ condition: 'whileTargetBelowHp', threshold: 50, modifier: { incDamage: 15 } }],
-          },
-          perRankModifiers: {
-            1: { conditionalMods: [{ condition: 'whileTargetBelowHp', threshold: 50, modifier: { incDamage: 15 } }] },
-            2: { conditionalMods: [{ condition: 'whileTargetBelowHp', threshold: 50, modifier: { incDamage: 30 } }] },
-          },
-        },
-        t3b: bh('Short Leash', '−10/20% cooldown.',
-          { cooldownReduction: 10 },
-          { 1: { cooldownReduction: 10 }, 2: { cooldownReduction: 20 } }),
-        t3c: bh('Blood Curse', '+20/40% ailment potency.',
-          { ailmentPotency: 20 },
-          { 1: { ailmentPotency: 20 }, 2: { ailmentPotency: 40 } }),
-        t4b: bh('Heavy Pack', '+20/40% damage.',
-          { incDamage: 20 },
-          { 1: { incDamage: 20 }, 2: { incDamage: 40 } }),
-      },
-      t2Notable: {
-        name: 'Cursed Alphas',
-        description: 'Zombie Dog attacks inherit your critical strike chance and multiplier.',
-        nodeType: 'notable', maxRank: 1,
-        modifier: { rawBehaviors: { minionAttacksInheritPlayerCrit: true } },
-      },
-      t4Notable: {
-        name: 'Soul Harvest Link',
-        description: 'Each Zombie Dog kill grants 1 soul_stack.',
-        nodeType: 'notable', maxRank: 1,
-        modifier: { rawBehaviors: { minionKillGrantsSoulStack: 1 } },
-      },
-      t5a: {
-        name: 'Pack Curse',
-        description: 'Zombie Dog hits apply Hexed (5s) to the target.',
-        nodeType: 'keystoneChoice', maxRank: 1,
-        modifier: { rawBehaviors: { minionHitsApplyHex: { duration: 5 } } },
-      },
-      t5b: {
-        name: 'Iron Pack',
-        description: 'Zombie Dogs gain +50% of your critical strike multiplier as flat damage bonus.',
-        nodeType: 'keystoneChoice', maxRank: 1,
-        modifier: { rawBehaviors: { minionsInheritPlayerCritMult: { ratio: 0.5 } } },
-      },
-      t6Notable: {
-        name: 'Death Curse',
-        description: 'When a Zombie Dog dies, it explodes for chaos damage equal to its remaining HP.',
-        nodeType: 'notable', maxRank: 1,
-        modifier: { rawBehaviors: { minionDeathExplodes: { damageFromRemainingHp: 1.0, element: 'chaos' } } },
-      },
-      t7Keystone: {
-        name: 'PUPPET KING',
-        description: 'Zombie Dog attacks consume 1 soul_stack per hit for +100% damage. Without stacks, minion attacks deal only 25% damage.',
-        nodeType: 'keystone', maxRank: 1,
-        modifier: { rawBehaviors: { zombieDogsConsumeSoulStackOnHit: { perStackBonus: 100, noStackPenalty: 75 } } },
+        modifier: { minionHpMult: -50, rawBehaviors: { dogDamagePerSoulStackUncapped: 20 } },
       },
     },
   ],
