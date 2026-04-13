@@ -12,6 +12,7 @@ import type {
 import { BLOCK_DODGE_RECENCY_WINDOW } from '../data/balance';
 import { getUnifiedSkillDef } from '../data/skills';
 import { rollSkillCast } from './unifiedSkills';
+import { type MinionState, SUMMON_CONFIGS } from './combat/minions';
 
 // ─── Condition Evaluation ───
 
@@ -378,6 +379,9 @@ export interface ProcResult {
   extendAllAilments: number;                   // seconds to extend all ailment durations
   applyComboState: { id: string; potencyMult: number } | null; // create a combo state
   escalation: { atKills: number; durationOverride: number; additionalEffect: Record<string, any> } | null;
+  // Staff v2: proc-spawned minions + combo states
+  newMinions: MinionState[];
+  newComboStates: { stateId: string; stacks: number; duration: number }[];
 }
 
 /**
@@ -554,6 +558,7 @@ export function evaluateProcs(
     detonationDamage: 0, consumeAilments: false,
     spreadAilments: false, spreadDurationRetain: 0.75,
     extendAllAilments: 0, applyComboState: null, escalation: null,
+    newMinions: [], newComboStates: [],
   };
   for (const proc of procs) {
     if (proc.trigger !== trigger) continue;
@@ -650,6 +655,40 @@ export function evaluateProcs(
         stacks: proc.applyDebuff.stacks ?? 1,
         duration: proc.applyDebuff.duration,
         skillId: ctx.skillId,
+      });
+    }
+    // Staff v2: proc-spawned minion (Haunt Spirit's Touch, Locust Hive Spawn, etc.)
+    if (proc.summonMinion) {
+      const summonType = proc.summonMinion.type as string;
+      const cfg = SUMMON_CONFIGS[summonType];
+      if (cfg) {
+        const hp = ctx.effectiveMaxLife * cfg.hpPercentOfPlayer;
+        const damage = ctx.weaponSpellPower * cfg.damagePerSpellPowerRatio;
+        const duration = (proc.summonMinion.duration as number | undefined) ?? cfg.duration;
+        const count = (proc.summonMinion.countOverride as number | undefined) ?? 1;
+        for (let i = 0; i < count; i++) {
+          result.newMinions.push({
+            id: `${cfg.type}_${ctx.now}_${Math.floor(Math.random() * 1e6)}_${i}`,
+            type: cfg.type,
+            hp, maxHp: hp, damage,
+            attackInterval: cfg.attackInterval,
+            nextAttackAt: ctx.now + (cfg.attackInterval * 1000 * (i / Math.max(1, count))),
+            expiresAt: ctx.now + duration * 1000,
+            element: cfg.element,
+            sourceSkillId: ctx.skillId,
+            appliesDebuffOnHit: cfg.appliesDebuffOnHit,
+            createsComboStateOnHit: cfg.createsComboStateOnHit,
+          });
+        }
+      }
+    }
+    // Staff v2: proc-created combo state (Soulshatter, Cursed Tick, Soul Feast, etc.)
+    if (proc.createComboState) {
+      const cs = proc.createComboState as { stateId: string; stacks?: number; duration?: number };
+      result.newComboStates.push({
+        stateId: cs.stateId,
+        stacks: cs.stacks ?? 1,
+        duration: cs.duration ?? 10,
       });
     }
     if (proc.resetCooldown) {

@@ -52,7 +52,7 @@ import {
   mergeProcTempBuff,
   type SpreadResult,
 } from './helpers';
-import { CARRIER_DEATH_BEHAVIOR } from './combo';
+import { CARRIER_DEATH_BEHAVIOR, createComboState, COMBO_STATE_CREATORS } from './combo';
 import { isSkillAoE, spawnPack } from '../packs';
 import { isZoneInvaded } from '../invasions';
 import {
@@ -879,6 +879,16 @@ export function runCombatTick(
       allProcsFired.push(...pr.procsFired);
       allProcEvents.push(...buildProcEvents(pr, skill.id));
       Object.assign(newLastProcTriggerAt, pr.procTriggeredAt);
+      // Staff v2: proc-spawned minions + combo states
+      if (pr.newMinions.length > 0) newActiveMinions.push(...pr.newMinions);
+      for (const cs of pr.newComboStates) {
+        const creator = Object.values(COMBO_STATE_CREATORS).find(c => c.stateId === cs.stateId);
+        const csEffect = creator?.effect ?? {};
+        const csMaxStacks = creator?.maxStacks ?? 5;
+        for (let i = 0; i < cs.stacks; i++) {
+          newComboStates = createComboState(newComboStates, cs.stateId, skill.id, csEffect, cs.duration, csMaxStacks);
+        }
+      }
       // fortifyOnProc: accumulate fortify stacks from proc results
       if (pr.fortifyStacks > 0) {
         newFortifyStacks = Math.min(newFortifyStacks + pr.fortifyStacks, FORTIFY_MAX_STACKS);
@@ -930,6 +940,15 @@ export function runCombatTick(
     Object.assign(newLastProcTriggerAt, tickPr.procTriggeredAt);
     for (const buff of tickPr.newTempBuffs) activeTempBuffs = mergeProcTempBuff(activeTempBuffs, buff);
     for (const pd of tickPr.newDebuffs) applyDebuffToList(newDebuffs, pd.debuffId, pd.stacks, pd.duration, pd.skillId, ailmentSnapshot);
+    if (tickPr.newMinions.length > 0) newActiveMinions.push(...tickPr.newMinions);
+    for (const cs of tickPr.newComboStates) {
+      const creator = Object.values(COMBO_STATE_CREATORS).find(c => c.stateId === cs.stateId);
+      const csEffect = creator?.effect ?? {};
+      const csMaxStacks = creator?.maxStacks ?? 5;
+      for (let i = 0; i < cs.stacks; i++) {
+        newComboStates = createComboState(newComboStates, cs.stateId, skill.id, csEffect, cs.duration, csMaxStacks);
+      }
+    }
 
     if (expiredDebuffCount > 0) {
       const expPr = evaluateProcs(graphMod.skillProcs, 'onAilmentExpire', dotProcCtx);
@@ -1731,6 +1750,16 @@ export function runCombatTick(
       for (const buff of killPr.newTempBuffs) {
         activeTempBuffs = [...activeTempBuffs, buff];
       }
+      // Staff v2: proc-spawned minions + combo states on kill
+      if (killPr.newMinions.length > 0) newActiveMinions.push(...killPr.newMinions);
+      for (const cs of killPr.newComboStates) {
+        const creator = Object.values(COMBO_STATE_CREATORS).find(c => c.stateId === cs.stateId);
+        const csEffect = creator?.effect ?? {};
+        const csMaxStacks = creator?.maxStacks ?? 5;
+        for (let i = 0; i < cs.stacks; i++) {
+          newComboStates = createComboState(newComboStates, cs.stateId, skill.id, csEffect, cs.duration, csMaxStacks);
+        }
+      }
       if (killPr.cooldownResets.length > 0) {
         newTimers = newTimers.map(t =>
           killPr.cooldownResets.includes(t.skillId) ? { ...t, cooldownUntil: null } : t,
@@ -1914,6 +1943,16 @@ export function runCombatTick(
       allProcEvents.push(...buildProcEvents(aoeKillPr, skill.id));
       procDamage += aoeKillPr.bonusDamage;
       procHeal += aoeKillPr.healAmount;
+      // Staff v2: proc-spawned minions + combo states on AoE kill
+      if (aoeKillPr.newMinions.length > 0) newActiveMinions.push(...aoeKillPr.newMinions);
+      for (const cs of aoeKillPr.newComboStates) {
+        const creator = Object.values(COMBO_STATE_CREATORS).find(c => c.stateId === cs.stateId);
+        const csEffect = creator?.effect ?? {};
+        const csMaxStacks = creator?.maxStacks ?? 5;
+        for (let i = 0; i < cs.stacks; i++) {
+          newComboStates = createComboState(newComboStates, cs.stateId, skill.id, csEffect, cs.duration, csMaxStacks);
+        }
+      }
       procCooldownResets.push(...aoeKillPr.cooldownResets);
       for (const buff of aoeKillPr.newTempBuffs) {
         activeTempBuffs = mergeProcTempBuff(activeTempBuffs, buff);

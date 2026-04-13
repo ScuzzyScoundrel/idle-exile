@@ -20,6 +20,7 @@ import {
 } from '../src/engine/combat/minions';
 import { staffModule } from '../src/engine/combat/weapons/staff';
 import { tickComboStates } from '../src/engine/combat/combo';
+import { evaluateProcs } from '../src/engine/combatHelpers';
 import type { ComboState } from '../src/types';
 
 // ── Output helpers ──
@@ -1302,6 +1303,73 @@ section('Fetish Swarm + Hex talents');
   const result = staffModule.preRoll!(ctx);
   assert('Amplifying Curse: Soul Harvest vs hexed target → no bonus (skill-scoped)',
     near(result.damageMult, 1.0, 0.01), `got ${result.damageMult}`);
+}
+
+// ════════════════════════════════════════════════════════════
+// 10. Proc-spawned minions (summonMinion handler)
+// ════════════════════════════════════════════════════════════
+section('Proc-spawned minions + combo states');
+
+{
+  const procCtx: any = {
+    isHit: true, isCrit: false, skillId: 'staff_haunt',
+    effectiveMaxLife: PLAYER_MAX_HP, stats: {} as any,
+    weaponAvgDmg: 0, weaponSpellPower: SPELL_POWER, damageMult: 1,
+    now: 10000, lastProcTriggerAt: {},
+  };
+
+  // Spirit's Touch-style proc: summon 1 spirit_temp on cast, duration 3s
+  const spiritProc = [{
+    id: 'test_spirit_touch', trigger: 'onCast' as const, chance: 1.0,
+    summonMinion: { type: 'spirit_temp', duration: 3 },
+  }];
+  const res = evaluateProcs(spiritProc, 'onCast', procCtx);
+  assert("summonMinion proc: spirit_temp adds 1 minion to newMinions",
+    res.newMinions.length === 1, `got ${res.newMinions.length}`);
+  assert("summonMinion proc: minion HP = 10% player max (spirit_temp config)",
+    res.newMinions[0]?.hp === PLAYER_MAX_HP * 0.10, `hp=${res.newMinions[0]?.hp}`);
+  assert("summonMinion proc: minion damage = 25% spell power",
+    res.newMinions[0]?.damage === SPELL_POWER * 0.25, `dmg=${res.newMinions[0]?.damage}`);
+  assert("summonMinion proc: minion expires at now + duration*1000",
+    res.newMinions[0]?.expiresAt === procCtx.now + 3000, `expiresAt=${res.newMinions[0]?.expiresAt}`);
+  assert("summonMinion proc: minion element = cold (spirit_temp config)",
+    res.newMinions[0]?.element === 'cold', `element=${res.newMinions[0]?.element}`);
+  assert("summonMinion proc: minion sourceSkillId = proc skill context",
+    res.newMinions[0]?.sourceSkillId === 'staff_haunt', `src=${res.newMinions[0]?.sourceSkillId}`);
+  assert("summonMinion proc: minion attackInterval = 1.5s (spirit_temp config)",
+    res.newMinions[0]?.attackInterval === 1.5, `interval=${res.newMinions[0]?.attackInterval}`);
+
+  // createComboState proc: Soulshatter-style (Haunt crit → soul_stack)
+  const comboProc = [{
+    id: 'test_soulshatter', trigger: 'onCrit' as const, chance: 1.0,
+    createComboState: { stateId: 'soul_stack', stacks: 1 },
+  }];
+  const critCtx = { ...procCtx, isCrit: true };
+  const comboRes = evaluateProcs(comboProc, 'onCrit', critCtx);
+  assert("createComboState proc: adds 1 entry to newComboStates",
+    comboRes.newComboStates.length === 1, `got ${comboRes.newComboStates.length}`);
+  assert("createComboState proc: stateId preserved",
+    comboRes.newComboStates[0]?.stateId === 'soul_stack', `stateId=${comboRes.newComboStates[0]?.stateId}`);
+  assert("createComboState proc: stacks default to 1",
+    comboRes.newComboStates[0]?.stacks === 1, `stacks=${comboRes.newComboStates[0]?.stacks}`);
+
+  // countOverride
+  const multiProc = [{
+    id: 'test_hive', trigger: 'onKill' as const, chance: 1.0,
+    summonMinion: { type: 'spirit_temp', duration: 5, countOverride: 3 },
+  }];
+  const multiRes = evaluateProcs(multiProc, 'onKill', { ...procCtx, skillId: 'staff_locust_swarm' });
+  assert("summonMinion proc: countOverride spawns N minions",
+    multiRes.newMinions.length === 3, `got ${multiRes.newMinions.length}`);
+
+  // Unknown minion type fails gracefully (no spawn)
+  const badProc = [{
+    id: 'test_bad', trigger: 'onCast' as const, chance: 1.0,
+    summonMinion: { type: 'nonexistent_minion', duration: 3 },
+  }];
+  const badRes = evaluateProcs(badProc, 'onCast', procCtx);
+  assert("summonMinion proc: unknown minion type spawns nothing (no crash)",
+    badRes.newMinions.length === 0, `got ${badRes.newMinions.length}`);
 }
 
 // ════════════════════════════════════════════════════════════

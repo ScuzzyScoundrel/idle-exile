@@ -60,6 +60,18 @@ export const SUMMON_CONFIGS: Record<string, SummonConfig> = {
     element: 'physical',
     sourceSkillId: 'staff_fetish_swarm',
   },
+  // Temp spirit minion — spawned by procs (Haunt Spirit's Touch, Locust Hive Spawn, etc.).
+  // Default duration 3s — procs can override per-summon via SkillProcEffect.summonMinion.duration.
+  spirit_temp: {
+    type: 'spirit_temp',
+    count: 1,
+    hpPercentOfPlayer: 0.10,
+    attackInterval: 1.5,
+    damagePerSpellPowerRatio: 0.25,
+    duration: 3,
+    element: 'cold',
+    sourceSkillId: 'staff_haunt',
+  },
 };
 
 /** Re-cast while minions of this type are alive refreshes duration, does NOT add stacks.
