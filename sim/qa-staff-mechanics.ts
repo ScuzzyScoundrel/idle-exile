@@ -179,8 +179,8 @@ section('absorbDamage');
       nextAttackAt: 0, expiresAt: 99999, element: 'chaos', sourceSkillId: 's' },
   ];
   const { minions, remainingDamage } = absorbDamage(dogs, 100);
-  assert('100 damage front-loads onto first minion (front=100, second untouched)',
-    minions[0].hp === 100 && minions[1].hp === 200,
+  assert('100 damage front-loads onto first minion (front=0 dead, second=100 untouched)',
+    minions[0].hp === 0 && minions[1].hp === 100,
     `hp=[${minions[0].hp}, ${minions[1].hp}]`);
   assert('No damage passes through to player', remainingDamage === 0);
 }
@@ -534,8 +534,8 @@ section('staffModule.onEnemyAttack');
   const result = staffModule.onEnemyAttack!(ctx);
   assert('onEnemyAttack absorbs 100 across 2 dogs → 100 absorbed',
     result.damageAbsorbedByMinions === 100, `got ${result.damageAbsorbedByMinions}`);
-  assert('onEnemyAttack returns updated minion list — front dog takes 100, second untouched',
-    result.activeMinions![0].hp === 100 && result.activeMinions![1].hp === 200,
+  assert('onEnemyAttack returns updated minion list — front dog dies, second untouched',
+    result.activeMinions![0].hp === 0 && result.activeMinions![1].hp === 100,
     `hp=[${result.activeMinions![0].hp}, ${result.activeMinions![1].hp}]`);
 }
 
