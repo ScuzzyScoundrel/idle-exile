@@ -445,20 +445,25 @@ export const staffModule: WeaponModule = {
 
     // ── Minion death detection (compare prev → current) ──
     // stepMinions drops expired/dead minions; reconstruct by diffing prev list.
+    // Filter by hp > 0 only — state.activeMinions was written at end of previous
+    // tick so its members WERE alive then. Using `now < expiresAt` here would drop
+    // minions whose expiresAt hit exactly this tick, silently losing "fetish
+    // despawn → spawn dog" style procs (user reported this regression).
     const prevMinions = state.activeMinions ?? [];
-    const prevAlive = new Map(prevMinions.filter(m => m.hp > 0 && now < m.expiresAt).map(m => [m.id, m]));
+    const prevAlive = new Map(prevMinions.filter(m => m.hp > 0).map(m => [m.id, m]));
     const currentIds = new Set(updatedMinions.map(m => m.id));
     let finalMinions = updatedMinions;
     for (const [id, prev] of prevAlive) {
       if (currentIds.has(id)) continue;
-      // prev was alive, now gone → died (hp<=0) or expired this tick (now>=expiresAt)
-      const diedByDamage = prev.hp <= 0 || (now >= prev.expiresAt && prev.hp <= 0);
-      const wasExpired = now >= prev.expiresAt;
+      // prev was alive last tick, now gone → either damage-killed (hp<=0) or expired this tick.
+      const diedByDamage = prev.hp <= 0;
+      const wasExpired = !diedByDamage && now >= prev.expiresAt;
       const deathMod = resolveMinionMod(prev.sourceSkillId);
       const drb = deathMod?.rawBehaviors as Record<string, any> | undefined;
       if (!drb) continue;
-      // Only fire "on death" for damage-killed (not clean-expired) for cloud/pulse;
-      // for spawn-on-death we fire on any removal so long-running builds still chain.
+      // Cloud / pulse only fire for damage-kills (keystones penalize for surviving).
+      // Spawn-on-death / kill-spirit chains fire on ANY removal so despawn-driven
+      // build rotations (BLOOD CULT + Dog Spawn) actually chain.
       // Fetish Swarm death events
       if (prev.type === 'fetish') {
         if (drb.fetishDeathPoisonCloud && !wasExpired) {

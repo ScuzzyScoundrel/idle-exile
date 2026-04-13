@@ -459,6 +459,15 @@ const KEYSTONE_TESTS: { name: string; build: BuildSpec; expectations: string[] }
     expectations: ['no NaN', 'haunt_dot applied', 'positive damage'],
   },
   {
+    // Dog Spawn notable — 25% chance on fetish death (including despawn) to summon a Zombie Dog.
+    // Regression test: the prev->curr death detection used to filter out natural
+    // despawns so this proc never fired. Run long enough that fetishes despawn
+    // naturally (6s duration) and one of ~10 despawns procs the 25% roll.
+    name: 'Dog Spawn (Fetish t4) — fetish despawn fires spawn-dog proc',
+    build: { skills: ['staff_fetish_swarm'], talents: { staff_fetish_swarm: { fs_0_4_0: 1 } }, packSize: 3, mobHp: 1e8 },
+    expectations: ['no NaN', 'zombie_dog spawn'],
+  },
+  {
     name: 'THE BLOOD CULT (Fetish t7) — fetishes permanent',
     build: { skills: ['staff_fetish_swarm'], talents: { staff_fetish_swarm: { fs_0_7_0: 1 } }, packSize: 3, mobHp: 1e8 },
     expectations: ['no NaN', 'fetish spawn'],
