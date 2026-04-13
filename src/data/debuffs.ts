@@ -51,6 +51,15 @@ export const DEBUFF_DEFS: DebuffDef[] = [
     effect: { reducedAttackSpeed: 20 },
   },
   {
+    id: 'frostbite',
+    name: 'Frostbite',
+    description: 'Cold damage over time. Each stack snapshots hit damage; 15% of total snapshot per second. Max 5 stacks.',
+    stackable: true,
+    maxStacks: 5,
+    dotType: 'snapshot',
+    effect: { snapshotPercent: 15 },
+  },
+  {
     id: 'vulnerable',
     name: 'Vulnerable',
     description: 'Target takes 20% more damage from all sources.',

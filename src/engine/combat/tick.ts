@@ -726,7 +726,7 @@ export function runCombatTick(
   // override duration + scale snapshot proportional to default 0.20 tick rate.
   if (roll.isHit) {
     const ELEMENT_AILMENT: Record<string, string> = {
-      physical: 'bleeding', fire: 'burning', cold: 'chilled', lightning: 'shocked', chaos: 'poisoned',
+      physical: 'bleeding', fire: 'burning', cold: 'frostbite', lightning: 'shocked', chaos: 'poisoned',
     };
     const currentElement = elementTransform ?? skill.baseConversion?.to ?? 'physical';
     const autoAilment = ELEMENT_AILMENT[currentElement];
@@ -929,6 +929,7 @@ export function runCombatTick(
     allProcEvents.push(...buildProcEvents(tickPr, skill.id));
     Object.assign(newLastProcTriggerAt, tickPr.procTriggeredAt);
     for (const buff of tickPr.newTempBuffs) activeTempBuffs = mergeProcTempBuff(activeTempBuffs, buff);
+    for (const pd of tickPr.newDebuffs) applyDebuffToList(newDebuffs, pd.debuffId, pd.stacks, pd.duration, pd.skillId, ailmentSnapshot);
 
     if (expiredDebuffCount > 0) {
       const expPr = evaluateProcs(graphMod.skillProcs, 'onAilmentExpire', dotProcCtx);
@@ -937,6 +938,7 @@ export function runCombatTick(
       allProcEvents.push(...buildProcEvents(expPr, skill.id));
       Object.assign(newLastProcTriggerAt, expPr.procTriggeredAt);
       for (const buff of expPr.newTempBuffs) activeTempBuffs = mergeProcTempBuff(activeTempBuffs, buff);
+      for (const pd of expPr.newDebuffs) applyDebuffToList(newDebuffs, pd.debuffId, pd.stacks, pd.duration, pd.skillId, ailmentSnapshot);
     }
   }
 

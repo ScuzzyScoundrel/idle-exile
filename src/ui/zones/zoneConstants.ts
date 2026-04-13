@@ -72,6 +72,8 @@ export const DEBUFF_META: Record<string, {
 }> = {
   chilled:    { text: 'text-cyan-300',   bg: 'bg-cyan-900/60',   label: 'CHI',
     fullName: 'Chilled', description: 'Enemy attack speed reduced by 20%.' },
+  frostbite:  { text: 'text-sky-300',    bg: 'bg-sky-900/60',    label: 'FRB',
+    fullName: 'Frostbite', description: 'Cold damage over time. Each stack snapshots hit damage; 15% of total snapshot per second. Max 5 stacks.' },
   shocked:    { text: 'text-yellow-300', bg: 'bg-yellow-900/60', label: 'SHK',
     fullName: 'Shocked', description: 'Enemy takes 8% increased damage per stack (max 3 stacks).' },
   burning:    { text: 'text-orange-400', bg: 'bg-orange-900/60', label: 'BRN',
