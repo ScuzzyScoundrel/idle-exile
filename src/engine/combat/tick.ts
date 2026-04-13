@@ -52,6 +52,7 @@ import {
   mergeProcTempBuff,
   type SpreadResult,
 } from './helpers';
+import { CARRIER_DEATH_BEHAVIOR } from './combo';
 import { isSkillAoE, spawnPack } from '../packs';
 import { isZoneInvaded } from '../invasions';
 import {
@@ -83,7 +84,8 @@ export type { CombatTickOutput } from './types';
 // ── Weapon module system ──
 import type { WeaponModule } from './weapons/weaponModule';
 import { daggerModule } from './weapons/dagger';
-const WEAPON_MODULES: Record<string, WeaponModule> = { dagger: daggerModule };
+import { staffModule } from './weapons/staff';
+const WEAPON_MODULES: Record<string, WeaponModule> = { dagger: daggerModule, staff: staffModule };
 function getWeaponModule(wt: string | undefined): WeaponModule | null {
   return wt ? WEAPON_MODULES[wt] ?? null : null;
 }
@@ -150,6 +152,7 @@ export function runCombatTick(
 
   // Weapon maintenance: tick combo states + traps EVERY tick (not gated by GCD)
   let maintPatch: Partial<GameState> | null = null;
+  let newActiveMinions = state.activeMinions ? [...state.activeMinions] : [];
   if (weaponMod?.tickMaintenance) {
     const maint = weaponMod.tickMaintenance({
       state, skill: { id: '' } as any, graphMod: null,
@@ -161,6 +164,19 @@ export function runCombatTick(
     if (maint.activeTraps) maintPatch.activeTraps = maint.activeTraps;
     if (maint.bladeWardExpiresAt !== undefined) maintPatch.bladeWardExpiresAt = maint.bladeWardExpiresAt;
     if (maint.bladeWardHits !== undefined) maintPatch.bladeWardHits = maint.bladeWardHits;
+    if (maint.activeMinions) {
+      newActiveMinions = maint.activeMinions;
+      maintPatch.activeMinions = maint.activeMinions;
+    }
+    // Apply minion attack damage: mutate front pack mob or boss directly
+    // (same pattern as proc damage at line ~1221).
+    if (maint.minionAttackDamage && maint.minionAttackDamage > 0) {
+      if (phase === 'boss_fight' && state.bossState) {
+        state.bossState.bossCurrentHp = Math.max(0, state.bossState.bossCurrentHp - maint.minionAttackDamage);
+      } else if (state.packMobs.length > 0) {
+        state.packMobs[0].hp -= maint.minionAttackDamage;
+      }
+    }
     state = { ...state, ...maintPatch };
   }
   const withMaint = (out: CombatTickOutput): CombatTickOutput =>
@@ -357,6 +373,7 @@ export function runCombatTick(
       packSize: state.packMobs.length,
       targetDebuffCount: targetDebuffs.length,
       targetHasPlagueLink: targetDebuffs.some(d => d.debuffId === 'plague_link'),
+      minionsAlive: newActiveMinions.length > 0,
       lastSkillId: skill.id,
       skillTimers: state.skillTimers as any,
       lastSkillsCast: state.lastSkillsCast,
@@ -449,13 +466,16 @@ export function runCombatTick(
   let cdAcceleration = 0;
   let preRollHealAmount = 0;
   let comboContagionSpread = 0;
+  let pandemicSpread = false;
   const consumedComboStateIds: string[] = [];
   if (weaponMod?.preRoll) {
     const pr = weaponMod.preRoll({
       state, skill, graphMod, effectiveStats, effectiveMaxLife,
       dtSec, now, phase, avgDamage, spellPower, targetDebuffs,
       comboStates: state.comboStates, damageMult,
+      activeMinions: newActiveMinions,
     });
+    if (pr.activeMinions) newActiveMinions = pr.activeMinions;
     newComboStates = pr.comboStates;
     damageMult *= pr.damageMult;
     effectiveStats.critChance += pr.critChanceBonus;
@@ -472,6 +492,13 @@ export function runCombatTick(
     consumedComboStateIds.push(...pr.consumedStateIds);
     preRollHealAmount = pr.healAmount;
     if (pr.contagionSpreadCount > 0) comboContagionSpread = pr.contagionSpreadCount;
+    if (pr.pandemicSpread) pandemicSpread = true;
+    // Staff v2: cross-skill CD reset (Resurgent Swarm on spirit_link consume)
+    if (pr.skillsToResetCd?.length) procCooldownResets.push(...pr.skillsToResetCd);
+  }
+  // Staff v2: Iron Will T5B — first cast per encounter guaranteed crit
+  if (graphMod?.firstCastGuaranteedCrit && state.consecutiveHits === 0) {
+    effectiveStats.critChance = 100;
   }
 
   // Weapon mastery: multiplicative damage bonus (mirrors zones/dps.ts masteryMult)
@@ -479,7 +506,9 @@ export function runCombatTick(
     damageMult *= (1 + effectiveStats.weaponMastery / 100);
   }
 
-  const roll = rollSkillCast(skill, effectiveStats, avgDamage, spellPower, damageMult, graphMod ?? undefined, effectiveConversion, elementTransform);
+  const rawRoll = rollSkillCast(skill, effectiveStats, avgDamage, spellPower, damageMult, graphMod ?? undefined, effectiveConversion, elementTransform);
+  // Staff v2: Iron Will T5B — cannotMiss forces isHit=true
+  const roll = graphMod?.cannotMiss ? { ...rawRoll, isHit: true } : rawRoll;
 
   // Ailment potency: scale snapshot damage for debuff application (includes combo state bonus)
   // Sprint 2C: keystone ailment potency modifiers
@@ -509,6 +538,7 @@ export function runCombatTick(
       packSize: state.packMobs.length,
       targetDebuffCount: targetDebuffs.length,
       targetHasPlagueLink: targetDebuffs.some(d => d.debuffId === 'plague_link'),
+      minionsAlive: newActiveMinions.length > 0,
       lastSkillId: skill.id,
       skillTimers: state.skillTimers as any,
       lastSkillsCast: state.lastSkillsCast,
@@ -741,12 +771,14 @@ export function runCombatTick(
       bladeWardExpiresAt: state.bladeWardExpiresAt,
       bladeWardHits: state.bladeWardHits,
       activeTraps: state.activeTraps,
+      activeMinions: newActiveMinions,
       ailmentSnapshot,
     });
     newComboStates = pc.comboStates;
     newBladeWardExpiresAt = pc.bladeWardExpiresAt;
     newBladeWardHits = pc.bladeWardHits;
     newActiveTraps = pc.activeTraps;
+    if (pc.activeMinions) newActiveMinions = pc.activeMinions;
   }
 
   // consumeDebuff: consume all stacks, deal burst damage
@@ -987,6 +1019,13 @@ export function runCombatTick(
     );
   }
 
+  // Staff v2: THE FINAL OFFERING T7 — reset all OTHER skill cooldowns on cast
+  if (graphMod?.resetAllCooldownsOnCast) {
+    newTimers = newTimers.map(t =>
+      t.skillId === skill!.id ? t : { ...t, cooldownUntil: null },
+    );
+  }
+
   // Unique: buffExpiryResetCd — when a buff expires, reset lowest-CD skill (Shadowlord's Veil)
   if (effectiveStats.buffExpiryResetCd > 0 && expiredBuffs.length > 0) {
     // Find the skill timer with the lowest remaining cooldown (still on cooldown)
@@ -1106,9 +1145,12 @@ export function runCombatTick(
             attackResult: { damage: cappedBossDmg, isDodged: bossRoll.isDodged, isBlocked: bossRoll.isBlocked, isCrit: isBossCrit },
             comboStates: newComboStates, bladeWardExpiresAt: newBladeWardExpiresAt,
             bladeWardHits: newBladeWardHits, activeTraps: newActiveTraps,
+            activeMinions: newActiveMinions,
             comboCounterDamageMult, isBossPhase: true,
           });
           cappedBossDmg *= bossWardResult.wardDamageMult;
+          if (bossWardResult.activeMinions) newActiveMinions = bossWardResult.activeMinions;
+          if (bossWardResult.damageAbsorbedByMinions) cappedBossDmg = Math.max(0, cappedBossDmg - bossWardResult.damageAbsorbedByMinions);
           newBossHp -= bossWardResult.counterDamage + bossWardResult.trapDamage;
           totalDamage += bossWardResult.counterDamage + bossWardResult.trapDamage;
           weaponCounterDmg += bossWardResult.counterDamage;
@@ -1437,6 +1479,22 @@ export function runCombatTick(
         }
       }
 
+      // Staff: Pandemic — Plague of Toads consuming Plagued spreads ALL active DoTs from front target to every other pack enemy
+      if (pandemicSpread && updatedPackMobs.length > 1) {
+        const sourceDebuffs = updatedPackMobs[0].debuffs;
+        for (let pi = 1; pi < updatedPackMobs.length; pi++) {
+          const spreads = spreadDebuffsToTarget(
+            updatedPackMobs[pi].debuffs,
+            sourceDebuffs,
+            { debuffIds: ['all'], refreshDuration: 0 },
+          );
+          if (spreads.length > 0) {
+            didSpreadDebuffs = true;
+            allSpreadEvents.push(...spreads);
+          }
+        }
+      }
+
       // Dance Momentum splash: also hit 1 adjacent enemy for X% damage
       if (comboSplashPercent > 0 && updatedPackMobs.length > 1) {
         const splashTarget = updatedPackMobs[1];
@@ -1616,6 +1674,21 @@ export function runCombatTick(
       }
     }
 
+    // Staff v2: Grave Injustice — on-kill CDR + heal%
+    {
+      const healPct = graphMod?.onKillHealPercent ?? 0;
+      if (healPct > 0) {
+        playerHp = Math.min(effectiveMaxLife, playerHp + effectiveMaxLife * healPct / 100);
+      }
+      const cdrSec = graphMod?.onKillCDR ?? 0;
+      if (cdrSec > 0) {
+        const cdrMs = cdrSec * 1000;
+        newTimers = newTimers.map(t =>
+          t.cooldownUntil ? { ...t, cooldownUntil: Math.max(now, t.cooldownUntil - cdrMs) } : t,
+        );
+      }
+    }
+
     // Charge gain on kill
     if (chargeConfig?.gainOn === 'onKill') {
       const charges = newSkillCharges[skill.id];
@@ -1721,6 +1794,22 @@ export function runCombatTick(
         }
       }
 
+      // Staff: per-skill carrier death behavior — Locust transfer (preserve duration), Haunt chain (fresh duration)
+      for (const [carrierSkillId, beh] of Object.entries(CARRIER_DEATH_BEHAVIOR)) {
+        const ownDebuffs = preDeathDebuffs.filter(d => d.appliedBySkillId === carrierSkillId);
+        if (ownDebuffs.length === 0) continue;
+        const refresh = beh.mode === 'chain' ? (beh.freshDuration ?? 0) : 0;
+        const spreads = spreadDebuffsToTarget(
+          updatedPackMobs[0].debuffs,
+          ownDebuffs,
+          { debuffIds: ['all'], refreshDuration: refresh },
+        );
+        if (spreads.length > 0) {
+          didSpreadDebuffs = true;
+          allSpreadEvents.push(...spreads);
+        }
+      }
+
       // Apply onKill proc debuffs to new front mob
       for (const pd of killProcDebuffs) {
         applyDebuffToList(updatedPackMobs[0].debuffs, pd.debuffId, pd.stacks, pd.duration, pd.skillId);
@@ -1774,6 +1863,20 @@ export function runCombatTick(
       const totalLifeOnKill = (graphMod?.lifeOnKill ?? 0) + (effectiveStats.lifeOnKill ?? 0);
       if (totalLifeOnKill > 0) {
         playerHp = Math.min(effectiveMaxLife, playerHp + totalLifeOnKill);
+      }
+    }
+    // Staff v2: Grave Injustice — on-kill CDR + heal%
+    {
+      const healPct = graphMod?.onKillHealPercent ?? 0;
+      if (healPct > 0) {
+        playerHp = Math.min(effectiveMaxLife, playerHp + effectiveMaxLife * healPct / 100);
+      }
+      const cdrSec = graphMod?.onKillCDR ?? 0;
+      if (cdrSec > 0) {
+        const cdrMs = cdrSec * 1000;
+        newTimers = newTimers.map(t =>
+          t.cooldownUntil ? { ...t, cooldownUntil: Math.max(now, t.cooldownUntil - cdrMs) } : t,
+        );
       }
     }
     if (chargeConfig?.gainOn === 'onKill') {
@@ -1924,9 +2027,12 @@ export function runCombatTick(
           dtSec, now, phase, avgDamage, spellPower, targetDebuffs,
           attackResult: zoneRoll, comboStates: newComboStates,
           bladeWardExpiresAt: newBladeWardExpiresAt, bladeWardHits: newBladeWardHits,
-          activeTraps: newActiveTraps, comboCounterDamageMult, isBossPhase: false,
+          activeTraps: newActiveTraps, activeMinions: newActiveMinions,
+          comboCounterDamageMult, isBossPhase: false,
         });
         clearZoneDmg *= clearWpn.wardDamageMult;
+        if (clearWpn.activeMinions) newActiveMinions = clearWpn.activeMinions;
+        if (clearWpn.damageAbsorbedByMinions) clearZoneDmg = Math.max(0, clearZoneDmg - clearWpn.damageAbsorbedByMinions);
         mob.hp -= clearWpn.counterDamage;
         totalDamage += clearWpn.counterDamage;
         weaponCounterDmg += clearWpn.counterDamage;
@@ -2131,6 +2237,7 @@ export function runCombatTick(
     lastProcTriggerAt: newLastProcTriggerAt,
     comboStates: newComboStates,
     activeTraps: newActiveTraps,
+    activeMinions: newActiveMinions,
     bladeWardExpiresAt: newBladeWardExpiresAt,
     bladeWardHits: newBladeWardHits,
     pendingSpatialDodges: 0,

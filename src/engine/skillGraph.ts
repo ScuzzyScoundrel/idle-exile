@@ -126,6 +126,56 @@ export interface ResolvedSkillModifier {
   postCastDodgeWindow: { duration: number; dodgeChance: number } | null;
   shadowPhaseCounterDamage: number;          // % weapon damage on counter during shadow phase
 
+  // Staff v2: on-kill passive (Grave Injustice)
+  onKillCDR: number;                         // flat seconds reduced from all skill cooldowns per kill
+  onKillHealPercent: number;                 // % max life healed per kill
+
+  // Staff v2: Mass Sacrifice talent tree — numeric additives
+  minionHpMult: number;                      // % bonus minion max HP (applied at summon)
+  minionDurationMult: number;                // % bonus minion duration (applied at summon)
+  minionDamageMult: number;                  // % bonus minion attack damage (applied at summon)
+  damagePerMinionAlive: number;              // % damage bonus per active minion (tick damageMult)
+  zombieDogAttackIntervalReduction: number;  // flat seconds subtracted from zombie_dog attackInterval
+  detonationPerSoulStackBonus: number;       // % bonus detonation damage per soul_stack consumed by Mass Sacrifice
+  burstDamagePerDebuffOnTarget: number;      // % burst damage bonus per debuff on front target
+  cdRefundPerStateConsumed: number;          // % cooldown refunded per combo state consumed by this cast
+  plaguedConsumePoisonStacks: number;        // poison stacks applied to all hit enemies when Mass Sacrifice consumes plagued
+  hexedConsumeMassSacrificeBonus: number;    // extra % damage when Mass Sacrifice consumes hexed (stacks with baseline)
+  soulStackDamagePerStack: number;           // override: per-stack damage % when soul_stack is consumed (0 = baseline 15%)
+  soulStackCapOverride: number;              // override: max stack cap for soul_stack (0 = default 5)
+
+  // Staff v2: Mass Sacrifice boolean flags
+  massSacrificePandemic: boolean;            // Mass Sacrifice consuming plagued triggers pandemic spread
+  pandemicFullDuration: boolean;             // pandemic preserves full remaining duration instead of snapshots
+  detonationUsesMaxHp: boolean;              // detonation damage uses minion maxHp instead of current hp
+  detonationPerMinionMult: boolean;          // detonation damage multiplied by number of minions detonated
+  resummonOnMassSacrifice: boolean;          // after Mass Sacrifice detonation, resummon both dog + fetish swarms
+  hauntedConsumeSummonsSpirit: boolean;      // consuming haunted on Mass Sacrifice summons a temporary spirit
+  cannotMiss: boolean;                       // skill cannot miss (tick.ts skips hit roll)
+  firstCastGuaranteedCrit: boolean;          // first cast per encounter is guaranteed crit
+  resetAllCooldownsOnCast: boolean;          // resets all skill timers in postCast
+  critRefreshesCombatStates: boolean;        // critical Mass Sacrifice refreshes haunted/plagued/hexed durations
+
+  // Staff v2: Haunt talent tree
+  hauntKillSpawnsMinion: boolean;            // Haunt kills summon a temporary spirit
+  hauntIsAoe: boolean;                       // Haunt applies to all pack enemies on cast
+  hauntChainDamageCompound: number;          // % compounding damage per chain hop (DEATH MARCH)
+  hauntedTargetHauntBonus: number;           // % extra Haunt damage to already-haunted targets
+  hauntedExecuteThreshold: number;           // % HP below which haunted targets die instantly (MIND PRISON)
+
+  // Staff v2: Soul Harvest talent tree
+  damagePerSoulStackActive: number;          // % damage bonus per active soul_stack (Stackbreaker / Stackweaver)
+  soulHarvestCritBonusStacks: number;        // extra soul_stack applied on critical Soul Harvest cast (Double Harvest)
+  soulStackConsumeHealsMinions: number;      // % max HP healed per minion, per soul_stack consumed (Soul Feast)
+  soulHarvestDamageHealPercent: number;      // % of Soul Harvest damage returned as player heal (Soul Drain)
+
+  // Staff v2: Zombie Dogs talent tree
+  extraZombieDogCount: number;               // additional dogs summoned per Zombie Dogs cast (Third Dog)
+
+  // Staff v2: Fetish Swarm / Hex talent trees
+  extraFetishCount: number;                  // additional fetishes summoned per Fetish Swarm cast (Twin Fetish)
+  hexedTargetDamageAmp: number;              // % extra Hex damage to already-hexed targets (Amplifying Curse)
+
   // Generic passthrough: collects ALL modifier fields not on this type.
   // Engine code reads specific keys (e.g., rawBehaviors.triggerCondition).
   // New weapon types add novel fields here with zero merge code needed.
@@ -240,6 +290,49 @@ export const EMPTY_GRAPH_MOD: ResolvedSkillModifier = {
   perPassThroughTarget: null,
   postCastDodgeWindow: null,
   shadowPhaseCounterDamage: 0,
+  // Staff v2 defaults
+  onKillCDR: 0,
+  onKillHealPercent: 0,
+  // Mass Sacrifice talent numeric defaults
+  minionHpMult: 0,
+  minionDurationMult: 0,
+  minionDamageMult: 0,
+  damagePerMinionAlive: 0,
+  zombieDogAttackIntervalReduction: 0,
+  detonationPerSoulStackBonus: 0,
+  burstDamagePerDebuffOnTarget: 0,
+  cdRefundPerStateConsumed: 0,
+  plaguedConsumePoisonStacks: 0,
+  hexedConsumeMassSacrificeBonus: 0,
+  soulStackDamagePerStack: 0,
+  soulStackCapOverride: 0,
+  // Mass Sacrifice boolean defaults
+  massSacrificePandemic: false,
+  pandemicFullDuration: false,
+  detonationUsesMaxHp: false,
+  detonationPerMinionMult: false,
+  resummonOnMassSacrifice: false,
+  hauntedConsumeSummonsSpirit: false,
+  cannotMiss: false,
+  firstCastGuaranteedCrit: false,
+  resetAllCooldownsOnCast: false,
+  critRefreshesCombatStates: false,
+  // Haunt talent defaults
+  hauntKillSpawnsMinion: false,
+  hauntIsAoe: false,
+  hauntChainDamageCompound: 0,
+  hauntedTargetHauntBonus: 0,
+  hauntedExecuteThreshold: 0,
+  // Soul Harvest talent defaults
+  damagePerSoulStackActive: 0,
+  soulHarvestCritBonusStacks: 0,
+  soulStackConsumeHealsMinions: 0,
+  soulHarvestDamageHealPercent: 0,
+  // Zombie Dogs talent defaults
+  extraZombieDogCount: 0,
+  // Fetish Swarm / Hex talent defaults
+  extraFetishCount: 0,
+  hexedTargetDamageAmp: 0,
   rawBehaviors: {},
 };
 
@@ -461,6 +554,50 @@ export function resolveSkillGraphModifiers(
     if (m.perPassThroughTarget) result.perPassThroughTarget = m.perPassThroughTarget;
     if (m.postCastDodgeWindow) result.postCastDodgeWindow = m.postCastDodgeWindow;
     if (m.shadowPhaseCounterDamage) result.shadowPhaseCounterDamage += m.shadowPhaseCounterDamage;
+    // Staff v2: on-kill passive (Grave Injustice)
+    if (m.onKillCDR) result.onKillCDR += m.onKillCDR;
+    if (m.onKillHealPercent) result.onKillHealPercent += m.onKillHealPercent;
+    // Staff v2: Mass Sacrifice numeric additives
+    if (m.minionHpMult) result.minionHpMult += m.minionHpMult;
+    if (m.minionDurationMult) result.minionDurationMult += m.minionDurationMult;
+    if (m.minionDamageMult) result.minionDamageMult += m.minionDamageMult;
+    if (m.damagePerMinionAlive) result.damagePerMinionAlive += m.damagePerMinionAlive;
+    if (m.zombieDogAttackIntervalReduction) result.zombieDogAttackIntervalReduction += m.zombieDogAttackIntervalReduction;
+    if (m.detonationPerSoulStackBonus) result.detonationPerSoulStackBonus += m.detonationPerSoulStackBonus;
+    if (m.burstDamagePerDebuffOnTarget) result.burstDamagePerDebuffOnTarget += m.burstDamagePerDebuffOnTarget;
+    if (m.cdRefundPerStateConsumed) result.cdRefundPerStateConsumed += m.cdRefundPerStateConsumed;
+    if (m.plaguedConsumePoisonStacks) result.plaguedConsumePoisonStacks += m.plaguedConsumePoisonStacks;
+    if (m.hexedConsumeMassSacrificeBonus) result.hexedConsumeMassSacrificeBonus += m.hexedConsumeMassSacrificeBonus;
+    // Overrides: last-wins (non-zero value replaces)
+    if (m.soulStackDamagePerStack) result.soulStackDamagePerStack = m.soulStackDamagePerStack;
+    if (m.soulStackCapOverride) result.soulStackCapOverride = m.soulStackCapOverride;
+    // Staff v2: Mass Sacrifice boolean flags (OR)
+    if (m.massSacrificePandemic) result.massSacrificePandemic = true;
+    if (m.pandemicFullDuration) result.pandemicFullDuration = true;
+    if (m.detonationUsesMaxHp) result.detonationUsesMaxHp = true;
+    if (m.detonationPerMinionMult) result.detonationPerMinionMult = true;
+    if (m.resummonOnMassSacrifice) result.resummonOnMassSacrifice = true;
+    if (m.hauntedConsumeSummonsSpirit) result.hauntedConsumeSummonsSpirit = true;
+    if (m.cannotMiss) result.cannotMiss = true;
+    if (m.firstCastGuaranteedCrit) result.firstCastGuaranteedCrit = true;
+    if (m.resetAllCooldownsOnCast) result.resetAllCooldownsOnCast = true;
+    if (m.critRefreshesCombatStates) result.critRefreshesCombatStates = true;
+    // Haunt talents
+    if (m.hauntKillSpawnsMinion) result.hauntKillSpawnsMinion = true;
+    if (m.hauntIsAoe) result.hauntIsAoe = true;
+    if (m.hauntChainDamageCompound) result.hauntChainDamageCompound += m.hauntChainDamageCompound;
+    if (m.hauntedTargetHauntBonus) result.hauntedTargetHauntBonus += m.hauntedTargetHauntBonus;
+    if (m.hauntedExecuteThreshold) result.hauntedExecuteThreshold = Math.max(result.hauntedExecuteThreshold, m.hauntedExecuteThreshold);
+    // Soul Harvest talents
+    if (m.damagePerSoulStackActive) result.damagePerSoulStackActive += m.damagePerSoulStackActive;
+    if (m.soulHarvestCritBonusStacks) result.soulHarvestCritBonusStacks += m.soulHarvestCritBonusStacks;
+    if (m.soulStackConsumeHealsMinions) result.soulStackConsumeHealsMinions += m.soulStackConsumeHealsMinions;
+    if (m.soulHarvestDamageHealPercent) result.soulHarvestDamageHealPercent += m.soulHarvestDamageHealPercent;
+    // Zombie Dogs talents
+    if (m.extraZombieDogCount) result.extraZombieDogCount += m.extraZombieDogCount;
+    // Fetish Swarm / Hex talents
+    if (m.extraFetishCount) result.extraFetishCount += m.extraFetishCount;
+    if (m.hexedTargetDamageAmp) result.hexedTargetDamageAmp += m.hexedTargetDamageAmp;
   }
 
   result.abilityEffect = abilEffect;

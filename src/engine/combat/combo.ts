@@ -54,6 +54,21 @@ export const COMBO_STATE_CREATORS: Record<string, ComboStateConfig> = {
   // Shadow Dash: creates Shadow Momentum (2s) — next skill CD starts 2s earlier
   dagger_shadow_dash:   { stateId: 'shadow_momentum',  duration: 2, maxStacks: 1, createOn: 'onCast',
                           effect: { cooldownAcceleration: 2 } },
+
+  // ── Staff v2 (Witch Doctor) ──
+  // Locust Swarm: creates Plagued — consumed by Plague of Toads for pandemic spread (wired in staff module)
+  staff_locust_swarm:   { stateId: 'plagued',          duration: 6, maxStacks: 1, createOn: 'onCast',
+                          effect: { incDamage: 0 } },
+  // Haunt: creates Haunted — consumed by Spirit Barrage for guaranteed crit + 30% bonus damage
+  staff_haunt:          { stateId: 'haunted',          duration: 5, maxStacks: 1, createOn: 'onCast',
+                          effect: { incDamage: 30, guaranteedCrit: true } },
+  // Hex: creates Hexed — consumed by Soul Harvest for 2x damage (+100%)
+  staff_hex:            { stateId: 'hexed',            duration: 5, maxStacks: 1, createOn: 'onCast',
+                          effect: { incDamage: 100 } },
+  // Soul Harvest: creates Soul Stack (max 5, refreshes on new stack) — consumed by Bouncing Skull / Mass Sacrifice
+  staff_soul_harvest:   { stateId: 'soul_stack',       duration: 10, maxStacks: 5, createOn: 'onCast',
+                          effect: { extraChains: 1 } },
+  // Note: haunted on dog-bite + spirit_link while minions alive are created by the minion subsystem, not on-cast.
 };
 
 /** Which combo states each skill consumes on cast.
@@ -83,6 +98,27 @@ export const COMBO_STATE_CONSUMERS: Record<string, string[]> = {
   dagger_stab:         ['shadow_mark', ...CROSS_SKILL_STATES],
   // Shadow Mark does NOT consume exposed (setup skill, not a damage follow-up)
   dagger_shadow_mark:  ['shadow_mark', ...CROSS_SKILL_STATES],
+
+  // ── Staff v2 (Witch Doctor) ──
+  staff_spirit_barrage:  ['haunted'],
+  staff_plague_of_toads: ['plagued'],
+  staff_soul_harvest:    ['hexed'],
+  staff_bouncing_skull:  ['soul_stack'],
+  staff_mass_sacrifice:  ['haunted', 'plagued', 'hexed', 'soul_stack', 'spirit_link'],
+  // Creators (Zombie Dogs, Locust Swarm, Haunt, Hex, Fetish Swarm) do not consume.
+};
+
+// ─── Carrier Death Behavior ───
+// When a mob carrying a debuff from one of these skills dies, the debuff behaves specially:
+// - 'transfer': remaining duration preserved, jumps to next enemy (Locust Swarm)
+// - 'chain': fresh duration, jumps to next enemy (Haunt)
+export interface CarrierDeathBehavior {
+  mode: 'transfer' | 'chain';
+  freshDuration?: number;  // required for 'chain' mode (seconds)
+}
+export const CARRIER_DEATH_BEHAVIOR: Record<string, CarrierDeathBehavior> = {
+  staff_locust_swarm: { mode: 'transfer' },
+  staff_haunt:        { mode: 'chain', freshDuration: 6 },
 };
 
 // ─── Pure Functions ───

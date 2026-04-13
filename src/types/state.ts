@@ -8,6 +8,7 @@ import type { CurrencyType } from './currencies';
 import type { IdleMode, AbilityProgress, EquippedSkill, SkillProgress, SkillTimerState } from './skills';
 import type { CombatPhase, BossState, ActiveDebuff, TempBuff, MobInPack, CombatClearResult, ComboState } from './combat';
 import type { TrapState } from '../engine/combat/traps';
+import type { MinionState } from '../engine/combat/minions';
 import type { DamageType } from './skills';
 import type { GatheringProfession, GatheringSkills, CraftingSkills, CraftingProfession, OwnedPattern } from './crafting';
 import type { ClassResourceState } from './character';
@@ -122,6 +123,9 @@ export interface GameState {
 
   // Active traps (Dagger v2 — ephemeral, not persisted)
   activeTraps: TrapState[];
+
+  // Active minions (Staff v2 — ephemeral, not persisted)
+  activeMinions: MinionState[];
 
   // Element transforms (Dagger v2 — persisted per-skill element choice)
   elementTransforms: Record<string, DamageType>;

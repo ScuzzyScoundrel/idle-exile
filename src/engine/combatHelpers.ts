@@ -49,6 +49,8 @@ export interface ConditionContext {
   trapArmedAt?: number;           // timestamp when trap was armed (ms)
   totalTargetDebuffStacks?: number; // sum of all debuff stacks on target
   targetHasPlagueLink?: boolean;    // target mob has plague_link debuff active
+  // Staff v2
+  minionsAlive?: boolean;           // any active minion (zombie dog / fetish) exists
 }
 
 export function evaluateCondition(
@@ -65,6 +67,7 @@ export function evaluateCondition(
     case 'onDebuffApplied': return false;  // evaluated separately after debuff application
     case 'whileLowHp': return ctx.currentHp / ctx.effectiveMaxLife < (threshold ?? 0.35);
     case 'whileFullHp': return ctx.currentHp >= ctx.effectiveMaxLife;
+    case 'whileMinionsAlive': return ctx.minionsAlive === true;
     case 'whileDebuffActive': {
       if (threshold != null && threshold > 1) {
         const uniqueDebuffs = new Set(ctx.activeDebuffs.map(d => d.debuffId)).size;
@@ -267,6 +270,8 @@ const PRE_ROLL_CONDITIONS: Set<TriggerCondition> = new Set([
   'perSecondOnCooldown', 'perSecondRemainingOnWard', 'perSecondSinceArmed',
   'perHitReceivedDuringWard',
   'onAilmentApplied', 'onAilmentExpire', 'onAilmentKill', 'onAilmentTick',
+  // Staff v2
+  'whileMinionsAlive',
   'onLinkedTargetDeath', 'onLinkedTargetsThreshold',
 ]);
 

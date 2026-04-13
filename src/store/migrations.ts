@@ -871,6 +871,8 @@ export function runMigrations(
     }
     // Active traps init
     if (!raw.activeTraps) raw.activeTraps = [];
+    // Active minions init (Staff v2)
+    if (!raw.activeMinions) raw.activeMinions = [];
   }
 
   if (version < 61) {

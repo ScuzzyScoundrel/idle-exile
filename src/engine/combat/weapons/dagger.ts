@@ -317,6 +317,7 @@ export const daggerModule: WeaponModule = {
       guaranteedCrit, ailmentPotency, cdRefundPercent, splashPercent,
       extraChains, burstDamage, focusBurst, counterDamageMult,
       markPassthrough, cdAcceleration, consumedStateIds, healAmount, contagionSpreadCount,
+      pandemicSpread: false,
     };
   },
 

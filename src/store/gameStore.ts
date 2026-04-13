@@ -226,7 +226,7 @@ interface GameActions {
 
 function createInitialState(): GameState {
   const char = createCharacter('Exile', 'warrior');
-  const starterWeapon: Item = {
+  const starterDagger: Item = {
     id: generateId(),
     baseId: 'crude_dagger',
     name: 'Crude Dagger',
@@ -241,9 +241,24 @@ function createInitialState(): GameState {
     baseDamageMax: 7,
     baseSpellPower: 2,
   };
+  const starterStaff: Item = {
+    id: generateId(),
+    baseId: 'gnarled_staff',
+    name: 'Gnarled Staff',
+    slot: 'mainhand',
+    rarity: 'common',
+    iLvl: 1,
+    prefixes: [],
+    suffixes: [],
+    weaponType: 'staff',
+    baseStats: { spellPower: 20, baseAttackSpeed: 3, baseCritChance: 2 },
+    baseDamageMin: 2,
+    baseDamageMax: 5,
+    baseSpellPower: 20,
+  };
   return {
     character: { ...char, stats: resolveStats(char) },
-    inventory: [starterWeapon],
+    inventory: [starterDagger, starterStaff],
     currencies: { ...INITIAL_CURRENCIES },
     materials: {},
     gold: 0,
@@ -296,6 +311,7 @@ function createInitialState(): GameState {
     deathStreak: 0, lastDeathTime: 0,
     comboStates: [],
     activeTraps: [],
+    activeMinions: [],
     bladeWardExpiresAt: 0,
     bladeWardHits: 0,
     pendingSpatialDodges: 0,

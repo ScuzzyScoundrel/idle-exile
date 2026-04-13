@@ -16,6 +16,7 @@ import type {
 import type { ResolvedSkillModifier } from '../../skillGraph';
 import type { ConditionContext } from '../../combatHelpers';
 import type { TrapState } from '../traps';
+import type { MinionState } from '../minions';
 
 // ── Shared context available to all weapon hooks ──
 
@@ -38,6 +39,7 @@ export interface WeaponTickContext {
 export interface PreRollContext extends WeaponTickContext {
   comboStates: ComboState[];
   damageMult: number;
+  activeMinions: MinionState[];
 }
 
 export interface PostCastContext extends WeaponTickContext {
@@ -46,6 +48,7 @@ export interface PostCastContext extends WeaponTickContext {
   bladeWardExpiresAt: number;
   bladeWardHits: number;
   activeTraps: TrapState[];
+  activeMinions: MinionState[];
   ailmentSnapshot: number;
 }
 
@@ -55,6 +58,7 @@ export interface EnemyAttackContext extends WeaponTickContext {
   bladeWardExpiresAt: number;
   bladeWardHits: number;
   activeTraps: TrapState[];
+  activeMinions: MinionState[];
   comboCounterDamageMult: number;
   /** The target taking damage — boss HP for boss phase, mob for clearing. */
   isBossPhase: boolean;
@@ -72,6 +76,9 @@ export interface MaintenanceResult {
   activeTraps?: TrapState[];
   bladeWardExpiresAt?: number;
   bladeWardHits?: number;
+  activeMinions?: MinionState[];
+  /** Total damage dealt by minions this tick — tick.ts applies to current front mob or boss. */
+  minionAttackDamage?: number;
 }
 
 export interface PreRollResult {
@@ -93,6 +100,12 @@ export interface PreRollResult {
   consumedStateIds: string[];
   healAmount: number;
   contagionSpreadCount: number;
+  /** Staff: Plague of Toads consuming Plagued → spread all active DoTs from front target to all pack enemies. */
+  pandemicSpread: boolean;
+  /** Staff: updated minion list after spirit_link detonation (Mass Sacrifice). */
+  activeMinions?: MinionState[];
+  /** Staff: reset cooldown for these skill IDs (cross-skill CD reset from Resurgent Swarm / similar). */
+  skillsToResetCd?: string[];
 }
 
 export interface PostCastResult {
@@ -100,6 +113,8 @@ export interface PostCastResult {
   bladeWardExpiresAt: number;
   bladeWardHits: number;
   activeTraps: TrapState[];
+  /** Staff: updated minion list after summon (zombie dogs / fetishes). */
+  activeMinions?: MinionState[];
 }
 
 export interface EnemyAttackResult {
@@ -115,6 +130,10 @@ export interface EnemyAttackResult {
   healAmount: number;
   /** Temp buffs created by object-trigger procs (ward/detonation/dash triggers). */
   newTempBuffs: { id: string; effect: Record<string, any>; duration: number; stacks: number; maxStacks: number }[];
+  /** Staff: updated minion list after incoming-damage absorption. */
+  activeMinions?: MinionState[];
+  /** Staff: flat damage subtracted from the enemy attack by minions intercepting. */
+  damageAbsorbedByMinions?: number;
 }
 
 export interface KillResult {

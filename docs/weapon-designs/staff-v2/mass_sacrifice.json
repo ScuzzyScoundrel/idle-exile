@@ -1,0 +1,597 @@
+{
+  "skillId": "staff_mass_sacrifice",
+  "skillName": "Mass Sacrifice",
+  "designNotes": {
+    "baselineFinalSacrifice": "If Mass Sacrifice consumes 4+ distinct combo states: damage ×1.5. 5 states: ×2.0. Implemented in staff.ts preRoll — NOT a talent.",
+    "buildIdentities": {
+      "plague_doctor": "DoT multiplier + ailmentPotency + durationBonus gear. Cast Locust/Haunt/Toads first, then Sac to detonate DoTs. Slow windup, sustained payoff, AoE-heavy.",
+      "spirit_caller": "Spell power + maxHp gear. Keep minions alive, refresh constantly, use Sac as detonation-nuke. Medium pace, minion-maintenance build. Minions absorb incoming damage.",
+      "voodoo_master": "Crit chance + crit multiplier + cooldown recovery gear. Stack soul_stacks × 5 + hex, Sac for ceiling burst. Spiky, glass-cannon, single-target king."
+    }
+  },
+  "branches": [
+    {
+      "branchId": "plague_doctor",
+      "branchName": "Plague Doctor",
+      "theme": "Your diseases are the weapon. Mass Sacrifice doesn't end the disease — it amplifies it.",
+      "nodes": [
+        {
+          "id": "ms_plague_t1a",
+          "name": "Rotting Dose",
+          "tier": 1,
+          "slot": "T1a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+15/30% DoT damage multiplier.",
+          "modifier": { "dotMultiplier": 15 },
+          "perRankModifiers": { "1": { "dotMultiplier": 15 }, "2": { "dotMultiplier": 30 } },
+          "engineFields": ["dotMultiplier (EXISTS)"]
+        },
+        {
+          "id": "ms_plague_t1b",
+          "name": "Toxic Reserves",
+          "tier": 1,
+          "slot": "T1b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+10/20% ailment potency.",
+          "modifier": { "ailmentPotency": 10 },
+          "perRankModifiers": { "1": { "ailmentPotency": 10 }, "2": { "ailmentPotency": 20 } },
+          "engineFields": ["ailmentPotency (EXISTS)"]
+        },
+        {
+          "id": "ms_plague_t2",
+          "name": "Festering Wound",
+          "tier": 2,
+          "slot": "T2",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Consuming Plagued with Mass Sacrifice applies 3 stacks of poison to every enemy hit.",
+          "modifier": { "plaguedConsumePoisonStacks": 3 },
+          "engineFields": ["plaguedConsumePoisonStacks (NEW — numeric, read in staff.ts preRoll)"]
+        },
+        {
+          "id": "ms_plague_t2b",
+          "name": "Lingering Contagion",
+          "tier": 2,
+          "slot": "T2b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+20/40% ailment duration.",
+          "modifier": { "ailmentDuration": 20 },
+          "perRankModifiers": { "1": { "ailmentDuration": 20 }, "2": { "ailmentDuration": 40 } },
+          "engineFields": ["ailmentDuration (EXISTS)"]
+        },
+        {
+          "id": "ms_plague_t3a",
+          "name": "Virulent Strike",
+          "tier": 3,
+          "slot": "T3a",
+          "nodeType": "conditional",
+          "maxRank": 2,
+          "description": "+10/20% damage while 3+ debuffs active on the target.",
+          "modifier": {
+            "conditionalMods": [
+              { "condition": "whileTargetAilmentCount", "threshold": 3, "modifier": { "incDamage": 10 } }
+            ]
+          },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "whileTargetAilmentCount", "threshold": 3, "modifier": { "incDamage": 10 } }] },
+            "2": { "conditionalMods": [{ "condition": "whileTargetAilmentCount", "threshold": 3, "modifier": { "incDamage": 20 } }] }
+          },
+          "engineFields": ["conditionalMods.whileTargetAilmentCount (EXISTS in TriggerCondition)"]
+        },
+        {
+          "id": "ms_plague_t3b",
+          "name": "Disease Carrier",
+          "tier": 3,
+          "slot": "T3b",
+          "nodeType": "conditional",
+          "maxRank": 2,
+          "description": "+3/6% damage per debuff on target.",
+          "modifier": {
+            "conditionalMods": [
+              { "condition": "perAilmentStackOnTarget", "modifier": { "incDamage": 3 } }
+            ]
+          },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "perAilmentStackOnTarget", "modifier": { "incDamage": 3 } }] },
+            "2": { "conditionalMods": [{ "condition": "perAilmentStackOnTarget", "modifier": { "incDamage": 6 } }] }
+          },
+          "engineFields": ["conditionalMods.perAilmentStackOnTarget (EXISTS)"]
+        },
+        {
+          "id": "ms_plague_t3c",
+          "name": "Vile Contagion",
+          "tier": 3,
+          "slot": "T3c",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+10/20% chaos penetration.",
+          "modifier": { "chaosPenetration": 10 },
+          "perRankModifiers": { "1": { "chaosPenetration": 10 }, "2": { "chaosPenetration": 20 } },
+          "engineFields": ["chaosPenetration (EXISTS)"]
+        },
+        {
+          "id": "ms_plague_t4",
+          "name": "Contagion Sacrifice",
+          "tier": 4,
+          "slot": "T4",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "When Mass Sacrifice consumes Plagued, spread ALL active DoTs to every enemy in the pack (upgrade to baseline pandemic which is Plague of Toads only).",
+          "modifier": { "massSacrificePandemic": true },
+          "engineFields": ["massSacrificePandemic (NEW — boolean; staff.ts preRoll sets pandemicSpread=true when skill=mass_sacrifice + state=plagued + this flag)"]
+        },
+        {
+          "id": "ms_plague_t4b",
+          "name": "Plague Support",
+          "tier": 4,
+          "slot": "T4b",
+          "nodeType": "support",
+          "maxRank": 2,
+          "description": "+15/30% damage for skills tagged with DoT.",
+          "modifier": { "incDamage": 15 },
+          "perRankModifiers": { "1": { "incDamage": 15 }, "2": { "incDamage": 30 } },
+          "engineFields": ["incDamage (EXISTS)"]
+        },
+        {
+          "id": "ms_plague_t5a",
+          "name": "Virulent Explosion",
+          "tier": 5,
+          "slot": "T5A",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Each DoT on target at Mass Sacrifice cast time adds +8% burst damage.",
+          "modifier": { "burstDamagePerDebuffOnTarget": 8 },
+          "engineFields": ["burstDamagePerDebuffOnTarget (NEW — numeric; tick.ts multiplies burstDamage by 1 + value × debuffCount/100)"]
+        },
+        {
+          "id": "ms_plague_t5b",
+          "name": "Lingering Blight",
+          "tier": 5,
+          "slot": "T5B",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "After Mass Sacrifice, enemies hit reapply their consumed DoTs at 50% snapshot for 4s. Cost: −25% direct damage.",
+          "modifier": {
+            "rawBehaviors": {
+              "dotReapplyOnConsume": { "percent": 50, "duration": 4 }
+            },
+            "incDamage": -25
+          },
+          "engineFields": ["rawBehaviors.dotReapplyOnConsume (NEW — object); incDamage (EXISTS, negative)"]
+        },
+        {
+          "id": "ms_plague_t6",
+          "name": "Plague Lord",
+          "tier": 6,
+          "slot": "T6",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Pandemic from Mass Sacrifice spreads DoTs with FULL remaining duration (not just snapshots).",
+          "modifier": { "pandemicFullDuration": true },
+          "engineFields": ["pandemicFullDuration (NEW — boolean; tick.ts pandemic call sets refreshDuration=source.remainingDuration instead of 0)"]
+        },
+        {
+          "id": "ms_plague_t7",
+          "name": "THE ROT",
+          "tier": 7,
+          "slot": "T7",
+          "nodeType": "keystone",
+          "maxRank": 1,
+          "description": "Mass Sacrifice no longer deals direct damage. Instead applies a unique Rotting debuff: 10% of target max HP as chaos damage over 3s, unremovable.",
+          "modifier": {
+            "weaponDamageOverride": 0,
+            "directDamageOverride": 0,
+            "rawBehaviors": {
+              "rottingDebuff": { "maxHpPercent": 10, "duration": 3 }
+            }
+          },
+          "engineFields": ["weaponDamageOverride/directDamageOverride (EXIST); rawBehaviors.rottingDebuff (NEW — object applied in staff.ts postCast)"]
+        }
+      ]
+    },
+    {
+      "branchId": "spirit_caller",
+      "branchName": "Spirit Caller",
+      "theme": "The dead fight for you. Minions are the core — Mass Sacrifice is their ultimate tribute.",
+      "nodes": [
+        {
+          "id": "ms_spirit_t1a",
+          "name": "Pack Leader",
+          "tier": 1,
+          "slot": "T1a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+10/20% damage per minion alive.",
+          "modifier": { "damagePerMinionAlive": 10 },
+          "perRankModifiers": { "1": { "damagePerMinionAlive": 10 }, "2": { "damagePerMinionAlive": 20 } },
+          "engineFields": ["damagePerMinionAlive (NEW — numeric; tick.ts adds (value × activeMinions.length / 100) to damageMult)"]
+        },
+        {
+          "id": "ms_spirit_t1b",
+          "name": "Bone Warden",
+          "tier": 1,
+          "slot": "T1b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+15/30% minion max HP.",
+          "modifier": { "minionHpMult": 15 },
+          "perRankModifiers": { "1": { "minionHpMult": 15 }, "2": { "minionHpMult": 30 } },
+          "engineFields": ["minionHpMult (NEW — numeric; staff.ts summonMinions multiplies hp by (1 + value/100))"]
+        },
+        {
+          "id": "ms_spirit_t2",
+          "name": "Spectral Pact",
+          "tier": 2,
+          "slot": "T2",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "When Mass Sacrifice consumes Haunted, summon 1 temporary spirit (fetish-type variant) that attacks for 3s.",
+          "modifier": { "hauntedConsumeSummonsSpirit": true },
+          "engineFields": ["hauntedConsumeSummonsSpirit (NEW — boolean; staff.ts preRoll summons spirit on haunted consume when flag set)"]
+        },
+        {
+          "id": "ms_spirit_t2b",
+          "name": "Undying Bond",
+          "tier": 2,
+          "slot": "T2b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+20/40% minion duration.",
+          "modifier": { "minionDurationMult": 20 },
+          "perRankModifiers": { "1": { "minionDurationMult": 20 }, "2": { "minionDurationMult": 40 } },
+          "engineFields": ["minionDurationMult (NEW — numeric; staff.ts summonMinions multiplies duration by (1 + value/100))"]
+        },
+        {
+          "id": "ms_spirit_t3a",
+          "name": "Resurgent Swarm",
+          "tier": 3,
+          "slot": "T3a",
+          "nodeType": "conditional",
+          "maxRank": 2,
+          "description": "After Mass Sacrifice consumes spirit_link, next Zombie Dogs/Fetish Swarm cast gains −50/100% cooldown.",
+          "modifier": {
+            "conditionalMods": [
+              { "condition": "afterMassSacrificeConsumedSpiritLink", "modifier": { "cooldownReduction": 50 } }
+            ]
+          },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "afterMassSacrificeConsumedSpiritLink", "modifier": { "cooldownReduction": 50 } }] },
+            "2": { "conditionalMods": [{ "condition": "afterMassSacrificeConsumedSpiritLink", "modifier": { "cooldownReduction": 100 } }] }
+          },
+          "engineFields": ["conditionalMods + new TriggerCondition afterMassSacrificeConsumedSpiritLink (NEW)"]
+        },
+        {
+          "id": "ms_spirit_t3b",
+          "name": "Bloody Pact",
+          "tier": 3,
+          "slot": "T3b",
+          "nodeType": "conditional",
+          "maxRank": 2,
+          "description": "+5/10 life on hit while any minion is alive.",
+          "modifier": {
+            "conditionalMods": [
+              { "condition": "whileMinionsAlive", "modifier": { "lifeOnHit": 5 } }
+            ]
+          },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "lifeOnHit": 5 } }] },
+            "2": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "lifeOnHit": 10 } }] }
+          },
+          "engineFields": ["conditionalMods + new TriggerCondition whileMinionsAlive (NEW)"]
+        },
+        {
+          "id": "ms_spirit_t3c",
+          "name": "Dog Tamer",
+          "tier": 3,
+          "slot": "T3c",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Zombie Dog attack interval reduced by 0.5/1.0s.",
+          "modifier": { "zombieDogAttackIntervalReduction": 0.5 },
+          "perRankModifiers": { "1": { "zombieDogAttackIntervalReduction": 0.5 }, "2": { "zombieDogAttackIntervalReduction": 1.0 } },
+          "engineFields": ["zombieDogAttackIntervalReduction (NEW — numeric; staff.ts summonMinions subtracts from attackInterval for zombie_dog)"]
+        },
+        {
+          "id": "ms_spirit_t4",
+          "name": "Bloodbond",
+          "tier": 4,
+          "slot": "T4",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Detonation damage scales with minion MAX HP (not remaining HP).",
+          "modifier": { "detonationUsesMaxHp": true },
+          "engineFields": ["detonationUsesMaxHp (NEW — boolean; staff.ts detonateMinions uses m.maxHp instead of m.hp when flag set)"]
+        },
+        {
+          "id": "ms_spirit_t4b",
+          "name": "Minion Mastery",
+          "tier": 4,
+          "slot": "T4b",
+          "nodeType": "support",
+          "maxRank": 2,
+          "description": "+15/30% minion attack damage.",
+          "modifier": { "minionDamageMult": 15 },
+          "perRankModifiers": { "1": { "minionDamageMult": 15 }, "2": { "minionDamageMult": 30 } },
+          "engineFields": ["minionDamageMult (NEW — numeric; staff.ts summonMinions multiplies damage by (1 + value/100))"]
+        },
+        {
+          "id": "ms_spirit_t5a",
+          "name": "Ritual Burst",
+          "tier": 5,
+          "slot": "T5A",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Detonation damage multiplied by number of minions detonated (2 dogs = ×2, 4 fetishes = ×4, both = ×6).",
+          "modifier": { "detonationPerMinionMult": true },
+          "engineFields": ["detonationPerMinionMult (NEW — boolean; staff.ts preRoll multiplies detonation damage by detonated.length)"]
+        },
+        {
+          "id": "ms_spirit_t5b",
+          "name": "Phantom Tether",
+          "tier": 5,
+          "slot": "T5B",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "After detonation, spectral afterimages of detonated minions persist 4s dealing 50% of their damage. Cost: +6s cooldown on Zombie Dogs and Fetish Swarm.",
+          "modifier": {
+            "rawBehaviors": {
+              "phantomAfterimages": { "duration": 4, "damagePercent": 50 },
+              "perSkillCooldownIncrease": { "staff_zombie_dogs": 6, "staff_fetish_swarm": 6 }
+            }
+          },
+          "engineFields": ["rawBehaviors.phantomAfterimages (NEW); rawBehaviors.perSkillCooldownIncrease (NEW — both read in staff.ts)"]
+        },
+        {
+          "id": "ms_spirit_t6",
+          "name": "Soul Sacrifice",
+          "tier": 6,
+          "slot": "T6",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Each soul_stack consumed during Mass Sacrifice increases detonation damage by +25%.",
+          "modifier": { "detonationPerSoulStackBonus": 25 },
+          "engineFields": ["detonationPerSoulStackBonus (NEW — numeric; staff.ts preRoll multiplies detonation damage by 1 + value/100 × soulStackStacks)"]
+        },
+        {
+          "id": "ms_spirit_t7",
+          "name": "LORD OF THE DEAD",
+          "tier": 7,
+          "slot": "T7",
+          "nodeType": "keystone",
+          "maxRank": 1,
+          "description": "Mass Sacrifice detonates minions, then IMMEDIATELY resummons both Zombie Dogs and Fetish Swarm at full HP. Cost: −40% Mass Sacrifice direct damage.",
+          "modifier": {
+            "resummonOnMassSacrifice": true,
+            "incDamage": -40
+          },
+          "engineFields": ["resummonOnMassSacrifice (NEW — boolean; staff.ts preRoll calls summonMinions for both configs after detonation); incDamage (EXISTS, negative)"]
+        }
+      ]
+    },
+    {
+      "branchId": "voodoo_master",
+      "branchName": "Voodoo Master",
+      "theme": "Consume everything for power. Pure burst escalation — the more you stack, the harder you hit.",
+      "nodes": [
+        {
+          "id": "ms_voodoo_t1a",
+          "name": "Cursed Blade",
+          "tier": 1,
+          "slot": "T1a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+10/20% damage.",
+          "modifier": { "incDamage": 10 },
+          "perRankModifiers": { "1": { "incDamage": 10 }, "2": { "incDamage": 20 } },
+          "engineFields": ["incDamage (EXISTS)"]
+        },
+        {
+          "id": "ms_voodoo_t1b",
+          "name": "Sharp Focus",
+          "tier": 1,
+          "slot": "T1b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+8/16% critical strike chance.",
+          "modifier": { "incCritChance": 8 },
+          "perRankModifiers": { "1": { "incCritChance": 8 }, "2": { "incCritChance": 16 } },
+          "engineFields": ["incCritChance (EXISTS)"]
+        },
+        {
+          "id": "ms_voodoo_t2",
+          "name": "Hexbreaker",
+          "tier": 2,
+          "slot": "T2",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Consuming Hexed during Mass Sacrifice increases this cast's damage by an additional +50%.",
+          "modifier": { "hexedConsumeMassSacrificeBonus": 50 },
+          "engineFields": ["hexedConsumeMassSacrificeBonus (NEW — numeric; staff.ts preRoll multiplies damageMult by 1 + value/100 when consuming hexed on mass_sacrifice)"]
+        },
+        {
+          "id": "ms_voodoo_t2b",
+          "name": "Biting Curse",
+          "tier": 2,
+          "slot": "T2b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+10/20% critical strike multiplier.",
+          "modifier": { "incCritMultiplier": 10 },
+          "perRankModifiers": { "1": { "incCritMultiplier": 10 }, "2": { "incCritMultiplier": 20 } },
+          "engineFields": ["incCritMultiplier (EXISTS)"]
+        },
+        {
+          "id": "ms_voodoo_t3a",
+          "name": "Hunter's Ritual",
+          "tier": 3,
+          "slot": "T3a",
+          "nodeType": "conditional",
+          "maxRank": 2,
+          "description": "+15/30% damage when target is below 50% HP.",
+          "modifier": {
+            "conditionalMods": [
+              { "condition": "whileTargetBelowHp", "threshold": 50, "modifier": { "incDamage": 15 } }
+            ]
+          },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "whileTargetBelowHp", "threshold": 50, "modifier": { "incDamage": 15 } }] },
+            "2": { "conditionalMods": [{ "condition": "whileTargetBelowHp", "threshold": 50, "modifier": { "incDamage": 30 } }] }
+          },
+          "engineFields": ["conditionalMods.whileTargetBelowHp (EXISTS)"]
+        },
+        {
+          "id": "ms_voodoo_t3b",
+          "name": "Cooldown Mastery",
+          "tier": 3,
+          "slot": "T3b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "−10/20% cooldown on Mass Sacrifice.",
+          "modifier": { "cooldownReduction": 10 },
+          "perRankModifiers": { "1": { "cooldownReduction": 10 }, "2": { "cooldownReduction": 20 } },
+          "engineFields": ["cooldownReduction (EXISTS)"]
+        },
+        {
+          "id": "ms_voodoo_t3c",
+          "name": "Soul Harvester",
+          "tier": 3,
+          "slot": "T3c",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Soul Harvest cooldown reduced by 1/2 seconds (feeds stack building).",
+          "modifier": {
+            "rawBehaviors": {
+              "perSkillCooldownIncrease": { "staff_soul_harvest": -1 }
+            }
+          },
+          "perRankModifiers": {
+            "1": { "rawBehaviors": { "perSkillCooldownIncrease": { "staff_soul_harvest": -1 } } },
+            "2": { "rawBehaviors": { "perSkillCooldownIncrease": { "staff_soul_harvest": -2 } } }
+          },
+          "engineFields": ["rawBehaviors.perSkillCooldownIncrease (NEW — shared with Phantom Tether)"]
+        },
+        {
+          "id": "ms_voodoo_t4",
+          "name": "Sacrificial Wisdom",
+          "tier": 4,
+          "slot": "T4",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Every combo state consumed by Mass Sacrifice refunds 15% of its cooldown.",
+          "modifier": { "cdRefundPerStateConsumed": 15 },
+          "engineFields": ["cdRefundPerStateConsumed (NEW — numeric; staff.ts preRoll pushes cdRefundPercent += value × consumedStateIds.length / 100)"]
+        },
+        {
+          "id": "ms_voodoo_t4b",
+          "name": "Heavy Blow Support",
+          "tier": 4,
+          "slot": "T4b",
+          "nodeType": "support",
+          "maxRank": 2,
+          "description": "+20/40% damage to Heavy-tagged skills.",
+          "modifier": { "incDamage": 20 },
+          "perRankModifiers": { "1": { "incDamage": 20 }, "2": { "incDamage": 40 } },
+          "engineFields": ["incDamage (EXISTS)"]
+        },
+        {
+          "id": "ms_voodoo_t5a",
+          "name": "Endless Ritual",
+          "tier": 5,
+          "slot": "T5A",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Each soul_stack now grants +30% damage on consume (up from +15%). Max cap raised 5 → 10 stacks.",
+          "modifier": {
+            "soulStackDamagePerStack": 30,
+            "soulStackCapOverride": 10
+          },
+          "engineFields": ["soulStackDamagePerStack (NEW — numeric); soulStackCapOverride (NEW — numeric; staff.ts preRoll uses override, combo.ts createComboState uses override when set)"]
+        },
+        {
+          "id": "ms_voodoo_t5b",
+          "name": "Iron Will",
+          "tier": 5,
+          "slot": "T5B",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Mass Sacrifice cannot miss and the first cast per encounter is a guaranteed crit. Cost: −20% damage for the rest of the encounter.",
+          "modifier": {
+            "cannotMiss": true,
+            "firstCastGuaranteedCrit": true,
+            "rawBehaviors": {
+              "subsequentCastDamagePenalty": 20
+            }
+          },
+          "engineFields": ["cannotMiss (NEW — boolean; tick.ts skips hit roll when true); firstCastGuaranteedCrit (NEW — boolean; tick.ts force crit on firstSkillInEncounter); rawBehaviors.subsequentCastDamagePenalty (NEW)"]
+        },
+        {
+          "id": "ms_voodoo_t6",
+          "name": "Cascading Doom",
+          "tier": 6,
+          "slot": "T6",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "If Mass Sacrifice crits, refresh duration of haunted, plagued, and hexed on all enemies hit.",
+          "modifier": { "critRefreshesCombatStates": true },
+          "engineFields": ["critRefreshesCombatStates (NEW — boolean; staff.ts postCast re-creates haunted/plagued/hexed at full duration on crit when flag set)"]
+        },
+        {
+          "id": "ms_voodoo_t7",
+          "name": "THE FINAL OFFERING",
+          "tier": 7,
+          "slot": "T7",
+          "nodeType": "keystone",
+          "maxRank": 1,
+          "description": "Mass Sacrifice resets the cooldown of every other skill. Cost: 50% current HP sacrificed per cast.",
+          "modifier": {
+            "resetAllCooldownsOnCast": true,
+            "selfDamagePercent": 50
+          },
+          "engineFields": ["resetAllCooldownsOnCast (NEW — boolean; tick.ts resets all skill timers in postCast); selfDamagePercent (EXISTS; deducts % current HP)"]
+        }
+      ]
+    }
+  ],
+  "newEngineFields": {
+    "numericAdditive": [
+      "minionHpMult",
+      "minionDurationMult",
+      "minionDamageMult",
+      "damagePerMinionAlive",
+      "zombieDogAttackIntervalReduction",
+      "detonationPerSoulStackBonus",
+      "burstDamagePerDebuffOnTarget",
+      "cdRefundPerStateConsumed",
+      "plaguedConsumePoisonStacks",
+      "hexedConsumeMassSacrificeBonus",
+      "soulStackDamagePerStack",
+      "soulStackCapOverride"
+    ],
+    "booleanFlags": [
+      "massSacrificePandemic",
+      "pandemicFullDuration",
+      "detonationUsesMaxHp",
+      "detonationPerMinionMult",
+      "resummonOnMassSacrifice",
+      "hauntedConsumeSummonsSpirit",
+      "cannotMiss",
+      "firstCastGuaranteedCrit",
+      "resetAllCooldownsOnCast",
+      "critRefreshesCombatStates"
+    ],
+    "rawBehaviorsObjects": [
+      "dotReapplyOnConsume",
+      "rottingDebuff",
+      "phantomAfterimages",
+      "perSkillCooldownIncrease",
+      "subsequentCastDamagePenalty"
+    ],
+    "newTriggerConditions": [
+      "afterMassSacrificeConsumedSpiritLink",
+      "whileMinionsAlive"
+    ]
+  }
+}

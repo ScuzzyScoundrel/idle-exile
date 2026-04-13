@@ -181,7 +181,9 @@ export type TriggerCondition =
   | 'whilePackSize' | 'whileSkillOnCooldown'
   | 'whileTargetAilmentCount' | 'whileTargetBelowHp'
   | 'whileTargetLinked' | 'whileTargetSaturated' | 'whileTargetsHit'
-  | 'whileViperStrikeAilmentCount' | 'whileWardActive';
+  | 'whileViperStrikeAilmentCount' | 'whileWardActive'
+  // Staff v2
+  | 'whileMinionsAlive';
 
 export interface ConditionalModifier {
   condition: TriggerCondition;
@@ -385,6 +387,8 @@ export type DamageTag =
   | 'Melee' | 'Projectile' | 'AoE' | 'DoT' | 'Channel'
   // Role (dagger v2)
   | 'Chain' | 'Trap' | 'Movement' | 'Defensive' | 'Utility' | 'Heavy'
+  // Role (staff v2 — witch doctor)
+  | 'Minion' | 'Curse'
   // Element
   | 'Physical' | 'Fire' | 'Cold' | 'Lightning' | 'Chaos';
 
