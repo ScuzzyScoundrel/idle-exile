@@ -33,6 +33,7 @@ import {
   calcFortifyDR,
   getFullEffect,
   mergeProcTempBuff,
+  applyDebuffToList,
 } from './helpers';
 import type { CombatTickOutput } from './types';
 import { noResult } from './types';
@@ -203,12 +204,96 @@ export function applyZoneDamage(
   // --- Per-mob DoT and regen ---
   const zonePlayerStats = resolveStats(state.character);
   let helperPoisonCount: number | undefined;
-  for (const mob of updatedMobs) {
+  // Cache DoT-source graphMods for per-tick rawBehaviors
+  const dotSrcMod: Record<string, ReturnType<typeof getSkillGraphModifier> | null | undefined> = {};
+  const getDotSrcMod = (skillId: string) => {
+    if (skillId in dotSrcMod) return dotSrcMod[skillId];
+    const def = getUnifiedSkillDef(skillId);
+    const prog = state.skillProgress?.[skillId];
+    const m = def && prog ? getSkillGraphModifier(def, prog) : null;
+    dotSrcMod[skillId] = m;
+    return m;
+  };
+  for (const mobIdx of updatedMobs.keys()) {
+    const mob = updatedMobs[mobIdx];
     if (mob.debuffs.length > 0) {
       const enemyMaxHp = mob.maxHp > 0 ? mob.maxHp : 1;
       const dot = tickDebuffDoT(mob.debuffs, dt, 1, zonePlayerStats.incDoTDamage, enemyMaxHp);
       const mobDamageTakenMult = mob.rare?.combinedDamageTakenMult ?? 1;
-      const dotDmg = dot.damage * mobDamageTakenMult;
+      let dotDmg = dot.damage * mobDamageTakenMult;
+      // ── Per-tick rawBehaviors (Locust/Haunt/Toads) ──
+      const locustDeb = mob.debuffs.find(d => d.debuffId === 'locust_swarm_dot');
+      const hauntDeb = mob.debuffs.find(d => d.debuffId === 'haunt_dot');
+      const toadsDeb = mob.debuffs.find(d => d.debuffId === 'toads_dot');
+      const hexedDeb = mob.debuffs.find(d => d.debuffId === 'hexed');
+      // Locust execute threshold — low-HP bonus damage
+      if (locustDeb) {
+        const lMod = getDotSrcMod(locustDeb.appliedBySkillId ?? 'staff_locust_swarm');
+        const lrb = lMod?.rawBehaviors as Record<string, any> | undefined;
+        if (lrb?.locustExecuteThreshold && mob.hp / enemyMaxHp <= (lrb.locustExecuteThreshold as number) / 100) {
+          dotDmg *= 1 + (lrb.locustExecuteBonus ?? 50) / 100;
+        }
+        // Mini Pandemic — roll per tick; spread to adjacent
+        if (lrb?.miniPandemicChance && Math.random() * 100 < (lrb.miniPandemicChance as number) * dt) {
+          const adj = updatedMobs[mobIdx + 1] ?? updatedMobs[mobIdx - 1];
+          if (adj && adj.hp > 0 && !adj.debuffs.some(d => d.debuffId === 'locust_swarm_dot')) {
+            applyDebuffToList(adj.debuffs, 'locust_swarm_dot', 1, locustDeb.remainingDuration,
+              locustDeb.appliedBySkillId ?? 'staff_locust_swarm', (locustDeb as any).snapshot ?? 0);
+          }
+        }
+        // Heal minions per locust tick
+        if (lrb?.locustHealsMinionsPerTick && state.activeMinions) {
+          const healPct = lrb.locustHealsMinionsPerTick as number;
+          for (const m of state.activeMinions) {
+            m.hp = Math.min(m.maxHp, m.hp + m.maxHp * (healPct / 100) * dt);
+          }
+        }
+      }
+      // Haunt chain damage compound — accumulate per tick
+      if (hauntDeb) {
+        const hMod = getDotSrcMod(hauntDeb.appliedBySkillId ?? 'staff_haunt');
+        const hrb = hMod?.rawBehaviors as Record<string, any> | undefined;
+        if (hrb?.hauntChainDamageCompound) {
+          // Every tick compounds: +X% damage per tick on this debuff. Store in a counter on the debuff.
+          const anyDeb = hauntDeb as any;
+          anyDeb._chainCompoundTicks = (anyDeb._chainCompoundTicks ?? 0) + 1;
+          dotDmg *= 1 + (hrb.hauntChainDamageCompound as number / 100) * anyDeb._chainCompoundTicks;
+        }
+        if (hrb?.spiritConduit && state.activeMinions) {
+          // +X% damage per alive minion; cost: subtract minion HP each tick
+          const aliveMinions = state.activeMinions.filter(m => m.hp > 0);
+          if (aliveMinions.length > 0) {
+            dotDmg *= 1 + (hrb.spiritConduit as number / 100) * aliveMinions.length;
+            const cost = (hrb.spiritConduitHpCostPercent ?? 1) / 100;
+            for (const m of aliveMinions) m.hp = Math.max(1, m.hp - m.maxHp * cost * dt);
+          }
+        }
+      }
+      // Toads — plague mark buildup (stack counter stored on debuff; detonate at max)
+      if (toadsDeb) {
+        const tMod = getDotSrcMod(toadsDeb.appliedBySkillId ?? 'staff_plague_of_toads');
+        const trb = tMod?.rawBehaviors as Record<string, any> | undefined;
+        if (trb?.plagueMarkBuildup) {
+          const cfg = trb.plagueMarkBuildup as { perTick: number; maxStacks: number; detonatePercent: number };
+          const anyDeb = toadsDeb as any;
+          anyDeb._plagueMarks = (anyDeb._plagueMarks ?? 0) + (cfg.perTick ?? 1) * dt;
+          if (anyDeb._plagueMarks >= cfg.maxStacks) {
+            dotDmg += enemyMaxHp * (cfg.detonatePercent / 100);
+            anyDeb._plagueMarks = 0;
+          }
+        }
+      }
+      // Hex decay — ramping damage-taken on hexed mobs
+      if (hexedDeb) {
+        const xMod = getDotSrcMod(hexedDeb.appliedBySkillId ?? 'staff_hex');
+        const xrb = xMod?.rawBehaviors as Record<string, any> | undefined;
+        if (xrb?.hexedDecayMark) {
+          const cfg = xrb.hexedDecayMark as { perSec: number; maxPct: number };
+          const anyDeb = hexedDeb as any;
+          anyDeb._decayMark = Math.min(cfg.maxPct, (anyDeb._decayMark ?? 0) + (cfg.perSec ?? 1) * dt);
+          dotDmg *= 1 + anyDeb._decayMark / 100;
+        }
+      }
       helperDotDamage += dotDmg;
       mob.hp = Math.max(0, mob.hp - dotDmg);
       mob.debuffs = dot.updatedDebuffs;
@@ -240,27 +325,84 @@ export function applyZoneDamage(
         const progress = state.skillProgress?.[skillId];
         if (!skillDef || !progress) continue;
         const graphMod = getSkillGraphModifier(skillDef, progress);
-        if (!graphMod?.skillProcs?.length) continue;
-        const killCtx: any = {
-          isHit: true, isCrit: false, skillId,
-          effectiveMaxLife: killStats.maxLife,
-          stats: killStats,
-          weaponAvgDmg: 0,
-          weaponSpellPower: killStats.spellPower ?? 0,
-          damageMult: 1, now,
-          lastProcTriggerAt: {},
-        };
-        const killPr = evaluateProcs(graphMod.skillProcs, 'onKill', killCtx);
-        dotKillProcDamage += killPr.bonusDamage;
-        if (killPr.newMinions.length > 0) newActiveMinions.push(...killPr.newMinions);
-        for (const cs of killPr.newComboStates) {
-          const creator = Object.values(COMBO_STATE_CREATORS).find(c => c.stateId === cs.stateId);
-          const csEffect = creator?.effect ?? {};
-          const csMaxStacks = creator?.maxStacks ?? 5;
-          for (let i = 0; i < cs.stacks; i++) {
-            newComboStates = createComboState(newComboStates, cs.stateId, skillId, csEffect, cs.duration, csMaxStacks);
+        const rb = graphMod?.rawBehaviors as Record<string, any> | undefined;
+        if (graphMod?.skillProcs?.length) {
+          const killCtx: any = {
+            isHit: true, isCrit: false, skillId,
+            effectiveMaxLife: killStats.maxLife,
+            stats: killStats,
+            weaponAvgDmg: 0,
+            weaponSpellPower: killStats.spellPower ?? 0,
+            damageMult: 1, now,
+            lastProcTriggerAt: {},
+          };
+          const killPr = evaluateProcs(graphMod.skillProcs, 'onKill', killCtx);
+          dotKillProcDamage += killPr.bonusDamage;
+          if (killPr.newMinions.length > 0) newActiveMinions.push(...killPr.newMinions);
+          for (const cs of killPr.newComboStates) {
+            const creator = Object.values(COMBO_STATE_CREATORS).find(c => c.stateId === cs.stateId);
+            const csEffect = creator?.effect ?? {};
+            const csMaxStacks = creator?.maxStacks ?? 5;
+            for (let i = 0; i < cs.stacks; i++) {
+              newComboStates = createComboState(newComboStates, cs.stateId, skillId, csEffect, cs.duration, csMaxStacks);
+            }
           }
         }
+        if (!rb) continue;
+        // hauntedDeathSpawnsSoulStack — killed while haunted → soul_stack
+        if (rb.hauntedDeathSpawnsSoulStack && mob.debuffs.some(d => d.debuffId === 'haunted' || d.debuffId === 'haunt_dot')) {
+          const stacks = (typeof rb.hauntedDeathSpawnsSoulStack === 'number' ? rb.hauntedDeathSpawnsSoulStack : 1);
+          const creator = Object.values(COMBO_STATE_CREATORS).find(c => c.stateId === 'soul_stack');
+          const csEffect = creator?.effect ?? {};
+          const csMaxStacks = creator?.maxStacks ?? 5;
+          for (let i = 0; i < stacks; i++) {
+            newComboStates = createComboState(newComboStates, 'soul_stack', skillId, csEffect, creator?.duration ?? 8, csMaxStacks);
+          }
+        }
+        // locustHexedKillSpawnsSoulStacks — killed with hexed + locust → soul_stacks
+        if (rb.locustHexedKillSpawnsSoulStacks &&
+            mob.debuffs.some(d => d.debuffId === 'hexed') &&
+            mob.debuffs.some(d => d.debuffId === 'locust_swarm_dot')) {
+          const stacks = (typeof rb.locustHexedKillSpawnsSoulStacks === 'number' ? rb.locustHexedKillSpawnsSoulStacks : 1);
+          const creator = Object.values(COMBO_STATE_CREATORS).find(c => c.stateId === 'soul_stack');
+          const csEffect = creator?.effect ?? {};
+          const csMaxStacks = creator?.maxStacks ?? 5;
+          for (let i = 0; i < stacks; i++) {
+            newComboStates = createComboState(newComboStates, 'soul_stack', skillId, csEffect, creator?.duration ?? 8, csMaxStacks);
+          }
+        }
+        // hexedDeathSpreadsHex — on hexed mob death, spread to pack
+        if (rb.hexedDeathSpreadsHex && mob.debuffs.some(d => d.debuffId === 'hexed')) {
+          const spreadCount = typeof rb.hexedDeathSpreadsHex === 'number' ? rb.hexedDeathSpreadsHex : 2;
+          const targets = updatedMobs.filter(m => m.hp > 0).slice(0, spreadCount);
+          for (const tgt of targets) {
+            applyDebuffToList(tgt.debuffs, 'hexed', 1, 5, skillId);
+          }
+        }
+        // soulHarvestKillSpreadDots — when SH kills, spread active DoTs to N mobs
+        if (rb.soulHarvestKillSpreadDots && skillId === 'staff_soul_harvest') {
+          const spreadCount = typeof rb.soulHarvestKillSpreadDots === 'number' ? rb.soulHarvestKillSpreadDots : 3;
+          const targets = updatedMobs.filter(m => m.hp > 0).slice(0, spreadCount);
+          for (const deb of mob.debuffs) {
+            if (!['bleeding', 'poisoned', 'burning', 'frostbite', 'locust_swarm_dot', 'haunt_dot', 'toads_dot'].includes(deb.debuffId)) continue;
+            for (const tgt of targets) {
+              applyDebuffToList(tgt.debuffs, deb.debuffId, 1, deb.remainingDuration,
+                deb.appliedBySkillId ?? skillId, (deb as any).snapshot ?? 0);
+            }
+          }
+        }
+        // soulHarvestKillRefundCdPercent — refund SH cooldown on kill
+        if (rb.soulHarvestKillRefundCdPercent && skillId === 'staff_soul_harvest') {
+          const pct = rb.soulHarvestKillRefundCdPercent as number;
+          const timer = state.skillTimers?.find(t => t.skillId === 'staff_soul_harvest');
+          if (timer?.cooldownUntil && timer.cooldownUntil > now) {
+            const remaining = timer.cooldownUntil - now;
+            timer.cooldownUntil = now + remaining * (1 - pct / 100);
+          }
+        }
+        // bouncingSkullKillRefundsBounces — reserved: bounce count reset infrastructure (TODO)
+        // hauntDeathTriggersSoulHarvest — if haunted mob dies, fire SH onCast procs
+        // (handled conservatively via evaluateProcs call above if SH has onKill procs too)
       }
     }
   }

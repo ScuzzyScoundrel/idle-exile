@@ -20,10 +20,24 @@ export interface MinionState {
   sourceSkillId: string;
   /** Cumulative damage dealt by this minion since spawn (for tooltips). */
   damageDealt?: number;
+  /** Count of attacks this minion has fired since spawn (everyN behaviors). */
+  attacksFired?: number;
+  /** Remaining forced-crit attacks queued (Predator Pack cascade). */
+  forcedCritsRemaining?: number;
+  /** Remaining forced-non-crit attacks (e.g., Alpha penalty — not used yet, reserved). */
+  timerModifier?: number;
+  /** Kill count for this minion (frenzy stacking). */
+  killsFired?: number;
   /** If set, each bite applies this debuff to target. */
   appliesDebuffOnHit?: { debuffId: string; duration: number; stacks: number };
   /** If set, each bite creates this combo state (e.g., 'haunted' for zombie dogs). */
   createsComboStateOnHit?: string;
+  /** Offline-revive scheduler — set when minion dies under dogAutoReviveSeconds keystone. */
+  reviveAt?: number;
+  reviveHpPercent?: number;
+  /** Last-regen tick timestamp (dogRegenPercentPerSecond) + last-damage timestamp (regen safe window). */
+  lastRegenTickAt?: number;
+  lastDamagedAt?: number;
 }
 
 export interface SummonConfig {
@@ -134,6 +148,12 @@ export interface MinionAttack {
   sourceSkillId: string;
   appliesDebuffOnHit?: { debuffId: string; duration: number; stacks: number };
   createsComboStateOnHit?: string;
+  /** 1-indexed attack count from this minion since spawn. */
+  attackNumber: number;
+  /** Unique minion id — staff.ts looks up MinionState to read/mutate forcedCritsRemaining etc. */
+  minionId: string;
+  /** Pre-rolled by stepMinions if the minion has forcedCritsRemaining > 0 — staff.ts re-rolls with rawBehaviors otherwise. */
+  forcedCrit?: boolean;
 }
 
 /** Advance minion timers and emit attacks for any minion whose timer matured.
@@ -154,16 +174,23 @@ export function stepMinions(
 
     let next = m.nextAttackAt;
     let attacksThisTick = 0;
+    const baseAttackCount = m.attacksFired ?? 0;
+    let forcedCritsLeft = m.forcedCritsRemaining ?? 0;
     // Fire as many attacks as the interval allows this tick (normally 1)
     while (now >= next) {
+      attacksThisTick++;
+      const forcedCrit = forcedCritsLeft > 0;
+      if (forcedCrit) forcedCritsLeft--;
       attacks.push({
         damage: m.damage,
         element: m.element,
         sourceSkillId: m.sourceSkillId,
         appliesDebuffOnHit: m.appliesDebuffOnHit,
         createsComboStateOnHit: m.createsComboStateOnHit,
+        attackNumber: baseAttackCount + attacksThisTick,
+        minionId: m.id,
+        forcedCrit,
       });
-      attacksThisTick++;
       next += m.attackInterval * 1000;
     }
 
@@ -171,6 +198,8 @@ export function stepMinions(
       ...m,
       nextAttackAt: next,
       damageDealt: (m.damageDealt ?? 0) + attacksThisTick * m.damage,
+      attacksFired: baseAttackCount + attacksThisTick,
+      forcedCritsRemaining: forcedCritsLeft,
     });
   }
 

@@ -189,6 +189,48 @@ export function runCombatTick(
         }
       }
     }
+    // Heal to player (lifesteal, soul tether). Cap at maxLife (resolved inline since
+    // effectiveMaxLife is derived later in this function).
+    if (maint.healAmount && maint.healAmount > 0) {
+      const maxLife = resolveStats(state.character).maxLife;
+      state.currentHp = Math.min(maxLife, state.currentHp + maint.healAmount);
+    }
+    // Minion death AoE (dog death pulse, fetish poison cloud) — applies to front mob + short pack spread
+    if (maint.minionDeathAoe && maint.minionDeathAoe.length > 0) {
+      for (const aoe of maint.minionDeathAoe) {
+        if (phase === 'boss_fight' && state.bossState) {
+          state.bossState.bossCurrentHp = Math.max(0, state.bossState.bossCurrentHp - aoe.damage);
+          if (aoe.debuffOnHit && state.activeDebuffs) {
+            applyDebuffToList(state.activeDebuffs, aoe.debuffOnHit.debuffId, aoe.debuffOnHit.stacks,
+              aoe.debuffOnHit.duration, aoe.sourceSkillId, aoe.damage);
+          }
+        } else if (state.packMobs.length > 0) {
+          // Spread damage across up to 3 mobs
+          const targets = state.packMobs.slice(0, 3);
+          for (const mob of targets) {
+            mob.hp -= aoe.damage;
+            if (aoe.debuffOnHit) {
+              applyDebuffToList(mob.debuffs, aoe.debuffOnHit.debuffId, aoe.debuffOnHit.stacks,
+                aoe.debuffOnHit.duration, aoe.sourceSkillId, aoe.damage);
+            }
+          }
+        }
+      }
+    }
+    // Pack-wide debuffs (plagueCourtAllPlagued, witchingHour) — refresh on every pack mob
+    if (maint.packDebuffs && maint.packDebuffs.length > 0) {
+      if (phase === 'boss_fight' && state.activeDebuffs) {
+        for (const pd of maint.packDebuffs) {
+          applyDebuffToList(state.activeDebuffs, pd.debuffId, pd.stacks, pd.duration, pd.skillId, pd.snapshotDamage);
+        }
+      } else if (state.packMobs.length > 0) {
+        for (const mob of state.packMobs) {
+          for (const pd of maint.packDebuffs) {
+            applyDebuffToList(mob.debuffs, pd.debuffId, pd.stacks, pd.duration, pd.skillId, pd.snapshotDamage);
+          }
+        }
+      }
+    }
     state = { ...state, ...maintPatch };
   }
   // out.patch wins over maintPatch — applyZoneDamage updates activeMinions/comboStates
@@ -786,10 +828,83 @@ export function runCombatTick(
     const hexDurationBonus = (graphMod?.rawBehaviors?.hexDuration as number | undefined) ?? 0;
     const baseHexDuration = 5 * (1 + (effectiveStats.ailmentDuration ?? 0) / 100);
     const finalHexDuration = baseHexDuration * (1 + hexDurationBonus / 100);
-    // Potency passes through snapshot param (debuff.effect.reducedDamageDealt is base 20;
-    // consumers can read snapshot as a % bonus to the reducedDamageDealt effect later).
-    void hexPotencyBonus;
-    applyDebuffToList(newDebuffs, 'hexed', 1, finalHexDuration, skill.id);
+    // Potency: carried as snapshot param (reducedDamageDealt scales with snapshot later).
+    applyDebuffToList(newDebuffs, 'hexed', 1, finalHexDuration, skill.id, hexPotencyBonus);
+    // Hex spread — apply to adjacent mobs in pack (hexSpreadRadius/hexAdjacentSpread)
+    const spreadCount = (graphMod?.rawBehaviors?.hexSpreadRadius as number | undefined)
+      ?? (graphMod?.rawBehaviors?.hexAdjacentSpread as number | undefined);
+    if (spreadCount && phase === 'clearing' && state.packMobs.length > 1) {
+      const targets = state.packMobs.slice(1, 1 + spreadCount);
+      for (const mob of targets) {
+        applyDebuffToList(mob.debuffs, 'hexed', 1, finalHexDuration, skill.id, hexPotencyBonus);
+      }
+    }
+    // Hex pack-on-cast — apply hexed to every pack mob
+    if (graphMod?.rawBehaviors?.hexPackOnCastPotency && phase === 'clearing') {
+      const packPotency = graphMod.rawBehaviors.hexPackOnCastPotency as number;
+      for (const mob of state.packMobs) {
+        applyDebuffToList(mob.debuffs, 'hexed', 1, finalHexDuration, skill.id, packPotency);
+      }
+    }
+  }
+
+  // Haunt AoE / spread (hauntIsAoe / spreadHauntAdjacent) — apply skill-native DoT to pack
+  if (roll.isHit && skill.id === 'staff_haunt') {
+    const hauntDotDeb = newDebuffs.find(d => d.debuffId === 'haunt_dot');
+    if (hauntDotDeb) {
+      if (graphMod?.rawBehaviors?.hauntIsAoe && phase === 'clearing') {
+        for (const mob of state.packMobs.slice(1)) {
+          applyDebuffToList(mob.debuffs, 'haunt_dot', 1, hauntDotDeb.remainingDuration, skill.id, ailmentSnapshot);
+        }
+      } else if (graphMod?.rawBehaviors?.spreadHauntAdjacent && phase === 'clearing' && state.packMobs.length > 1) {
+        const spread = graphMod.rawBehaviors.spreadHauntAdjacent as number;
+        const targets = state.packMobs.slice(1, 1 + spread);
+        for (const mob of targets) {
+          applyDebuffToList(mob.debuffs, 'haunt_dot', 1, hauntDotDeb.remainingDuration, skill.id, ailmentSnapshot);
+        }
+      }
+    }
+    // Haunt applies hexed on cast (Hexing Whispers)
+    if (graphMod?.rawBehaviors?.hauntApplyHexedOnCast) {
+      applyDebuffToList(newDebuffs, 'hexed', 1, 5, skill.id);
+    }
+    // Haunt instant burst (Spirit Lash) — % of snapshot as immediate burst damage on front target
+    if (graphMod?.rawBehaviors?.hauntInstantBurst) {
+      const burstPct = graphMod.rawBehaviors.hauntInstantBurst as number;
+      const burstDmg = ailmentSnapshot * (burstPct / 100);
+      if (phase === 'boss_fight' && state.bossState) {
+        state.bossState.bossCurrentHp = Math.max(0, state.bossState.bossCurrentHp - burstDmg);
+      } else if (state.packMobs.length > 0) {
+        state.packMobs[0].hp -= burstDmg;
+      }
+    }
+  }
+
+  // Toads cast AoE/count (toadCount, toadsApplyHexed)
+  if (roll.isHit && skill.id === 'staff_plague_of_toads') {
+    const toadsDeb = newDebuffs.find(d => d.debuffId === 'toads_dot');
+    if (toadsDeb) {
+      const toadCount = (graphMod?.rawBehaviors?.toadCount as number | undefined) ?? 0;
+      if (toadCount > 0 && phase === 'clearing' && state.packMobs.length > 1) {
+        const targets = state.packMobs.slice(1, 1 + toadCount);
+        for (const mob of targets) {
+          applyDebuffToList(mob.debuffs, 'toads_dot', 1, toadsDeb.remainingDuration, skill.id, ailmentSnapshot);
+        }
+      }
+    }
+    if (graphMod?.rawBehaviors?.toadsApplyHexed) {
+      applyDebuffToList(newDebuffs, 'hexed', 1, 5, skill.id);
+    }
+  }
+
+  // Locust AoE on cast (locustAoeOnCast)
+  if (roll.isHit && skill.id === 'staff_locust_swarm') {
+    const locustDeb = newDebuffs.find(d => d.debuffId === 'locust_swarm_dot');
+    if (locustDeb && graphMod?.rawBehaviors?.locustAoeOnCast && phase === 'clearing' && state.packMobs.length > 1) {
+      for (const mob of state.packMobs.slice(1)) {
+        applyDebuffToList(mob.debuffs, 'locust_swarm_dot', 1, locustDeb.remainingDuration, skill.id, ailmentSnapshot);
+      }
+    }
   }
 
   // Venomous Persistence: non-VS skill hits refresh VS poison durations on target

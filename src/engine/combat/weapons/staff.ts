@@ -115,7 +115,10 @@ export const staffModule: WeaponModule = {
     const { minions: updatedMinions, attacks } = stepMinions(state.activeMinions ?? [], dtSec, now);
 
     let minionAttackDamage = 0;
+    let healAmount = 0;
     const minionDebuffs: { debuffId: string; stacks: number; duration: number; skillId: string; snapshotDamage: number }[] = [];
+    const minionDeathAoe: NonNullable<MaintenanceResult['minionDeathAoe']> = [];
+    const packDebuffs: NonNullable<MaintenanceResult['packDebuffs']> = [];
     const ELEMENT_AILMENT: Record<string, string> = {
       physical: 'bleeding', fire: 'burning', cold: 'frostbite', lightning: 'shocked', chaos: 'poisoned',
     };
@@ -129,8 +132,84 @@ export const staffModule: WeaponModule = {
       minionGraphMods[skillId] = mod;
       return mod;
     };
+    // Active soul_stack count across all sources (for per-stack damage scaling)
+    const soulStackCount = (state.comboStates ?? [])
+      .filter(s => s.stateId === 'soul_stack')
+      .reduce((sum, s) => sum + (s.stacks ?? 0), 0);
+    // Count alive minions by type (for dogPackPowerPerDog)
+    const dogsAlive = updatedMinions.filter(m => m.type === 'zombie_dog' && m.hp > 0).length;
+    const fetishesAlive = updatedMinions.filter(m => m.type === 'fetish' && m.hp > 0).length;
+    void fetishesAlive;
+    // Front target debuffs (dogsBonusDamageVsPlagued/Hexed) — front pack mob or boss
+    const frontTargetDebuffs = (() => {
+      if (state.combatPhase === 'boss_fight') return (state.activeDebuffs ?? []).map(d => d.debuffId);
+      return (state.packMobs?.[0]?.debuffs ?? []).map(d => d.debuffId);
+    })();
+    // Helper: adjust debuff duration by talent bonus (dogAppliedDotDurationBonus / fetishAppliedDotDurationBonus).
+    const durationForSource = (skillId: string, base: number, rb: Record<string, any> | undefined): number => {
+      if (!rb) return base;
+      if (skillId === 'staff_zombie_dogs' && rb.dogAppliedDotDurationBonus) {
+        return base * (1 + rb.dogAppliedDotDurationBonus / 100);
+      }
+      if (skillId === 'staff_fetish_swarm' && rb.fetishAppliedDotDurationBonus) {
+        return base * (1 + rb.fetishAppliedDotDurationBonus / 100);
+      }
+      return base;
+    };
+    // Helper: list all current debuff ids active in combat (Apply All DoTs)
+    const activeDotIds = (() => {
+      const ids = new Set<string>();
+      const mobDebs = state.packMobs?.[0]?.debuffs ?? [];
+      for (const d of mobDebs) ids.add(d.debuffId);
+      for (const d of (state.activeDebuffs ?? [])) ids.add(d.debuffId);
+      return Array.from(ids).filter(id =>
+        id === 'poisoned' || id === 'bleeding' || id === 'burning' || id === 'frostbite' ||
+        id === 'locust_swarm_dot' || id === 'haunt_dot' || id === 'toads_dot'
+      );
+    })();
     for (const a of attacks) {
-      minionAttackDamage += a.damage;
+      const mod = resolveMinionMod(a.sourceSkillId);
+      const rb = mod?.rawBehaviors as Record<string, any> | undefined;
+      // ── Minion attack element conversion (fetishPhysToChaosPercent) ──
+      // Not mutating damage type now (buckets unchanged), but picks signature ailment path.
+      let effectiveElement = a.element;
+      if (a.sourceSkillId === 'staff_fetish_swarm' && rb?.fetishPhysToChaosPercent) {
+        effectiveElement = 'chaos';
+      }
+      // ── Minion crit roll ──
+      // Base: spirits/dogs/fetishes do not crit by default. fetishCritChance raises it.
+      let critChance = 0;
+      if (a.sourceSkillId === 'staff_fetish_swarm' && rb?.fetishCritChance) critChance += rb.fetishCritChance;
+      if (a.forcedCrit) critChance = 100;
+      const isCrit = critChance > 0 && Math.random() * 100 < critChance;
+      // ── Damage scaling for this attack ──
+      let damageMult = 1;
+      if (a.sourceSkillId === 'staff_zombie_dogs' && rb?.dogPackPowerPerDog) {
+        damageMult *= 1 + (rb.dogPackPowerPerDog / 100) * dogsAlive;
+      }
+      if (a.sourceSkillId === 'staff_zombie_dogs') {
+        if (rb?.dogDamagePerSoulStackUncapped) damageMult *= 1 + (rb.dogDamagePerSoulStackUncapped / 100) * soulStackCount;
+        else if (rb?.dogDamagePerSoulStack) damageMult *= 1 + (rb.dogDamagePerSoulStack / 100) * Math.min(soulStackCount, 10);
+        if (rb?.dogsBonusDamageVsPlagued && frontTargetDebuffs.includes('plagued')) {
+          damageMult *= 1 + rb.dogsBonusDamageVsPlagued / 100;
+        }
+        if (rb?.dogsBonusDamageVsHexed && frontTargetDebuffs.includes('hexed')) {
+          damageMult *= 1 + rb.dogsBonusDamageVsHexed / 100;
+        }
+      }
+      if (a.sourceSkillId === 'staff_fetish_swarm') {
+        if (rb?.fetishDamagePerSoulStackUncapped) damageMult *= 1 + (rb.fetishDamagePerSoulStackUncapped / 100) * soulStackCount;
+        else if (rb?.fetishDamagePerSoulStack) damageMult *= 1 + (rb.fetishDamagePerSoulStack / 100) * Math.min(soulStackCount, 10);
+        if (rb?.fetishDamageMult) damageMult *= 1 + rb.fetishDamageMult / 100;
+      }
+      // Minion/Hex bonus (minionBonusDamageVsHexed — cross-skill modifier appearing on any tree)
+      if (rb?.minionBonusDamageVsHexed && frontTargetDebuffs.includes('hexed')) {
+        damageMult *= 1 + rb.minionBonusDamageVsHexed / 100;
+      }
+      if (isCrit) damageMult *= 2.0; // minions crit for ×2 (no stat-driven multi yet)
+      const finalDamage = a.damage * damageMult;
+      minionAttackDamage += finalDamage;
+
       if (a.createsComboStateOnHit === 'haunted') {
         comboStates = createComboState(
           comboStates, 'haunted', a.sourceSkillId,
@@ -138,74 +217,219 @@ export const staffModule: WeaponModule = {
           HAUNTED_DURATION, 1,
         );
       }
-      // Minion hits apply signature ailment based on their element.
-      // Dogs (chaos) → poisoned instance; fetishes (physical) → bleeding stack;
-      // spirit_temp (cold) → frostbite; etc. Snapshot = bite damage.
-      const autoAilment = ELEMENT_AILMENT[a.element];
+      // Signature ailment — uses effectiveElement (fetishPhysToChaos override takes precedence)
+      const autoAilment = ELEMENT_AILMENT[effectiveElement];
       if (autoAilment) {
         minionDebuffs.push({
           debuffId: autoAilment,
           stacks: 1,
-          duration: 5,
+          duration: durationForSource(a.sourceSkillId, 5, rb),
           skillId: a.sourceSkillId,
-          snapshotDamage: a.damage,
+          snapshotDamage: finalDamage,
         });
       }
-      // Explicit per-bite debuff override (e.g., talents attaching Bleeding to dogs)
       if (a.appliesDebuffOnHit) {
         minionDebuffs.push({
           debuffId: a.appliesDebuffOnHit.debuffId,
           stacks: a.appliesDebuffOnHit.stacks ?? 1,
-          duration: a.appliesDebuffOnHit.duration,
+          duration: durationForSource(a.sourceSkillId, a.appliesDebuffOnHit.duration, rb),
           skillId: a.sourceSkillId,
-          snapshotDamage: a.damage,
+          snapshotDamage: finalDamage,
         });
       }
-      // ── Talent rawBehaviors: per-minion-hit procs ──
-      const mod = resolveMinionMod(a.sourceSkillId);
-      const rb = mod?.rawBehaviors as Record<string, any> | undefined;
-      if (rb) {
-        // Dog bite rawBehaviors ── Zombie Dogs Plague Doctor branch t1s
-        if (a.sourceSkillId === 'staff_zombie_dogs') {
-          if (rb.dogBitePoisonStacks) {
+      if (!rb) continue;
+
+      // ══ DOGS ══
+      if (a.sourceSkillId === 'staff_zombie_dogs') {
+        // t1a Rotting Fangs
+        if (rb.dogBitePoisonStacks) {
+          minionDebuffs.push({
+            debuffId: 'poisoned', stacks: rb.dogBitePoisonStacks,
+            duration: durationForSource(a.sourceSkillId, 3, rb),
+            skillId: a.sourceSkillId, snapshotDamage: finalDamage,
+          });
+        }
+        // t1b Disease Carrier
+        if (rb.dogBiteBleedingChance && Math.random() * 100 < rb.dogBiteBleedingChance) {
+          minionDebuffs.push({
+            debuffId: 'bleeding', stacks: 1,
+            duration: durationForSource(a.sourceSkillId, 3, rb),
+            skillId: a.sourceSkillId, snapshotDamage: finalDamage,
+          });
+        }
+        // t3a Putrid Bite — extra existing-debuff stack
+        if (rb.dogBiteExtraStackChance && Math.random() * 100 < rb.dogBiteExtraStackChance) {
+          // Pick a random existing debuff on front target + add 1 stack
+          if (frontTargetDebuffs.length > 0) {
+            const pick = frontTargetDebuffs[Math.floor(Math.random() * frontTargetDebuffs.length)];
             minionDebuffs.push({
-              debuffId: 'poisoned', stacks: rb.dogBitePoisonStacks, duration: 3,
-              skillId: a.sourceSkillId, snapshotDamage: a.damage,
+              debuffId: pick, stacks: 1,
+              duration: durationForSource(a.sourceSkillId, 3, rb),
+              skillId: a.sourceSkillId, snapshotDamage: finalDamage,
             });
-          }
-          if (rb.dogBiteBleedingChance && Math.random() * 100 < rb.dogBiteBleedingChance) {
-            minionDebuffs.push({
-              debuffId: 'bleeding', stacks: 1, duration: 3,
-              skillId: a.sourceSkillId, snapshotDamage: a.damage,
-            });
-          }
-          if (rb.dogBiteSoulStackChance && Math.random() * 100 < rb.dogBiteSoulStackChance) {
-            const icdKey = 'minion_icd_dogBiteSoulStack';
-            const icdMs = (rb.dogBiteSoulStackICD ?? 2) * 1000;
-            const lastAt = state.lastProcTriggerAt?.[icdKey] ?? 0;
-            if (now >= lastAt + icdMs) {
-              comboStates = createComboState(comboStates, 'soul_stack', a.sourceSkillId, {}, 8, 1);
-              if (state.lastProcTriggerAt) state.lastProcTriggerAt[icdKey] = now;
-            }
           }
         }
-        // Fetish dart rawBehaviors ── Fetish Swarm Plague Doctor / Voodoo branch t1s
-        if (a.sourceSkillId === 'staff_fetish_swarm') {
-          if (rb.fetishHitPoisonChance && Math.random() * 100 < rb.fetishHitPoisonChance) {
+        // t3b Crit Bite — per-debuff extra stacks on crit (configured as a map)
+        if (isCrit && rb.dogCritExtraStacks && typeof rb.dogCritExtraStacks === 'object') {
+          for (const [debId, stacks] of Object.entries(rb.dogCritExtraStacks as Record<string, number>)) {
+            if (typeof stacks !== 'number' || stacks <= 0) continue;
             minionDebuffs.push({
-              debuffId: 'poisoned', stacks: 1, duration: 3,
-              skillId: a.sourceSkillId, snapshotDamage: a.damage,
+              debuffId: debId, stacks,
+              duration: durationForSource(a.sourceSkillId, 3, rb),
+              skillId: a.sourceSkillId, snapshotDamage: finalDamage,
             });
           }
-          if (rb.fetishHitSoulStackChance && Math.random() * 100 < rb.fetishHitSoulStackChance) {
-            const icdKey = 'minion_icd_fetishHitSoulStack';
-            const icdMs = (rb.fetishHitSoulStackICD ?? 1) * 1000;
-            const lastAt = state.lastProcTriggerAt?.[icdKey] ?? 0;
-            if (now >= lastAt + icdMs) {
-              comboStates = createComboState(comboStates, 'soul_stack', a.sourceSkillId, {}, 8, 1);
-              if (state.lastProcTriggerAt) state.lastProcTriggerAt[icdKey] = now;
-            }
+        }
+        // t3b Lifesteal
+        if (rb.dogBiteLifesteal) {
+          const cfg = rb.dogBiteLifesteal as { chance: number; healPercent: number };
+          if (Math.random() * 100 < cfg.chance) {
+            healAmount += ctx.effectiveMaxLife * (cfg.healPercent / 100);
           }
+        }
+        // t1b Soul Bite
+        if (rb.dogBiteSoulStackChance && Math.random() * 100 < rb.dogBiteSoulStackChance) {
+          const icdKey = 'minion_icd_dogBiteSoulStack';
+          const icdMs = (rb.dogBiteSoulStackICD ?? 2) * 1000;
+          const lastAt = state.lastProcTriggerAt?.[icdKey] ?? 0;
+          if (now >= lastAt + icdMs) {
+            comboStates = createComboState(comboStates, 'soul_stack', a.sourceSkillId, {}, 8, 1);
+            if (state.lastProcTriggerAt) state.lastProcTriggerAt[icdKey] = now;
+          }
+        }
+        // t3b Crit Soul
+        if (isCrit && rb.dogCritSoulStackChance && Math.random() * 100 < rb.dogCritSoulStackChance) {
+          const icdKey = 'minion_icd_dogCritSoulStack';
+          const icdMs = (rb.dogCritSoulStackICD ?? 2) * 1000;
+          const lastAt = state.lastProcTriggerAt?.[icdKey] ?? 0;
+          if (now >= lastAt + icdMs) {
+            comboStates = createComboState(comboStates, 'soul_stack', a.sourceSkillId, {}, 8, 1);
+            if (state.lastProcTriggerAt) state.lastProcTriggerAt[icdKey] = now;
+          }
+        }
+        // t4 Apply All DoTs
+        if (rb.dogBiteApplyAllDotsChance && Math.random() * 100 < rb.dogBiteApplyAllDotsChance) {
+          for (const debId of activeDotIds) {
+            minionDebuffs.push({
+              debuffId: debId, stacks: 1,
+              duration: durationForSource(a.sourceSkillId, 3, rb),
+              skillId: a.sourceSkillId, snapshotDamage: finalDamage,
+            });
+          }
+        }
+        // t5b Pestilent Pack — Plagued every bite
+        if (rb.dogBiteAppliesPlagued) {
+          const cfg = rb.dogBiteAppliesPlagued as { duration: number };
+          minionDebuffs.push({
+            debuffId: 'plagued', stacks: 1,
+            duration: durationForSource(a.sourceSkillId, cfg.duration, rb),
+            skillId: a.sourceSkillId, snapshotDamage: finalDamage,
+          });
+        }
+        // t7 THE PLAGUE PACK — always Hexed + Haunted
+        if (rb.dogBiteAppliesHexedHaunted) {
+          minionDebuffs.push({
+            debuffId: 'hexed', stacks: 1,
+            duration: durationForSource(a.sourceSkillId, 5, rb),
+            skillId: a.sourceSkillId, snapshotDamage: finalDamage,
+          });
+          minionDebuffs.push({
+            debuffId: 'haunted', stacks: 1,
+            duration: durationForSource(a.sourceSkillId, 5, rb),
+            skillId: a.sourceSkillId, snapshotDamage: finalDamage,
+          });
+        }
+        // t5a Bloodhounds — target maxHp as chaos damage
+        if (rb.dogBiteMaxHpDamagePercent) {
+          const maxHp = state.combatPhase === 'boss_fight'
+            ? (state.bossState?.bossMaxHp ?? 0)
+            : (state.packMobs?.[0]?.maxHp ?? 0);
+          minionAttackDamage += maxHp * (rb.dogBiteMaxHpDamagePercent / 100);
+        }
+        // t5b Hex Pack — every Nth bite applies Hexed
+        if (rb.dogBiteEveryNHexed) {
+          const cfg = rb.dogBiteEveryNHexed as { everyN: number; duration: number };
+          if (cfg.everyN > 0 && a.attackNumber % cfg.everyN === 0) {
+            minionDebuffs.push({
+              debuffId: 'hexed', stacks: 1,
+              duration: durationForSource(a.sourceSkillId, cfg.duration, rb),
+              skillId: a.sourceSkillId, snapshotDamage: finalDamage,
+            });
+          }
+        }
+      }
+
+      // ══ FETISHES ══
+      if (a.sourceSkillId === 'staff_fetish_swarm') {
+        // t1b Toxic Hits
+        if (rb.fetishHitPoisonChance && Math.random() * 100 < rb.fetishHitPoisonChance) {
+          minionDebuffs.push({
+            debuffId: 'poisoned', stacks: 1,
+            duration: durationForSource(a.sourceSkillId, 3, rb),
+            skillId: a.sourceSkillId, snapshotDamage: finalDamage,
+          });
+        }
+        // t3b Bleed Darts — on crit
+        if (isCrit && rb.fetishCritBleedingStacks) {
+          minionDebuffs.push({
+            debuffId: 'bleeding', stacks: rb.fetishCritBleedingStacks,
+            duration: durationForSource(a.sourceSkillId, 3, rb),
+            skillId: a.sourceSkillId, snapshotDamage: finalDamage,
+          });
+        }
+        // t1b Soul Darts
+        if (rb.fetishHitSoulStackChance && Math.random() * 100 < rb.fetishHitSoulStackChance) {
+          const icdKey = 'minion_icd_fetishHitSoulStack';
+          const icdMs = (rb.fetishHitSoulStackICD ?? 1) * 1000;
+          const lastAt = state.lastProcTriggerAt?.[icdKey] ?? 0;
+          if (now >= lastAt + icdMs) {
+            comboStates = createComboState(comboStates, 'soul_stack', a.sourceSkillId, {}, 8, 1);
+            if (state.lastProcTriggerAt) state.lastProcTriggerAt[icdKey] = now;
+          }
+        }
+        // t3b Crit Soul
+        if (isCrit && rb.fetishCritSoulStackChance && Math.random() * 100 < rb.fetishCritSoulStackChance) {
+          const icdKey = 'minion_icd_fetishCritSoulStack';
+          const icdMs = (rb.fetishCritSoulStackICD ?? 1.5) * 1000;
+          const lastAt = state.lastProcTriggerAt?.[icdKey] ?? 0;
+          if (now >= lastAt + icdMs) {
+            comboStates = createComboState(comboStates, 'soul_stack', a.sourceSkillId, {}, 8, 1);
+            if (state.lastProcTriggerAt) state.lastProcTriggerAt[icdKey] = now;
+          }
+        }
+        // t4b Predator Pack — crit cascades N next attacks forced-crit (per minion)
+        if (isCrit && rb.fetishCritCascadeAttacks) {
+          const minion = updatedMinions.find(m => m.id === a.minionId);
+          if (minion) minion.forcedCritsRemaining = (minion.forcedCritsRemaining ?? 0) + rb.fetishCritCascadeAttacks;
+        }
+        // t2 Plague Darts — every Nth dart applies Plagued
+        if (rb.fetishEveryNAppliesPlagued) {
+          const cfg = rb.fetishEveryNAppliesPlagued as { everyN: number; duration: number };
+          if (cfg.everyN > 0 && a.attackNumber % cfg.everyN === 0) {
+            minionDebuffs.push({
+              debuffId: 'plagued', stacks: 1,
+              duration: durationForSource(a.sourceSkillId, cfg.duration, rb),
+              skillId: a.sourceSkillId, snapshotDamage: finalDamage,
+            });
+          }
+        }
+        // t7 THE PESTILENCE — always apply Poisoned + Bleeding
+        if (rb.fetishHitAlwaysAppliesPoisonAndBleeding) {
+          minionDebuffs.push({
+            debuffId: 'poisoned', stacks: 1,
+            duration: durationForSource(a.sourceSkillId, 3, rb),
+            skillId: a.sourceSkillId, snapshotDamage: finalDamage,
+          });
+          minionDebuffs.push({
+            debuffId: 'bleeding', stacks: 1,
+            duration: durationForSource(a.sourceSkillId, 3, rb),
+            skillId: a.sourceSkillId, snapshotDamage: finalDamage,
+          });
+        }
+        // t4 Plague Volley — splash extra damage to 1 adjacent mob
+        if (rb.fetishAttackSplashTargets && rb.fetishSplashPercent) {
+          const splashDamage = finalDamage * (rb.fetishSplashPercent / 100);
+          minionAttackDamage += splashDamage; // simplification: adds to front-target damage (approx same mob)
         }
       }
     }
@@ -217,7 +441,194 @@ export const staffModule: WeaponModule = {
       );
     }
 
-    return { comboStates, activeMinions: updatedMinions, minionAttackDamage, minionDebuffs };
+    // ── Minion death detection (compare prev → current) ──
+    // stepMinions drops expired/dead minions; reconstruct by diffing prev list.
+    const prevMinions = state.activeMinions ?? [];
+    const prevAlive = new Map(prevMinions.filter(m => m.hp > 0 && now < m.expiresAt).map(m => [m.id, m]));
+    const currentIds = new Set(updatedMinions.map(m => m.id));
+    let finalMinions = updatedMinions;
+    for (const [id, prev] of prevAlive) {
+      if (currentIds.has(id)) continue;
+      // prev was alive, now gone → died (hp<=0) or expired this tick (now>=expiresAt)
+      const diedByDamage = prev.hp <= 0 || (now >= prev.expiresAt && prev.hp <= 0);
+      const wasExpired = now >= prev.expiresAt;
+      const deathMod = resolveMinionMod(prev.sourceSkillId);
+      const drb = deathMod?.rawBehaviors as Record<string, any> | undefined;
+      if (!drb) continue;
+      // Only fire "on death" for damage-killed (not clean-expired) for cloud/pulse;
+      // for spawn-on-death we fire on any removal so long-running builds still chain.
+      // Fetish Swarm death events
+      if (prev.type === 'fetish') {
+        if (drb.fetishDeathPoisonCloud && !wasExpired) {
+          const cfg = drb.fetishDeathPoisonCloud as { duration: number; damagePercent: number };
+          minionDeathAoe.push({
+            damage: prev.maxHp * (cfg.damagePercent / 100),
+            element: 'chaos', sourceSkillId: prev.sourceSkillId,
+            debuffOnHit: { debuffId: 'poisoned', stacks: 1, duration: cfg.duration },
+          });
+        }
+        if (drb.fetishOnDeathSpawnDog) {
+          const cfg = drb.fetishOnDeathSpawnDog as { chance: number; duration: number };
+          if (Math.random() * 100 < cfg.chance) {
+            const fakeConfig = { ...SUMMON_CONFIGS.zombie_dog, count: 1, duration: cfg.duration };
+            finalMinions = summonMinions(finalMinions, fakeConfig, ctx.effectiveMaxLife, ctx.spellPower, now);
+          }
+        }
+      }
+      // Zombie Dogs death events
+      if (prev.type === 'zombie_dog') {
+        if (drb.dogDeathPulsePercent && !wasExpired) {
+          minionDeathAoe.push({
+            damage: prev.maxHp * (drb.dogDeathPulsePercent / 100),
+            element: 'chaos', sourceSkillId: prev.sourceSkillId,
+          });
+        }
+        // Endless Pack — auto-revive
+        if (drb.dogAutoReviveSeconds && diedByDamage) {
+          const reviveHp = prev.maxHp * ((drb.dogAutoReviveHpPercent ?? 50) / 100);
+          finalMinions = [
+            ...finalMinions,
+            { ...prev, hp: reviveHp, reviveAt: now + drb.dogAutoReviveSeconds * 1000, nextAttackAt: now + drb.dogAutoReviveSeconds * 1000 },
+          ];
+        }
+      }
+    }
+
+    // ── Fetish permanent mode (THE BLOOD CULT) — auto-resummon after all dead ──
+    // Runs once: if fetish skill has fetishPermanentMode allocated and no fetishes alive.
+    {
+      const fetishMod = resolveMinionMod('staff_fetish_swarm');
+      const fetishRb = fetishMod?.rawBehaviors as Record<string, any> | undefined;
+      if (fetishRb?.fetishPermanentMode) {
+        const resummonKey = 'fetish_permanent_resummon_at';
+        const alive = finalMinions.filter(m => m.type === 'fetish' && m.hp > 0).length;
+        if (alive === 0) {
+          const cfg = fetishRb.fetishPermanentMode as { resummonDelay: number };
+          const scheduledAt = state.lastProcTriggerAt?.[resummonKey] ?? 0;
+          if (scheduledAt === 0) {
+            // schedule
+            if (state.lastProcTriggerAt) state.lastProcTriggerAt[resummonKey] = now + cfg.resummonDelay * 1000;
+          } else if (now >= scheduledAt) {
+            finalMinions = summonMinions(finalMinions, SUMMON_CONFIGS.fetish, ctx.effectiveMaxLife, ctx.spellPower, now);
+            finalMinions = applyMinionTalentMods(finalMinions, 'fetish', fetishMod, now);
+            if (state.lastProcTriggerAt) state.lastProcTriggerAt[resummonKey] = 0;
+          }
+        } else {
+          // reset scheduled flag while alive (clear timer so next wipe schedules fresh)
+          if (state.lastProcTriggerAt && state.lastProcTriggerAt[resummonKey] !== 0) {
+            state.lastProcTriggerAt[resummonKey] = 0;
+          }
+        }
+      }
+    }
+
+    // ── Permanent Colony (Haunt t7) — keep 4 spirit_temp alive always ──
+    {
+      const hauntMod = resolveMinionMod('staff_haunt');
+      const hrb = hauntMod?.rawBehaviors as Record<string, any> | undefined;
+      if (hrb?.permanentColony) {
+        const aliveSpirits = finalMinions.filter(m => m.type === 'spirit_temp' && m.hp > 0).length;
+        const target = typeof hrb.permanentColony === 'number' ? hrb.permanentColony : 4;
+        if (aliveSpirits < target) {
+          const missing = target - aliveSpirits;
+          for (let i = 0; i < missing; i++) {
+            const cfg = { ...SUMMON_CONFIGS.spirit_temp, count: 1, duration: 999 }; // long duration — "always"
+            finalMinions = summonMinions(finalMinions, cfg, ctx.effectiveMaxLife, ctx.spellPower, now + i);
+          }
+        }
+      }
+    }
+
+    // ── Dog regen (Dog Regen notable) ──
+    {
+      const dogMod = resolveMinionMod('staff_zombie_dogs');
+      const drb2 = dogMod?.rawBehaviors as Record<string, any> | undefined;
+      if (drb2?.dogRegenPercentPerSecond) {
+        const safeMs = (drb2.dogRegenSafeWindowSeconds ?? 3) * 1000;
+        finalMinions = finalMinions.map(m => {
+          if (m.type !== 'zombie_dog' || m.hp <= 0 || m.hp >= m.maxHp) return m;
+          if (m.lastDamagedAt && now < m.lastDamagedAt + safeMs) return m;
+          const lastRegen = m.lastRegenTickAt ?? now;
+          const elapsedSec = (now - lastRegen) / 1000;
+          if (elapsedSec <= 0) return m;
+          return {
+            ...m,
+            hp: Math.min(m.maxHp, m.hp + m.maxHp * (drb2.dogRegenPercentPerSecond / 100) * elapsedSec),
+            lastRegenTickAt: now,
+          };
+        });
+      }
+    }
+
+    // ── Soul Tether (Haunt t6) — heal per haunted enemy per tick ──
+    {
+      const hauntMod = resolveMinionMod('staff_haunt');
+      const hrb = hauntMod?.rawBehaviors as Record<string, any> | undefined;
+      if (hrb?.soulTether && dtSec > 0) {
+        // count haunted mobs in pack
+        const hauntedCount = (state.packMobs ?? [])
+          .filter(m => m.debuffs?.some(d => d.debuffId === 'haunted')).length;
+        if (hauntedCount > 0) {
+          healAmount += ctx.effectiveMaxLife * (hrb.soulTether / 100) * hauntedCount * dtSec;
+        }
+      }
+    }
+
+    // ── Dog Aura (Aura of Death notable) — +damage per alive dog as a passive combo state ──
+    // Write as a self-refreshing combo state that preRoll reads via conditionalMods or rawBehaviors.
+    // Simpler: stash in state for preRoll via rawBehaviors (emit a synthetic combo state with incDamage).
+    {
+      const dogMod = resolveMinionMod('staff_zombie_dogs');
+      const drb2 = dogMod?.rawBehaviors as Record<string, any> | undefined;
+      if (drb2?.dogAuraDamagePerDog && dogsAlive > 0) {
+        const auraBonus = drb2.dogAuraDamagePerDog * dogsAlive;
+        comboStates = createComboState(
+          comboStates, 'dog_aura', 'staff_zombie_dogs',
+          { incDamage: auraBonus }, 2, 1,
+        );
+      }
+    }
+
+    // ── Pack-wide debuff keystones ──
+    {
+      const locustMod = resolveMinionMod('staff_locust_swarm');
+      const lrb = locustMod?.rawBehaviors as Record<string, any> | undefined;
+      if (lrb?.plagueCourtAllPlagued) {
+        packDebuffs.push({
+          debuffId: 'plagued', stacks: 1, duration: 4,
+          skillId: 'staff_locust_swarm', snapshotDamage: 0,
+        });
+      }
+      const hexMod = resolveMinionMod('staff_hex');
+      const xrb = hexMod?.rawBehaviors as Record<string, any> | undefined;
+      if (xrb?.witchingHour) {
+        packDebuffs.push({
+          debuffId: 'hexed', stacks: 1, duration: 6,
+          skillId: 'staff_hex', snapshotDamage: 0,
+        });
+      }
+      if (xrb?.hexAppliesBleedingPerSecond) {
+        const perSec = xrb.hexAppliesBleedingPerSecond;
+        // For hexed mobs, emit a bleeding stack per second
+        const hexedCount = (state.packMobs ?? []).filter(m => m.debuffs?.some(d => d.debuffId === 'hexed')).length;
+        if (hexedCount > 0 && Math.random() < perSec * dtSec) {
+          packDebuffs.push({
+            debuffId: 'bleeding', stacks: 1, duration: 3,
+            skillId: 'staff_hex', snapshotDamage: 0,
+          });
+        }
+      }
+    }
+
+    return {
+      comboStates,
+      activeMinions: finalMinions,
+      minionAttackDamage,
+      minionDebuffs,
+      healAmount: healAmount > 0 ? healAmount : undefined,
+      minionDeathAoe: minionDeathAoe.length > 0 ? minionDeathAoe : undefined,
+      packDebuffs: packDebuffs.length > 0 ? packDebuffs : undefined,
+    };
   },
 
   extendConditionContext() {
@@ -354,6 +765,141 @@ export const staffModule: WeaponModule = {
       preRollHealAmount = (graphMod.soulHarvestDamageHealPercent / 100) * approxDamage;
     }
 
+    // ── Batch K: preRoll rawBehaviors ──
+    const rb = graphMod?.rawBehaviors as Record<string, any> | undefined;
+    if (rb) {
+      // Haunt first-ticks bonus — requires debuff-tick awareness; treated as burst via snapshot boost proxy.
+      // We approximate by boosting damageMult on the cast that APPLIES haunt.
+      if (skill.id === 'staff_haunt' && rb.hauntSnapshotBonus) {
+        damageMult *= 1 + rb.hauntSnapshotBonus / 100;
+      }
+      // Haunted execute threshold — if target below threshold %, bonus damage
+      if (skill.id === 'staff_haunt' && rb.hauntedExecuteThreshold) {
+        const cfg = rb.hauntedExecuteThreshold as { threshold: number; bonus: number };
+        if (ctx.state.packMobs?.[0]?.hp !== undefined && ctx.state.packMobs[0].maxHp > 0) {
+          const pct = ctx.state.packMobs[0].hp / ctx.state.packMobs[0].maxHp;
+          if (pct <= cfg.threshold / 100) damageMult *= 1 + cfg.bonus / 100;
+        }
+      }
+      // Damage per haunted enemy in pack
+      if (skill.id === 'staff_haunt' && rb.damagePerHauntedEnemyInPack) {
+        const hauntedCount = (ctx.state.packMobs ?? [])
+          .filter(m => m.debuffs?.some(d => d.debuffId === 'haunt_dot' || d.debuffId === 'haunted')).length;
+        if (hauntedCount > 0) damageMult *= 1 + (rb.damagePerHauntedEnemyInPack / 100) * hauntedCount;
+      }
+      // Puppeteer: Hex cast deals %maxHp per soul_stack (converts Hex cast damage)
+      if (skill.id === 'staff_hex' && rb.puppeteerHexCastDamage) {
+        const stacks = comboStates.find(s => s.stateId === 'soul_stack')?.stacks ?? 0;
+        if (stacks > 0) {
+          const maxHp = ctx.state.packMobs?.[0]?.maxHp ?? 0;
+          burstDamage += maxHp * (rb.puppeteerHexCastDamage / 100) * stacks;
+        }
+      }
+      // Soul Harvest hexed consume bonus
+      if (skill.id === 'staff_soul_harvest' && consumedStateIds.includes('hexed')) {
+        if (rb.soulHarvestHexedConsumeBonus) damageMult *= 1 + rb.soulHarvestHexedConsumeBonus / 100;
+        if (rb.soulHarvestHexedConsumeMult) damageMult *= rb.soulHarvestHexedConsumeMult;
+      }
+      // Soul Harvest consume all stacks keystone
+      if (skill.id === 'staff_soul_harvest' && rb.soulHarvestConsumesAllStacks) {
+        const stacks = comboStates.find(s => s.stateId === 'soul_stack')?.stacks ?? 0;
+        const perStackBonus = (rb.soulHarvestConsumesAllStacksBonus ?? 20) / 100;
+        damageMult *= 1 + perStackBonus * stacks;
+      }
+      // Soul Harvest execute threshold
+      if (skill.id === 'staff_soul_harvest' && rb.soulHarvestExecuteThreshold) {
+        const cfg = rb.soulHarvestExecuteThreshold as { threshold: number; bonus: number };
+        if (ctx.state.packMobs?.[0]?.hp !== undefined && ctx.state.packMobs[0].maxHp > 0) {
+          const pct = ctx.state.packMobs[0].hp / ctx.state.packMobs[0].maxHp;
+          if (pct <= cfg.threshold / 100) damageMult *= 1 + cfg.bonus / 100;
+        }
+      }
+      // Toads execute threshold
+      if (skill.id === 'staff_plague_of_toads' && rb.toadsExecuteThreshold) {
+        const cfg = rb.toadsExecuteThreshold as { threshold: number; bonus: number };
+        if (ctx.state.packMobs?.[0]?.hp !== undefined && ctx.state.packMobs[0].maxHp > 0) {
+          const pct = ctx.state.packMobs[0].hp / ctx.state.packMobs[0].maxHp;
+          if (pct <= cfg.threshold / 100) damageMult *= 1 + cfg.bonus / 100;
+        }
+      }
+      // Bouncing Skull damage compound (per consecutive cast)
+      if (skill.id === 'staff_bouncing_skull' && rb.bouncingSkullDamageCompound) {
+        const compoundKey = 'bouncing_skull_compound';
+        const lastAt = ctx.state.lastProcTriggerAt?.[compoundKey] ?? 0;
+        // reset compound if idle > 3s, else stack
+        const compound = (now - lastAt) > 3000 ? 0 : (ctx.state.lastProcTriggerAt?.[compoundKey + '_stacks'] ?? 0) + 1;
+        if (ctx.state.lastProcTriggerAt) {
+          ctx.state.lastProcTriggerAt[compoundKey] = now;
+          ctx.state.lastProcTriggerAt[compoundKey + '_stacks'] = compound;
+        }
+        damageMult *= 1 + (rb.bouncingSkullDamageCompound / 100) * compound;
+      }
+      // Spirit Barrage — consume soul stacks mode (pinpoint / single shot)
+      if (skill.id === 'staff_spirit_barrage' && rb.spiritBarrageConsumesSoulStacks) {
+        const stacks = comboStates.find(s => s.stateId === 'soul_stack')?.stacks ?? 0;
+        if (stacks > 0) {
+          const perStack = (rb.spiritBarrageConsumesSoulStacksBonus ?? 25) / 100;
+          damageMult *= 1 + perStack * stacks;
+          // consume
+          const idx = newComboStates.findIndex(s => s.stateId === 'soul_stack');
+          if (idx >= 0) newComboStates = [...newComboStates.slice(0, idx), ...newComboStates.slice(idx + 1)];
+        }
+      }
+      if (skill.id === 'staff_spirit_barrage' && rb.spiritBarragePinpointMode) {
+        damageMult *= 1 + (rb.spiritBarragePinpointMode as number) / 100;
+      }
+      if (skill.id === 'staff_spirit_barrage' && rb.spiritBarrageSingleShot) {
+        damageMult *= 1 + (rb.spiritBarrageSingleShot as number) / 100;
+      }
+      // Bouncing Skull final bounce bonus & consumesAllStates
+      if (skill.id === 'staff_bouncing_skull' && rb.bouncingSkullFinalBounceBonus) {
+        damageMult *= 1 + (rb.bouncingSkullFinalBounceBonus as number) / 100;
+      }
+      if (skill.id === 'staff_bouncing_skull' && rb.soulConsumeChainBonus) {
+        const stacks = comboStates.find(s => s.stateId === 'soul_stack')?.stacks ?? 0;
+        damageMult *= 1 + (rb.soulConsumeChainBonus as number / 100) * stacks;
+      }
+      if (skill.id === 'staff_bouncing_skull' && rb.bouncingSkullConsumesAllStates) {
+        const total = comboStates.reduce((s, st) => s + (st.stacks ?? 0), 0);
+        const perState = (rb.bouncingSkullConsumesAllStatesBonus ?? 20) / 100;
+        damageMult *= 1 + perState * total;
+      }
+      // Frog Prince random burst multiplier
+      if (skill.id === 'staff_plague_of_toads' && rb.frogPrinceChance) {
+        if (Math.random() * 100 < rb.frogPrinceChance) {
+          const mult = rb.frogPrinceMultiplier ?? 3;
+          damageMult *= mult;
+        }
+      }
+      // Toads stack compounder — stack per cast, bonus damage
+      if (skill.id === 'staff_plague_of_toads' && rb.toadsStackCompounder) {
+        const stackKey = 'toads_stack_compound';
+        const lastAt = ctx.state.lastProcTriggerAt?.[stackKey] ?? 0;
+        const compound = (now - lastAt) > 5000 ? 0 : (ctx.state.lastProcTriggerAt?.[stackKey + '_v'] ?? 0) + 1;
+        if (ctx.state.lastProcTriggerAt) {
+          ctx.state.lastProcTriggerAt[stackKey] = now;
+          ctx.state.lastProcTriggerAt[stackKey + '_v'] = compound;
+        }
+        damageMult *= 1 + (rb.toadsStackCompounder / 100) * compound;
+      }
+    }
+
+    // ── Batch L: Cross-skill buff consume on cast ──
+    // spiritEcho (consumed on next non-Spirit-Barrage) - buff set by Spirit Barrage
+    const tempBuffs = ctx.state.tempBuffs ?? [];
+    const consumeTempBuff = (id: string): boolean => {
+      const idx = tempBuffs.findIndex((b: { id: string }) => b.id === id);
+      if (idx < 0) return false;
+      tempBuffs.splice(idx, 1);
+      return true;
+    };
+    if (skill.id !== 'staff_spirit_barrage' && consumeTempBuff('spiritEcho')) damageMult *= 1.5;
+    if (skill.id === 'staff_spirit_barrage' && consumeTempBuff('ghostlyFinale')) damageMult *= 2.0;
+    if (skill.id !== 'staff_plague_of_toads' && consumeTempBuff('toadSurge')) damageMult *= 1.5;
+    if (skill.id !== 'staff_locust_swarm' && consumeTempBuff('locustSurge')) damageMult *= 1.5;
+    if (skill.id === 'staff_mass_sacrifice' && consumeTempBuff('soulSurge')) damageMult *= 1.75;
+    if (skill.id === 'staff_soul_harvest' && consumeTempBuff('soulHarvestNextCrit')) guaranteedCrit = true;
+
     return {
       ...EMPTY_PRE_ROLL,
       comboStates: newComboStates,
@@ -410,18 +956,46 @@ export const staffModule: WeaponModule = {
     if (skill.id === 'staff_zombie_dogs' && roll.isHit) {
       // Third Dog T4: extra zombie dog count from talents
       const extraDogs = graphMod?.extraZombieDogCount ?? 0;
-      const dogConfig = extraDogs > 0
+      let dogConfig = extraDogs !== 0
         ? { ...SUMMON_CONFIGS.zombie_dog, count: SUMMON_CONFIGS.zombie_dog.count + extraDogs }
         : SUMMON_CONFIGS.zombie_dog;
+      // THE ALPHA keystone: single super-dog with hpMult/damageMult/intervalMult
+      const alpha = graphMod?.rawBehaviors?.alphaDogMode as { hpMult: number; damageMult: number; intervalMult: number } | undefined;
+      if (alpha) {
+        dogConfig = {
+          ...dogConfig,
+          count: 1,
+          hpPercentOfPlayer: dogConfig.hpPercentOfPlayer * alpha.hpMult,
+          damagePerSpellPowerRatio: dogConfig.damagePerSpellPowerRatio * alpha.damageMult,
+          attackInterval: dogConfig.attackInterval * alpha.intervalMult,
+        };
+      }
       minions = summonMinions(minions, dogConfig, effectiveMaxLife, spellPower, now);
       minions = applyMinionTalentMods(minions, 'zombie_dog', graphMod, now);
     } else if (skill.id === 'staff_fetish_swarm' && roll.isHit) {
       const extraFetish = graphMod?.extraFetishCount ?? 0;
-      const fetishConfig = extraFetish > 0
-        ? { ...SUMMON_CONFIGS.fetish, count: SUMMON_CONFIGS.fetish.count + extraFetish }
+      let fetishConfig = extraFetish !== 0
+        ? { ...SUMMON_CONFIGS.fetish, count: Math.max(1, SUMMON_CONFIGS.fetish.count + extraFetish) }
         : SUMMON_CONFIGS.fetish;
+      // THE FETISH KING keystone
+      const king = graphMod?.rawBehaviors?.fetishKingMode as { hpMult: number; damageMult: number; intervalMult: number } | undefined;
+      if (king) {
+        fetishConfig = {
+          ...fetishConfig,
+          count: 1,
+          hpPercentOfPlayer: fetishConfig.hpPercentOfPlayer * king.hpMult,
+          damagePerSpellPowerRatio: fetishConfig.damagePerSpellPowerRatio * king.damageMult,
+          attackInterval: fetishConfig.attackInterval * king.intervalMult,
+        };
+      }
       minions = summonMinions(minions, fetishConfig, effectiveMaxLife, spellPower, now);
       minions = applyMinionTalentMods(minions, 'fetish', graphMod, now);
+      // Brood Mother notable: on Fetish Swarm cast, also summon 1 zombie dog
+      const broodMother = graphMod?.rawBehaviors?.fetishCastSummonsDog as { duration: number } | undefined;
+      if (broodMother) {
+        const dogCfg = { ...SUMMON_CONFIGS.zombie_dog, count: 1, duration: broodMother.duration };
+        minions = summonMinions(minions, dogCfg, effectiveMaxLife, spellPower, now);
+      }
     }
 
     // Cascading Doom T6: crit Mass Sacrifice refreshes haunted/plagued/hexed
@@ -435,6 +1009,23 @@ export const staffModule: WeaponModule = {
             : { incDamage: 0 };
         comboStates = createComboState(comboStates, stateId, skill.id, effect, duration, 1);
       }
+    }
+
+    // ── Batch L producers: cross-skill buff creation ──
+    const postRb = graphMod?.rawBehaviors as Record<string, any> | undefined;
+    if (postRb && roll.isHit) {
+      const addBuff = (id: string, duration: number) => {
+        const tempBuffs = state.tempBuffs ?? [];
+        const existing = tempBuffs.find((b: { id: string }) => b.id === id);
+        if (existing) { (existing as any).duration = duration; return; }
+        tempBuffs.push({ id, effect: {}, duration, stacks: 1, maxStacks: 1 } as any);
+      };
+      if (skill.id === 'staff_spirit_barrage' && postRb.spiritEcho) addBuff('spiritEcho', 8);
+      if (skill.id !== 'staff_spirit_barrage' && postRb.ghostlyFinale) addBuff('ghostlyFinale', 8);
+      if (skill.id === 'staff_plague_of_toads' && postRb.toadSurge) addBuff('toadSurge', 8);
+      if (skill.id === 'staff_locust_swarm' && postRb.locustSurge) addBuff('locustSurge', 8);
+      if (skill.id === 'staff_soul_harvest' && postRb.soulSurge) addBuff('soulSurge', 8);
+      // soulHarvestNextCrit — set after a trigger (not a per-cast thing); leave to combat events
     }
 
     return {

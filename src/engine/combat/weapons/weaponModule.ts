@@ -12,6 +12,7 @@ import type {
   SkillDef,
   ActiveSkillDef,
   ComboState,
+  DamageType,
 } from '../../../types';
 import type { ResolvedSkillModifier } from '../../skillGraph';
 import type { ConditionContext } from '../../combatHelpers';
@@ -81,6 +82,12 @@ export interface MaintenanceResult {
   minionAttackDamage?: number;
   /** Debuffs to apply to the minion-attack target (front mob or boss) this tick. */
   minionDebuffs?: { debuffId: string; stacks: number; duration: number; skillId: string; snapshotDamage: number }[];
+  /** Heal to apply to player this tick (lifesteal, soulTether, dogRegen heal aura). */
+  healAmount?: number;
+  /** AoE damage from minion death events (dogDeathPulsePercent, fetishDeathPoisonCloud). Applies to front mob + pack. */
+  minionDeathAoe?: { damage: number; element: DamageType; sourceSkillId: string; debuffOnHit?: { debuffId: string; duration: number; stacks: number } }[];
+  /** Pack-wide debuffs (plagueCourtAllPlagued, witchingHour) to refresh on all mobs. */
+  packDebuffs?: { debuffId: string; stacks: number; duration: number; skillId: string; snapshotDamage: number }[];
 }
 
 export interface PreRollResult {
