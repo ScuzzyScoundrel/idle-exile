@@ -28,7 +28,7 @@ export const STAFF_ACTIVE_SKILLS: ActiveSkillDef[] = [
     name: 'Locust Swarm',
     description: 'Release a swarm of locusts dealing chaos damage over time. On target death: swarm transfers to next enemy with remaining duration. Creates Plagued (6s).',
     weaponType: 'staff',
-    tags: ['Spell', 'Chaos', 'DoT', 'AoE'],
+    tags: ['Spell', 'Chaos', 'DoT'],
     baseDamage: 4,
     weaponDamagePercent: 0,
     spellPowerRatio: 0.4,
