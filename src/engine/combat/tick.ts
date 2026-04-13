@@ -467,6 +467,7 @@ export function runCombatTick(
   let preRollHealAmount = 0;
   let comboContagionSpread = 0;
   let pandemicSpread = false;
+  const pendingCdResetSkills: string[] = [];
   const consumedComboStateIds: string[] = [];
   if (weaponMod?.preRoll) {
     const pr = weaponMod.preRoll({
@@ -494,7 +495,7 @@ export function runCombatTick(
     if (pr.contagionSpreadCount > 0) comboContagionSpread = pr.contagionSpreadCount;
     if (pr.pandemicSpread) pandemicSpread = true;
     // Staff v2: cross-skill CD reset (Resurgent Swarm on spirit_link consume)
-    if (pr.skillsToResetCd?.length) procCooldownResets.push(...pr.skillsToResetCd);
+    if (pr.skillsToResetCd?.length) pendingCdResetSkills.push(...pr.skillsToResetCd);
   }
   // Staff v2: Iron Will T5B — first cast per encounter guaranteed crit
   if (graphMod?.firstCastGuaranteedCrit && state.consecutiveHits === 0) {
@@ -812,7 +813,7 @@ export function runCombatTick(
   // Proc evaluation (onHit + onCrit triggers)
   let procDamage = 0;
   let procHeal = preRollHealAmount;
-  let procCooldownResets: string[] = [];
+  let procCooldownResets: string[] = [...pendingCdResetSkills];
   let procGcdWasReset = false;
   const allProcsFired: string[] = [];
   const allProcEvents: ProcEvent[] = [];
@@ -1225,6 +1226,7 @@ export function runCombatTick(
           attackResult: { damage: 0, isDodged: isSpatialDodge, isBlocked: !isSpatialDodge, isCrit: false },
           comboStates: newComboStates, bladeWardExpiresAt: newBladeWardExpiresAt,
           bladeWardHits: newBladeWardHits, activeTraps: newActiveTraps,
+          activeMinions: newActiveMinions,
           comboCounterDamageMult, isBossPhase: phase === 'boss_fight',
         });
         newComboStates = spatialResult.comboStates;
@@ -2090,6 +2092,7 @@ export function runCombatTick(
         attackResult: { damage: 0, isDodged: isSpatialDodge, isBlocked: !isSpatialDodge, isCrit: false },
         comboStates: newComboStates, bladeWardExpiresAt: newBladeWardExpiresAt,
         bladeWardHits: newBladeWardHits, activeTraps: newActiveTraps,
+        activeMinions: newActiveMinions,
         comboCounterDamageMult, isBossPhase: false,
       });
       newComboStates = spatialResult.comboStates;

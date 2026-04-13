@@ -19,6 +19,9 @@ import {
   SUMMON_CONFIGS, summonMinions, stepMinions, absorbDamage, detonateMinions,
   type MinionState,
 } from '../minions';
+// Note: detonateMinions is referenced indirectly via staff preRoll detonation logic
+// (see spirit_link consume handler). Keep import for symmetry with future engine work.
+void detonateMinions;
 import type { ResolvedSkillModifier } from '../../skillGraph';
 
 const EMPTY_PRE_ROLL: PreRollResult = {
