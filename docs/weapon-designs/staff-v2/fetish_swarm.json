@@ -1,0 +1,546 @@
+{
+  "skillId": "staff_fetish_swarm",
+  "skillName": "Fetish Swarm",
+  "designNotes": {
+    "skillBaseline": "Summon 4 fetish warriors (6s duration, 10s CD). Fragile (10% player max HP each), high DPS (0.25 SPR per attack, 1.5s interval), physical element. While alive, fetishes create spirit_link state for Mass Sacrifice consume.",
+    "buildIdentities": {
+      "plague_doctor": "Fetish hits apply DoTs — chaos converts physical, every hit a poison/bleed apply.",
+      "spirit_caller": "More fetishes, longer duration, frenzy stacking. The pack snowballs through fights.",
+      "voodoo_master": "Fetishes feed soul stacks and burst payoffs — crit-driven, hex-amplified."
+    }
+  },
+  "branches": [
+    {
+      "branchId": "plague_doctor",
+      "branchName": "Toxic Fetishes",
+      "theme": "Fetishes carry plague — every dart applies a debuff, pack as a debuff distribution swarm.",
+      "nodes": [
+        {
+          "id": "fs_plague_t1a",
+          "name": "Venom Darts",
+          "tier": 1,
+          "slot": "T1a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+15/30% fetish damage AND fetish hits convert 50% physical to chaos.",
+          "modifier": {
+            "fetishDamageMult": 15,
+            "rawBehaviors": { "fetishPhysToChaosPercent": 50 }
+          },
+          "perRankModifiers": {
+            "1": { "fetishDamageMult": 15, "rawBehaviors": { "fetishPhysToChaosPercent": 50 } },
+            "2": { "fetishDamageMult": 30, "rawBehaviors": { "fetishPhysToChaosPercent": 50 } }
+          },
+          "engineFields": ["fetishDamageMult (NEW — numeric; staff.ts summonMinions for fetish multiplies damage by 1 + value/100); rawBehaviors.fetishPhysToChaosPercent (NEW — tick.ts minion attack hook: convert that % of physical damage to chaos)"]
+        },
+        {
+          "id": "fs_plague_t1b",
+          "name": "Toxic Hits",
+          "tier": 1,
+          "slot": "T1b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Fetish hits have 15/30% chance to apply Poisoned (3s).",
+          "modifier": { "rawBehaviors": { "fetishHitPoisonChance": 15 } },
+          "perRankModifiers": {
+            "1": { "rawBehaviors": { "fetishHitPoisonChance": 15 } },
+            "2": { "rawBehaviors": { "fetishHitPoisonChance": 30 } }
+          },
+          "engineFields": ["rawBehaviors.fetishHitPoisonChance (NEW — tick.ts minion attack hook for fetish: roll, apply poisoned)"]
+        },
+        {
+          "id": "fs_plague_t2",
+          "name": "Plague Darts",
+          "tier": 2,
+          "slot": "T2",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Every 4th fetish hit on a target applies 1 stack of Plagued (5s).",
+          "modifier": { "rawBehaviors": { "fetishEveryNAppliesPlagued": { "everyN": 4, "duration": 5 } } },
+          "engineFields": ["rawBehaviors.fetishEveryNAppliesPlagued (NEW — tick.ts minion attack hook: per-fetish per-target counter, on Nth hit apply plagued)"]
+        },
+        {
+          "id": "fs_plague_t2b",
+          "name": "Pack Plague",
+          "tier": 2,
+          "slot": "T2b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+5/10% damage per debuff on target.",
+          "modifier": { "conditionalMods": [{ "condition": "perAilmentStackOnTarget", "modifier": { "incDamage": 5 } }] },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "perAilmentStackOnTarget", "modifier": { "incDamage": 5 } }] },
+            "2": { "conditionalMods": [{ "condition": "perAilmentStackOnTarget", "modifier": { "incDamage": 10 } }] }
+          },
+          "engineFields": ["conditionalMods.perAilmentStackOnTarget (EXISTS)"]
+        },
+        {
+          "id": "fs_plague_t3a",
+          "name": "Disease Synergy",
+          "tier": 3,
+          "slot": "T3a",
+          "nodeType": "conditional",
+          "maxRank": 2,
+          "description": "+15/30% fetish damage on Plagued targets.",
+          "modifier": { "conditionalMods": [{ "condition": "whileDebuffActive", "debuffId": "plagued", "modifier": { "incDamage": 15 } }] },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "whileDebuffActive", "debuffId": "plagued", "modifier": { "incDamage": 15 } }] },
+            "2": { "conditionalMods": [{ "condition": "whileDebuffActive", "debuffId": "plagued", "modifier": { "incDamage": 30 } }] }
+          },
+          "engineFields": ["conditionalMods.whileDebuffActive (EXISTS)"]
+        },
+        {
+          "id": "fs_plague_t3b",
+          "name": "Bleed Darts",
+          "tier": 3,
+          "slot": "T3b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Fetish critical strikes apply 1/2 stacks of Bleeding (3s).",
+          "modifier": { "rawBehaviors": { "fetishCritBleedingStacks": 1 } },
+          "perRankModifiers": {
+            "1": { "rawBehaviors": { "fetishCritBleedingStacks": 1 } },
+            "2": { "rawBehaviors": { "fetishCritBleedingStacks": 2 } }
+          },
+          "engineFields": ["rawBehaviors.fetishCritBleedingStacks (NEW — tick.ts minion attack hook: on fetish crit, apply N stacks bleeding)"]
+        },
+        {
+          "id": "fs_plague_t3c",
+          "name": "Chaos Mastery",
+          "tier": 3,
+          "slot": "T3c",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+10/20% chaos penetration.",
+          "modifier": { "chaosPenetration": 10 },
+          "perRankModifiers": { "1": { "chaosPenetration": 10 }, "2": { "chaosPenetration": 20 } },
+          "engineFields": ["chaosPenetration (EXISTS)"]
+        },
+        {
+          "id": "fs_plague_t4",
+          "name": "Plague Volley",
+          "tier": 4,
+          "slot": "T4",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Each fetish attack also hits 1 random adjacent enemy at 50% damage with the same DoT-application rolls.",
+          "modifier": { "rawBehaviors": { "fetishAttackSplashTargets": 1, "fetishSplashPercent": 50 } },
+          "engineFields": ["rawBehaviors.fetishAttackSplashTargets + Percent (NEW — tick.ts minion attack hook: per attack, emit damage event to N adjacent at percent/100, replay DoT-application rolls)"]
+        },
+        {
+          "id": "fs_plague_t4b",
+          "name": "DoT Support",
+          "tier": 4,
+          "slot": "T4b",
+          "nodeType": "support",
+          "maxRank": 2,
+          "description": "+15/30% damage to DoT-tagged skills.",
+          "modifier": { "incDamage": 15 },
+          "perRankModifiers": { "1": { "incDamage": 15 }, "2": { "incDamage": 30 } },
+          "engineFields": ["incDamage (EXISTS)"]
+        },
+        {
+          "id": "fs_plague_t5a",
+          "name": "Toxic Bond",
+          "tier": 5,
+          "slot": "T5A",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "All DoTs applied by fetishes have +75% duration. Cost: −20% fetish damage.",
+          "modifier": {
+            "rawBehaviors": { "fetishAppliedDotDurationBonus": 75 },
+            "fetishDamageMult": -20
+          },
+          "engineFields": ["rawBehaviors.fetishAppliedDotDurationBonus (NEW); fetishDamageMult (NEW, negative)"]
+        },
+        {
+          "id": "fs_plague_t5b",
+          "name": "Plague Conduit",
+          "tier": 5,
+          "slot": "T5B",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Every 5 seconds, fetishes apply ALL of your active DoTs to their target. Cost: fetish duration −2s.",
+          "modifier": {
+            "rawBehaviors": { "fetishPlagueConduitSeconds": 5, "fetishDurationPenaltySeconds": 2 }
+          },
+          "engineFields": ["rawBehaviors.fetishPlagueConduitSeconds (NEW — tick.ts minion attack hook: per-fetish 5s timer, apply all active DoTs); fetishDurationPenaltySeconds (NEW — staff.ts summonMinions for fetish: subtract from duration)"]
+        },
+        {
+          "id": "fs_plague_t6",
+          "name": "Death Cloud",
+          "tier": 6,
+          "slot": "T6",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "When a fetish dies, it leaves a 3s poison cloud (deals 50% of fetish max HP as chaos DoT to enemies inside).",
+          "modifier": { "rawBehaviors": { "fetishDeathPoisonCloud": { "duration": 3, "damagePercent": 50 } } },
+          "engineFields": ["rawBehaviors.fetishDeathPoisonCloud (NEW — minions.ts on fetish death: spawn temporary debuff on pack neighbors that ticks for fetish.maxHp * percent/100 over duration)"]
+        },
+        {
+          "id": "fs_plague_t7",
+          "name": "THE PESTILENCE",
+          "tier": 7,
+          "slot": "T7",
+          "nodeType": "keystone",
+          "maxRank": 1,
+          "description": "All fetish hits apply 1 stack each of Poisoned and Bleeding. Cost: fetish max HP −50%.",
+          "modifier": {
+            "rawBehaviors": { "fetishHitAlwaysAppliesPoisonAndBleeding": true },
+            "minionHpMult": -50
+          },
+          "engineFields": ["rawBehaviors.fetishHitAlwaysAppliesPoisonAndBleeding (NEW); minionHpMult (EXISTS)"]
+        }
+      ]
+    },
+    {
+      "branchId": "spirit_caller",
+      "branchName": "Frenzied Pack",
+      "theme": "More fetishes, faster attacks, frenzy snowballing. The swarm grows on every kill.",
+      "nodes": [
+        {
+          "id": "fs_spirit_t1a",
+          "name": "Extra Fetish",
+          "tier": 1,
+          "slot": "T1a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+1/2 extra fetishes summoned.",
+          "modifier": { "extraFetishCount": 1 },
+          "perRankModifiers": { "1": { "extraFetishCount": 1 }, "2": { "extraFetishCount": 2 } },
+          "engineFields": ["extraFetishCount (EXISTS)"]
+        },
+        {
+          "id": "fs_spirit_t1b",
+          "name": "Frenzy Building",
+          "tier": 1,
+          "slot": "T1b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Each fetish kill grants the pack +1/2% attack speed (stacks up to 20%, resets when no fetish alive).",
+          "modifier": { "rawBehaviors": { "fetishFrenzyStacking": { "perKillPercent": 1, "maxPercent": 20 } } },
+          "perRankModifiers": {
+            "1": { "rawBehaviors": { "fetishFrenzyStacking": { "perKillPercent": 1, "maxPercent": 20 } } },
+            "2": { "rawBehaviors": { "fetishFrenzyStacking": { "perKillPercent": 2, "maxPercent": 20 } } }
+          },
+          "engineFields": ["rawBehaviors.fetishFrenzyStacking (NEW — tick.ts death loop: if killer was fetish, increment per-pack frenzy counter; minions.ts uses it as attackInterval multiplier; reset when activeFetishes=0)"]
+        },
+        {
+          "id": "fs_spirit_t2",
+          "name": "Lingering Pack",
+          "tier": 2,
+          "slot": "T2",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "+50% fetish duration (6s → 9s).",
+          "modifier": { "minionDurationMult": 50 },
+          "engineFields": ["minionDurationMult (EXISTS)"]
+        },
+        {
+          "id": "fs_spirit_t2b",
+          "name": "Quick Strike",
+          "tier": 2,
+          "slot": "T2b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+15/30% fetish attack speed.",
+          "modifier": { "fetishAttackSpeedMult": 15 },
+          "perRankModifiers": { "1": { "fetishAttackSpeedMult": 15 }, "2": { "fetishAttackSpeedMult": 30 } },
+          "engineFields": ["fetishAttackSpeedMult (NEW — numeric; staff.ts summonMinions for fetish multiplies attackInterval by 1/(1 + value/100))"]
+        },
+        {
+          "id": "fs_spirit_t3a",
+          "name": "Pack Hunter",
+          "tier": 3,
+          "slot": "T3a",
+          "nodeType": "conditional",
+          "maxRank": 2,
+          "description": "+15/30% damage while 3+ minions alive.",
+          "modifier": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incDamage": 15 } }] },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incDamage": 15 } }] },
+            "2": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incDamage": 30 } }] }
+          },
+          "engineFields": ["conditionalMods.whileMinionsAlive (EXISTS)"]
+        },
+        {
+          "id": "fs_spirit_t3b",
+          "name": "Spawn Spawn",
+          "tier": 3,
+          "slot": "T3b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Fetish kills have 15/30% chance to spawn a 3s spirit minion.",
+          "modifier": { "rawBehaviors": { "fetishKillSpiritSpawnChance": 15 } },
+          "perRankModifiers": {
+            "1": { "rawBehaviors": { "fetishKillSpiritSpawnChance": 15 } },
+            "2": { "rawBehaviors": { "fetishKillSpiritSpawnChance": 30 } }
+          },
+          "engineFields": ["rawBehaviors.fetishKillSpiritSpawnChance (NEW — tick.ts death loop: if killer was fetish, roll chance, summonMinions spirit_temp)"]
+        },
+        {
+          "id": "fs_spirit_t3c",
+          "name": "Persistent Pack",
+          "tier": 3,
+          "slot": "T3c",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+15/30% fetish max HP.",
+          "modifier": { "minionHpMult": 15 },
+          "perRankModifiers": { "1": { "minionHpMult": 15 }, "2": { "minionHpMult": 30 } },
+          "engineFields": ["minionHpMult (EXISTS)"]
+        },
+        {
+          "id": "fs_spirit_t4",
+          "name": "Dog Spawn",
+          "tier": 4,
+          "slot": "T4",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "When a fetish dies, 25% chance to spawn a Zombie Dog (5s duration).",
+          "modifier": { "rawBehaviors": { "fetishOnDeathSpawnDog": { "chance": 25, "duration": 5 } } },
+          "engineFields": ["rawBehaviors.fetishOnDeathSpawnDog (NEW — minions.ts on fetish death: roll chance, summonMinions zombie_dog with duration override)"]
+        },
+        {
+          "id": "fs_spirit_t4b",
+          "name": "Minion Mastery Support",
+          "tier": 4,
+          "slot": "T4b",
+          "nodeType": "support",
+          "maxRank": 2,
+          "description": "+15/30% minion damage.",
+          "modifier": { "minionDamageMult": 15 },
+          "perRankModifiers": { "1": { "minionDamageMult": 15 }, "2": { "minionDamageMult": 30 } },
+          "engineFields": ["minionDamageMult (EXISTS)"]
+        },
+        {
+          "id": "fs_spirit_t5a",
+          "name": "Swarm of Eight",
+          "tier": 5,
+          "slot": "T5A",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "+4 extra fetishes (8 total). Cost: fetish damage −30%.",
+          "modifier": { "extraFetishCount": 4, "fetishDamageMult": -30 },
+          "engineFields": ["extraFetishCount (EXISTS); fetishDamageMult (NEW)"]
+        },
+        {
+          "id": "fs_spirit_t5b",
+          "name": "All-Frenzy",
+          "tier": 5,
+          "slot": "T5B",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Frenzy stacking max raised to 50% AND each minion (not just fetish) kill grants 1 stack. Cost: fetish max HP −30%.",
+          "modifier": {
+            "rawBehaviors": { "fetishFrenzyAllMinionKills": true, "fetishFrenzyMaxOverride": 50 },
+            "minionHpMult": -30
+          },
+          "engineFields": ["rawBehaviors.fetishFrenzyAllMinionKills + MaxOverride (NEW); minionHpMult (EXISTS)"]
+        },
+        {
+          "id": "fs_spirit_t6",
+          "name": "Brood Mother",
+          "tier": 6,
+          "slot": "T6",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "When you cast Fetish Swarm, also summon 1 Zombie Dog (5s).",
+          "modifier": { "rawBehaviors": { "fetishCastSummonsDog": { "duration": 5 } } },
+          "engineFields": ["rawBehaviors.fetishCastSummonsDog (NEW — staff.ts postCast for staff_fetish_swarm: summonMinions zombie_dog count=1 with duration override)"]
+        },
+        {
+          "id": "fs_spirit_t7",
+          "name": "THE BLOOD CULT",
+          "tier": 7,
+          "slot": "T7",
+          "nodeType": "keystone",
+          "maxRank": 1,
+          "description": "Fetishes are permanent (auto-resummon when all dead, 5s delay). Cost: max 2 fetishes instead of 4.",
+          "modifier": {
+            "rawBehaviors": { "fetishPermanentMode": { "resummonDelay": 5 } },
+            "extraFetishCount": -2
+          },
+          "engineFields": ["rawBehaviors.fetishPermanentMode (NEW — staff.ts tickMaintenance: if no fetishes alive AND timer > delay, auto-summon); extraFetishCount (EXISTS, negative)"]
+        }
+      ]
+    },
+    {
+      "branchId": "voodoo_master",
+      "branchName": "Cursed Fetishes",
+      "theme": "Crit-driven, soul-stack feeders. Fetishes empower your own burst skills.",
+      "nodes": [
+        {
+          "id": "fs_voodoo_t1a",
+          "name": "Sharp Darts",
+          "tier": 1,
+          "slot": "T1a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+10/20% fetish critical strike chance.",
+          "modifier": { "fetishCritChance": 10 },
+          "perRankModifiers": { "1": { "fetishCritChance": 10 }, "2": { "fetishCritChance": 20 } },
+          "engineFields": ["fetishCritChance (NEW — numeric; tick.ts minion attack hook for fetish: critChance += value/100)"]
+        },
+        {
+          "id": "fs_voodoo_t1b",
+          "name": "Soul Darts",
+          "tier": 1,
+          "slot": "T1b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Fetish hits have 5/10% chance to generate 1 soul_stack. ICD 1s.",
+          "modifier": { "rawBehaviors": { "fetishHitSoulStackChance": 5, "fetishHitSoulStackICD": 1 } },
+          "perRankModifiers": {
+            "1": { "rawBehaviors": { "fetishHitSoulStackChance": 5, "fetishHitSoulStackICD": 1 } },
+            "2": { "rawBehaviors": { "fetishHitSoulStackChance": 10, "fetishHitSoulStackICD": 1 } }
+          },
+          "engineFields": ["rawBehaviors.fetishHitSoulStackChance + ICD (NEW)"]
+        },
+        {
+          "id": "fs_voodoo_t2",
+          "name": "Pack Catalyst",
+          "tier": 2,
+          "slot": "T2",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "On Fetish Swarm cast: generate 2 soul_stacks immediately.",
+          "modifier": {
+            "procs": [{ "id": "fs_pack_catalyst", "trigger": "onCast", "chance": 1.0, "createComboState": { "stateId": "soul_stack", "stacks": 2 } }]
+          },
+          "engineFields": ["procs[onCast] (EXISTS); createComboState (NEW)"]
+        },
+        {
+          "id": "fs_voodoo_t2b",
+          "name": "Hex Synergy",
+          "tier": 2,
+          "slot": "T2b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+15/30% damage on Hexed targets.",
+          "modifier": { "conditionalMods": [{ "condition": "whileDebuffActive", "debuffId": "hexed", "modifier": { "incDamage": 15 } }] },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "whileDebuffActive", "debuffId": "hexed", "modifier": { "incDamage": 15 } }] },
+            "2": { "conditionalMods": [{ "condition": "whileDebuffActive", "debuffId": "hexed", "modifier": { "incDamage": 30 } }] }
+          },
+          "engineFields": ["conditionalMods.whileDebuffActive (EXISTS)"]
+        },
+        {
+          "id": "fs_voodoo_t3a",
+          "name": "Stack Synergy",
+          "tier": 3,
+          "slot": "T3a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+5/10% fetish damage per active soul_stack.",
+          "modifier": { "rawBehaviors": { "fetishDamagePerSoulStack": 5 } },
+          "perRankModifiers": {
+            "1": { "rawBehaviors": { "fetishDamagePerSoulStack": 5 } },
+            "2": { "rawBehaviors": { "fetishDamagePerSoulStack": 10 } }
+          },
+          "engineFields": ["rawBehaviors.fetishDamagePerSoulStack (NEW — tick.ts minion attack hook: fetish damage *= 1 + soulStackStacks * value/100)"]
+        },
+        {
+          "id": "fs_voodoo_t3b",
+          "name": "Crit Soul",
+          "tier": 3,
+          "slot": "T3b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Fetish critical strikes have 35/70% chance to generate 1 soul_stack. ICD 1.5s.",
+          "modifier": { "rawBehaviors": { "fetishCritSoulStackChance": 35, "fetishCritSoulStackICD": 1.5 } },
+          "perRankModifiers": {
+            "1": { "rawBehaviors": { "fetishCritSoulStackChance": 35, "fetishCritSoulStackICD": 1.5 } },
+            "2": { "rawBehaviors": { "fetishCritSoulStackChance": 70, "fetishCritSoulStackICD": 1.5 } }
+          },
+          "engineFields": ["rawBehaviors.fetishCritSoulStackChance + ICD (NEW)"]
+        },
+        {
+          "id": "fs_voodoo_t3c",
+          "name": "Quickdraw",
+          "tier": 3,
+          "slot": "T3c",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "−15/30% Fetish Swarm cooldown.",
+          "modifier": { "cooldownReduction": 15 },
+          "perRankModifiers": { "1": { "cooldownReduction": 15 }, "2": { "cooldownReduction": 30 } },
+          "engineFields": ["cooldownReduction (EXISTS)"]
+        },
+        {
+          "id": "fs_voodoo_t4",
+          "name": "Predator Pack",
+          "tier": 4,
+          "slot": "T4",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Fetish critical strikes also crit on the next 2 attacks (per fetish).",
+          "modifier": { "rawBehaviors": { "fetishCritCascadeAttacks": 2 } },
+          "engineFields": ["rawBehaviors.fetishCritCascadeAttacks (NEW — tick.ts minion attack hook: per-fetish crit-cascade counter, force crit for next N attacks)"]
+        },
+        {
+          "id": "fs_voodoo_t4b",
+          "name": "Burst Mastery",
+          "tier": 4,
+          "slot": "T4b",
+          "nodeType": "support",
+          "maxRank": 2,
+          "description": "+20/40% damage to Heavy-tagged skills.",
+          "modifier": { "incDamage": 20 },
+          "perRankModifiers": { "1": { "incDamage": 20 }, "2": { "incDamage": 40 } },
+          "engineFields": ["incDamage (EXISTS)"]
+        },
+        {
+          "id": "fs_voodoo_t5a",
+          "name": "Glass Cannons",
+          "tier": 5,
+          "slot": "T5A",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Fetishes deal +75% damage. Cost: fetish max HP −50%.",
+          "modifier": { "fetishDamageMult": 75, "minionHpMult": -50 },
+          "engineFields": ["fetishDamageMult (NEW); minionHpMult (EXISTS)"]
+        },
+        {
+          "id": "fs_voodoo_t5b",
+          "name": "Soul Bond",
+          "tier": 5,
+          "slot": "T5B",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Each soul_stack you have grants +15% fetish damage (uncapped). Cost: Fetish Swarm CD +3s.",
+          "modifier": {
+            "rawBehaviors": { "fetishDamagePerSoulStackUncapped": 15 },
+            "cooldownIncrease": 3
+          },
+          "engineFields": ["rawBehaviors.fetishDamagePerSoulStackUncapped (NEW); cooldownIncrease (EXISTS)"]
+        },
+        {
+          "id": "fs_voodoo_t6",
+          "name": "Pack Resonance",
+          "tier": 6,
+          "slot": "T6",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "When you crit any skill, all fetishes immediately attack the same target (resets their attack timers).",
+          "modifier": { "rawBehaviors": { "playerCritTriggersFetishPackAttack": true } },
+          "engineFields": ["rawBehaviors.playerCritTriggersFetishPackAttack (NEW — tick.ts post-crit hook: set all fetish minion nextAttackAt to now)"]
+        },
+        {
+          "id": "fs_voodoo_t7",
+          "name": "THE FETISH KING",
+          "tier": 7,
+          "slot": "T7",
+          "nodeType": "keystone",
+          "maxRank": 1,
+          "description": "1 fetish becomes a Fetish King: 4× damage, 4× HP, 50% slower attacks, can crit. Cost: only 1 fetish (instead of 4).",
+          "modifier": {
+            "rawBehaviors": { "fetishKingMode": { "damageMult": 4.0, "hpMult": 4.0, "intervalMult": 1.5 } },
+            "extraFetishCount": -3
+          },
+          "engineFields": ["rawBehaviors.fetishKingMode (NEW — staff.ts summonMinions for fetish: count=1, apply mults); extraFetishCount (EXISTS, negative)"]
+        }
+      ]
+    }
+  ]
+}

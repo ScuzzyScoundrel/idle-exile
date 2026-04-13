@@ -1,0 +1,554 @@
+{
+  "skillId": "staff_spirit_barrage",
+  "skillName": "Spirit Barrage",
+  "designNotes": {
+    "skillBaseline": "Cold projectile, 3 hits base, 0.5 SPR per hit, 5s CD. Consumes Haunted: guaranteed crit on all 3 hits + 30% bonus damage. Consume bonus is the existing baseline mechanic in staff.ts.",
+    "buildIdentities": {
+      "plague_doctor": "Spirit Barrage as a debuff-applier — every projectile applies cold/poison stacks. Sustained AoE pressure when paired with Locust/Haunt.",
+      "spirit_caller": "Spirit Barrage manifests literal spirits — minions add extra projectiles, minion synergy. Pack-DPS playstyle.",
+      "voodoo_master": "Spirit Barrage as the crit-king burst skill — soul stacks add projectiles, crits cascade through the volley."
+    }
+  },
+  "branches": [
+    {
+      "branchId": "plague_doctor",
+      "branchName": "Spirit Plague",
+      "theme": "Each projectile carries plague — Spirit Barrage becomes a debuff distribution system.",
+      "nodes": [
+        {
+          "id": "sb_plague_t1a",
+          "name": "Frostbite",
+          "tier": 1,
+          "slot": "T1a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Spirit Barrage hits have 20/40% chance to apply Chilled (1s).",
+          "modifier": {
+            "procs": [{ "id": "sb_frostbite", "trigger": "onHit", "chance": 0.20, "applyDebuff": { "debuffId": "chilled", "duration": 1 } }]
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "sb_frostbite", "trigger": "onHit", "chance": 0.20, "applyDebuff": { "debuffId": "chilled", "duration": 1 } }] },
+            "2": { "procs": [{ "id": "sb_frostbite", "trigger": "onHit", "chance": 0.40, "applyDebuff": { "debuffId": "chilled", "duration": 1 } }] }
+          },
+          "engineFields": ["procs[onHit] (EXISTS); applyDebuff.chilled (EXISTS)"]
+        },
+        {
+          "id": "sb_plague_t1b",
+          "name": "Spirit Density",
+          "tier": 1,
+          "slot": "T1b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+15/30% Spirit Barrage damage.",
+          "modifier": { "incDamage": 15 },
+          "perRankModifiers": { "1": { "incDamage": 15 }, "2": { "incDamage": 30 } },
+          "engineFields": ["incDamage (EXISTS)"]
+        },
+        {
+          "id": "sb_plague_t2",
+          "name": "Plague Burst",
+          "tier": 2,
+          "slot": "T2",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Each Spirit Barrage projectile applies 1 stack of Poisoned (3s).",
+          "modifier": {
+            "procs": [{ "id": "sb_plague_burst", "trigger": "onHit", "chance": 1.0, "applyDebuff": { "debuffId": "poisoned", "duration": 3, "stacks": 1 } }]
+          },
+          "engineFields": ["procs[onHit] (EXISTS); applyDebuff.poisoned (EXISTS)"]
+        },
+        {
+          "id": "sb_plague_t2b",
+          "name": "Cold Compounding",
+          "tier": 2,
+          "slot": "T2b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+5/10% Spirit Barrage damage per debuff on target.",
+          "modifier": { "conditionalMods": [{ "condition": "perAilmentStackOnTarget", "modifier": { "incDamage": 5 } }] },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "perAilmentStackOnTarget", "modifier": { "incDamage": 5 } }] },
+            "2": { "conditionalMods": [{ "condition": "perAilmentStackOnTarget", "modifier": { "incDamage": 10 } }] }
+          },
+          "engineFields": ["conditionalMods.perAilmentStackOnTarget (EXISTS)"]
+        },
+        {
+          "id": "sb_plague_t3a",
+          "name": "Plague Synergy",
+          "tier": 3,
+          "slot": "T3a",
+          "nodeType": "conditional",
+          "maxRank": 2,
+          "description": "+20/40% Spirit Barrage damage on Plagued targets.",
+          "modifier": { "conditionalMods": [{ "condition": "whileDebuffActive", "debuffId": "plagued", "modifier": { "incDamage": 20 } }] },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "whileDebuffActive", "debuffId": "plagued", "modifier": { "incDamage": 20 } }] },
+            "2": { "conditionalMods": [{ "condition": "whileDebuffActive", "debuffId": "plagued", "modifier": { "incDamage": 40 } }] }
+          },
+          "engineFields": ["conditionalMods.whileDebuffActive (EXISTS)"]
+        },
+        {
+          "id": "sb_plague_t3b",
+          "name": "Crit Cold",
+          "tier": 3,
+          "slot": "T3b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Spirit Barrage critical strikes have 50/100% chance to apply Chilled (3s).",
+          "modifier": {
+            "procs": [{ "id": "sb_crit_cold", "trigger": "onCrit", "chance": 0.50, "applyDebuff": { "debuffId": "chilled", "duration": 3 } }]
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "sb_crit_cold", "trigger": "onCrit", "chance": 0.50, "applyDebuff": { "debuffId": "chilled", "duration": 3 } }] },
+            "2": { "procs": [{ "id": "sb_crit_cold", "trigger": "onCrit", "chance": 1.0, "applyDebuff": { "debuffId": "chilled", "duration": 3 } }] }
+          },
+          "engineFields": ["procs[onCrit] (EXISTS)"]
+        },
+        {
+          "id": "sb_plague_t3c",
+          "name": "Cold Mastery",
+          "tier": 3,
+          "slot": "T3c",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+10/20% cold penetration.",
+          "modifier": { "coldPenetration": 10 },
+          "perRankModifiers": { "1": { "coldPenetration": 10 }, "2": { "coldPenetration": 20 } },
+          "engineFields": ["coldPenetration (EXISTS)"]
+        },
+        {
+          "id": "sb_plague_t4",
+          "name": "Spirit Pandemic",
+          "tier": 4,
+          "slot": "T4",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Spirit Barrage hits on Plagued targets transfer Plagued debuff to all enemies hit by this cast.",
+          "modifier": { "rawBehaviors": { "spiritBarrageTransfersPlagued": true } },
+          "engineFields": ["rawBehaviors.spiritBarrageTransfersPlagued (NEW — staff.ts postCast for staff_spirit_barrage: if any hit target has plagued, apply plagued debuff to every other hit target with current snapshot)"]
+        },
+        {
+          "id": "sb_plague_t4b",
+          "name": "DoT Support",
+          "tier": 4,
+          "slot": "T4b",
+          "nodeType": "support",
+          "maxRank": 2,
+          "description": "+15/30% damage to DoT-tagged skills.",
+          "modifier": { "incDamage": 15 },
+          "perRankModifiers": { "1": { "incDamage": 15 }, "2": { "incDamage": 30 } },
+          "engineFields": ["incDamage (EXISTS)"]
+        },
+        {
+          "id": "sb_plague_t5a",
+          "name": "Frostbreaker",
+          "tier": 5,
+          "slot": "T5A",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Spirit Barrage deals +75% damage to Chilled targets. Cost: −25% damage to non-chilled.",
+          "modifier": {
+            "conditionalMods": [
+              { "condition": "whileDebuffActive", "debuffId": "chilled", "modifier": { "incDamage": 75 } }
+            ],
+            "rawBehaviors": { "spiritBarrageNonChilledPenalty": 25 }
+          },
+          "engineFields": ["conditionalMods.whileDebuffActive (EXISTS); rawBehaviors.spiritBarrageNonChilledPenalty (NEW — staff.ts preRoll: if target not chilled, multiply damageMult by (1 - value/100))"]
+        },
+        {
+          "id": "sb_plague_t5b",
+          "name": "Eternal Cold",
+          "tier": 5,
+          "slot": "T5B",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Each Spirit Barrage hit extends Chilled duration on the target by 1s (caps at 5s).",
+          "modifier": { "rawBehaviors": { "spiritBarrageExtendsChilled": { "perHitSeconds": 1, "maxSeconds": 5 } } },
+          "engineFields": ["rawBehaviors.spiritBarrageExtendsChilled (NEW — staff.ts postCast: per hit, add seconds to existing chilled debuff up to cap)"]
+        },
+        {
+          "id": "sb_plague_t6",
+          "name": "Stacking Salvo",
+          "tier": 6,
+          "slot": "T6",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Each projectile after the first applies an additional debuff stack (stacks Poisoned, Bleeding, or Chilled — whichever the target already has).",
+          "modifier": { "rawBehaviors": { "spiritBarrageProjectileExtraStack": true } },
+          "engineFields": ["rawBehaviors.spiritBarrageProjectileExtraStack (NEW — staff.ts postCast: for projectiles 2..N, if target has any stackable debuff, +1 stack)"]
+        },
+        {
+          "id": "sb_plague_t7",
+          "name": "THE WHISPER",
+          "tier": 7,
+          "slot": "T7",
+          "nodeType": "keystone",
+          "maxRank": 1,
+          "description": "Spirit Barrage applies Haunted (5s) on every hit AND its haunted-consume only consumes the combo state (debuff persists). Cost: −30% Spirit Barrage damage.",
+          "modifier": {
+            "rawBehaviors": { "spiritBarrageAppliesHaunted": true, "spiritBarrageConsumeKeepsHauntedDebuff": true },
+            "incDamage": -30
+          },
+          "engineFields": ["rawBehaviors.spiritBarrageAppliesHaunted (NEW — staff.ts postCast: apply haunted debuff per hit); rawBehaviors.spiritBarrageConsumeKeepsHauntedDebuff (NEW — staff.ts preRoll: when consuming haunted comboState, do not strip target's haunted debuff); incDamage (EXISTS)"]
+        }
+      ]
+    },
+    {
+      "branchId": "spirit_caller",
+      "branchName": "Vengeful Salvo",
+      "theme": "Each projectile is a spirit. The more dead you have at your side, the more shots you fire.",
+      "nodes": [
+        {
+          "id": "sb_spirit_t1a",
+          "name": "Extra Salvo",
+          "tier": 1,
+          "slot": "T1a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+1/2 extra Spirit Barrage projectiles.",
+          "modifier": { "extraHits": 1 },
+          "perRankModifiers": { "1": { "extraHits": 1 }, "2": { "extraHits": 2 } },
+          "engineFields": ["extraHits (EXISTS)"]
+        },
+        {
+          "id": "sb_spirit_t1b",
+          "name": "Ghost Manifestation",
+          "tier": 1,
+          "slot": "T1b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Spirit Barrage critical strikes have 25/50% chance to summon a 3s spirit minion.",
+          "modifier": {
+            "procs": [{ "id": "sb_ghost_manifest", "trigger": "onCrit", "chance": 0.25, "internalCooldown": 2.0, "summonMinion": { "type": "spirit_temp", "duration": 3 } }]
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "sb_ghost_manifest", "trigger": "onCrit", "chance": 0.25, "internalCooldown": 2.0, "summonMinion": { "type": "spirit_temp", "duration": 3 } }] },
+            "2": { "procs": [{ "id": "sb_ghost_manifest", "trigger": "onCrit", "chance": 0.50, "internalCooldown": 2.0, "summonMinion": { "type": "spirit_temp", "duration": 3 } }] }
+          },
+          "engineFields": ["procs[onCrit] (EXISTS); summonMinion (NEW)"]
+        },
+        {
+          "id": "sb_spirit_t2",
+          "name": "Phantasmal Echo",
+          "tier": 2,
+          "slot": "T2",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "While 2+ minions are alive, Spirit Barrage hits create a small AoE burst at impact (10% of hit damage to 2 adjacent enemies).",
+          "modifier": { "rawBehaviors": { "phantasmalEcho": { "minMinions": 2, "aoePercent": 10, "extraTargets": 2 } } },
+          "engineFields": ["rawBehaviors.phantasmalEcho (NEW — staff.ts postCast: if minionCount >= minMinions, per hit emit AoE damage events to N pack neighbors at hitDamage * aoePercent/100)"]
+        },
+        {
+          "id": "sb_spirit_t2b",
+          "name": "Bound Power",
+          "tier": 2,
+          "slot": "T2b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+10/20% Spirit Barrage damage while any minion is alive.",
+          "modifier": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incDamage": 10 } }] },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incDamage": 10 } }] },
+            "2": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incDamage": 20 } }] }
+          },
+          "engineFields": ["conditionalMods.whileMinionsAlive (EXISTS)"]
+        },
+        {
+          "id": "sb_spirit_t3a",
+          "name": "Pack Hunter",
+          "tier": 3,
+          "slot": "T3a",
+          "nodeType": "conditional",
+          "maxRank": 2,
+          "description": "+20/40% crit chance while 2+ minions alive.",
+          "modifier": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incCritChance": 20 } }] },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incCritChance": 20 } }] },
+            "2": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incCritChance": 40 } }] }
+          },
+          "engineFields": ["conditionalMods.whileMinionsAlive (EXISTS)"]
+        },
+        {
+          "id": "sb_spirit_t3b",
+          "name": "Echoing Volley",
+          "tier": 3,
+          "slot": "T3b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "On Spirit Barrage cast: gain Echo (+20/40% damage to next non-Spirit-Barrage cast in 4s).",
+          "modifier": {
+            "procs": [{ "id": "sb_echo", "trigger": "onCast", "chance": 1.0, "applyBuff": { "buffId": "spiritEcho", "effect": { "damageMult": 1.20 }, "duration": 4 } }]
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "sb_echo", "trigger": "onCast", "chance": 1.0, "applyBuff": { "buffId": "spiritEcho", "effect": { "damageMult": 1.20 }, "duration": 4 } }] },
+            "2": { "procs": [{ "id": "sb_echo", "trigger": "onCast", "chance": 1.0, "applyBuff": { "buffId": "spiritEcho", "effect": { "damageMult": 1.40 }, "duration": 4 } }] }
+          },
+          "engineFields": ["procs[onCast] (EXISTS); BUFF_DEFS.spiritEcho (NEW — consumed on next non-spirit-barrage cast)"]
+        },
+        {
+          "id": "sb_spirit_t3c",
+          "name": "Spirit Velocity",
+          "tier": 3,
+          "slot": "T3c",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+10/20% cast speed on Spirit Barrage.",
+          "modifier": { "incCastSpeed": 10 },
+          "perRankModifiers": { "1": { "incCastSpeed": 10 }, "2": { "incCastSpeed": 20 } },
+          "engineFields": ["incCastSpeed (EXISTS)"]
+        },
+        {
+          "id": "sb_spirit_t4",
+          "name": "Volley Conduit",
+          "tier": 4,
+          "slot": "T4",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Each living minion adds +1 projectile to Spirit Barrage (in addition to base 3).",
+          "modifier": { "rawBehaviors": { "spiritBarragePerMinionExtraProjectile": 1 } },
+          "engineFields": ["rawBehaviors.spiritBarragePerMinionExtraProjectile (NEW — staff.ts preRoll: hitCount += value * activeMinionCount)"]
+        },
+        {
+          "id": "sb_spirit_t4b",
+          "name": "Minion Mastery Support",
+          "tier": 4,
+          "slot": "T4b",
+          "nodeType": "support",
+          "maxRank": 2,
+          "description": "+15/30% minion damage.",
+          "modifier": { "minionDamageMult": 15 },
+          "perRankModifiers": { "1": { "minionDamageMult": 15 }, "2": { "minionDamageMult": 30 } },
+          "engineFields": ["minionDamageMult (EXISTS)"]
+        },
+        {
+          "id": "sb_spirit_t5a",
+          "name": "Spirit Cannon",
+          "tier": 5,
+          "slot": "T5A",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Spirit Barrage projectiles split on hit, hitting 1 adjacent enemy at 50% damage.",
+          "modifier": { "rawBehaviors": { "spiritBarrageSplit": { "extraTargets": 1, "damagePercent": 50 } } },
+          "engineFields": ["rawBehaviors.spiritBarrageSplit (NEW — staff.ts postCast: per hit, emit 1 extra damage event to nearest pack neighbor at hit * percent/100)"]
+        },
+        {
+          "id": "sb_spirit_t5b",
+          "name": "Phantasmal Strike",
+          "tier": 5,
+          "slot": "T5B",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "When Spirit Barrage consumes Haunted, also summon 1 fetish minion (5s).",
+          "modifier": { "rawBehaviors": { "spiritBarrageConsumeSummonsFetish": { "duration": 5 } } },
+          "engineFields": ["rawBehaviors.spiritBarrageConsumeSummonsFetish (NEW — staff.ts preRoll for staff_spirit_barrage: when haunted comboState consumed, call summonMinions('fetish', 1, durationOverride))"]
+        },
+        {
+          "id": "sb_spirit_t6",
+          "name": "Mass Volley",
+          "tier": 6,
+          "slot": "T6",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "While 5+ minions are alive, Spirit Barrage gains an additional +3 projectiles.",
+          "modifier": { "rawBehaviors": { "spiritBarrageMassVolley": { "minMinions": 5, "extraProjectiles": 3 } } },
+          "engineFields": ["rawBehaviors.spiritBarrageMassVolley (NEW — staff.ts preRoll: if minionCount >= minMinions, hitCount += extraProjectiles)"]
+        },
+        {
+          "id": "sb_spirit_t7",
+          "name": "GHOST CHORUS",
+          "tier": 7,
+          "slot": "T7",
+          "nodeType": "keystone",
+          "maxRank": 1,
+          "description": "Each Spirit Barrage projectile spawns a 1.5s ghost minion at impact (deals 25% spell power per attack). Cost: −40% Spirit Barrage damage.",
+          "modifier": {
+            "rawBehaviors": { "spiritBarragePerHitSpawnsGhost": { "duration": 1.5 } },
+            "incDamage": -40
+          },
+          "engineFields": ["rawBehaviors.spiritBarragePerHitSpawnsGhost (NEW — staff.ts postCast: for each hit, spawn spirit_temp minion with override duration); incDamage (EXISTS)"]
+        }
+      ]
+    },
+    {
+      "branchId": "voodoo_master",
+      "branchName": "Cursed Salvo",
+      "theme": "Spirit Barrage as the burst king. Soul stacks empower volleys; crits cascade through the wave.",
+      "nodes": [
+        {
+          "id": "sb_voodoo_t1a",
+          "name": "Per-Projectile Power",
+          "tier": 1,
+          "slot": "T1a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Each Spirit Barrage projectile after the first deals +10/20% damage.",
+          "modifier": { "perProjectileDamageBonus": 10 },
+          "perRankModifiers": { "1": { "perProjectileDamageBonus": 10 }, "2": { "perProjectileDamageBonus": 20 } },
+          "engineFields": ["perProjectileDamageBonus (NEW — numeric; staff.ts postCast for staff_spirit_barrage: per-hit damageMult = base * (1 + (hitIndex - 1) * value/100))"]
+        },
+        {
+          "id": "sb_voodoo_t1b",
+          "name": "Soul Trigger",
+          "tier": 1,
+          "slot": "T1b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Spirit Barrage critical strikes have 50/100% chance to generate 1 soul_stack. ICD 1.5s.",
+          "modifier": {
+            "procs": [{ "id": "sb_soul_trigger", "trigger": "onCrit", "chance": 0.50, "internalCooldown": 1.5, "createComboState": { "stateId": "soul_stack", "stacks": 1 } }]
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "sb_soul_trigger", "trigger": "onCrit", "chance": 0.50, "internalCooldown": 1.5, "createComboState": { "stateId": "soul_stack", "stacks": 1 } }] },
+            "2": { "procs": [{ "id": "sb_soul_trigger", "trigger": "onCrit", "chance": 1.0, "internalCooldown": 1.5, "createComboState": { "stateId": "soul_stack", "stacks": 1 } }] }
+          },
+          "engineFields": ["procs[onCrit] (EXISTS); createComboState (NEW)"]
+        },
+        {
+          "id": "sb_voodoo_t2",
+          "name": "Soul Salvo",
+          "tier": 2,
+          "slot": "T2",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Spirit Barrage consumes ALL soul_stacks on cast: each consumed adds +1 projectile.",
+          "modifier": { "rawBehaviors": { "spiritBarrageConsumesSoulStacks": { "perStackExtraProjectile": 1 } } },
+          "engineFields": ["rawBehaviors.spiritBarrageConsumesSoulStacks (NEW — staff.ts preRoll for staff_spirit_barrage: read soul_stack stacks, hitCount += stacks * value, consume comboState)"]
+        },
+        {
+          "id": "sb_voodoo_t2b",
+          "name": "Soul Bond",
+          "tier": 2,
+          "slot": "T2b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+5/10% Spirit Barrage damage per active soul_stack.",
+          "modifier": { "damagePerSoulStackActive": 5 },
+          "perRankModifiers": { "1": { "damagePerSoulStackActive": 5 }, "2": { "damagePerSoulStackActive": 10 } },
+          "engineFields": ["damagePerSoulStackActive (EXISTS)"]
+        },
+        {
+          "id": "sb_voodoo_t3a",
+          "name": "Hunter's Eye",
+          "tier": 3,
+          "slot": "T3a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Each consecutive Spirit Barrage hit on the same target grants +5/10% crit multiplier (max 5 stacks, resets on target switch).",
+          "modifier": {
+            "procs": [{ "id": "sb_hunters_eye", "trigger": "onHit", "chance": 1.0, "conditionParam": { "sameTarget": true, "resetOnTargetSwitch": true }, "applyBuff": { "buffId": "huntersEye", "effect": { "critMultiplierBonus": 5 }, "duration": 6, "stacks": 1, "maxStacks": 5 } }]
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "sb_hunters_eye", "trigger": "onHit", "chance": 1.0, "conditionParam": { "sameTarget": true, "resetOnTargetSwitch": true }, "applyBuff": { "buffId": "huntersEye", "effect": { "critMultiplierBonus": 5 }, "duration": 6, "stacks": 1, "maxStacks": 5 } }] },
+            "2": { "procs": [{ "id": "sb_hunters_eye", "trigger": "onHit", "chance": 1.0, "conditionParam": { "sameTarget": true, "resetOnTargetSwitch": true }, "applyBuff": { "buffId": "huntersEye", "effect": { "critMultiplierBonus": 10 }, "duration": 6, "stacks": 1, "maxStacks": 5 } }] }
+          },
+          "engineFields": ["procs[onHit] (EXISTS); conditionParam.sameTarget+resetOnTargetSwitch (NEW); BUFF_DEFS.huntersEye (NEW — critMultiplierBonus per stack)"]
+        },
+        {
+          "id": "sb_voodoo_t3b",
+          "name": "Hex Strike",
+          "tier": 3,
+          "slot": "T3b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "On Spirit Barrage hit on a Hexed target: 15/30% chance to refresh Hexed duration to full.",
+          "modifier": {
+            "procs": [{ "id": "sb_hex_strike", "trigger": "onHit", "chance": 0.15, "conditionParam": { "targetHasDebuff": "hexed" }, "internalCooldown": 1.0, "rawEffect": "refreshHexed" }],
+            "rawBehaviors": { "spiritBarrageRefreshesHexed": true }
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "sb_hex_strike", "trigger": "onHit", "chance": 0.15, "conditionParam": { "targetHasDebuff": "hexed" }, "internalCooldown": 1.0, "rawEffect": "refreshHexed" }] },
+            "2": { "procs": [{ "id": "sb_hex_strike", "trigger": "onHit", "chance": 0.30, "conditionParam": { "targetHasDebuff": "hexed" }, "internalCooldown": 1.0, "rawEffect": "refreshHexed" }] }
+          },
+          "engineFields": ["procs[onHit] (EXISTS); conditionParam.targetHasDebuff (NEW); rawBehaviors.spiritBarrageRefreshesHexed (NEW — staff.ts proc handler refreshes hexed debuff to full duration)"]
+        },
+        {
+          "id": "sb_voodoo_t3c",
+          "name": "Spectral Velocity",
+          "tier": 3,
+          "slot": "T3c",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "−15/30% Spirit Barrage cooldown.",
+          "modifier": { "cooldownReduction": 15 },
+          "perRankModifiers": { "1": { "cooldownReduction": 15 }, "2": { "cooldownReduction": 30 } },
+          "engineFields": ["cooldownReduction (EXISTS)"]
+        },
+        {
+          "id": "sb_voodoo_t4",
+          "name": "Crit Cascade",
+          "tier": 4,
+          "slot": "T4",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "If any Spirit Barrage projectile crits, all subsequent projectiles in this cast also crit.",
+          "modifier": { "rawBehaviors": { "spiritBarrageCritCascade": true } },
+          "engineFields": ["rawBehaviors.spiritBarrageCritCascade (NEW — staff.ts postCast: track first-crit per cast, force-crit subsequent hits)"]
+        },
+        {
+          "id": "sb_voodoo_t4b",
+          "name": "Burst Mastery",
+          "tier": 4,
+          "slot": "T4b",
+          "nodeType": "support",
+          "maxRank": 2,
+          "description": "+20/40% damage to Heavy-tagged skills.",
+          "modifier": { "incDamage": 20 },
+          "perRankModifiers": { "1": { "incDamage": 20 }, "2": { "incDamage": 40 } },
+          "engineFields": ["incDamage (EXISTS)"]
+        },
+        {
+          "id": "sb_voodoo_t5a",
+          "name": "Pinpoint",
+          "tier": 5,
+          "slot": "T5A",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Spirit Barrage fires only 1 massive projectile (instead of 3) but it always crits.",
+          "modifier": {
+            "rawBehaviors": { "spiritBarragePinpointMode": true }
+          },
+          "engineFields": ["rawBehaviors.spiritBarragePinpointMode (NEW — staff.ts preRoll: hitCount=1, force crit; consider damage scaling so single shot ≈ 3 crits' worth)"]
+        },
+        {
+          "id": "sb_voodoo_t5b",
+          "name": "Soul Cascade",
+          "tier": 5,
+          "slot": "T5B",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Each soul_stack consumed by Spirit Barrage adds +20% damage (on top of extra projectile from Soul Salvo). Cost: Spirit Barrage CD +1s.",
+          "modifier": {
+            "rawBehaviors": { "spiritBarrageSoulConsumeDamageBonus": 20 },
+            "cooldownIncrease": 1
+          },
+          "engineFields": ["rawBehaviors.spiritBarrageSoulConsumeDamageBonus (NEW — staff.ts preRoll when consuming soul_stack: damageMult *= 1 + stacks * value/100); cooldownIncrease (EXISTS)"]
+        },
+        {
+          "id": "sb_voodoo_t6",
+          "name": "Final Volley",
+          "tier": 6,
+          "slot": "T6",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "The last projectile in each Spirit Barrage cast deals +100% damage.",
+          "modifier": { "rawBehaviors": { "spiritBarrageFinalProjectileBonus": 100 } },
+          "engineFields": ["rawBehaviors.spiritBarrageFinalProjectileBonus (NEW — staff.ts postCast: last hit damageMult *= 1 + value/100)"]
+        },
+        {
+          "id": "sb_voodoo_t7",
+          "name": "THE GHOST CANNON",
+          "tier": 7,
+          "slot": "T7",
+          "nodeType": "keystone",
+          "maxRank": 1,
+          "description": "Spirit Barrage fires 1 massive projectile (sums all hit damage). On crit, it chains to 3 enemies. Cost: −25% damage.",
+          "modifier": {
+            "rawBehaviors": { "spiritBarrageSingleShot": { "chainOnCrit": 3 } },
+            "incDamage": -25
+          },
+          "engineFields": ["rawBehaviors.spiritBarrageSingleShot (NEW — staff.ts preRoll: hitCount=1 with damageMult ≈ baseHitCount×; on crit, emit chainOnCrit damage events to neighbors); incDamage (EXISTS)"]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,558 @@
+{
+  "skillId": "staff_soul_harvest",
+  "skillName": "Soul Harvest",
+  "designNotes": {
+    "skillBaseline": "Chaos burst, 0.8 SPR, 6s CD. Consumes Hexed for 2× damage. Creates Soul Stack (max 5, 10s, refreshes).",
+    "buildIdentities": {
+      "plague_doctor": "Soul Harvest as a DoT applier — every cast sows debuffs on the target alongside the burst.",
+      "spirit_caller": "Soul Harvest empowers and heals minions — 'feed' the pack with each harvest.",
+      "voodoo_master": "Soul Harvest as the burst king — hex consume goes nuclear, soul stacks empower future casts."
+    }
+  },
+  "branches": [
+    {
+      "branchId": "plague_doctor",
+      "branchName": "Soulreaver",
+      "theme": "Each harvest plants disease alongside the burst. The target rots while you take their soul.",
+      "nodes": [
+        {
+          "id": "sh_plague_t1a",
+          "name": "Hexed Reaper",
+          "tier": 1,
+          "slot": "T1a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "When Soul Harvest consumes Hexed: deal +25/50% additional damage on top of the 2× consume bonus.",
+          "modifier": { "rawBehaviors": { "soulHarvestHexedConsumeBonus": 25 } },
+          "perRankModifiers": {
+            "1": { "rawBehaviors": { "soulHarvestHexedConsumeBonus": 25 } },
+            "2": { "rawBehaviors": { "soulHarvestHexedConsumeBonus": 50 } }
+          },
+          "engineFields": ["rawBehaviors.soulHarvestHexedConsumeBonus (NEW — staff.ts preRoll for staff_soul_harvest when consuming hexed: damageMult *= 1 + value/100)"]
+        },
+        {
+          "id": "sh_plague_t1b",
+          "name": "Reaper's Sickness",
+          "tier": 1,
+          "slot": "T1b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Soul Harvest applies 1/2 stacks of Poisoned (4s) on hit.",
+          "modifier": {
+            "procs": [{ "id": "sh_sickness", "trigger": "onHit", "chance": 1.0, "applyDebuff": { "debuffId": "poisoned", "duration": 4, "stacks": 1 } }]
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "sh_sickness", "trigger": "onHit", "chance": 1.0, "applyDebuff": { "debuffId": "poisoned", "duration": 4, "stacks": 1 } }] },
+            "2": { "procs": [{ "id": "sh_sickness", "trigger": "onHit", "chance": 1.0, "applyDebuff": { "debuffId": "poisoned", "duration": 4, "stacks": 2 } }] }
+          },
+          "engineFields": ["procs[onHit] (EXISTS)"]
+        },
+        {
+          "id": "sh_plague_t2",
+          "name": "Soulrot",
+          "tier": 2,
+          "slot": "T2",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Soul Harvest applies a unique Soulrot debuff: 5% target max HP as chaos DoT over 4 seconds (unstackable).",
+          "modifier": { "rawBehaviors": { "soulHarvestApplySoulrot": { "maxHpPercent": 5, "duration": 4 } } },
+          "engineFields": ["rawBehaviors.soulHarvestApplySoulrot (NEW — staff.ts postCast: apply soulrot debuff to target with calculated tick damage = target.maxHp * percent/100 / duration)"]
+        },
+        {
+          "id": "sh_plague_t2b",
+          "name": "Plague Synergy",
+          "tier": 2,
+          "slot": "T2b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+5/10% damage per debuff on target.",
+          "modifier": { "conditionalMods": [{ "condition": "perAilmentStackOnTarget", "modifier": { "incDamage": 5 } }] },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "perAilmentStackOnTarget", "modifier": { "incDamage": 5 } }] },
+            "2": { "conditionalMods": [{ "condition": "perAilmentStackOnTarget", "modifier": { "incDamage": 10 } }] }
+          },
+          "engineFields": ["conditionalMods.perAilmentStackOnTarget (EXISTS)"]
+        },
+        {
+          "id": "sh_plague_t3a",
+          "name": "Hex Synergy",
+          "tier": 3,
+          "slot": "T3a",
+          "nodeType": "conditional",
+          "maxRank": 2,
+          "description": "+15/30% Soul Harvest damage on Hexed targets.",
+          "modifier": { "conditionalMods": [{ "condition": "whileDebuffActive", "debuffId": "hexed", "modifier": { "incDamage": 15 } }] },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "whileDebuffActive", "debuffId": "hexed", "modifier": { "incDamage": 15 } }] },
+            "2": { "conditionalMods": [{ "condition": "whileDebuffActive", "debuffId": "hexed", "modifier": { "incDamage": 30 } }] }
+          },
+          "engineFields": ["conditionalMods.whileDebuffActive (EXISTS)"]
+        },
+        {
+          "id": "sh_plague_t3b",
+          "name": "Crit Hex",
+          "tier": 3,
+          "slot": "T3b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Soul Harvest critical strikes apply Hexed (5s) to the target.",
+          "modifier": {
+            "procs": [{ "id": "sh_crit_hex", "trigger": "onCrit", "chance": 0.50, "internalCooldown": 4.0, "applyDebuff": { "debuffId": "hexed", "duration": 5 } }]
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "sh_crit_hex", "trigger": "onCrit", "chance": 0.50, "internalCooldown": 4.0, "applyDebuff": { "debuffId": "hexed", "duration": 5 } }] },
+            "2": { "procs": [{ "id": "sh_crit_hex", "trigger": "onCrit", "chance": 1.0, "internalCooldown": 4.0, "applyDebuff": { "debuffId": "hexed", "duration": 5 } }] }
+          },
+          "engineFields": ["procs[onCrit] (EXISTS)"]
+        },
+        {
+          "id": "sh_plague_t3c",
+          "name": "Chaos Mastery",
+          "tier": 3,
+          "slot": "T3c",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+10/20% chaos penetration.",
+          "modifier": { "chaosPenetration": 10 },
+          "perRankModifiers": { "1": { "chaosPenetration": 10 }, "2": { "chaosPenetration": 20 } },
+          "engineFields": ["chaosPenetration (EXISTS)"]
+        },
+        {
+          "id": "sh_plague_t4",
+          "name": "Reaper's Bloom",
+          "tier": 4,
+          "slot": "T4",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "When Soul Harvest kills a target, all DoTs on the target spread to ALL pack enemies at 50% snapshot.",
+          "modifier": { "rawBehaviors": { "soulHarvestKillSpreadDots": { "snapshotPercent": 50 } } },
+          "engineFields": ["rawBehaviors.soulHarvestKillSpreadDots (NEW — tick.ts death loop: if killer was soul_harvest, copy DoT debuffs to all alive pack at snapshot * percent/100)"]
+        },
+        {
+          "id": "sh_plague_t4b",
+          "name": "DoT Support",
+          "tier": 4,
+          "slot": "T4b",
+          "nodeType": "support",
+          "maxRank": 2,
+          "description": "+15/30% damage to DoT-tagged skills.",
+          "modifier": { "incDamage": 15 },
+          "perRankModifiers": { "1": { "incDamage": 15 }, "2": { "incDamage": 30 } },
+          "engineFields": ["incDamage (EXISTS)"]
+        },
+        {
+          "id": "sh_plague_t5a",
+          "name": "Soulrot Lord",
+          "tier": 5,
+          "slot": "T5A",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Soulrot debuff (T2) damage tripled and duration +50%. Cost: −20% Soul Harvest direct damage.",
+          "modifier": {
+            "rawBehaviors": { "soulrotMultiplier": 3.0, "soulrotDurationBonus": 50 },
+            "incDamage": -20
+          },
+          "engineFields": ["rawBehaviors.soulrotMultiplier + soulrotDurationBonus (NEW); incDamage (EXISTS)"]
+        },
+        {
+          "id": "sh_plague_t5b",
+          "name": "Plague Reaper",
+          "tier": 5,
+          "slot": "T5B",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Soul Harvest applies ALL of your DoTs (Locust, Haunt, Toads' poison) at 50% snapshot to the target. Cost: Soul Harvest CD +2s.",
+          "modifier": {
+            "rawBehaviors": { "soulHarvestApplyAllDots": { "snapshotPercent": 50 } },
+            "cooldownIncrease": 2
+          },
+          "engineFields": ["rawBehaviors.soulHarvestApplyAllDots (NEW — staff.ts postCast: per skill in [locust, haunt, toads_poison], apply DoT debuff to target with current snapshot * percent/100); cooldownIncrease (EXISTS)"]
+        },
+        {
+          "id": "sh_plague_t6",
+          "name": "Death Bloom",
+          "tier": 6,
+          "slot": "T6",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Soul Harvest deals +50% damage per debuff currently on the target (caps at +250%).",
+          "modifier": { "rawBehaviors": { "soulHarvestPerDebuffBonus": { "perDebuffPercent": 50, "maxPercent": 250 } } },
+          "engineFields": ["rawBehaviors.soulHarvestPerDebuffBonus (NEW — staff.ts preRoll: count target debuffs, damageMult *= 1 + min(maxPercent, count * perDebuffPercent)/100)"]
+        },
+        {
+          "id": "sh_plague_t7",
+          "name": "THE PLAGUE REAPER",
+          "tier": 7,
+          "slot": "T7",
+          "nodeType": "keystone",
+          "maxRank": 1,
+          "description": "Soul Harvest no longer deals direct damage. Instead applies a unique 'Soul Decay' debuff: 25% target max HP as chaos damage over 5s, unremovable. Cost: removes the 2× hex consume bonus.",
+          "modifier": {
+            "rawBehaviors": { "soulHarvestPureRotting": { "maxHpPercent": 25, "duration": 5 }, "soulHarvestDisableHexConsume": true },
+            "incDamage": -100
+          },
+          "engineFields": ["rawBehaviors.soulHarvestPureRotting (NEW); rawBehaviors.soulHarvestDisableHexConsume (NEW); incDamage (EXISTS, full nullification)"]
+        }
+      ]
+    },
+    {
+      "branchId": "spirit_caller",
+      "branchName": "Soul Feeder",
+      "theme": "Souls feed the dead. Soul Harvest heals and empowers your minion pack.",
+      "nodes": [
+        {
+          "id": "sh_spirit_t1a",
+          "name": "Soul Reservoir",
+          "tier": 1,
+          "slot": "T1a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Max soul_stack cap +1/2 (5→6/7).",
+          "modifier": { "soulStackCapOverride": 6 },
+          "perRankModifiers": { "1": { "soulStackCapOverride": 6 }, "2": { "soulStackCapOverride": 7 } },
+          "engineFields": ["soulStackCapOverride (EXISTS)"]
+        },
+        {
+          "id": "sh_spirit_t1b",
+          "name": "Pack Feast",
+          "tier": 1,
+          "slot": "T1b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "On Soul Harvest cast: heal each living minion for 10/20% of their max HP.",
+          "modifier": {
+            "procs": [{ "id": "sh_pack_feast", "trigger": "onCast", "chance": 1.0, "rawEffect": "healMinions" }],
+            "rawBehaviors": { "soulHarvestHealsMinionsPercent": 10 }
+          },
+          "perRankModifiers": {
+            "1": { "rawBehaviors": { "soulHarvestHealsMinionsPercent": 10 } },
+            "2": { "rawBehaviors": { "soulHarvestHealsMinionsPercent": 20 } }
+          },
+          "engineFields": ["rawBehaviors.soulHarvestHealsMinionsPercent (NEW — staff.ts postCast: per living minion, m.hp = min(maxHp, hp + maxHp * value/100))"]
+        },
+        {
+          "id": "sh_spirit_t2",
+          "name": "Spirit Pact",
+          "tier": 2,
+          "slot": "T2",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "On Soul Harvest cast: minions gain +50% damage and +30% attack speed for 5s.",
+          "modifier": {
+            "rawBehaviors": { "soulHarvestBuffsMinions": { "damagePercent": 50, "attackSpeedPercent": 30, "duration": 5 } }
+          },
+          "engineFields": ["rawBehaviors.soulHarvestBuffsMinions (NEW — staff.ts postCast: set per-minion damage+ASPD buffs with expiry)"]
+        },
+        {
+          "id": "sh_spirit_t2b",
+          "name": "Bound Power",
+          "tier": 2,
+          "slot": "T2b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+15/30% Soul Harvest damage while any minion is alive.",
+          "modifier": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incDamage": 15 } }] },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incDamage": 15 } }] },
+            "2": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incDamage": 30 } }] }
+          },
+          "engineFields": ["conditionalMods.whileMinionsAlive (EXISTS)"]
+        },
+        {
+          "id": "sh_spirit_t3a",
+          "name": "Bound Crit",
+          "tier": 3,
+          "slot": "T3a",
+          "nodeType": "conditional",
+          "maxRank": 2,
+          "description": "+15/30% crit chance while 2+ minions alive.",
+          "modifier": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incCritChance": 15 } }] },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incCritChance": 15 } }] },
+            "2": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incCritChance": 30 } }] }
+          },
+          "engineFields": ["conditionalMods.whileMinionsAlive (EXISTS)"]
+        },
+        {
+          "id": "sh_spirit_t3b",
+          "name": "Soul Spark",
+          "tier": 3,
+          "slot": "T3b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Soul Harvest critical strikes have 50/100% chance to summon a 4s spirit minion.",
+          "modifier": {
+            "procs": [{ "id": "sh_soul_spark", "trigger": "onCrit", "chance": 0.50, "internalCooldown": 4.0, "summonMinion": { "type": "spirit_temp", "duration": 4 } }]
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "sh_soul_spark", "trigger": "onCrit", "chance": 0.50, "internalCooldown": 4.0, "summonMinion": { "type": "spirit_temp", "duration": 4 } }] },
+            "2": { "procs": [{ "id": "sh_soul_spark", "trigger": "onCrit", "chance": 1.0, "internalCooldown": 4.0, "summonMinion": { "type": "spirit_temp", "duration": 4 } }] }
+          },
+          "engineFields": ["procs[onCrit] (EXISTS); summonMinion (NEW)"]
+        },
+        {
+          "id": "sh_spirit_t3c",
+          "name": "Soul Drain",
+          "tier": 3,
+          "slot": "T3c",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Soul Harvest heals you for 5/10% of damage dealt.",
+          "modifier": { "leechPercent": 5 },
+          "perRankModifiers": { "1": { "leechPercent": 5 }, "2": { "leechPercent": 10 } },
+          "engineFields": ["leechPercent (EXISTS)"]
+        },
+        {
+          "id": "sh_spirit_t4",
+          "name": "Vital Harvest",
+          "tier": 4,
+          "slot": "T4",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Each soul_stack consumed (by any skill) heals ALL minions for 5% max HP.",
+          "modifier": { "rawBehaviors": { "soulStackConsumeHealsMinions": 5 } },
+          "engineFields": ["soulStackConsumeHealsMinions (EXISTS in 34 staff fields per handoff)"]
+        },
+        {
+          "id": "sh_spirit_t4b",
+          "name": "Minion Mastery Support",
+          "tier": 4,
+          "slot": "T4b",
+          "nodeType": "support",
+          "maxRank": 2,
+          "description": "+15/30% minion damage.",
+          "modifier": { "minionDamageMult": 15 },
+          "perRankModifiers": { "1": { "minionDamageMult": 15 }, "2": { "minionDamageMult": 30 } },
+          "engineFields": ["minionDamageMult (EXISTS)"]
+        },
+        {
+          "id": "sh_spirit_t5a",
+          "name": "Soul Conduit",
+          "tier": 5,
+          "slot": "T5A",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Each soul_stack you have grants +5% all minion damage and HP. Cost: Soul Harvest direct damage −25%.",
+          "modifier": {
+            "rawBehaviors": { "soulStackBuffsMinionsPercent": 5 },
+            "incDamage": -25
+          },
+          "engineFields": ["rawBehaviors.soulStackBuffsMinionsPercent (NEW — staff.ts summonMinions + minion attack hook: damage and hp *= 1 + soulStackStacks * value/100); incDamage (EXISTS)"]
+        },
+        {
+          "id": "sh_spirit_t5b",
+          "name": "Soul Forge",
+          "tier": 5,
+          "slot": "T5B",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "On Soul Harvest cast that consumes Hexed: also resummon all your minions at full HP. Cost: Soul Harvest CD +3s.",
+          "modifier": {
+            "rawBehaviors": { "soulHarvestHexedConsumeResummonsMinions": true },
+            "cooldownIncrease": 3
+          },
+          "engineFields": ["rawBehaviors.soulHarvestHexedConsumeResummonsMinions (NEW — staff.ts preRoll for staff_soul_harvest when consuming hexed: call summonMinions for zombie_dog + fetish, refreshing); cooldownIncrease (EXISTS)"]
+        },
+        {
+          "id": "sh_spirit_t6",
+          "name": "Soul Bind",
+          "tier": 6,
+          "slot": "T6",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "While 4+ soul_stacks active: minions are immune to damage (cannot lose HP).",
+          "modifier": { "rawBehaviors": { "soulStackMinionInvuln": { "minStacks": 4 } } },
+          "engineFields": ["rawBehaviors.soulStackMinionInvuln (NEW — minions.ts absorbDamage: if soulStackStacks >= minStacks, return 0 damage absorbed, full overkill passes to player)"]
+        },
+        {
+          "id": "sh_spirit_t7",
+          "name": "BLOOD PRIEST",
+          "tier": 7,
+          "slot": "T7",
+          "nodeType": "keystone",
+          "maxRank": 1,
+          "description": "Soul Harvest can target your own minions. Targeting a minion: heals it for 200% of damage dealt and gives all minions Pack Frenzy (+50% damage 4s). Cost: Soul Harvest cannot crit.",
+          "modifier": {
+            "rawBehaviors": { "soulHarvestCanTargetMinions": { "healMultiplier": 2.0, "frenzyDamagePercent": 50, "frenzyDuration": 4 }, "soulHarvestCannotCrit": true }
+          },
+          "engineFields": ["rawBehaviors.soulHarvestCanTargetMinions (NEW — staff.ts preRoll: allow minion as target, heal m.hp by damageDealt * mult, set per-minion damage buff); rawBehaviors.soulHarvestCannotCrit (NEW — tick.ts crit roll: skip)"]
+        }
+      ]
+    },
+    {
+      "branchId": "voodoo_master",
+      "branchName": "Soul Reaper",
+      "theme": "Pure burst. Hex consume goes nuclear, soul stacks empower future Mass Sacrifices.",
+      "nodes": [
+        {
+          "id": "sh_voodoo_t1a",
+          "name": "Soul Focus",
+          "tier": 1,
+          "slot": "T1a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+10/20% Soul Harvest critical strike chance.",
+          "modifier": { "incCritChance": 10 },
+          "perRankModifiers": { "1": { "incCritChance": 10 }, "2": { "incCritChance": 20 } },
+          "engineFields": ["incCritChance (EXISTS)"]
+        },
+        {
+          "id": "sh_voodoo_t1b",
+          "name": "Soul Trigger",
+          "tier": 1,
+          "slot": "T1b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Soul Harvest critical strikes generate +1/2 additional soul_stacks (on top of base 1).",
+          "modifier": { "soulHarvestCritBonusStacks": 1 },
+          "perRankModifiers": { "1": { "soulHarvestCritBonusStacks": 1 }, "2": { "soulHarvestCritBonusStacks": 2 } },
+          "engineFields": ["soulHarvestCritBonusStacks (EXISTS in 34 staff fields)"]
+        },
+        {
+          "id": "sh_voodoo_t2",
+          "name": "Reaper's Edge",
+          "tier": 2,
+          "slot": "T2",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Soul Harvest's hexed-consume bonus becomes 3× damage (up from 2×).",
+          "modifier": { "rawBehaviors": { "soulHarvestHexedConsumeMult": 3.0 } },
+          "engineFields": ["rawBehaviors.soulHarvestHexedConsumeMult (NEW — same as Hex Voodoo T5b 'Burst Master', stacks if both allocated; document multiplicative interaction)"]
+        },
+        {
+          "id": "sh_voodoo_t2b",
+          "name": "Soul Bond",
+          "tier": 2,
+          "slot": "T2b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+5/10% Soul Harvest damage per active soul_stack.",
+          "modifier": { "damagePerSoulStackActive": 5 },
+          "perRankModifiers": { "1": { "damagePerSoulStackActive": 5 }, "2": { "damagePerSoulStackActive": 10 } },
+          "engineFields": ["damagePerSoulStackActive (EXISTS)"]
+        },
+        {
+          "id": "sh_voodoo_t3a",
+          "name": "Hunter's Eye",
+          "tier": 3,
+          "slot": "T3a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Each consecutive Soul Harvest on the same target grants +10/20% crit multiplier (max 5 stacks).",
+          "modifier": {
+            "procs": [{ "id": "sh_hunters_eye", "trigger": "onCast", "chance": 1.0, "conditionParam": { "sameTarget": true, "resetOnTargetSwitch": true }, "applyBuff": { "buffId": "huntersEye", "effect": { "critMultiplierBonus": 10 }, "duration": 8, "stacks": 1, "maxStacks": 5 } }]
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "sh_hunters_eye", "trigger": "onCast", "chance": 1.0, "conditionParam": { "sameTarget": true, "resetOnTargetSwitch": true }, "applyBuff": { "buffId": "huntersEye", "effect": { "critMultiplierBonus": 10 }, "duration": 8, "stacks": 1, "maxStacks": 5 } }] },
+            "2": { "procs": [{ "id": "sh_hunters_eye", "trigger": "onCast", "chance": 1.0, "conditionParam": { "sameTarget": true, "resetOnTargetSwitch": true }, "applyBuff": { "buffId": "huntersEye", "effect": { "critMultiplierBonus": 20 }, "duration": 8, "stacks": 1, "maxStacks": 5 } }] }
+          },
+          "engineFields": ["procs[onCast] (EXISTS); conditionParam.sameTarget+resetOnTargetSwitch (NEW); BUFF_DEFS.huntersEye (NEW — shared with Spirit Barrage Voodoo T3a)"]
+        },
+        {
+          "id": "sh_voodoo_t3b",
+          "name": "Hex Catalyst",
+          "tier": 3,
+          "slot": "T3b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "On Soul Harvest cast: 35/70% chance to instantly cast Hex on target. ICD 5s.",
+          "modifier": {
+            "procs": [{ "id": "sh_hex_catalyst", "trigger": "onCast", "chance": 0.35, "internalCooldown": 5.0, "castSkill": { "skillId": "staff_hex", "damagePercent": 0 } }]
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "sh_hex_catalyst", "trigger": "onCast", "chance": 0.35, "internalCooldown": 5.0, "castSkill": { "skillId": "staff_hex", "damagePercent": 0 } }] },
+            "2": { "procs": [{ "id": "sh_hex_catalyst", "trigger": "onCast", "chance": 0.70, "internalCooldown": 5.0, "castSkill": { "skillId": "staff_hex", "damagePercent": 0 } }] }
+          },
+          "engineFields": ["procs[onCast] (EXISTS); castSkill (NEW)"]
+        },
+        {
+          "id": "sh_voodoo_t3c",
+          "name": "Quickdraw",
+          "tier": 3,
+          "slot": "T3c",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "−15/30% Soul Harvest cooldown.",
+          "modifier": { "cooldownReduction": 15 },
+          "perRankModifiers": { "1": { "cooldownReduction": 15 }, "2": { "cooldownReduction": 30 } },
+          "engineFields": ["cooldownReduction (EXISTS)"]
+        },
+        {
+          "id": "sh_voodoo_t4",
+          "name": "Soul Surge",
+          "tier": 4,
+          "slot": "T4",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "On Soul Harvest cast: gain Soul Surge (+50% damage to your next Mass Sacrifice in 8s).",
+          "modifier": {
+            "procs": [{ "id": "sh_soul_surge", "trigger": "onCast", "chance": 1.0, "applyBuff": { "buffId": "soulSurge", "effect": { "damageMult": 1.50 }, "duration": 8 } }]
+          },
+          "engineFields": ["procs[onCast] (EXISTS); BUFF_DEFS.soulSurge (NEW — consumed by next Mass Sacrifice cast)"]
+        },
+        {
+          "id": "sh_voodoo_t4b",
+          "name": "Burst Mastery",
+          "tier": 4,
+          "slot": "T4b",
+          "nodeType": "support",
+          "maxRank": 2,
+          "description": "+20/40% damage to Heavy-tagged skills.",
+          "modifier": { "incDamage": 20 },
+          "perRankModifiers": { "1": { "incDamage": 20 }, "2": { "incDamage": 40 } },
+          "engineFields": ["incDamage (EXISTS)"]
+        },
+        {
+          "id": "sh_voodoo_t5a",
+          "name": "Final Whisper",
+          "tier": 5,
+          "slot": "T5A",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Soul Harvest deals +100% damage to enemies below 25% HP.",
+          "modifier": { "rawBehaviors": { "soulHarvestExecuteThreshold": { "hpPercent": 25, "damageBonus": 100 } } },
+          "engineFields": ["rawBehaviors.soulHarvestExecuteThreshold (NEW — staff.ts preRoll: if target hpPct < hpPercent, damageMult *= 1 + damageBonus/100)"]
+        },
+        {
+          "id": "sh_voodoo_t5b",
+          "name": "Greater Reservoir",
+          "tier": 5,
+          "slot": "T5B",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Soul stack max cap raised to 10. Each soul_stack now grants +20% Soul Harvest damage. Cost: Soul Harvest direct damage −20%.",
+          "modifier": {
+            "soulStackCapOverride": 10,
+            "soulStackDamagePerStack": 20,
+            "incDamage": -20
+          },
+          "engineFields": ["soulStackCapOverride (EXISTS); soulStackDamagePerStack (EXISTS); incDamage (EXISTS)"]
+        },
+        {
+          "id": "sh_voodoo_t6",
+          "name": "Soul Refund",
+          "tier": 6,
+          "slot": "T6",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "When Soul Harvest kills a target, refund 50% of its cooldown.",
+          "modifier": { "rawBehaviors": { "soulHarvestKillRefundCdPercent": 50 } },
+          "engineFields": ["rawBehaviors.soulHarvestKillRefundCdPercent (NEW — tick.ts death loop: if killer was soul_harvest, set its cooldown timer *= (1 - value/100))"]
+        },
+        {
+          "id": "sh_voodoo_t7",
+          "name": "THE SOUL EATER",
+          "tier": 7,
+          "slot": "T7",
+          "nodeType": "keystone",
+          "maxRank": 1,
+          "description": "Soul Harvest now consumes ALL your soul_stacks on cast: each consumed adds +50% damage. Cost: Soul Harvest no longer creates a soul_stack on cast.",
+          "modifier": {
+            "rawBehaviors": { "soulHarvestConsumesAllStacks": { "perStackPercent": 50 }, "soulHarvestNoCreateStack": true }
+          },
+          "engineFields": ["rawBehaviors.soulHarvestConsumesAllStacks (NEW — staff.ts preRoll: read soul_stack stacks, damageMult *= 1 + stacks * perStackPercent/100, consume comboState); rawBehaviors.soulHarvestNoCreateStack (NEW — staff.ts postCast: skip soul_stack creation when set)"]
+        }
+      ]
+    }
+  ]
+}

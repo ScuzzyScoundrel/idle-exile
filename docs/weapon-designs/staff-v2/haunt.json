@@ -1,0 +1,781 @@
+{
+  "skillId": "staff_haunt",
+  "skillName": "Haunt",
+  "designNotes": {
+    "skillBaseline": "Cold DoT (6s, 0.35 dotDamagePercent), 0.5 SPR cast component, 5s CD, creates Haunted (5s) for Spirit Barrage to consume. Chain-on-death: spirit jumps to next pack enemy with FRESH duration (vs Locust which transfers REMAINING duration).",
+    "auditMandate": "Replace ~50% of behavior slots (T1a/T1b/T2b/T3a/T3b/T3c/T4b = 7 per branch) with procs / rich conditionals / cross-skill effects. Per branch this design hits 3-4 procs/rich-conditionals out of 7 (>= 50%). Notables are all functionally unique within their branch.",
+    "buildIdentities": {
+      "plague_doctor": "Haunt as a DoT carrier — ticks proc additional debuffs and spread to pack. Cold becomes infectious. Cross-skill: feeds Locust Swarm + amplified by Plague of Toads. Sustained AoE pressure, slow ramp.",
+      "spirit_caller": "Haunt as gateway to the spirit world. Chains spawn minions, casts spawn spirits, AoE haunt covers the pack. Cross-skill: feeds minion-driven detonations via Mass Sacrifice + Soul Harvest auto-cast on death. Setup -> snowball.",
+      "voodoo_master": "Haunt as setup tool for Spirit Barrage / Soul Harvest burst. Crits feed soul_stacks, synergy with Hex, predator stacking on consecutive same-target casts. Spiky single-target feeder."
+    },
+    "crossSkillTouchpoints": [
+      "Plague T2: haunt tick spreads haunted to adjacent enemies (proc).",
+      "Plague T4: haunt tick has 5% chance to cast Locust Swarm at 50% damage (proc, ICD 5s).",
+      "Plague T5B: enemies hit by Plague of Toads get fresh-snapshot Haunt reapplied.",
+      "Spirit T7: Haunted enemy dying auto-casts Soul Harvest at 100% damage.",
+      "Voodoo T1b: haunt tick on Hexed target chance to gen soul_stack.",
+      "Voodoo T2: haunt crit spawns soul_stack.",
+      "Voodoo T3b: haunt crit instant-casts Hex on target (proc, ICD 6s).",
+      "Voodoo T6: haunt cast buffs next Spirit Barrage within 3s for +50% damage."
+    ],
+    "behaviorSlotAudit": {
+      "plague_doctor": "T1a=raw +dotMult, T1b=PROC frost-bite chilled, T2b=RICH compounding-tick, T3a=existing perDebuff, T3b=PROC crit-bleeding, T3c=raw +pen, T4b=raw +DoT support => 3 procs/rich of 7",
+      "spirit_caller": "T1a=raw +dmg, T1b=PROC cast-spawns-spirit, T2b=RICH whileMinionsAlive, T3a=PROC echoing-death buff, T3b=RICH perHauntedEnemyInPack, T3c=raw +duration, T4b=raw +minion dmg => 3 procs + 2 rich of 7",
+      "voodoo_master": "T1a=raw +crit, T1b=PROC tick-spawns-stack, T2b=RICH whileHexed, T3a=RICH perSoulStack (existing engine field), T3b=PROC crit-casts-hex, T3c=raw -CD, T4b=raw +heavy => 2 procs + 2 rich of 7"
+    },
+    "openQuestionsForReview": [
+      "Q1: Best engine surface for proc-triggered skill cast? Options: (a) new SkillProcEffect.castSkill field with {skillId, damagePercent}, (b) rawBehaviors object handled in staff.ts. Mass Sacrifice doesn't have this pattern yet — Haunt T4 (Pestilence Carrier) and Voodoo T3b (Hex Catalyst) both need it. Recommend (a) as a first-class field; would also unblock similar designs across all weapons.",
+      "Q2: Best engine surface for proc that spawns combo state (vs buff)? Soulshatter (Voodoo T2) spawns soul_stack. Currently SkillProcEffect.applyBuff exists but soul_stack is a comboState. Options: (a) new createComboState proc effect field, (b) rawBehaviors handler in staff.ts that listens to onCrit and calls createComboState. Recommend (a) for clarity + reuse.",
+      "Q3: Best engine surface for proc that spawns minion? Spirit's Touch (Spirit T1b) spawns 3s spirit on Haunt cast. Reuse SUMMON_CONFIGS pattern or add summonMinion proc effect? Recommend a new SUMMON_CONFIG entry 'spirit_temp' (3s, 25% spell power, 1.5s interval) + summonMinion proc effect.",
+      "Q4: applyDebuff.target='adjacent' (Plague T2 Plague Spreader): need to add target selection to applyDebuff or handle entirely via rawBehaviors? Recommend rawBehaviors for now since target-selection logic is non-trivial; first-class support can come later.",
+      "Q5: Two of Plague's nodes lean on bleeding (T3b Festering Wounds proc). Bleed currently is a stack-based DoT — verify the auto-ailment surface accepts crit-triggered bleed application from a non-physical skill. Likely yes since bleeding is a debuff in DEBUFF_META; proc.applyDebuff bypasses the elemental routing.",
+      "Q6: T7 DREADBINDER (Voodoo) — does removing the DoT but doing all the damage upfront require a new code path, or can it reuse existing burst-on-cast logic? Probably needs rawBehaviors.hauntInstantBurst that staff.ts preRoll converts to direct damage and skips DoT application."
+    ]
+  },
+  "branches": [
+    {
+      "branchId": "plague_doctor",
+      "branchName": "Plague of Souls",
+      "theme": "Haunt is a contagion. Ticks become a stacking, spreading vector for every other DoT in your kit.",
+      "nodes": [
+        {
+          "id": "ht_plague_t1a",
+          "name": "Fresh Snapshot",
+          "tier": 1,
+          "slot": "T1a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "First 2 ticks of Haunt deal +20/40% damage (rewards re-applying Haunt before it expires).",
+          "modifier": { "hauntSnapshotBonus": 20 },
+          "perRankModifiers": { "1": { "hauntSnapshotBonus": 20 }, "2": { "hauntSnapshotBonus": 40 } },
+          "engineFields": ["hauntSnapshotBonus (NEW — numeric; tick.ts auto-ailment block multiplies first 2 ticks of Haunted by 1 + value/100, tracked via per-debuff tickCount)"]
+        },
+        {
+          "id": "ht_plague_t1b",
+          "name": "Frost Bite",
+          "tier": 1,
+          "slot": "T1b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Haunt ticks have 20/40% chance to apply Chilled (1s).",
+          "modifier": {
+            "procs": [
+              { "id": "ht_frost_bite", "trigger": "onAilmentTick", "chance": 0.20, "applyDebuff": { "debuffId": "chilled", "duration": 1 } }
+            ]
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "ht_frost_bite", "trigger": "onAilmentTick", "chance": 0.20, "applyDebuff": { "debuffId": "chilled", "duration": 1 } }] },
+            "2": { "procs": [{ "id": "ht_frost_bite", "trigger": "onAilmentTick", "chance": 0.40, "applyDebuff": { "debuffId": "chilled", "duration": 1 } }] }
+          },
+          "engineFields": ["procs[onAilmentTick] (EXISTS); applyDebuff.chilled (EXISTS as DEBUFF_META entry)"]
+        },
+        {
+          "id": "ht_plague_t2",
+          "name": "Plague Spreader",
+          "tier": 2,
+          "slot": "T2",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Haunt ticks have 8% chance to apply Haunted to a random adjacent pack enemy at 50% snapshot for 6s.",
+          "modifier": {
+            "procs": [
+              { "id": "ht_plague_spreader", "trigger": "onAilmentTick", "chance": 0.08, "internalCooldown": 1.0, "rawEffect": "spreadHauntAdjacent" }
+            ],
+            "rawBehaviors": {
+              "spreadHauntAdjacent": { "snapshotPercent": 50, "duration": 6, "targetMode": "adjacentRandom" }
+            }
+          },
+          "engineFields": [
+            "procs[onAilmentTick] (EXISTS)",
+            "rawBehaviors.spreadHauntAdjacent (NEW — read in staff.ts onAilmentTick proc handler; selects random non-haunted pack member, applies haunted with snapshot * percent/100, fresh duration)"
+          ]
+        },
+        {
+          "id": "ht_plague_t2b",
+          "name": "Compounding Cold",
+          "tier": 2,
+          "slot": "T2b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Each consecutive Haunt tick on the same target adds +2/4% damage to subsequent ticks (caps at +50%, resets on chain or target switch).",
+          "modifier": {
+            "rawBehaviors": {
+              "compoundingTick": { "perTickPercent": 2, "maxPercent": 50, "resetOnChain": true }
+            }
+          },
+          "perRankModifiers": {
+            "1": { "rawBehaviors": { "compoundingTick": { "perTickPercent": 2, "maxPercent": 50, "resetOnChain": true } } },
+            "2": { "rawBehaviors": { "compoundingTick": { "perTickPercent": 4, "maxPercent": 50, "resetOnChain": true } } }
+          },
+          "engineFields": [
+            "rawBehaviors.compoundingTick (NEW — read in tick.ts auto-ailment block: per-target counter on activeDebuff increments each tick, multiplies tick damage by 1 + min(maxPercent, counter * perTickPercent)/100, reset on chain-on-death and target switch)"
+          ]
+        },
+        {
+          "id": "ht_plague_t3a",
+          "name": "Disease Carrier",
+          "tier": 3,
+          "slot": "T3a",
+          "nodeType": "conditional",
+          "maxRank": 2,
+          "description": "+5/10% damage per debuff on target.",
+          "modifier": {
+            "conditionalMods": [
+              { "condition": "perAilmentStackOnTarget", "modifier": { "incDamage": 5 } }
+            ]
+          },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "perAilmentStackOnTarget", "modifier": { "incDamage": 5 } }] },
+            "2": { "conditionalMods": [{ "condition": "perAilmentStackOnTarget", "modifier": { "incDamage": 10 } }] }
+          },
+          "engineFields": ["conditionalMods.perAilmentStackOnTarget (EXISTS)"]
+        },
+        {
+          "id": "ht_plague_t3b",
+          "name": "Festering Wounds",
+          "tier": 3,
+          "slot": "T3b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Haunt crits apply 1/2 stacks of Bleeding (3s).",
+          "modifier": {
+            "procs": [
+              { "id": "ht_festering", "trigger": "onCrit", "chance": 1.0, "applyDebuff": { "debuffId": "bleeding", "duration": 3, "stacks": 1 } }
+            ]
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "ht_festering", "trigger": "onCrit", "chance": 1.0, "applyDebuff": { "debuffId": "bleeding", "duration": 3, "stacks": 1 } }] },
+            "2": { "procs": [{ "id": "ht_festering", "trigger": "onCrit", "chance": 1.0, "applyDebuff": { "debuffId": "bleeding", "duration": 3, "stacks": 2 } }] }
+          },
+          "engineFields": ["procs[onCrit] (EXISTS); applyDebuff.bleeding (EXISTS in DEBUFF_META)"]
+        },
+        {
+          "id": "ht_plague_t3c",
+          "name": "Spectral Mastery",
+          "tier": 3,
+          "slot": "T3c",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+10/20% cold and chaos penetration.",
+          "modifier": { "coldPenetration": 10, "chaosPenetration": 10 },
+          "perRankModifiers": {
+            "1": { "coldPenetration": 10, "chaosPenetration": 10 },
+            "2": { "coldPenetration": 20, "chaosPenetration": 20 }
+          },
+          "engineFields": ["coldPenetration (EXISTS); chaosPenetration (EXISTS)"]
+        },
+        {
+          "id": "ht_plague_t4",
+          "name": "Pestilence Carrier",
+          "tier": 4,
+          "slot": "T4",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Haunt ticks have 5% chance to cast Locust Swarm at 50% damage on the haunted target. Internal cooldown 5s.",
+          "modifier": {
+            "procs": [
+              { "id": "ht_pestilence", "trigger": "onAilmentTick", "chance": 0.05, "internalCooldown": 5.0, "castSkill": { "skillId": "staff_locust_swarm", "damagePercent": 50 } }
+            ]
+          },
+          "engineFields": [
+            "procs[onAilmentTick] (EXISTS)",
+            "SkillProcEffect.castSkill (NEW — { skillId: string; damagePercent?: number }. Recommend first-class field added to src/types/skills.ts SkillProcEffect; tick.ts proc loop handles it by enqueuing a synthetic skill cast at damagePercent scaling)"
+          ]
+        },
+        {
+          "id": "ht_plague_t4b",
+          "name": "DoT Support",
+          "tier": 4,
+          "slot": "T4b",
+          "nodeType": "support",
+          "maxRank": 2,
+          "description": "+15/30% damage to DoT-tagged skills.",
+          "modifier": { "incDamage": 15 },
+          "perRankModifiers": { "1": { "incDamage": 15 }, "2": { "incDamage": 30 } },
+          "engineFields": ["incDamage (EXISTS)"]
+        },
+        {
+          "id": "ht_plague_t5a",
+          "name": "Soulrot",
+          "tier": 5,
+          "slot": "T5A",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Haunt's DoT damage is doubled, but it no longer chains to a new target on death.",
+          "modifier": {
+            "dotMultiplier": 100,
+            "rawBehaviors": { "disableChainOnDeath": true }
+          },
+          "engineFields": [
+            "dotMultiplier (EXISTS, additive +100)",
+            "rawBehaviors.disableChainOnDeath (NEW — read in combo.ts CARRIER_DEATH_BEHAVIOR for staff_haunt; if flag set, skip chain transfer)"
+          ]
+        },
+        {
+          "id": "ht_plague_t5b",
+          "name": "Carrier Pact",
+          "tier": 5,
+          "slot": "T5B",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "When Plague of Toads hits a Haunted enemy, refresh Haunt to full duration with a fresh full-snapshot of caster's current stats. Cost: −15% Haunt damage.",
+          "modifier": {
+            "rawBehaviors": { "toadsRefreshHaunt": true },
+            "incDamage": -15
+          },
+          "engineFields": [
+            "rawBehaviors.toadsRefreshHaunt (NEW — read in staff.ts postCast for staff_plague_of_toads; for each enemy hit that has Haunted, re-apply Haunted with current snapshot + full duration)",
+            "incDamage (EXISTS, negative)"
+          ]
+        },
+        {
+          "id": "ht_plague_t6",
+          "name": "Final Bloom",
+          "tier": 6,
+          "slot": "T6",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "When Haunt expires naturally (not from chain), it explodes for 200% of remaining tick damage as cold AoE.",
+          "modifier": {
+            "rawBehaviors": { "hauntFinalBloomPercent": 200 }
+          },
+          "engineFields": [
+            "rawBehaviors.hauntFinalBloomPercent (NEW — read in tick.ts debuff-expiry block for staff_haunt; if non-zero AND expiry was natural (not chain), emit AoE damage event = snapshot * percent/100 to all pack members in radius)"
+          ]
+        },
+        {
+          "id": "ht_plague_t7",
+          "name": "ETERNAL HAUNTING",
+          "tier": 7,
+          "slot": "T7",
+          "nodeType": "keystone",
+          "maxRank": 1,
+          "description": "Haunt has unlimited duration on up to 3 enemies simultaneously. New casts replace the oldest Haunt. Cost: −30% Haunt tick damage.",
+          "modifier": {
+            "rawBehaviors": { "eternalHaunt": { "maxTargets": 3 } },
+            "dotMultiplier": -30
+          },
+          "engineFields": [
+            "rawBehaviors.eternalHaunt (NEW — read in staff.ts postCast for staff_haunt; sets remainingDuration = +Infinity sentinel, tracks LRU set per skill, evicts oldest when count exceeds maxTargets)",
+            "dotMultiplier (EXISTS, negative)"
+          ]
+        }
+      ]
+    },
+    {
+      "branchId": "spirit_caller",
+      "branchName": "Vengeful Spectres",
+      "theme": "Haunt is the bridge between worlds. Each cast and chain manifests a spirit; the dead fight beside you.",
+      "nodes": [
+        {
+          "id": "ht_spirit_t1a",
+          "name": "Soul Channel",
+          "tier": 1,
+          "slot": "T1a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+15/30% damage to Haunt.",
+          "modifier": { "incDamage": 15 },
+          "perRankModifiers": { "1": { "incDamage": 15 }, "2": { "incDamage": 30 } },
+          "engineFields": ["incDamage (EXISTS)"]
+        },
+        {
+          "id": "ht_spirit_t1b",
+          "name": "Spirit's Touch",
+          "tier": 1,
+          "slot": "T1b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "On Haunt cast: summon 1 temporary spirit minion that attacks for 3/5 seconds.",
+          "modifier": {
+            "procs": [
+              { "id": "ht_spirits_touch", "trigger": "onCast", "chance": 1.0, "summonMinion": { "type": "spirit_temp", "duration": 3 } }
+            ]
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "ht_spirits_touch", "trigger": "onCast", "chance": 1.0, "summonMinion": { "type": "spirit_temp", "duration": 3 } }] },
+            "2": { "procs": [{ "id": "ht_spirits_touch", "trigger": "onCast", "chance": 1.0, "summonMinion": { "type": "spirit_temp", "duration": 5 } }] }
+          },
+          "engineFields": [
+            "procs[onCast] (EXISTS)",
+            "SkillProcEffect.summonMinion (NEW — { type: string; duration: number; countOverride?: number }. Handler: tick.ts proc loop calls minions.summonMinions(state, type, count=1, duration override))",
+            "minions.SUMMON_CONFIGS['spirit_temp'] (NEW — count=1, hp=10% player max, attack=0.25 SPR, interval=1.5s, element='cold')"
+          ]
+        },
+        {
+          "id": "ht_spirit_t2",
+          "name": "Phantasmal Echo",
+          "tier": 2,
+          "slot": "T2",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "When Haunt chains to a new target on carrier death, also spawn a 3s spirit minion at the new target.",
+          "modifier": { "hauntKillSpawnsMinion": true },
+          "engineFields": [
+            "hauntKillSpawnsMinion (EXISTS in ResolvedSkillModifier — RUNTIME-PENDING per handoff; needs hook in tick.ts death loop where Haunt chain transfer happens)"
+          ]
+        },
+        {
+          "id": "ht_spirit_t2b",
+          "name": "Bound Power",
+          "tier": 2,
+          "slot": "T2b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+10/20% Haunt damage while any minion is alive.",
+          "modifier": {
+            "conditionalMods": [
+              { "condition": "whileMinionsAlive", "modifier": { "incDamage": 10 } }
+            ]
+          },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incDamage": 10 } }] },
+            "2": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incDamage": 20 } }] }
+          },
+          "engineFields": ["conditionalMods.whileMinionsAlive (EXISTS, added with mass_sacrifice.json)"]
+        },
+        {
+          "id": "ht_spirit_t3a",
+          "name": "Echoing Death",
+          "tier": 3,
+          "slot": "T3a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "On Haunted enemy death: gain Spirit Resonance (+5/10% cast speed for 4s, stacks up to 5).",
+          "modifier": {
+            "procs": [
+              { "id": "ht_echoing_death", "trigger": "onKill", "chance": 1.0, "conditionParam": { "targetHadDebuff": "haunted" }, "applyBuff": { "buffId": "spiritResonance", "effect": { "castSpeedMult": 1.05 }, "duration": 4, "stacks": 1, "maxStacks": 5 } }
+            ]
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "ht_echoing_death", "trigger": "onKill", "chance": 1.0, "conditionParam": { "targetHadDebuff": "haunted" }, "applyBuff": { "buffId": "spiritResonance", "effect": { "castSpeedMult": 1.05 }, "duration": 4, "stacks": 1, "maxStacks": 5 } }] },
+            "2": { "procs": [{ "id": "ht_echoing_death", "trigger": "onKill", "chance": 1.0, "conditionParam": { "targetHadDebuff": "haunted" }, "applyBuff": { "buffId": "spiritResonance", "effect": { "castSpeedMult": 1.10 }, "duration": 4, "stacks": 1, "maxStacks": 5 } }] }
+          },
+          "engineFields": [
+            "procs[onKill] (EXISTS)",
+            "conditionParam.targetHadDebuff (NEW — checkConditionParam case: ProcContext.killedTargetDebuffIds includes the named debuff at moment of death; need to thread killedTargetDebuffIds into ProcContext from death loop)",
+            "BUFF_DEFS.spiritResonance (NEW — UI buff entry, castSpeedMult bonus)"
+          ]
+        },
+        {
+          "id": "ht_spirit_t3b",
+          "name": "Haunted Pack",
+          "tier": 3,
+          "slot": "T3b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+3/6% Haunt damage per Haunted enemy currently in the pack (caps at 5).",
+          "modifier": {
+            "rawBehaviors": {
+              "damagePerHauntedEnemyInPack": { "perEnemy": 3, "max": 5 }
+            }
+          },
+          "perRankModifiers": {
+            "1": { "rawBehaviors": { "damagePerHauntedEnemyInPack": { "perEnemy": 3, "max": 5 } } },
+            "2": { "rawBehaviors": { "damagePerHauntedEnemyInPack": { "perEnemy": 6, "max": 5 } } }
+          },
+          "engineFields": [
+            "rawBehaviors.damagePerHauntedEnemyInPack (NEW — read in staff.ts preRoll for staff_haunt; counts pack members with Haunted, multiplies damageMult by 1 + min(max, count) * perEnemy/100)"
+          ]
+        },
+        {
+          "id": "ht_spirit_t3c",
+          "name": "Persistent Spectre",
+          "tier": 3,
+          "slot": "T3c",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+20/40% Haunt duration.",
+          "modifier": { "ailmentDuration": 20 },
+          "perRankModifiers": { "1": { "ailmentDuration": 20 }, "2": { "ailmentDuration": 40 } },
+          "engineFields": ["ailmentDuration (EXISTS)"]
+        },
+        {
+          "id": "ht_spirit_t4",
+          "name": "Spectral Storm",
+          "tier": 4,
+          "slot": "T4",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Haunt now applies to ALL enemies in the pack on cast (snapshot uses caster's current stats).",
+          "modifier": { "hauntIsAoe": true },
+          "engineFields": [
+            "hauntIsAoe (EXISTS in ResolvedSkillModifier — RUNTIME-PENDING per handoff; needs tick.ts onCast hook for staff_haunt to apply Haunted to every pack enemy with same snapshot when flag set)"
+          ]
+        },
+        {
+          "id": "ht_spirit_t4b",
+          "name": "Minion Mastery Support",
+          "tier": 4,
+          "slot": "T4b",
+          "nodeType": "support",
+          "maxRank": 2,
+          "description": "+15/30% minion damage.",
+          "modifier": { "minionDamageMult": 15 },
+          "perRankModifiers": { "1": { "minionDamageMult": 15 }, "2": { "minionDamageMult": 30 } },
+          "engineFields": ["minionDamageMult (EXISTS, added with mass_sacrifice.json)"]
+        },
+        {
+          "id": "ht_spirit_t5a",
+          "name": "Chain Lord",
+          "tier": 5,
+          "slot": "T5A",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Haunt's chain-on-death now compounds: each chain after the first deals +25% damage. Chain limit +2.",
+          "modifier": {
+            "hauntChainDamageCompound": true,
+            "chainCount": 2
+          },
+          "engineFields": [
+            "hauntChainDamageCompound (EXISTS in ResolvedSkillModifier — RUNTIME-PENDING per handoff; needs per-chain damage tracking in CARRIER_DEATH_BEHAVIOR transfer logic)",
+            "chainCount (EXISTS)"
+          ]
+        },
+        {
+          "id": "ht_spirit_t5b",
+          "name": "Spirit Conduit",
+          "tier": 5,
+          "slot": "T5B",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Each living minion adds +20% Haunt tick damage. Cost: minions take 50% of Haunt's tick damage as self-damage.",
+          "modifier": {
+            "rawBehaviors": {
+              "spiritConduit": { "damagePerMinionPercent": 20, "minionSelfDamagePercent": 50 }
+            }
+          },
+          "engineFields": [
+            "rawBehaviors.spiritConduit (NEW — read in tick.ts auto-ailment block for staff_haunt; multiplies tick damage by 1 + minionCount * damagePerMinionPercent/100; subtracts (tickDamage * minionSelfDamagePercent/100) from each living minion's HP)"
+          ]
+        },
+        {
+          "id": "ht_spirit_t6",
+          "name": "Soul Tether",
+          "tier": 6,
+          "slot": "T6",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "While Haunted enemies live, you heal 1% max HP per second per Haunted enemy (caps at 5%).",
+          "modifier": {
+            "rawBehaviors": {
+              "soulTether": { "healPercentPerSecond": 1, "maxStacks": 5 }
+            }
+          },
+          "engineFields": [
+            "rawBehaviors.soulTether (NEW — read in tick.ts maintenance block; once-per-second tick, heal player.hp += player.maxHp * min(maxStacks, hauntedEnemyCount) * healPercentPerSecond/100)"
+          ]
+        },
+        {
+          "id": "ht_spirit_t7",
+          "name": "DEATH'S HARVEST",
+          "tier": 7,
+          "slot": "T7",
+          "nodeType": "keystone",
+          "maxRank": 1,
+          "description": "When a Haunted enemy dies, automatically cast Soul Harvest at 100% damage on a remaining target (no cooldown, no GCD). Cost: Haunt cooldown +3s.",
+          "modifier": {
+            "rawBehaviors": {
+              "hauntDeathTriggersSoulHarvest": true
+            },
+            "cooldownIncrease": 3
+          },
+          "engineFields": [
+            "rawBehaviors.hauntDeathTriggersSoulHarvest (NEW — read in tick.ts death loop; if killed enemy had Haunted AND flag set AND remaining pack alive, enqueue auto-cast of staff_soul_harvest at 100% damage targeting random alive pack member)",
+            "cooldownIncrease (EXISTS)"
+          ]
+        }
+      ]
+    },
+    {
+      "branchId": "voodoo_master",
+      "branchName": "Bound Spirit",
+      "theme": "Haunt is the perfect setup. Crit it, stack it, then unleash through Spirit Barrage and Soul Harvest.",
+      "nodes": [
+        {
+          "id": "ht_voodoo_t1a",
+          "name": "Phantom Edge",
+          "tier": 1,
+          "slot": "T1a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+10/20% critical strike chance on Haunt.",
+          "modifier": { "incCritChance": 10 },
+          "perRankModifiers": { "1": { "incCritChance": 10 }, "2": { "incCritChance": 20 } },
+          "engineFields": ["incCritChance (EXISTS)"]
+        },
+        {
+          "id": "ht_voodoo_t1b",
+          "name": "Cursed Tick",
+          "tier": 1,
+          "slot": "T1b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Haunt ticks on Hexed targets have 15/30% chance to generate 1 soul_stack.",
+          "modifier": {
+            "procs": [
+              { "id": "ht_cursed_tick", "trigger": "onAilmentTick", "chance": 0.15, "conditionParam": { "targetHasDebuff": "hexed" }, "internalCooldown": 1.0, "createComboState": { "stateId": "soul_stack", "stacks": 1 } }
+            ]
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "ht_cursed_tick", "trigger": "onAilmentTick", "chance": 0.15, "conditionParam": { "targetHasDebuff": "hexed" }, "internalCooldown": 1.0, "createComboState": { "stateId": "soul_stack", "stacks": 1 } }] },
+            "2": { "procs": [{ "id": "ht_cursed_tick", "trigger": "onAilmentTick", "chance": 0.30, "conditionParam": { "targetHasDebuff": "hexed" }, "internalCooldown": 1.0, "createComboState": { "stateId": "soul_stack", "stacks": 1 } }] }
+          },
+          "engineFields": [
+            "procs[onAilmentTick] (EXISTS)",
+            "conditionParam.targetHasDebuff (NEW — checkConditionParam case: ProcContext.targetDebuffIds.includes(value); thread from auto-ailment caller)",
+            "SkillProcEffect.createComboState (NEW — { stateId: ComboStateId; stacks?: number; durationOverride?: number }. Handler: tick.ts proc loop calls combo.ts createComboState with provided stateId/stacks)"
+          ]
+        },
+        {
+          "id": "ht_voodoo_t2",
+          "name": "Soulshatter",
+          "tier": 2,
+          "slot": "T2",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Haunt critical strikes generate 1 soul_stack (max 5). Internal cooldown 1s.",
+          "modifier": {
+            "procs": [
+              { "id": "ht_soulshatter", "trigger": "onCrit", "chance": 1.0, "internalCooldown": 1.0, "createComboState": { "stateId": "soul_stack", "stacks": 1 } }
+            ]
+          },
+          "engineFields": [
+            "procs[onCrit] (EXISTS)",
+            "createComboState (NEW — same field as Cursed Tick)"
+          ]
+        },
+        {
+          "id": "ht_voodoo_t2b",
+          "name": "Hex Bond",
+          "tier": 2,
+          "slot": "T2b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+20/40% Haunt damage when target is Hexed.",
+          "modifier": {
+            "conditionalMods": [
+              { "condition": "whileDebuffActive", "debuffId": "hexed", "modifier": { "incDamage": 20 } }
+            ]
+          },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "whileDebuffActive", "debuffId": "hexed", "modifier": { "incDamage": 20 } }] },
+            "2": { "conditionalMods": [{ "condition": "whileDebuffActive", "debuffId": "hexed", "modifier": { "incDamage": 40 } }] }
+          },
+          "engineFields": ["conditionalMods.whileDebuffActive (EXISTS); requires debuffId='hexed' to evaluate against target's debuffs"]
+        },
+        {
+          "id": "ht_voodoo_t3a",
+          "name": "Stack Synergy",
+          "tier": 3,
+          "slot": "T3a",
+          "nodeType": "conditional",
+          "maxRank": 2,
+          "description": "+5/10% Haunt damage per active soul_stack.",
+          "modifier": { "damagePerSoulStackActive": 5 },
+          "perRankModifiers": { "1": { "damagePerSoulStackActive": 5 }, "2": { "damagePerSoulStackActive": 10 } },
+          "engineFields": ["damagePerSoulStackActive (EXISTS in ResolvedSkillModifier; needs verification it's wired in staff.ts preRoll → damageMult)"]
+        },
+        {
+          "id": "ht_voodoo_t3b",
+          "name": "Hex Catalyst",
+          "tier": 3,
+          "slot": "T3b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Haunt critical strikes have 25/50% chance to instantly cast Hex on the target. Internal cooldown 6s.",
+          "modifier": {
+            "procs": [
+              { "id": "ht_hex_catalyst", "trigger": "onCrit", "chance": 0.25, "internalCooldown": 6.0, "castSkill": { "skillId": "staff_hex", "damagePercent": 100 } }
+            ]
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "ht_hex_catalyst", "trigger": "onCrit", "chance": 0.25, "internalCooldown": 6.0, "castSkill": { "skillId": "staff_hex", "damagePercent": 100 } }] },
+            "2": { "procs": [{ "id": "ht_hex_catalyst", "trigger": "onCrit", "chance": 0.50, "internalCooldown": 6.0, "castSkill": { "skillId": "staff_hex", "damagePercent": 100 } }] }
+          },
+          "engineFields": [
+            "procs[onCrit] (EXISTS)",
+            "castSkill (NEW — same field as Pestilence Carrier)"
+          ]
+        },
+        {
+          "id": "ht_voodoo_t3c",
+          "name": "Spectral Velocity",
+          "tier": 3,
+          "slot": "T3c",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "−10/20% Haunt cooldown.",
+          "modifier": { "cooldownReduction": 10 },
+          "perRankModifiers": { "1": { "cooldownReduction": 10 }, "2": { "cooldownReduction": 20 } },
+          "engineFields": ["cooldownReduction (EXISTS)"]
+        },
+        {
+          "id": "ht_voodoo_t4",
+          "name": "Predator's Mark",
+          "tier": 4,
+          "slot": "T4",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Each consecutive Haunt cast on the same target grants +5% crit chance for 8s (stacks up to 5, resets on target switch).",
+          "modifier": {
+            "procs": [
+              { "id": "ht_predators_mark", "trigger": "onCast", "chance": 1.0, "conditionParam": { "sameTarget": true, "resetOnTargetSwitch": true }, "applyBuff": { "buffId": "predatorsMark", "effect": { "critChanceBonus": 5 }, "duration": 8, "stacks": 1, "maxStacks": 5 } }
+            ]
+          },
+          "engineFields": [
+            "procs[onCast] (EXISTS)",
+            "conditionParam.sameTarget (EXISTS — Blade Sense uses it)",
+            "conditionParam.resetOnTargetSwitch (NEW — clears existing buff stacks when target changes; thread via ProcContext.lastTargetId)",
+            "BUFF_DEFS.predatorsMark (NEW — UI buff entry)"
+          ]
+        },
+        {
+          "id": "ht_voodoo_t4b",
+          "name": "Burst Mastery",
+          "tier": 4,
+          "slot": "T4b",
+          "nodeType": "support",
+          "maxRank": 2,
+          "description": "+20/40% damage to Heavy-tagged skills.",
+          "modifier": { "incDamage": 20 },
+          "perRankModifiers": { "1": { "incDamage": 20 }, "2": { "incDamage": 40 } },
+          "engineFields": ["incDamage (EXISTS)"]
+        },
+        {
+          "id": "ht_voodoo_t5a",
+          "name": "Final Whisper",
+          "tier": 5,
+          "slot": "T5A",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Haunted enemies below 25% HP take +100% damage from all of your skills.",
+          "modifier": { "hauntedExecuteThreshold": 25 },
+          "engineFields": [
+            "hauntedExecuteThreshold (EXISTS in ResolvedSkillModifier — RUNTIME-PENDING per handoff; needs target-HP gate in death loop / tick.ts damage application: if target.hasDebuff('haunted') && hpPct < threshold, multiply incoming damage * 2)"
+          ]
+        },
+        {
+          "id": "ht_voodoo_t5b",
+          "name": "Soul Trap",
+          "tier": 5,
+          "slot": "T5B",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "When a Haunted enemy dies, generate 1 soul_stack. Cost: Haunt cooldown +1s.",
+          "modifier": {
+            "rawBehaviors": { "hauntedDeathSpawnsSoulStack": true },
+            "cooldownIncrease": 1
+          },
+          "engineFields": [
+            "rawBehaviors.hauntedDeathSpawnsSoulStack (NEW — read in tick.ts death loop; if killed enemy had Haunted AND flag set, call combo.ts createComboState('soul_stack', 1))",
+            "cooldownIncrease (EXISTS)"
+          ]
+        },
+        {
+          "id": "ht_voodoo_t6",
+          "name": "Ghostly Finale",
+          "tier": 6,
+          "slot": "T6",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "After casting Haunt, your next Spirit Barrage cast within 3 seconds deals +50% damage.",
+          "modifier": {
+            "procs": [
+              { "id": "ht_ghostly_finale", "trigger": "onCast", "chance": 1.0, "applyBuff": { "buffId": "ghostlyFinale", "effect": { "damageMult": 1.5 }, "duration": 3 } }
+            ]
+          },
+          "engineFields": [
+            "procs[onCast] (EXISTS)",
+            "BUFF_DEFS.ghostlyFinale (NEW — UI buff entry)",
+            "Buff consumption: needs staff.ts preRoll on staff_spirit_barrage to consume ghostlyFinale buff for +50% damageMult and clear it; alternative is generic 'consume on next cast of skill X' field in BuffEffect"
+          ]
+        },
+        {
+          "id": "ht_voodoo_t7",
+          "name": "DREADBINDER",
+          "tier": 7,
+          "slot": "T7",
+          "nodeType": "keystone",
+          "maxRank": 1,
+          "description": "Haunt no longer deals damage over time. Instead, it deals all 6s of damage instantly as cold burst and applies Hexed (5s). Cost: Haunt cooldown +3s.",
+          "modifier": {
+            "rawBehaviors": {
+              "hauntInstantBurst": true,
+              "hauntApplyHexedOnCast": true
+            },
+            "cooldownIncrease": 3
+          },
+          "engineFields": [
+            "rawBehaviors.hauntInstantBurst (NEW — read in staff.ts preRoll for staff_haunt; if true, multiply cast damage by (dotDuration/STANDARD_DOT_RATE * dotDamagePercent), skip Haunted DoT debuff application, still create haunted comboState for Spirit Barrage consumption)",
+            "rawBehaviors.hauntApplyHexedOnCast (NEW — read in staff.ts postCast for staff_haunt; create hexed comboState + hexed debuff on target)",
+            "cooldownIncrease (EXISTS)"
+          ]
+        }
+      ]
+    }
+  ],
+  "newEngineFieldsSummary": {
+    "firstClassProcEffects": [
+      "SkillProcEffect.castSkill: { skillId: string; damagePercent?: number }  — for Pestilence Carrier (Plague T4), Hex Catalyst (Voodoo T3b)",
+      "SkillProcEffect.summonMinion: { type: string; duration: number; countOverride?: number } — for Spirit's Touch (Spirit T1b)",
+      "SkillProcEffect.createComboState: { stateId: ComboStateId; stacks?: number; durationOverride?: number } — for Cursed Tick (Voodoo T1b), Soulshatter (Voodoo T2)"
+    ],
+    "newConditionParams": [
+      "targetHasDebuff: string  — current debuffs on target at trigger time",
+      "targetHadDebuff: string  — debuffs target had at moment of death (for onKill)",
+      "resetOnTargetSwitch: boolean — clears existing buff stacks when target changes"
+    ],
+    "newSummonConfig": [
+      "minions.SUMMON_CONFIGS['spirit_temp'] — { count:1, hpPercent:10, damagePercent:25 of SPR, attackInterval:1.5, element:'cold', durationDefault:3 }"
+    ],
+    "newBuffDefs": [
+      "spiritResonance — castSpeedMult bonus, stacks 5 (Spirit T3a)",
+      "predatorsMark — critChanceBonus, stacks 5 (Voodoo T4)",
+      "ghostlyFinale — damageMult 1.5 consumed on next Spirit Barrage cast (Voodoo T6)"
+    ],
+    "newRawBehaviorsObjects": [
+      "spreadHauntAdjacent — { snapshotPercent, duration, targetMode } (Plague T2)",
+      "compoundingTick — { perTickPercent, maxPercent, resetOnChain } (Plague T2b)",
+      "disableChainOnDeath — boolean (Plague T5A)",
+      "toadsRefreshHaunt — boolean (Plague T5B)",
+      "hauntFinalBloomPercent — numeric, AoE on natural expire (Plague T6)",
+      "eternalHaunt — { maxTargets } (Plague T7)",
+      "damagePerHauntedEnemyInPack — { perEnemy, max } (Spirit T3b)",
+      "spiritConduit — { damagePerMinionPercent, minionSelfDamagePercent } (Spirit T5B)",
+      "soulTether — { healPercentPerSecond, maxStacks } (Spirit T6)",
+      "hauntDeathTriggersSoulHarvest — boolean (Spirit T7)",
+      "hauntedDeathSpawnsSoulStack — boolean (Voodoo T5B)",
+      "hauntInstantBurst — boolean (Voodoo T7)",
+      "hauntApplyHexedOnCast — boolean (Voodoo T7)"
+    ],
+    "alreadyInEngineRuntimePending": [
+      "hauntIsAoe (Spirit T4) — needs tick.ts onCast hook for staff_haunt to apply Haunted to all pack",
+      "hauntKillSpawnsMinion (Spirit T2) — needs hook in chain-on-death transfer",
+      "hauntChainDamageCompound (Spirit T5A) — needs per-chain damage tracking",
+      "hauntedExecuteThreshold (Voodoo T5A) — needs target-HP gate in damage application"
+    ],
+    "alreadyExisting": [
+      "dotMultiplier, ailmentDuration, coldPenetration, chaosPenetration, incDamage, incCritChance, incCritMultiplier, cooldownReduction, cooldownIncrease, chainCount, minionDamageMult, damagePerSoulStackActive, conditionalMods (whileMinionsAlive, perAilmentStackOnTarget, whileDebuffActive)"
+    ]
+  },
+  "preTranspileChecklist": [
+    "[ ] User reviews this JSON, signs off on each branch's design",
+    "[ ] Decide Q1: castSkill as first-class proc field vs rawBehaviors",
+    "[ ] Decide Q2: createComboState as first-class proc field vs rawBehaviors",
+    "[ ] Decide Q3: summonMinion as first-class proc field + spirit_temp SUMMON_CONFIG",
+    "[ ] Decide Q4: applyDebuff target selection (rawBehaviors path is fine for V1)",
+    "[ ] Decide Q6: hauntInstantBurst handling path",
+    "[ ] Once Q1-Q6 resolved: add fields to src/engine/skillGraph.ts (interface + EMPTY_GRAPH_MOD)",
+    "[ ] Add new conditionParam cases to checkConditionParam in src/engine/combatHelpers.ts",
+    "[ ] Add SUMMON_CONFIGS['spirit_temp'] to src/engine/combat/minions.ts",
+    "[ ] Add BUFF_DEFS for spiritResonance, predatorsMark, ghostlyFinale",
+    "[ ] Wire each rawBehaviors handler in src/engine/combat/weapons/staff.ts at the noted hook (preRoll/postCast/tickMaintenance/onAilmentTick handler, etc.)",
+    "[ ] Wire runtime-pending fields (hauntIsAoe, hauntKillSpawnsMinion, hauntChainDamageCompound, hauntedExecuteThreshold) in tick.ts",
+    "[ ] Transpile JSON → src/data/skillGraphs/staff_haunt_talents.ts using bh()/notable()/keystoneChoice() helpers",
+    "[ ] Register in src/data/skillGraphs/talentTrees.ts (already registered — just verify)",
+    "[ ] Extend sim/qa-staff-mechanics.ts with one assertion per proc/notable",
+    "[ ] Pre-push gate: npx tsc -b && npx vite build && npx tsx sim/qa-staff-mechanics.ts && npx tsx sim/qa-talents.ts --skill staff_haunt"
+  ]
+}

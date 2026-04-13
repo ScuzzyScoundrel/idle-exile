@@ -1,0 +1,551 @@
+{
+  "skillId": "staff_bouncing_skull",
+  "skillName": "Bouncing Skull",
+  "designNotes": {
+    "skillBaseline": "Fire projectile, 0.7 SPR, 5s CD, chainCount 2 base. Consumes soul_stacks: +1 bounce per stack consumed (max 5 stacks → up to 7 bounces).",
+    "buildIdentities": {
+      "plague_doctor": "Each bounce ignites and burns. The skull is a torch that lights up a pack.",
+      "spirit_caller": "Bounces spawn ghosts. Skull cast becomes a minion-summoning event.",
+      "voodoo_master": "Soul stack consume goes nuclear — each bounce hits harder than the last."
+    }
+  },
+  "branches": [
+    {
+      "branchId": "plague_doctor",
+      "branchName": "Burning Plague",
+      "theme": "Each bounce ignites. The skull is the torch that sets a pack ablaze.",
+      "nodes": [
+        {
+          "id": "bk_plague_t1a",
+          "name": "Ignite Chance",
+          "tier": 1,
+          "slot": "T1a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Each Bouncing Skull bounce has 25/50% chance to apply Burning (3s).",
+          "modifier": { "igniteChanceOnBounce": 25 },
+          "perRankModifiers": { "1": { "igniteChanceOnBounce": 25 }, "2": { "igniteChanceOnBounce": 50 } },
+          "engineFields": ["igniteChanceOnBounce (NEW — numeric; staff.ts postCast for staff_bouncing_skull: per bounce roll chance, apply burning)"]
+        },
+        {
+          "id": "bk_plague_t1b",
+          "name": "Compound Heat",
+          "tier": 1,
+          "slot": "T1b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Bouncing Skull hits have 15/30% chance to apply 1 stack of Bleeding (3s).",
+          "modifier": {
+            "procs": [{ "id": "bk_compound_heat", "trigger": "onHit", "chance": 0.15, "applyDebuff": { "debuffId": "bleeding", "duration": 3, "stacks": 1 } }]
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "bk_compound_heat", "trigger": "onHit", "chance": 0.15, "applyDebuff": { "debuffId": "bleeding", "duration": 3, "stacks": 1 } }] },
+            "2": { "procs": [{ "id": "bk_compound_heat", "trigger": "onHit", "chance": 0.30, "applyDebuff": { "debuffId": "bleeding", "duration": 3, "stacks": 1 } }] }
+          },
+          "engineFields": ["procs[onHit] (EXISTS)"]
+        },
+        {
+          "id": "bk_plague_t2",
+          "name": "Pyre Trail",
+          "tier": 2,
+          "slot": "T2",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Each Bouncing Skull bounce leaves a 2s fire patch dealing 30% of bounce damage per second.",
+          "modifier": { "rawBehaviors": { "bouncingSkullPyreTrail": { "duration": 2, "tickPercent": 30 } } },
+          "engineFields": ["rawBehaviors.bouncingSkullPyreTrail (NEW — staff.ts postCast: per bounce, spawn area-DoT effect with calculated tick damage)"]
+        },
+        {
+          "id": "bk_plague_t2b",
+          "name": "Plague Synergy",
+          "tier": 2,
+          "slot": "T2b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+5/10% damage per debuff on target.",
+          "modifier": { "conditionalMods": [{ "condition": "perAilmentStackOnTarget", "modifier": { "incDamage": 5 } }] },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "perAilmentStackOnTarget", "modifier": { "incDamage": 5 } }] },
+            "2": { "conditionalMods": [{ "condition": "perAilmentStackOnTarget", "modifier": { "incDamage": 10 } }] }
+          },
+          "engineFields": ["conditionalMods.perAilmentStackOnTarget (EXISTS)"]
+        },
+        {
+          "id": "bk_plague_t3a",
+          "name": "Burning Synergy",
+          "tier": 3,
+          "slot": "T3a",
+          "nodeType": "conditional",
+          "maxRank": 2,
+          "description": "+15/30% Bouncing Skull damage on Burning targets.",
+          "modifier": { "conditionalMods": [{ "condition": "whileDebuffActive", "debuffId": "burning", "modifier": { "incDamage": 15 } }] },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "whileDebuffActive", "debuffId": "burning", "modifier": { "incDamage": 15 } }] },
+            "2": { "conditionalMods": [{ "condition": "whileDebuffActive", "debuffId": "burning", "modifier": { "incDamage": 30 } }] }
+          },
+          "engineFields": ["conditionalMods.whileDebuffActive (EXISTS)"]
+        },
+        {
+          "id": "bk_plague_t3b",
+          "name": "Crit Burn",
+          "tier": 3,
+          "slot": "T3b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Bouncing Skull critical strikes apply Burning (3s/5s).",
+          "modifier": {
+            "procs": [{ "id": "bk_crit_burn", "trigger": "onCrit", "chance": 1.0, "applyDebuff": { "debuffId": "burning", "duration": 3 } }]
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "bk_crit_burn", "trigger": "onCrit", "chance": 1.0, "applyDebuff": { "debuffId": "burning", "duration": 3 } }] },
+            "2": { "procs": [{ "id": "bk_crit_burn", "trigger": "onCrit", "chance": 1.0, "applyDebuff": { "debuffId": "burning", "duration": 5 } }] }
+          },
+          "engineFields": ["procs[onCrit] (EXISTS); applyDebuff.burning (EXISTS in DEBUFF_META)"]
+        },
+        {
+          "id": "bk_plague_t3c",
+          "name": "Fire Mastery",
+          "tier": 3,
+          "slot": "T3c",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+10/20% fire penetration.",
+          "modifier": { "firePenetration": 10 },
+          "perRankModifiers": { "1": { "firePenetration": 10 }, "2": { "firePenetration": 20 } },
+          "engineFields": ["firePenetration (EXISTS)"]
+        },
+        {
+          "id": "bk_plague_t4",
+          "name": "Pyre Bloom",
+          "tier": 4,
+          "slot": "T4",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "When Bouncing Skull's last bounce lands: emit a fire AoE dealing 200% of last bounce damage.",
+          "modifier": { "rawBehaviors": { "bouncingSkullFinalAoeBonus": 200 } },
+          "engineFields": ["rawBehaviors.bouncingSkullFinalAoeBonus (NEW — staff.ts postCast: track last-bounce, after final bounce emit AoE damage event = lastBounceDamage * value/100)"]
+        },
+        {
+          "id": "bk_plague_t4b",
+          "name": "Fire Support",
+          "tier": 4,
+          "slot": "T4b",
+          "nodeType": "support",
+          "maxRank": 2,
+          "description": "+15/30% damage to Fire-tagged skills.",
+          "modifier": { "incDamage": 15 },
+          "perRankModifiers": { "1": { "incDamage": 15 }, "2": { "incDamage": 30 } },
+          "engineFields": ["incDamage (EXISTS)"]
+        },
+        {
+          "id": "bk_plague_t5a",
+          "name": "Pyromancer",
+          "tier": 5,
+          "slot": "T5A",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Burning DoT damage from your skills is doubled. Cost: −20% Bouncing Skull direct damage.",
+          "modifier": {
+            "rawBehaviors": { "globalBurningMultiplier": 2.0 },
+            "incDamage": -20
+          },
+          "engineFields": ["rawBehaviors.globalBurningMultiplier (NEW — tick.ts auto-ailment block for burning: tick damage *= value); incDamage (EXISTS)"]
+        },
+        {
+          "id": "bk_plague_t5b",
+          "name": "Inferno Trail",
+          "tier": 5,
+          "slot": "T5B",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Pyre Trail (T2) duration +200% and tick damage +50%. Cost: Bouncing Skull CD +2s.",
+          "modifier": {
+            "rawBehaviors": { "pyreTrailBonusDurationPercent": 200, "pyreTrailBonusDamagePercent": 50 },
+            "cooldownIncrease": 2
+          },
+          "engineFields": ["rawBehaviors.pyreTrailBonusDurationPercent + pyreTrailBonusDamagePercent (NEW); cooldownIncrease (EXISTS)"]
+        },
+        {
+          "id": "bk_plague_t6",
+          "name": "Stack Compounder",
+          "tier": 6,
+          "slot": "T6",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Bouncing Skull damage +5% per stack of Burning/Bleeding/Poisoned on target (caps at +50%).",
+          "modifier": { "rawBehaviors": { "bouncingSkullStackCompounder": { "perStackPercent": 5, "maxPercent": 50 } } },
+          "engineFields": ["rawBehaviors.bouncingSkullStackCompounder (NEW — staff.ts preRoll: count debuff stacks of types, multiply damageMult)"]
+        },
+        {
+          "id": "bk_plague_t7",
+          "name": "THE BURNING WORLD",
+          "tier": 7,
+          "slot": "T7",
+          "nodeType": "keystone",
+          "maxRank": 1,
+          "description": "All Bouncing Skull bounces leave a 5s fire pool dealing 100% of bounce damage per second. Cost: Bouncing Skull direct hit damage −50%.",
+          "modifier": {
+            "rawBehaviors": { "burningWorldFirePool": { "duration": 5, "tickPercent": 100 } },
+            "incDamage": -50
+          },
+          "engineFields": ["rawBehaviors.burningWorldFirePool (NEW — supersedes Pyre Trail); incDamage (EXISTS)"]
+        }
+      ]
+    },
+    {
+      "branchId": "spirit_caller",
+      "branchName": "Bone Cannon",
+      "theme": "Each bounce manifests a spirit. Skulls become a minion-spawning event.",
+      "nodes": [
+        {
+          "id": "bk_spirit_t1a",
+          "name": "Extra Bounce",
+          "tier": 1,
+          "slot": "T1a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+1/2 base bounces (chainCount).",
+          "modifier": { "chainCount": 1 },
+          "perRankModifiers": { "1": { "chainCount": 1 }, "2": { "chainCount": 2 } },
+          "engineFields": ["chainCount (EXISTS)"]
+        },
+        {
+          "id": "bk_spirit_t1b",
+          "name": "Spirit Bounce",
+          "tier": 1,
+          "slot": "T1b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Each Bouncing Skull bounce has 15/30% chance to spawn a 2s spirit minion at impact.",
+          "modifier": { "rawBehaviors": { "bouncingSkullBounceSpiritChance": 15 } },
+          "perRankModifiers": {
+            "1": { "rawBehaviors": { "bouncingSkullBounceSpiritChance": 15 } },
+            "2": { "rawBehaviors": { "bouncingSkullBounceSpiritChance": 30 } }
+          },
+          "engineFields": ["rawBehaviors.bouncingSkullBounceSpiritChance (NEW — staff.ts postCast: per bounce roll chance, summonMinions spirit_temp duration=2)"]
+        },
+        {
+          "id": "bk_spirit_t2",
+          "name": "Pack Skull",
+          "tier": 2,
+          "slot": "T2",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "+1 bounce per living minion (in addition to base + soul stack consume bounces).",
+          "modifier": { "rawBehaviors": { "bouncingSkullPerMinionBounce": 1 } },
+          "engineFields": ["rawBehaviors.bouncingSkullPerMinionBounce (NEW — staff.ts preRoll: chainCount += value * activeMinionCount)"]
+        },
+        {
+          "id": "bk_spirit_t2b",
+          "name": "Bound Power",
+          "tier": 2,
+          "slot": "T2b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+10/20% Bouncing Skull damage while any minion alive.",
+          "modifier": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incDamage": 10 } }] },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incDamage": 10 } }] },
+            "2": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incDamage": 20 } }] }
+          },
+          "engineFields": ["conditionalMods.whileMinionsAlive (EXISTS)"]
+        },
+        {
+          "id": "bk_spirit_t3a",
+          "name": "Pack Hunter",
+          "tier": 3,
+          "slot": "T3a",
+          "nodeType": "conditional",
+          "maxRank": 2,
+          "description": "+20/40% crit chance while 2+ minions alive.",
+          "modifier": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incCritChance": 20 } }] },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incCritChance": 20 } }] },
+            "2": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incCritChance": 40 } }] }
+          },
+          "engineFields": ["conditionalMods.whileMinionsAlive (EXISTS)"]
+        },
+        {
+          "id": "bk_spirit_t3b",
+          "name": "Bone Echo",
+          "tier": 3,
+          "slot": "T3b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "On Bouncing Skull cast: 25/50% chance to summon a 4s spirit minion immediately.",
+          "modifier": {
+            "procs": [{ "id": "bk_bone_echo", "trigger": "onCast", "chance": 0.25, "summonMinion": { "type": "spirit_temp", "duration": 4 } }]
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "bk_bone_echo", "trigger": "onCast", "chance": 0.25, "summonMinion": { "type": "spirit_temp", "duration": 4 } }] },
+            "2": { "procs": [{ "id": "bk_bone_echo", "trigger": "onCast", "chance": 0.50, "summonMinion": { "type": "spirit_temp", "duration": 4 } }] }
+          },
+          "engineFields": ["procs[onCast] (EXISTS); summonMinion (NEW)"]
+        },
+        {
+          "id": "bk_spirit_t3c",
+          "name": "Bounce Linger",
+          "tier": 3,
+          "slot": "T3c",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Bouncing Skull bounces +15/30% slower (lingers longer on each enemy, allows minions to attack).",
+          "modifier": { "bonusBounceDuration": 15 },
+          "perRankModifiers": { "1": { "bonusBounceDuration": 15 }, "2": { "bonusBounceDuration": 30 } },
+          "engineFields": ["bonusBounceDuration (NEW — numeric; staff.ts postCast: per bounce, increase visual delay/dwell time, no damage effect)"]
+        },
+        {
+          "id": "bk_spirit_t4",
+          "name": "Spirit Conduit",
+          "tier": 4,
+          "slot": "T4",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Each bounce of Bouncing Skull also triggers a free attack from each living minion on the bounce target.",
+          "modifier": { "rawBehaviors": { "bouncingSkullBounceTriggersMinionAttacks": true } },
+          "engineFields": ["rawBehaviors.bouncingSkullBounceTriggersMinionAttacks (NEW — staff.ts postCast per bounce: emit synthetic attack event from each living minion)"]
+        },
+        {
+          "id": "bk_spirit_t4b",
+          "name": "Minion Mastery Support",
+          "tier": 4,
+          "slot": "T4b",
+          "nodeType": "support",
+          "maxRank": 2,
+          "description": "+15/30% minion damage.",
+          "modifier": { "minionDamageMult": 15 },
+          "perRankModifiers": { "1": { "minionDamageMult": 15 }, "2": { "minionDamageMult": 30 } },
+          "engineFields": ["minionDamageMult (EXISTS)"]
+        },
+        {
+          "id": "bk_spirit_t5a",
+          "name": "Skull Storm",
+          "tier": 5,
+          "slot": "T5A",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Bouncing Skull cast spawns 3 skulls (each with own bounce count). Cost: Bouncing Skull damage per skull −50%.",
+          "modifier": {
+            "rawBehaviors": { "bouncingSkullMultiSkull": { "extraSkulls": 2 } },
+            "incDamage": -50
+          },
+          "engineFields": ["rawBehaviors.bouncingSkullMultiSkull (NEW — staff.ts preRoll: hitCount *= 1 + extraSkulls; track skulls separately for chain logic); incDamage (EXISTS)"]
+        },
+        {
+          "id": "bk_spirit_t5b",
+          "name": "Endless Skulls",
+          "tier": 5,
+          "slot": "T5B",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Bouncing Skull bounces forever (no chain limit) but loses 15% damage per bounce after the 3rd.",
+          "modifier": {
+            "rawBehaviors": { "bouncingSkullEndlessBounces": { "decayStartBounce": 3, "decayPerBouncePercent": 15 } }
+          },
+          "engineFields": ["rawBehaviors.bouncingSkullEndlessBounces (NEW — staff.ts postCast: bounce until target dead OR damage falls below threshold)"]
+        },
+        {
+          "id": "bk_spirit_t6",
+          "name": "Skull Aura",
+          "tier": 6,
+          "slot": "T6",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "While 4+ minions alive, Bouncing Skull always crits.",
+          "modifier": { "rawBehaviors": { "bouncingSkullCritWhileMinionsThreshold": 4 } },
+          "engineFields": ["rawBehaviors.bouncingSkullCritWhileMinionsThreshold (NEW — tick.ts crit roll for staff_bouncing_skull: if minionCount >= threshold, force crit)"]
+        },
+        {
+          "id": "bk_spirit_t7",
+          "name": "THE BONE CANNON",
+          "tier": 7,
+          "slot": "T7",
+          "nodeType": "keystone",
+          "maxRank": 1,
+          "description": "Each Bouncing Skull cast spawns a permanent (8s) Skull Tower minion at impact location that fires bone projectiles. Cost: Bouncing Skull bounces −2.",
+          "modifier": {
+            "rawBehaviors": { "boneTowerSummon": { "duration": 8 } },
+            "chainCount": -2
+          },
+          "engineFields": ["rawBehaviors.boneTowerSummon (NEW — staff.ts postCast: summon turret-style minion at impact, requires new SUMMON_CONFIG 'bone_tower'); chainCount (EXISTS)"]
+        }
+      ]
+    },
+    {
+      "branchId": "voodoo_master",
+      "branchName": "Cursed Skull",
+      "theme": "Soul stack consume goes nuclear. Each bounce hits harder than the last.",
+      "nodes": [
+        {
+          "id": "bk_voodoo_t1a",
+          "name": "Compounding Bounce",
+          "tier": 1,
+          "slot": "T1a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Each Bouncing Skull bounce after the first deals +10/20% damage (compounds: bounce 2 = +10/20%, bounce 3 = +20/40%, etc.).",
+          "modifier": { "bouncingSkullDamageCompound": 10 },
+          "perRankModifiers": { "1": { "bouncingSkullDamageCompound": 10 }, "2": { "bouncingSkullDamageCompound": 20 } },
+          "engineFields": ["bouncingSkullDamageCompound (NEW — numeric; staff.ts postCast per bounce: damage *= 1 + (bounceIndex - 1) * value/100)"]
+        },
+        {
+          "id": "bk_voodoo_t1b",
+          "name": "Soul Bounce",
+          "tier": 1,
+          "slot": "T1b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Bouncing Skull critical strikes have 25/50% chance to generate 1 soul_stack. ICD 2s.",
+          "modifier": {
+            "procs": [{ "id": "bk_soul_bounce", "trigger": "onCrit", "chance": 0.25, "internalCooldown": 2.0, "createComboState": { "stateId": "soul_stack", "stacks": 1 } }]
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "bk_soul_bounce", "trigger": "onCrit", "chance": 0.25, "internalCooldown": 2.0, "createComboState": { "stateId": "soul_stack", "stacks": 1 } }] },
+            "2": { "procs": [{ "id": "bk_soul_bounce", "trigger": "onCrit", "chance": 0.50, "internalCooldown": 2.0, "createComboState": { "stateId": "soul_stack", "stacks": 1 } }] }
+          },
+          "engineFields": ["procs[onCrit] (EXISTS); createComboState (NEW)"]
+        },
+        {
+          "id": "bk_voodoo_t2",
+          "name": "Soul Cannon",
+          "tier": 2,
+          "slot": "T2",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Each soul_stack consumed by Bouncing Skull adds +25% damage (in addition to +1 bounce per stack).",
+          "modifier": { "soulConsumeChainBonus": 25 },
+          "engineFields": ["soulConsumeChainBonus (NEW — numeric; staff.ts preRoll for staff_bouncing_skull when consuming soul_stack: damageMult *= 1 + stacks * value/100)"]
+        },
+        {
+          "id": "bk_voodoo_t2b",
+          "name": "Hex Synergy",
+          "tier": 2,
+          "slot": "T2b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+15/30% Bouncing Skull damage on Hexed targets.",
+          "modifier": { "conditionalMods": [{ "condition": "whileDebuffActive", "debuffId": "hexed", "modifier": { "incDamage": 15 } }] },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "whileDebuffActive", "debuffId": "hexed", "modifier": { "incDamage": 15 } }] },
+            "2": { "conditionalMods": [{ "condition": "whileDebuffActive", "debuffId": "hexed", "modifier": { "incDamage": 30 } }] }
+          },
+          "engineFields": ["conditionalMods.whileDebuffActive (EXISTS)"]
+        },
+        {
+          "id": "bk_voodoo_t3a",
+          "name": "Stack Synergy",
+          "tier": 3,
+          "slot": "T3a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+5/10% Bouncing Skull damage per active soul_stack.",
+          "modifier": { "damagePerSoulStackActive": 5 },
+          "perRankModifiers": { "1": { "damagePerSoulStackActive": 5 }, "2": { "damagePerSoulStackActive": 10 } },
+          "engineFields": ["damagePerSoulStackActive (EXISTS)"]
+        },
+        {
+          "id": "bk_voodoo_t3b",
+          "name": "Hex Strike",
+          "tier": 3,
+          "slot": "T3b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Bouncing Skull crits have 25/50% chance to apply Hexed (5s).",
+          "modifier": {
+            "procs": [{ "id": "bk_hex_strike", "trigger": "onCrit", "chance": 0.25, "internalCooldown": 4.0, "applyDebuff": { "debuffId": "hexed", "duration": 5 } }]
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "bk_hex_strike", "trigger": "onCrit", "chance": 0.25, "internalCooldown": 4.0, "applyDebuff": { "debuffId": "hexed", "duration": 5 } }] },
+            "2": { "procs": [{ "id": "bk_hex_strike", "trigger": "onCrit", "chance": 0.50, "internalCooldown": 4.0, "applyDebuff": { "debuffId": "hexed", "duration": 5 } }] }
+          },
+          "engineFields": ["procs[onCrit] (EXISTS)"]
+        },
+        {
+          "id": "bk_voodoo_t3c",
+          "name": "Quickdraw",
+          "tier": 3,
+          "slot": "T3c",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "−15/30% Bouncing Skull cooldown.",
+          "modifier": { "cooldownReduction": 15 },
+          "perRankModifiers": { "1": { "cooldownReduction": 15 }, "2": { "cooldownReduction": 30 } },
+          "engineFields": ["cooldownReduction (EXISTS)"]
+        },
+        {
+          "id": "bk_voodoo_t4",
+          "name": "Death Cascade",
+          "tier": 4,
+          "slot": "T4",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "When Bouncing Skull kills an enemy: bounce count refunds (skull continues with reset bounce counter).",
+          "modifier": { "rawBehaviors": { "bouncingSkullKillRefundsBounces": true } },
+          "engineFields": ["rawBehaviors.bouncingSkullKillRefundsBounces (NEW — staff.ts postCast bounce loop: if bounce-target killed, reset bounce counter for remaining bounces)"]
+        },
+        {
+          "id": "bk_voodoo_t4b",
+          "name": "Burst Mastery",
+          "tier": 4,
+          "slot": "T4b",
+          "nodeType": "support",
+          "maxRank": 2,
+          "description": "+20/40% damage to Heavy-tagged skills.",
+          "modifier": { "incDamage": 20 },
+          "perRankModifiers": { "1": { "incDamage": 20 }, "2": { "incDamage": 40 } },
+          "engineFields": ["incDamage (EXISTS)"]
+        },
+        {
+          "id": "bk_voodoo_t5a",
+          "name": "Final Whisper",
+          "tier": 5,
+          "slot": "T5A",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Last bounce of Bouncing Skull deals +200% damage.",
+          "modifier": { "rawBehaviors": { "bouncingSkullFinalBounceBonus": 200 } },
+          "engineFields": ["rawBehaviors.bouncingSkullFinalBounceBonus (NEW — staff.ts postCast: identify last bounce, damage *= 1 + value/100)"]
+        },
+        {
+          "id": "bk_voodoo_t5b",
+          "name": "Mass Soul Burst",
+          "tier": 5,
+          "slot": "T5B",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Each soul_stack consumed by Bouncing Skull adds 2 bounces (instead of 1) and +50% damage. Cost: Bouncing Skull CD +2s.",
+          "modifier": {
+            "rawBehaviors": { "soulConsumeBounceMultiplier": 2, "soulConsumeDamagePerStackMultiplier": 50 },
+            "cooldownIncrease": 2
+          },
+          "engineFields": ["rawBehaviors.soulConsumeBounceMultiplier + soulConsumeDamagePerStackMultiplier (NEW — staff.ts preRoll: chainCount += stacks * multiplier; damage *= 1 + stacks * dmgPercent/100); cooldownIncrease (EXISTS)"]
+        },
+        {
+          "id": "bk_voodoo_t6",
+          "name": "Soul Resonance",
+          "tier": 6,
+          "slot": "T6",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Bouncing Skull crits also generate 1 soul_stack instantly (independent of other procs).",
+          "modifier": { "rawBehaviors": { "bouncingSkullCritGuaranteesSoulStack": true } },
+          "engineFields": ["rawBehaviors.bouncingSkullCritGuaranteesSoulStack (NEW — tick.ts crit hook for staff_bouncing_skull: createComboState soul_stack +1)"]
+        },
+        {
+          "id": "bk_voodoo_t7",
+          "name": "THE FINAL CALL",
+          "tier": 7,
+          "slot": "T7",
+          "nodeType": "keystone",
+          "maxRank": 1,
+          "description": "Bouncing Skull consumes ALL active combo states on cast (haunted, plagued, hexed, soul_stacks, spirit_link). Each consumed adds +50% damage. Cost: Bouncing Skull CD +5s.",
+          "modifier": {
+            "rawBehaviors": { "bouncingSkullConsumesAllStates": { "perStatePercent": 50 } },
+            "cooldownIncrease": 5
+          },
+          "engineFields": ["rawBehaviors.bouncingSkullConsumesAllStates (NEW — staff.ts preRoll: enumerate active comboStates, for each: damageMult *= 1 + perStatePercent/100, consume); cooldownIncrease (EXISTS)"]
+        }
+      ]
+    }
+  ]
+}

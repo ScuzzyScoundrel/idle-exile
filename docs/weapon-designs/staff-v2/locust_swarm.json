@@ -1,0 +1,564 @@
+{
+  "skillId": "staff_locust_swarm",
+  "skillName": "Locust Swarm",
+  "designNotes": {
+    "skillBaseline": "Chaos DoT (5s, 0.40 dotDamagePercent), 0.4 SPR cast component, 5s CD, creates Plagued (6s) for Plague of Toads to consume. Transfer-on-kill: swarm jumps to next pack enemy with REMAINING duration (vs Haunt which starts fresh).",
+    "buildIdentities": {
+      "plague_doctor": "Pure DoT scaling — locusts spread, transfer, stack ailments. The infinite-swarm playstyle: get one cast going, ride it through entire packs.",
+      "spirit_caller": "Locust as a swarm of mini-minions — kills spawn temp insects, locust+minion damage cross-buffs. Pack hunter playstyle.",
+      "voodoo_master": "Locust as setup tool for Toads burst + soul_stack feeder when paired with Hex. Spiky single-target burst."
+    },
+    "behaviorSlotAudit": {
+      "plague_doctor": "T1a=dotMult flavored, T1b=PROC, T2b=RICH perAilmentStack, T3a=RICH whileDebuffActive, T3b=PROC, T3c=raw chaosPen, T4b=raw DoT support => 4 procs/rich of 7",
+      "spirit_caller": "T1a=raw dual stat, T1b=PROC, T2b=raw duration, T3a=RICH whileMinionsAlive, T3b=PROC, T3c=raw locustSpreadRadius, T4b=raw minion dmg => 3 procs/rich of 7",
+      "voodoo_master": "T1a=raw crit, T1b=PROC, T2b=RICH whileHexed, T3a=raw damagePerSoulStack, T3b=PROC, T3c=raw CDR, T4b=raw heavy support => 3 procs/rich of 7"
+    },
+    "noNewProcEffectsRequired": "All procs reuse fields already added in haunt.json design (castSkill, createComboState, summonMinion). conditionParam.targetHasDebuff and minionsAlive also reused."
+  },
+  "branches": [
+    {
+      "branchId": "plague_doctor",
+      "branchName": "Endless Swarm",
+      "theme": "Locusts never die. Transfer mechanic upgraded — one cast clears the screen.",
+      "nodes": [
+        {
+          "id": "lc_plague_t1a",
+          "name": "Swarm Density",
+          "tier": 1,
+          "slot": "T1a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+20/40% Locust DoT damage.",
+          "modifier": { "dotMultiplier": 20 },
+          "perRankModifiers": { "1": { "dotMultiplier": 20 }, "2": { "dotMultiplier": 40 } },
+          "engineFields": ["dotMultiplier (EXISTS) — Locust-flavored 'denser swarm'"]
+        },
+        {
+          "id": "lc_plague_t1b",
+          "name": "Devouring Tide",
+          "tier": 1,
+          "slot": "T1b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Locust ticks have 15/30% chance to apply 1 stack of Poisoned (4s).",
+          "modifier": {
+            "procs": [{ "id": "lc_devouring", "trigger": "onAilmentTick", "chance": 0.15, "applyDebuff": { "debuffId": "poisoned", "duration": 4, "stacks": 1 } }]
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "lc_devouring", "trigger": "onAilmentTick", "chance": 0.15, "applyDebuff": { "debuffId": "poisoned", "duration": 4, "stacks": 1 } }] },
+            "2": { "procs": [{ "id": "lc_devouring", "trigger": "onAilmentTick", "chance": 0.30, "applyDebuff": { "debuffId": "poisoned", "duration": 4, "stacks": 1 } }] }
+          },
+          "engineFields": ["procs[onAilmentTick] (EXISTS); applyDebuff.poisoned (EXISTS)"]
+        },
+        {
+          "id": "lc_plague_t2",
+          "name": "Multiplicity",
+          "tier": 2,
+          "slot": "T2",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "On Locust kill, swarm splits and transfers to 2 enemies (instead of 1). The duplicates carry remaining duration.",
+          "modifier": { "swarmExtraTransferTargets": 1 },
+          "engineFields": ["swarmExtraTransferTargets (NEW — numeric; combo.ts CARRIER_DEATH_BEHAVIOR for staff_locust_swarm reads this and selects N+1 transfer targets)"]
+        },
+        {
+          "id": "lc_plague_t2b",
+          "name": "Plague Pulse",
+          "tier": 2,
+          "slot": "T2b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+5/10% damage per debuff on the target.",
+          "modifier": { "conditionalMods": [{ "condition": "perAilmentStackOnTarget", "modifier": { "incDamage": 5 } }] },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "perAilmentStackOnTarget", "modifier": { "incDamage": 5 } }] },
+            "2": { "conditionalMods": [{ "condition": "perAilmentStackOnTarget", "modifier": { "incDamage": 10 } }] }
+          },
+          "engineFields": ["conditionalMods.perAilmentStackOnTarget (EXISTS)"]
+        },
+        {
+          "id": "lc_plague_t3a",
+          "name": "Compounding Plague",
+          "tier": 3,
+          "slot": "T3a",
+          "nodeType": "conditional",
+          "maxRank": 2,
+          "description": "+15/30% Locust damage on Plagued targets.",
+          "modifier": { "conditionalMods": [{ "condition": "whileDebuffActive", "debuffId": "plagued", "modifier": { "incDamage": 15 } }] },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "whileDebuffActive", "debuffId": "plagued", "modifier": { "incDamage": 15 } }] },
+            "2": { "conditionalMods": [{ "condition": "whileDebuffActive", "debuffId": "plagued", "modifier": { "incDamage": 30 } }] }
+          },
+          "engineFields": ["conditionalMods.whileDebuffActive (EXISTS)"]
+        },
+        {
+          "id": "lc_plague_t3b",
+          "name": "Locust Crit",
+          "tier": 3,
+          "slot": "T3b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Locust critical strikes apply 1/2 stacks of Poisoned (4s).",
+          "modifier": {
+            "procs": [{ "id": "lc_crit_poison", "trigger": "onCrit", "chance": 1.0, "applyDebuff": { "debuffId": "poisoned", "duration": 4, "stacks": 1 } }]
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "lc_crit_poison", "trigger": "onCrit", "chance": 1.0, "applyDebuff": { "debuffId": "poisoned", "duration": 4, "stacks": 1 } }] },
+            "2": { "procs": [{ "id": "lc_crit_poison", "trigger": "onCrit", "chance": 1.0, "applyDebuff": { "debuffId": "poisoned", "duration": 4, "stacks": 2 } }] }
+          },
+          "engineFields": ["procs[onCrit] (EXISTS)"]
+        },
+        {
+          "id": "lc_plague_t3c",
+          "name": "Chaos Mastery",
+          "tier": 3,
+          "slot": "T3c",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+10/20% chaos penetration.",
+          "modifier": { "chaosPenetration": 10 },
+          "perRankModifiers": { "1": { "chaosPenetration": 10 }, "2": { "chaosPenetration": 20 } },
+          "engineFields": ["chaosPenetration (EXISTS)"]
+        },
+        {
+          "id": "lc_plague_t4",
+          "name": "Plague Carrier",
+          "tier": 4,
+          "slot": "T4",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Locust ticks have 5% chance to instantly cast Hex on the target. Internal cooldown 8s.",
+          "modifier": {
+            "procs": [{ "id": "lc_plague_hex", "trigger": "onAilmentTick", "chance": 0.05, "internalCooldown": 8.0, "castSkill": { "skillId": "staff_hex", "damagePercent": 0 } }]
+          },
+          "engineFields": ["procs[onAilmentTick] (EXISTS); castSkill (NEW — same as Haunt's Pestilence Carrier)"]
+        },
+        {
+          "id": "lc_plague_t4b",
+          "name": "DoT Support",
+          "tier": 4,
+          "slot": "T4b",
+          "nodeType": "support",
+          "maxRank": 2,
+          "description": "+15/30% damage to DoT-tagged skills.",
+          "modifier": { "incDamage": 15 },
+          "perRankModifiers": { "1": { "incDamage": 15 }, "2": { "incDamage": 30 } },
+          "engineFields": ["incDamage (EXISTS)"]
+        },
+        {
+          "id": "lc_plague_t5a",
+          "name": "Eternal Swarm",
+          "tier": 5,
+          "slot": "T5A",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Locust transfer-on-kill chains infinitely (max 5 hops per cast). +25% Locust damage.",
+          "modifier": {
+            "rawBehaviors": { "swarmInfiniteChain": { "maxHops": 5 } },
+            "dotMultiplier": 25
+          },
+          "engineFields": ["rawBehaviors.swarmInfiniteChain (NEW — combo.ts CARRIER_DEATH_BEHAVIOR for locust tracks hops, allows up to maxHops); dotMultiplier (EXISTS)"]
+        },
+        {
+          "id": "lc_plague_t5b",
+          "name": "Pandemic Pulse",
+          "tier": 5,
+          "slot": "T5B",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Locust ticks have 8% chance to spread Locust to all pack enemies (mini-pandemic). Cost: Locust CD +1s.",
+          "modifier": {
+            "rawBehaviors": { "miniPandemicChance": 8 },
+            "cooldownIncrease": 1
+          },
+          "engineFields": ["rawBehaviors.miniPandemicChance (NEW — tick.ts auto-ailment block: per-tick chance roll; if hits, apply Locust DoT to all pack with current snapshot at half duration); cooldownIncrease (EXISTS)"]
+        },
+        {
+          "id": "lc_plague_t6",
+          "name": "Transfer Boost",
+          "tier": 6,
+          "slot": "T6",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Each transfer-on-kill adds +25% damage to the swarm (compounds, resets when the swarm fully dissipates).",
+          "modifier": { "swarmTransferDamageBonus": 25 },
+          "engineFields": ["swarmTransferDamageBonus (NEW — numeric; tracked per active locust DoT instance, increments on each transfer event in combo.ts)"]
+        },
+        {
+          "id": "lc_plague_t7",
+          "name": "THE PLAGUE LORD",
+          "tier": 7,
+          "slot": "T7",
+          "nodeType": "keystone",
+          "maxRank": 1,
+          "description": "Locust applies to ALL enemies in the pack on initial cast at 60% snapshot each. Cost: −50% transfer-on-kill damage.",
+          "modifier": {
+            "rawBehaviors": { "locustAoeOnCast": 60, "locustTransferDamagePenalty": 50 }
+          },
+          "engineFields": ["rawBehaviors.locustAoeOnCast (NEW — staff.ts postCast for staff_locust_swarm: apply Locust to every pack enemy with snapshot * 0.60); rawBehaviors.locustTransferDamagePenalty (NEW — combo.ts transfer reduces snapshot by % when set)"]
+        }
+      ]
+    },
+    {
+      "branchId": "spirit_caller",
+      "branchName": "Living Swarm",
+      "theme": "The swarm is alive — it spawns minions, feeds them, fights with them.",
+      "nodes": [
+        {
+          "id": "lc_spirit_t1a",
+          "name": "Lockstep Swarm",
+          "tier": 1,
+          "slot": "T1a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+10/20% Locust damage AND +10/20% minion damage.",
+          "modifier": { "incDamage": 10, "minionDamageMult": 10 },
+          "perRankModifiers": { "1": { "incDamage": 10, "minionDamageMult": 10 }, "2": { "incDamage": 20, "minionDamageMult": 20 } },
+          "engineFields": ["incDamage (EXISTS); minionDamageMult (EXISTS)"]
+        },
+        {
+          "id": "lc_spirit_t1b",
+          "name": "Hive Spawn",
+          "tier": 1,
+          "slot": "T1b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Locust kills have 25/50% chance to spawn a 3s temporary spirit minion.",
+          "modifier": {
+            "procs": [{ "id": "lc_hive_spawn", "trigger": "onKill", "chance": 0.25, "summonMinion": { "type": "spirit_temp", "duration": 3 } }]
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "lc_hive_spawn", "trigger": "onKill", "chance": 0.25, "summonMinion": { "type": "spirit_temp", "duration": 3 } }] },
+            "2": { "procs": [{ "id": "lc_hive_spawn", "trigger": "onKill", "chance": 0.50, "summonMinion": { "type": "spirit_temp", "duration": 3 } }] }
+          },
+          "engineFields": ["procs[onKill] (EXISTS); summonMinion (NEW — same as Haunt Spirit's Touch)"]
+        },
+        {
+          "id": "lc_spirit_t2",
+          "name": "Swarm Lord",
+          "tier": 2,
+          "slot": "T2",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "While 3+ minions are alive, Locust ticks deal +50% damage.",
+          "modifier": {
+            "rawBehaviors": { "swarmLordThreshold": { "minMinions": 3, "damageBonus": 50 } }
+          },
+          "engineFields": ["rawBehaviors.swarmLordThreshold (NEW — tick.ts auto-ailment block for staff_locust_swarm: if activeMinions.length >= minMinions, multiply tick damage by 1 + damageBonus/100)"]
+        },
+        {
+          "id": "lc_spirit_t2b",
+          "name": "Lingering Swarm",
+          "tier": 2,
+          "slot": "T2b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+20/40% Locust DoT duration.",
+          "modifier": { "ailmentDuration": 20 },
+          "perRankModifiers": { "1": { "ailmentDuration": 20 }, "2": { "ailmentDuration": 40 } },
+          "engineFields": ["ailmentDuration (EXISTS)"]
+        },
+        {
+          "id": "lc_spirit_t3a",
+          "name": "Pack Hunter",
+          "tier": 3,
+          "slot": "T3a",
+          "nodeType": "conditional",
+          "maxRank": 2,
+          "description": "+10/20% Locust damage while any minion is alive.",
+          "modifier": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incDamage": 10 } }] },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incDamage": 10 } }] },
+            "2": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incDamage": 20 } }] }
+          },
+          "engineFields": ["conditionalMods.whileMinionsAlive (EXISTS)"]
+        },
+        {
+          "id": "lc_spirit_t3b",
+          "name": "Insect Bond",
+          "tier": 3,
+          "slot": "T3b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Locust ticks have 5/10% chance to heal you for 3% max HP if any minion is alive.",
+          "modifier": {
+            "procs": [{ "id": "lc_insect_bond", "trigger": "onAilmentTick", "chance": 0.05, "conditionParam": { "minionsAlive": true }, "healPercent": 3 }]
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "lc_insect_bond", "trigger": "onAilmentTick", "chance": 0.05, "conditionParam": { "minionsAlive": true }, "healPercent": 3 }] },
+            "2": { "procs": [{ "id": "lc_insect_bond", "trigger": "onAilmentTick", "chance": 0.10, "conditionParam": { "minionsAlive": true }, "healPercent": 3 }] }
+          },
+          "engineFields": ["procs[onAilmentTick] (EXISTS); conditionParam.minionsAlive (NEW — checkConditionParam case: ProcContext.activeMinionCount > 0); healPercent (EXISTS via heal proc effect)"]
+        },
+        {
+          "id": "lc_spirit_t3c",
+          "name": "Swarm Reach",
+          "tier": 3,
+          "slot": "T3c",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Initial Locust cast also hits 1/2 adjacent enemies at 50% snapshot.",
+          "modifier": { "rawBehaviors": { "locustSpreadRadius": { "extraTargets": 1, "snapshotPercent": 50 } } },
+          "perRankModifiers": {
+            "1": { "rawBehaviors": { "locustSpreadRadius": { "extraTargets": 1, "snapshotPercent": 50 } } },
+            "2": { "rawBehaviors": { "locustSpreadRadius": { "extraTargets": 2, "snapshotPercent": 50 } } }
+          },
+          "engineFields": ["rawBehaviors.locustSpreadRadius (NEW — staff.ts postCast for staff_locust_swarm: apply Locust to N additional pack enemies at snapshot * percent/100)"]
+        },
+        {
+          "id": "lc_spirit_t4",
+          "name": "Minion Carrier",
+          "tier": 4,
+          "slot": "T4",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Each minion attack on a Locust-affected target has 25% chance to spread Locust to a random adjacent enemy.",
+          "modifier": { "rawBehaviors": { "minionLocustSpreadChance": 25 } },
+          "engineFields": ["rawBehaviors.minionLocustSpreadChance (NEW — tick.ts minion attack hook: roll chance; if hit AND target has locust DoT, apply Locust to random pack member with current snapshot)"]
+        },
+        {
+          "id": "lc_spirit_t4b",
+          "name": "Minion Mastery Support",
+          "tier": 4,
+          "slot": "T4b",
+          "nodeType": "support",
+          "maxRank": 2,
+          "description": "+15/30% minion damage.",
+          "modifier": { "minionDamageMult": 15 },
+          "perRankModifiers": { "1": { "minionDamageMult": 15 }, "2": { "minionDamageMult": 30 } },
+          "engineFields": ["minionDamageMult (EXISTS)"]
+        },
+        {
+          "id": "lc_spirit_t5a",
+          "name": "Living Hive",
+          "tier": 5,
+          "slot": "T5A",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Locust ticks heal each living minion for 1% of their max HP. (Sustains the pack.)",
+          "modifier": { "rawBehaviors": { "locustHealsMinionsPerTick": 1 } },
+          "engineFields": ["rawBehaviors.locustHealsMinionsPerTick (NEW — tick.ts auto-ailment block for staff_locust_swarm: heal each minion by m.maxHp * value/100 per tick)"]
+        },
+        {
+          "id": "lc_spirit_t5b",
+          "name": "Insect Apocalypse",
+          "tier": 5,
+          "slot": "T5B",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Locust kills summon a permanent (8s) swarm minion (max 3 alive). Cost: Locust CD +2s.",
+          "modifier": {
+            "rawBehaviors": { "locustKillSpawnsPermMinion": { "duration": 8, "maxStacks": 3 } },
+            "cooldownIncrease": 2
+          },
+          "engineFields": ["rawBehaviors.locustKillSpawnsPermMinion (NEW — tick.ts death loop: if kill source was Locust DoT AND active swarm minions < maxStacks, spawn spirit_temp minion with override duration); cooldownIncrease (EXISTS)"]
+        },
+        {
+          "id": "lc_spirit_t6",
+          "name": "Hive Mother",
+          "tier": 6,
+          "slot": "T6",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Your minions deal +30% damage when attacking Locust-affected targets.",
+          "modifier": { "rawBehaviors": { "hiveMotherMinionBonus": 30 } },
+          "engineFields": ["rawBehaviors.hiveMotherMinionBonus (NEW — tick.ts minion attack hook: if target has locust DoT, multiply minion damage by 1 + value/100)"]
+        },
+        {
+          "id": "lc_spirit_t7",
+          "name": "THE COLONY",
+          "tier": 7,
+          "slot": "T7",
+          "nodeType": "keystone",
+          "maxRank": 1,
+          "description": "You permanently maintain a swarm of 4 mini-insect minions (auto-revives 5s after death). Cost: −50% Locust DoT damage.",
+          "modifier": {
+            "rawBehaviors": { "permanentColony": { "count": 4, "reviveSeconds": 5, "minionType": "spirit_temp" } },
+            "dotMultiplier": -50
+          },
+          "engineFields": ["rawBehaviors.permanentColony (NEW — staff.ts tickMaintenance: ensure N spirit_temp minions alive at all times via summonMinions; revive after timer if dead); dotMultiplier (EXISTS)"]
+        }
+      ]
+    },
+    {
+      "branchId": "voodoo_master",
+      "branchName": "Cursed Swarm",
+      "theme": "Locust as the perfect setup for Toads burst. Hex synergy. Soul stack feeder.",
+      "nodes": [
+        {
+          "id": "lc_voodoo_t1a",
+          "name": "Acidic Sting",
+          "tier": 1,
+          "slot": "T1a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+10/20% Locust crit chance.",
+          "modifier": { "incCritChance": 10 },
+          "perRankModifiers": { "1": { "incCritChance": 10 }, "2": { "incCritChance": 20 } },
+          "engineFields": ["incCritChance (EXISTS)"]
+        },
+        {
+          "id": "lc_voodoo_t1b",
+          "name": "Soul Feast",
+          "tier": 1,
+          "slot": "T1b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Locust ticks on Hexed targets have 15/30% chance to generate 1 soul_stack. ICD 1.5s.",
+          "modifier": {
+            "procs": [{ "id": "lc_soul_feast", "trigger": "onAilmentTick", "chance": 0.15, "conditionParam": { "targetHasDebuff": "hexed" }, "internalCooldown": 1.5, "createComboState": { "stateId": "soul_stack", "stacks": 1 } }]
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "lc_soul_feast", "trigger": "onAilmentTick", "chance": 0.15, "conditionParam": { "targetHasDebuff": "hexed" }, "internalCooldown": 1.5, "createComboState": { "stateId": "soul_stack", "stacks": 1 } }] },
+            "2": { "procs": [{ "id": "lc_soul_feast", "trigger": "onAilmentTick", "chance": 0.30, "conditionParam": { "targetHasDebuff": "hexed" }, "internalCooldown": 1.5, "createComboState": { "stateId": "soul_stack", "stacks": 1 } }] }
+          },
+          "engineFields": ["procs[onAilmentTick] (EXISTS); conditionParam.targetHasDebuff (NEW); createComboState (NEW — same as Haunt Cursed Tick)"]
+        },
+        {
+          "id": "lc_voodoo_t2",
+          "name": "Locust Surge",
+          "tier": 2,
+          "slot": "T2",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "On Locust cast: gain Locust Surge (+30% damage to your next non-Locust cast within 4s, stacks up to 3 from consecutive Locusts).",
+          "modifier": {
+            "procs": [{ "id": "lc_surge", "trigger": "onCast", "chance": 1.0, "applyBuff": { "buffId": "locustSurge", "effect": { "damageMult": 1.30 }, "duration": 4, "stacks": 1, "maxStacks": 3 } }]
+          },
+          "engineFields": ["procs[onCast] (EXISTS); BUFF_DEFS.locustSurge (NEW — UI buff entry; consumed by next non-Locust cast)"]
+        },
+        {
+          "id": "lc_voodoo_t2b",
+          "name": "Hexed Decay",
+          "tier": 2,
+          "slot": "T2b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+20/40% Locust damage on Hexed targets.",
+          "modifier": { "conditionalMods": [{ "condition": "whileDebuffActive", "debuffId": "hexed", "modifier": { "incDamage": 20 } }] },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "whileDebuffActive", "debuffId": "hexed", "modifier": { "incDamage": 20 } }] },
+            "2": { "conditionalMods": [{ "condition": "whileDebuffActive", "debuffId": "hexed", "modifier": { "incDamage": 40 } }] }
+          },
+          "engineFields": ["conditionalMods.whileDebuffActive (EXISTS)"]
+        },
+        {
+          "id": "lc_voodoo_t3a",
+          "name": "Stack Synergy",
+          "tier": 3,
+          "slot": "T3a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+5/10% Locust damage per active soul_stack.",
+          "modifier": { "damagePerSoulStackActive": 5 },
+          "perRankModifiers": { "1": { "damagePerSoulStackActive": 5 }, "2": { "damagePerSoulStackActive": 10 } },
+          "engineFields": ["damagePerSoulStackActive (EXISTS in ResolvedSkillModifier; verify staff.ts preRoll wires it)"]
+        },
+        {
+          "id": "lc_voodoo_t3b",
+          "name": "Cursed Tide",
+          "tier": 3,
+          "slot": "T3b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Locust crits have 35/70% chance to instantly cast Hex on target. ICD 5s.",
+          "modifier": {
+            "procs": [{ "id": "lc_cursed_tide", "trigger": "onCrit", "chance": 0.35, "internalCooldown": 5.0, "castSkill": { "skillId": "staff_hex", "damagePercent": 0 } }]
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "lc_cursed_tide", "trigger": "onCrit", "chance": 0.35, "internalCooldown": 5.0, "castSkill": { "skillId": "staff_hex", "damagePercent": 0 } }] },
+            "2": { "procs": [{ "id": "lc_cursed_tide", "trigger": "onCrit", "chance": 0.70, "internalCooldown": 5.0, "castSkill": { "skillId": "staff_hex", "damagePercent": 0 } }] }
+          },
+          "engineFields": ["procs[onCrit] (EXISTS); castSkill (NEW)"]
+        },
+        {
+          "id": "lc_voodoo_t3c",
+          "name": "Quickdraw",
+          "tier": 3,
+          "slot": "T3c",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "−15/30% Locust cooldown.",
+          "modifier": { "cooldownReduction": 15 },
+          "perRankModifiers": { "1": { "cooldownReduction": 15 }, "2": { "cooldownReduction": 30 } },
+          "engineFields": ["cooldownReduction (EXISTS)"]
+        },
+        {
+          "id": "lc_voodoo_t4",
+          "name": "Toad Resonance",
+          "tier": 4,
+          "slot": "T4",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "When Plague of Toads consumes Plagued, immediately refresh Locust cooldown.",
+          "modifier": { "rawBehaviors": { "toadsConsumePlaguedRefundsLocust": true } },
+          "engineFields": ["rawBehaviors.toadsConsumePlaguedRefundsLocust (NEW — staff.ts postCast for staff_plague_of_toads, when consuming plagued: set staff_locust_swarm cooldown timer to 0)"]
+        },
+        {
+          "id": "lc_voodoo_t4b",
+          "name": "Burst Mastery Support",
+          "tier": 4,
+          "slot": "T4b",
+          "nodeType": "support",
+          "maxRank": 2,
+          "description": "+20/40% damage to Curse-tagged skills.",
+          "modifier": { "incDamage": 20 },
+          "perRankModifiers": { "1": { "incDamage": 20 }, "2": { "incDamage": 40 } },
+          "engineFields": ["incDamage (EXISTS)"]
+        },
+        {
+          "id": "lc_voodoo_t5a",
+          "name": "Locust Burst",
+          "tier": 5,
+          "slot": "T5A",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Locust deals 100% of its first-second-of-DoT damage instantly on cast (in addition to the DoT). Cost: −50% transfer-on-kill snapshot.",
+          "modifier": {
+            "rawBehaviors": { "locustInitialBurstPercent": 100, "locustTransferDamagePenalty": 50 }
+          },
+          "engineFields": ["rawBehaviors.locustInitialBurstPercent (NEW — staff.ts postCast: emit instant damage event = (snapshot * dotDamagePercent) * percent/100); rawBehaviors.locustTransferDamagePenalty (shared with T7 keystone in Plague branch)"]
+        },
+        {
+          "id": "lc_voodoo_t5b",
+          "name": "Soul Eater",
+          "tier": 5,
+          "slot": "T5B",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "When a Locust-affected, Hexed enemy dies: generate 2 soul_stacks. Cost: Locust CD +2s.",
+          "modifier": {
+            "rawBehaviors": { "locustHexedKillSpawnsSoulStacks": 2 },
+            "cooldownIncrease": 2
+          },
+          "engineFields": ["rawBehaviors.locustHexedKillSpawnsSoulStacks (NEW — tick.ts death loop: if killed enemy had locust DoT AND hexed debuff, call createComboState('soul_stack', value)); cooldownIncrease (EXISTS)"]
+        },
+        {
+          "id": "lc_voodoo_t6",
+          "name": "Final Whisper",
+          "tier": 6,
+          "slot": "T6",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Locust ticks deal +100% damage to enemies below 25% HP.",
+          "modifier": { "rawBehaviors": { "locustExecuteThreshold": { "hpPercent": 25, "damageBonus": 100 } } },
+          "engineFields": ["rawBehaviors.locustExecuteThreshold (NEW — tick.ts auto-ailment block: if target.hpPct < hpPercent, multiply tick by 1 + damageBonus/100)"]
+        },
+        {
+          "id": "lc_voodoo_t7",
+          "name": "THE BLACK PLAGUE",
+          "tier": 7,
+          "slot": "T7",
+          "nodeType": "keystone",
+          "maxRank": 1,
+          "description": "Each Locust tick applies 1 'Plague Mark' (max 10). At 10 marks the target detonates for 10× tick damage as AoE chaos. Cost: −25% Locust DoT damage.",
+          "modifier": {
+            "rawBehaviors": { "plagueMarkBuildup": { "perTick": 1, "maxStacks": 10, "detonationMultiplier": 10 } },
+            "dotMultiplier": -25
+          },
+          "engineFields": ["rawBehaviors.plagueMarkBuildup (NEW — track per-target stack counter on Locust DoT; on reaching maxStacks, emit AoE damage event to pack neighbors = tickDamage * detonationMultiplier; clear marks); dotMultiplier (EXISTS)"]
+        }
+      ]
+    }
+  ]
+}

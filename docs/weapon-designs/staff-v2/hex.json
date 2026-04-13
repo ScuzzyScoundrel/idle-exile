@@ -1,0 +1,546 @@
+{
+  "skillId": "staff_hex",
+  "skillName": "Hex",
+  "designNotes": {
+    "skillBaseline": "Chaos curse, 0.3 SPR, 6s CD. Applies Hexed debuff (-20% target damage dealt, 5s) AND creates Hexed combo state (5s) for Soul Harvest to consume. Low direct damage, high utility.",
+    "buildIdentities": {
+      "plague_doctor": "Hex as a stacking, spreading curse — applies bleeding/poison alongside, multi-target. Hex becomes a debuff platform.",
+      "spirit_caller": "Hex empowers minions — Hexed targets become high-priority for the pack. Minions get ASPD/damage off curses.",
+      "voodoo_master": "Hex as setup for Soul Harvest 2x consume + Mass Sacrifice's hexed-consume bonus. Pure multiplicative payoff."
+    },
+    "noNewProcEffectsRequired": "Reuses castSkill/createComboState/summonMinion patterns from Haunt/Locust JSONs."
+  },
+  "branches": [
+    {
+      "branchId": "plague_doctor",
+      "branchName": "Pestilent Curse",
+      "theme": "Hex spreads disease alongside the curse — every Hexed target rots from within.",
+      "nodes": [
+        {
+          "id": "hx_plague_t1a",
+          "name": "Curse Potency",
+          "tier": 1,
+          "slot": "T1a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+15/30% Hex potency (improves the −% target damage dealt effect from −20% to −23/26%).",
+          "modifier": { "hexPotency": 15 },
+          "perRankModifiers": { "1": { "hexPotency": 15 }, "2": { "hexPotency": 30 } },
+          "engineFields": ["hexPotency (NEW — numeric; staff.ts postCast for staff_hex multiplies hexed debuff effect by 1 + value/100)"]
+        },
+        {
+          "id": "hx_plague_t1b",
+          "name": "Cursed Spread",
+          "tier": 1,
+          "slot": "T1b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "On Hex cast: 25/50% chance to also apply Hex to an adjacent pack enemy.",
+          "modifier": {
+            "procs": [{ "id": "hx_cursed_spread", "trigger": "onCast", "chance": 0.25, "rawEffect": "hexAdjacentSpread" }],
+            "rawBehaviors": { "hexAdjacentSpread": { "extraTargets": 1 } }
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "hx_cursed_spread", "trigger": "onCast", "chance": 0.25, "rawEffect": "hexAdjacentSpread" }], "rawBehaviors": { "hexAdjacentSpread": { "extraTargets": 1 } } },
+            "2": { "procs": [{ "id": "hx_cursed_spread", "trigger": "onCast", "chance": 0.50, "rawEffect": "hexAdjacentSpread" }], "rawBehaviors": { "hexAdjacentSpread": { "extraTargets": 1 } } }
+          },
+          "engineFields": ["procs[onCast] (EXISTS); rawBehaviors.hexAdjacentSpread (NEW — staff.ts proc handler picks N adjacent non-hexed enemies, applies Hex)"]
+        },
+        {
+          "id": "hx_plague_t2",
+          "name": "Pestilent Curse",
+          "tier": 2,
+          "slot": "T2",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Hexed enemies receive 1 stack of Bleeding (3s) every second from the curse.",
+          "modifier": { "rawBehaviors": { "hexAppliesBleedingPerSecond": { "duration": 3, "stacks": 1 } } },
+          "engineFields": ["rawBehaviors.hexAppliesBleedingPerSecond (NEW — tick.ts maintenance: per-second tick on hexed debuffs, apply bleeding stack)"]
+        },
+        {
+          "id": "hx_plague_t2b",
+          "name": "Lingering Curse",
+          "tier": 2,
+          "slot": "T2b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+20/40% Hex duration.",
+          "modifier": { "hexDuration": 20 },
+          "perRankModifiers": { "1": { "hexDuration": 20 }, "2": { "hexDuration": 40 } },
+          "engineFields": ["hexDuration (NEW — numeric; staff.ts postCast multiplies hexed debuff duration by 1 + value/100)"]
+        },
+        {
+          "id": "hx_plague_t3a",
+          "name": "Plague Synergy",
+          "tier": 3,
+          "slot": "T3a",
+          "nodeType": "conditional",
+          "maxRank": 2,
+          "description": "+15/30% Hex damage and potency on targets with 2+ debuffs.",
+          "modifier": { "conditionalMods": [{ "condition": "whileTargetAilmentCount", "threshold": 2, "modifier": { "incDamage": 15, "hexPotency": 15 } }] },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "whileTargetAilmentCount", "threshold": 2, "modifier": { "incDamage": 15, "hexPotency": 15 } }] },
+            "2": { "conditionalMods": [{ "condition": "whileTargetAilmentCount", "threshold": 2, "modifier": { "incDamage": 30, "hexPotency": 30 } }] }
+          },
+          "engineFields": ["conditionalMods.whileTargetAilmentCount (EXISTS)"]
+        },
+        {
+          "id": "hx_plague_t3b",
+          "name": "Crit Curse",
+          "tier": 3,
+          "slot": "T3b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Hex critical strikes apply 2/3 stacks of Poisoned (4s).",
+          "modifier": {
+            "procs": [{ "id": "hx_crit_poison", "trigger": "onCrit", "chance": 1.0, "applyDebuff": { "debuffId": "poisoned", "duration": 4, "stacks": 2 } }]
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "hx_crit_poison", "trigger": "onCrit", "chance": 1.0, "applyDebuff": { "debuffId": "poisoned", "duration": 4, "stacks": 2 } }] },
+            "2": { "procs": [{ "id": "hx_crit_poison", "trigger": "onCrit", "chance": 1.0, "applyDebuff": { "debuffId": "poisoned", "duration": 4, "stacks": 3 } }] }
+          },
+          "engineFields": ["procs[onCrit] (EXISTS)"]
+        },
+        {
+          "id": "hx_plague_t3c",
+          "name": "Chaos Mastery",
+          "tier": 3,
+          "slot": "T3c",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+10/20% chaos penetration.",
+          "modifier": { "chaosPenetration": 10 },
+          "perRankModifiers": { "1": { "chaosPenetration": 10 }, "2": { "chaosPenetration": 20 } },
+          "engineFields": ["chaosPenetration (EXISTS)"]
+        },
+        {
+          "id": "hx_plague_t4",
+          "name": "Plague Mark",
+          "tier": 4,
+          "slot": "T4",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "When a Hexed enemy dies, spread Hex to ALL pack members (full snapshot, half duration).",
+          "modifier": { "rawBehaviors": { "hexedDeathSpreadsHex": { "fullSnapshot": true, "durationPercent": 50 } } },
+          "engineFields": ["rawBehaviors.hexedDeathSpreadsHex (NEW — tick.ts death loop: if killed enemy had hexed debuff, apply Hex to every alive pack member with snapshot * 1.0 and duration * percent/100)"]
+        },
+        {
+          "id": "hx_plague_t4b",
+          "name": "DoT Support",
+          "tier": 4,
+          "slot": "T4b",
+          "nodeType": "support",
+          "maxRank": 2,
+          "description": "+15/30% damage to DoT-tagged skills.",
+          "modifier": { "incDamage": 15 },
+          "perRankModifiers": { "1": { "incDamage": 15 }, "2": { "incDamage": 30 } },
+          "engineFields": ["incDamage (EXISTS)"]
+        },
+        {
+          "id": "hx_plague_t5a",
+          "name": "Mass Hex",
+          "tier": 5,
+          "slot": "T5A",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Hex applies to entire pack on cast at 50% potency.",
+          "modifier": { "rawBehaviors": { "hexPackOnCastPotency": 50 } },
+          "engineFields": ["rawBehaviors.hexPackOnCastPotency (NEW — staff.ts postCast: apply Hex to all pack enemies with hexedDebuffEffect * percent/100)"]
+        },
+        {
+          "id": "hx_plague_t5b",
+          "name": "Eternal Curse",
+          "tier": 5,
+          "slot": "T5B",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Hex duration is doubled. Cost: Hex CD +50%.",
+          "modifier": { "hexDuration": 100, "cooldownIncrease": 3 },
+          "engineFields": ["hexDuration (NEW); cooldownIncrease (EXISTS)"]
+        },
+        {
+          "id": "hx_plague_t6",
+          "name": "Decay Mark",
+          "tier": 6,
+          "slot": "T6",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Hexed targets accumulate +1% damage taken per second from all sources (caps at +30%).",
+          "modifier": { "rawBehaviors": { "hexedDecayMark": { "perSecondPercent": 1, "maxPercent": 30 } } },
+          "engineFields": ["rawBehaviors.hexedDecayMark (NEW — tick.ts maintenance: per-second tick on hexed debuffs, increment a damageAmp counter on the debuff instance up to maxPercent; tick.ts damage application reads counter and multiplies incoming damage)"]
+        },
+        {
+          "id": "hx_plague_t7",
+          "name": "THE WITCHING HOUR",
+          "tier": 7,
+          "slot": "T7",
+          "nodeType": "keystone",
+          "maxRank": 1,
+          "description": "All enemies in the zone are permanently Hexed (no need to recast). Cost: −50% Hex direct damage.",
+          "modifier": { "rawBehaviors": { "witchingHour": true }, "incDamage": -50 },
+          "engineFields": ["rawBehaviors.witchingHour (NEW — tick.ts maintenance: apply hexed debuff to all alive enemies every tick if missing, no duration); incDamage (EXISTS)"]
+        }
+      ]
+    },
+    {
+      "branchId": "spirit_caller",
+      "branchName": "Bound Curse",
+      "theme": "Hex empowers the dead. Cursed enemies become marked targets for your spirits.",
+      "nodes": [
+        {
+          "id": "hx_spirit_t1a",
+          "name": "Curse Reach",
+          "tier": 1,
+          "slot": "T1a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Hex initial cast also applies to 1/2 random adjacent enemies at full potency.",
+          "modifier": { "hexSpreadRadius": 1 },
+          "perRankModifiers": { "1": { "hexSpreadRadius": 1 }, "2": { "hexSpreadRadius": 2 } },
+          "engineFields": ["hexSpreadRadius (NEW — numeric; staff.ts postCast applies Hex to N additional pack enemies with full snapshot)"]
+        },
+        {
+          "id": "hx_spirit_t1b",
+          "name": "Spirit Bind",
+          "tier": 1,
+          "slot": "T1b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "On Hex cast: minions gain +30/60% damage for 5s.",
+          "modifier": {
+            "procs": [{ "id": "hx_spirit_bind", "trigger": "onCast", "chance": 1.0, "rawEffect": "buffMinionsDamage" }],
+            "rawBehaviors": { "hexCastBuffsMinions": { "damageMultPercent": 30, "duration": 5 } }
+          },
+          "perRankModifiers": {
+            "1": { "rawBehaviors": { "hexCastBuffsMinions": { "damageMultPercent": 30, "duration": 5 } } },
+            "2": { "rawBehaviors": { "hexCastBuffsMinions": { "damageMultPercent": 60, "duration": 5 } } }
+          },
+          "engineFields": ["rawBehaviors.hexCastBuffsMinions (NEW — staff.ts postCast: set per-minion damageMultBuff with expiry; staff.ts minion attack hook reads it)"]
+        },
+        {
+          "id": "hx_spirit_t2",
+          "name": "Pack Curse",
+          "tier": 2,
+          "slot": "T2",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Your minions deal +50% damage to Hexed targets.",
+          "modifier": { "rawBehaviors": { "minionBonusDamageVsHexed": 50 } },
+          "engineFields": ["rawBehaviors.minionBonusDamageVsHexed (NEW — tick.ts minion attack hook: if target has hexed debuff, multiply minion damage by 1 + value/100)"]
+        },
+        {
+          "id": "hx_spirit_t2b",
+          "name": "Bound Power",
+          "tier": 2,
+          "slot": "T2b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+10/20% Hex damage and potency while any minion is alive.",
+          "modifier": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incDamage": 10, "hexPotency": 10 } }] },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incDamage": 10, "hexPotency": 10 } }] },
+            "2": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incDamage": 20, "hexPotency": 20 } }] }
+          },
+          "engineFields": ["conditionalMods.whileMinionsAlive (EXISTS)"]
+        },
+        {
+          "id": "hx_spirit_t3a",
+          "name": "Pack Hunter",
+          "tier": 3,
+          "slot": "T3a",
+          "nodeType": "conditional",
+          "maxRank": 2,
+          "description": "+20/40% Hex potency while 2+ minions alive.",
+          "modifier": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "hexPotency": 20 } }] },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "hexPotency": 20 } }] },
+            "2": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "hexPotency": 40 } }] }
+          },
+          "engineFields": ["conditionalMods.whileMinionsAlive (EXISTS)"]
+        },
+        {
+          "id": "hx_spirit_t3b",
+          "name": "Hex Echo",
+          "tier": 3,
+          "slot": "T3b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "On Hexed enemy kill: 25/50% chance to spawn a 3s spirit minion.",
+          "modifier": {
+            "procs": [{ "id": "hx_echo", "trigger": "onKill", "chance": 0.25, "conditionParam": { "targetHadDebuff": "hexed" }, "summonMinion": { "type": "spirit_temp", "duration": 3 } }]
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "hx_echo", "trigger": "onKill", "chance": 0.25, "conditionParam": { "targetHadDebuff": "hexed" }, "summonMinion": { "type": "spirit_temp", "duration": 3 } }] },
+            "2": { "procs": [{ "id": "hx_echo", "trigger": "onKill", "chance": 0.50, "conditionParam": { "targetHadDebuff": "hexed" }, "summonMinion": { "type": "spirit_temp", "duration": 3 } }] }
+          },
+          "engineFields": ["procs[onKill] (EXISTS); summonMinion (NEW); conditionParam.targetHadDebuff (NEW)"]
+        },
+        {
+          "id": "hx_spirit_t3c",
+          "name": "Spectral Mastery",
+          "tier": 3,
+          "slot": "T3c",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+10/20% chaos penetration.",
+          "modifier": { "chaosPenetration": 10 },
+          "perRankModifiers": { "1": { "chaosPenetration": 10 }, "2": { "chaosPenetration": 20 } },
+          "engineFields": ["chaosPenetration (EXISTS)"]
+        },
+        {
+          "id": "hx_spirit_t4",
+          "name": "Resist Shred",
+          "tier": 4,
+          "slot": "T4",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Each minion attack on a Hexed target also reduces target's all-resist by 10% for 4s (stacks up to 5 times).",
+          "modifier": { "rawBehaviors": { "minionHexedResistShred": { "perAttackPercent": 10, "duration": 4, "maxStacks": 5 } } },
+          "engineFields": ["rawBehaviors.minionHexedResistShred (NEW — tick.ts minion attack hook: if target hexed, apply/refresh resistShred debuff stack)"]
+        },
+        {
+          "id": "hx_spirit_t4b",
+          "name": "Minion Mastery Support",
+          "tier": 4,
+          "slot": "T4b",
+          "nodeType": "support",
+          "maxRank": 2,
+          "description": "+15/30% minion damage.",
+          "modifier": { "minionDamageMult": 15 },
+          "perRankModifiers": { "1": { "minionDamageMult": 15 }, "2": { "minionDamageMult": 30 } },
+          "engineFields": ["minionDamageMult (EXISTS)"]
+        },
+        {
+          "id": "hx_spirit_t5a",
+          "name": "Spirit Mark",
+          "tier": 5,
+          "slot": "T5A",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Each Haunted+Hexed enemy in the pack grants +10% damage to all your minions.",
+          "modifier": { "rawBehaviors": { "spiritMarkBonus": { "perEnemyPercent": 10 } } },
+          "engineFields": ["rawBehaviors.spiritMarkBonus (NEW — tick.ts minion attack hook: count pack enemies that have BOTH haunted and hexed, apply +percent per enemy to minion damageMult)"]
+        },
+        {
+          "id": "hx_spirit_t5b",
+          "name": "Ghostly Curse",
+          "tier": 5,
+          "slot": "T5B",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "While any minion is alive, you have +30% cast speed against Hexed targets. Cost: −25% Hex potency.",
+          "modifier": {
+            "rawBehaviors": { "ghostlyCurseCastSpeed": { "amountPercent": 30, "requireMinionsAlive": true, "requireHexedTarget": true } },
+            "hexPotency": -25
+          },
+          "engineFields": ["rawBehaviors.ghostlyCurseCastSpeed (NEW — tick.ts pre-roll for any cast: if conditions met, multiply castSpeed by 1 + amount/100); hexPotency (NEW)"]
+        },
+        {
+          "id": "hx_spirit_t6",
+          "name": "Death's Mark",
+          "tier": 6,
+          "slot": "T6",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Minion kills on Hexed targets summon a 3s spirit minion (max 1 per second).",
+          "modifier": { "rawBehaviors": { "minionHexedKillSummonsSpirit": { "duration": 3, "internalCooldown": 1 } } },
+          "engineFields": ["rawBehaviors.minionHexedKillSummonsSpirit (NEW — tick.ts death loop: if killed enemy had hexed AND killer was a minion, with internal CD throttle, summon spirit_temp)"]
+        },
+        {
+          "id": "hx_spirit_t7",
+          "name": "BINDER OF SOULS",
+          "tier": 7,
+          "slot": "T7",
+          "nodeType": "keystone",
+          "maxRank": 1,
+          "description": "All your minions deal cold damage and inherit your Hex potency as bonus damage. Cost: −30% minion HP.",
+          "modifier": {
+            "rawBehaviors": { "minionsBecomeColdInheritHexPotency": true },
+            "minionHpMult": -30
+          },
+          "engineFields": ["rawBehaviors.minionsBecomeColdInheritHexPotency (NEW — staff.ts summonMinions sets element='cold'; staff.ts minion attack hook adds hexPotency as % bonus damage); minionHpMult (EXISTS, negative)"]
+        }
+      ]
+    },
+    {
+      "branchId": "voodoo_master",
+      "branchName": "Empowered Curse",
+      "theme": "Hex's only purpose is to be consumed. Make every consume a screen-clearing nuke.",
+      "nodes": [
+        {
+          "id": "hx_voodoo_t1a",
+          "name": "Hex Mastery",
+          "tier": 1,
+          "slot": "T1a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+15/30% damage you deal to Hexed targets (all skills).",
+          "modifier": { "hexedTargetDamageAmp": 15 },
+          "perRankModifiers": { "1": { "hexedTargetDamageAmp": 15 }, "2": { "hexedTargetDamageAmp": 30 } },
+          "engineFields": ["hexedTargetDamageAmp (EXISTS in ResolvedSkillModifier; verify wired in tick.ts damage app)"]
+        },
+        {
+          "id": "hx_voodoo_t1b",
+          "name": "Soul Curse",
+          "tier": 1,
+          "slot": "T1b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "On Hex cast: 50/100% chance to generate 1 soul_stack.",
+          "modifier": {
+            "procs": [{ "id": "hx_soul_curse", "trigger": "onCast", "chance": 0.50, "createComboState": { "stateId": "soul_stack", "stacks": 1 } }]
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "hx_soul_curse", "trigger": "onCast", "chance": 0.50, "createComboState": { "stateId": "soul_stack", "stacks": 1 } }] },
+            "2": { "procs": [{ "id": "hx_soul_curse", "trigger": "onCast", "chance": 1.0, "createComboState": { "stateId": "soul_stack", "stacks": 1 } }] }
+          },
+          "engineFields": ["procs[onCast] (EXISTS); createComboState (NEW)"]
+        },
+        {
+          "id": "hx_voodoo_t2",
+          "name": "Empowered Hex",
+          "tier": 2,
+          "slot": "T2",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "When Soul Harvest consumes Hexed, the cast deals an additional +50% damage on top of its 2× consume bonus.",
+          "modifier": { "rawBehaviors": { "soulHarvestHexedConsumeBonus": 50 } },
+          "engineFields": ["rawBehaviors.soulHarvestHexedConsumeBonus (NEW — staff.ts preRoll for staff_soul_harvest when consuming hexed: multiplicative bonus +value/100)"]
+        },
+        {
+          "id": "hx_voodoo_t2b",
+          "name": "Soul Bond",
+          "tier": 2,
+          "slot": "T2b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+5/10% Hex damage per active soul_stack.",
+          "modifier": { "damagePerSoulStackActive": 5 },
+          "perRankModifiers": { "1": { "damagePerSoulStackActive": 5 }, "2": { "damagePerSoulStackActive": 10 } },
+          "engineFields": ["damagePerSoulStackActive (EXISTS)"]
+        },
+        {
+          "id": "hx_voodoo_t3a",
+          "name": "Soul Synergy",
+          "tier": 3,
+          "slot": "T3a",
+          "nodeType": "conditional",
+          "maxRank": 2,
+          "description": "+20/40% Hex damage and potency while you have 3+ soul_stacks.",
+          "modifier": { "conditionalMods": [{ "condition": "whileBuffActive", "buffId": "soul_stack", "threshold": 3, "modifier": { "incDamage": 20, "hexPotency": 20 } }] },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "whileBuffActive", "buffId": "soul_stack", "threshold": 3, "modifier": { "incDamage": 20, "hexPotency": 20 } }] },
+            "2": { "conditionalMods": [{ "condition": "whileBuffActive", "buffId": "soul_stack", "threshold": 3, "modifier": { "incDamage": 40, "hexPotency": 40 } }] }
+          },
+          "engineFields": ["conditionalMods.whileBuffActive (EXISTS); threshold check requires soul_stack stacks >= threshold"]
+        },
+        {
+          "id": "hx_voodoo_t3b",
+          "name": "Hex Catalyst",
+          "tier": 3,
+          "slot": "T3b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "On Hex cast: 35/70% chance to immediately reset Soul Harvest cooldown.",
+          "modifier": {
+            "procs": [{ "id": "hx_catalyst", "trigger": "onCast", "chance": 0.35, "cooldownReset": ["staff_soul_harvest"] }]
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "hx_catalyst", "trigger": "onCast", "chance": 0.35, "cooldownReset": ["staff_soul_harvest"] }] },
+            "2": { "procs": [{ "id": "hx_catalyst", "trigger": "onCast", "chance": 0.70, "cooldownReset": ["staff_soul_harvest"] }] }
+          },
+          "engineFields": ["procs[onCast] (EXISTS); cooldownReset[] (EXISTS in SkillProcEffect)"]
+        },
+        {
+          "id": "hx_voodoo_t3c",
+          "name": "Ritual Mastery",
+          "tier": 3,
+          "slot": "T3c",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "−15/30% Hex cooldown.",
+          "modifier": { "cooldownReduction": 15 },
+          "perRankModifiers": { "1": { "cooldownReduction": 15 }, "2": { "cooldownReduction": 30 } },
+          "engineFields": ["cooldownReduction (EXISTS)"]
+        },
+        {
+          "id": "hx_voodoo_t4",
+          "name": "Vexing Resonance",
+          "tier": 4,
+          "slot": "T4",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Each consecutive Hex cast on the same target stacks Vexing (+10% damage taken from all sources, max 5, 8s, resets on target switch).",
+          "modifier": {
+            "procs": [{ "id": "hx_vexing", "trigger": "onCast", "chance": 1.0, "conditionParam": { "sameTarget": true, "resetOnTargetSwitch": true }, "applyDebuff": { "debuffId": "vexing", "duration": 8, "stacks": 1 } }],
+            "rawBehaviors": { "vexingDebuffMaxStacks": 5 }
+          },
+          "engineFields": ["procs[onCast] (EXISTS); conditionParam.sameTarget+resetOnTargetSwitch (EXISTS+NEW); DEBUFF_DEFS.vexing (NEW — applies +damageTaken% per stack; staff.ts onCast roll applies stack)"]
+        },
+        {
+          "id": "hx_voodoo_t4b",
+          "name": "Curse Support",
+          "tier": 4,
+          "slot": "T4b",
+          "nodeType": "support",
+          "maxRank": 2,
+          "description": "+20/40% damage to Curse-tagged skills.",
+          "modifier": { "incDamage": 20 },
+          "perRankModifiers": { "1": { "incDamage": 20 }, "2": { "incDamage": 40 } },
+          "engineFields": ["incDamage (EXISTS)"]
+        },
+        {
+          "id": "hx_voodoo_t5a",
+          "name": "Hexlord",
+          "tier": 5,
+          "slot": "T5A",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Hex potency is doubled. Cost: Hex CD +2s.",
+          "modifier": { "hexPotency": 100, "cooldownIncrease": 2 },
+          "engineFields": ["hexPotency (NEW); cooldownIncrease (EXISTS)"]
+        },
+        {
+          "id": "hx_voodoo_t5b",
+          "name": "Burst Master",
+          "tier": 5,
+          "slot": "T5B",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Soul Harvest's hexed-consume bonus becomes 3× damage (up from 2×). Cost: −30% Hex direct damage.",
+          "modifier": {
+            "rawBehaviors": { "soulHarvestHexedConsumeMult": 3.0 },
+            "incDamage": -30
+          },
+          "engineFields": ["rawBehaviors.soulHarvestHexedConsumeMult (NEW — staff.ts preRoll for staff_soul_harvest when consuming hexed: override base 2× multiplier); incDamage (EXISTS)"]
+        },
+        {
+          "id": "hx_voodoo_t6",
+          "name": "Final Strike",
+          "tier": 6,
+          "slot": "T6",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Hex critical strikes guarantee that the next Soul Harvest cast within 5s also crits.",
+          "modifier": {
+            "procs": [{ "id": "hx_final_strike", "trigger": "onCrit", "chance": 1.0, "applyBuff": { "buffId": "soulHarvestNextCrit", "effect": {}, "duration": 5 } }]
+          },
+          "engineFields": ["procs[onCrit] (EXISTS); BUFF_DEFS.soulHarvestNextCrit (NEW — flag buff; staff.ts preRoll for staff_soul_harvest checks it, forces crit and consumes)"]
+        },
+        {
+          "id": "hx_voodoo_t7",
+          "name": "THE PUPPETEER",
+          "tier": 7,
+          "slot": "T7",
+          "nodeType": "keystone",
+          "maxRank": 1,
+          "description": "On Hex cast: target takes 1% max HP damage per soul_stack you currently have. Cost: Hex no longer reduces target damage dealt (loses its baseline debuff effect).",
+          "modifier": {
+            "rawBehaviors": { "puppeteerHexCastDamage": { "perSoulStackPercent": 1 }, "puppeteerDisablesHexDebuff": true }
+          },
+          "engineFields": ["rawBehaviors.puppeteerHexCastDamage (NEW — staff.ts postCast for staff_hex: emit damage event to target = target.maxHp * perSoulStackPercent/100 * activeSoulStackCount); rawBehaviors.puppeteerDisablesHexDebuff (NEW — skip applying hexed debuff effect when set)"]
+        }
+      ]
+    }
+  ]
+}

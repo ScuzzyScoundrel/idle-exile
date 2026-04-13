@@ -1,0 +1,556 @@
+{
+  "skillId": "staff_zombie_dogs",
+  "skillName": "Zombie Dogs",
+  "designNotes": {
+    "skillBaseline": "Summon 2 zombie dogs (10s duration, 12s CD). Dogs have HP, attack interval 3s, deal chaos via bite. Dog bites apply Haunted combo state (5s) for Spirit Barrage to consume. While alive, dogs create spirit_link state for Mass Sacrifice to consume.",
+    "buildIdentities": {
+      "plague_doctor": "Bites are vectors for disease — every bite a poison/bleed apply. Pack as a debuff distribution system.",
+      "spirit_caller": "Bigger, stronger, more persistent pack. Bone wardens that sustain themselves.",
+      "voodoo_master": "Dogs feed soul stacks and hex synergy. Pack as a soul-feeder for burst skills."
+    }
+  },
+  "branches": [
+    {
+      "branchId": "plague_doctor",
+      "branchName": "Plague Pack",
+      "theme": "Every bite spreads disease. The dogs are vectors as much as warriors.",
+      "nodes": [
+        {
+          "id": "zd_plague_t1a",
+          "name": "Rotting Fangs",
+          "tier": 1,
+          "slot": "T1a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Each dog bite applies 1/2 stacks of Poisoned (3s).",
+          "modifier": { "rawBehaviors": { "dogBitePoisonStacks": 1 } },
+          "perRankModifiers": {
+            "1": { "rawBehaviors": { "dogBitePoisonStacks": 1 } },
+            "2": { "rawBehaviors": { "dogBitePoisonStacks": 2 } }
+          },
+          "engineFields": ["rawBehaviors.dogBitePoisonStacks (NEW — tick.ts minion attack hook for zombie_dog: per bite apply N poisoned stacks)"]
+        },
+        {
+          "id": "zd_plague_t1b",
+          "name": "Disease Carrier",
+          "tier": 1,
+          "slot": "T1b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Dog bites have 25/50% chance to apply Bleeding (3s).",
+          "modifier": { "rawBehaviors": { "dogBiteBleedingChance": 25 } },
+          "perRankModifiers": {
+            "1": { "rawBehaviors": { "dogBiteBleedingChance": 25 } },
+            "2": { "rawBehaviors": { "dogBiteBleedingChance": 50 } }
+          },
+          "engineFields": ["rawBehaviors.dogBiteBleedingChance (NEW — tick.ts minion attack hook: roll chance per bite, apply bleeding)"]
+        },
+        {
+          "id": "zd_plague_t2",
+          "name": "Plague Hounds",
+          "tier": 2,
+          "slot": "T2",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Dogs deal +50% damage to Plagued targets.",
+          "modifier": { "rawBehaviors": { "dogsBonusDamageVsPlagued": 50 } },
+          "engineFields": ["rawBehaviors.dogsBonusDamageVsPlagued (NEW — tick.ts minion attack hook: if target has plagued debuff, multiply dog damage by 1 + value/100)"]
+        },
+        {
+          "id": "zd_plague_t2b",
+          "name": "Pack Plague",
+          "tier": 2,
+          "slot": "T2b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+5/10% damage per debuff on target (applies to YOUR skills, not dog attacks).",
+          "modifier": { "conditionalMods": [{ "condition": "perAilmentStackOnTarget", "modifier": { "incDamage": 5 } }] },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "perAilmentStackOnTarget", "modifier": { "incDamage": 5 } }] },
+            "2": { "conditionalMods": [{ "condition": "perAilmentStackOnTarget", "modifier": { "incDamage": 10 } }] }
+          },
+          "engineFields": ["conditionalMods.perAilmentStackOnTarget (EXISTS)"]
+        },
+        {
+          "id": "zd_plague_t3a",
+          "name": "Putrid Bite",
+          "tier": 3,
+          "slot": "T3a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Dog bites have +5/10% chance to apply 1 extra debuff stack (Poisoned or Bleeding, whichever the target already has).",
+          "modifier": { "rawBehaviors": { "dogBiteExtraStackChance": 5 } },
+          "perRankModifiers": {
+            "1": { "rawBehaviors": { "dogBiteExtraStackChance": 5 } },
+            "2": { "rawBehaviors": { "dogBiteExtraStackChance": 10 } }
+          },
+          "engineFields": ["rawBehaviors.dogBiteExtraStackChance (NEW — tick.ts minion attack hook: roll chance, apply +1 stack of existing debuff)"]
+        },
+        {
+          "id": "zd_plague_t3b",
+          "name": "Crit Bite",
+          "tier": 3,
+          "slot": "T3b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Dog critical strikes apply 1/2 stacks each of Poisoned and Bleeding.",
+          "modifier": { "rawBehaviors": { "dogCritExtraStacks": { "poisoned": 1, "bleeding": 1 } } },
+          "perRankModifiers": {
+            "1": { "rawBehaviors": { "dogCritExtraStacks": { "poisoned": 1, "bleeding": 1 } } },
+            "2": { "rawBehaviors": { "dogCritExtraStacks": { "poisoned": 2, "bleeding": 2 } } }
+          },
+          "engineFields": ["rawBehaviors.dogCritExtraStacks (NEW — tick.ts minion attack hook: if dog crits, apply specified stacks)"]
+        },
+        {
+          "id": "zd_plague_t3c",
+          "name": "Chaos Mastery",
+          "tier": 3,
+          "slot": "T3c",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+10/20% chaos penetration.",
+          "modifier": { "chaosPenetration": 10 },
+          "perRankModifiers": { "1": { "chaosPenetration": 10 }, "2": { "chaosPenetration": 20 } },
+          "engineFields": ["chaosPenetration (EXISTS)"]
+        },
+        {
+          "id": "zd_plague_t4",
+          "name": "Apply All DoTs",
+          "tier": 4,
+          "slot": "T4",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Dog bites have 10% chance to apply ALL of your active DoTs to the target (matching current snapshots).",
+          "modifier": { "rawBehaviors": { "dogBiteApplyAllDotsChance": 10 } },
+          "engineFields": ["rawBehaviors.dogBiteApplyAllDotsChance (NEW — tick.ts minion attack hook: roll chance; if hit, copy all caster DoT debuffs to target with current snapshots)"]
+        },
+        {
+          "id": "zd_plague_t4b",
+          "name": "DoT Support",
+          "tier": 4,
+          "slot": "T4b",
+          "nodeType": "support",
+          "maxRank": 2,
+          "description": "+15/30% damage to DoT-tagged skills.",
+          "modifier": { "incDamage": 15 },
+          "perRankModifiers": { "1": { "incDamage": 15 }, "2": { "incDamage": 30 } },
+          "engineFields": ["incDamage (EXISTS)"]
+        },
+        {
+          "id": "zd_plague_t5a",
+          "name": "Eternal Plague",
+          "tier": 5,
+          "slot": "T5A",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "All DoTs applied by your dogs have +100% duration. Cost: −25% dog damage.",
+          "modifier": {
+            "rawBehaviors": { "dogAppliedDotDurationBonus": 100 },
+            "minionDamageMult": -25
+          },
+          "engineFields": ["rawBehaviors.dogAppliedDotDurationBonus (NEW — tick.ts minion attack hook: when dog applies a debuff, multiply duration by 1 + value/100); minionDamageMult (EXISTS, negative)"]
+        },
+        {
+          "id": "zd_plague_t5b",
+          "name": "Pestilent Pack",
+          "tier": 5,
+          "slot": "T5B",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Dogs apply Plagued (5s) on every bite. Cost: dog attack interval +1s (slower).",
+          "modifier": {
+            "rawBehaviors": { "dogBiteAppliesPlagued": { "duration": 5 } },
+            "zombieDogAttackIntervalReduction": -1
+          },
+          "engineFields": ["rawBehaviors.dogBiteAppliesPlagued (NEW); zombieDogAttackIntervalReduction (EXISTS, negative = slower)"]
+        },
+        {
+          "id": "zd_plague_t6",
+          "name": "Death Pulse",
+          "tier": 6,
+          "slot": "T6",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "When a dog dies, it explodes for 100% of its max HP as chaos AoE damage to nearby enemies.",
+          "modifier": { "rawBehaviors": { "dogDeathPulsePercent": 100 } },
+          "engineFields": ["rawBehaviors.dogDeathPulsePercent (NEW — minions.ts on dog death: emit AoE damage event = m.maxHp * value/100 to pack neighbors)"]
+        },
+        {
+          "id": "zd_plague_t7",
+          "name": "THE PLAGUE PACK",
+          "tier": 7,
+          "slot": "T7",
+          "nodeType": "keystone",
+          "maxRank": 1,
+          "description": "All dog attacks apply BOTH Hexed AND Haunted on hit. Cost: −50% dog max HP.",
+          "modifier": {
+            "rawBehaviors": { "dogBiteAppliesHexedHaunted": true },
+            "minionHpMult": -50
+          },
+          "engineFields": ["rawBehaviors.dogBiteAppliesHexedHaunted (NEW); minionHpMult (EXISTS, negative)"]
+        }
+      ]
+    },
+    {
+      "branchId": "spirit_caller",
+      "branchName": "Bone Pack",
+      "theme": "Bigger, stronger, more persistent. The pack is a fortress of bone and rot.",
+      "nodes": [
+        {
+          "id": "zd_spirit_t1a",
+          "name": "Bone Warden",
+          "tier": 1,
+          "slot": "T1a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+20/40% dog max HP.",
+          "modifier": { "minionHpMult": 20 },
+          "perRankModifiers": { "1": { "minionHpMult": 20 }, "2": { "minionHpMult": 40 } },
+          "engineFields": ["minionHpMult (EXISTS)"]
+        },
+        {
+          "id": "zd_spirit_t1b",
+          "name": "Pack Spawn",
+          "tier": 1,
+          "slot": "T1b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "On Zombie Dogs cast: 25/50% chance to also summon a 3s spirit minion.",
+          "modifier": {
+            "procs": [{ "id": "zd_pack_spawn", "trigger": "onCast", "chance": 0.25, "summonMinion": { "type": "spirit_temp", "duration": 3 } }]
+          },
+          "perRankModifiers": {
+            "1": { "procs": [{ "id": "zd_pack_spawn", "trigger": "onCast", "chance": 0.25, "summonMinion": { "type": "spirit_temp", "duration": 3 } }] },
+            "2": { "procs": [{ "id": "zd_pack_spawn", "trigger": "onCast", "chance": 0.50, "summonMinion": { "type": "spirit_temp", "duration": 3 } }] }
+          },
+          "engineFields": ["procs[onCast] (EXISTS); summonMinion (NEW)"]
+        },
+        {
+          "id": "zd_spirit_t2",
+          "name": "Alpha Pack",
+          "tier": 2,
+          "slot": "T2",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "+1 extra dog summoned (3 instead of 2).",
+          "modifier": { "extraZombieDogCount": 1 },
+          "engineFields": ["extraZombieDogCount (EXISTS in 34 staff fields)"]
+        },
+        {
+          "id": "zd_spirit_t2b",
+          "name": "Pack Power",
+          "tier": 2,
+          "slot": "T2b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+10/20% dog damage per dog currently alive.",
+          "modifier": { "rawBehaviors": { "dogPackPowerPerDog": 10 } },
+          "perRankModifiers": {
+            "1": { "rawBehaviors": { "dogPackPowerPerDog": 10 } },
+            "2": { "rawBehaviors": { "dogPackPowerPerDog": 20 } }
+          },
+          "engineFields": ["rawBehaviors.dogPackPowerPerDog (NEW — tick.ts minion attack hook: count alive zombie_dog minions, multiply damage by 1 + count * value/100)"]
+        },
+        {
+          "id": "zd_spirit_t3a",
+          "name": "Pack Hunter",
+          "tier": 3,
+          "slot": "T3a",
+          "nodeType": "conditional",
+          "maxRank": 2,
+          "description": "+15/30% damage while 2+ minions alive (your skills + dog attacks).",
+          "modifier": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incDamage": 15 } }] },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incDamage": 15 } }] },
+            "2": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incDamage": 30 } }] }
+          },
+          "engineFields": ["conditionalMods.whileMinionsAlive (EXISTS)"]
+        },
+        {
+          "id": "zd_spirit_t3b",
+          "name": "Lifesteal",
+          "tier": 3,
+          "slot": "T3b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Dog bites have 25/50% chance to heal you for 1% max HP.",
+          "modifier": { "rawBehaviors": { "dogBiteLifesteal": { "chance": 25, "healPercent": 1 } } },
+          "perRankModifiers": {
+            "1": { "rawBehaviors": { "dogBiteLifesteal": { "chance": 25, "healPercent": 1 } } },
+            "2": { "rawBehaviors": { "dogBiteLifesteal": { "chance": 50, "healPercent": 1 } } }
+          },
+          "engineFields": ["rawBehaviors.dogBiteLifesteal (NEW — tick.ts minion attack hook: roll chance, heal player by maxHp * healPercent/100)"]
+        },
+        {
+          "id": "zd_spirit_t3c",
+          "name": "Quick Bite",
+          "tier": 3,
+          "slot": "T3c",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Dog attack interval reduced by 0.5/1.0s (faster bites).",
+          "modifier": { "zombieDogAttackIntervalReduction": 0.5 },
+          "perRankModifiers": { "1": { "zombieDogAttackIntervalReduction": 0.5 }, "2": { "zombieDogAttackIntervalReduction": 1.0 } },
+          "engineFields": ["zombieDogAttackIntervalReduction (EXISTS)"]
+        },
+        {
+          "id": "zd_spirit_t4",
+          "name": "Dog Regen",
+          "tier": 4,
+          "slot": "T4",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Dogs heal 5% of max HP per second while not taking damage (3s after last hit).",
+          "modifier": { "rawBehaviors": { "dogRegenPercentPerSecond": 5, "dogRegenSafeWindowSeconds": 3 } },
+          "engineFields": ["rawBehaviors.dogRegenPercentPerSecond + dogRegenSafeWindowSeconds (NEW — minions.ts tick: per zombie_dog, if no hit in last N seconds, heal m.maxHp * percent/100)"]
+        },
+        {
+          "id": "zd_spirit_t4b",
+          "name": "Minion Mastery Support",
+          "tier": 4,
+          "slot": "T4b",
+          "nodeType": "support",
+          "maxRank": 2,
+          "description": "+15/30% minion damage.",
+          "modifier": { "minionDamageMult": 15 },
+          "perRankModifiers": { "1": { "minionDamageMult": 15 }, "2": { "minionDamageMult": 30 } },
+          "engineFields": ["minionDamageMult (EXISTS)"]
+        },
+        {
+          "id": "zd_spirit_t5a",
+          "name": "Pack of Five",
+          "tier": 5,
+          "slot": "T5A",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "+3 extra dogs (5 total). Cost: −40% dog max HP per dog.",
+          "modifier": { "extraZombieDogCount": 3, "minionHpMult": -40 },
+          "engineFields": ["extraZombieDogCount (EXISTS); minionHpMult (EXISTS)"]
+        },
+        {
+          "id": "zd_spirit_t5b",
+          "name": "Endless Pack",
+          "tier": 5,
+          "slot": "T5B",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "When a dog dies, after 3s it auto-revives at 50% HP. Cost: −25% dog max HP.",
+          "modifier": {
+            "rawBehaviors": { "dogAutoReviveSeconds": 3, "dogAutoReviveHpPercent": 50 },
+            "minionHpMult": -25
+          },
+          "engineFields": ["rawBehaviors.dogAutoReviveSeconds + dogAutoReviveHpPercent (NEW — minions.ts on dog death: schedule revive after seconds at hp%); minionHpMult (EXISTS)"]
+        },
+        {
+          "id": "zd_spirit_t6",
+          "name": "Aura of Death",
+          "tier": 6,
+          "slot": "T6",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Each living dog grants you a +10% damage aura (passive, all skills).",
+          "modifier": { "rawBehaviors": { "dogAuraDamagePerDog": 10 } },
+          "engineFields": ["rawBehaviors.dogAuraDamagePerDog (NEW — staff.ts preRoll for any caster cast: count alive zombie_dog minions, damageMult *= 1 + count * value/100)"]
+        },
+        {
+          "id": "zd_spirit_t7",
+          "name": "THE ALPHA",
+          "tier": 7,
+          "slot": "T7",
+          "nodeType": "keystone",
+          "maxRank": 1,
+          "description": "Summon only 1 Alpha dog (instead of 2): 3× HP, 2× damage, 50% slower attacks. Cost: max 1 dog instead of 2.",
+          "modifier": {
+            "rawBehaviors": { "alphaDogMode": { "hpMult": 3.0, "damageMult": 2.0, "intervalMult": 1.5 } }
+          },
+          "engineFields": ["rawBehaviors.alphaDogMode (NEW — staff.ts summonMinions for zombie_dog: if flag set, count=1, hp*=hpMult, damage*=damageMult, interval*=intervalMult)"]
+        }
+      ]
+    },
+    {
+      "branchId": "voodoo_master",
+      "branchName": "Cursed Pack",
+      "theme": "Dogs feed soul stacks and hex synergy. Pack as a soul-feeder for your burst skills.",
+      "nodes": [
+        {
+          "id": "zd_voodoo_t1a",
+          "name": "Pack Aura",
+          "tier": 1,
+          "slot": "T1a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+5/10% all your damage while any dog is alive.",
+          "modifier": {
+            "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incDamage": 5 } }]
+          },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incDamage": 5 } }] },
+            "2": { "conditionalMods": [{ "condition": "whileMinionsAlive", "modifier": { "incDamage": 10 } }] }
+          },
+          "engineFields": ["conditionalMods.whileMinionsAlive (EXISTS) — flavored dogPackAuraDamage per identity matrix"]
+        },
+        {
+          "id": "zd_voodoo_t1b",
+          "name": "Soul Bite",
+          "tier": 1,
+          "slot": "T1b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Dog bites have 10/20% chance to generate 1 soul_stack. ICD 2s.",
+          "modifier": { "rawBehaviors": { "dogBiteSoulStackChance": 10, "dogBiteSoulStackICD": 2 } },
+          "perRankModifiers": {
+            "1": { "rawBehaviors": { "dogBiteSoulStackChance": 10, "dogBiteSoulStackICD": 2 } },
+            "2": { "rawBehaviors": { "dogBiteSoulStackChance": 20, "dogBiteSoulStackICD": 2 } }
+          },
+          "engineFields": ["rawBehaviors.dogBiteSoulStackChance + ICD (NEW — tick.ts minion attack hook: roll chance with throttle, createComboState soul_stack)"]
+        },
+        {
+          "id": "zd_voodoo_t2",
+          "name": "Cursed Pack",
+          "tier": 2,
+          "slot": "T2",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "Dogs deal +50% damage to Hexed targets.",
+          "modifier": { "rawBehaviors": { "dogsBonusDamageVsHexed": 50 } },
+          "engineFields": ["rawBehaviors.dogsBonusDamageVsHexed (NEW — tick.ts minion attack hook: if target hexed, multiply by 1 + value/100)"]
+        },
+        {
+          "id": "zd_voodoo_t2b",
+          "name": "Hex Synergy",
+          "tier": 2,
+          "slot": "T2b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+15/30% damage on Hexed targets (your skills).",
+          "modifier": { "conditionalMods": [{ "condition": "whileDebuffActive", "debuffId": "hexed", "modifier": { "incDamage": 15 } }] },
+          "perRankModifiers": {
+            "1": { "conditionalMods": [{ "condition": "whileDebuffActive", "debuffId": "hexed", "modifier": { "incDamage": 15 } }] },
+            "2": { "conditionalMods": [{ "condition": "whileDebuffActive", "debuffId": "hexed", "modifier": { "incDamage": 30 } }] }
+          },
+          "engineFields": ["conditionalMods.whileDebuffActive (EXISTS)"]
+        },
+        {
+          "id": "zd_voodoo_t3a",
+          "name": "Stack Synergy",
+          "tier": 3,
+          "slot": "T3a",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "+5/10% dog damage per active soul_stack.",
+          "modifier": { "rawBehaviors": { "dogDamagePerSoulStack": 5 } },
+          "perRankModifiers": {
+            "1": { "rawBehaviors": { "dogDamagePerSoulStack": 5 } },
+            "2": { "rawBehaviors": { "dogDamagePerSoulStack": 10 } }
+          },
+          "engineFields": ["rawBehaviors.dogDamagePerSoulStack (NEW — tick.ts minion attack hook: dog damage *= 1 + soulStackStacks * value/100)"]
+        },
+        {
+          "id": "zd_voodoo_t3b",
+          "name": "Crit Soul",
+          "tier": 3,
+          "slot": "T3b",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "Dog critical strikes generate 1 soul_stack (50/100% chance, ICD 2s).",
+          "modifier": { "rawBehaviors": { "dogCritSoulStackChance": 50, "dogCritSoulStackICD": 2 } },
+          "perRankModifiers": {
+            "1": { "rawBehaviors": { "dogCritSoulStackChance": 50, "dogCritSoulStackICD": 2 } },
+            "2": { "rawBehaviors": { "dogCritSoulStackChance": 100, "dogCritSoulStackICD": 2 } }
+          },
+          "engineFields": ["rawBehaviors.dogCritSoulStackChance + ICD (NEW — tick.ts minion attack hook: on crit, roll chance with throttle, createComboState soul_stack)"]
+        },
+        {
+          "id": "zd_voodoo_t3c",
+          "name": "Quickdraw",
+          "tier": 3,
+          "slot": "T3c",
+          "nodeType": "behavior",
+          "maxRank": 2,
+          "description": "−15/30% Zombie Dogs cooldown.",
+          "modifier": { "cooldownReduction": 15 },
+          "perRankModifiers": { "1": { "cooldownReduction": 15 }, "2": { "cooldownReduction": 30 } },
+          "engineFields": ["cooldownReduction (EXISTS)"]
+        },
+        {
+          "id": "zd_voodoo_t4",
+          "name": "Pack Catalyst",
+          "tier": 4,
+          "slot": "T4",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "On Zombie Dogs cast: generate 2 soul_stacks immediately.",
+          "modifier": {
+            "procs": [{ "id": "zd_pack_catalyst", "trigger": "onCast", "chance": 1.0, "createComboState": { "stateId": "soul_stack", "stacks": 2 } }]
+          },
+          "engineFields": ["procs[onCast] (EXISTS); createComboState (NEW)"]
+        },
+        {
+          "id": "zd_voodoo_t4b",
+          "name": "Burst Mastery",
+          "tier": 4,
+          "slot": "T4b",
+          "nodeType": "support",
+          "maxRank": 2,
+          "description": "+20/40% damage to Heavy-tagged skills.",
+          "modifier": { "incDamage": 20 },
+          "perRankModifiers": { "1": { "incDamage": 20 }, "2": { "incDamage": 40 } },
+          "engineFields": ["incDamage (EXISTS)"]
+        },
+        {
+          "id": "zd_voodoo_t5a",
+          "name": "Bloodhounds",
+          "tier": 5,
+          "slot": "T5A",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Dog bites also deal +1% of target's max HP as bonus chaos damage. Cost: dog max HP −30%.",
+          "modifier": {
+            "rawBehaviors": { "dogBiteMaxHpDamagePercent": 1 },
+            "minionHpMult": -30
+          },
+          "engineFields": ["rawBehaviors.dogBiteMaxHpDamagePercent (NEW — tick.ts minion attack hook: dog damage += target.maxHp * value/100); minionHpMult (EXISTS)"]
+        },
+        {
+          "id": "zd_voodoo_t5b",
+          "name": "Hex Pack",
+          "tier": 5,
+          "slot": "T5B",
+          "nodeType": "keystoneChoice",
+          "maxRank": 1,
+          "description": "Every 3rd dog bite applies Hexed (5s). Cost: −25% dog damage.",
+          "modifier": {
+            "rawBehaviors": { "dogBiteEveryNHexed": { "everyN": 3, "duration": 5 } },
+            "minionDamageMult": -25
+          },
+          "engineFields": ["rawBehaviors.dogBiteEveryNHexed (NEW — tick.ts minion attack hook: per-dog bite counter, on every Nth hit apply hexed); minionDamageMult (EXISTS)"]
+        },
+        {
+          "id": "zd_voodoo_t6",
+          "name": "Pack Resonance",
+          "tier": 6,
+          "slot": "T6",
+          "nodeType": "notable",
+          "maxRank": 1,
+          "description": "When you crit a Hexed target, all your dogs immediately attack that target (resets their attack timers).",
+          "modifier": { "rawBehaviors": { "critHexedTriggersDogPackAttack": true } },
+          "engineFields": ["rawBehaviors.critHexedTriggersDogPackAttack (NEW — tick.ts post-crit hook: if target had hexed, set all zombie_dog minion nextAttackAt to now)"]
+        },
+        {
+          "id": "zd_voodoo_t7",
+          "name": "THE PACK LORD",
+          "tier": 7,
+          "slot": "T7",
+          "nodeType": "keystone",
+          "maxRank": 1,
+          "description": "Each soul_stack you have grants +20% dog damage (uncapped). Cost: dog max HP −50%.",
+          "modifier": {
+            "rawBehaviors": { "dogDamagePerSoulStackUncapped": 20 },
+            "minionHpMult": -50
+          },
+          "engineFields": ["rawBehaviors.dogDamagePerSoulStackUncapped (NEW — tick.ts minion attack hook: dog damage *= 1 + soulStackStacks * value/100, no cap); minionHpMult (EXISTS)"]
+        }
+      ]
+    }
+  ]
+}
