@@ -344,8 +344,8 @@ export default function SkillPanel() {
                       </div>
                     )}
 
-                    {/* Element Transform Selector (Dagger v2 — level 5+) */}
-                    {skill.kind === 'active' && skill.weaponType === 'dagger' && (() => {
+                    {/* Element Transform Selector (active skills with damage — unlocks at level 5) */}
+                    {skill.kind === 'active' && (skill.spellPowerRatio > 0 || skill.weaponDamagePercent > 0) && (() => {
                       const currentTransform = elementTransforms[skill.id] ?? null;
                       const isLocked = progress.level < 5;
                       const hasSelection = currentTransform !== null;
