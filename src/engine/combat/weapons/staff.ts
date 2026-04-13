@@ -113,6 +113,10 @@ export const staffModule: WeaponModule = {
     const { minions: updatedMinions, attacks } = stepMinions(state.activeMinions ?? [], dtSec, now);
 
     let minionAttackDamage = 0;
+    const minionDebuffs: { debuffId: string; stacks: number; duration: number; skillId: string; snapshotDamage: number }[] = [];
+    const ELEMENT_AILMENT: Record<string, string> = {
+      physical: 'bleeding', fire: 'burning', cold: 'frostbite', lightning: 'shocked', chaos: 'poisoned',
+    };
     for (const a of attacks) {
       minionAttackDamage += a.damage;
       if (a.createsComboStateOnHit === 'haunted') {
@@ -121,6 +125,29 @@ export const staffModule: WeaponModule = {
           { incDamage: 30, guaranteedCrit: true },
           HAUNTED_DURATION, 1,
         );
+      }
+      // Minion hits apply signature ailment based on their element.
+      // Dogs (chaos) → poisoned instance; fetishes (physical) → bleeding stack;
+      // spirit_temp (cold) → frostbite; etc. Snapshot = bite damage.
+      const autoAilment = ELEMENT_AILMENT[a.element];
+      if (autoAilment) {
+        minionDebuffs.push({
+          debuffId: autoAilment,
+          stacks: 1,
+          duration: 5,
+          skillId: a.sourceSkillId,
+          snapshotDamage: a.damage,
+        });
+      }
+      // Explicit per-bite debuff override (e.g., talents attaching Bleeding to dogs)
+      if (a.appliesDebuffOnHit) {
+        minionDebuffs.push({
+          debuffId: a.appliesDebuffOnHit.debuffId,
+          stacks: a.appliesDebuffOnHit.stacks ?? 1,
+          duration: a.appliesDebuffOnHit.duration,
+          skillId: a.sourceSkillId,
+          snapshotDamage: a.damage,
+        });
       }
     }
 
@@ -131,7 +158,7 @@ export const staffModule: WeaponModule = {
       );
     }
 
-    return { comboStates, activeMinions: updatedMinions, minionAttackDamage };
+    return { comboStates, activeMinions: updatedMinions, minionAttackDamage, minionDebuffs };
   },
 
   extendConditionContext() {

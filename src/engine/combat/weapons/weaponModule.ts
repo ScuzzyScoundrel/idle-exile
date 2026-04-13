@@ -79,6 +79,8 @@ export interface MaintenanceResult {
   activeMinions?: MinionState[];
   /** Total damage dealt by minions this tick — tick.ts applies to current front mob or boss. */
   minionAttackDamage?: number;
+  /** Debuffs to apply to the minion-attack target (front mob or boss) this tick. */
+  minionDebuffs?: { debuffId: string; stacks: number; duration: number; skillId: string; snapshotDamage: number }[];
 }
 
 export interface PreRollResult {

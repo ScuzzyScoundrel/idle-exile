@@ -177,6 +177,18 @@ export function runCombatTick(
         state.packMobs[0].hp -= maint.minionAttackDamage;
       }
     }
+    // Apply minion-attack debuffs (chaos dogs → poisoned, cold spirits → frostbite, etc.)
+    if (maint.minionDebuffs && maint.minionDebuffs.length > 0) {
+      if (phase === 'boss_fight' && state.activeDebuffs) {
+        for (const md of maint.minionDebuffs) {
+          applyDebuffToList(state.activeDebuffs, md.debuffId, md.stacks, md.duration, md.skillId, md.snapshotDamage);
+        }
+      } else if (state.packMobs.length > 0) {
+        for (const md of maint.minionDebuffs) {
+          applyDebuffToList(state.packMobs[0].debuffs, md.debuffId, md.stacks, md.duration, md.skillId, md.snapshotDamage);
+        }
+      }
+    }
     state = { ...state, ...maintPatch };
   }
   const withMaint = (out: CombatTickOutput): CombatTickOutput =>
