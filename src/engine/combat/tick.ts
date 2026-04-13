@@ -154,10 +154,14 @@ export function runCombatTick(
   let maintPatch: Partial<GameState> | null = null;
   let newActiveMinions = state.activeMinions ? [...state.activeMinions] : [];
   if (weaponMod?.tickMaintenance) {
+    // Resolve real player stats early so maintenance-time summons
+    // (permanentColony, fetishPermanentMode, locustKillSpawnsPermMinion via auto-revive)
+    // get correct HP/SP — passing 0 here would produce NaN-prone summons.
+    const maintStats = resolveStats(state.character);
     const maint = weaponMod.tickMaintenance({
       state, skill: { id: '' } as any, graphMod: null,
-      effectiveStats: {} as any, effectiveMaxLife: 0,
-      dtSec, now, phase, avgDamage: 0, spellPower: 0, targetDebuffs,
+      effectiveStats: maintStats, effectiveMaxLife: maintStats.maxLife,
+      dtSec, now, phase, avgDamage: 0, spellPower: maintStats.spellPower ?? 0, targetDebuffs,
     });
     maintPatch = {};
     if (maint.comboStates) maintPatch.comboStates = maint.comboStates;

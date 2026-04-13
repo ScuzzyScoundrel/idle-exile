@@ -327,7 +327,8 @@ export const staffModule: WeaponModule = {
             skillId: a.sourceSkillId, snapshotDamage: finalDamage,
           });
         }
-        // t7 THE PLAGUE PACK — always Hexed + Haunted
+        // t7 THE PLAGUE PACK — always Hexed + Haunt DoT
+        // ('haunted' is a player-side combo state, not a mob debuff — apply haunt_dot instead)
         if (rb.dogBiteAppliesHexedHaunted) {
           minionDebuffs.push({
             debuffId: 'hexed', stacks: 1,
@@ -335,7 +336,7 @@ export const staffModule: WeaponModule = {
             skillId: a.sourceSkillId, snapshotDamage: finalDamage,
           });
           minionDebuffs.push({
-            debuffId: 'haunted', stacks: 1,
+            debuffId: 'haunt_dot', stacks: 1,
             duration: durationForSource(a.sourceSkillId, 5, rb),
             skillId: a.sourceSkillId, snapshotDamage: finalDamage,
           });
@@ -523,18 +524,21 @@ export const staffModule: WeaponModule = {
       }
     }
 
-    // ── Permanent Colony (Haunt t7) — keep 4 spirit_temp alive always ──
+    // ── Permanent Colony (Locust Swarm t7) — keep N spirit_temp alive always ──
+    // (Talent lives on Locust Swarm, not Haunt — I had the wrong skill before.)
     {
-      const hauntMod = resolveMinionMod('staff_haunt');
-      const hrb = hauntMod?.rawBehaviors as Record<string, any> | undefined;
-      if (hrb?.permanentColony) {
+      const locustMod = resolveMinionMod('staff_locust_swarm');
+      const lrb = locustMod?.rawBehaviors as Record<string, any> | undefined;
+      if (lrb?.permanentColony) {
+        const cfg = lrb.permanentColony;
+        const target = typeof cfg === 'number' ? cfg
+          : (typeof cfg?.count === 'number' ? cfg.count : 4);
         const aliveSpirits = finalMinions.filter(m => m.type === 'spirit_temp' && m.hp > 0).length;
-        const target = typeof hrb.permanentColony === 'number' ? hrb.permanentColony : 4;
         if (aliveSpirits < target) {
           const missing = target - aliveSpirits;
           for (let i = 0; i < missing; i++) {
-            const cfg = { ...SUMMON_CONFIGS.spirit_temp, count: 1, duration: 999 }; // long duration — "always"
-            finalMinions = summonMinions(finalMinions, cfg, ctx.effectiveMaxLife, ctx.spellPower, now + i);
+            const summonCfg = { ...SUMMON_CONFIGS.spirit_temp, count: 1, duration: 999 };
+            finalMinions = summonMinions(finalMinions, summonCfg, ctx.effectiveMaxLife, ctx.spellPower, now + i);
           }
         }
       }
@@ -592,12 +596,13 @@ export const staffModule: WeaponModule = {
 
     // ── Pack-wide debuff keystones ──
     {
-      const locustMod = resolveMinionMod('staff_locust_swarm');
-      const lrb = locustMod?.rawBehaviors as Record<string, any> | undefined;
-      if (lrb?.plagueCourtAllPlagued) {
+      // plagueCourtAllPlagued lives on Plague of Toads, not Locust.
+      const toadsMod = resolveMinionMod('staff_plague_of_toads');
+      const trb = toadsMod?.rawBehaviors as Record<string, any> | undefined;
+      if (trb?.plagueCourtAllPlagued) {
         packDebuffs.push({
           debuffId: 'plagued', stacks: 1, duration: 4,
-          skillId: 'staff_locust_swarm', snapshotDamage: 0,
+          skillId: 'staff_plague_of_toads', snapshotDamage: 0,
         });
       }
       const hexMod = resolveMinionMod('staff_hex');
@@ -1046,8 +1051,10 @@ export const staffModule: WeaponModule = {
       minions = minions.map(m => ({ ...m, hp: Math.min(m.maxHp, m.hp + m.maxHp * healPct) }));
     }
 
-    // Minion summon
-    if (skill.id === 'staff_zombie_dogs' && roll.isHit) {
+    // Minion summon — Zombie Dogs / Fetish Swarm are zero-damage utility skills.
+    // rollSkillCast returns isHit:false for them (baseDmgPerCast == 0), so don't gate
+    // the summon on roll.isHit — gate on cast actually happening (skill activated).
+    if (skill.id === 'staff_zombie_dogs') {
       // Third Dog T4: extra zombie dog count from talents
       const extraDogs = graphMod?.extraZombieDogCount ?? 0;
       let dogConfig = extraDogs !== 0
@@ -1066,7 +1073,7 @@ export const staffModule: WeaponModule = {
       }
       minions = summonMinions(minions, dogConfig, effectiveMaxLife, spellPower, now);
       minions = applyMinionTalentMods(minions, 'zombie_dog', graphMod, now);
-    } else if (skill.id === 'staff_fetish_swarm' && roll.isHit) {
+    } else if (skill.id === 'staff_fetish_swarm') {
       const extraFetish = graphMod?.extraFetishCount ?? 0;
       let fetishConfig = extraFetish !== 0
         ? { ...SUMMON_CONFIGS.fetish, count: Math.max(1, SUMMON_CONFIGS.fetish.count + extraFetish) }
@@ -1121,13 +1128,19 @@ export const staffModule: WeaponModule = {
       if (skill.id === 'staff_soul_harvest' && postRb.soulSurge) addBuff('soulSurge', 8);
       // soulHarvestNextCrit — set after a trigger (not a per-cast thing); leave to combat events
 
-      // hexCastBuffsMinions — on Hex cast, heal+buff all minions
+      // hexCastBuffsMinions — on Hex cast, heal minions by damageMultPercent
+      // (config is { damageMultPercent, duration } — read defensively)
       if (skill.id === 'staff_hex' && postRb.hexCastBuffsMinions) {
-        const pct = postRb.hexCastBuffsMinions as number;
-        minions = minions.map(m => ({
-          ...m,
-          hp: Math.min(m.maxHp, m.hp + m.maxHp * (pct / 100)),
-        }));
+        const cfg = postRb.hexCastBuffsMinions;
+        const pct = typeof cfg === 'number' ? cfg
+          : (typeof cfg?.damageMultPercent === 'number' ? cfg.damageMultPercent
+          : (typeof cfg?.percent === 'number' ? cfg.percent : 0));
+        if (isFinite(pct) && pct > 0) {
+          minions = minions.map(m => ({
+            ...m,
+            hp: Math.min(m.maxHp, m.hp + m.maxHp * (pct / 100)),
+          }));
+        }
       }
       // Spirit Barrage transfer/apply variants
       if (skill.id === 'staff_spirit_barrage' && state.packMobs?.length > 0 && state.combatPhase === 'clearing') {

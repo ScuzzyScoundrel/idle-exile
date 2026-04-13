@@ -530,6 +530,21 @@ export function applyZoneDamage(
     }
   }
 
+  // NaN scrub: any upstream calc bug that wrote NaN/Infinity to mob hp gets
+  // neutralized at the boundary so the UI never displays # --- or 0 dmg/sec.
+  for (const mob of survivingMobs) {
+    if (!isFinite(mob.hp)) mob.hp = mob.maxHp;
+    if (!isFinite(mob.maxHp) || mob.maxHp <= 0) mob.maxHp = 1;
+    for (const d of mob.debuffs) {
+      const dn = d as any;
+      if (dn.snapshot !== undefined && !isFinite(dn.snapshot)) dn.snapshot = 0;
+      if (dn.snapshotDamage !== undefined && !isFinite(dn.snapshotDamage)) dn.snapshotDamage = 0;
+      if (!isFinite(d.remainingDuration)) d.remainingDuration = 0;
+      if (!isFinite(d.stacks)) d.stacks = 1;
+    }
+  }
+  if (!isFinite(playerHp)) playerHp = 1;
+
   return {
     patch: {
       packMobs: survivingMobs,

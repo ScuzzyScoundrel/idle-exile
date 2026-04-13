@@ -22,6 +22,12 @@ export function applyDebuffToList(
   snapshotDamage: number = 0,
   doublePoisonHalfDamage: boolean = false,
 ): ActiveDebuff[] {
+  // NaN/Infinity guard — upstream calc bugs (talent rawBehavior shape mismatches,
+  // divide-by-zero in damage scaling) used to write NaN snapshots which then
+  // produced `# ---` and `0 dmg/sec` displays in-game. Clamp at the boundary.
+  if (!isFinite(snapshotDamage) || snapshotDamage < 0) snapshotDamage = 0;
+  if (!isFinite(stacks) || stacks < 0) stacks = 0;
+  if (!isFinite(duration) || duration < 0) duration = 0;
   const debuffDef = getDebuffDef(debuffId);
   const existingIdx = debuffs.findIndex(d => d.debuffId === debuffId);
   const isSnapshotDebuff = debuffDef?.dotType === 'snapshot';
