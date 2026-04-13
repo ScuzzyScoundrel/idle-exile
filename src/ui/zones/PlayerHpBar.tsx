@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import type { ClassResourceState, TempBuff } from '../../types';
 import type { MinionState } from '../../engine/combat/minions';
 import { getClassDef } from '../../data/classes';
@@ -9,9 +10,10 @@ import { getSkillEffectiveDuration, getSkillEffectiveCooldown, getSkillSpeedStat
 
 // Visual metadata for each minion type
 const MINION_META: Record<string, { icon: string; label: string; color: string }> = {
-  zombie_dog: { icon: '\uD83D\uDC15', label: 'Zombie Dog', color: 'border-emerald-500/50 bg-emerald-950/60' },
-  fetish:     { icon: '\uD83C\uDFAD', label: 'Fetish',     color: 'border-amber-500/50 bg-amber-950/60' },
-  spirit:     { icon: '\uD83D\uDC7B', label: 'Spirit',     color: 'border-cyan-400/50 bg-cyan-950/60' },
+  zombie_dog:  { icon: '\uD83D\uDC15', label: 'Zombie Dog', color: 'border-emerald-500/50 bg-emerald-950/60' },
+  fetish:      { icon: '\uD83C\uDFAD', label: 'Fetish',     color: 'border-amber-500/50 bg-amber-950/60' },
+  spirit:      { icon: '\uD83D\uDC7B', label: 'Spirit',     color: 'border-cyan-400/50 bg-cyan-950/60' },
+  spirit_temp: { icon: '\uD83D\uDC7B', label: 'Spirit',     color: 'border-sky-400/50 bg-sky-950/60' },
 };
 
 interface BuffMeta { label: string; color: string; description: string }
@@ -178,8 +180,12 @@ export default function PlayerHpBar({ currentHp, maxHp, trailHp, fortifyStacks, 
 
 function ActiveMinionsRow() {
   const minions = useGameStore(s => s.activeMinions);
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 150);
+    return () => clearInterval(id);
+  }, []);
   if (!minions || minions.length === 0) return null;
-  const now = Date.now();
   return (
     <div className="flex flex-wrap gap-1 pt-0.5">
       {minions.map(m => <MinionBadge key={m.id} minion={m} now={now} />)}
@@ -192,14 +198,34 @@ function MinionBadge({ minion, now }: { minion: MinionState; now: number }) {
   const hpPct = minion.maxHp > 0 ? Math.max(0, Math.min(100, (minion.hp / minion.maxHp) * 100)) : 0;
   const remaining = Math.max(0, (minion.expiresAt - now) / 1000);
   const hpBarColor = hpPct > 60 ? 'bg-emerald-500' : hpPct > 30 ? 'bg-yellow-500' : 'bg-red-500';
+  // Attack timer: fills up from 0→100% between attacks. Near 100% = about to bite.
+  const intervalMs = Math.max(1, minion.attackInterval * 1000);
+  const msUntilAttack = Math.max(0, minion.nextAttackAt - now);
+  const atkProgressPct = Math.max(0, Math.min(100, (1 - msUntilAttack / intervalMs) * 100));
+  const atkSecUntil = msUntilAttack / 1000;
+  // Color: element-themed to make the bar read at a glance
+  const atkBarColor =
+    minion.element === 'chaos' ? 'bg-purple-400' :
+    minion.element === 'cold' ? 'bg-sky-300' :
+    minion.element === 'fire' ? 'bg-orange-400' :
+    minion.element === 'lightning' ? 'bg-yellow-300' :
+    'bg-red-400';
+  const elementAilment =
+    minion.element === 'chaos' ? 'Poisoned' :
+    minion.element === 'cold' ? 'Frostbite' :
+    minion.element === 'fire' ? 'Ignite' :
+    minion.element === 'lightning' ? 'Shocked' :
+    'Bleeding';
   const tooltipContent = (
     <div className="space-y-0.5 text-[11px]">
       <div className="font-bold">{meta.icon} {meta.label}</div>
       <div className="text-gray-300">HP: {Math.ceil(minion.hp)}/{Math.ceil(minion.maxHp)}</div>
       <div className="text-gray-400">Damage: {minion.damage.toFixed(0)} every {minion.attackInterval.toFixed(1)}s ({minion.element})</div>
+      <div className="text-gray-400">Next attack in {atkSecUntil.toFixed(1)}s</div>
+      <div className="text-gray-400">On hit: applies {elementAilment}</div>
       <div className="text-gray-400">Expires in {remaining.toFixed(1)}s</div>
       {minion.createsComboStateOnHit && (
-        <div className="text-cyan-300">Bites apply: {minion.createsComboStateOnHit}</div>
+        <div className="text-cyan-300">Also creates combo state: {minion.createsComboStateOnHit}</div>
       )}
     </div>
   );
@@ -207,9 +233,12 @@ function MinionBadge({ minion, now }: { minion: MinionState; now: number }) {
     <Tooltip content={tooltipContent}>
       <div className={`flex items-center gap-1 px-1 py-0.5 rounded border ${meta.color} cursor-help`}>
         <span className="text-[14px] leading-none">{meta.icon}</span>
-        <div className="flex flex-col gap-0.5 w-12">
-          <div className="h-1 bg-gray-800 rounded-full overflow-hidden">
+        <div className="flex flex-col gap-0.5 w-14">
+          <div className="h-1 bg-gray-800 rounded-full overflow-hidden" title="HP">
             <div className={`h-full ${hpBarColor} rounded-full transition-all duration-200`} style={{ width: `${hpPct}%` }} />
+          </div>
+          <div className="h-0.5 bg-gray-800 rounded-full overflow-hidden" title={`Attack in ${atkSecUntil.toFixed(1)}s`}>
+            <div className={`h-full ${atkBarColor} rounded-full transition-all duration-100`} style={{ width: `${atkProgressPct}%` }} />
           </div>
           <span className="text-[8px] font-mono text-gray-300 leading-none">{remaining.toFixed(0)}s</span>
         </div>
