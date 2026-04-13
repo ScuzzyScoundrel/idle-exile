@@ -23,6 +23,8 @@ import {
 // (see spirit_link consume handler). Keep import for symmetry with future engine work.
 void detonateMinions;
 import type { ResolvedSkillModifier } from '../../skillGraph';
+import { getSkillGraphModifier } from '../../unifiedSkills';
+import { getUnifiedSkillDef } from '../../../data/skills';
 
 const EMPTY_PRE_ROLL: PreRollResult = {
   comboStates: [],
@@ -117,6 +119,16 @@ export const staffModule: WeaponModule = {
     const ELEMENT_AILMENT: Record<string, string> = {
       physical: 'bleeding', fire: 'burning', cold: 'frostbite', lightning: 'shocked', chaos: 'poisoned',
     };
+    // Cache graphMod per sourceSkillId — avoid re-resolving per attack when N minions of same type swing.
+    const minionGraphMods: Record<string, ResolvedSkillModifier | null> = {};
+    const resolveMinionMod = (skillId: string): ResolvedSkillModifier | null => {
+      if (skillId in minionGraphMods) return minionGraphMods[skillId];
+      const def = getUnifiedSkillDef(skillId);
+      const progress = state.skillProgress?.[skillId];
+      const mod = def && progress ? getSkillGraphModifier(def, progress) : null;
+      minionGraphMods[skillId] = mod;
+      return mod;
+    };
     for (const a of attacks) {
       minionAttackDamage += a.damage;
       if (a.createsComboStateOnHit === 'haunted') {
@@ -148,6 +160,53 @@ export const staffModule: WeaponModule = {
           skillId: a.sourceSkillId,
           snapshotDamage: a.damage,
         });
+      }
+      // ── Talent rawBehaviors: per-minion-hit procs ──
+      const mod = resolveMinionMod(a.sourceSkillId);
+      const rb = mod?.rawBehaviors as Record<string, any> | undefined;
+      if (rb) {
+        // Dog bite rawBehaviors ── Zombie Dogs Plague Doctor branch t1s
+        if (a.sourceSkillId === 'staff_zombie_dogs') {
+          if (rb.dogBitePoisonStacks) {
+            minionDebuffs.push({
+              debuffId: 'poisoned', stacks: rb.dogBitePoisonStacks, duration: 3,
+              skillId: a.sourceSkillId, snapshotDamage: a.damage,
+            });
+          }
+          if (rb.dogBiteBleedingChance && Math.random() * 100 < rb.dogBiteBleedingChance) {
+            minionDebuffs.push({
+              debuffId: 'bleeding', stacks: 1, duration: 3,
+              skillId: a.sourceSkillId, snapshotDamage: a.damage,
+            });
+          }
+          if (rb.dogBiteSoulStackChance && Math.random() * 100 < rb.dogBiteSoulStackChance) {
+            const icdKey = 'minion_icd_dogBiteSoulStack';
+            const icdMs = (rb.dogBiteSoulStackICD ?? 2) * 1000;
+            const lastAt = state.lastProcTriggerAt?.[icdKey] ?? 0;
+            if (now >= lastAt + icdMs) {
+              comboStates = createComboState(comboStates, 'soul_stack', a.sourceSkillId, {}, 8, 1);
+              if (state.lastProcTriggerAt) state.lastProcTriggerAt[icdKey] = now;
+            }
+          }
+        }
+        // Fetish dart rawBehaviors ── Fetish Swarm Plague Doctor / Voodoo branch t1s
+        if (a.sourceSkillId === 'staff_fetish_swarm') {
+          if (rb.fetishHitPoisonChance && Math.random() * 100 < rb.fetishHitPoisonChance) {
+            minionDebuffs.push({
+              debuffId: 'poisoned', stacks: 1, duration: 3,
+              skillId: a.sourceSkillId, snapshotDamage: a.damage,
+            });
+          }
+          if (rb.fetishHitSoulStackChance && Math.random() * 100 < rb.fetishHitSoulStackChance) {
+            const icdKey = 'minion_icd_fetishHitSoulStack';
+            const icdMs = (rb.fetishHitSoulStackICD ?? 1) * 1000;
+            const lastAt = state.lastProcTriggerAt?.[icdKey] ?? 0;
+            if (now >= lastAt + icdMs) {
+              comboStates = createComboState(comboStates, 'soul_stack', a.sourceSkillId, {}, 8, 1);
+              if (state.lastProcTriggerAt) state.lastProcTriggerAt[icdKey] = now;
+            }
+          }
+        }
       }
     }
 

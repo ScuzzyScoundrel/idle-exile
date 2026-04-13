@@ -81,7 +81,17 @@ function autoMergeModifier(result: ResolvedSkillModifier, m: SkillModifier): voi
       }
       continue;
     }
-    if (key === 'rawBehaviors') continue; // don't merge rawBehaviors into itself
+    if (key === 'rawBehaviors') {
+      // Node explicitly declared rawBehaviors object — spread its fields into the result's rawBehaviors.
+      // Later-rank values overwrite earlier (scalars) or overwrite object (last-wins).
+      if (val && typeof val === 'object') {
+        for (const [rbKey, rbVal] of Object.entries(val as Record<string, any>)) {
+          if (rbVal == null) continue;
+          result.rawBehaviors[rbKey] = rbVal;
+        }
+      }
+      continue;
+    }
     const emptyVal = (EMPTY_GRAPH_MOD as any)[key];
 
     // Number fields

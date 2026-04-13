@@ -273,6 +273,77 @@ section('staffModule.tickMaintenance');
     !result.minionAttackDamage || result.minionAttackDamage === 0);
 }
 
+// Minion-hit rawBehaviors (Session 3 wiring)
+{
+  const now = 10000;
+  const dogs = summonMinions([], SUMMON_CONFIGS.zombie_dog, PLAYER_MAX_HP, SPELL_POWER, now - 4000);
+  dogs.forEach(d => { d.nextAttackAt = now - 100; });
+  // Rotting Fangs rank 2 (zd_1_1_0) → dogBitePoisonStacks: 2
+  const ctx: any = {
+    ...mkCtxBase(now),
+    state: {
+      activeMinions: dogs,
+      comboStates: [],
+      skillProgress: { staff_zombie_dogs: { allocatedRanks: { zd_1_1_0: 2 }, allocatedNodes: [] } },
+      lastProcTriggerAt: {},
+    },
+  };
+  const result = staffModule.tickMaintenance!(ctx);
+  const poisoned = (result.minionDebuffs ?? []).filter(d => d.debuffId === 'poisoned');
+  // Per dog: 1 baseline (chaos→poisoned) + 1 from Rotting Fangs = 2 entries × 2 dogs = 4
+  assert('Rotting Fangs r2: emits 2 poisoned entries per dog attack (baseline + talent)',
+    poisoned.length === 4, `got ${poisoned.length}`);
+  const totalStacks = poisoned.reduce((s, d) => s + d.stacks, 0);
+  // 2 baseline (×1 stack) + 2 from Rotting Fangs (×2 stacks) = 6
+  assert('Rotting Fangs r2: total poisoned stacks = 6 (2 baseline + 4 talent)',
+    totalStacks === 6, `got ${totalStacks}`);
+}
+
+{
+  const now = 10000;
+  const fetishes = summonMinions([], SUMMON_CONFIGS.fetish, PLAYER_MAX_HP, SPELL_POWER, now - 4000);
+  fetishes.forEach(f => { f.nextAttackAt = now - 100; });
+  // Soul Darts rank 2 (fs_2_1_1) → fetishHitSoulStackChance: 10%, ICD 1s
+  // Run many iterations to confirm proc fires at least once (probabilistic)
+  let sawSoulStack = false;
+  for (let i = 0; i < 200 && !sawSoulStack; i++) {
+    const t = now + i * 2000;
+    const ctx: any = {
+      ...mkCtxBase(t),
+      state: {
+        // Keep fetishes alive across the loop (extend expiresAt far future)
+        activeMinions: fetishes.map(f => ({ ...f, nextAttackAt: t - 100, expiresAt: t + 1e9 })),
+        comboStates: [],
+        skillProgress: { staff_fetish_swarm: { allocatedRanks: { fs_2_1_1: 2 }, allocatedNodes: [] } },
+        lastProcTriggerAt: {},
+      },
+    };
+    const result = staffModule.tickMaintenance!(ctx);
+    if ((result.comboStates ?? []).some(s => s.stateId === 'soul_stack')) sawSoulStack = true;
+  }
+  assert('Soul Darts r2: fetish hits eventually proc soul_stack (probabilistic)', sawSoulStack);
+}
+
+{
+  const now = 10000;
+  const dogs = summonMinions([], SUMMON_CONFIGS.zombie_dog, PLAYER_MAX_HP, SPELL_POWER, now - 4000);
+  dogs.forEach(d => { d.nextAttackAt = now - 100; });
+  // Soul Bite rank 2 (zd_2_1_1) → dogBiteSoulStackChance: 20, ICD 2s
+  // State with ICD already active → proc should NOT fire
+  const ctx: any = {
+    ...mkCtxBase(now),
+    state: {
+      activeMinions: dogs,
+      comboStates: [],
+      skillProgress: { staff_zombie_dogs: { allocatedRanks: { zd_2_1_1: 2 }, allocatedNodes: [] } },
+      lastProcTriggerAt: { minion_icd_dogBiteSoulStack: now - 500 }, // only 0.5s ago, ICD is 2s
+    },
+  };
+  const result = staffModule.tickMaintenance!(ctx);
+  assert('Soul Bite r2: ICD gate prevents soul_stack when last proc was 0.5s ago (ICD=2s)',
+    !(result.comboStates ?? []).some(s => s.stateId === 'soul_stack'));
+}
+
 // ════════════════════════════════════════════════════════════
 // 6. staffModule.postCast — summon + combo state creation
 // ════════════════════════════════════════════════════════════
