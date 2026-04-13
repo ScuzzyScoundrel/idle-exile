@@ -73,10 +73,11 @@ export default function DebuffBadge({ debuff }: { debuff: ActiveDebuff }) {
   // Source skill: surface which skill applied this debuff (so staff DoTs feel skill-specific)
   const sourceSkill = debuff.appliedBySkillId ? getUnifiedSkillDef(debuff.appliedBySkillId) : null;
 
-  // Skill-native DoTs show skill icon + name as label, element-tinted color.
+  // Skill-native DoTs show skill icon only on the badge — element via tint color,
+  // full name + element in the tooltip (keeps row tight in busy fights).
   const elementTint = isSkillNative ? skillNativeColor(debuff.damageElement as string | undefined) : null;
   const label = isSkillNative && sourceSkill
-    ? `${sourceSkill.icon} ${sourceSkill.name}${debuff.damageElement ? ` (${debuff.damageElement})` : ''}`
+    ? sourceSkill.icon
     : (meta?.label ?? debuff.debuffId.slice(0, 3).toUpperCase());
   const text = elementTint?.text ?? meta?.text ?? 'text-gray-300';
   const bg = elementTint?.bg ?? meta?.bg ?? 'bg-gray-700/60';
