@@ -36,6 +36,10 @@ import {
 } from './helpers';
 import type { CombatTickOutput } from './types';
 import { noResult } from './types';
+import { evaluateProcs } from '../combatHelpers';
+import { createComboState, COMBO_STATE_CREATORS } from './combo';
+import { getUnifiedSkillDef } from '../../data/skills';
+import { getSkillGraphModifier } from '../unifiedSkills';
 
 /**
  * Apply zone per-hit attacks + passive regen during normal clearing.
@@ -209,8 +213,52 @@ export function applyZoneDamage(
     }
   }
 
+  // Staff v2: DoT kills fire onKill procs for the DoT's source skill.
+  // Enables Hive Spawn (Locust), Echoing Death / Hex Echo (Haunt/Hex), Pack Catalyst, etc.
+  // for skills whose kills are mostly via DoT ticks rather than cast-hits.
+  let newActiveMinions = state.activeMinions ? [...state.activeMinions] : [];
+  let newComboStates = state.comboStates ? [...state.comboStates] : [];
+  let dotKillProcDamage = 0;
+  const dyingMobs = updatedMobs.filter(m => m.hp <= 0);
+  if (dyingMobs.length > 0) {
+    const killStats = resolveStats(state.character);
+    for (const mob of dyingMobs) {
+      const killingSkillIds = new Set<string>();
+      for (const deb of mob.debuffs) {
+        if (deb.appliedBySkillId) killingSkillIds.add(deb.appliedBySkillId);
+      }
+      for (const skillId of killingSkillIds) {
+        const skillDef = getUnifiedSkillDef(skillId);
+        const progress = state.skillProgress?.[skillId];
+        if (!skillDef || !progress) continue;
+        const graphMod = getSkillGraphModifier(skillDef, progress);
+        if (!graphMod?.skillProcs?.length) continue;
+        const killCtx: any = {
+          isHit: true, isCrit: false, skillId,
+          effectiveMaxLife: killStats.maxLife,
+          stats: killStats,
+          weaponAvgDmg: 0,
+          weaponSpellPower: killStats.spellPower ?? 0,
+          damageMult: 1, now,
+          lastProcTriggerAt: {},
+        };
+        const killPr = evaluateProcs(graphMod.skillProcs, 'onKill', killCtx);
+        dotKillProcDamage += killPr.bonusDamage;
+        if (killPr.newMinions.length > 0) newActiveMinions.push(...killPr.newMinions);
+        for (const cs of killPr.newComboStates) {
+          const creator = Object.values(COMBO_STATE_CREATORS).find(c => c.stateId === cs.stateId);
+          const csEffect = creator?.effect ?? {};
+          const csMaxStacks = creator?.maxStacks ?? 5;
+          for (let i = 0; i < cs.stacks; i++) {
+            newComboStates = createComboState(newComboStates, cs.stateId, skillId, csEffect, cs.duration, csMaxStacks);
+          }
+        }
+      }
+    }
+  }
+
   // Remove mobs killed by DoT/bleed between skill ticks
-  const dotKills = updatedMobs.filter(m => m.hp <= 0).length;
+  const dotKills = dyingMobs.length;
   let survivingMobs = updatedMobs.filter(m => m.hp > 0);
 
   // DoT wiped the entire pack — spawn a new encounter (mirrors tick.ts:1897)
@@ -229,7 +277,9 @@ export function applyZoneDamage(
       currentEs: currentEs,
       dodgeEntropy: currentDodgeEntropy,
       tempBuffs: updatedTempBuffs,
+      activeMinions: newActiveMinions,
+      comboStates: newComboStates,
     },
-    result: { ...noResult, zoneAttack: zoneAttackResult, bleedTriggerDamage: helperBleedDmg, dotDamage: helperDotDamage, poisonInstanceCount: helperPoisonCount, mobKills: dotKills },
+    result: { ...noResult, zoneAttack: zoneAttackResult, bleedTriggerDamage: helperBleedDmg, dotDamage: helperDotDamage + dotKillProcDamage, poisonInstanceCount: helperPoisonCount, mobKills: dotKills },
   };
 }
