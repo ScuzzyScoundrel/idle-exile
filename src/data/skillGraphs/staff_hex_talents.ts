@@ -1,14 +1,14 @@
 // ============================================================
 // Idle Exile — Staff v2 Hex Talent Tree
 // 3 branches × 13 nodes = 39 nodes.
-// Role: Curse skill (20% reduced damage debuff) + creates hexed combo state.
+// Role: Chaos curse (-20% target damage). Creates hexed combo state.
+// Per docs/weapon-designs/staff-v2/hex.json
 // ============================================================
 
 import type { TalentNode } from '../../types';
 import { createTalentTree } from './talentTreeBuilder';
 
 type NC = Omit<TalentNode, 'id' | 'tier' | 'branchIndex' | 'position'>;
-
 function bh(name: string, description: string, modifier: NC['modifier'], perRankModifiers?: NC['perRankModifiers']): NC {
   return { name, description, nodeType: 'behavior', maxRank: 2, modifier, perRankModifiers };
 }
@@ -17,165 +17,202 @@ export const STAFF_HEX_TALENT_TREE = createTalentTree({
   skillId: 'staff_hex',
   prefix: 'hx',
   branches: [
+    // ════ Branch 0 — Voodoo Master ════
     {
       name: 'Voodoo Master',
-      description: 'Primary home. Curse mastery, hex amplification, soul synergy.',
+      description: "Hex's purpose is to be consumed. Every consume a nuke.",
       behaviorNodes: {
-        t1a: bh('Cursed Edge', '+10/20% damage.', { incDamage: 10 }, { 1: { incDamage: 10 }, 2: { incDamage: 20 } }),
-        t1b: bh('Sharp Hex', '+8/16% critical strike chance.', { incCritChance: 8 }, { 1: { incCritChance: 8 }, 2: { incCritChance: 16 } }),
-        t2b: bh('Vicious Curse', '+10/20% critical strike multiplier.', { incCritMultiplier: 10 }, { 1: { incCritMultiplier: 10 }, 2: { incCritMultiplier: 20 } }),
+        t1a: bh('Hex Mastery', '+15/30% damage to Hexed targets.',
+          { hexedTargetDamageAmp: 15 }, { 1: { hexedTargetDamageAmp: 15 }, 2: { hexedTargetDamageAmp: 30 } }),
+        t1b: bh('Soul Curse', 'On Hex cast: 50/100% chance to generate 1 soul_stack.',
+          { procs: [{ id: 'hx_soul_curse', trigger: 'onCast', chance: 0.50, createComboState: { stateId: 'soul_stack', stacks: 1 } }] },
+          { 1: { procs: [{ id: 'hx_soul_curse', trigger: 'onCast', chance: 0.50, createComboState: { stateId: 'soul_stack', stacks: 1 } }] },
+            2: { procs: [{ id: 'hx_soul_curse', trigger: 'onCast', chance: 1.0, createComboState: { stateId: 'soul_stack', stacks: 1 } }] } }),
+        t2b: bh('Soul Bond', '+5/10% Hex damage per active soul_stack.',
+          { damagePerSoulStackActive: 5 }, { 1: { damagePerSoulStackActive: 5 }, 2: { damagePerSoulStackActive: 10 } }),
         t3a: {
-          name: 'Weakness Strike', description: '+15/30% damage vs targets below 50% HP.',
+          name: 'Soul Synergy', description: '+20/40% Hex damage while you have 3+ soul_stacks.',
           nodeType: 'conditional', maxRank: 2,
-          modifier: { conditionalMods: [{ condition: 'whileTargetBelowHp', threshold: 50, modifier: { incDamage: 15 } }] },
+          modifier: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'soul_stack', threshold: 3, modifier: { incDamage: 20 } }] },
           perRankModifiers: {
-            1: { conditionalMods: [{ condition: 'whileTargetBelowHp', threshold: 50, modifier: { incDamage: 15 } }] },
-            2: { conditionalMods: [{ condition: 'whileTargetBelowHp', threshold: 50, modifier: { incDamage: 30 } }] },
+            1: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'soul_stack', threshold: 3, modifier: { incDamage: 20 } }] },
+            2: { conditionalMods: [{ condition: 'whileBuffActive', buffId: 'soul_stack', threshold: 3, modifier: { incDamage: 40 } }] },
           },
         },
-        t3b: bh('Swift Curse', '−10/20% cooldown.', { cooldownReduction: 10 }, { 1: { cooldownReduction: 10 }, 2: { cooldownReduction: 20 } }),
-        t3c: bh('Potent Curse', '+20/40% ailment potency.', { ailmentPotency: 20 }, { 1: { ailmentPotency: 20 }, 2: { ailmentPotency: 40 } }),
-        t4b: bh('Heavy Curse', '+20/40% damage.', { incDamage: 20 }, { 1: { incDamage: 20 }, 2: { incDamage: 40 } }),
+        t3b: bh('Hex Catalyst', 'On Hex cast: 35/70% chance to reset Soul Harvest cooldown.',
+          { procs: [{ id: 'hx_catalyst', trigger: 'onCast', chance: 0.35, resetCooldown: 'staff_soul_harvest' }] },
+          { 1: { procs: [{ id: 'hx_catalyst', trigger: 'onCast', chance: 0.35, resetCooldown: 'staff_soul_harvest' }] },
+            2: { procs: [{ id: 'hx_catalyst', trigger: 'onCast', chance: 0.70, resetCooldown: 'staff_soul_harvest' }] } }),
+        t3c: bh('Ritual Mastery', '−15/30% Hex cooldown.',
+          { cooldownReduction: 15 }, { 1: { cooldownReduction: 15 }, 2: { cooldownReduction: 30 } }),
+        t4b: bh('Curse Support', '+20/40% damage to Curse-tagged skills.',
+          { incDamage: 20 }, { 1: { incDamage: 20 }, 2: { incDamage: 40 } }),
       },
       t2Notable: {
-        name: 'Amplifying Curse', description: 'Hex deals +15% damage to already-hexed targets (self-stacking repeat casts).',
+        name: 'Empowered Hex', description: 'Soul Harvest consuming Hexed: +50% damage on top of 2× consume bonus.',
         nodeType: 'notable', maxRank: 1,
-        modifier: { hexedTargetDamageAmp: 15 },
+        modifier: { rawBehaviors: { soulHarvestHexedConsumeBonus: 50 } },
       },
       t4Notable: {
-        name: 'Soul Hex', description: 'Casting Hex grants 1 soul_stack.',
+        name: 'Vexing Resonance', description: 'Consecutive Hex on same target stacks Vexing (+10% dmg taken, max 5, 8s).',
         nodeType: 'notable', maxRank: 1,
-        modifier: { rawBehaviors: { hexGrantsSoulStack: 1 } },
+        modifier: { procs: [{ id: 'hx_vexing', trigger: 'onCast', chance: 1.0, conditionParam: { sameTarget: true }, applyDebuff: { debuffId: 'vexing', duration: 8, stacks: 1 } }], rawBehaviors: { vexingDebuffMaxStacks: 5 } },
       },
       t5a: {
-        name: 'Deep Hex', description: '+30% hex damage reduction debuff potency (40% reduced damage dealt instead of 20%).',
+        name: 'Hexlord', description: 'Hex potency doubled. Cost: Hex CD +2s.',
         nodeType: 'keystoneChoice', maxRank: 1,
-        modifier: { rawBehaviors: { hexDebuffPotencyOverride: 40 } },
+        modifier: { cooldownIncrease: 2, rawBehaviors: { hexPotency: 100 } },
       },
       t5b: {
-        name: 'Multi-Curse', description: 'Hex can be applied to the same target twice (stacks up to 2).',
+        name: 'Burst Master', description: 'Soul Harvest hexed-consume becomes 3× (was 2×). Cost: −30% Hex direct damage.',
         nodeType: 'keystoneChoice', maxRank: 1,
-        modifier: { rawBehaviors: { hexMaxStacks: 2 } },
+        modifier: { incDamage: -30, rawBehaviors: { soulHarvestHexedConsumeMult: 3.0 } },
       },
       t6Notable: {
-        name: 'Curse Mastery', description: 'Hexed enemies take +15% damage from all skills.',
+        name: 'Final Strike', description: 'Hex crits guarantee the next Soul Harvest within 5s also crits.',
         nodeType: 'notable', maxRank: 1,
-        modifier: { rawBehaviors: { hexedTargetDamageTakenIncrease: 15 } },
+        modifier: { procs: [{ id: 'hx_final_strike', trigger: 'onCrit', chance: 1.0, applyBuff: { buffId: 'soulHarvestNextCrit', effect: {}, duration: 5 } }] },
       },
       t7Keystone: {
-        name: 'GRAND CURSE', description: 'Hex creates hexed combo state AND applies to all pack enemies at once. Cost: +50% cooldown.',
+        name: 'THE PUPPETEER', description: 'Hex cast: target takes 1% max HP per soul_stack. Cost: Hex no longer reduces target damage.',
         nodeType: 'keystone', maxRank: 1,
-        modifier: { cooldownIncrease: 50, rawBehaviors: { hexAoeApplication: true } },
+        modifier: { rawBehaviors: { puppeteerHexCastDamage: { perSoulStackPercent: 1 }, puppeteerDisablesHexDebuff: true } },
       },
     },
+
+    // ════ Branch 1 — Spirit Caller ════
     {
       name: 'Spirit Caller',
-      description: 'Hex marks prey for your minions.',
+      description: 'Hex empowers minions — Hexed targets become priority for the pack.',
       behaviorNodes: {
-        t1a: bh('Cursed Pack', '+15/30% minion attack damage.', { minionDamageMult: 15 }, { 1: { minionDamageMult: 15 }, 2: { minionDamageMult: 30 } }),
-        t1b: bh('Totemic Skin', '+15/30% minion max HP.', { minionHpMult: 15 }, { 1: { minionHpMult: 15 }, 2: { minionHpMult: 30 } }),
-        t2b: bh('Persistent Pack', '+20/40% minion duration.', { minionDurationMult: 20 }, { 1: { minionDurationMult: 20 }, 2: { minionDurationMult: 40 } }),
-        t3a: {
-          name: 'Hunter\'s Bond', description: '+5/10% damage while any minion alive.',
-          nodeType: 'conditional', maxRank: 2,
-          modifier: { conditionalMods: [{ condition: 'whileMinionsAlive', modifier: { incDamage: 5 } }] },
+        t1a: bh('Curse Reach', 'Hex also applies to 1/2 random adjacent enemies at full potency.',
+          { rawBehaviors: { hexSpreadRadius: 1 } },
+          { 1: { rawBehaviors: { hexSpreadRadius: 1 } }, 2: { rawBehaviors: { hexSpreadRadius: 2 } } }),
+        t1b: bh('Spirit Bind', 'On Hex cast: minions gain +30/60% damage for 5s.',
+          { rawBehaviors: { hexCastBuffsMinions: { damageMultPercent: 30, duration: 5 } } },
+          { 1: { rawBehaviors: { hexCastBuffsMinions: { damageMultPercent: 30, duration: 5 } } },
+            2: { rawBehaviors: { hexCastBuffsMinions: { damageMultPercent: 60, duration: 5 } } } }),
+        t2b: {
+          name: 'Bound Power', description: '+10/20% Hex damage while any minion alive.',
+          nodeType: 'behavior', maxRank: 2,
+          modifier: { conditionalMods: [{ condition: 'whileMinionsAlive', modifier: { incDamage: 10 } }] },
           perRankModifiers: {
-            1: { conditionalMods: [{ condition: 'whileMinionsAlive', modifier: { incDamage: 5 } }] },
-            2: { conditionalMods: [{ condition: 'whileMinionsAlive', modifier: { incDamage: 10 } }] },
+            1: { conditionalMods: [{ condition: 'whileMinionsAlive', modifier: { incDamage: 10 } }] },
+            2: { conditionalMods: [{ condition: 'whileMinionsAlive', modifier: { incDamage: 20 } }] },
           },
         },
-        t3b: bh('Pack Scaling', '+10/20% damage per active minion.', { damagePerMinionAlive: 10 }, { 1: { damagePerMinionAlive: 10 }, 2: { damagePerMinionAlive: 20 } }),
-        t3c: bh('Spirit Bond', '+15/30% minion attack damage.', { minionDamageMult: 15 }, { 1: { minionDamageMult: 15 }, 2: { minionDamageMult: 30 } }),
-        t4b: bh('Alpha Support', '+15/30% minion attack damage.', { minionDamageMult: 15 }, { 1: { minionDamageMult: 15 }, 2: { minionDamageMult: 30 } }),
+        t3a: {
+          name: 'Pack Hunter', description: '+20/40% Hex damage while 2+ minions alive.',
+          nodeType: 'conditional', maxRank: 2,
+          modifier: { conditionalMods: [{ condition: 'whileMinionsAlive', modifier: { incDamage: 20 } }] },
+          perRankModifiers: {
+            1: { conditionalMods: [{ condition: 'whileMinionsAlive', modifier: { incDamage: 20 } }] },
+            2: { conditionalMods: [{ condition: 'whileMinionsAlive', modifier: { incDamage: 40 } }] },
+          },
+        },
+        t3b: bh('Hex Echo', 'On Hexed enemy kill: 25/50% chance to spawn a 3s spirit minion.',
+          { procs: [{ id: 'hx_echo', trigger: 'onKill', chance: 0.25, conditionParam: { targetHadDebuff: 'hexed' }, summonMinion: { type: 'spirit_temp', duration: 3 } }] },
+          { 1: { procs: [{ id: 'hx_echo', trigger: 'onKill', chance: 0.25, conditionParam: { targetHadDebuff: 'hexed' }, summonMinion: { type: 'spirit_temp', duration: 3 } }] },
+            2: { procs: [{ id: 'hx_echo', trigger: 'onKill', chance: 0.50, conditionParam: { targetHadDebuff: 'hexed' }, summonMinion: { type: 'spirit_temp', duration: 3 } }] } }),
+        t3c: bh('Spectral Mastery', '+10/20% chaos penetration.',
+          { chaosPenetration: 10 }, { 1: { chaosPenetration: 10 }, 2: { chaosPenetration: 20 } }),
+        t4b: bh('Minion Mastery Support', '+15/30% minion damage.',
+          { minionDamageMult: 15 }, { 1: { minionDamageMult: 15 }, 2: { minionDamageMult: 30 } }),
       },
       t2Notable: {
-        name: 'Mark of the Hunt', description: 'Minions deal +40% damage to hexed targets.',
+        name: 'Pack Curse', description: 'Your minions deal +50% damage to Hexed targets.',
         nodeType: 'notable', maxRank: 1,
-        modifier: { rawBehaviors: { minionDamageBonusVsHexed: 40 } },
+        modifier: { rawBehaviors: { minionBonusDamageVsHexed: 50 } },
       },
       t4Notable: {
-        name: 'Hex Guard', description: 'Casting Hex grants all minions +20% damage reduction for 4s.',
+        name: 'Resist Shred', description: 'Minion hits on Hexed: reduce target all-resist by 10% for 4s (max 5).',
         nodeType: 'notable', maxRank: 1,
-        modifier: { rawBehaviors: { hexCastGrantsMinionDR: { percent: 20, duration: 4 } } },
+        modifier: { rawBehaviors: { minionHexedResistShred: { perAttackPercent: 10, duration: 4, maxStacks: 5 } } },
       },
       t5a: {
-        name: 'Pack Curse', description: 'Hex marks the target for your minions: next 3 minion attacks crit.',
+        name: 'Spirit Mark', description: 'Each Haunted+Hexed enemy grants +10% all minion damage.',
         nodeType: 'keystoneChoice', maxRank: 1,
-        modifier: { rawBehaviors: { hexMarksForMinionCrit: 3 } },
+        modifier: { rawBehaviors: { spiritMarkBonus: { perEnemyPercent: 10 } } },
       },
       t5b: {
-        name: 'Cursed Pack', description: 'Minions gain +25% damage while player has a hexed target. Cost: −15% hex duration.',
+        name: 'Ghostly Curse', description: 'While minion alive: +30% cast speed on Hexed. Cost: −25% Hex potency.',
         nodeType: 'keystoneChoice', maxRank: 1,
-        modifier: { ailmentDuration: -15, rawBehaviors: { minionDamageBonusWhileHexActive: 25 } },
+        modifier: { rawBehaviors: { ghostlyCurseCastSpeed: { amountPercent: 30, requireMinionsAlive: true, requireHexedTarget: true }, hexPotency: -25 } },
       },
       t6Notable: {
-        name: 'Soul Mark', description: 'When Hex is applied, summon a temporary spirit (3s) that attacks the hexed target.',
+        name: "Death's Mark", description: 'Minion kills on Hexed targets summon a 3s spirit (max 1/sec).',
         nodeType: 'notable', maxRank: 1,
-        modifier: { rawBehaviors: { hexCastSpawnsSpirit: { duration: 3 } } },
+        modifier: { rawBehaviors: { minionHexedKillSummonsSpirit: { duration: 3, internalCooldown: 1 } } },
       },
       t7Keystone: {
-        name: 'CURSED PACK', description: 'While at 2+ minions alive, Hex deals +100% damage. Minions gain +50% damage vs hexed.',
+        name: 'BINDER OF SOULS', description: 'All minions deal cold + inherit Hex potency. Cost: −30% minion HP.',
         nodeType: 'keystone', maxRank: 1,
-        modifier: { conditionalMods: [{ condition: 'whileMinionsAlive', modifier: { incDamage: 100 } }], rawBehaviors: { minionDamageBonusVsHexed: 50 } },
+        modifier: { minionHpMult: -30, rawBehaviors: { minionsBecomeColdInheritHexPotency: true } },
       },
     },
+
+    // ════ Branch 2 — Plague Doctor ════
     {
       name: 'Plague Doctor',
-      description: 'Hex is disease. Cursed targets become plague nodes.',
+      description: 'Hex spreads disease alongside the curse — every Hexed target rots.',
       behaviorNodes: {
-        t1a: bh('Withering Touch', '+15/30% DoT damage multiplier.', { dotMultiplier: 15 }, { 1: { dotMultiplier: 15 }, 2: { dotMultiplier: 30 } }),
-        t1b: bh('Toxic Curse', '+10/20% ailment potency.', { ailmentPotency: 10 }, { 1: { ailmentPotency: 10 }, 2: { ailmentPotency: 20 } }),
-        t2b: bh('Chaos Channel', '+10/20% chaos penetration.', { chaosPenetration: 10 }, { 1: { chaosPenetration: 10 }, 2: { chaosPenetration: 20 } }),
+        t1a: bh('Curse Potency', '+15/30% Hex potency.',
+          { rawBehaviors: { hexPotency: 15 } },
+          { 1: { rawBehaviors: { hexPotency: 15 } }, 2: { rawBehaviors: { hexPotency: 30 } } }),
+        t1b: bh('Cursed Spread', 'On Hex cast: 25/50% chance to also apply Hex to adjacent enemy.',
+          { procs: [{ id: 'hx_cursed_spread', trigger: 'onCast', chance: 0.25 }], rawBehaviors: { hexAdjacentSpread: { extraTargets: 1 } } },
+          { 1: { procs: [{ id: 'hx_cursed_spread', trigger: 'onCast', chance: 0.25 }] },
+            2: { procs: [{ id: 'hx_cursed_spread', trigger: 'onCast', chance: 0.50 }] } }),
+        t2b: bh('Lingering Curse', '+20/40% Hex duration.',
+          { rawBehaviors: { hexDuration: 20 } },
+          { 1: { rawBehaviors: { hexDuration: 20 } }, 2: { rawBehaviors: { hexDuration: 40 } } }),
         t3a: {
-          name: 'Disease Sense', description: '+10/20% damage while 3+ debuffs on target.',
+          name: 'Plague Synergy', description: '+15/30% Hex damage on targets with 2+ debuffs.',
           nodeType: 'conditional', maxRank: 2,
-          modifier: { conditionalMods: [{ condition: 'whileTargetAilmentCount', threshold: 3, modifier: { incDamage: 10 } }] },
+          modifier: { conditionalMods: [{ condition: 'whileTargetAilmentCount', threshold: 2, modifier: { incDamage: 15 } }] },
           perRankModifiers: {
-            1: { conditionalMods: [{ condition: 'whileTargetAilmentCount', threshold: 3, modifier: { incDamage: 10 } }] },
-            2: { conditionalMods: [{ condition: 'whileTargetAilmentCount', threshold: 3, modifier: { incDamage: 20 } }] },
+            1: { conditionalMods: [{ condition: 'whileTargetAilmentCount', threshold: 2, modifier: { incDamage: 15 } }] },
+            2: { conditionalMods: [{ condition: 'whileTargetAilmentCount', threshold: 2, modifier: { incDamage: 30 } }] },
           },
         },
-        t3b: {
-          name: 'Stack Scaler', description: '+3/6% damage per debuff stack on target.',
-          nodeType: 'conditional', maxRank: 2,
-          modifier: { conditionalMods: [{ condition: 'perAilmentStackOnTarget', modifier: { incDamage: 3 } }] },
-          perRankModifiers: {
-            1: { conditionalMods: [{ condition: 'perAilmentStackOnTarget', modifier: { incDamage: 3 } }] },
-            2: { conditionalMods: [{ condition: 'perAilmentStackOnTarget', modifier: { incDamage: 6 } }] },
-          },
-        },
-        t3c: bh('Lingering Curse', '+15/30% ailment duration.', { ailmentDuration: 15 }, { 1: { ailmentDuration: 15 }, 2: { ailmentDuration: 30 } }),
-        t4b: bh('Plague Support', '+15/30% DoT damage multiplier.', { dotMultiplier: 15 }, { 1: { dotMultiplier: 15 }, 2: { dotMultiplier: 30 } }),
+        t3b: bh('Crit Curse', 'Hex crits apply 2/3 stacks of Poisoned (4s).',
+          { procs: [{ id: 'hx_crit_poison', trigger: 'onCrit', chance: 1.0, applyDebuff: { debuffId: 'poisoned', duration: 4, stacks: 2 } }] },
+          { 1: { procs: [{ id: 'hx_crit_poison', trigger: 'onCrit', chance: 1.0, applyDebuff: { debuffId: 'poisoned', duration: 4, stacks: 2 } }] },
+            2: { procs: [{ id: 'hx_crit_poison', trigger: 'onCrit', chance: 1.0, applyDebuff: { debuffId: 'poisoned', duration: 4, stacks: 3 } }] } }),
+        t3c: bh('Chaos Mastery', '+10/20% chaos penetration.',
+          { chaosPenetration: 10 }, { 1: { chaosPenetration: 10 }, 2: { chaosPenetration: 20 } }),
+        t4b: bh('DoT Support', '+15/30% damage to DoT-tagged skills.',
+          { incDamage: 15 }, { 1: { incDamage: 15 }, 2: { incDamage: 30 } }),
       },
       t2Notable: {
-        name: 'Plague Conduit', description: 'Hex applies a stack of poison on cast.',
+        name: 'Pestilent Curse', description: 'Hexed enemies receive 1 Bleeding stack (3s) every second.',
         nodeType: 'notable', maxRank: 1,
-        modifier: { rawBehaviors: { hexAppliesPoisonStacks: 1 } },
+        modifier: { rawBehaviors: { hexAppliesBleedingPerSecond: { duration: 3, stacks: 1 } } },
       },
       t4Notable: {
-        name: 'Withering Spread', description: 'When Hex is applied, spread all existing DoTs to the target.',
+        name: 'Plague Mark', description: 'Hexed enemy dies → spread Hex to ALL pack at 50% duration.',
         nodeType: 'notable', maxRank: 1,
-        modifier: { rawBehaviors: { hexCastSpreadsExistingDots: true } },
+        modifier: { rawBehaviors: { hexedDeathSpreadsHex: { fullSnapshot: true, durationPercent: 50 } } },
       },
       t5a: {
-        name: 'Plague Jump', description: 'On target death, Hex jumps to nearest enemy with full duration.',
+        name: 'Mass Hex', description: 'Hex applies to entire pack at 50% potency.',
         nodeType: 'keystoneChoice', maxRank: 1,
-        modifier: { rawBehaviors: { hexJumpsOnKill: true } },
+        modifier: { rawBehaviors: { hexPackOnCastPotency: 50 } },
       },
       t5b: {
-        name: 'DoT Amplifier', description: 'Hexed targets take +50% DoT damage.',
+        name: 'Eternal Curse', description: 'Hex duration doubled. Cost: Hex CD +50%.',
         nodeType: 'keystoneChoice', maxRank: 1,
-        modifier: { rawBehaviors: { hexedTargetDotAmplifier: 50 } },
+        modifier: { cooldownIncrease: 3, rawBehaviors: { hexDuration: 100 } },
       },
       t6Notable: {
-        name: 'Curse Cascade', description: 'Hex can be applied to all pack enemies on cast (AoE). Cost: −30% hex damage reduction.',
+        name: 'Decay Mark', description: 'Hexed: +1% dmg taken/sec from all sources (max +30%).',
         nodeType: 'notable', maxRank: 1,
-        modifier: { rawBehaviors: { hexAoeApplication: true, hexDebuffPotencyOverride: 14 } },
+        modifier: { rawBehaviors: { hexedDecayMark: { perSecondPercent: 1, maxPercent: 30 } } },
       },
       t7Keystone: {
-        name: 'WITHERING CURSE', description: 'Hexed enemies lose 2% HP per second while hexed. Cost: −25% direct Hex damage.',
+        name: 'THE WITCHING HOUR', description: 'All enemies in zone are permanently Hexed. Cost: −50% Hex direct damage.',
         nodeType: 'keystone', maxRank: 1,
-        modifier: { incDamage: -25, rawBehaviors: { hexDrainsPercentHp: { percentPerSec: 2 } } },
+        modifier: { incDamage: -50, rawBehaviors: { witchingHour: true } },
       },
     },
   ],
