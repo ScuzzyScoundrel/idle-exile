@@ -186,9 +186,16 @@ function ActiveMinionsRow() {
     return () => clearInterval(id);
   }, []);
   if (!minions || minions.length === 0) return null;
+  const totalDealt = minions.reduce((sum, m) => sum + (m.damageDealt ?? 0), 0);
   return (
-    <div className="flex flex-wrap gap-1 pt-0.5">
-      {minions.map(m => <MinionBadge key={m.id} minion={m} now={now} />)}
+    <div className="pt-0.5 border-t border-gray-700/40 mt-0.5">
+      <div className="flex items-center gap-2 mb-0.5">
+        <span className="text-[9px] uppercase tracking-wide text-emerald-300/80 font-semibold">Minions ({minions.length})</span>
+        <span className="text-[9px] font-mono text-yellow-300/80">Σ dealt: {Math.floor(totalDealt)}</span>
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {minions.map(m => <MinionBadge key={m.id} minion={m} now={now} />)}
+      </div>
     </div>
   );
 }

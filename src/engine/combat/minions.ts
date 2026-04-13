@@ -45,8 +45,8 @@ export const SUMMON_CONFIGS: Record<string, SummonConfig> = {
     type: 'zombie_dog',
     count: 2,
     hpPercentOfPlayer: 0.20,
-    attackInterval: 3,
-    damagePerSpellPowerRatio: 0.6,
+    attackInterval: 2.5,           // was 3s — tighter feel
+    damagePerSpellPowerRatio: 0.85, // was 0.6 — buff per playtest, dogs felt weak
     duration: 10,
     element: 'chaos',
     sourceSkillId: 'staff_zombie_dogs',
@@ -56,8 +56,8 @@ export const SUMMON_CONFIGS: Record<string, SummonConfig> = {
     type: 'fetish',
     count: 4,
     hpPercentOfPlayer: 0.10,
-    attackInterval: 1.5,
-    damagePerSpellPowerRatio: 0.25,
+    attackInterval: 1.25,           // was 1.5s — glass-cannon should feel twitchy
+    damagePerSpellPowerRatio: 0.40, // was 0.25 — buff per playtest
     duration: 6,
     element: 'physical',
     sourceSkillId: 'staff_fetish_swarm',

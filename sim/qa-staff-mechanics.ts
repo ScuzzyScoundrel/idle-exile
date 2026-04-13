@@ -84,8 +84,8 @@ section('summonMinions');
   assert('Zombie Dogs summon produces 2 minions', fresh.length === 2, `got ${fresh.length}`);
   assert('Each zombie dog has 20% player maxHp', fresh.every(m => near(m.hp, PLAYER_MAX_HP * 0.2)), `hp=${fresh[0]?.hp}`);
   assert('Zombie dog element is chaos', fresh.every(m => m.element === 'chaos'));
-  assert('Zombie dog damage = 0.6 × spell power', fresh.every(m => near(m.damage, SPELL_POWER * 0.6)));
-  assert('Zombie dog attack interval = 3s', fresh.every(m => m.attackInterval === 3));
+  assert('Zombie dog damage = 0.85 × spell power', fresh.every(m => near(m.damage, SPELL_POWER * 0.85)));
+  assert('Zombie dog attack interval = 2.5s', fresh.every(m => m.attackInterval === 2.5));
   assert('Zombie dog applies haunted on hit', fresh.every(m => m.createsComboStateOnHit === 'haunted'));
   assert('Attack timers are staggered (not all simultaneous)',
     new Set(fresh.map(m => m.nextAttackAt)).size === fresh.length);
@@ -97,7 +97,7 @@ section('summonMinions');
   assert('Fetish Swarm summon produces 4 minions', fetish.length === 4, `got ${fetish.length}`);
   assert('Each fetish has 10% player maxHp', fetish.every(m => near(m.hp, PLAYER_MAX_HP * 0.1)));
   assert('Fetish element is physical', fetish.every(m => m.element === 'physical'));
-  assert('Fetish attack interval = 1.5s', fetish.every(m => m.attackInterval === 1.5));
+  assert('Fetish attack interval = 1.25s', fetish.every(m => m.attackInterval === 1.25));
   assert('Fetish does NOT apply haunted on hit', fetish.every(m => !m.createsComboStateOnHit));
 }
 
@@ -254,7 +254,7 @@ section('staffModule.tickMaintenance');
   assert('tickMaintenance returns updated minion list',
     Array.isArray(result.activeMinions) && result.activeMinions!.length === 2);
   assert('tickMaintenance reports total minion damage',
-    result.minionAttackDamage === SPELL_POWER * 0.6 * 2,
+    result.minionAttackDamage === SPELL_POWER * 0.85 * 2,
     `got ${result.minionAttackDamage}`);
   assert('tickMaintenance creates haunted combo state on dog bite',
     (result.comboStates ?? []).some(s => s.stateId === 'haunted'));
@@ -876,9 +876,9 @@ section('Mass Sacrifice talents — Voodoo Master');
     graphMod: { zombieDogAttackIntervalReduction: 1.0 } as any,
   };
   const result = staffModule.postCast!(ctx);
-  // Baseline 3s - 1s = 2s
-  assert('Dog Tamer r2: Zombie Dog attack interval reduced to 2s',
-    (result.activeMinions ?? []).every(m => m.attackInterval === 2));
+  // Baseline 2.5s - 1s = 1.5s
+  assert('Dog Tamer r2: Zombie Dog attack interval reduced to 1.5s',
+    (result.activeMinions ?? []).every(m => m.attackInterval === 1.5));
 }
 
 {
@@ -894,9 +894,9 @@ section('Mass Sacrifice talents — Voodoo Master');
     graphMod: { minionDamageMult: 30 } as any,
   };
   const result = staffModule.postCast!(ctx);
-  // Baseline damage = 0.6 × 100 = 60. +30% = 78.
+  // Baseline damage = 0.85 × 100 = 85. +30% = 110.5.
   assert('Minion Mastery r2: Zombie Dog damage × 1.30',
-    (result.activeMinions ?? []).every(m => near(m.damage, 78)));
+    (result.activeMinions ?? []).every(m => near(m.damage, 110.5)));
 }
 
 // ════════════════════════════════════════════════════════════
@@ -1166,9 +1166,9 @@ section('Zombie Dogs talents');
   // Base hp = 1000 × 0.2 = 200. +50% = 300.
   assert('Pack of Nine: Zombie Dogs HP ×1.5 (300)',
     dogs.every(m => near(m.hp, 300, 0.1)), `hp=${dogs[0]?.hp}`);
-  // Base interval = 3s. Reduction = -0.9 → 3 - (-0.9) = 3.9s
-  assert('Pack of Nine: Zombie Dogs attack interval +0.9s (3.9s)',
-    dogs.every(m => near(m.attackInterval, 3.9, 0.01)), `interval=${dogs[0]?.attackInterval}`);
+  // Base interval = 2.5s. Reduction = -0.9 → 2.5 - (-0.9) = 3.4s
+  assert('Pack of Nine: Zombie Dogs attack interval +0.9s (3.4s)',
+    dogs.every(m => near(m.attackInterval, 3.4, 0.01)), `interval=${dogs[0]?.attackInterval}`);
 }
 
 {
@@ -1185,9 +1185,9 @@ section('Zombie Dogs talents');
   };
   const result = staffModule.postCast!(ctx);
   const dogs = (result.activeMinions ?? []).filter(m => m.type === 'zombie_dog');
-  // Base damage = 100 × 0.6 = 60. +100% = 120.
-  assert('Hellhounds: Zombie Dog damage ×2.0 (120)',
-    dogs.every(m => near(m.damage, 120, 0.1)), `dmg=${dogs[0]?.damage}`);
+  // Base damage = 100 × 0.85 = 85. +100% = 170.
+  assert('Hellhounds: Zombie Dog damage ×2.0 (170)',
+    dogs.every(m => near(m.damage, 170, 0.1)), `dmg=${dogs[0]?.damage}`);
 }
 
 {
@@ -1204,9 +1204,9 @@ section('Zombie Dogs talents');
   };
   const result = staffModule.postCast!(ctx);
   const dogs = (result.activeMinions ?? []).filter(m => m.type === 'zombie_dog');
-  // Base damage = 100 × 0.6 = 60. +30% = 78.
-  assert('Third Dog + Pack Leader combo: 3 dogs at 78 damage each',
-    dogs.length === 3 && dogs.every(m => near(m.damage, 78, 0.1)),
+  // Base damage = 100 × 0.85 = 85. +30% = 110.5.
+  assert('Third Dog + Pack Leader combo: 3 dogs at 110.5 damage each',
+    dogs.length === 3 && dogs.every(m => near(m.damage, 110.5, 0.1)),
     `count=${dogs.length}, dmg=${dogs[0]?.damage}`);
 }
 
