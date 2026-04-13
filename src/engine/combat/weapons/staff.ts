@@ -1059,6 +1059,11 @@ export const staffModule: WeaponModule = {
     // Minion summon — Zombie Dogs / Fetish Swarm are zero-damage utility skills.
     // rollSkillCast returns isHit:false for them (baseDmgPerCast == 0), so don't gate
     // the summon on roll.isHit — gate on cast actually happening (skill activated).
+    // Element transform for minion-summon skills: chosen element overrides the
+    // minion's signature attack element (and thus its auto-applied ailment in
+    // tickMaintenance — chaos→poisoned, fire→burning, cold→frostbite, etc.).
+    const minionElement = state.elementTransforms?.[skill.id];
+
     if (skill.id === 'staff_zombie_dogs') {
       // Third Dog T4: extra zombie dog count from talents
       const extraDogs = graphMod?.extraZombieDogCount ?? 0;
@@ -1076,6 +1081,7 @@ export const staffModule: WeaponModule = {
           attackInterval: dogConfig.attackInterval * alpha.intervalMult,
         };
       }
+      if (minionElement) dogConfig = { ...dogConfig, element: minionElement };
       minions = summonMinions(minions, dogConfig, effectiveMaxLife, spellPower, now);
       minions = applyMinionTalentMods(minions, 'zombie_dog', graphMod, now);
     } else if (skill.id === 'staff_fetish_swarm') {
@@ -1094,6 +1100,11 @@ export const staffModule: WeaponModule = {
           attackInterval: fetishConfig.attackInterval * king.intervalMult,
         };
       }
+      // fetishPhysToChaosPercent talent rawBehavior: implicit chaos override (overridden by user choice if set)
+      if (!minionElement && graphMod?.rawBehaviors?.fetishPhysToChaosPercent) {
+        fetishConfig = { ...fetishConfig, element: 'chaos' };
+      }
+      if (minionElement) fetishConfig = { ...fetishConfig, element: minionElement };
       minions = summonMinions(minions, fetishConfig, effectiveMaxLife, spellPower, now);
       minions = applyMinionTalentMods(minions, 'fetish', graphMod, now);
       // Brood Mother notable: on Fetish Swarm cast, also summon 1 zombie dog

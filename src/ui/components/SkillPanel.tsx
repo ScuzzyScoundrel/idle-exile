@@ -344,8 +344,13 @@ export default function SkillPanel() {
                       </div>
                     )}
 
-                    {/* Element Transform Selector (active skills with damage — unlocks at level 5) */}
-                    {skill.kind === 'active' && (skill.spellPowerRatio > 0 || skill.weaponDamagePercent > 0) && (() => {
+                    {/* Element Transform Selector (active damage skills + minion-summon skills — unlocks at level 5) */}
+                    {skill.kind === 'active' && (
+                      skill.spellPowerRatio > 0 ||
+                      skill.weaponDamagePercent > 0 ||
+                      skill.id === 'staff_zombie_dogs' ||
+                      skill.id === 'staff_fetish_swarm'
+                    ) && (() => {
                       const currentTransform = elementTransforms[skill.id] ?? null;
                       const isLocked = progress.level < 5;
                       const hasSelection = currentTransform !== null;

@@ -559,6 +559,26 @@ section('Cross-skill combo flows');
   check('triple_dot', 'cumulative DoT damage > 0', trail.totalDoTDamage > 0);
 }
 
+// Element transform changes minion attack element + auto-ailment
+{
+  scenario('Element transform — Zombie Dogs set to fire applies burning, not poisoned');
+  const state = makeStaffState({ skills: ['staff_zombie_dogs'], talents: {}, packSize: 3, mobHp: 1e9 });
+  state.elementTransforms = { staff_zombie_dogs: 'fire' };
+  const trail = runScenario(state, 60, 0.5);
+  check('elem', 'burning applied (from fire-element dog bites)', trail.debuffIdsAppliedToMobs.has('burning'),
+    `seen=[${[...trail.debuffIdsAppliedToMobs].join(',')}]`);
+  check('elem', 'no NaN', trail.nanCount === 0);
+}
+{
+  scenario('Element transform — Fetish Swarm set to cold applies frostbite, not bleeding');
+  const state = makeStaffState({ skills: ['staff_fetish_swarm'], talents: {}, packSize: 3, mobHp: 1e9 });
+  state.elementTransforms = { staff_fetish_swarm: 'cold' };
+  const trail = runScenario(state, 60, 0.5);
+  check('elem', 'frostbite applied (from cold-element fetish darts)', trail.debuffIdsAppliedToMobs.has('frostbite'),
+    `seen=[${[...trail.debuffIdsAppliedToMobs].join(',')}]`);
+  check('elem', 'no NaN', trail.nanCount === 0);
+}
+
 // Hex applies to mob (the user reported missing earlier)
 {
   scenario('Hex — applies hexed debuff to enemy');
