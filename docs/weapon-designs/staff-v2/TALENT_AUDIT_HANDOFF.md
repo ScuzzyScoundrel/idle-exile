@@ -11,6 +11,31 @@
 - **99/99 staff mechanics QA** passing; **524/780** full talent sweep PASS, **0 FAIL**, **0 BROKEN**
 - **Staff is playable on the live Vercel site**, dogs render, DoTs work, combo states flow
 
+## How We Got Here — Process Failure (read this first)
+
+**The IMPLEMENTATION_GUIDE.md explicitly covers how to avoid this exact problem.**
+Re-read it end-to-end before starting the audit — key rules I violated:
+
+1. **Phase 1 deliverable is ONE JSON PER SKILL** (`docs/weapon-designs/{weapon}-v2/{skill-name}.json`).
+   I wrote `mass_sacrifice.json` and then shortcut the other 9 skills by authoring
+   TypeScript directly with the `bh()` helper. Without a JSON design doc that forced
+   me to think about each node individually, it became trivial to copy behavior-slot
+   patterns across skills.
+2. **Rule 3 — "No flavor-only nodes"**: Spirit of the rule is that every node should
+   *do something distinct*. Three behavior slots in one branch all reading
+   `+dotMultiplier` technically maps to an engine field (satisfies the letter) but
+   violates the intent.
+3. **Rule 4 — proc node structure**: By elevating procs to a mandatory first-class
+   design concern, the guide implicitly expects procs throughout the tree, not just
+   as decoration on the occasional notable.
+4. **Dagger post-mortem opening**: Guide opens by saying dagger v2 shipped 200+
+   broken nodes from procedural shortcuts. Staff v2 shipped 210 working-but-samey
+   nodes from a different procedural shortcut — same category of failure.
+
+**Remedy for the audit**: write the missing 9 JSON design docs FIRST, then transpile.
+Do NOT author TypeScript directly from head without a JSON design step. The JSON is
+the forcing function for per-node design.
+
 ## The Problem
 
 Too many behavior nodes are near-duplicates of each other:
@@ -217,16 +242,29 @@ Keep ~50% of nodes as raw stat stacks (players do like numeric scaling, especial
 - "Mass Sacrifice consuming 4+ states grants 3s minion invulnerability"
 - "Each state consumed has 20% chance to also refund 1s CD on a random skill"
 
-## Concrete Workflow for Each Skill
+## Concrete Workflow for Each Skill (mandatory per IMPLEMENTATION_GUIDE Phase 1)
 
-1. Open `src/data/skillGraphs/staff_{skill}_talents.ts`
-2. Identify the 7 behavior nodes per branch (21 total per skill)
-3. For each branch, replace 3-4 of the 7 with procs/conditional/cross-skill nodes
-4. Keep 3-4 as raw stat stacks (varies the field each time — not all dotMultiplier)
-5. If a new engine field is needed, add to `src/engine/skillGraph.ts` (interface + EMPTY_GRAPH_MOD + resolver merge) AND wire in `src/engine/combat/weapons/staff.ts` or `tick.ts`
-6. Extend `sim/qa-staff-mechanics.ts` with assertions for each new proc/behavior
-7. Run `npx tsc -b && npx vite build && npx tsx sim/qa-staff-mechanics.ts && npx tsx sim/qa-talents.ts --skill staff_{skill}`
-8. Commit + push per skill (keeps commits reviewable)
+1. **Write `docs/weapon-designs/staff-v2/{skill-name}.json` FIRST.** No TypeScript
+   editing before the JSON design doc exists for that skill. Use `mass_sacrifice.json`
+   as the template.
+2. In the JSON, design each of the 39 nodes individually — no copy-paste of behavior
+   slots. If two nodes in a branch share the same field, flag and redesign.
+3. Before transpiling, run the Phase 2 engine field audit (`jq` command in the guide
+   line 80) to identify new fields needed.
+4. Add any new engine fields to `src/engine/skillGraph.ts` (interface +
+   EMPTY_GRAPH_MOD + resolver merge) AND wire apply points in
+   `src/engine/combat/weapons/staff.ts` or `tick.ts`.
+5. Transpile JSON → `src/data/skillGraphs/staff_{skill}_talents.ts`.
+6. Register in `src/data/skillGraphs/talentTrees.ts`.
+7. Extend `sim/qa-staff-mechanics.ts` with assertions per new proc/behavior.
+8. Pre-push gate: `npx tsc -b && npx vite build && npx tsx sim/qa-staff-mechanics.ts
+   && npx tsx sim/qa-talents.ts --skill staff_{skill}`.
+9. Commit + push per skill (keeps commits reviewable).
+
+**If you find yourself writing `bh()` calls with the same modifier in multiple
+branches of the same skill — stop. Go back to the JSON and redesign. The JSON
+is the forcing function for per-node quality; shortcutting around it is how we
+shipped 210 samey nodes the first time.**
 
 ## Design Principles
 
