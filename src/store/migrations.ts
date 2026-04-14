@@ -900,5 +900,16 @@ export function runMigrations(
     }
   }
 
+  if (version < 64) {
+    // v64: Universal Mana resource on Character. Engine logic lands in
+    // Phase 6 with combat-timing rework; this just seeds the state shape.
+    // Initialize at full-mana default (100 / 100); Phase 6 will replace
+    // with per-class config on hydration if player wants authentic pool.
+    const char64 = raw.character as any;
+    if (char64 && !char64.mana) {
+      char64.mana = { current: 100, max: 100, regenPerSec: 5 };
+    }
+  }
+
   return state;
 }

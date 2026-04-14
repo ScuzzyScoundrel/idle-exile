@@ -5,6 +5,7 @@
 import type { StatKey, ResolvedStats } from './stats';
 import type { GearSlot, Item, ArmorType } from './items';
 import type { AttributeState, AttributeAllocation } from './attributes';
+import type { ManaState } from './mana';
 
 export type CharacterClass = 'warrior' | 'mage' | 'ranger' | 'rogue' | 'witchdoctor' | 'assassin';
 
@@ -45,4 +46,5 @@ export interface Character {
   equipment: Partial<Record<GearSlot, Item>>;
   stats: ResolvedStats;
   attributes: AttributeState;
+  mana: ManaState;
 }

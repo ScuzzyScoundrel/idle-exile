@@ -5,6 +5,7 @@
 
 import type { Character, CharacterClass, ResolvedStats, StatKey, GearSlot, Item, ConversionSpec } from '../types';
 import { createInitialAttributeState } from '../types/attributes';
+import { createInitialManaState } from '../types/mana';
 import { applyAttributeBonuses, getTotalAttributes } from './attributes';
 import { getAffixDef } from './items';
 import { getGemStat } from './gems';
@@ -34,6 +35,7 @@ export function createCharacter(name: string, charClass: CharacterClass = 'warri
     equipment: {},
     stats: { ...BASE_STATS },
     attributes: createInitialAttributeState(),
+    mana: createInitialManaState(charClass),
   };
   char.stats = resolveStats(char);
   return char;
