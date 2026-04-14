@@ -10,6 +10,8 @@ import { calcBagCapacity, CURRENCY_DEFS } from '../../data/items';
 import CharacterHeader from '../components/CharacterHeader';
 import ClassSilhouette from '../components/ClassSilhouette';
 import SkillPanel from '../components/SkillPanel';
+import AttributePanel from '../components/AttributePanel';
+import ClassTalentPanel from '../components/ClassTalentPanel';
 import InventoryScreen from './InventoryScreen';
 
 /* ── Constants ── */
@@ -106,6 +108,10 @@ export default function HeroScreen() {
     <div className="max-w-5xl mx-auto space-y-3">
       {/* Character Header */}
       <CharacterHeader />
+
+      {/* Attributes + Class Talents (Phase 2f + 3a.5) */}
+      <AttributePanel />
+      <ClassTalentPanel />
 
       {/* Top row: Equipment (left) | Stats (right) */}
       <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-3">
