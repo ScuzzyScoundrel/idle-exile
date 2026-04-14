@@ -92,6 +92,7 @@ export const CLASS_DEFS: Record<CharacterClass, ClassDef> = {
     resourceDecayOnStop: false,
     resourceDecayOnGearSwap: false,
     resourceDescription: 'Universal mana with slow passive regen + chunk on kill (Phase 2d).',
+    startingAttributes: { strength: 0, dexterity: 0, intelligence: 3, spirit: 4 },
   },
   assassin: {
     id: 'assassin',
@@ -110,6 +111,7 @@ export const CLASS_DEFS: Record<CharacterClass, ClassDef> = {
     resourceDecayOnStop: true,
     resourceDecayOnGearSwap: true,
     resourceDescription: 'Universal mana with fast regen + gain on crit (Phase 2d).',
+    startingAttributes: { strength: 0, dexterity: 4, intelligence: 0, spirit: 3 },
   },
 };
 

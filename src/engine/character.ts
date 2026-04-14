@@ -5,6 +5,7 @@
 
 import type { Character, CharacterClass, ResolvedStats, StatKey, GearSlot, Item, ConversionSpec } from '../types';
 import { createInitialAttributeState } from '../types/attributes';
+import { applyAttributeBonuses, getTotalAttributes } from './attributes';
 import { getAffixDef } from './items';
 import { getGemStat } from './gems';
 import { CLASS_DEFS } from '../data/classes';
@@ -64,6 +65,10 @@ export function resolveStats(char: Character): ResolvedStats {
   stats.flatPhysDamage += PHYS_DAMAGE_PER_LEVEL * bonusLevels;
   stats.maxLife += MAX_LIFE_PER_LEVEL * bonusLevels;
   stats.accuracy += ACCURACY_PER_LEVEL * bonusLevels;
+
+  // Attribute-derived bonuses (class baseline + allocated points).
+  // Applied before equipment so affix/gear stats stack on top cleanly.
+  applyAttributeBonuses(stats, getTotalAttributes(char));
 
   // Loop through all equipped items
   const slots = Object.keys(char.equipment) as GearSlot[];

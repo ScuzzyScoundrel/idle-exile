@@ -4,7 +4,7 @@
 
 import type { StatKey, ResolvedStats } from './stats';
 import type { GearSlot, Item, ArmorType } from './items';
-import type { AttributeState } from './attributes';
+import type { AttributeState, AttributeAllocation } from './attributes';
 
 export type CharacterClass = 'warrior' | 'mage' | 'ranger' | 'rogue' | 'witchdoctor' | 'assassin';
 
@@ -25,6 +25,9 @@ export interface ClassDef {
   resourceDecayOnStop: boolean;
   resourceDecayOnGearSwap: boolean;
   resourceDescription: string;        // short player-facing summary
+  /** Class-specific baseline attributes per design plan (Phase 2b).
+   * Added to the player's allocated attributes to produce final totals. */
+  startingAttributes?: AttributeAllocation;
 }
 
 export interface ClassResourceState {
