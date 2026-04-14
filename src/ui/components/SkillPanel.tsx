@@ -10,6 +10,7 @@ import { getAbilityDef } from '../../data/skills';
 import { ABILITY_ID_MIGRATION } from '../../data/skills';
 import { ABILITY_SLOT_UNLOCKS } from '../../types';
 import type { SkillDef, SkillKind, SkillProgress, AbilityProgress } from '../../types';
+import { getDisplayedSkillName } from '../../engine/classAdjustment';
 import SkillGraphView from './SkillGraphView';
 import TalentTreeView from './TalentTreeView';
 
@@ -232,7 +233,7 @@ export default function SkillPanel() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className={`text-xs font-bold truncate ${isLocked ? 'text-gray-500' : 'text-white'}`}>
-                      {skill.name}
+                      {getDisplayedSkillName(skill, character.class)}
                     </span>
                     <span className={`text-xs px-1 rounded ${KIND_BADGE_COLORS[skill.kind] ?? 'bg-gray-700 text-gray-300'}`}>
                       {skill.kind}

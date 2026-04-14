@@ -12,7 +12,7 @@
 // Additional classes/weapons extend this table additively as Phase 3b+
 // authors new morphs against implemented skills.
 
-import type { CharacterClass, ClassSkillAdjustment } from '../types';
+import type { CharacterClass, ClassSkillAdjustment, SkillDef } from '../types';
 
 /**
  * Registry of authored morphs. Keyed by skillId, each entry is a list
@@ -135,4 +135,15 @@ export function getClassSkillAdjustmentsForClasses(
   const entries = CLASS_SKILL_ADJUSTMENTS[skillId];
   if (!entries) return [];
   return entries.filter(e => e.classIds.some(c => classIds.includes(c)));
+}
+
+/**
+ * Get the player-facing name for a skill, applying class morph's flavorName
+ * override if one exists. Falls back to the skill's base name.
+ *
+ * Example: Assassin casting staff_haunt shows "Shadow Strike" instead of "Haunt".
+ */
+export function getDisplayedSkillName(skill: SkillDef, classId: CharacterClass): string {
+  const morph = getClassSkillAdjustment(skill.id, classId);
+  return morph?.flavorName ?? skill.name;
 }
