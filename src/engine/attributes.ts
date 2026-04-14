@@ -12,7 +12,7 @@
 // correct at expected endgame attribute totals (~500 points = reasonable,
 // non-explosive scaling).
 
-import type { AttributeAllocation, Character, ResolvedStats } from '../types';
+import type { AttributeAllocation, Character, Item, ResolvedStats } from '../types';
 import { CLASS_DEFS } from '../data/classes';
 
 /** Per-point scaling factors per attribute. */
@@ -80,4 +80,20 @@ export function applyAttributeBonuses(stats: ResolvedStats, attrs: AttributeAllo
   stats.chaosResist      += attrs.spirit * s.spirit.chaosResist;
   stats.incDoTDamage     += attrs.spirit * s.spirit.incDoTDamagePct;
   stats.ailmentPotency   += attrs.spirit * s.spirit.ailmentPotencyPct;
+}
+
+/**
+ * Check whether a character meets an item's attribute requirement.
+ * Items without `attributeRequirement` are always equippable (returns true).
+ * Design: docs/design/CLASS_SYSTEM_PLAN.md §6.
+ */
+export function meetsAttributeRequirement(char: Character, item: Item): boolean {
+  const req = item.attributeRequirement;
+  if (!req) return true;
+  const total = getTotalAttributes(char);
+  if (req.strength     !== undefined && total.strength     < req.strength)     return false;
+  if (req.dexterity    !== undefined && total.dexterity    < req.dexterity)    return false;
+  if (req.intelligence !== undefined && total.intelligence < req.intelligence) return false;
+  if (req.spirit       !== undefined && total.spirit       < req.spirit)       return false;
+  return true;
 }

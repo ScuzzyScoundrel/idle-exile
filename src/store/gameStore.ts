@@ -24,6 +24,7 @@ import {
   GemTier,
 } from '../types';
 import { createCharacter, resolveStats, addXp } from '../engine/character';
+import { meetsAttributeRequirement } from '../engine/attributes';
 import { calcClearTime, createBossEncounter, generateBossLoot, calcDeathPenalty, simulateIdleRun } from '../engine/zones';
 import { BOSS_VICTORY_DURATION, BOSS_VICTORY_HEAL_RATIO, INVASION_DIFFICULTY_MULT, INVASION_DURATION_MIN_MS, INVASION_DURATION_MAX_MS, DEATH_STREAK_WINDOW } from '../data/balance';
 // SKILL_GCD import moved to skillStore
@@ -367,6 +368,11 @@ export const useGameStore = create<GameState & GameActions>()(
 
       equipItem: (item: Item) => {
         set((state) => {
+          // ── Attribute requirement gate ──
+          if (!meetsAttributeRequirement(state.character, item)) {
+            return state; // Reject — insufficient attributes to equip
+          }
+
           let targetSlot: GearSlot = item.slot;
 
           const ALTERNATE: Partial<Record<GearSlot, GearSlot>> = {
