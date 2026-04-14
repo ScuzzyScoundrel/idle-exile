@@ -795,15 +795,50 @@ Talent trees are the CONTENT layer. Class system is a multiplicative layer ON TO
 
 ---
 
-## Reading order for the next session
+## Reading order for the next session (Phase 4 start)
 
-1. **This doc** — canonical design source.
-2. `docs/weapon-designs/staff-v2/SESSION_2_HANDOFF.md` — staff implementation reality + runtime-pending rawBehaviors.
-3. `sim/qa-staff-interactions.ts` — player-perspective QA pattern. Will need time-simulation rewrite in Phase 6.
-4. `src/types/character.ts` — current class enum; attributes added here in Phase 2.
-5. `src/data/classes.ts` — current class defs; expanded in Phase 2.
-6. `src/data/weapons.ts` — dagger fix in Phase 1 (line 31).
-7. `src/data/affixes.ts` — deletions + additions in Phase 4.
+### Primary design + status
+1. **This doc** — canonical design source. Start with §Status at a glance + §Session 4 Findings + §Phase 4.
+2. `docs/weapon-designs/staff-v2/SESSION_2_HANDOFF.md` — staff implementation reality.
+
+### Phase 4 target files (where the work lands)
+
+**Core morph resolver fix (sub-phase 1-2):**
+3. `src/engine/classAdjustment.ts` — add `getEffectiveSkillDef(skill, classId)` here next to existing `getClassSkillAdjustment`. Already exports the morph registry.
+4. `src/types/classAdjustment.ts` — add `flavorDescription?: string` and `tagOverride?: DamageTag[]` fields here.
+5. `src/engine/combat/tick.ts:516-525` — existing morph consumer; Phase 4 simplifies it to just call `getEffectiveSkillDef` once instead of threading `elementTransform` separately.
+6. `src/ui/components/SkillPanel.tsx:235` + any other `skill.name` / `skill.tags` / `skill.description` consumers — retrofit to read through the resolver.
+7. `src/engine/skills/dps.ts` + `src/engine/unifiedSkills.ts` — DPS previews probably pass raw skill; retrofit.
+
+**Trigger-effect engine (sub-phase 3-5):**
+8. `src/types/skills.ts:420-446` — SkillDef interface. The `effect: AbilityEffect` and `SkillTreeNode.effect` shapes live here or nearby. Replace flat shape with `effects: TalentEffect[]` union.
+9. `src/data/classTalents.ts` — 48 class tree nodes authored in Phase 3a.5. Every one needs rewriting against the new schema (2-3 keystones per path + stat-stick backbone).
+10. `src/engine/classTalents.ts` — existing resolver; dispatcher for new trigger types goes here or adjacent.
+11. Existing proc surfaces in the damage pipeline — grep for `onHit` / `onKill` / combo hooks to find where trigger dispatchers hook in.
+
+**Per-skill class overlays (sub-phase 7):**
+12. `src/data/skillGraphs/` — each per-skill tree file. Extend data shape with optional `classOverlays: Record<CharacterClass, SkillTreeNode[]>`.
+13. `src/ui/components/SkillGraphView.tsx` — renders the per-skill tree; needs update to show shared + class overlay sections.
+
+### Reference / context files (unchanged, read for context)
+14. `src/types/character.ts` — Character, ClassDef, ResourceType (ResourceType + fields are legacy-neutralized, delete in future cleanup).
+15. `src/types/attributes.ts` — AttributeState + scaling constants (live).
+16. `src/types/mana.ts` — ManaState + per-class CLASS_MANA_CONFIG (live, engine consumes in Phase 6).
+17. `src/data/classes.ts` — ClassDef entries including Witchdoctor + Assassin with `startingAttributes`.
+18. `src/data/weapons.ts` — WeaponTypeMeta with `affixScaleMultiplier` (live).
+19. `src/engine/attributes.ts` — `getTotalAttributes`, `applyAttributeBonuses`, `meetsAttributeRequirement`.
+20. `src/ui/screens/HeroScreen.tsx` — live character screen. `CharacterScreen.tsx` is dead code, ignore it.
+21. `src/ui/components/AttributePanel.tsx` — live attribute allocation UI.
+22. `src/ui/components/ClassTalentPanel.tsx` — live class tree UI (will render new schema automatically if resolver updates).
+23. `src/store/migrations.ts` — save version at 64 post-Phase 2c. Phase 4 likely needs v65 to migrate talent allocation data if effect schema changes break existing allocations.
+24. `src/data/affixes.ts` — Phase 4.5 target (deferred from original Phase 4).
+25. `sim/qa-staff-interactions.ts` — player-perspective QA pattern. Will need time-simulation rewrite in Phase 6.
+
+### Active branch + merge state (as of session end)
+- `master` is the live/deployed branch
+- All Phase 1+2+3a.1-5 merged via commit `b37f2eb6`
+- Follow-up fixes: `e0530d9d` (class talent panel remount to CharacterScreen), `446d28f1` (move to HeroScreen), `0b5b62ea` (design doc Session 4 update)
+- Phase 4 should branch fresh from master as `class-system-phase-4`
 
 ---
 
