@@ -24,12 +24,17 @@
 | Rotation logic (idle auto-sequence) | Ratified |
 | Handedness / offhand / dual-wield rules | Ratified |
 | MVP scope (2 classes × 2 weapons) | Ratified |
-| **Phase 1** | **COMPLETE** (commits 9af84919, 36f85e84) |
-| **Phase 2** | **COMPLETE** (commits 05c21cd5, a40e23cf, 53719558, bea9bb26, b057aaaf, 11b555c2, 6dcb1a02) |
-| **Phase 3a** | **5 of ~7 sub-phases COMPLETE** (a464b1c4, aa09fdf5, c8b49864, 52c863ed, 02654bb4) |
+| **Phase 1** | **✅ COMPLETE + MERGED** (commits 9af84919, 36f85e84) |
+| **Phase 2** | **✅ COMPLETE + MERGED** (commits 05c21cd5, a40e23cf, 53719558, bea9bb26, b057aaaf, 11b555c2, 6dcb1a02) |
+| **Phase 3a.1-5** | **✅ COMPLETE + MERGED** (a464b1c4, aa09fdf5, c8b49864, 52c863ed, 02654bb4, e0530d9d, 446d28f1) |
+| **Phase 4 (REDESIGNED)** | **Trigger-effect engine + full-morph resolver + class tree re-authoring** — see §Session 4 findings |
+| Phase 4.5 | Affix system revamp (was Phase 4; pushed back) |
 | Phase 3a.6 Ascendancies | Pending — needs engine framework (not just data) |
 | Phase 3a.7 Per-skill timing field authoring | Pending — fields exist, values unauthored |
 | Phase 3b+ | Weapons/classes added as trees become implemented |
+| Phase 5 | Multiclass + uniques + flasks |
+| Phase 6 | Cast-time + auto-attack + resource engine rework |
+| Phase 7 | Rotation priority system |
 
 ---
 
@@ -555,6 +560,66 @@ interface ClassSkillAdjustment {
 
 ---
 
+## Session 4 Findings (2026-04-14, live-test) — why Phase 4 was redesigned
+
+After Phase 1 + 2 + 3a.1-5 were merged to master and live-tested, two core issues surfaced that the original phase plan didn't anticipate:
+
+### Finding 1: Morph layer is only half-wired
+
+**Symptom:** Assassin casting `staff_haunt` deals physical damage in combat (correct), and SkillPanel shows the name "Shadow Strike" (correct), but UI still displays the skill's original `tags` (Cold/DoT/Spell), the tooltip's damage-type preview, and the flavor description unchanged.
+
+**Root cause:** the UI and DPS-preview pipelines read `skill.tags`, `skill.description`, `skill.castTime` etc. **directly from the raw skill def**. The class-morph override is only applied inside `tick.ts`'s combat resolution — every other consumer is blind to it.
+
+**Fix (Phase 4 sub-phase 1):** introduce `getEffectiveSkillDef(skill, classId): SkillDef` as the single morph-aware resolver. Retrofit every consumer (`SkillPanel`, `calcSkillDps`, tooltip renderers, etc.) to read through this helper. Combat tick also consumes the resolved skill directly, simplifying the current elementTransform threading.
+
+**Schema additions needed:** `flavorDescription?: string` and `tagOverride?: DamageTag[]` on ClassSkillAdjustment so morphs can explicitly rewrite description and tag array when the auto-rewrite from `damageTypeOverride` isn't sufficient.
+
+### Finding 2: Class tree nodes are stat-sticks because the effect schema only supports stats
+
+**Symptom:** the 48 class tree nodes authored in Phase 3a.5 have flavorful names ("Pack Hunter", "Widow's Kiss", "Pandemic Bloom") but mechanics reduce to `{ damageMult: 1.15, clearSpeedMult: 1.08 }` — generic stat buffs. Flavor descriptions promise mechanics the engine can't deliver.
+
+**Root cause:** the existing `SkillTreeNode.effect` shape (`damageMult`, `defenseMult`, `clearSpeedMult`, `xpMult`, `itemDropMult`, `materialDropMult`, `critChanceBonus`, `critMultiplierBonus`, `resistBonus`, `ignoreHazards`, `doubleClears`) is **legacy** — it was designed for the OLD passive tree system where nodes modified zone-clear performance metrics, not active-combat identity.
+
+**Fix (Phase 4 sub-phases 3-5):** replace the flat `effect` object with a typed `effects: TalentEffect[]` union supporting triggers (`procOnTag`, `procOnKill`, `procOnHit`, `procOnCrit`), conditional modifiers (`whileTag`, `perStack`), cross-skill synergies (`grantTagOnSkill`), and action payloads (`summon`, `applyTag`, `triggerSkill`, `healSelf`, `grantBuff`).
+
+**Key insight:** the same trigger-effect schema powers:
+- Class tree keystones (Phase 4)
+- Ascendancy nodes (Phase 3a.6 when it lands)
+- Per-skill class overlays (Phase 4 sub-phase 7 — "Path B" from Session 4 design conversation)
+- Unique item effects (Phase 5)
+- Future combat procs from Phase 6
+
+Invest once, reuse everywhere.
+
+### Finding 3: Class tree UI was invisible — wrong screen
+
+**Symptom:** the WD Voodoo/Spirits/Plague and Assassin Shadow/Venom/Blades trees authored in Phase 3a.5 didn't appear anywhere in-game.
+
+**Root cause:** CharacterScreen.tsx (where I originally mounted AttributePanel + ClassTalentPanel) is dead code — never imported. App.tsx routes the "Hero" tab to HeroScreen.tsx. `ClassTalentPanel` had been explicitly unmounted in a prior "Skill Tree Overhaul Phase 0" cleanup.
+
+**Fix (already live, commits `e0530d9d` + `446d28f1`):** re-mounted both panels on HeroScreen right below `<CharacterHeader />`. Class tree is now visible in production. CharacterScreen.tsx remains dead code — should be removed in a future cleanup pass.
+
+### Finding 4: Per-skill trees share across classes by design — can't alone express class-weapon uniqueness
+
+**Context:** user's design goal is that a Witchdoctor wielding a dagger should have dagger-skill talent trees that offer WD-flavored branches (chaos DoT / hex / pandemic paths) distinct from an Assassin wielding that same dagger (stealth / venom / dual-wield branches), without duplicating 20+ skill trees per class.
+
+**Resolution (Phase 4 sub-phase 7):** add `classOverlays?: Record<CharacterClass, SkillTreeNode[]>` to per-skill tree data. Per-skill shared tree remains the mechanical backbone (damage scaling, crit, DoT duration — damage-type-agnostic). Overlay cluster per class adds class-thematic keystones (auto-hidden when a different class picks up the skill). Authoring cost linear (not combinatorial) in class × skill count.
+
+### Phase 4 scope (revised)
+
+The original Phase 4 ("affix simplification — delete 5, add ~15") is postponed to **Phase 4.5** as smaller scope. Phase 4 now delivers the three architectural fixes above plus class-tree re-authoring with the new schema. Estimated ~8-12 commits, one focused session. Branch: `class-system-phase-4`.
+
+**Hard reject in Phase 4:** keep legacy effect keys "for compatibility". The keys describe zone-clear modifiers that have no place on class-identity trees. Every remaining consumer of those keys (if any) should either move to the new schema or be removed.
+
+### What stays valid from earlier design
+
+- MVP class roster (Witchdoctor + Assassin) — unchanged
+- Morph rules (can change damage type, flavor name, secondary proc, cast/mana muts; cannot change delivery tag, skill ID, mechanic kind, base values) — unchanged
+- Shared per-skill trees with mechanic-neutral nodes — still the right architecture, now augmented with class overlays
+- Attributes, mana, equip requirements, weapon affixScaleMultiplier, 7-phase overall sequencing — all unchanged
+
+---
+
 ## Migration phases (7 total)
 
 ### Phase 1 — Stop the bleeding + foundational audits (start here)
@@ -608,11 +673,59 @@ When a new class launches (e.g. Mage added after Wand tree lands):
 
 Target state: all launched classes × all launched weapons fully morphed. Incremental; no hard ship date on matrix completion.
 
-### Phase 4 — Affix system revamp
+### Phase 4 — Trigger-effect engine + full-morph resolver + class-tree re-authoring (REDESIGNED)
+
+See §Session 4 Findings below for why this replaces the original "affix revamp" Phase 4.
+
+**Sub-phases:**
+
+1. **`getEffectiveSkillDef(skill, classId)` resolver** — single helper that returns a fully-morphed SkillDef (name, tags, description, castTime × mult, manaCost × mult, baseConversion.to = damageTypeOverride). Retrofit all UI + DPS preview + combat call sites to read through it instead of raw `skill.name` / `skill.tags`. Fixes "morph is half-wired" — tag badges, tooltips, descriptions all reflect class morph.
+
+2. **Morph schema extensions** — add `flavorDescription?: string` and `tagOverride?: DamageTag[]` to ClassSkillAdjustment so morph cells can also rewrite description + tag array explicitly when the auto-rewrite from damageTypeOverride isn't enough.
+
+3. **Trigger-effect engine for class talents.** Replace the flat `effect: { damageMult, defenseMult, clearSpeedMult, ... }` shape on SkillTreeNode with a typed `effects: TalentEffect[]` union:
+
+   ```ts
+   type TalentEffect =
+     | { kind: 'stat', stat: StatKey, delta: number }
+     | { kind: 'statMult', stat: StatKey, mult: number }
+     | { kind: 'procOnTag', tag: 'hex'|'curse'|'mark'|'poison'|'bleed'|'ignite'|'chill',
+         chance: number, action: TalentAction }
+     | { kind: 'procOnKill', tag?: DamageTag, chance: number, action: TalentAction }
+     | { kind: 'procOnHit',  tag?: DamageTag, chance: number, action: TalentAction }
+     | { kind: 'procOnCrit', chance: number, action: TalentAction }
+     | { kind: 'whileTag', tag: string, stat: StatKey, mult: number }
+     | { kind: 'perStack', stack: string, stat: StatKey, perStackDelta: number, cap?: number }
+     | { kind: 'grantTagOnSkill', skillTag: string, addTag: string };
+
+   type TalentAction =
+     | { kind: 'summon', minionType: string, count?: number, durationSec?: number }
+     | { kind: 'applyTag', tag: string, stacks?: number, duration?: number }
+     | { kind: 'triggerSkill', skillId: string }
+     | { kind: 'healSelf', amount: number }
+     | { kind: 'grantBuff', buffId: string, duration: number };
+   ```
+
+4. **Delete vestigial effect keys:** `clearSpeedMult`, `doubleClears`, `ignoreHazards`, `xpMult`, `itemDropMult`, `materialDropMult` from talent node effects. These are legacy from when passive trees were zone-clear modifiers; inappropriate for class identity.
+
+5. **Engine dispatcher** — wire `procOnTag` / `procOnKill` / `procOnHit` / `procOnCrit` into the damage pipeline's existing event surfaces (or expand proc surfaces if needed). Implement `TalentAction` handlers: summon, applyTag, triggerSkill, grantBuff, healSelf. `whileTag` / `perStack` integrate into `resolveStats` as conditional modifiers.
+
+6. **Re-author class trees** — replace the 48 stat-stick class tree nodes I wrote in Phase 3a.5 with nodes that use the new schema. Each path: 2-3 keystones (mechanical identity) + 5-6 stat-sticks (scaling backbone). Example: "Pack Hunter — Applying hex/curse/mark has 25% chance to summon a zombie dog."
+
+7. **Per-skill class overlays (Path B from Session 4 discussion)** — add `classOverlays?: Record<CharacterClass, SkillTreeNode[]>` to per-skill tree data. UI resolver concatenates `sharedNodes + (classOverlays[char.class] ?? [])`. Author ~4-5 overlay nodes per (class × skill) cell for MVP coverage: ~80 overlay nodes.
+
+8. **UI updates** — render new effect types in tooltips, visual keystone badge, overlay section separator in tree UI.
+
+**Scope estimate:** full focused session, ~8-12 commits. Worth its own branch (`class-system-phase-4`).
+
+**Unlocks:** same trigger-effect schema powers ascendancy keystones (Phase 3a.6), unique item effects (Phase 5), and potentially Phase 6 combat procs. Invest once, reuse everywhere.
+
+### Phase 4.5 — Affix system revamp (pushed back from original Phase 4)
 - Delete 5 affixes (see Affix Deletions)
 - Add ~15 affix types (4 attributes + 5 resources + minion damage + skill-level + hybrids)
 - Rebalance existing affix tier values against attribute-driven scaling
 - Attribute requirement enforcement on all items (weapons + armor)
+- Populate `attributeRequirement` field on ItemBaseDef entries (iLvl × 1.5 per design §6)
 
 ### Phase 5 — Multiclass + uniques + flasks
 - Multiclass enablement (secondary class unlock at endgame)
