@@ -138,6 +138,9 @@ export interface ItemBaseDef {
   baseSpellPower?: number; // spell weapon base SP
   baseConversion?: ConversionSpec; // elemental weapon global conversion (applies to ALL attacks)
   iLvl: number;
+  /** Minimum attribute totals required to equip. Phase 4 populates via
+   * iLvl × 1.5 on primary attribute per design plan §6. Null/missing = no gate. */
+  attributeRequirement?: Partial<import('./attributes').AttributeAllocation>;
 }
 
 export interface Item {
@@ -166,6 +169,9 @@ export interface Item {
   isUnique?: boolean;
   uniqueDefId?: string;
   uniqueAffix?: UniqueAffixInstance;
+  /** Minimum attribute totals required to equip (copied from base at
+   * generation time). Null/missing = no gate. Populated in Phase 4. */
+  attributeRequirement?: Partial<import('./attributes').AttributeAllocation>;
 }
 
 export interface UniqueAffixInstance {

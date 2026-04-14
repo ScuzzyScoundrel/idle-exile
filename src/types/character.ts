@@ -4,8 +4,10 @@
 
 import type { StatKey, ResolvedStats } from './stats';
 import type { GearSlot, Item, ArmorType } from './items';
+import type { AttributeState, AttributeAllocation } from './attributes';
+import type { ManaState } from './mana';
 
-export type CharacterClass = 'warrior' | 'mage' | 'ranger' | 'rogue';
+export type CharacterClass = 'warrior' | 'mage' | 'ranger' | 'rogue' | 'witchdoctor' | 'assassin';
 
 export type ResourceType = 'rage' | 'arcane_charges' | 'tracking' | 'momentum';
 
@@ -24,6 +26,9 @@ export interface ClassDef {
   resourceDecayOnStop: boolean;
   resourceDecayOnGearSwap: boolean;
   resourceDescription: string;        // short player-facing summary
+  /** Class-specific baseline attributes per design plan (Phase 2b).
+   * Added to the player's allocated attributes to produce final totals. */
+  startingAttributes?: AttributeAllocation;
 }
 
 export interface ClassResourceState {
@@ -40,4 +45,6 @@ export interface Character {
   xpToNext: number;
   equipment: Partial<Record<GearSlot, Item>>;
   stats: ResolvedStats;
+  attributes: AttributeState;
+  mana: ManaState;
 }

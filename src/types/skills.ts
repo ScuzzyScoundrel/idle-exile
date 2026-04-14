@@ -443,6 +443,16 @@ export interface SkillDef {
   skillTree?: AbilitySkillTree;
   skillGraph?: SkillGraph;
   talentTree?: TalentTree;
+  // Forward-compatible timing fields (Phase 6 engine consumes;
+  // current engine ignores). See docs/design/CLASS_SYSTEM_PLAN.md §Combat.
+  /** Delivery kind for Phase 6 engine. Undefined → infer from castTime. */
+  skillKind?: 'instant' | 'cast' | 'channel' | 'auto';
+  /** Tick interval for channel kinds (seconds). */
+  channelTickInterval?: number;
+  /** Post-cast stiffness (seconds). */
+  recoveryTime?: number;
+  /** Mana cost per cast (or per tick for channels). Undefined → 0. */
+  manaCost?: number;
 }
 
 export interface EquippedSkill {

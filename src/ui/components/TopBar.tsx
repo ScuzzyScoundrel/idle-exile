@@ -7,6 +7,8 @@ const CLASS_ICONS: Record<CharacterClass, string> = {
   mage: '\u2728',
   ranger: '\uD83C\uDFF9',
   rogue: '\uD83D\uDDE1\uFE0F',
+  witchdoctor: '\uD83C\uDFAD',
+  assassin: '\uD83E\uDD77',
 };
 
 export default function TopBar() {

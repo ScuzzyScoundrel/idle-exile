@@ -22,8 +22,10 @@ import {
   Gem,
   GemType,
   GemTier,
+  AttributeKey,
 } from '../types';
 import { createCharacter, resolveStats, addXp } from '../engine/character';
+import { meetsAttributeRequirement } from '../engine/attributes';
 import { calcClearTime, createBossEncounter, generateBossLoot, calcDeathPenalty, simulateIdleRun } from '../engine/zones';
 import { BOSS_VICTORY_DURATION, BOSS_VICTORY_HEAL_RATIO, INVASION_DIFFICULTY_MULT, INVASION_DURATION_MIN_MS, INVASION_DURATION_MAX_MS, DEATH_STREAK_WINDOW } from '../data/balance';
 // SKILL_GCD import moved to skillStore
@@ -166,6 +168,9 @@ interface GameActions {
   // Class talent tree
   allocateTalentNode: (nodeId: string) => void;
   respecTalents: () => void;
+
+  // Attribute allocation
+  allocateAttribute: (key: AttributeKey) => void;
 
   // Class resource
   tickClassResource: (dtSeconds: number) => void;
@@ -367,6 +372,11 @@ export const useGameStore = create<GameState & GameActions>()(
 
       equipItem: (item: Item) => {
         set((state) => {
+          // ── Attribute requirement gate ──
+          if (!meetsAttributeRequirement(state.character, item)) {
+            return state; // Reject — insufficient attributes to equip
+          }
+
           let targetSlot: GearSlot = item.slot;
 
           const ALTERNATE: Partial<Record<GearSlot, GearSlot>> = {
@@ -890,6 +900,22 @@ export const useGameStore = create<GameState & GameActions>()(
         useSkillStore.getState().respecTalents();
       },
 
+      allocateAttribute: (key: AttributeKey) => {
+        set((state) => {
+          const attrs = state.character.attributes;
+          if (attrs.unallocated <= 0) return state;
+          const newChar = {
+            ...state.character,
+            attributes: {
+              allocated: { ...attrs.allocated, [key]: attrs.allocated[key] + 1 },
+              unallocated: attrs.unallocated - 1,
+            },
+          };
+          newChar.stats = resolveStats(newChar);
+          return { character: newChar };
+        });
+      },
+
       equipSkill: (skillId: string, slot?: number) => {
         useSkillStore.getState().equipSkill(skillId, slot);
       },
@@ -1347,7 +1373,7 @@ export const useGameStore = create<GameState & GameActions>()(
     })) as import('zustand').StateCreator<GameState & GameActions, [['zustand/persist', unknown]], []>,
     {
       name: 'idle-exile-save',
-      version: 62,
+      version: 64,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;

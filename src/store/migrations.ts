@@ -886,5 +886,30 @@ export function runMigrations(
     if (raw.highestCorruptedTier === undefined) raw.highestCorruptedTier = 0;
   }
 
+  if (version < 63) {
+    // v63: Attribute system (Str/Dex/Int/Spirit + per-level allocation).
+    // Existing characters get a zero allocation and unallocated = level * 5
+    // so the player can retroactively allocate what they earned.
+    const char63 = raw.character as any;
+    if (char63 && !char63.attributes) {
+      const level = (char63.level as number) ?? 1;
+      char63.attributes = {
+        allocated: { strength: 0, dexterity: 0, intelligence: 0, spirit: 0 },
+        unallocated: level * 5,
+      };
+    }
+  }
+
+  if (version < 64) {
+    // v64: Universal Mana resource on Character. Engine logic lands in
+    // Phase 6 with combat-timing rework; this just seeds the state shape.
+    // Initialize at full-mana default (100 / 100); Phase 6 will replace
+    // with per-class config on hydration if player wants authentic pool.
+    const char64 = raw.character as any;
+    if (char64 && !char64.mana) {
+      char64.mana = { current: 100, max: 100, regenPerSec: 5 };
+    }
+  }
+
   return state;
 }

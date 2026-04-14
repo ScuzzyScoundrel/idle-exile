@@ -9,6 +9,7 @@ import { formatCorruptionAffix } from '../../data/corruptionAffixes';
 import { CLASS_DEFS } from '../../data/classes';
 import { calcSetBonuses, calcDefensiveEfficiency } from '../../engine/setBonus';
 import SkillPanel from '../components/SkillPanel';
+import AttributePanel from '../components/AttributePanel';
 // ClassTalentPanel removed (Skill Tree Overhaul Phase 0)
 import { calcSkillDps, calcRotationDps, getDefaultSkillForWeapon } from '../../engine/unifiedSkills';
 import { resolveStats, getWeaponDamageInfo } from '../../engine/character';
@@ -22,6 +23,8 @@ const CLASS_ICONS_HERO: Record<CharacterClass, string> = {
   mage: '\u2728',
   ranger: '\uD83C\uDFF9',
   rogue: '\uD83D\uDDE1\uFE0F',
+  witchdoctor: '\uD83C\uDFAD',
+  assassin: '\uD83E\uDD77',
 };
 
 const CLASS_TEXT_COLORS: Record<CharacterClass, string> = {
@@ -29,6 +32,8 @@ const CLASS_TEXT_COLORS: Record<CharacterClass, string> = {
   mage: 'text-blue-400',
   ranger: 'text-green-400',
   rogue: 'text-purple-400',
+  witchdoctor: 'text-pink-400',
+  assassin: 'text-teal-400',
 };
 
 const STAT_TOOLTIPS: Partial<Record<StatKey, string>> = {
@@ -243,6 +248,8 @@ export default function CharacterScreen() {
       </div>
 
       {/* Class Talent Tree removed (Skill Tree Overhaul Phase 0) */}
+
+      <AttributePanel />
 
       {/* Paper Doll — icon grid layout */}
       <div className="panel-stone p-3 overflow-hidden">
