@@ -200,6 +200,106 @@ const rogueCunning: SkillTreePath = {
   ],
 };
 
+// ─── Witchdoctor ────────────────────────────────────────────────────────────
+
+const wdVoodoo: SkillTreePath = {
+  id: 'A',
+  name: 'Voodoo',
+  description: 'Chaos mastery — hexes burn deeper, curses linger longer.',
+  nodes: [
+    { id: 'wd_voodoo_1', name: 'Dark Intent',       description: 'Your chaos magic cuts sharper.',              tier: 1, effect: { damageMult: 1.06 } },
+    { id: 'wd_voodoo_2', name: 'Whispering Veil',   description: 'Unseen spirits lend their malice.',           tier: 1, effect: { damageMult: 1.05, resistBonus: 3 } },
+    { id: 'wd_voodoo_3', name: 'Blighted Touch',    description: 'Every hex festers with extra venom.',          tier: 2, effect: { damageMult: 1.10 }, requiresNodeId: 'wd_voodoo_1' },
+    { id: 'wd_voodoo_4', name: 'Soul Wound',        description: 'Corrupted wounds heal slowly for foes.',       tier: 2, effect: { damageMult: 1.08, critChanceBonus: 2 }, requiresNodeId: 'wd_voodoo_2' },
+    { id: 'wd_voodoo_5', name: 'Unraveling Curse',  description: 'Targets decay faster under your gaze.',        tier: 3, effect: { damageMult: 1.15, clearSpeedMult: 1.05 }, requiresNodeId: 'wd_voodoo_3' },
+    { id: 'wd_voodoo_6', name: 'Witch\'s Sight',    description: 'See past the veil — weak points exposed.',     tier: 3, effect: { critChanceBonus: 4, critMultiplierBonus: 10 }, requiresNodeId: 'wd_voodoo_4' },
+    { id: 'wd_voodoo_7', name: 'Reaper of Fate',    description: 'Your curses gather power without end.',         tier: 4, effect: { damageMult: 1.25, critMultiplierBonus: 15 }, requiresNodeId: 'wd_voodoo_5', isPathPayoff: true },
+    { id: 'wd_voodoo_8', name: 'Dread Sovereign',   description: 'Fear itself works in your favor — bonus loot.', tier: 4, effect: { damageMult: 1.15, itemDropMult: 1.15 }, requiresNodeId: 'wd_voodoo_6', isPathPayoff: true },
+  ],
+};
+
+const wdSpirits: SkillTreePath = {
+  id: 'B',
+  name: 'Spirits',
+  description: 'Command the dead — minions strike harder and last longer.',
+  nodes: [
+    { id: 'wd_spirits_1', name: 'Gravewalker',       description: 'Your spirits respond faster to your will.',   tier: 1, effect: { damageMult: 1.06 } },
+    { id: 'wd_spirits_2', name: 'Ritual Binding',    description: 'Bind more spirits to your service.',           tier: 1, effect: { damageMult: 1.05, defenseMult: 1.03 } },
+    { id: 'wd_spirits_3', name: 'Fetish Army',       description: 'Your swarms grow bolder in numbers.',           tier: 2, effect: { damageMult: 1.10, clearSpeedMult: 1.04 }, requiresNodeId: 'wd_spirits_1' },
+    { id: 'wd_spirits_4', name: 'Undying Servants',  description: 'Minions endure far longer in combat.',          tier: 2, effect: { damageMult: 1.08, defenseMult: 1.08 }, requiresNodeId: 'wd_spirits_2' },
+    { id: 'wd_spirits_5', name: 'Hollow Chorus',     description: 'Lost souls amplify your every spell.',          tier: 3, effect: { damageMult: 1.15 }, requiresNodeId: 'wd_spirits_3' },
+    { id: 'wd_spirits_6', name: 'Spirit Shepherd',   description: 'Restless dead provide yield — more materials.', tier: 3, effect: { materialDropMult: 1.15, damageMult: 1.08 }, requiresNodeId: 'wd_spirits_4' },
+    { id: 'wd_spirits_7', name: 'Lord of the Dead',  description: 'Your summons are legion — damage and clears.', tier: 4, effect: { damageMult: 1.20, clearSpeedMult: 1.12 }, requiresNodeId: 'wd_spirits_5', isPathPayoff: true },
+    { id: 'wd_spirits_8', name: 'Spirit Ascendant',  description: 'The veil bends to you — double clears.',        tier: 4, effect: { doubleClears: true, damageMult: 1.10 }, requiresNodeId: 'wd_spirits_6', isPathPayoff: true },
+  ],
+};
+
+const wdPlague: SkillTreePath = {
+  id: 'C',
+  name: 'Plague',
+  description: 'Pandemic mastery — sickness spreads between targets.',
+  nodes: [
+    { id: 'wd_plague_1', name: 'Contagion',         description: 'Your afflictions seek new hosts.',             tier: 1, effect: { damageMult: 1.06 } },
+    { id: 'wd_plague_2', name: 'Putrid Haze',       description: 'The air itself turns toxic around you.',        tier: 1, effect: { damageMult: 1.05, resistBonus: 4 } },
+    { id: 'wd_plague_3', name: 'Festering Strike',  description: 'Your attacks leave deeper wounds.',             tier: 2, effect: { damageMult: 1.10, critChanceBonus: 2 }, requiresNodeId: 'wd_plague_1' },
+    { id: 'wd_plague_4', name: 'Miasma',            description: 'Spreading clouds sap enemy vigor.',             tier: 2, effect: { damageMult: 1.08, clearSpeedMult: 1.04 }, requiresNodeId: 'wd_plague_2' },
+    { id: 'wd_plague_5', name: 'Pandemic Bloom',    description: 'DoTs compound when targets die — chain rot.',   tier: 3, effect: { damageMult: 1.15, clearSpeedMult: 1.08 }, requiresNodeId: 'wd_plague_3' },
+    { id: 'wd_plague_6', name: 'Corrupted Earth',   description: 'Hazards sustain you rather than harm.',         tier: 3, effect: { defenseMult: 1.15, resistBonus: 8 }, requiresNodeId: 'wd_plague_4' },
+    { id: 'wd_plague_7', name: 'Plague Lord',       description: 'Your pestilence knows no bounds.',              tier: 4, effect: { damageMult: 1.25, clearSpeedMult: 1.15 }, requiresNodeId: 'wd_plague_5', isPathPayoff: true },
+    { id: 'wd_plague_8', name: 'Immune',            description: 'Ignore hazards — disease cannot touch you.',    tier: 4, effect: { ignoreHazards: true, resistBonus: 10 }, requiresNodeId: 'wd_plague_6', isPathPayoff: true },
+  ],
+};
+
+// ─── Assassin ───────────────────────────────────────────────────────────────
+
+const asShadow: SkillTreePath = {
+  id: 'A',
+  name: 'Shadow',
+  description: 'Stealth and precision — crits from unseen angles.',
+  nodes: [
+    { id: 'as_shadow_1', name: 'Silent Steps',      description: 'You move unseen through the fray.',             tier: 1, effect: { defenseMult: 1.05 } },
+    { id: 'as_shadow_2', name: 'Unseen Edge',       description: 'Blades you cannot see cut deeper.',              tier: 1, effect: { critChanceBonus: 3 } },
+    { id: 'as_shadow_3', name: 'Phantom Grip',      description: 'Every strike finds its mark.',                   tier: 2, effect: { critChanceBonus: 4, damageMult: 1.06 }, requiresNodeId: 'as_shadow_1' },
+    { id: 'as_shadow_4', name: 'Nightblade',        description: 'Your crits bite with deadly intent.',            tier: 2, effect: { critMultiplierBonus: 20 }, requiresNodeId: 'as_shadow_2' },
+    { id: 'as_shadow_5', name: 'Shadow Meld',       description: 'Dodge more blows — mist cannot be struck.',      tier: 3, effect: { defenseMult: 1.15 }, requiresNodeId: 'as_shadow_3' },
+    { id: 'as_shadow_6', name: 'Ghostwalker',       description: 'Crits crush utterly — each blow ends futures.',  tier: 3, effect: { critChanceBonus: 5, critMultiplierBonus: 20 }, requiresNodeId: 'as_shadow_4' },
+    { id: 'as_shadow_7', name: 'Umbral Executioner',description: 'Peak lethality — crits carve through packs.',    tier: 4, effect: { critChanceBonus: 8, critMultiplierBonus: 30 }, requiresNodeId: 'as_shadow_5', isPathPayoff: true },
+    { id: 'as_shadow_8', name: 'Veil of Night',     description: 'The shadow guards you — ignore hazards.',        tier: 4, effect: { ignoreHazards: true, defenseMult: 1.10 }, requiresNodeId: 'as_shadow_6', isPathPayoff: true },
+  ],
+};
+
+const asVenom: SkillTreePath = {
+  id: 'B',
+  name: 'Venom',
+  description: 'Toxins that sap, wither, and unmake — your poison is legendary.',
+  nodes: [
+    { id: 'as_venom_1', name: 'Envenomed Blades',   description: 'Your weapons drip with slow death.',            tier: 1, effect: { damageMult: 1.06 } },
+    { id: 'as_venom_2', name: 'Hollow Fang',        description: 'Poisons linger beyond reason.',                  tier: 1, effect: { damageMult: 1.05, critChanceBonus: 2 } },
+    { id: 'as_venom_3', name: 'Seeping Wound',      description: 'DoTs tick faster and hit harder.',               tier: 2, effect: { damageMult: 1.10, critMultiplierBonus: 10 }, requiresNodeId: 'as_venom_1' },
+    { id: 'as_venom_4', name: 'Numb Agony',         description: 'Foes stumble under layered afflictions.',        tier: 2, effect: { damageMult: 1.08, clearSpeedMult: 1.04 }, requiresNodeId: 'as_venom_2' },
+    { id: 'as_venom_5', name: 'Rot Cascade',        description: 'Poisoned kills spread their toxin.',             tier: 3, effect: { damageMult: 1.15, clearSpeedMult: 1.08 }, requiresNodeId: 'as_venom_3' },
+    { id: 'as_venom_6', name: 'Mithridate',         description: 'Immune to poison — chaos resist ratchets up.',   tier: 3, effect: { resistBonus: 12, defenseMult: 1.08 }, requiresNodeId: 'as_venom_4' },
+    { id: 'as_venom_7', name: 'Widow\'s Kiss',      description: 'Legendary venom — DoTs devastate.',              tier: 4, effect: { damageMult: 1.30 }, requiresNodeId: 'as_venom_5', isPathPayoff: true },
+    { id: 'as_venom_8', name: 'Toxicologist',       description: 'Herbs fall to your expertise — yield surge.',    tier: 4, effect: { materialDropMult: 1.20, damageMult: 1.10 }, requiresNodeId: 'as_venom_6', isPathPayoff: true },
+  ],
+};
+
+const asBlades: SkillTreePath = {
+  id: 'C',
+  name: 'Blades',
+  description: 'Dual-wielding mastery — relentless attack tempo.',
+  nodes: [
+    { id: 'as_blades_1', name: 'Swift Strikes',     description: 'Your blade arm never rests.',                   tier: 1, effect: { damageMult: 1.06 } },
+    { id: 'as_blades_2', name: 'Dual Focus',        description: 'Both hands move as one.',                        tier: 1, effect: { critChanceBonus: 2, damageMult: 1.04 } },
+    { id: 'as_blades_3', name: 'Whirling Steel',    description: 'Blades move faster than eye can track.',         tier: 2, effect: { damageMult: 1.10, clearSpeedMult: 1.06 }, requiresNodeId: 'as_blades_1' },
+    { id: 'as_blades_4', name: 'Precise Tempo',     description: 'Rhythm becomes a weapon.',                       tier: 2, effect: { critChanceBonus: 3, critMultiplierBonus: 10 }, requiresNodeId: 'as_blades_2' },
+    { id: 'as_blades_5', name: 'Stormcut',          description: 'Your combo rhythm cleaves packs.',                tier: 3, effect: { damageMult: 1.15, clearSpeedMult: 1.10 }, requiresNodeId: 'as_blades_3' },
+    { id: 'as_blades_6', name: 'Bladesinger',       description: 'Dance of steel — haste crowned with precision.',  tier: 3, effect: { critChanceBonus: 5, clearSpeedMult: 1.05 }, requiresNodeId: 'as_blades_4' },
+    { id: 'as_blades_7', name: 'Flurry Ascendant',  description: 'Unmatched tempo — clears multiply.',              tier: 4, effect: { clearSpeedMult: 1.20, damageMult: 1.15 }, requiresNodeId: 'as_blades_5', isPathPayoff: true },
+    { id: 'as_blades_8', name: 'Duelist Supreme',   description: 'Every fight is a performance — double clears.',  tier: 4, effect: { doubleClears: true, critMultiplierBonus: 15 }, requiresNodeId: 'as_blades_6', isPathPayoff: true },
+  ],
+};
+
 // ─── Export ─────────────────────────────────────────────────────────────────
 
 export const CLASS_TALENT_TREES: Record<CharacterClass, AbilitySkillTree> = {
@@ -207,8 +307,6 @@ export const CLASS_TALENT_TREES: Record<CharacterClass, AbilitySkillTree> = {
   mage:    { paths: [mageArcane, mageElements, mageMind], maxPoints: 24 },
   ranger:  { paths: [rangerPredator, rangerWarden, rangerPathfinder], maxPoints: 24 },
   rogue:   { paths: [rogueShadow, rogueSwiftness, rogueCunning], maxPoints: 24 },
-  // MVP classes — placeholder trees reuse existing paths. Phase 3a replaces
-  // with authored class trees (~60 nodes each) per CLASS_SYSTEM_PLAN.md.
-  witchdoctor: { paths: [mageArcane, mageElements, mageMind], maxPoints: 24 },
-  assassin:    { paths: [rogueShadow, rogueSwiftness, rogueCunning], maxPoints: 24 },
+  witchdoctor: { paths: [wdVoodoo, wdSpirits, wdPlague], maxPoints: 24 },
+  assassin:    { paths: [asShadow, asVenom, asBlades], maxPoints: 24 },
 };
