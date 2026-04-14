@@ -24,7 +24,12 @@
 | Rotation logic (idle auto-sequence) | Ratified |
 | Handedness / offhand / dual-wield rules | Ratified |
 | MVP scope (2 classes × 2 weapons) | Ratified |
-| Phase 1 | Ready to execute — awaiting greenlight |
+| **Phase 1** | **COMPLETE** (commits 9af84919, 36f85e84) |
+| **Phase 2** | **COMPLETE** (commits 05c21cd5, a40e23cf, 53719558, bea9bb26, b057aaaf, 11b555c2, 6dcb1a02) |
+| **Phase 3a** | **5 of ~7 sub-phases COMPLETE** (a464b1c4, aa09fdf5, c8b49864, 52c863ed, 02654bb4) |
+| Phase 3a.6 Ascendancies | Pending — needs engine framework (not just data) |
+| Phase 3a.7 Per-skill timing field authoring | Pending — fields exist, values unauthored |
+| Phase 3b+ | Weapons/classes added as trees become implemented |
 
 ---
 
