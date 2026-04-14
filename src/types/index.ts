@@ -6,6 +6,7 @@ export * from './stats';
 export * from './items';
 export * from './attributes';
 export * from './character';
+export * from './classAdjustment';
 export * from './zones';
 export * from './currencies';
 export * from './combat';
