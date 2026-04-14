@@ -22,6 +22,7 @@ import {
   Gem,
   GemType,
   GemTier,
+  AttributeKey,
 } from '../types';
 import { createCharacter, resolveStats, addXp } from '../engine/character';
 import { meetsAttributeRequirement } from '../engine/attributes';
@@ -167,6 +168,9 @@ interface GameActions {
   // Class talent tree
   allocateTalentNode: (nodeId: string) => void;
   respecTalents: () => void;
+
+  // Attribute allocation
+  allocateAttribute: (key: AttributeKey) => void;
 
   // Class resource
   tickClassResource: (dtSeconds: number) => void;
@@ -894,6 +898,22 @@ export const useGameStore = create<GameState & GameActions>()(
 
       respecTalents: () => {
         useSkillStore.getState().respecTalents();
+      },
+
+      allocateAttribute: (key: AttributeKey) => {
+        set((state) => {
+          const attrs = state.character.attributes;
+          if (attrs.unallocated <= 0) return state;
+          const newChar = {
+            ...state.character,
+            attributes: {
+              allocated: { ...attrs.allocated, [key]: attrs.allocated[key] + 1 },
+              unallocated: attrs.unallocated - 1,
+            },
+          };
+          newChar.stats = resolveStats(newChar);
+          return { character: newChar };
+        });
       },
 
       equipSkill: (skillId: string, slot?: number) => {

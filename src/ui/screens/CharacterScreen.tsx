@@ -9,6 +9,7 @@ import { formatCorruptionAffix } from '../../data/corruptionAffixes';
 import { CLASS_DEFS } from '../../data/classes';
 import { calcSetBonuses, calcDefensiveEfficiency } from '../../engine/setBonus';
 import SkillPanel from '../components/SkillPanel';
+import AttributePanel from '../components/AttributePanel';
 // ClassTalentPanel removed (Skill Tree Overhaul Phase 0)
 import { calcSkillDps, calcRotationDps, getDefaultSkillForWeapon } from '../../engine/unifiedSkills';
 import { resolveStats, getWeaponDamageInfo } from '../../engine/character';
@@ -247,6 +248,8 @@ export default function CharacterScreen() {
       </div>
 
       {/* Class Talent Tree removed (Skill Tree Overhaul Phase 0) */}
+
+      <AttributePanel />
 
       {/* Paper Doll — icon grid layout */}
       <div className="panel-stone p-3 overflow-hidden">
