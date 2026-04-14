@@ -73,6 +73,44 @@ export const CLASS_DEFS: Record<CharacterClass, ClassDef> = {
     resourceDecayOnGearSwap: true,
     resourceDescription: 'Momentum builds per clear (+1), no cap. Resets on stop, zone change, or gear swap. +1% clear speed per stack.',
   },
+  // MVP launch classes. Legacy resource fields are placeholders until Phase 2d
+  // replaces the per-class resource system with universal Mana + class-flavored regen.
+  witchdoctor: {
+    id: 'witchdoctor',
+    name: 'Witchdoctor',
+    description: 'Chaos DoT + minion specialist. Pandemic spread propagates damage across targets.',
+    baseStatBonuses: {
+      spellPower: 10,
+      incChaosDamage: 10,
+    },
+    armorAffinity: 'cloth',
+    resourceType: 'arcane_charges',
+    resourceMax: 10,
+    resourcePerClear: 0,
+    resourceDecayRate: 0,
+    resourceDecayOnZoneSwitch: false,
+    resourceDecayOnStop: false,
+    resourceDecayOnGearSwap: false,
+    resourceDescription: 'Universal mana with slow passive regen + chunk on kill (Phase 2d).',
+  },
+  assassin: {
+    id: 'assassin',
+    name: 'Assassin',
+    description: 'Dex + Spirit crit/poison/stealth specialist. Culling Strike executes low-HP targets.',
+    baseStatBonuses: {
+      critChance: 8,
+      attackSpeed: 10,
+    },
+    armorAffinity: 'leather',
+    resourceType: 'momentum',
+    resourceMax: null,
+    resourcePerClear: 1,
+    resourceDecayRate: 0,
+    resourceDecayOnZoneSwitch: true,
+    resourceDecayOnStop: true,
+    resourceDecayOnGearSwap: true,
+    resourceDescription: 'Universal mana with fast regen + gain on crit (Phase 2d).',
+  },
 };
 
 /** Get class definition by ID. */

@@ -10,6 +10,8 @@ const CLASS_ACCENT: Record<CharacterClass, { tab: string; allocated: string; bor
   mage:    { tab: 'bg-blue-700', allocated: 'border-blue-500 bg-blue-950/50', border: 'border-blue-400', badge: 'bg-blue-600' },
   ranger:  { tab: 'bg-green-700', allocated: 'border-green-500 bg-green-950/50', border: 'border-green-400', badge: 'bg-green-600' },
   rogue:   { tab: 'bg-purple-700', allocated: 'border-purple-500 bg-purple-950/50', border: 'border-purple-400', badge: 'bg-purple-600' },
+  witchdoctor: { tab: 'bg-pink-700', allocated: 'border-pink-500 bg-pink-950/50', border: 'border-pink-400', badge: 'bg-pink-600' },
+  assassin: { tab: 'bg-teal-700', allocated: 'border-teal-500 bg-teal-950/50', border: 'border-teal-400', badge: 'bg-teal-600' },
 };
 
 function formatEffect(node: SkillTreeNode): string {

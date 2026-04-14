@@ -11,6 +11,8 @@ const CLASS_TEXT_COLORS: Record<CharacterClass, string> = {
   mage: 'text-blue-400',
   ranger: 'text-green-400',
   rogue: 'text-purple-400',
+  witchdoctor: 'text-pink-400',
+  assassin: 'text-teal-400',
 };
 
 export default function CharacterHeader() {

@@ -207,4 +207,8 @@ export const CLASS_TALENT_TREES: Record<CharacterClass, AbilitySkillTree> = {
   mage:    { paths: [mageArcane, mageElements, mageMind], maxPoints: 24 },
   ranger:  { paths: [rangerPredator, rangerWarden, rangerPathfinder], maxPoints: 24 },
   rogue:   { paths: [rogueShadow, rogueSwiftness, rogueCunning], maxPoints: 24 },
+  // MVP classes — placeholder trees reuse existing paths. Phase 3a replaces
+  // with authored class trees (~60 nodes each) per CLASS_SYSTEM_PLAN.md.
+  witchdoctor: { paths: [mageArcane, mageElements, mageMind], maxPoints: 24 },
+  assassin:    { paths: [rogueShadow, rogueSwiftness, rogueCunning], maxPoints: 24 },
 };

@@ -4,6 +4,7 @@
 // ============================================================
 
 import type { Character, CharacterClass, ResolvedStats, StatKey, GearSlot, Item, ConversionSpec } from '../types';
+import { createInitialAttributeState } from '../types/attributes';
 import { getAffixDef } from './items';
 import { getGemStat } from './gems';
 import { CLASS_DEFS } from '../data/classes';
@@ -31,6 +32,7 @@ export function createCharacter(name: string, charClass: CharacterClass = 'warri
     xpToNext: calcXpToNext(1),
     equipment: {},
     stats: { ...BASE_STATS },
+    attributes: createInitialAttributeState(),
   };
   char.stats = resolveStats(char);
   return char;

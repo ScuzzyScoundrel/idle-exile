@@ -1347,7 +1347,7 @@ export const useGameStore = create<GameState & GameActions>()(
     })) as import('zustand').StateCreator<GameState & GameActions, [['zustand/persist', unknown]], []>,
     {
       name: 'idle-exile-save',
-      version: 62,
+      version: 63,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;

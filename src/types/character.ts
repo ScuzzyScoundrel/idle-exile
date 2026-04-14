@@ -4,8 +4,9 @@
 
 import type { StatKey, ResolvedStats } from './stats';
 import type { GearSlot, Item, ArmorType } from './items';
+import type { AttributeState } from './attributes';
 
-export type CharacterClass = 'warrior' | 'mage' | 'ranger' | 'rogue';
+export type CharacterClass = 'warrior' | 'mage' | 'ranger' | 'rogue' | 'witchdoctor' | 'assassin';
 
 export type ResourceType = 'rage' | 'arcane_charges' | 'tracking' | 'momentum';
 
@@ -40,4 +41,5 @@ export interface Character {
   xpToNext: number;
   equipment: Partial<Record<GearSlot, Item>>;
   stats: ResolvedStats;
+  attributes: AttributeState;
 }

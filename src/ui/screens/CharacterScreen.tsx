@@ -22,6 +22,8 @@ const CLASS_ICONS_HERO: Record<CharacterClass, string> = {
   mage: '\u2728',
   ranger: '\uD83C\uDFF9',
   rogue: '\uD83D\uDDE1\uFE0F',
+  witchdoctor: '\uD83C\uDFAD',
+  assassin: '\uD83E\uDD77',
 };
 
 const CLASS_TEXT_COLORS: Record<CharacterClass, string> = {
@@ -29,6 +31,8 @@ const CLASS_TEXT_COLORS: Record<CharacterClass, string> = {
   mage: 'text-blue-400',
   ranger: 'text-green-400',
   rogue: 'text-purple-400',
+  witchdoctor: 'text-pink-400',
+  assassin: 'text-teal-400',
 };
 
 const STAT_TOOLTIPS: Partial<Record<StatKey, string>> = {
