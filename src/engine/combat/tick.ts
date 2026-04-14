@@ -34,6 +34,7 @@ import {
   mergeEffect,
 } from '../unifiedSkills';
 import { getClassDamageModifier } from '../classResource';
+import { getClassSkillAdjustment } from '../classAdjustment';
 import {
   evaluateConditionalMods,
   evaluateProcs,
@@ -512,8 +513,14 @@ export function runCombatTick(
     }
     // Different target: unique conversion takes effect alongside weapon (both feed into bucket system)
   }
-  // Element transform: per-skill element override (Dagger v2)
-  const elementTransform = state.elementTransforms[skill.id] ?? undefined;
+  // Element transform precedence (Phase 3a.2):
+  //   1. state.elementTransforms[skillId]     — player-set (future talent tree branches)
+  //   2. classMorph.damageTypeOverride         — class-specific morph (e.g. Assassin-staff_haunt = physical)
+  //   3. (falls through to skill.baseConversion.to in downstream resolver)
+  const classMorph = getClassSkillAdjustment(skill.id, state.character.class);
+  const elementTransform = state.elementTransforms[skill.id]
+    ?? classMorph?.damageTypeOverride
+    ?? undefined;
 
   // Weapon preRoll hook: tick + consume combo states → damage/crit/potency bonuses
   let newComboStates = [...state.comboStates];
