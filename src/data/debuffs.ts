@@ -199,6 +199,18 @@ export const DEBUFF_DEFS: DebuffDef[] = [
     maxStacks: 1,
     effect: {},
   },
+  {
+    // Phase 4 sub-phase 5: generic mark target for class-talent
+    // dispatcher's TalentTag='mark'. Referenced by Assassin Shadow
+    // keystones (Shadow Meld while-mark crit bonus, Umbral
+    // Executioner crit-re-mark).
+    id: 'marked',
+    name: 'Marked',
+    description: 'Target takes 15% more damage from all sources.',
+    stackable: false,
+    maxStacks: 1,
+    effect: { incDamageTaken: 15 },
+  },
 ];
 
 export function getDebuffDef(id: string): DebuffDef | undefined {

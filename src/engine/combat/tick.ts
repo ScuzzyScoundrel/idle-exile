@@ -36,6 +36,14 @@ import {
 import { getClassDamageModifier } from '../classResource';
 import { getClassSkillAdjustment, getEffectiveSkillDef } from '../classAdjustment';
 import {
+  collectTalentEffects,
+  applyConditionalTalentEffects,
+  dispatchProcOnHit,
+  dispatchProcOnCrit,
+  dispatchProcOnKill,
+  type TalentProcContext,
+} from '../classTalentDispatcher';
+import {
   evaluateConditionalMods,
   evaluateProcs,
   type ConditionContext,
@@ -289,6 +297,13 @@ export function runCombatTick(
   // elementTransform below to preserve flat-elemental stat folding.
   skill = getEffectiveSkillDef(skill, state.character.class);
 
+  // Phase 4 sub-phase 5: collect allocated class-talent TalentEffects.
+  // Fast path when no allocations / no `effects` on any allocated node.
+  const talentEffects = collectTalentEffects(
+    state.character.class,
+    state.talentAllocations ?? [],
+  );
+
   const stats = resolveStats(state.character);
   const abilityEffect = getFullEffect(state, now, false);
 
@@ -490,6 +505,15 @@ export function runCombatTick(
     if (preRoll.wardDRBonus) condDamageReduction += preRoll.wardDRBonus;
     if (preRoll.shadowPhaseCounterDamage) damageMult *= (1 + preRoll.shadowPhaseCounterDamage / 100);
     if (preRoll.ailmentPotencyMult) condAilmentPotency += preRoll.ailmentPotencyMult;
+  }
+
+  // Phase 4 sub-phase 5: fold whileTag + perStack class-talent modifiers
+  // into damageMult based on the CURRENT front-target's debuff state.
+  if (talentEffects.length > 0) {
+    const talentConditional = applyConditionalTalentEffects(
+      talentEffects, effectiveStats, targetDebuffs,
+    );
+    damageMult *= talentConditional.damageMult;
   }
 
   // Apply graph + conditional cast speed bonus
@@ -771,6 +795,24 @@ export function runCombatTick(
         applyDebuffToList(newDebuffs, debuffInfo.debuffId, 1, duration, skill.id, ailmentSnapshot, isDoublePoisonHalf);
       }
     }
+  }
+
+  // Phase 4 sub-phase 5: class-talent procOnHit / procOnCrit dispatch.
+  // Skill's element tag (after morph) filters procs like "Flurry Ascendant
+  // — on Attack hit 15% → apply bleed".
+  if (roll.isHit && talentEffects.length > 0) {
+    const hitTag = skill.tags.find(t =>
+      t === 'Physical' || t === 'Fire' || t === 'Cold' || t === 'Lightning' || t === 'Chaos'
+      || t === 'Attack' || t === 'Spell'
+    );
+    const procCtx: TalentProcContext = {
+      targetDebuffs: newDebuffs,
+      life: { value: 0, max: 0 },  // no healSelf on hit/crit in current keystones
+      sourceSkillId: skill.id,
+      hitDamageTag: hitTag,
+    };
+    dispatchProcOnHit(talentEffects, procCtx);
+    if (roll.isCrit) dispatchProcOnCrit(talentEffects, procCtx);
   }
 
   // debuffOnCrit: apply guaranteed debuff on crit
@@ -2076,6 +2118,21 @@ export function runCombatTick(
   // On-kill effects for pack mob kills (life on kill, charge gain, onKill procs)
   for (let i = 0; i < packMobKills; i++) {
     newKillStreak++;
+    // Phase 4 sub-phase 5: class-talent procOnKill dispatch (pack path).
+    if (talentEffects.length > 0) {
+      const killTag = skill.tags.find(t =>
+        t === 'Physical' || t === 'Fire' || t === 'Cold' || t === 'Lightning' || t === 'Chaos'
+        || t === 'Attack' || t === 'Spell'
+      );
+      const killProcCtx: TalentProcContext = {
+        targetDebuffs: newDebuffs,
+        life: { value: playerHp, max: effectiveMaxLife },
+        sourceSkillId: skill.id,
+        hitDamageTag: killTag,
+      };
+      dispatchProcOnKill(talentEffects, killProcCtx);
+      playerHp = killProcCtx.life.value;
+    }
     {
       const totalLifeOnKill = (graphMod?.lifeOnKill ?? 0) + (effectiveStats.lifeOnKill ?? 0);
       if (totalLifeOnKill > 0) {
