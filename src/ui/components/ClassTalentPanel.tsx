@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { useSkillStore } from '../../store/skillStore';
-import { CharacterClass, SkillTreeNode } from '../../types';
+import { CharacterClass, SkillTreeNode, TalentEffect, TalentAction } from '../../types';
 import { CLASS_TALENT_TREES } from '../../data/classTalents';
 import { canAllocateTalentNode, getAvailableTalentPoints, getTalentRespecCost } from '../../engine/classTalents';
 
@@ -29,6 +29,30 @@ function formatEffect(node: SkillTreeNode): string {
   if (eff.ignoreHazards) parts.push('Ignore hazards');
   if (eff.doubleClears) parts.push('Double clears');
   return parts.join(', ');
+}
+
+function formatAction(a: TalentAction): string {
+  switch (a.kind) {
+    case 'applyTag': return `apply ${a.stacks ?? 1}× ${a.tag}${a.duration ? ` (${a.duration}s)` : ''}`;
+    case 'summon':   return `summon ${a.count ?? 1}× ${a.minionType}${a.durationSec ? ` (${a.durationSec}s)` : ''}`;
+    case 'triggerSkill': return `cast ${a.skillId}`;
+    case 'healSelf': return `heal ${a.amount}`;
+    case 'grantBuff': return `grant ${a.buffId} (${a.duration}s)`;
+  }
+}
+
+function formatTalentEffect(eff: TalentEffect): string {
+  switch (eff.kind) {
+    case 'stat':     return `${eff.delta > 0 ? '+' : ''}${eff.delta} ${eff.stat}`;
+    case 'statMult': return `${eff.mult > 1 ? '+' : '-'}${Math.abs(Math.round((eff.mult - 1) * 100))}% ${eff.stat}`;
+    case 'procOnTag': return `On applying ${eff.tag}: ${eff.chance}% → ${formatAction(eff.action)}`;
+    case 'procOnKill': return `On kill${eff.tag ? ` (${eff.tag})` : ''}: ${eff.chance}% → ${formatAction(eff.action)}`;
+    case 'procOnHit':  return `On hit${eff.tag ? ` (${eff.tag})` : ''}: ${eff.chance}% → ${formatAction(eff.action)}`;
+    case 'procOnCrit': return `On crit: ${eff.chance}% → ${formatAction(eff.action)}`;
+    case 'whileTag':   return `While target ${eff.tag}: ${eff.mult > 1 ? '+' : '-'}${Math.abs(Math.round((eff.mult - 1) * 100))}% ${eff.stat}`;
+    case 'perStack':   return `+${Math.round(eff.perStackDelta * 100)}% ${eff.stat} per ${eff.stack} stack${eff.cap ? ` (cap ${Math.round(eff.cap * 100)}%)` : ''}`;
+    case 'grantTagOnSkill': return `Grants ${eff.addTag} to ${eff.skillTag} skills`;
+  }
 }
 
 export default function ClassTalentPanel() {
@@ -96,6 +120,8 @@ export default function ClassTalentPanel() {
               const isAllocated = talentAllocations.includes(node.id);
               const canAlloc = canAllocateTalentNode(charClass, talentAllocations, node.id, character.level);
               const effectStr = formatEffect(node);
+              const talentEffects = node.effects ?? [];
+              const hasKeystoneMechanic = talentEffects.length > 0;
 
               return (
                 <button
@@ -108,7 +134,7 @@ export default function ClassTalentPanel() {
                       : canAlloc
                         ? 'border-green-600 bg-green-950/30 hover:bg-green-950/50 cursor-pointer'
                         : 'border-gray-700 bg-gray-900/30 opacity-50'
-                  } ${node.isPathPayoff ? 'ring-1 ring-yellow-600/50' : ''}`}
+                  } ${hasKeystoneMechanic ? 'ring-1 ring-yellow-600/70' : node.isPathPayoff ? 'ring-1 ring-yellow-600/30' : ''}`}
                 >
                   <div className="flex items-center gap-2">
                     <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
@@ -121,13 +147,25 @@ export default function ClassTalentPanel() {
                         <span className={`text-xs font-bold ${isAllocated ? 'text-white' : canAlloc ? 'text-white' : 'text-gray-400'}`}>
                           {node.name}
                         </span>
-                        {node.isPathPayoff && (
-                          <span className="text-xs text-yellow-500 font-bold">KEYSTONE</span>
+                        {hasKeystoneMechanic && (
+                          <span className="text-xs text-yellow-400 font-bold">KEYSTONE</span>
+                        )}
+                        {!hasKeystoneMechanic && node.isPathPayoff && (
+                          <span className="text-xs text-yellow-500 font-bold">PAYOFF</span>
                         )}
                       </div>
                       <div className="text-xs text-gray-400">{node.description}</div>
                       {effectStr && (
                         <div className="text-xs text-gray-500 mt-0.5">{effectStr}</div>
+                      )}
+                      {talentEffects.length > 0 && (
+                        <div className="mt-1 space-y-0.5">
+                          {talentEffects.map((eff, idx) => (
+                            <div key={idx} className="text-xs text-yellow-300/90 font-medium">
+                              {'\u25C6 '}{formatTalentEffect(eff)}
+                            </div>
+                          ))}
+                        </div>
                       )}
                     </div>
                   </div>
