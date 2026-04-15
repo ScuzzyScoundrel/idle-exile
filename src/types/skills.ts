@@ -55,12 +55,66 @@ export interface SkillTreeNode {
   name: string;
   description: string;
   tier: number;                         // 1-4 (position in path)
+  /** Legacy flat effect shape. Kept for existing per-skill trees.
+   *  Class talent trees (Phase 4+) should prefer `effects` instead. */
   effect: Partial<AbilityEffect>;
+  /** Phase 4 trigger-effect union. When present, engine dispatcher
+   *  processes these; falls back to `effect` when absent. Allows
+   *  class-identity nodes (procs, conditional scaling, summons)
+   *  without polluting AbilityEffect. */
+  effects?: TalentEffect[];
   durationBonus?: number;               // +X seconds to duration
   cooldownReduction?: number;           // -X% cooldown
   isPathPayoff?: boolean;               // true for the final node
   requiresNodeId?: string;              // must unlock this node first
 }
+
+// --- Phase 4: TalentEffect union ---
+//
+// Expresses class-identity mechanics on talent nodes beyond flat stat
+// multipliers. Dispatched by the engine (sub-phase 5) in response to
+// combat events (hit / kill / crit / tag-apply) or used as conditional
+// modifiers (whileTag / perStack) in stat resolution.
+
+/** Gameplay tags referenced by procOnTag triggers. Distinct from
+ *  DamageTag — these describe skill-applied conditions / debuffs on
+ *  targets (not damage channels). */
+export type TalentTag =
+  | 'hex' | 'curse' | 'mark' | 'poison' | 'bleed' | 'ignite' | 'chill'
+  | 'shock' | 'frozen' | 'stun' | 'taunt';
+
+export type TalentEffect =
+  /** Flat stat add (e.g. +10% crit chance). */
+  | { kind: 'stat'; stat: string; delta: number }
+  /** Multiplicative stat mult (e.g. x1.15 attack speed). */
+  | { kind: 'statMult'; stat: string; mult: number }
+  /** Fires on applying a matching tag to a target. */
+  | { kind: 'procOnTag'; tag: TalentTag; chance: number; action: TalentAction }
+  /** Fires on killing with an optional damage-tag filter. */
+  | { kind: 'procOnKill'; tag?: DamageTag; chance: number; action: TalentAction }
+  /** Fires on any hit (or filtered by damage tag). */
+  | { kind: 'procOnHit'; tag?: DamageTag; chance: number; action: TalentAction }
+  /** Fires on crit. */
+  | { kind: 'procOnCrit'; chance: number; action: TalentAction }
+  /** Conditional modifier: while target has tag, multiply stat. */
+  | { kind: 'whileTag'; tag: TalentTag; stat: string; mult: number }
+  /** Per-stack modifier (e.g. +5% damage per poison stack, capped). */
+  | { kind: 'perStack'; stack: string; stat: string; perStackDelta: number; cap?: number }
+  /** Adds a damage tag to skills matching a source tag
+   *  (e.g. all 'Curse' skills gain 'DoT' tag). */
+  | { kind: 'grantTagOnSkill'; skillTag: DamageTag; addTag: DamageTag };
+
+export type TalentAction =
+  /** Summon a minion (temporary or permanent). */
+  | { kind: 'summon'; minionType: string; count?: number; durationSec?: number }
+  /** Apply a gameplay tag (poison stack, hex debuff). */
+  | { kind: 'applyTag'; tag: TalentTag; stacks?: number; duration?: number }
+  /** Trigger a skill by id (free cast). */
+  | { kind: 'triggerSkill'; skillId: string }
+  /** Heal self a flat amount. */
+  | { kind: 'healSelf'; amount: number }
+  /** Grant a buff by id. */
+  | { kind: 'grantBuff'; buffId: string; duration: number };
 
 export interface SkillTreePath {
   id: 'A' | 'B' | 'C';
