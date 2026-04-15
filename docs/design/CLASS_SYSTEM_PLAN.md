@@ -27,7 +27,9 @@
 | **Phase 1** | **✅ COMPLETE + MERGED** (commits 9af84919, 36f85e84) |
 | **Phase 2** | **✅ COMPLETE + MERGED** (commits 05c21cd5, a40e23cf, 53719558, bea9bb26, b057aaaf, 11b555c2, 6dcb1a02) |
 | **Phase 3a.1-5** | **✅ COMPLETE + MERGED** (a464b1c4, aa09fdf5, c8b49864, 52c863ed, 02654bb4, e0530d9d, 446d28f1) |
-| **Phase 4 (REDESIGNED)** | **Trigger-effect engine + full-morph resolver + class tree re-authoring** — see §Session 4 findings |
+| **Phase 4 sub-phases 1+2+3+5+6+8** | **✅ COMPLETE on branch `class-system-phase-4`** (d69a5842 resolver, 71a654c5 TalentEffect union, fc4410fa re-author MVP trees, 02b02aa3 dispatcher, c89397de UI mechanic rendering) |
+| Phase 4 sub-phase 7 | Per-skill class overlays (Path B) — pending (data-heavy, ~80 nodes, own session) |
+| Phase 4.1 | Dispatcher completion — procOnTag hook, summon minions, triggerSkill free-cast (4 WD/Assassin keystones stubbed) |
 | Phase 4.5 | Affix system revamp (was Phase 4; pushed back) |
 | Phase 3a.6 Ascendancies | Pending — needs engine framework (not just data) |
 | Phase 3a.7 Per-skill timing field authoring | Pending — fields exist, values unauthored |
