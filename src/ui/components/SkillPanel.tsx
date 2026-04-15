@@ -10,7 +10,7 @@ import { getAbilityDef } from '../../data/skills';
 import { ABILITY_ID_MIGRATION } from '../../data/skills';
 import { ABILITY_SLOT_UNLOCKS } from '../../types';
 import type { SkillDef, SkillKind, SkillProgress, AbilityProgress } from '../../types';
-import { getDisplayedSkillName } from '../../engine/classAdjustment';
+import { getEffectiveSkillDef } from '../../engine/classAdjustment';
 import SkillGraphView from './SkillGraphView';
 import TalentTreeView from './TalentTreeView';
 
@@ -87,7 +87,8 @@ export default function SkillPanel() {
     return def?.kind === 'active';
   });
   const equippedActiveDef = equippedActiveSkill ? getUnifiedSkillDef(equippedActiveSkill.skillId) : null;
-  const equippedDps = equippedActiveDef ? calcSkillDps(equippedActiveDef, stats, avgDamage, spellPower, undefined, 1.0, weaponConversion) : 0;
+  const equippedMorphedDef = equippedActiveDef ? getEffectiveSkillDef(equippedActiveDef, character.class) : null;
+  const equippedDps = equippedMorphedDef ? calcSkillDps(equippedMorphedDef, stats, avgDamage, spellPower, undefined, 1.0, weaponConversion) : 0;
 
   // Determine which kind filters to show
   const presentKinds = new Set(allSkills.map(s => s.kind));
@@ -212,9 +213,11 @@ export default function SkillPanel() {
           const isLocked = character.level < skill.levelRequired;
           const isExpanded = expandedSkill === skill.id;
 
-          // For active skills, show DPS comparison
+          // For active skills, show DPS comparison. Resolve class morph so
+          // name/description/tags/castTime reflect what the player sees in combat.
+          const displayedSkill = getEffectiveSkillDef(skill, character.class);
           const isActive = skill.kind === 'active';
-          const dps = isActive ? calcSkillDps(skill, stats, avgDamage, spellPower, undefined, 1.0, weaponConversion) : 0;
+          const dps = isActive ? calcSkillDps(displayedSkill, stats, avgDamage, spellPower, undefined, 1.0, weaponConversion) : 0;
           const delta = isActive && equippedDps > 0 ? ((dps - equippedDps) / equippedDps) * 100 : 0;
 
           return (
@@ -233,7 +236,7 @@ export default function SkillPanel() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className={`text-xs font-bold truncate ${isLocked ? 'text-gray-500' : 'text-white'}`}>
-                      {getDisplayedSkillName(skill, character.class)}
+                      {displayedSkill.name}
                     </span>
                     <span className={`text-xs px-1 rounded ${KIND_BADGE_COLORS[skill.kind] ?? 'bg-gray-700 text-gray-300'}`}>
                       {skill.kind}
@@ -248,11 +251,11 @@ export default function SkillPanel() {
                       <span className="text-xs text-gray-500">{skill.cooldown}s CD</span>
                     )}
                   </div>
-                  <div className="text-xs text-gray-400">{skill.description}</div>
+                  <div className="text-xs text-gray-400">{displayedSkill.description}</div>
                   {/* Tags for active skills */}
-                  {isActive && skill.tags.length > 0 && (
+                  {isActive && displayedSkill.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-0.5">
-                      {skill.tags.map(tag => (
+                      {displayedSkill.tags.map(tag => (
                         <span key={tag} className={`text-xs px-1 py-0.5 rounded ${TAG_COLORS[tag] ?? 'bg-gray-700 text-gray-400'}`}>
                           {tag}
                         </span>
