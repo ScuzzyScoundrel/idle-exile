@@ -2,6 +2,7 @@ import { useGameStore } from '../../store/gameStore';
 import { CLASS_DEFS } from '../../data/classes';
 import { resolveStats, getWeaponDamageInfo } from '../../engine/character';
 import { calcRotationDps, calcSkillDps, getDefaultSkillForWeapon } from '../../engine/unifiedSkills';
+import { getEffectiveSkillDef } from '../../engine/classAdjustment';
 import { getEquippedWeaponType } from '../../engine/items';
 import { CharacterClass } from '../../types';
 import ClassSilhouette from './ClassSilhouette';
@@ -28,7 +29,8 @@ export default function CharacterHeader() {
     const rotDps = calcRotationDps(skillBar, skillProgress, stats, avgDamage, spellPower, 1.0, weaponConversion);
     if (rotDps > 0) return rotDps;
     const defaultSkill = weaponType ? getDefaultSkillForWeapon(weaponType, character.level) : null;
-    return defaultSkill ? calcSkillDps(defaultSkill, stats, avgDamage, spellPower, undefined, 1.0, weaponConversion) : 0;
+    const morphedDefault = defaultSkill ? getEffectiveSkillDef(defaultSkill, character.class) : null;
+    return morphedDefault ? calcSkillDps(morphedDefault, stats, avgDamage, spellPower, undefined, 1.0, weaponConversion) : 0;
   })();
 
   const formatStat = (v: number) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : Math.floor(v).toString();

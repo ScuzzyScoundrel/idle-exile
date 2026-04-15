@@ -34,7 +34,7 @@ import {
   mergeEffect,
 } from '../unifiedSkills';
 import { getClassDamageModifier } from '../classResource';
-import { getClassSkillAdjustment } from '../classAdjustment';
+import { getClassSkillAdjustment, getEffectiveSkillDef } from '../classAdjustment';
 import {
   evaluateConditionalMods,
   evaluateProcs,
@@ -282,6 +282,12 @@ export function runCombatTick(
     if (phase === 'clearing') return withMaint(applyZoneDamage(state, dtSec, now, zone));
     return withMaint(applyBossDamage(state, dtSec, now));
   }
+
+  // Phase 4 sub-phase 1: resolve class morph into the skill once, up-front.
+  // Downstream reads of skill.castTime / skill.tags / skill.baseConversion
+  // see the morphed version. classMorph.damageTypeOverride still feeds
+  // elementTransform below to preserve flat-elemental stat folding.
+  skill = getEffectiveSkillDef(skill, state.character.class);
 
   const stats = resolveStats(state.character);
   const abilityEffect = getFullEffect(state, now, false);

@@ -13,6 +13,7 @@
 // authors new morphs against implemented skills.
 
 import type { CharacterClass, ClassSkillAdjustment, SkillDef } from '../types';
+import type { DamageTag, DamageType, ConversionSpec } from '../types/skills';
 
 /**
  * Registry of authored morphs. Keyed by skillId, each entry is a list
@@ -146,4 +147,88 @@ export function getClassSkillAdjustmentsForClasses(
 export function getDisplayedSkillName(skill: SkillDef, classId: CharacterClass): string {
   const morph = getClassSkillAdjustment(skill.id, classId);
   return morph?.flavorName ?? skill.name;
+}
+
+// ── getEffectiveSkillDef (Phase 4 sub-phase 1) ──────────────────────
+//
+// Returns a fully-morphed SkillDef for the given class. Single source of
+// truth for every UI + DPS preview + combat consumer that wants to see
+// the skill the way the player sees it.
+//
+// Fast path: no morph → returns the original skill (reference equality).
+// Morphed path: returns a new object with name/description/tags/castTime/
+// manaCost/baseConversion all rewritten per the ClassSkillAdjustment.
+
+const ELEMENT_TAGS: ReadonlySet<DamageTag> = new Set<DamageTag>([
+  'Physical', 'Fire', 'Cold', 'Lightning', 'Chaos',
+]);
+
+const DAMAGE_TYPE_TO_TAG: Record<DamageType, DamageTag> = {
+  physical: 'Physical',
+  fire: 'Fire',
+  cold: 'Cold',
+  lightning: 'Lightning',
+  chaos: 'Chaos',
+};
+
+function swapElementTag(tags: DamageTag[], newType: DamageType): DamageTag[] {
+  const newTag = DAMAGE_TYPE_TO_TAG[newType];
+  const hadElement = tags.some(t => ELEMENT_TAGS.has(t));
+  const stripped = tags.filter(t => !ELEMENT_TAGS.has(t));
+  if (hadElement || !tags.includes(newTag)) stripped.push(newTag);
+  return stripped;
+}
+
+/**
+ * Minimal shape the resolver touches. `SkillDef` and `ActiveSkillDef` (both
+ * in tick.ts scope) satisfy this, so callers pass either without casting.
+ */
+interface MorphableSkill {
+  id: string;
+  name: string;
+  description: string;
+  tags: DamageTag[];
+  castTime: number;
+  manaCost?: number;
+  baseConversion?: ConversionSpec;
+}
+
+export function getEffectiveSkillDef<T extends MorphableSkill>(
+  skill: T,
+  classId: CharacterClass,
+): T {
+  const morph = getClassSkillAdjustment(skill.id, classId);
+  if (!morph) return skill;
+
+  const next: T = { ...skill };
+
+  if (morph.flavorName) next.name = morph.flavorName;
+  if (morph.flavorDescription) next.description = morph.flavorDescription;
+
+  if (morph.tagOverride) {
+    next.tags = [...morph.tagOverride];
+  } else if (morph.damageTypeOverride) {
+    next.tags = swapElementTag(skill.tags, morph.damageTypeOverride);
+  }
+
+  if (morph.castTimeMult && morph.castTimeMult > 0) {
+    next.castTime = skill.castTime * morph.castTimeMult;
+  }
+  if (morph.manaCostMult && morph.manaCostMult > 0 && skill.manaCost !== undefined) {
+    next.manaCost = skill.manaCost * morph.manaCostMult;
+  }
+
+  if (morph.damageTypeOverride) {
+    if (morph.damageTypeOverride === 'physical') {
+      delete next.baseConversion;
+    } else {
+      next.baseConversion = {
+        from: 'physical',
+        to: morph.damageTypeOverride,
+        percent: 100,
+      };
+    }
+  }
+
+  return next;
 }

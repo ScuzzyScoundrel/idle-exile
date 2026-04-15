@@ -16,7 +16,7 @@
 // class, but the shape is future-compatible.
 
 import type { CharacterClass } from './character';
-import type { DamageType } from './skills';
+import type { DamageType, DamageTag } from './skills';
 
 export interface ClassSkillAdjustment {
   /** Skill that this adjustment morphs (e.g. 'staff_locust'). */
@@ -30,6 +30,10 @@ export interface ClassSkillAdjustment {
   damageTypeOverride?: DamageType;
   /** Player-facing renamed skill (e.g. Locust Swarm → Whirling Razors). */
   flavorName?: string;
+  /** Player-facing description override. If unset, keep skill.description. */
+  flavorDescription?: string;
+  /** Explicit tag replacement. If unset but damageTypeOverride is set, element tag auto-swaps. */
+  tagOverride?: DamageTag[];
   /** Sprite/VFX override key, resolved by the renderer. */
   visualOverride?: string;
   /** Multiplier on baseline cast time (0.5 = twice as fast). */

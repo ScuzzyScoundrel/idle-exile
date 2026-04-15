@@ -10,6 +10,7 @@ import { calcSkillDps, calcSkillDamagePerCast, getDefaultSkillForWeapon, calcRot
 import type { CombatContext } from '../procEstimation';
 import { getSkillDef } from '../../data/skills';
 import { calcOutgoingDamageMult } from './scaling';
+import { getEffectiveSkillDef } from '../classAdjustment';
 
 /**
  * Calculate player's total DPS using cooldown-aware rotation formula.
@@ -44,14 +45,16 @@ export function calcPlayerDps(
     const skillDef = activeSkillId ? getSkillDef(activeSkillId) : null;
 
     if (skillDef) {
-      dps = calcSkillDps(skillDef, effectiveStats, avgDamage, spellPower, undefined, atkSpeedMult, weaponConversion);
+      const morphed = getEffectiveSkillDef(skillDef, char.class);
+      dps = calcSkillDps(morphed, effectiveStats, avgDamage, spellPower, undefined, atkSpeedMult, weaponConversion);
     } else {
       // Auto-assign default skill based on weapon type
       const weaponType = char.equipment.mainhand?.weaponType;
       const defaultSkill = weaponType ? getDefaultSkillForWeapon(weaponType, char.level) : null;
 
       if (defaultSkill) {
-        dps = calcSkillDps(defaultSkill, effectiveStats, avgDamage, spellPower, undefined, atkSpeedMult, weaponConversion);
+        const morphed = getEffectiveSkillDef(defaultSkill, char.class);
+        dps = calcSkillDps(morphed, effectiveStats, avgDamage, spellPower, undefined, atkSpeedMult, weaponConversion);
       } else {
         dps = 0;
       }

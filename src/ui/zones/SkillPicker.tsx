@@ -3,6 +3,7 @@ import { useGameStore } from '../../store/gameStore';
 import { getUnifiedSkillsForWeapon } from '../../data/skills';
 import { getEquippedWeaponType } from '../../engine/items';
 import { getUnlockedSlotCount } from '../../engine/unifiedSkills';
+import { getEffectiveSkillDef } from '../../engine/classAdjustment';
 import { WEAPON_ICONS, KIND_BADGE_COLORS } from './zoneConstants';
 
 export default function SkillPicker() {
@@ -35,6 +36,7 @@ export default function SkillPicker() {
             const isEquipped = equippedIds.has(skill.id);
             const isLocked = character.level < skill.levelRequired;
             const equippedSlotIdx = skillBar.findIndex(s => s?.skillId === skill.id);
+            const displayedSkill = getEffectiveSkillDef(skill, character.class);
 
             return (
               <div
@@ -47,7 +49,7 @@ export default function SkillPicker() {
                   <span className="text-lg">{isLocked ? '\uD83D\uDD12' : skill.icon}</span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <span className={`text-xs font-bold ${isLocked ? 'text-gray-500' : 'text-white'}`}>{skill.name}</span>
+                      <span className={`text-xs font-bold ${isLocked ? 'text-gray-500' : 'text-white'}`}>{displayedSkill.name}</span>
                       <span className={`text-xs px-1 rounded ${KIND_BADGE_COLORS[skill.kind] ?? 'bg-gray-700 text-gray-300'}`}>
                         {skill.kind}
                       </span>
