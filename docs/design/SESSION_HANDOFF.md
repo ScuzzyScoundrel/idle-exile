@@ -1,0 +1,213 @@
+# Session Handoff — READ THIS FIRST
+
+**Last updated:** 2026-05-03 (Phase B step 9 complete — all 10 multi-class pair briefs authored).
+**Purpose:** If you're resuming the idle-exile combat-and-class overhaul in a new session, read this doc first to refresh the full picture in <5 minutes. Then dive into whichever detailed doc the next-move section points to.
+
+---
+
+## Current state at a glance
+
+**Phase A — Foundation Engineering: ALL 5 CHANGES CORE LANDED + proc handlers wired 2026-05-03.** Engine has skillKind branching (cast/channel/instant/auto), auto-attacks, ailment trigger rework, mana consumption gate, skill audit applied to staff + dagger pools, AND **all 4 event-proc mana handlers (`onKillGain`/`onHitDealtGain`/`onHitTakenGain`/`onCritGain`) are now live in `tick.ts`** — `tickManaWithCost(mana, dtSec, cost, procGain=0)` extended with optional proc-gain parameter, both boss path (line ~1730) and pack path (line ~2710) compute per-class event totals from `CLASS_MANA_CONFIG[character.class]` and feed them in. `tsc -b --force` 0 errors. Two Phase A deferrals remain (channel expiry enforcement §9.1; `CharacterClass` type rename §15.4); neither blocks Phase B/C.
+
+**Phase B — Design Lock: 100% COMPLETE 2026-05-03.** Class fantasy briefs (5/5), 4-Layer Multi-Class Identity Model locked, Class-First weapon-default Model B locked, **all 10 multi-class pair briefs authored 2026-05-03 (Cross-Pair Consistency Check 4/4 PASSED)**, skill audit complete + applied, Asn×Staff morph retune complete, **all 5 class trees authored as JSON 2026-05-03 (404 total nodes; cross-class consistency check ✅ passed 10/10)**. **No design-lock work remains.**
+
+**Phase C / E / F: NOT STARTED.** Content authoring, ascendancies, full multi-class engineering all queued. **Phase A cleanup is the recommended next-up** since it unblocks the dormant proc handlers shared by 6 of the 10 pair fusion mechanics.
+
+---
+
+## Doc map (6 docs, all cross-referenced)
+
+| Doc | Scope | Status |
+|---|---|---|
+| `COMBAT_AND_CLASS_OVERHAUL_PLAN.md` | **Architecture** — phases, mechanics, schemas, calibration, status log | All locks current as of 2026-04-27 |
+| `CLASS_FANTASY_BRIEFS.md` | Per-class fantasies (5 MVP classes) | ✅ All 5 authored (class-first framing applied 2026-04-26) |
+| `MULTI_CLASS_PAIRS.md` | Per-pair multi-class identity (10 pairs) | ✅ 10/10 authored 2026-05-03; Cross-Pair Consistency Check 4/4 PASSED |
+| `CLASS_TREES.md` | Class-tree README + JSON schema + cross-class consistency results | ✅ 5/5 authored, consistency check 10/10 passed 2026-05-03 |
+| `src/data/classTrees/witchdoctor.json` | WD class tree data | ✅ 80 nodes, flavor-lifted 2026-04-27 |
+| `src/data/classTrees/assassin.json` | Asn class tree data | ✅ 81 nodes 2026-04-27 |
+| `src/data/classTrees/sorcerer.json` | Sor class tree data | ✅ 81 nodes 2026-05-03 |
+| `src/data/classTrees/berserker.json` | Brs class tree data | ✅ 81 nodes 2026-05-03 |
+| `src/data/classTrees/hunter.json` | Hnt class tree data | ✅ 81 nodes 2026-05-03 |
+| `SKILL_FANTASY_AUDIT.md` | 4-axis skill audit (WD staff + Asn dagger) | ✅ Complete; recommendations applied to skill data |
+| `SESSION_HANDOFF.md` | This doc — navigation/resume | 2026-04-27 |
+
+---
+
+## Decisions LOCKED this session series (2026-04-22 to 2026-04-27)
+
+### Architecture (all locked in `COMBAT_AND_CLASS_OVERHAUL_PLAN.md`)
+
+1. **Class-First Principle (§4.2 Model B)** — Class IS the fantasy. Weapons morph to express class fantasy. Each class has 3 default weapons; multi-classing unlocks secondary class's 3 defaults. NO weapon-class exclusivity (Greatsword/Flail not Berserker-locked; Bow/Crossbow not Hunter-locked).
+2. **4-Layer Multi-Class Identity Model (§11.1)** — Each pair gets: (1) named pair identity, (2) fusion signature mechanic combining both class signatures uniquely, (3) skill toggle morphs (3-5 per pair, player-selectable per skill), (4) weapon unlocks. Layers 2+3 give every pair distinct mechanical DNA.
+3. **Class talent trees: 90 nodes / 51 points / 7 tiers / WoW Classic shape (§6.1)** — Locked at this density per 2026-04-27 confirmation. Multi-class layer + ascendancies provide the diversification depth on top.
+4. **JSON source-of-truth for class trees** — `src/data/classTrees/*.json`, one file per class. Markdown design docs become README-style pointers, not 1000-line content stores.
+5. **Multi-rank flavor directive** — Multi-rank passives prefer procs/conditionals/state-interactions over flat stat scaling. Pure stat-sticks are the EXCEPTION (~15-20%), not the rule. "1-5% chance for double strike" feels better than "+5% damage." SOME stat-sticks are fine as foundation/pacing.
+6. **Idle-game context** — No standing/walking/movement mechanics; no tile concept. Combat is per-zone encounter. AoEs express as "all enemies in encounter" or "in zone."
+7. **Class-trees are weapon-agnostic** — No weapon-conditional class tree nodes by default. Offhand-conditional nodes acceptable (per §6.3) as playstyle sliders.
+8. **Active buff removal direction** — All `AbilityDef kind: 'buff'` migrate to ascendancy/talent-tree passives with conditional triggers (e.g., "while 3+ minions alive" instead of pressed buttons). Goal: zero active buffs in WD staff + Asn dagger pools post-cleanup.
+
+### Class identities (all locked in `CLASS_FANTASY_BRIEFS.md`)
+
+| Class | Signature mechanic | Mana flavor (passive/onKill/onHit/onCrit) | Element axis |
+|---|---|---|---|
+| Witchdoctor | **Pandemic** (DoT-host death propagation) | 6/20/0.5/0 — caster + kill-flash | Chaos primary |
+| Assassin | **Crit Cascade** (crits compound via Crit Stacks) | 10/3/1/6 — crit-feedback | Phys + shadow/chaos |
+| Sorcerer | **Resonance** (4-element charge → Convergence) | 8/8/0/4 — sustained caster | All elements |
+| Berserker | **Rage Threshold** (<50% HP unlocks Frenzied) | 0/10/5/0 + onHitTaken 8 — pure rage | Physical (no elements native) |
+| Hunter | **Mark & Execute** (first-hit Mark, follow-up payoff) | 9/5/0.5/6 — energy-archer | Physical (no elements native) |
+
+### Class default weapons (per §4.2 Model B)
+
+| Class | 3 defaults |
+|---|---|
+| Witchdoctor | Staff, Dagger, Scythe |
+| Assassin | Dagger, Wand, Claws |
+| Sorcerer | Wand, Staff, Gauntlets |
+| Berserker | Greatsword, Flail, Claws |
+| Hunter | Bow, Crossbow, Dagger |
+
+Multi-classing unlocks the secondary class's 3 defaults (max 6 weapons accessible).
+
+### Multi-class fusion mechanics (4/10 designed, 6/10 candidates drafted)
+
+| Pair | Archetype | Fusion mechanic |
+|---|---|---|
+| WD + Asn | **Blood Cultist** ✅ | Hex Cascade — crit on Hexed builds Crit Stacks + spawns Pandemic-spread Cursed Cascade |
+| WD + Sor | **Seer** ✅ | Elemental Pandemic — DoTs feed Resonance; Convergence on transfer at 4 charges |
+| WD + Brs | **Deathwalker** ✅ | Bloodied Pandemic — DoTs +50% to <50% HP; Pandemic doubles on Bloodied |
+| WD + Hnt | **Soul Trapper** ✅ | Spirit Trap — cursed-trapped death spawns Tracking Spirit; consumed by next Mark |
+| Asn + Sor | Arcane Blade (draft) | Resonant Blade — Cascade crits add Resonance; Convergence becomes single-target stab |
+| Asn + Brs | Dark Reaver (draft) | Frenzied Cascade — Cascade scales with missing HP; Crit Stack cap raises below 50% |
+| Asn + Hnt | Nightstalker (draft) | Shadow Mark Cascade — Hunter's Mark + Shadow Mark fuse; first hit creates BOTH |
+| Sor + Brs | Spellreaver (draft) | Element Forge — Frenzied empowers Resonance; Convergence below 50% HP costs 0 mana ("battle mage" canonical) |
+| Sor + Hnt | Arcane Archer (draft) | Element-Marked Shot — Mark sets element of next cast; Resonance applies to projectile shots ("magic arrow" canonical) |
+| Brs + Hnt | Warden (draft) | Trap-Execute — traps apply Bloodied on detonation; precision payoffs scale with missing HP |
+
+---
+
+## Code state (what's wired in `src/`)
+
+### Engine (`src/engine/`)
+
+- **`combat/tick.ts`** — skill rotation, mana gate (line 304: `canAffordManaCost` aborts cast if underfunded), channel state tracking (line ~1222)
+- **`combat/autoAttack.ts`** — MVP auto-attack system (`computeAutoAttackInterval`, `shouldFireAutoAttack`, `rollAutoAttack`, `applyNonSkillTickWithAuto`)
+- **`combat/manaTick.ts`** — pure helpers (`regenMana`, `deductMana`, `canAffordManaCost`, `tickManaWithCost`)
+- **`skills/dps.ts:95-132`** — `calcSkillCastInterval` branches on `skillKind` (instant/cast/channel/auto)
+- **`classAdjustment.ts`** — class×weapon morph table; Asn×Staff morphs detoxified 2026-04-26 (Haunt → Shadow Plague, Spirit Barrage → Needle Volley, Bouncing Skull → Bouncing Dagger; all dropped paradigm-breaking `damageTypeOverride: physical`)
+- **`combat/combo.ts`** — combo state hardcoded (Hexed/Plagued/Haunted/Soul Stack/Exposed/Deep Wound/Shadow Mark/Crit Stack/Shadow Momentum); §8.1 ComboStateSpec migration pending
+
+### Data (`src/data/`)
+
+- **`skills/staff.ts`** — 10 actives + 3 buffs/passive. Audit applied 2026-04-26: Haunt/Spirit Barrage/Bouncing Skull all chaos-converted (was cold/cold/fire). All actives have skillKind/manaCost/baseAilmentChance.
+- **`skills/dagger.ts`** — 10 actives + 3 buffs. Audit applied 2026-04-26: Chain Strike chaos-converted, Blade Trap → Shadow Caltrops (reflavored + chaos), Blade Ward → Shadow Veil (reflavored), Blade Dance damage 0.3→0.5. All actives have skillKind/manaCost/baseAilmentChance.
+- **`skills/bow.ts`** — 6 actives. Reclassified 2026-04-23 from Change 5 audit scope to Phase C3 rebuild (under-populated + duplicate `bow_rapid_fire` id + stale `bow_multi_shot`/`bow_smoke_arrow` ids).
+- **`classTrees/witchdoctor.json`** — ✅ 80 nodes, 3 paths, flavor-lifted 2026-04-27. Source-of-truth for WD tree.
+- **`classTrees/assassin.json`** — ✅ 81 nodes, 3 paths, authored 2026-04-27. Blademaster/Venomcraft/Shadowdancer.
+- **`classTrees/sorcerer.json`** — ✅ 81 nodes, 3 paths, authored 2026-05-03. Elementalist/Arcanist/Specialist.
+- **`classTrees/berserker.json`** — ✅ 81 nodes, 3 paths, authored 2026-05-03. Warlord/Reaver/Juggernaut.
+- **`classTrees/hunter.json`** — ✅ 81 nodes, 3 paths, authored 2026-05-03. Marksman/Beastmaster/Trapper.
+- **`classTalents.ts`** — Legacy class talent file (Phase 4 sub-phase 6); now superseded by JSON trees. Phase C engineering: wire JSON via `resolveJsonModule` and deprecate the legacy TS file.
+
+### Types (`src/types/`)
+
+- **`mana.ts`** — Class Mana Calibration Matrix locked 2026-04-24: per-class dial profiles encoding the 3-resource (mana/rage/energy) vision. **As of 2026-05-03 ALL 5 fields are live** — `passiveRegenPerSec` (since Phase A Change 4) AND `onKillGain`/`onHitDealtGain`/`onHitTakenGain`/`onCritGain` (Phase A cleanup, see `engine/combat/manaTick.ts:gainMana` + `tick.ts` boss/pack mana sites).
+- **`character.ts:10`** — `CharacterClass` union still has legacy names (warrior/mage/ranger/rogue) plus MVP names (witchdoctor/assassin). §15.4 rename pending: warrior→berserker, mage→sorcerer, ranger→hunter, rogue→absorbed into assassin.
+
+### Strict build status
+
+`npx tsc -b --force` exits 0 as of 2026-04-27.
+
+---
+
+## Pending work (organized by phase)
+
+### Phase A cleanup
+
+- ✅ **Wire proc handlers** for `onKillGain` / `onHitDealtGain` / `onHitTakenGain` / `onCritGain` in `tick.ts` — **DONE 2026-05-03.** `manaTick.ts` adds `gainMana` primitive + extends `tickManaWithCost(mana, dtSec, cost, procGain=0)`. Both boss path and pack path in `tick.ts` import `CLASS_MANA_CONFIG` and compute event-driven gains from `roll.isHit` / `roll.isCrit` / `mobKills` / `zoneAttackResult.damage > 0`. §9.4 calibration matrix is now fully live; 6 of 10 pair fusion mechanics that depend on rage/energy/kill-flash mana economy are unblocked. `tsc -b --force` exits 0.
+- **Channel duration expiry enforcement** (§9.1 deferred item) — currently `expiresAt` is tracked but not acted on. Still queued.
+- **`CharacterClass` type rename** (§15.4) — warrior→berserker, mage→sorcerer, ranger→hunter; absorb rogue into assassin. Still queued; clears the rename caveats appearing in 9 of 10 pair briefs.
+
+### Phase B step 8 — class tree authoring ✅ COMPLETE (5/5 done 2026-05-03)
+
+- ✅ `witchdoctor.json` (80 nodes)
+- ✅ `assassin.json` (81 nodes)
+- ✅ `sorcerer.json` (81 nodes)
+- ✅ `berserker.json` (81 nodes)
+- ✅ `hunter.json` (81 nodes)
+- ✅ Cross-class consistency check 10/10 passed (see `CLASS_TREES.md` for table)
+
+### Phase B step 9 — multi-class pair briefs ✅ COMPLETE (10/10 done 2026-05-03)
+
+- ✅ Blood Cultist (WD+Asn) — 2026-04-26
+- ✅ Seer (WD+Sor) — 2026-04-27
+- ✅ Deathwalker (WD+Brs) — 2026-04-27
+- ✅ Soul Trapper (WD+Hnt) — 2026-04-27
+- ✅ Arcane Blade (Asn+Sor) — 2026-05-03
+- ✅ Dark Reaver (Asn+Brs) — 2026-05-03
+- ✅ Nightstalker (Asn+Hnt) — 2026-05-03
+- ✅ Spellreaver (Sor+Brs) — 2026-05-03 — battle-mage canonical
+- ✅ Arcane Archer (Sor+Hnt) — 2026-05-03 — magic-arrow canonical
+- ✅ Warden (Brs+Hnt) — 2026-05-03
+- ✅ Cross-Pair Consistency Check 4/4 PASSED 2026-05-03 (see `MULTI_CLASS_PAIRS.md` "Cross-Pair Consistency Check" section)
+
+**Phase B is now 100% locked. No design-lock work remains.** All Phase B step deliverables (class fantasy briefs, weapon-default model, 4-Layer Multi-Class Identity Model, skill audit, Asn×Staff morph retune, class trees, pair briefs) are complete.
+
+### Phase C — content authoring
+
+- §8.1 ComboStateSpec schema migration (combo states currently hardcoded in `engine/combat/combo.ts`)
+- Per-skill talent tree archive (move `dataskillGraphs/*` to `data/_archive/skillGraphs/`) per §7
+- Class-tree JSON → engine wiring (resolveJsonModule + `engine/classTalentDispatcher.ts` upgrade)
+- Phase C3 weapon-pool rebuilds (8 pools: bow expansion, wand, gauntlets, greatsword, crossbow, claws, flail, scythe — author from scratch)
+- Pool expansion to 15-20 skills/class for staff + dagger (16 new skills total per `SKILL_FANTASY_AUDIT.md` §1.4 + §2.4 specs)
+- Author 80-100 morph cells per Class-First weapon expression
+- Buff cuts + ascendancy passive authoring (6 buffs queued; migration targets named in `CLASS_FANTASY_BRIEFS.md` §1.5 + §2.5)
+
+### Phase E — ascendancies (deferred)
+
+- 5 classes × 3 ascendancies × ~8 nodes = ~120 ascendancy nodes. Drafts in `COMBAT_AND_CLASS_OVERHAUL_PLAN.md` §10.1.
+
+### Phase F — multi-class engineering + content
+
+- Schema: `SkillToggleMorph`, `Character.skillToggles`, `PairFusionMechanic`. Per §11.3.
+- Engine: `getEffectiveSkillDef` toggle resolution + fusion mechanic dispatch.
+- UI: toggle checkboxes per skill in skill-bar config.
+- Content: 10 fusion mechanic implementations + ~40 toggle morphs across pair briefs.
+
+---
+
+## Open questions / pending decisions
+
+**None major.** The user has confirmed:
+- Class-First Model B (weapon-agnostic class trees) ✅
+- 4-Layer Multi-Class Identity Model ✅
+- 90/51 WoW Classic class tree shape ✅
+- JSON source-of-truth for class trees ✅
+- Multi-rank flavor directive (procs over stat-sticks; SOME stat-sticks ok) ✅
+- Buff removal direction ✅
+- Idle-game context (no movement, no tiles) ✅
+
+Minor open considerations (not blocking):
+- Whether to lock weapon-conditional class tree nodes as "use sparingly" or remove entirely (currently: removed by default; user noted "I'm at a standstill" — pragmatic compromise documented in §6.3)
+- Mass Sacrifice morph (Asn×Staff) — not in §4.3 retune list but still has `damageTypeOverride: 'physical'`; flagged as outstanding morph concern in §4.3
+
+---
+
+## How to resume in a new session
+
+**Paste this prompt to start fresh:**
+
+> "Read `/home/jerris/idle-exile/docs/design/SESSION_HANDOFF.md` to refresh context on the idle-exile combat-and-class overhaul. **Phase B is 100% locked as of 2026-05-03 (all 5 class trees + all 10 multi-class pair briefs authored, both consistency checks passed) AND Phase A proc-handler cleanup is DONE 2026-05-03 (`onKill`/`onHitDealt`/`onHitTaken`/`onCrit` mana gains live in `tick.ts`).** Proceed with [PICK ONE]: (a) §15.4 `CharacterClass` type rename (warrior→berserker, mage→sorcerer, ranger→hunter, absorb rogue into assassin) — clears the rename caveats appearing in 9 of 10 pair briefs; OR (b) Phase C engine wiring for the 5 new class JSON trees (resolveJsonModule + classTalentDispatcher.ts upgrade); OR (c) Phase C3 weapon-pool rebuilds — bow expansion + 7 other weapon pools (greatsword/flail/claws/wand/gauntlets/crossbow/scythe) authored from scratch — unlocks Sor/Brs/Hnt-side pair toggles; OR (d) §8.1 ComboStateSpec schema migration (needed for fused states: Hunter's Shadow, Hunter's Mark, Element-Mark, Self-Bloodied). My recommendation: (a) — type rename is small, mechanical, and clears 9 of 10 pair-brief caveats in one pass."
+
+### Recommended next-session order (post-Phase-B + Phase-A-cleanup)
+
+1. **§15.4 CharacterClass type rename** — warrior→berserker, mage→sorcerer, ranger→hunter, rogue→absorbed into assassin (clears the rename caveats appearing in 9 of 10 pair briefs; small mechanical refactor)
+2. **Phase C engine wiring** for class JSON trees (resolveJsonModule + classTalentDispatcher.ts upgrade; deprecate legacy `classTalents.ts`)
+3. **Phase C3 weapon-pool rebuilds** — bow expansion + 7 other weapon pools authored from scratch (greatsword/flail/claws/wand/gauntlets/crossbow/scythe) + skill expansion to 15-20/class. **This is the biggest unlock for pair toggles** — Sor/Brs/Hnt-side toggle drafts in 9 of 10 pair briefs become implementable.
+4. **§8.1 ComboStateSpec schema migration** — combo states currently hardcoded in `engine/combat/combo.ts` (needed for new fused states: Hunter's Shadow, Hunter's Mark, Element-Mark, Self-Bloodied)
+5. **Channel duration expiry enforcement** (§9.1) — last remaining Phase A deferral
+6. **Phase E ascendancies** — 5 classes × 3 ascendancies × ~8 nodes
+7. **Phase F multi-class engineering** — `SkillToggleMorph` schema, `Character.skillToggles` field, `getEffectiveSkillDef` toggle resolution, fusion mechanic dispatch sites (10 mechanics × ~40 toggle morphs)
+
+---
+
+**End of session handoff. Open the relevant detailed doc next based on what you're working on.**
