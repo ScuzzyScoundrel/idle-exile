@@ -3,31 +3,28 @@ import { useGameStore } from '../../store/gameStore';
 import { CLASS_DEFS } from '../../data/classes';
 import type { CharacterClass, ClassDef, StatKey } from '../../types';
 
-const CLASS_ORDER: CharacterClass[] = ['witchdoctor', 'assassin', 'warrior', 'mage', 'ranger', 'rogue'];
+const CLASS_ORDER: CharacterClass[] = ['witchdoctor', 'assassin', 'berserker', 'sorcerer', 'hunter'];
 
 const CLASS_ICONS: Record<CharacterClass, string> = {
-  warrior: '\u2694\uFE0F',
-  mage: '\u2728',
-  ranger: '\uD83C\uDFF9',
-  rogue: '\uD83D\uDDE1\uFE0F',
+  berserker: '\u2694\uFE0F',
+  sorcerer: '\u2728',
+  hunter: '\uD83C\uDFF9',
   witchdoctor: '\uD83C\uDFAD',
   assassin: '\uD83E\uDD77',
 };
 
 const CLASS_COLORS: Record<CharacterClass, { border: string; bg: string; text: string; ring: string }> = {
-  warrior: { border: 'border-red-600', bg: 'bg-red-950/40', text: 'text-red-400', ring: 'ring-red-500/50' },
-  mage: { border: 'border-blue-600', bg: 'bg-blue-950/40', text: 'text-blue-400', ring: 'ring-blue-500/50' },
-  ranger: { border: 'border-green-600', bg: 'bg-green-950/40', text: 'text-green-400', ring: 'ring-green-500/50' },
-  rogue: { border: 'border-purple-600', bg: 'bg-purple-950/40', text: 'text-purple-400', ring: 'ring-purple-500/50' },
+  berserker: { border: 'border-red-600', bg: 'bg-red-950/40', text: 'text-red-400', ring: 'ring-red-500/50' },
+  sorcerer: { border: 'border-blue-600', bg: 'bg-blue-950/40', text: 'text-blue-400', ring: 'ring-blue-500/50' },
+  hunter: { border: 'border-green-600', bg: 'bg-green-950/40', text: 'text-green-400', ring: 'ring-green-500/50' },
   witchdoctor: { border: 'border-pink-600', bg: 'bg-pink-950/40', text: 'text-pink-400', ring: 'ring-pink-500/50' },
   assassin: { border: 'border-teal-600', bg: 'bg-teal-950/40', text: 'text-teal-400', ring: 'ring-teal-500/50' },
 };
 
 const RESOURCE_COLORS: Record<CharacterClass, string> = {
-  warrior: 'text-red-400',
-  mage: 'text-blue-400',
-  ranger: 'text-green-400',
-  rogue: 'text-purple-400',
+  berserker: 'text-red-400',
+  sorcerer: 'text-blue-400',
+  hunter: 'text-green-400',
   witchdoctor: 'text-pink-400',
   assassin: 'text-teal-400',
 };
@@ -92,7 +89,7 @@ function ClassCard({ classDef, isSelected, onSelect }: {
 
 export default function ClassPicker() {
   const selectClass = useGameStore(s => s.selectClass);
-  const [selected, setSelected] = useState<CharacterClass>('warrior');
+  const [selected, setSelected] = useState<CharacterClass>('berserker');
 
   const handleConfirm = () => {
     selectClass(selected);

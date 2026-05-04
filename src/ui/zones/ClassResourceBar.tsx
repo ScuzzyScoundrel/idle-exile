@@ -1,8 +1,8 @@
-import type { ClassResourceState } from '../../types';
+import type { ClassResourceState, CharacterClass } from '../../types';
 import { getClassDef } from '../../data/classes';
 
 export default function ClassResourceBar({ resource, charClass }: { resource: ClassResourceState; charClass: string }) {
-  const classDef = getClassDef(charClass as 'warrior' | 'mage' | 'ranger' | 'rogue');
+  const classDef = getClassDef(charClass as CharacterClass);
   if (!classDef) return null;
 
   const stacks = Math.floor(resource.stacks);

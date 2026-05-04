@@ -7,7 +7,8 @@ import type { GearSlot, Item, ArmorType } from './items';
 import type { AttributeState, AttributeAllocation } from './attributes';
 import type { ManaState } from './mana';
 
-export type CharacterClass = 'warrior' | 'mage' | 'ranger' | 'rogue' | 'witchdoctor' | 'assassin';
+// §15.4 rename 2026-05-04: warrior→berserker, mage→sorcerer, ranger→hunter, rogue absorbed into assassin.
+export type CharacterClass = 'berserker' | 'sorcerer' | 'hunter' | 'witchdoctor' | 'assassin';
 
 export type ResourceType = 'rage' | 'arcane_charges' | 'tracking' | 'momentum';
 

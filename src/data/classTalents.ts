@@ -158,55 +158,8 @@ const rangerPathfinder: SkillTreePath = {
   ],
 };
 
-// ─── Rogue ──────────────────────────────────────────────────────────────────
-
-const rogueShadow: SkillTreePath = {
-  id: 'A',
-  name: 'Shadow',
-  description: 'Critical strikes from the darkness — burst damage and assassination.',
-  nodes: [
-    { id: 'ro_shad_1', name: 'Backstab', description: 'Strike from the shadows for extra damage.', tier: 1, effect: { critChanceBonus: 3 } },
-    { id: 'ro_shad_2', name: 'Poison Tip', description: 'Coated blades deal lingering damage.', tier: 1, effect: { damageMult: 1.08 } },
-    { id: 'ro_shad_3', name: 'Ambush', description: 'Surprise attacks are devastating.', tier: 2, effect: { critChanceBonus: 4, critMultiplierBonus: 10 }, requiresNodeId: 'ro_shad_1' },
-    { id: 'ro_shad_4', name: 'Twist the Knife', description: 'Critical wounds bleed profusely.', tier: 2, effect: { damageMult: 1.10, critMultiplierBonus: 8 }, requiresNodeId: 'ro_shad_2' },
-    { id: 'ro_shad_5', name: 'Death Mark', description: 'Mark your target for execution.', tier: 3, effect: { critChanceBonus: 5, damageMult: 1.12 }, requiresNodeId: 'ro_shad_3' },
-    { id: 'ro_shad_6', name: 'Shadow Strike', description: 'Attacks from shadow deal immense damage.', tier: 3, effect: { damageMult: 1.18, critMultiplierBonus: 12 }, requiresNodeId: 'ro_shad_4' },
-    { id: 'ro_shad_7', name: 'Perfect Assassination', description: 'Every strike aims for the kill — massive crit bonuses.', tier: 4, effect: { critChanceBonus: 10, critMultiplierBonus: 25, damageMult: 1.15 }, requiresNodeId: 'ro_shad_5', isPathPayoff: true },
-    { id: 'ro_shad_8', name: 'Deathblow', description: 'Lethal efficiency — double clears from assassination.', tier: 4, effect: { doubleClears: true, critChanceBonus: 5 }, requiresNodeId: 'ro_shad_6', isPathPayoff: true },
-  ],
-};
-
-const rogueSwiftness: SkillTreePath = {
-  id: 'B',
-  name: 'Swiftness',
-  description: 'Momentum and speed — clear zones with blinding efficiency.',
-  nodes: [
-    { id: 'ro_swift_1', name: 'Quick Step', description: 'Move through combat with agility.', tier: 1, effect: { clearSpeedMult: 1.06 } },
-    { id: 'ro_swift_2', name: 'Fleet Footed', description: 'Light steps avoid danger.', tier: 1, effect: { clearSpeedMult: 1.05, defenseMult: 1.04 } },
-    { id: 'ro_swift_3', name: 'Momentum', description: 'Each kill accelerates the next.', tier: 2, effect: { clearSpeedMult: 1.08, damageMult: 1.05 }, requiresNodeId: 'ro_swift_1' },
-    { id: 'ro_swift_4', name: 'Evasive Maneuvers', description: 'Dance between attacks untouched.', tier: 2, effect: { defenseMult: 1.08, clearSpeedMult: 1.05 }, requiresNodeId: 'ro_swift_2' },
-    { id: 'ro_swift_5', name: 'Blinding Speed', description: 'Move faster than the eye can follow.', tier: 3, effect: { clearSpeedMult: 1.12, damageMult: 1.08 }, requiresNodeId: 'ro_swift_3' },
-    { id: 'ro_swift_6', name: 'Acrobatic Dodge', description: 'Impossible to pin down.', tier: 3, effect: { defenseMult: 1.12, clearSpeedMult: 1.08 }, requiresNodeId: 'ro_swift_4' },
-    { id: 'ro_swift_7', name: 'Velocity', description: 'Supreme clear speed — a blur of blades.', tier: 4, effect: { clearSpeedMult: 1.25, damageMult: 1.15 }, requiresNodeId: 'ro_swift_5', isPathPayoff: true },
-    { id: 'ro_swift_8', name: 'Untouchable', description: 'Maximum evasion — ignore hazards through pure speed.', tier: 4, effect: { ignoreHazards: true, clearSpeedMult: 1.15 }, requiresNodeId: 'ro_swift_6', isPathPayoff: true },
-  ],
-};
-
-const rogueCunning: SkillTreePath = {
-  id: 'C',
-  name: 'Cunning',
-  description: 'Clever tricks, extra loot, and profitable exploits.',
-  nodes: [
-    { id: 'ro_cun_1', name: 'Sticky Fingers', description: 'A talent for finding valuables.', tier: 1, effect: { itemDropMult: 1.08 } },
-    { id: 'ro_cun_2', name: 'Street Smarts', description: 'Experience comes faster for the cunning.', tier: 1, effect: { xpMult: 1.06 } },
-    { id: 'ro_cun_3', name: 'Opportunist', description: 'Exploit every opening for profit.', tier: 2, effect: { itemDropMult: 1.10, materialDropMult: 1.08 }, requiresNodeId: 'ro_cun_1' },
-    { id: 'ro_cun_4', name: 'Cunning Plan', description: 'Careful planning yields better results.', tier: 2, effect: { xpMult: 1.08, damageMult: 1.05 }, requiresNodeId: 'ro_cun_2' },
-    { id: 'ro_cun_5', name: 'Master Thief', description: 'Legendary ability to find hidden treasures.', tier: 3, effect: { itemDropMult: 1.15, materialDropMult: 1.12 }, requiresNodeId: 'ro_cun_3' },
-    { id: 'ro_cun_6', name: 'Silver Tongue', description: 'Talk your way into better deals.', tier: 3, effect: { xpMult: 1.12, clearSpeedMult: 1.06 }, requiresNodeId: 'ro_cun_4' },
-    { id: 'ro_cun_7', name: 'King of Thieves', description: 'Maximum loot from every encounter.', tier: 4, effect: { itemDropMult: 1.25, materialDropMult: 1.25, xpMult: 1.10 }, requiresNodeId: 'ro_cun_5', isPathPayoff: true },
-    { id: 'ro_cun_8', name: 'Mastermind', description: 'Supreme cunning — damage and clear speed through intellect.', tier: 4, effect: { damageMult: 1.25, clearSpeedMult: 1.15, xpMult: 1.10 }, requiresNodeId: 'ro_cun_6', isPathPayoff: true },
-  ],
-};
+// §15.4 rename 2026-05-04: rogue absorbed into assassin; rogueShadow/rogueSwiftness/rogueCunning consts removed.
+// Assassin has its own asShadow/asVenom/asBlades paths (Phase 4 sub-phase 6 authoring).
 
 // ─── Witchdoctor ────────────────────────────────────────────────────────────
 
@@ -344,11 +297,14 @@ const asBlades: SkillTreePath = {
 
 // ─── Export ─────────────────────────────────────────────────────────────────
 
+// §15.4 rename 2026-05-04: warrior→berserker, mage→sorcerer, ranger→hunter; rogue absorbed into assassin.
+// The internal local-tree variable names (warriorBlood, mageArcane, etc.) are kept legacy here as
+// they refer to the LEGACY per-class talent paths that Phase C deprecates — see classTrees/*.json
+// (the Phase B JSON source-of-truth) for the post-rename trees.
 export const CLASS_TALENT_TREES: Record<CharacterClass, AbilitySkillTree> = {
-  warrior: { paths: [warriorBlood, warriorIron, warriorFury], maxPoints: 24 },
-  mage:    { paths: [mageArcane, mageElements, mageMind], maxPoints: 24 },
-  ranger:  { paths: [rangerPredator, rangerWarden, rangerPathfinder], maxPoints: 24 },
-  rogue:   { paths: [rogueShadow, rogueSwiftness, rogueCunning], maxPoints: 24 },
+  berserker: { paths: [warriorBlood, warriorIron, warriorFury], maxPoints: 24 },
+  sorcerer:  { paths: [mageArcane, mageElements, mageMind], maxPoints: 24 },
+  hunter:    { paths: [rangerPredator, rangerWarden, rangerPathfinder], maxPoints: 24 },
   witchdoctor: { paths: [wdVoodoo, wdSpirits, wdPlague], maxPoints: 24 },
   assassin:    { paths: [asShadow, asVenom, asBlades], maxPoints: 24 },
 };

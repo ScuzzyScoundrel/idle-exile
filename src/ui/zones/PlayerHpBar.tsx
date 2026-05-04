@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { ClassResourceState, TempBuff } from '../../types';
+import type { ClassResourceState, TempBuff, CharacterClass } from '../../types';
 import type { MinionState } from '../../engine/combat/minions';
 import { getClassDef } from '../../data/classes';
 import Tooltip from '../components/Tooltip';
@@ -57,7 +57,7 @@ export default function PlayerHpBar({ currentHp, maxHp, trailHp, fortifyStacks, 
   const comboStates = allComboStates.filter(cs => !TARGET_STATES.has(cs.stateId));
 
   // Class resource
-  const classDef = charClass ? getClassDef(charClass as 'warrior' | 'mage' | 'ranger' | 'rogue') : null;
+  const classDef = charClass ? getClassDef(charClass as CharacterClass) : null;
   const resourceStacks = classResource ? Math.floor(classResource.stacks) : 0;
   const resourceMax = classDef?.resourceMax ?? 0;
 

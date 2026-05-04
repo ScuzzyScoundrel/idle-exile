@@ -256,11 +256,16 @@ export function runMigrations(
 
   if (version < 18) {
     // v18: Class resource system + class selection
-    // Existing saves default to Warrior, skip class picker
-    if (!state.character?.class || state.character.class === 'warrior') {
-      raw.classResource = createResourceState('warrior');
+    // Existing saves default to Berserker (formerly 'warrior' pre-§15.4 rename, see v66), skip class picker
+    if (!state.character?.class || (state.character.class as string) === 'warrior' || state.character.class === 'berserker') {
+      raw.classResource = createResourceState('berserker');
     } else {
-      raw.classResource = createResourceState(state.character.class as CharacterClass);
+      // Legacy class strings on disk (mage/ranger/rogue) get translated by v66; in v18, fall back to berserker resource if invalid.
+      try {
+        raw.classResource = createResourceState(state.character.class as CharacterClass);
+      } catch {
+        raw.classResource = createResourceState('berserker');
+      }
     }
     raw.classSelected = true;  // Skip picker for existing saves
   }
@@ -919,6 +924,26 @@ export function runMigrations(
     // shape because the post-migration type is GameState.
     if (raw.channelState === undefined) raw.channelState = null;
     if (raw.nextAutoAttackAt === undefined) raw.nextAutoAttackAt = 0;
+  }
+
+  if (version < 66) {
+    // v66: §15.4 CharacterClass rename. Legacy stored values on disk → new union.
+    //   warrior → berserker (1:1 rename, same resource: rage)
+    //   mage    → sorcerer  (1:1 rename, same resource: arcane_charges)
+    //   ranger  → hunter    (1:1 rename, same resource: tracking)
+    //   rogue   → assassin  (MERGE: rogue absorbed into assassin per design lock,
+    //                         resource type 'momentum' is identical for both)
+    const legacyToNew: Record<string, CharacterClass> = {
+      warrior: 'berserker',
+      mage: 'sorcerer',
+      ranger: 'hunter',
+      rogue: 'assassin',
+    };
+    const rawChar = raw.character as { class?: string } | undefined;
+    const currentClass = rawChar?.class;
+    if (rawChar && currentClass && legacyToNew[currentClass]) {
+      rawChar.class = legacyToNew[currentClass];
+    }
   }
 
   return state;

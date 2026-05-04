@@ -68,9 +68,8 @@ export const CLASS_MANA_CONFIG: Record<CharacterClass, ManaConfig> = {
     onCritGain: 6,
   },
 
-  // Legacy classes — will be removed in Phase 2g once multi-class content
-  // exists for MVP. Values kept sensible in case they're played today.
-  warrior: {
+  // Phase B classes (§15.4 rename 2026-05-04: warrior→berserker, mage→sorcerer, ranger→hunter; rogue absorbed into assassin).
+  berserker: {
     maxMana: 100,
     startFull: false,
     passiveRegenPerSec: 0,
@@ -79,7 +78,7 @@ export const CLASS_MANA_CONFIG: Record<CharacterClass, ManaConfig> = {
     onHitTakenGain: 8,
     onCritGain: 0,
   },
-  mage: {
+  sorcerer: {
     maxMana: 130,
     startFull: true,
     passiveRegenPerSec: 8,
@@ -88,7 +87,7 @@ export const CLASS_MANA_CONFIG: Record<CharacterClass, ManaConfig> = {
     onHitTakenGain: 0,
     onCritGain: 4,
   },
-  ranger: {
+  hunter: {
     maxMana: 80,
     startFull: true,
     passiveRegenPerSec: 9,
@@ -96,15 +95,6 @@ export const CLASS_MANA_CONFIG: Record<CharacterClass, ManaConfig> = {
     onHitDealtGain: 0.5,
     onHitTakenGain: 0,
     onCritGain: 6,
-  },
-  rogue: {
-    maxMana: 50,
-    startFull: true,
-    passiveRegenPerSec: 8,
-    onKillGain: 2,
-    onHitDealtGain: 0,
-    onHitTakenGain: 0,
-    onCritGain: 3,
   },
 };
 

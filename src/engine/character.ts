@@ -25,7 +25,7 @@ export function calcXpToNext(level: number): number {
 }
 
 /** Create a fresh level 1 character with the given name and class. */
-export function createCharacter(name: string, charClass: CharacterClass = 'warrior'): Character {
+export function createCharacter(name: string, charClass: CharacterClass = 'berserker'): Character {
   const char: Character = {
     name,
     class: charClass,

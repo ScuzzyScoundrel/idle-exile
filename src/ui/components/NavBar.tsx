@@ -14,10 +14,9 @@ interface NavBarProps {
 }
 
 const CLASS_HERO_ICONS: Record<CharacterClass, string> = {
-  warrior: '\u2694\uFE0F',
-  mage: '\u2728',
-  ranger: '\uD83C\uDFF9',
-  rogue: '\uD83D\uDDE1\uFE0F',
+  berserker: '\u2694\uFE0F',
+  sorcerer: '\u2728',
+  hunter: '\uD83C\uDFF9',
   witchdoctor: '\uD83C\uDFAD',
   assassin: '\uD83E\uDD77',
 };

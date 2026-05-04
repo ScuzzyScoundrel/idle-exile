@@ -230,7 +230,7 @@ interface GameActions {
 }
 
 function createInitialState(): GameState {
-  const char = createCharacter('Exile', 'warrior');
+  const char = createCharacter('Exile', 'berserker');
   const starterDagger: Item = {
     id: generateId(),
     baseId: 'crude_dagger',
@@ -292,7 +292,7 @@ function createInitialState(): GameState {
     bossState: null,
     zoneClearCounts: {},
     combatPhaseStartedAt: null,
-    classResource: createResourceState('warrior'),
+    classResource: createResourceState('berserker'),
     classSelected: false,
     totalKills: 0,
     fastestClears: {},
@@ -1375,7 +1375,7 @@ export const useGameStore = create<GameState & GameActions>()(
     })) as import('zustand').StateCreator<GameState & GameActions, [['zustand/persist', unknown]], []>,
     {
       name: 'idle-exile-save',
-      version: 65,
+      version: 66,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;

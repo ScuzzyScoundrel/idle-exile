@@ -8,10 +8,9 @@ import { CharacterClass } from '../../types';
 import ClassSilhouette from './ClassSilhouette';
 
 const CLASS_TEXT_COLORS: Record<CharacterClass, string> = {
-  warrior: 'text-red-400',
-  mage: 'text-blue-400',
-  ranger: 'text-green-400',
-  rogue: 'text-purple-400',
+  berserker: 'text-red-400',
+  sorcerer: 'text-blue-400',
+  hunter: 'text-green-400',
   witchdoctor: 'text-pink-400',
   assassin: 'text-teal-400',
 };

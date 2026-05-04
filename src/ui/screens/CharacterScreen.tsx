@@ -20,19 +20,17 @@ import { ZONE_DEFS } from '../../data/zones';
 import { getGemDef, GEM_TIER_NAMES, GEM_TIER_COLORS } from '../../data/gems';
 
 const CLASS_ICONS_HERO: Record<CharacterClass, string> = {
-  warrior: '\u2694\uFE0F',
-  mage: '\u2728',
-  ranger: '\uD83C\uDFF9',
-  rogue: '\uD83D\uDDE1\uFE0F',
+  berserker: '\u2694\uFE0F',
+  sorcerer: '\u2728',
+  hunter: '\uD83C\uDFF9',
   witchdoctor: '\uD83C\uDFAD',
   assassin: '\uD83E\uDD77',
 };
 
 const CLASS_TEXT_COLORS: Record<CharacterClass, string> = {
-  warrior: 'text-red-400',
-  mage: 'text-blue-400',
-  ranger: 'text-green-400',
-  rogue: 'text-purple-400',
+  berserker: 'text-red-400',
+  sorcerer: 'text-blue-400',
+  hunter: 'text-green-400',
   witchdoctor: 'text-pink-400',
   assassin: 'text-teal-400',
 };
