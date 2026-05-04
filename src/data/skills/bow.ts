@@ -4,6 +4,9 @@ export const BOW_ACTIVE_SKILLS: ActiveSkillDef[] = [
   {
     id: 'bow_arrow_shot',
     name: 'Arrow Shot',
+    skillKind: 'cast',
+    manaCost: 4,
+    baseAilmentChance: 0,
     description: 'A basic arrow shot.',
     weaponType: 'bow',
     tags: ['Attack', 'Physical', 'Projectile'],
@@ -18,6 +21,9 @@ export const BOW_ACTIVE_SKILLS: ActiveSkillDef[] = [
   {
     id: 'bow_rapid_fire',
     name: 'Rapid Fire',
+    skillKind: 'cast',
+    manaCost: 8,
+    baseAilmentChance: 0,
     description: 'Loose arrows with incredible speed.',
     weaponType: 'bow',
     tags: ['Attack', 'Physical', 'Projectile'],
@@ -32,6 +38,9 @@ export const BOW_ACTIVE_SKILLS: ActiveSkillDef[] = [
   {
     id: 'bow_multi_shot',
     name: 'Ice Barrage',
+    skillKind: 'cast',
+    manaCost: 12,
+    baseAilmentChance: 30,
     description: 'Fire a volley of frost-tipped arrows in a wide spread.',
     weaponType: 'bow',
     tags: ['Attack', 'Cold', 'Projectile', 'AoE'],
@@ -47,6 +56,9 @@ export const BOW_ACTIVE_SKILLS: ActiveSkillDef[] = [
   {
     id: 'bow_burning_arrow',
     name: 'Burning Arrow',
+    skillKind: 'cast',
+    manaCost: 10,
+    baseAilmentChance: 25,
     description: 'Ignite an arrow tip, adding fire damage.',
     weaponType: 'bow',
     tags: ['Attack', 'Fire', 'Projectile'],
@@ -62,6 +74,9 @@ export const BOW_ACTIVE_SKILLS: ActiveSkillDef[] = [
   {
     id: 'bow_smoke_arrow',
     name: 'Shock Arrow',
+    skillKind: 'cast',
+    manaCost: 10,
+    baseAilmentChance: 25,
     description: 'Fire a crackling arrow charged with lightning.',
     weaponType: 'bow',
     tags: ['Attack', 'Lightning', 'Projectile'],
@@ -77,6 +92,9 @@ export const BOW_ACTIVE_SKILLS: ActiveSkillDef[] = [
   {
     id: 'bow_snipe',
     name: 'Snipe',
+    skillKind: 'cast',
+    manaCost: 25,
+    baseAilmentChance: 0,
     description: 'Take careful aim for a devastating long-range shot.',
     weaponType: 'bow',
     tags: ['Attack', 'Physical', 'Projectile'],

@@ -14,7 +14,9 @@ import type {
   ActiveSkillDef,
   TriggerCondition,
   ConversionSpec,
+  AilmentType,
 } from '../../types';
+import { resolveAilmentChances } from '../damageBuckets';
 
 import { resolveStats, getWeaponDamageInfo } from '../character';
 import {
@@ -84,8 +86,9 @@ import { getMobTypeDef } from '../../data/mobTypes';
 import { pickCurrentMob } from '../zones/helpers';
 
 // ── Subsystem imports ──
-import { applyBossDamage } from './bossAttack';
-import { applyZoneDamage } from './zoneAttack';
+import { applyNonSkillTickWithAuto } from './autoAttack';
+import { canAffordManaCost, tickManaWithCost } from './manaTick';
+import { CLASS_MANA_CONFIG } from '../../types/mana';
 import { noResult } from './types';
 import type { CombatTickOutput } from './types';
 export type { CombatTickOutput } from './types';
@@ -254,8 +257,7 @@ export function runCombatTick(
 
   // GCD check: can we fire any active skill yet?
   if (now < state.nextActiveSkillAt) {
-    if (phase === 'clearing') return withMaint(applyZoneDamage(state, dtSec, now, zone));
-    return withMaint(applyBossDamage(state, dtSec, now));
+    return withMaint(applyNonSkillTickWithAuto(state, dtSec, now, zone, phase));
   }
 
   // Find next ready skill from rotation (slot-priority order)
@@ -274,9 +276,9 @@ export function runCombatTick(
       return def?.kind === 'active';
     });
     if (hasActiveSkill) {
-      // Active skills exist but all on CD — idle until one comes back
-      if (phase === 'clearing') return withMaint(applyZoneDamage(state, dtSec, now, zone));
-      return withMaint(applyBossDamage(state, dtSec, now));
+      // Active skills exist but all on CD — idle until one comes back.
+      // Auto-attacks fire between skills here (Phase A Change 2).
+      return withMaint(applyNonSkillTickWithAuto(state, dtSec, now, zone, phase));
     }
     // No active skills equipped at all — fall back to default weapon skill
     skill = getDefaultSkillForWeapon(
@@ -285,10 +287,9 @@ export function runCombatTick(
     );
   }
 
-  // If still no skill, idle (enemies still damage)
+  // If still no skill, idle (enemies still damage). Auto-attacks still fire.
   if (!skill) {
-    if (phase === 'clearing') return withMaint(applyZoneDamage(state, dtSec, now, zone));
-    return withMaint(applyBossDamage(state, dtSec, now));
+    return withMaint(applyNonSkillTickWithAuto(state, dtSec, now, zone, phase));
   }
 
   // Phase 4 sub-phase 1: resolve class morph into the skill once, up-front.
@@ -296,6 +297,15 @@ export function runCombatTick(
   // see the morphed version. classMorph.damageTypeOverride still feeds
   // elementTransform below to preserve flat-elemental stat folding.
   skill = getEffectiveSkillDef(skill, state.character.class);
+
+  // Phase A Change 4: mana gate. If this skill would cost more mana than
+  // we'll have even after this tick's regen, skip the skill entirely and
+  // fall through to non-skill tick (autos still fire, mana still regens).
+  // Channels too: each channel tick re-enters this path and must re-afford.
+  const skillManaCost = (skill as any).manaCost ?? 0;
+  if (skillManaCost > 0 && !canAffordManaCost(state.character.mana, dtSec, skillManaCost)) {
+    return withMaint(applyNonSkillTickWithAuto(state, dtSec, now, zone, phase));
+  }
 
   // Phase 4 sub-phase 5: collect allocated class-talent TalentEffects.
   // Fast path when no allocations / no `effects` on any allocated node.
@@ -356,15 +366,15 @@ export function runCombatTick(
       ? (state.bossState.bossCurrentHp / state.bossState.bossMaxHp) * 100
       : (frontMobHp / frontMobMaxHp) * 100;
     if (targetHpPct > graphMod.executeOnly.hpThreshold) {
-      if (phase === 'clearing') return applyZoneDamage(state, dtSec, now, zone);
-      return applyBossDamage(state, dtSec, now);
+      // Execute-only skill locked out — no skill fires, autos still tick.
+      return applyNonSkillTickWithAuto(state, dtSec, now, zone, phase);
     }
   }
   // Sprint 2C: executeLocked — skip if target above execute threshold
   if (graphMod?.executeLocked && graphMod.executeThreshold > 0) {
     if (targetHpPct > graphMod.executeThreshold) {
-      if (phase === 'clearing') return applyZoneDamage(state, dtSec, now, zone);
-      return applyBossDamage(state, dtSec, now);
+      // No skill fires; autos still tick.
+      return applyNonSkillTickWithAuto(state, dtSec, now, zone, phase);
     }
   }
 
@@ -863,8 +873,39 @@ export function runCombatTick(
         castAilments.push({ ...applied });
       }
     } else {
-      const autoAilment = ELEMENT_AILMENT[currentElement];
-      if (autoAilment) {
+      // Phase A Change 3: chance-gated ailment rolls via resolveAilmentChances.
+      //   • Proportional to damage-bucket composition (a 70%-cold/30%-phys hit
+      //     routes 70% of chance to chill, 30% to bleed).
+      //   • baseChance comes from the skill; gear/talents add flat % bonuses.
+      //   • If both are zero → no roll → no ailment. Ailments are earned.
+      //   • Staff-native DoTs (above branch) and skill-authored debuff paths
+      //     (staff_hex, etc., further below) are unaffected.
+      const baseChance = skill.baseAilmentChance ?? 0;
+      const hasAnyBonus = effectiveStats.ailmentChanceAll > 0
+        || effectiveStats.ailmentChanceBleed > 0 || effectiveStats.ailmentChanceBurn > 0
+        || effectiveStats.ailmentChanceChill > 0 || effectiveStats.ailmentChanceShock > 0
+        || effectiveStats.ailmentChancePoison > 0;
+      if (baseChance > 0 || hasAnyBonus) {
+        const critBonus = roll.isCrit ? (effectiveStats.ailmentChanceOnCrit ?? 0) : 0;
+        const flatAll = (effectiveStats.ailmentChanceAll ?? 0) + critBonus;
+        const bonuses: Partial<Record<AilmentType, number>> = {
+          bleed:  (effectiveStats.ailmentChanceBleed  ?? 0) + flatAll,
+          burn:   (effectiveStats.ailmentChanceBurn   ?? 0) + flatAll,
+          chill:  (effectiveStats.ailmentChanceChill  ?? 0) + flatAll,
+          shock:  (effectiveStats.ailmentChanceShock  ?? 0) + flatAll,
+          poison: (effectiveStats.ailmentChancePoison ?? 0) + flatAll,
+        };
+        const chances = resolveAilmentChances(
+          roll.buckets ?? [],
+          roll.damage,
+          baseChance,
+          bonuses,
+        );
+
+        const AILMENT_TO_DEBUFF: Record<AilmentType, string> = {
+          bleed: 'bleeding', burn: 'burning', chill: 'frostbite',
+          shock: 'shocked', poison: 'poisoned',
+        };
         const baseDur = skill.dotDuration ?? 5;
         const ailmentDur = graphMod?.ailmentsNeverExpire ? 999999 : baseDur * (1 + (effectiveStats.ailmentDuration ?? 0) / 100);
         const skillPotencyBonus = skill.id === 'dagger_viper_strike' ? 1.5 : 1.0;
@@ -873,10 +914,19 @@ export function runCombatTick(
           ? skill.dotDamagePercent / STANDARD_DOT_RATE
           : 1.0;
         const finalSnapshot = ailmentSnapshot * skillPotencyBonus * dotScale;
-        applyDebuffToList(newDebuffs, autoAilment, 1, ailmentDur, skill.id, finalSnapshot);
-        const applied = newDebuffs.find(d => d.debuffId === autoAilment);
-        if (applied) castAilments.push({ ...applied });
+
+        for (const key of ['bleed', 'burn', 'chill', 'shock', 'poison'] as AilmentType[]) {
+          const chance = chances[key];
+          if (chance > 0 && Math.random() * 100 < chance) {
+            const debuffId = AILMENT_TO_DEBUFF[key];
+            applyDebuffToList(newDebuffs, debuffId, 1, ailmentDur, skill.id, finalSnapshot);
+            const applied = newDebuffs.find(d => d.debuffId === debuffId);
+            if (applied) castAilments.push({ ...applied });
+          }
+        }
       }
+      // Silence the now-unused ELEMENT_AILMENT var (kept above for future ref).
+      void ELEMENT_AILMENT;
     }
   }
 
@@ -1220,6 +1270,40 @@ export function runCombatTick(
 
   // Update GCD: next active skill can fire after castInterval (already includes GCD floor)
   let nextActiveSkillAt = now + castInterval * 1000;
+
+  // ── Phase A Change 1: channel state lifecycle ──────────────────
+  // If the cast skill is a channel, populate channelState so future systems
+  // (rotation priority, UI, auto-attack gating) can see the active channel.
+  // Any non-channel cast breaks an active channel. Duration expiry is
+  // implicit: once state.channelState.expiresAt is past, other skills
+  // become eligible via normal rotation selection.
+  let newChannelState = state.channelState;
+  {
+    const kind = (skill as any).skillKind as 'instant' | 'cast' | 'channel' | 'auto' | undefined;
+    if (kind === 'channel') {
+      const tickIvl = (skill as any).channelTickInterval ?? 0.5;
+      const duration = ((skill as any).duration ?? 3) * 1000;
+      if (newChannelState && newChannelState.skillId === skill.id) {
+        // Continuing same channel — refresh nextTickAt, keep original expiresAt
+        newChannelState = {
+          ...newChannelState,
+          nextTickAt: now + tickIvl * 1000,
+        };
+      } else {
+        // New channel entry — either no prior channel or a different skill
+        newChannelState = {
+          skillId: skill.id,
+          startedAt: now,
+          nextTickAt: now + tickIvl * 1000,
+          expiresAt: now + duration,
+          tickInterval: tickIvl,
+        };
+      }
+    } else if (newChannelState !== null) {
+      // Non-channel cast interrupts any active channel.
+      newChannelState = null;
+    }
+  }
 
   // Update per-skill cooldown timer (if skill has a cooldown)
   // Apply graph CDR + ability haste for effective cooldown
@@ -1622,16 +1706,31 @@ export function runCombatTick(
       };
     }
 
+    // Phase A cleanup (2026-05-03): per-class event-proc mana gains
+    // (onHit/onCrit/onHitTaken). Boss path; onKill is paid in the
+    // bossOutcome:'defeat' early-return branch above (encounter ends, so moot).
+    const bossManaCfg = CLASS_MANA_CONFIG[state.character.class];
+    const bossProcGain =
+      (roll.isHit ? bossManaCfg.onHitDealtGain : 0)
+      + (roll.isCrit ? bossManaCfg.onCritGain : 0)
+      + ((bossAttackResult && bossAttackResult.damage > 0) ? bossManaCfg.onHitTakenGain : 0);
+
     return {
       patch: {
         ...trackingBoss,
         bossState: updatedBoss,
         currentHp: playerHp,
         nextActiveSkillAt,
+        channelState: newChannelState,
         skillTimers: newTimers,
         activeDebuffs: newDebuffs,
         tempBuffs: activeTempBuffs,
         skillCharges: newSkillCharges,
+        // Phase A Change 4 + cleanup: regen + proc-gain + deduct mana on successful skill cast
+        character: {
+          ...state.character,
+          mana: tickManaWithCost(state.character.mana, dtSec, skillManaCost, bossProcGain),
+        },
       },
       result: { ...bossResult, bossOutcome: 'ongoing' },
     };
@@ -2589,11 +2688,24 @@ export function runCombatTick(
     };
   }
 
+  // Phase A cleanup (2026-05-03): per-class event-proc mana gains
+  // (onHit/onCrit/onKill/onHitTaken). Pack path; onKill scales with mobKills
+  // (capped at 10 per tick by the kill loop). onHit/onCrit are 1 per cast
+  // (multi-strike skills currently still resolve as 1 roll → revisit with
+  // §8.1 ComboStateSpec / multi-hit refactor).
+  const packManaCfg = CLASS_MANA_CONFIG[state.character.class];
+  const packProcGain =
+    (roll.isHit ? packManaCfg.onHitDealtGain : 0)
+    + (roll.isCrit ? packManaCfg.onCritGain : 0)
+    + (mobKills * packManaCfg.onKillGain)
+    + ((zoneAttackResult && zoneAttackResult.damage > 0) ? packManaCfg.onHitTakenGain : 0);
+
   return {
     patch: {
       ...trackingClear,
       currentMobTypeId: newMobTypeId,
       nextActiveSkillAt,
+      channelState: newChannelState,
       skillTimers: newTimers,
       currentHp: playerHp,
       currentEs: newCurrentEs,
@@ -2601,6 +2713,11 @@ export function runCombatTick(
       skillCharges: newSkillCharges,
       packMobs: updatedPackMobs,
       currentPackSize: newCurrentPackSize,
+      // Phase A Change 4 + cleanup: regen + proc-gain + deduct mana on successful skill cast
+      character: {
+        ...state.character,
+        mana: tickManaWithCost(state.character.mana, dtSec, skillManaCost, packProcGain),
+      },
     },
     result: clearResult,
   };

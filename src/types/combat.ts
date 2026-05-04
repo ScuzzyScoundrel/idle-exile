@@ -202,3 +202,18 @@ export interface ComboState {
   maxStacks: number;
   effect: ComboStateEffect;
 }
+
+// ──────────────────────────────────────────────────────────────
+// Channel state — active-channel tracking for skillKind: 'channel'
+// ──────────────────────────────────────────────────────────────
+// Phase A Change 1. Tracks an in-progress channel skill. Null when
+// no channel active. Channel ticks fire every channelTickInterval
+// seconds until expiresAt, consuming mana per tick. Any other skill
+// cast breaks the channel early.
+export interface ChannelState {
+  skillId: string;
+  startedAt: number;        // ms timestamp
+  nextTickAt: number;       // ms timestamp — next damage/effect tick
+  expiresAt: number;        // ms timestamp — channel ends here
+  tickInterval: number;     // seconds — cached from skill def
+}

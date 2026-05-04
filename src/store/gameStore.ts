@@ -326,6 +326,8 @@ function createInitialState(): GameState {
     lastClearResult: null,
     lastSkillActivation: 0,
     nextActiveSkillAt: 0,
+    channelState: null,        // Phase A Change 1 — no channel active on fresh state
+    nextAutoAttackAt: 0,       // Phase A Change 2 — auto-attack timer, fires immediately on first tick
     packMobs: [],
     currentPackSize: 1,
     targetedMobId: null,
@@ -1373,7 +1375,7 @@ export const useGameStore = create<GameState & GameActions>()(
     })) as import('zustand').StateCreator<GameState & GameActions, [['zustand/persist', unknown]], []>,
     {
       name: 'idle-exile-save',
-      version: 64,
+      version: 65,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;

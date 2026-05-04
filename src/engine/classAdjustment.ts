@@ -68,10 +68,11 @@ export const CLASS_SKILL_ADJUSTMENTS: Record<string, ClassSkillAdjustment[]> = {
       flavorName: 'Venom Cloud' },
   ],
   staff_haunt: [
-    // Haunt is cold — Assassin overrides to physical (blade strikes).
+    // Haunt is chaos DoT (post-audit 2026-04-26) — Assassin keeps DoT shape per §4.3,
+    // reflavors as shadow plague. Dropped physical override + castTimeMult that
+    // previously turned the DoT into a fast strike (paradigm break).
     { skillId: 'staff_haunt', classIds: ['assassin'],
-      damageTypeOverride: 'physical', flavorName: 'Shadow Strike',
-      castTimeMult: 0.85 },
+      flavorName: 'Shadow Plague' },
   ],
   staff_hex: [
     // Hex is already chaos (poison-adjacent) — flavor rename only.
@@ -79,9 +80,11 @@ export const CLASS_SKILL_ADJUSTMENTS: Record<string, ClassSkillAdjustment[]> = {
       flavorName: 'Poison Hex' },
   ],
   staff_spirit_barrage: [
-    // Spirit Barrage is cold projectile — Assassin reskins as thrown needles.
+    // Spirit Barrage is chaos projectile (post-audit 2026-04-26) — Assassin keeps
+    // chaos + projectile shape per §4.3, reflavors as poison needles.
+    // castTimeMult 0.9 retained — within §4.3 ±20% cast-time allowance.
     { skillId: 'staff_spirit_barrage', classIds: ['assassin'],
-      damageTypeOverride: 'physical', flavorName: 'Needle Volley',
+      flavorName: 'Needle Volley',
       castTimeMult: 0.9 },
   ],
   staff_plague_of_toads: [
@@ -98,9 +101,11 @@ export const CLASS_SKILL_ADJUSTMENTS: Record<string, ClassSkillAdjustment[]> = {
       flavorName: 'Soul Drain' },
   ],
   staff_bouncing_skull: [
-    // Fire by default — Assassin reskins as thrown bouncing blade.
+    // Bouncing Skull is chaos chain (post-audit 2026-04-26) — Assassin keeps
+    // chain shape per §4.3, reflavors as bouncing dagger. Dropped physical
+    // override that previously broke the chaos-chain paradigm.
     { skillId: 'staff_bouncing_skull', classIds: ['assassin'],
-      damageTypeOverride: 'physical', flavorName: 'Bouncing Dagger' },
+      flavorName: 'Bouncing Dagger' },
   ],
   staff_mass_sacrifice: [
     { skillId: 'staff_mass_sacrifice', classIds: ['assassin'],

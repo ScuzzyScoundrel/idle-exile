@@ -911,5 +911,15 @@ export function runMigrations(
     }
   }
 
+  if (version < 65) {
+    // v65: Combat foundation Phase A Changes 1-2 state fields.
+    //  • channelState: tracks active channel skill (null = none).
+    //  • nextAutoAttackAt: weapon auto-attack timer (0 = fires immediately).
+    // Both ephemeral (reset on rehydrate) but must exist on the persisted
+    // shape because the post-migration type is GameState.
+    if (raw.channelState === undefined) raw.channelState = null;
+    if (raw.nextAutoAttackAt === undefined) raw.nextAutoAttackAt = 0;
+  }
+
   return state;
 }

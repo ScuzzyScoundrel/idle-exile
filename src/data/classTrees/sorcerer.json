@@ -1,0 +1,170 @@
+{
+  "$schema": "../../../docs/design/class-tree-schema.md",
+  "classId": "sorcerer",
+  "version": 1,
+  "authoredDate": "2026-05-03",
+  "spec": "Per COMBAT_AND_CLASS_OVERHAUL_PLAN.md §6.1 — 3 paths × ~27 nodes; 51 points total; tier-N gates at (N-1)*5 points; tier-7 capstone gates at ~31 points; multi-rank passives ~70%; identity/keystone ~30%.",
+  "totalNodes": 81,
+  "identityCount": 17,
+  "multiRankCount": 64,
+  "designNotes": [
+    "Class-First Principle (LOCKED §4.2): class trees are weapon-agnostic. NO weapon-conditional nodes. Tag-conditional nodes (channel, hybrid-damage, conversion) ARE allowed since tags apply across weapons via morphs.",
+    "Idle-game context: no movement/standing mechanics; combat is per-zone encounter; no tile concept (use 'all enemies in encounter' / 'in zone'). Chill is reframed as combat-action-speed slow (not movement), per idle-friendly directive.",
+    "Multi-rank flavor directive: 18 of 81 nodes (~22%) are pure stat-sticks; the remaining 63 carry proc/conditional/identity/cross-weapon flavor. Slightly above 20% target — Sor has more stat-foundation nodes due to Resonance bank size, mana, max charges, ignite stacking. Reasonable for the caster archetype.",
+    "Buff migrations: 0 (Sor pool not yet authored — no audited active buffs to migrate per SKILL_FANTASY_AUDIT scope).",
+    "Cross-weapon node: Cross-Weapon Convergence (Specialist T6) — Resonance and Convergence trigger regardless of weapon (per §8.2 cross-weapon combo-state propagation).",
+    "All 3 capstones reshape Resonance signature: Element Shifter (Elementalist) makes element-swap procs reset Resonance counter (free Convergence cycles); Saturation (Arcanist) raises Resonance cap +5 + grants cast-speed burst on spend; Avatar of Element (Specialist) commits to one element + protects chosen-element charge from element-swap reset.",
+    "Base-mechanic dependencies tracked per-node in `dependencies` array."
+  ],
+  "paths": [
+    {
+      "id": "elementalist",
+      "name": "Elementalist",
+      "theme": "Conversion-stack mastery. Maximum element conversion, hybrid damage, fast Resonance cycling. The Transmuter; physical damage barely exists.",
+      "ascendancyMirror": "Elementalist (per §10.1)",
+      "nodes": [
+        { "id": "sor_el_element_affinity", "name": "Element Affinity", "tier": 1, "kind": "passive", "ranks": 5, "category": "stat", "description": "+1/2/3/4/5% elemental damage (foundation).", "engineHook": "stat:elementalDamage", "dependencies": [] },
+        { "id": "sor_el_conversion_tap", "name": "Conversion Tap", "tier": 1, "kind": "passive", "ranks": 5, "category": "stat", "description": "Element conversion effects gain +2/4/6/8/10% effectiveness (foundation).", "engineHook": "stat:conversionEffectiveness", "dependencies": [] },
+        { "id": "sor_el_spell_cycle", "name": "Spell Cycle", "tier": 1, "kind": "passive", "ranks": 5, "category": "proc", "description": "Hits dealing a NEW element type (one not yet in current Resonance bank) have +5/10/15/20/25% chance to deal +50% damage.", "engineHook": "onSkillHit:newElementForResonance", "dependencies": ["resonanceMechanic"] },
+
+        { "id": "sor_el_fire_conversion", "name": "Fire Conversion", "tier": 2, "kind": "passive", "ranks": 5, "category": "proc", "description": "All hits gain +5/10/15/20/25% chance to convert 25% of physical damage to fire.", "engineHook": "onSkillHit", "dependencies": [] },
+        { "id": "sor_el_cold_conversion", "name": "Cold Conversion", "tier": 2, "kind": "passive", "ranks": 5, "category": "proc", "description": "All hits gain +5/10/15/20/25% chance to convert 25% of physical damage to cold.", "engineHook": "onSkillHit", "dependencies": [] },
+        { "id": "sor_el_lightning_conversion", "name": "Lightning Conversion", "tier": 2, "kind": "passive", "ranks": 5, "category": "proc", "description": "All hits gain +5/10/15/20/25% chance to convert 25% of physical damage to lightning.", "engineHook": "onSkillHit", "dependencies": [] },
+        { "id": "sor_el_chaos_conversion", "name": "Chaos Conversion", "tier": 2, "kind": "passive", "ranks": 5, "category": "proc", "description": "All hits gain +5/10/15/20/25% chance to convert 25% of physical damage to chaos.", "engineHook": "onSkillHit", "dependencies": [] },
+
+        { "id": "sor_el_element_swap", "name": "Element Swap", "tier": 3, "kind": "passive", "ranks": 5, "category": "proc", "description": "Crits have +5/10/15/20/25% chance to add a Resonance charge of a random missing element (Resonance accelerator).", "engineHook": "onSkillCrit", "dependencies": ["resonanceMechanic"] },
+        { "id": "sor_el_hybrid_empowerment", "name": "Hybrid Empowerment", "tier": 3, "kind": "passive", "ranks": 5, "category": "conditional", "description": "Skills that deal 2+ damage types deal +3/6/9/12/15% bonus damage.", "engineHook": "conditionalStat:damage:hybridDamageTypes", "dependencies": [] },
+        { "id": "sor_el_conversion_mastery", "name": "Conversion Mastery", "tier": 3, "kind": "passive", "ranks": 3, "category": "conditional", "description": "Conversion effects from this path stack to 110/120/130% instead of 100% (preview of Element Shifter capstone).", "engineHook": "stackingModifierCap:conversion", "dependencies": [] },
+        { "id": "sor_el_element_pulse", "name": "Element Pulse", "tier": 3, "kind": "passive", "ranks": 3, "category": "proc", "description": "On Resonance charge gain, +10/20/30% chance to refresh another existing charge to full duration.", "engineHook": "onResonanceChargeGain", "dependencies": ["resonanceMechanic"] },
+        { "id": "sor_el_catalyst", "name": "Catalyst", "tier": 3, "kind": "passive", "ranks": 5, "category": "conditional", "description": "Each unique element ailment on a target grants +2/4/6/8/10% damage to that target.", "engineHook": "conditionalStat:damage:uniqueElementAilmentsOnTarget", "dependencies": [] },
+
+        { "id": "sor_el_element_shaper", "name": "Element Shaper", "tier": 4, "kind": "passive", "ranks": 5, "category": "proc", "description": "Conversion-tagged hits have +1/2/3/4/5% chance to add 2 Resonance charges instead of 1.", "engineHook": "onSkillHit:conversionTagged", "dependencies": ["resonanceMechanic"] },
+        { "id": "sor_el_resonant_burst", "name": "Resonant Burst", "tier": 4, "kind": "passive", "ranks": 1, "category": "identity", "description": "On Convergence cast, fire an extra elemental detonation of a random element to all enemies in encounter for 50% spell power.", "engineHook": "onConvergenceCast", "dependencies": ["convergenceMechanic"] },
+        { "id": "sor_el_element_cycle", "name": "Element Cycle", "tier": 4, "kind": "passive", "ranks": 5, "category": "proc", "description": "On killing an enemy, +5/10/15/20/25% chance to gain a Resonance charge of a random missing element (onKill flavor for Sor).", "engineHook": "onEnemyKill", "dependencies": ["resonanceMechanic"] },
+        { "id": "sor_el_volatile_element", "name": "Volatile Element", "tier": 4, "kind": "passive", "ranks": 5, "category": "proc", "description": "Hits have +1/2/3/4/5% chance to detonate the target's last applied ailment for 100% of its remaining damage as instant burst.", "engineHook": "onSkillHit", "dependencies": [] },
+
+        { "id": "sor_el_conduit_mastery", "name": "Conduit Mastery", "tier": 5, "kind": "passive", "ranks": 5, "category": "stat", "description": "+5/10/15/20/25% spell power (foundation).", "engineHook": "stat:spellPower", "dependencies": [] },
+        { "id": "sor_el_hybrid_crit", "name": "Hybrid Crit", "tier": 5, "kind": "passive", "ranks": 5, "category": "conditional", "description": "Skills dealing 2+ damage types have +1/2/3/4/5% bonus crit chance.", "engineHook": "conditionalStat:critChance:hybridDamageTypes", "dependencies": [] },
+        { "id": "sor_el_element_reset", "name": "Element Reset", "tier": 5, "kind": "passive", "ranks": 5, "category": "proc", "description": "Element-swap procs have +5/10/15/20/25% chance to reset the Resonance counter to gain a fresh cycle (preview of Element Shifter capstone).", "engineHook": "onElementSwap", "dependencies": ["resonanceMechanic"] },
+        { "id": "sor_el_channeled_catalyst", "name": "Channeled Catalyst", "tier": 5, "kind": "passive", "ranks": 5, "category": "conditional", "description": "While channeling a spell, +2/4/6/8/10% spell power.", "engineHook": "conditionalStat:spellPower:channeling", "dependencies": [] },
+        { "id": "sor_el_convergence_storm", "name": "Convergence Storm", "tier": 5, "kind": "passive", "ranks": 5, "category": "stat", "description": "+5/10/15/20/25% Convergence damage (Convergence scaler).", "engineHook": "modifyMechanic:convergenceDamage", "dependencies": ["convergenceMechanic"] },
+
+        { "id": "sor_el_element_wave", "name": "Element Wave", "tier": 6, "kind": "passive", "ranks": 3, "category": "identity", "description": "Convergence applies all 4 ailments at +25/50/75% increased potency.", "engineHook": "modifyMechanic:convergenceAilmentPotency", "dependencies": ["convergenceMechanic"] },
+        { "id": "sor_el_apex_convergence", "name": "Apex Convergence", "tier": 6, "kind": "passive", "ranks": 1, "category": "identity", "description": "On Convergence cast, your next 3 casts within 4s benefit from all 4 element-ailment vulnerabilities on the target.", "engineHook": "onConvergenceCast", "dependencies": ["convergenceMechanic"] },
+        { "id": "sor_el_charged_reservoir", "name": "Charged Reservoir", "tier": 6, "kind": "passive", "ranks": 1, "category": "identity", "description": "Resonance charges no longer expire while you have a kill streak (1 kill within 5s).", "engineHook": "modifyMechanic:resonanceChargeDecayPause:killStreak", "dependencies": ["resonanceMechanic"] },
+        { "id": "sor_el_hybrid_breakthrough", "name": "Hybrid Breakthrough", "tier": 6, "kind": "passive", "ranks": 3, "category": "proc", "description": "Hybrid-damage skills have +5/10/15% chance to apply Charged combo state.", "engineHook": "onSkillHit:hybridDamageTypes", "dependencies": [] },
+
+        { "id": "sor_el_element_shifter", "name": "Element Shifter", "tier": 7, "kind": "capstone", "ranks": 1, "category": "identity", "description": "Conversion effects stack to 150% (instead of base 100%). Element-swap procs also reset the Resonance counter (free Convergence cycles). (Mirrors §10.1 Elementalist ascendancy keystone — reshapes Resonance by enabling rapid Convergence cycling via element-swap reset.)", "engineHook": "modifyMechanic:conversionStackCap+resonanceCounterReset", "dependencies": ["resonanceMechanic", "convergenceMechanic"] },
+        { "id": "sor_el_quad_element_mastery", "name": "Quad-Element Mastery", "tier": 7, "kind": "capstone_supporting", "ranks": 1, "category": "identity", "description": "All 4 elements deal +10% damage permanently. Hybrid-damage skills always count as 4-element for Resonance (each cast provides full Resonance progress).", "engineHook": "modifyMechanic:hybridCountAs4Element", "dependencies": ["resonanceMechanic"] }
+      ]
+    },
+    {
+      "id": "arcanist",
+      "name": "Arcanist",
+      "theme": "Resonance bank specialist. Hold charges longer, spend grants cast-speed burst, oversize Convergence detonations. The Banker; long buildup, devastating release.",
+      "ascendancyMirror": "Arcanist (per §10.1)",
+      "nodes": [
+        { "id": "sor_ar_resonance_memory", "name": "Resonance Memory", "tier": 1, "kind": "passive", "ranks": 5, "category": "stat", "description": "+1/2/3/4/5s Resonance charge duration (foundation).", "engineHook": "stat:resonanceChargeDuration", "dependencies": ["resonanceMechanic"] },
+        { "id": "sor_ar_mana_reservoir", "name": "Mana Reservoir", "tier": 1, "kind": "passive", "ranks": 5, "category": "stat", "description": "+5/10/15/20/25 maximum mana (foundation).", "engineHook": "stat:maxMana", "dependencies": [] },
+        { "id": "sor_ar_charge_sense", "name": "Charge Sense", "tier": 1, "kind": "passive", "ranks": 5, "category": "proc", "description": "On gaining a Resonance charge, +1/2/3/4/5% chance to add an additional charge of the same element.", "engineHook": "onResonanceChargeGain", "dependencies": ["resonanceMechanic"] },
+
+        { "id": "sor_ar_channeled_resonance", "name": "Channeled Resonance", "tier": 2, "kind": "passive", "ranks": 5, "category": "conditional", "description": "While channeling, +5/10/15/20/25% chance per second to add a Resonance charge of the channel's element.", "engineHook": "onChannelTick", "dependencies": ["resonanceMechanic"] },
+        { "id": "sor_ar_bank_surge", "name": "Bank Surge", "tier": 2, "kind": "passive", "ranks": 5, "category": "conditional", "description": "For each Resonance charge held, +1/2/3/4/5% spell power.", "engineHook": "conditionalStat:spellPower:resonanceChargeCount", "dependencies": ["resonanceMechanic"] },
+        { "id": "sor_ar_convergence_burst", "name": "Convergence Burst", "tier": 2, "kind": "passive", "ranks": 5, "category": "proc", "description": "Convergence cast has +20/40/60/80/100% chance to refund 50% of its mana cost.", "engineHook": "onConvergenceCast", "dependencies": ["convergenceMechanic"] },
+        { "id": "sor_ar_crystal_lattice", "name": "Crystal Lattice", "tier": 2, "kind": "passive", "ranks": 5, "category": "conditional", "description": "Resonance charges grant +2/4/6/8/10% defense per charge held.", "engineHook": "conditionalStat:defense:resonanceChargeCount", "dependencies": ["resonanceMechanic"] },
+
+        { "id": "sor_ar_resonance_sense", "name": "Resonance Sense", "tier": 3, "kind": "passive", "ranks": 5, "category": "conditional", "description": "Hits while at 4+ Resonance charges have +5/10/15/20/25% bonus crit chance.", "engineHook": "conditionalStat:critChance:resonanceChargesAtLeast4", "dependencies": ["resonanceMechanic"] },
+        { "id": "sor_ar_mana_surge", "name": "Mana Surge", "tier": 3, "kind": "passive", "ranks": 3, "category": "proc", "description": "On crit, +1/2/3 mana refunded (Sor onCrit augment).", "engineHook": "onSkillCrit", "dependencies": [] },
+        { "id": "sor_ar_hold_the_charge", "name": "Hold the Charge", "tier": 3, "kind": "passive", "ranks": 1, "category": "identity", "description": "Resonance charges no longer expire while in combat.", "engineHook": "modifyMechanic:resonanceChargeDecayPause:inCombat", "dependencies": ["resonanceMechanic"] },
+        { "id": "sor_ar_bank_mastery", "name": "Bank Mastery", "tier": 3, "kind": "passive", "ranks": 3, "category": "stat", "description": "Maximum Resonance charges +1/2/3 (raises base 4 → 5/6/7).", "engineHook": "stat:maxResonanceCharges", "dependencies": ["resonanceMechanic"] },
+        { "id": "sor_ar_spectral_echo", "name": "Spectral Echo", "tier": 3, "kind": "passive", "ranks": 5, "category": "proc", "description": "Convergence has +20/40/60/80/100% chance to spawn a phantom-Convergence cast 1.5s later for 50% damage.", "engineHook": "onConvergenceCast", "dependencies": ["convergenceMechanic"] },
+
+        { "id": "sor_ar_saturation_tempo", "name": "Saturation Tempo", "tier": 4, "kind": "passive", "ranks": 3, "category": "proc", "description": "On Convergence cast, gain +20/40/60% cast speed for 3s (preview of Saturation capstone).", "engineHook": "onConvergenceCast", "dependencies": ["convergenceMechanic"] },
+        { "id": "sor_ar_charged_defense", "name": "Charged Defense", "tier": 4, "kind": "passive", "ranks": 5, "category": "conditional", "description": "While at 4+ Resonance charges, +5/10/15/20/25% damage reduction.", "engineHook": "conditionalStat:damageReduction:resonanceChargesAtLeast4", "dependencies": ["resonanceMechanic"] },
+        { "id": "sor_ar_bank_reservoir", "name": "Bank Reservoir", "tier": 4, "kind": "passive", "ranks": 1, "category": "identity", "description": "Maximum Resonance charges +1 (stacks with Bank Mastery).", "engineHook": "stat:maxResonanceCharges", "dependencies": ["resonanceMechanic"] },
+        { "id": "sor_ar_discharged_crit", "name": "Discharged Crit", "tier": 4, "kind": "passive", "ranks": 5, "category": "proc", "description": "Convergence crits have +10/20/30/40/50% chance to add 2 Resonance charges of random missing elements (post-Convergence Resonance recovery).", "engineHook": "onConvergenceCrit", "dependencies": ["convergenceMechanic"] },
+
+        { "id": "sor_ar_spell_reservoir", "name": "Spell Reservoir", "tier": 5, "kind": "passive", "ranks": 5, "category": "stat", "description": "+1/2/3/4/5 mana regen per second (foundation).", "engineHook": "stat:passiveManaRegen", "dependencies": [] },
+        { "id": "sor_ar_arcane_foresight", "name": "Arcane Foresight", "tier": 5, "kind": "passive", "ranks": 5, "category": "conditional", "description": "Skills cast while at 3+ Resonance charges have +1/2/3/4/5% bonus crit chance.", "engineHook": "conditionalStat:critChance:resonanceChargesAtLeast3", "dependencies": ["resonanceMechanic"] },
+        { "id": "sor_ar_convergence_mastery", "name": "Convergence Mastery", "tier": 5, "kind": "passive", "ranks": 5, "category": "stat", "description": "+5/10/15/20/25% Convergence damage (Convergence scaler — stacks with Convergence Storm).", "engineHook": "modifyMechanic:convergenceDamage", "dependencies": ["convergenceMechanic"] },
+        { "id": "sor_ar_element_memory", "name": "Element Memory", "tier": 5, "kind": "passive", "ranks": 1, "category": "identity", "description": "Resonance charges no longer require dealing the element to add — once an element has been dealt this combat, holding the corresponding charge is free per cycle.", "engineHook": "modifyMechanic:resonanceChargeReuse:combatMemory", "dependencies": ["resonanceMechanic"] },
+        { "id": "sor_ar_surge_mastery", "name": "Surge Mastery", "tier": 5, "kind": "passive", "ranks": 5, "category": "proc", "description": "Mana refund procs (Mana Surge, Convergence Burst) have +5/10/15/20/25% chance to refund double.", "engineHook": "onManaRefundProc", "dependencies": [] },
+
+        { "id": "sor_ar_saturation_bank", "name": "Saturation Bank", "tier": 6, "kind": "passive", "ranks": 1, "category": "identity", "description": "Resonance charges expire at 50% slower rate.", "engineHook": "modifyMechanic:resonanceChargeDecayRate", "dependencies": ["resonanceMechanic"] },
+        { "id": "sor_ar_apex_charge", "name": "Apex Charge", "tier": 6, "kind": "passive", "ranks": 3, "category": "proc", "description": "At 4+ Resonance charges, hits have +5/10/15% chance to deal Convergence-style 4-element damage without consuming charges.", "engineHook": "onSkillHit:resonanceChargesAtLeast4", "dependencies": ["resonanceMechanic"] },
+        { "id": "sor_ar_channel_mastery", "name": "Channel Mastery", "tier": 6, "kind": "passive", "ranks": 1, "category": "identity", "description": "Channels cost no mana while at 4+ Resonance charges (preview of Saturation cycle pacing).", "engineHook": "conditionalMechanic:channelManaFree:resonanceChargesAtLeast4", "dependencies": ["resonanceMechanic"] },
+        { "id": "sor_ar_resonance_echo", "name": "Resonance Echo", "tier": 6, "kind": "passive", "ranks": 3, "category": "stat", "description": "+10/20/30% Convergence damage (final scaler — stacks with Convergence Storm + Convergence Mastery).", "engineHook": "modifyMechanic:convergenceDamage", "dependencies": ["convergenceMechanic"] },
+
+        { "id": "sor_ar_saturation", "name": "Saturation", "tier": 7, "kind": "capstone", "ranks": 1, "category": "identity", "description": "Maximum Resonance charges +5 (4 → 9 with all bank nodes). Spending Resonance grants a cast-speed burst (+50% for 4s). (Mirrors §10.1 Arcanist ascendancy keystone — reshapes Resonance by oversizing the bank and rewarding the spend cycle.)", "engineHook": "modifyMechanic:maxResonanceCharges+spendCastSpeedBurst", "dependencies": ["resonanceMechanic", "convergenceMechanic"] },
+        { "id": "sor_ar_resonance_sovereign", "name": "Resonance Sovereign", "tier": 7, "kind": "capstone_supporting", "ranks": 1, "category": "identity", "description": "Convergence at 9 charges (with Saturation) deals +200% damage and applies all 4 ailments at +50% potency.", "engineHook": "modifyMechanic:convergenceMaxChargeBonus", "dependencies": ["resonanceMechanic", "convergenceMechanic"] }
+      ]
+    },
+    {
+      "id": "specialist",
+      "name": "Specialist",
+      "theme": "Single-element commitment + element-ailment mastery. Pyromancer / Cryomancer / Stormcaller — pick your element at ascendancy. The Avatar; pure-color mage archetype.",
+      "ascendancyMirror": "Pyromancer / Cryomancer / Stormcaller (per §10.1) — player picks one at ascendancy time",
+      "nodes": [
+        { "id": "sor_sp_pyre_affinity", "name": "Pyre Affinity", "tier": 1, "kind": "passive", "ranks": 5, "category": "stat", "description": "+2/4/6/8/10% fire damage (foundation).", "engineHook": "stat:fireDamage", "dependencies": [] },
+        { "id": "sor_sp_frost_affinity", "name": "Frost Affinity", "tier": 1, "kind": "passive", "ranks": 5, "category": "stat", "description": "+2/4/6/8/10% cold damage (foundation).", "engineHook": "stat:coldDamage", "dependencies": [] },
+        { "id": "sor_sp_storm_affinity", "name": "Storm Affinity", "tier": 1, "kind": "passive", "ranks": 5, "category": "stat", "description": "+2/4/6/8/10% lightning damage (foundation).", "engineHook": "stat:lightningDamage", "dependencies": [] },
+
+        { "id": "sor_sp_ignite_mastery", "name": "Ignite Mastery", "tier": 2, "kind": "passive", "ranks": 5, "category": "stat", "description": "+5/10/15/20/25% Ignite damage.", "engineHook": "stat:igniteDamage", "dependencies": [] },
+        { "id": "sor_sp_chill_mastery", "name": "Chill Mastery", "tier": 2, "kind": "passive", "ranks": 5, "category": "stat", "description": "Chilled enemies have +5/10/15/20/25% slower combat-action speed (idle-friendly: action speed slow, not movement).", "engineHook": "stat:chillActionSlow", "dependencies": [] },
+        { "id": "sor_sp_shock_mastery", "name": "Shock Mastery", "tier": 2, "kind": "passive", "ranks": 5, "category": "stat", "description": "Shocked enemies take +2/4/6/8/10% increased damage per Shock stack.", "engineHook": "stat:shockDamageIncrease", "dependencies": [] },
+        { "id": "sor_sp_fire_spread", "name": "Fire Spread", "tier": 2, "kind": "passive", "ranks": 5, "category": "proc", "description": "Ignite ticks have +5/10/15/20/25% chance to spread to a different enemy in encounter.", "engineHook": "onIgniteDotTick", "dependencies": [] },
+
+        { "id": "sor_sp_frost_bite", "name": "Frost Bite", "tier": 3, "kind": "passive", "ranks": 5, "category": "conditional", "description": "Chilled enemies take +1/2/3/4/5% increased crit damage from your skills.", "engineHook": "conditionalStat:critDamage:targetChilled", "dependencies": [] },
+        { "id": "sor_sp_storm_cascade", "name": "Storm Cascade", "tier": 3, "kind": "passive", "ranks": 5, "category": "proc", "description": "Lightning crits have +5/10/15/20/25% chance to chain to one different enemy in encounter for 50% damage.", "engineHook": "onSkillCrit:lightning", "dependencies": [] },
+        { "id": "sor_sp_conflagration", "name": "Conflagration", "tier": 3, "kind": "passive", "ranks": 5, "category": "proc", "description": "On igniting a target, +10/20/30/40/50% chance to apply 2 Ignites instead of 1.", "engineHook": "onIgniteApply", "dependencies": [] },
+        { "id": "sor_sp_crystallize", "name": "Crystallize", "tier": 3, "kind": "passive", "ranks": 3, "category": "proc", "description": "Chill stacks have +1/2/3% chance to cap on application (instant Frozen Solid).", "engineHook": "onChillStackApply", "dependencies": [] },
+        { "id": "sor_sp_conducted", "name": "Conducted", "tier": 3, "kind": "passive", "ranks": 5, "category": "proc", "description": "Lightning hits on enemies in Charged state have +5/10/15/20/25% chance to apply Conducted (chain primer).", "engineHook": "onSkillHit:lightning:targetCharged", "dependencies": [] },
+
+        { "id": "sor_sp_avatar_preview", "name": "Avatar Preview", "tier": 4, "kind": "passive", "ranks": 5, "category": "conditional", "description": "Pick one element at ascendancy time; chosen element gets +5/10/15/20/25% damage even before capstone.", "engineHook": "conditionalStat:elementalDamage:chosenElement", "dependencies": [] },
+        { "id": "sor_sp_frozen_solid_mastery", "name": "Frozen Solid Mastery", "tier": 4, "kind": "passive", "ranks": 3, "category": "proc", "description": "Hits on Frozen Solid targets have +20/40/60% chance to fire twice.", "engineHook": "onSkillHit:targetFrozenSolid", "dependencies": [] },
+        { "id": "sor_sp_burning_hex", "name": "Burning Hex", "tier": 4, "kind": "passive", "ranks": 3, "category": "stat", "description": "Ignites stack +1/2/3 times (instead of base cap of 1 per source).", "engineHook": "stat:maxIgniteStacks", "dependencies": [] },
+        { "id": "sor_sp_storm_crest", "name": "Storm Crest", "tier": 4, "kind": "passive", "ranks": 5, "category": "proc", "description": "Lightning crits have +1/2/3/4/5% chance to also apply Shock to all enemies in encounter.", "engineHook": "onSkillCrit:lightning", "dependencies": [] },
+
+        { "id": "sor_sp_element_mastery", "name": "Element Mastery", "tier": 5, "kind": "passive", "ranks": 5, "category": "stat", "description": "+5/10/15/20/25% elemental crit damage.", "engineHook": "stat:elementalCritDamage", "dependencies": [] },
+        { "id": "sor_sp_pyre_crit", "name": "Pyre Crit", "tier": 5, "kind": "passive", "ranks": 5, "category": "proc", "description": "Fire crits have +2/4/6/8/10% chance to apply Ignite at +50% potency.", "engineHook": "onSkillCrit:fire", "dependencies": [] },
+        { "id": "sor_sp_frost_crit", "name": "Frost Crit", "tier": 5, "kind": "passive", "ranks": 5, "category": "proc", "description": "Cold crits have +2/4/6/8/10% chance to apply 3 Chill stacks at once.", "engineHook": "onSkillCrit:cold", "dependencies": [] },
+        { "id": "sor_sp_storm_crit", "name": "Storm Crit", "tier": 5, "kind": "passive", "ranks": 5, "category": "proc", "description": "Lightning crits have +2/4/6/8/10% chance to apply 2 Shock stacks at once.", "engineHook": "onSkillCrit:lightning", "dependencies": [] },
+        { "id": "sor_sp_cross_element_cascade", "name": "Cross-Element Cascade", "tier": 5, "kind": "passive", "ranks": 5, "category": "conditional", "description": "Resonance charges of any element add +1/2/3/4/5% damage to ALL elements (cross-pollination).", "engineHook": "conditionalStat:elementalDamage:resonanceChargeCount", "dependencies": ["resonanceMechanic"] },
+
+        { "id": "sor_sp_cross_weapon_convergence", "name": "Cross-Weapon Convergence", "tier": 6, "kind": "passive", "ranks": 1, "category": "cross_weapon", "description": "Resonance and Convergence trigger regardless of weapon equipped. Any skill, any weapon, contributes to Resonance charge gain. (Per §8.2 cross-weapon combo-state propagation — primary cross-weapon node for Sor.)", "engineHook": "modifyMechanic:resonanceCrossWeapon", "dependencies": ["resonanceMechanic", "convergenceMechanic"] },
+        { "id": "sor_sp_frozen_apocalypse", "name": "Frozen Apocalypse", "tier": 6, "kind": "passive", "ranks": 1, "category": "identity", "description": "Frozen Solid targets explode on death for 50% of your spell power as cold damage to all enemies in encounter.", "engineHook": "onEnemyKill:targetFrozenSolid", "dependencies": [] },
+        { "id": "sor_sp_pyre_bloom", "name": "Pyre Bloom", "tier": 6, "kind": "passive", "ranks": 3, "category": "proc", "description": "Ignites that kill have +25/50/75% chance to spawn an Ignite-pulse to all enemies in encounter for 50% Ignite damage.", "engineHook": "onEnemyKill:targetIgnited", "dependencies": [] },
+        { "id": "sor_sp_storm_anchor", "name": "Storm Anchor", "tier": 6, "kind": "passive", "ranks": 1, "category": "identity", "description": "Lightning chains gain +1 jump per chain (chains hit one extra enemy each bounce).", "engineHook": "modifyMechanic:lightningChainBounceCount", "dependencies": [] },
+
+        { "id": "sor_sp_avatar_of_element", "name": "Avatar of Element", "tier": 7, "kind": "capstone", "ranks": 1, "category": "identity", "description": "Pick one element at ascendancy time. Chosen element gains +50% damage; other elements gain +25% damage. Element-swap procs no longer reset chosen element charge. (Mirrors §10.1 Pyromancer/Cryomancer/Stormcaller ascendancy keystones — reshapes Resonance by committing to one element while protecting its charge.)", "engineHook": "modifyMechanic:chosenElementBonus+chargeProtection", "dependencies": ["resonanceMechanic"] },
+        { "id": "sor_sp_element_sovereign", "name": "Element Sovereign", "tier": 7, "kind": "capstone_supporting", "ranks": 1, "category": "identity", "description": "Your chosen element's ailment can crit (Ignite crits / Chill crits / Shock crits / Poison crits depending on chosen element).", "engineHook": "modifyMechanic:chosenElementAilmentCanCrit", "dependencies": [] }
+      ]
+    }
+  ],
+  "summary": {
+    "tier1Nodes": 9,
+    "tier2Nodes": 12,
+    "tier3Nodes": 15,
+    "tier4Nodes": 12,
+    "tier5Nodes": 15,
+    "tier6Nodes": 12,
+    "tier7Nodes": 6,
+    "categoryDistribution": {
+      "proc": 31,
+      "conditional": 14,
+      "stat": 18,
+      "identity": 17,
+      "buff_migration": 0,
+      "cross_weapon": 1,
+      "_note": "Multi-rank flavor distribution: 63 of 81 nodes (~78%) carry proc/conditional/identity/cross-weapon flavor; 18 (~22%) are pure stat-sticks. Stat density is slightly above 20% target due to Resonance bank mechanics (max charges, durations, mana regen, ignite stack cap). All 3 tier-7 capstones reshape Resonance signature."
+    },
+    "engineHookDistribution": {
+      "note": "Phase C engineering: each unique engineHook needs an event-emit point. Sor-specific hooks: onResonanceChargeGain, onConvergenceCast, onConvergenceCrit, onElementSwap, onChannelTick, onIgniteDotTick, onChillStackApply, onIgniteApply, onManaRefundProc.",
+      "uniqueHooks": "~38 unique engineHook patterns across 81 nodes; element-specific procs (onSkillCrit:fire/cold/lightning) share infrastructure."
+    },
+    "dependencies": {
+      "resonanceMechanic": ["sor_el_spell_cycle", "sor_el_element_swap", "sor_el_element_pulse", "sor_el_element_shaper", "sor_el_element_cycle", "sor_el_element_reset", "sor_el_charged_reservoir", "sor_el_element_shifter", "sor_el_quad_element_mastery", "sor_ar_resonance_memory", "sor_ar_charge_sense", "sor_ar_channeled_resonance", "sor_ar_bank_surge", "sor_ar_crystal_lattice", "sor_ar_resonance_sense", "sor_ar_hold_the_charge", "sor_ar_bank_mastery", "sor_ar_charged_defense", "sor_ar_bank_reservoir", "sor_ar_arcane_foresight", "sor_ar_element_memory", "sor_ar_saturation_bank", "sor_ar_apex_charge", "sor_ar_channel_mastery", "sor_ar_saturation", "sor_ar_resonance_sovereign", "sor_sp_cross_element_cascade", "sor_sp_cross_weapon_convergence", "sor_sp_avatar_of_element"],
+      "convergenceMechanic": ["sor_el_resonant_burst", "sor_el_convergence_storm", "sor_el_element_wave", "sor_el_apex_convergence", "sor_el_element_shifter", "sor_ar_convergence_burst", "sor_ar_spectral_echo", "sor_ar_saturation_tempo", "sor_ar_discharged_crit", "sor_ar_convergence_mastery", "sor_ar_resonance_echo", "sor_ar_saturation", "sor_ar_resonance_sovereign", "sor_sp_cross_weapon_convergence"]
+    }
+  }
+}

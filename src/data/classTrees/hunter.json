@@ -1,0 +1,172 @@
+{
+  "$schema": "../../../docs/design/class-tree-schema.md",
+  "classId": "hunter",
+  "version": 1,
+  "authoredDate": "2026-05-03",
+  "spec": "Per COMBAT_AND_CLASS_OVERHAUL_PLAN.md §6.1 — 3 paths × ~27 nodes; 51 points total; tier-N gates at (N-1)*5 points; tier-7 capstone gates at ~31 points; multi-rank passives ~70%; identity/keystone ~30%.",
+  "totalNodes": 81,
+  "identityCount": 15,
+  "multiRankCount": 66,
+  "designNotes": [
+    "Class-First Principle (LOCKED §4.2): class trees are weapon-agnostic. NO weapon-conditional nodes. Tag-conditional nodes (wind-up, single-target, trap, projectile) ARE allowed since tags apply across weapons via morphs.",
+    "Idle-game context: no movement/standing mechanics. Snared is action-speed slow on enemy (idle-friendly), not movement-locked. Traps are zone-effects, not tile-based. Companion combat is per-encounter, not pet-positioning.",
+    "Multi-rank flavor directive: 15 of 81 nodes (~19%) are pure stat-sticks; the remaining 66 carry proc/conditional/identity/cross-weapon flavor. Within target.",
+    "Buff migrations: 0 (Hnt pool not yet authored — no audited active buffs to migrate per SKILL_FANTASY_AUDIT scope; bow pool is Phase C3 rebuild).",
+    "Cross-weapon node: Cross-Weapon Mark (Trapper T6) — Mark & Execute triggers regardless of weapon equipped (per §8.2 cross-weapon combo-state propagation).",
+    "All 3 capstones reshape Mark & Execute signature: Headhunter (Marksman) makes first hit on new target always crit + doubles Precision Payoff; Pack Leader (Beastmaster) summons permanent companion that inherits Mark application + on-hit procs; Snare Field (Trapper) gives traps +2 arming counts + escalating chain damage.",
+    "Base-mechanic dependencies tracked per-node in `dependencies` array."
+  ],
+  "paths": [
+    {
+      "id": "marksman",
+      "name": "Marksman",
+      "theme": "Crit-precision axis. First-hit crits, precision payoffs, sniper-cycle. The Headhunter; every encounter opens with a guaranteed crit, then snowballs.",
+      "ascendancyMirror": "Marksman (per §10.1)",
+      "nodes": [
+        { "id": "hnt_mm_steady_aim", "name": "Steady Aim", "tier": 1, "kind": "passive", "ranks": 5, "category": "stat", "description": "+1/2/3/4/5% crit chance (foundation).", "engineHook": "stat:critChance", "dependencies": [] },
+        { "id": "hnt_mm_hunters_eye", "name": "Hunter's Eye", "tier": 1, "kind": "passive", "ranks": 5, "category": "proc", "description": "On Mark application, +5/10/15/20/25% chance to gain a guaranteed-crit charge for the follow-up Precision Payoff.", "engineHook": "onMarkApply", "dependencies": ["markMechanic"] },
+        { "id": "hnt_mm_precision_tap", "name": "Precision Tap", "tier": 1, "kind": "passive", "ranks": 5, "category": "stat", "description": "+1/2/3/4/5% damage on single-target tagged skills (foundation).", "engineHook": "stat:damage:singleTargetTagged", "dependencies": [] },
+
+        { "id": "hnt_mm_hunters_patience", "name": "Hunter's Patience", "tier": 2, "kind": "passive", "ranks": 5, "category": "conditional", "description": "+5/10/15/20/25% damage on first hit on a new target.", "engineHook": "conditionalStat:damage:firstHitOnTarget", "dependencies": [] },
+        { "id": "hnt_mm_heavy_bolt", "name": "Heavy Bolt", "tier": 2, "kind": "passive", "ranks": 5, "category": "stat", "description": "+5/10/15/20/25% damage on wind-up tagged skills (Crossbow paradigm support).", "engineHook": "stat:damage:windUpTagged", "dependencies": [] },
+        { "id": "hnt_mm_critical_aim", "name": "Critical Aim", "tier": 2, "kind": "passive", "ranks": 5, "category": "conditional", "description": "+2/4/6/8/10% crit chance against Marked targets.", "engineHook": "conditionalStat:critChance:targetMarked", "dependencies": ["markMechanic"] },
+        { "id": "hnt_mm_snipers_tempo", "name": "Sniper's Tempo", "tier": 2, "kind": "passive", "ranks": 3, "category": "proc", "description": "On crit, the consumed skill regains 1/2/3 mana.", "engineHook": "onSkillCrit", "dependencies": [] },
+
+        { "id": "hnt_mm_headshot_sense", "name": "Headshot Sense", "tier": 3, "kind": "passive", "ranks": 5, "category": "conditional", "description": "+5/10/15/20/25% crit damage against Marked targets.", "engineHook": "conditionalStat:critDamage:targetMarked", "dependencies": ["markMechanic"] },
+        { "id": "hnt_mm_bleeding_out_mastery", "name": "Bleeding Out Mastery", "tier": 3, "kind": "passive", "ranks": 5, "category": "proc", "description": "Bleeding Out ticks have +2/4/6/8/10% chance to crit.", "engineHook": "onBleedDotTick:critRoll", "dependencies": [] },
+        { "id": "hnt_mm_precision_cascade", "name": "Precision Cascade", "tier": 3, "kind": "passive", "ranks": 5, "category": "proc", "description": "Precision Payoffs have +10/20/30/40/50% chance to refresh Mark on the target instead of consuming.", "engineHook": "onPrecisionPayoff", "dependencies": ["markMechanic"] },
+        { "id": "hnt_mm_sharpened_bolt", "name": "Sharpened Bolt", "tier": 3, "kind": "passive", "ranks": 5, "category": "stat", "description": "+5/10/15/20/25% crit damage on wind-up tagged skills (Crossbow paradigm support).", "engineHook": "stat:critDamage:windUpTagged", "dependencies": [] },
+        { "id": "hnt_mm_mark_hunter", "name": "Mark Hunter", "tier": 3, "kind": "passive", "ranks": 5, "category": "conditional", "description": "+1/2/3/4/5% damage to Marked targets (foundation).", "engineHook": "conditionalStat:damage:targetMarked", "dependencies": ["markMechanic"] },
+
+        { "id": "hnt_mm_headhunter_preview", "name": "Headhunter Preview", "tier": 4, "kind": "passive", "ranks": 5, "category": "proc", "description": "First hit on a new target has +20/40/60/80/100% bonus crit chance (preview of Headhunter capstone).", "engineHook": "onFirstHitOnTarget", "dependencies": [] },
+        { "id": "hnt_mm_snipers_mastery", "name": "Sniper's Mastery", "tier": 4, "kind": "passive", "ranks": 5, "category": "proc", "description": "Single-target crit hits have +1/2/3/4/5% chance to deal triple damage instead of crit damage (replaces flat scaling with spike-proc).", "engineHook": "onSkillCrit:singleTargetTagged", "dependencies": [] },
+        { "id": "hnt_mm_mark_reset", "name": "Mark Reset", "tier": 4, "kind": "passive", "ranks": 3, "category": "proc", "description": "On crit-killing a Marked target, +20/40/60% chance to instantly Mark all enemies in encounter.", "engineHook": "onSkillCrit:enemyKilled+targetMarked", "dependencies": ["markMechanic"] },
+        { "id": "hnt_mm_precision_payoff_mastery", "name": "Precision Payoff Mastery", "tier": 4, "kind": "passive", "ranks": 5, "category": "conditional", "description": "+5/10/15/20/25% damage on Precision Payoff hits (scaling the signature consumer).", "engineHook": "conditionalStat:damage:precisionPayoff", "dependencies": ["markMechanic"] },
+
+        { "id": "hnt_mm_crit_mastery", "name": "Crit Mastery", "tier": 5, "kind": "passive", "ranks": 5, "category": "stat", "description": "+2/4/6/8/10% crit chance (foundation).", "engineHook": "stat:critChance", "dependencies": [] },
+        { "id": "hnt_mm_mark_echo", "name": "Mark Echo", "tier": 5, "kind": "passive", "ranks": 5, "category": "proc", "description": "On Mark application, +5/10/15/20/25% chance to also apply Tracked.", "engineHook": "onMarkApply", "dependencies": ["markMechanic"] },
+        { "id": "hnt_mm_snipers_patience", "name": "Sniper's Patience", "tier": 5, "kind": "passive", "ranks": 5, "category": "conditional", "description": "Wind-up tagged skill cast time -2/4/6/8/10% per second held in encounter (charge-up bonus, max -50% at 5s).", "engineHook": "conditionalStat:castTime:windUpTagged+heldDuration", "dependencies": [] },
+        { "id": "hnt_mm_precision_reaper", "name": "Precision Reaper", "tier": 5, "kind": "passive", "ranks": 1, "category": "identity", "description": "On Precision Payoff kill, refund the consumer skill's cooldown completely.", "engineHook": "onPrecisionPayoff:enemyKilled", "dependencies": ["markMechanic"] },
+        { "id": "hnt_mm_critical_cycle", "name": "Critical Cycle", "tier": 5, "kind": "passive", "ranks": 5, "category": "proc", "description": "On crit, +1/2/3/4/5% chance to instantly Mark another enemy in encounter.", "engineHook": "onSkillCrit", "dependencies": ["markMechanic"] },
+
+        { "id": "hnt_mm_mark_master", "name": "Mark Master", "tier": 6, "kind": "passive", "ranks": 3, "category": "stat", "description": "+2/4/6 seconds Mark duration.", "engineHook": "comboStateDuration:marked", "dependencies": ["markMechanic"] },
+        { "id": "hnt_mm_headshot_cascade", "name": "Headshot Cascade", "tier": 6, "kind": "passive", "ranks": 3, "category": "proc", "description": "Crits against Marked targets have +5/10/15% chance to fire an additional copy of the consumer skill on the same target.", "engineHook": "onSkillCrit:targetMarked", "dependencies": ["markMechanic"] },
+        { "id": "hnt_mm_trackers_sigil", "name": "Tracker's Sigil", "tier": 6, "kind": "passive", "ranks": 1, "category": "identity", "description": "Tracked enemies always count as Marked for Precision Payoff purposes (cross-state aliasing).", "engineHook": "modifyMechanic:trackedCountsAsMarked", "dependencies": ["markMechanic"] },
+        { "id": "hnt_mm_apex_marksman", "name": "Apex Marksman", "tier": 6, "kind": "passive", "ranks": 3, "category": "conditional", "description": "+1/2/3% crit chance per Marked enemy in encounter (max +15% with 5 Marked).", "engineHook": "conditionalStat:critChance:markedEnemyCount", "dependencies": ["markMechanic"] },
+
+        { "id": "hnt_mm_headhunter", "name": "Headhunter", "tier": 7, "kind": "capstone", "ranks": 1, "category": "identity", "description": "First hit on any new target always crits. Precision Payoffs deal +50% damage (stacks with all other Precision Payoff bonuses). (Mirrors §10.1 Marksman ascendancy keystone — reshapes Mark & Execute by guaranteeing the opener crit and doubling the signature payoff.)", "engineHook": "modifyMechanic:firstHitGuaranteedCrit+precisionPayoffBonus", "dependencies": ["markMechanic"] },
+        { "id": "hnt_mm_marksman_sovereign", "name": "Marksman Sovereign", "tier": 7, "kind": "capstone_supporting", "ranks": 1, "category": "identity", "description": "Mark duration +50%. Marked targets you crit cannot have Mark removed by anything other than your skills (lock-in).", "engineHook": "modifyMechanic:markDurationBonus+markRemovalImmunity", "dependencies": ["markMechanic"] }
+      ]
+    },
+    {
+      "id": "beastmaster",
+      "name": "Beastmaster",
+      "theme": "Animal-companion axis. Permanent companion as second damage source; companion inherits your procs and Mark application. The Pack; 2-vs-1 fights where your beast does the hunting.",
+      "ascendancyMirror": "Beastmaster (per §10.1)",
+      "nodes": [
+        { "id": "hnt_bm_pack_bond", "name": "Pack Bond", "tier": 1, "kind": "passive", "ranks": 5, "category": "stat", "description": "+5/10/15/20/25% companion damage (foundation).", "engineHook": "stat:companionDamage", "dependencies": ["companionMechanic"] },
+        { "id": "hnt_bm_companions_vigor", "name": "Companion's Vigor", "tier": 1, "kind": "passive", "ranks": 5, "category": "stat", "description": "+5/10/15/20/25% companion HP (foundation).", "engineHook": "stat:companionHp", "dependencies": ["companionMechanic"] },
+        { "id": "hnt_bm_hunters_mark_bond", "name": "Hunter's Mark Bond", "tier": 1, "kind": "passive", "ranks": 5, "category": "proc", "description": "When you apply Mark, +5/10/15/20/25% chance the companion focuses the Marked target on its next attack.", "engineHook": "onMarkApply", "dependencies": ["companionMechanic", "markMechanic"] },
+
+        { "id": "hnt_bm_pack_hunt", "name": "Pack Hunt", "tier": 2, "kind": "passive", "ranks": 5, "category": "proc", "description": "Companion attacks have +5/10/15/20/25% chance to apply Mark (companion as Mark applier).", "engineHook": "onCompanionAttack", "dependencies": ["companionMechanic", "markMechanic"] },
+        { "id": "hnt_bm_hunting_tempo", "name": "Hunting Tempo", "tier": 2, "kind": "passive", "ranks": 5, "category": "stat", "description": "+2/4/6/8/10% companion attack speed.", "engineHook": "stat:companionAttackSpeed", "dependencies": ["companionMechanic"] },
+        { "id": "hnt_bm_bond_of_blood", "name": "Bond of Blood", "tier": 2, "kind": "passive", "ranks": 5, "category": "proc", "description": "On Bleeding Out tick, +5/10/15/20/25% chance the companion gains +20% damage for 4s.", "engineHook": "onBleedDotTick", "dependencies": ["companionMechanic"] },
+        { "id": "hnt_bm_pack_awareness", "name": "Pack Awareness", "tier": 2, "kind": "passive", "ranks": 5, "category": "conditional", "description": "While companion is alive, +1/2/3/4/5% crit chance.", "engineHook": "conditionalStat:critChance:companionAlive", "dependencies": ["companionMechanic"] },
+
+        { "id": "hnt_bm_pack_tactics", "name": "Pack Tactics", "tier": 3, "kind": "passive", "ranks": 5, "category": "proc", "description": "Companion crits have +5/10/15/20/25% chance to also crit your next hit on the same target (player-companion fusion).", "engineHook": "onCompanionCrit", "dependencies": ["companionMechanic"] },
+        { "id": "hnt_bm_companions_fury", "name": "Companion's Fury", "tier": 3, "kind": "passive", "ranks": 5, "category": "conditional", "description": "+5/10/15/20/25% companion damage while you are above 75% HP (rewards low-incoming-damage stance).", "engineHook": "conditionalStat:companionDamage:selfHpAbove75", "dependencies": ["companionMechanic"] },
+        { "id": "hnt_bm_packs_inheritance", "name": "Pack's Inheritance", "tier": 3, "kind": "passive", "ranks": 5, "category": "proc", "description": "Companion inherits +5/10/15/20/25% of your on-hit procs (preview of Pack Leader capstone).", "engineHook": "companionProcInheritance", "dependencies": ["companionMechanic"] },
+        { "id": "hnt_bm_hunters_pact", "name": "Hunter's Pact", "tier": 3, "kind": "passive", "ranks": 1, "category": "identity", "description": "Bleeding Out ticks on Marked targets refresh companion focus to that target.", "engineHook": "onBleedDotTick:targetMarked", "dependencies": ["companionMechanic", "markMechanic"] },
+        { "id": "hnt_bm_wild_strike", "name": "Wild Strike", "tier": 3, "kind": "passive", "ranks": 5, "category": "proc", "description": "Companion attacks have +5/10/15/20/25% chance to apply Bleeding Out.", "engineHook": "onCompanionAttack", "dependencies": ["companionMechanic"] },
+
+        { "id": "hnt_bm_beastmasters_ferocity", "name": "Beastmaster's Ferocity", "tier": 4, "kind": "passive", "ranks": 5, "category": "proc", "description": "Companion crits have +5/10/15/20/25% chance to land double crits.", "engineHook": "onCompanionCrit", "dependencies": ["companionMechanic"] },
+        { "id": "hnt_bm_pack_synergy", "name": "Pack Synergy", "tier": 4, "kind": "passive", "ranks": 5, "category": "conditional", "description": "While companion is alive, +5/10/15/20/25% damage to you.", "engineHook": "conditionalStat:damage:companionAlive", "dependencies": ["companionMechanic"] },
+        { "id": "hnt_bm_hunt_cascade", "name": "Hunt Cascade", "tier": 4, "kind": "passive", "ranks": 3, "category": "proc", "description": "On companion-killing a Marked target, +20/40/60% chance to apply Mark to all enemies in encounter.", "engineHook": "onCompanionKill:targetMarked", "dependencies": ["companionMechanic", "markMechanic"] },
+        { "id": "hnt_bm_pack_resilience", "name": "Pack Resilience", "tier": 4, "kind": "passive", "ranks": 3, "category": "proc", "description": "Companion has +20/40/60% chance to survive a lethal hit at 1 HP (once per companion lifetime).", "engineHook": "onCompanionLethalHit", "dependencies": ["companionMechanic"] },
+
+        { "id": "hnt_bm_pack_bond_mastery", "name": "Pack Bond Mastery", "tier": 5, "kind": "passive", "ranks": 5, "category": "conditional", "description": "+5/10/15/20/25% companion damage per Marked enemy in encounter (max +25% with 5 Marked).", "engineHook": "conditionalStat:companionDamage:markedEnemyCount", "dependencies": ["companionMechanic", "markMechanic"] },
+        { "id": "hnt_bm_pack_mark", "name": "Pack Mark", "tier": 5, "kind": "passive", "ranks": 3, "category": "proc", "description": "Companion's Mark applications have +25/50/75% chance to also apply Tracked.", "engineHook": "onCompanionAttack:markApplied", "dependencies": ["companionMechanic", "markMechanic"] },
+        { "id": "hnt_bm_soul_bond", "name": "Soul Bond", "tier": 5, "kind": "passive", "ranks": 1, "category": "identity", "description": "When you crit, companion's next attack gains +50% damage.", "engineHook": "onSkillCrit", "dependencies": ["companionMechanic"] },
+        { "id": "hnt_bm_pack_inheritance_mastery", "name": "Pack Inheritance Mastery", "tier": 5, "kind": "passive", "ranks": 3, "category": "proc", "description": "Companion inherits +25/50/75% of your on-hit procs (scaler — stacks with Pack's Inheritance for up to 100%).", "engineHook": "companionProcInheritance", "dependencies": ["companionMechanic"] },
+        { "id": "hnt_bm_hunters_loyalty", "name": "Hunter's Loyalty", "tier": 5, "kind": "passive", "ranks": 5, "category": "proc", "description": "Companion summon has +5/10/15/20/25% chance to cost 0 mana.", "engineHook": "onCompanionSummon", "dependencies": ["companionMechanic"] },
+
+        { "id": "hnt_bm_pack_leader_preview", "name": "Pack Leader Preview", "tier": 6, "kind": "passive", "ranks": 1, "category": "identity", "description": "Companion automatically inherits Mark application from your hits (when you Mark, companion does too).", "engineHook": "modifyMechanic:companionAutoInheritMark", "dependencies": ["companionMechanic", "markMechanic"] },
+        { "id": "hnt_bm_pack_sovereign", "name": "Pack Sovereign", "tier": 6, "kind": "passive", "ranks": 3, "category": "proc", "description": "Companion crits have +20/40/60% chance to crit twice.", "engineHook": "onCompanionCrit", "dependencies": ["companionMechanic"] },
+        { "id": "hnt_bm_hunt_pact", "name": "Hunt Pact", "tier": 6, "kind": "passive", "ranks": 3, "category": "proc", "description": "On companion-kill, +25/50/75% chance to instantly refresh trap cooldowns by 1s.", "engineHook": "onCompanionKill", "dependencies": ["companionMechanic"] },
+        { "id": "hnt_bm_bond_of_hunting", "name": "Bond of Hunting", "tier": 6, "kind": "passive", "ranks": 1, "category": "identity", "description": "Companion-applied Marks last forever (no decay) until target dies or another Mark is applied.", "engineHook": "modifyMechanic:companionMarkNoDecay", "dependencies": ["companionMechanic", "markMechanic"] },
+
+        { "id": "hnt_bm_pack_leader", "name": "Pack Leader", "tier": 7, "kind": "capstone", "ranks": 1, "category": "identity", "description": "Summon a permanent animal companion (pick wolf/hawk/panther at ascendancy). It inherits your on-hit procs and Mark application in full. (Mirrors §10.1 Beastmaster ascendancy keystone — reshapes Mark & Execute by giving Hunter a second on-Mark applier and a second damage source.)", "engineHook": "summonPermanentCompanion+fullProcInheritance", "dependencies": ["companionMechanic"] },
+        { "id": "hnt_bm_beastmaster_sovereign", "name": "Beastmaster Sovereign", "tier": 7, "kind": "capstone_supporting", "ranks": 1, "category": "identity", "description": "Companion attacks count as YOUR attacks for Precision Payoff purposes — companion-then-you and you-then-companion both trigger Precision Payoff on Marked targets.", "engineHook": "modifyMechanic:companionCountsForPrecisionPayoff", "dependencies": ["companionMechanic", "markMechanic"] }
+      ]
+    },
+    {
+      "id": "trapper",
+      "name": "Trapper",
+      "theme": "Trap-stack axis. Multi-arming traps, snare detonations, escalating chain damage. The Setup Master; prep the encounter before it starts, watch the chain detonate.",
+      "ascendancyMirror": "Trapper (per §10.1)",
+      "nodes": [
+        { "id": "hnt_tp_trappers_hand", "name": "Trapper's Hand", "tier": 1, "kind": "passive", "ranks": 5, "category": "stat", "description": "+5/10/15/20/25% trap-tagged skill damage (foundation).", "engineHook": "stat:damage:trapTagged", "dependencies": [] },
+        { "id": "hnt_tp_quick_reload", "name": "Quick Reload", "tier": 1, "kind": "passive", "ranks": 5, "category": "stat", "description": "Trap cooldowns -2/4/6/8/10% (foundation).", "engineHook": "stat:cooldown:trapTagged", "dependencies": [] },
+        { "id": "hnt_tp_snare_sense", "name": "Snare Sense", "tier": 1, "kind": "passive", "ranks": 5, "category": "conditional", "description": "Snared enemies take +1/2/3/4/5% increased damage from your skills.", "engineHook": "conditionalStat:enemyDamageTaken:targetSnared", "dependencies": [] },
+
+        { "id": "hnt_tp_multi_arming", "name": "Multi-Arming", "tier": 2, "kind": "passive", "ranks": 5, "category": "proc", "description": "Traps have +1/2/3/4/5% chance to arm a second time on detonation (Snare Field preview).", "engineHook": "onTrapDetonate", "dependencies": ["trapMechanic"] },
+        { "id": "hnt_tp_trap_trigger", "name": "Trap Trigger", "tier": 2, "kind": "passive", "ranks": 5, "category": "proc", "description": "Hits on trapped enemies have +5/10/15/20/25% chance to trigger the trap immediately.", "engineHook": "onSkillHit:targetTrapped", "dependencies": ["trapMechanic"] },
+        { "id": "hnt_tp_snare_mastery", "name": "Snare Mastery", "tier": 2, "kind": "passive", "ranks": 5, "category": "stat", "description": "+1/2/3/4/5 seconds Snare duration.", "engineHook": "comboStateDuration:snared", "dependencies": [] },
+        { "id": "hnt_tp_heavy_trap", "name": "Heavy Trap", "tier": 2, "kind": "passive", "ranks": 5, "category": "stat", "description": "+2/4/6/8/10% trap detonation damage.", "engineHook": "stat:trapDetonationDamage", "dependencies": ["trapMechanic"] },
+
+        { "id": "hnt_tp_chain_trap", "name": "Chain Trap", "tier": 3, "kind": "passive", "ranks": 5, "category": "proc", "description": "Multi-trap chains' damage escalation +5/10/15/20/25% per chained detonation (preview of Snare Field).", "engineHook": "onTrapChain", "dependencies": ["trapMechanic"] },
+        { "id": "hnt_tp_trappers_tempo", "name": "Trapper's Tempo", "tier": 3, "kind": "passive", "ranks": 5, "category": "proc", "description": "On trap detonation, +5/10/15/20/25% chance for the next skill cast within 2s to be free (no mana cost).", "engineHook": "onTrapDetonate", "dependencies": ["trapMechanic"] },
+        { "id": "hnt_tp_snare_crit", "name": "Snare Crit", "tier": 3, "kind": "passive", "ranks": 5, "category": "conditional", "description": "+5/10/15/20/25% crit chance against Snared targets.", "engineHook": "conditionalStat:critChance:targetSnared", "dependencies": [] },
+        { "id": "hnt_tp_trap_stack", "name": "Trap Stack", "tier": 3, "kind": "passive", "ranks": 3, "category": "stat", "description": "+1/2/3 maximum traps active (raises trap cap).", "engineHook": "stat:maxActiveTraps", "dependencies": ["trapMechanic"] },
+        { "id": "hnt_tp_pierce_trap", "name": "Pierce Trap", "tier": 3, "kind": "passive", "ranks": 5, "category": "proc", "description": "Pierce-tagged shots on trapped enemies have +20/40/60/80/100% chance to detonate the trap.", "engineHook": "onSkillHit:pierceTagged+targetTrapped", "dependencies": ["trapMechanic"] },
+
+        { "id": "hnt_tp_snare_cascade", "name": "Snare Cascade", "tier": 4, "kind": "passive", "ranks": 1, "category": "identity", "description": "On trap detonation hitting multiple enemies, all hit gain Snared.", "engineHook": "onTrapDetonate:multiHit", "dependencies": ["trapMechanic"] },
+        { "id": "hnt_tp_trap_pulse", "name": "Trap Pulse", "tier": 4, "kind": "passive", "ranks": 1, "category": "identity", "description": "Active traps emit a Snare pulse every 2 seconds applying Snared to nearest enemy.", "engineHook": "passiveTick:trapActive", "dependencies": ["trapMechanic"] },
+        { "id": "hnt_tp_snare_detonation_mastery", "name": "Snare Detonation Mastery", "tier": 4, "kind": "passive", "ranks": 5, "category": "proc", "description": "Trap detonations have +5/10/15/20/25% chance to fire twice.", "engineHook": "onTrapDetonate", "dependencies": ["trapMechanic"] },
+        { "id": "hnt_tp_mark_trap", "name": "Mark Trap", "tier": 4, "kind": "passive", "ranks": 5, "category": "proc", "description": "Trap detonations against Marked targets refund 1/2/3/4/5% of trap cooldown immediately.", "engineHook": "onTrapDetonate:targetMarked", "dependencies": ["trapMechanic", "markMechanic"] },
+
+        { "id": "hnt_tp_trap_reservoir", "name": "Trap Reservoir", "tier": 5, "kind": "passive", "ranks": 3, "category": "stat", "description": "+2/4/6 maximum traps active (stacks with Trap Stack).", "engineHook": "stat:maxActiveTraps", "dependencies": ["trapMechanic"] },
+        { "id": "hnt_tp_snare_bound", "name": "Snare Bound", "tier": 5, "kind": "passive", "ranks": 5, "category": "conditional", "description": "Each Snared enemy in encounter grants +1/2/3/4/5% damage.", "engineHook": "conditionalStat:damage:snaredEnemyCount", "dependencies": [] },
+        { "id": "hnt_tp_chain_reaction", "name": "Chain Reaction", "tier": 5, "kind": "passive", "ranks": 5, "category": "proc", "description": "Trap detonations have +5/10/15/20/25% chance to trigger nearby active traps.", "engineHook": "onTrapDetonate", "dependencies": ["trapMechanic"] },
+        { "id": "hnt_tp_mark_trap_cascade", "name": "Mark Trap Cascade", "tier": 5, "kind": "passive", "ranks": 5, "category": "proc", "description": "Killing a trapped+Marked enemy refunds all trap cooldowns by 0.5/1/1.5/2/2.5s.", "engineHook": "onEnemyKill:targetTrapped+targetMarked", "dependencies": ["trapMechanic", "markMechanic"] },
+        { "id": "hnt_tp_trap_crit", "name": "Trap Crit", "tier": 5, "kind": "passive", "ranks": 5, "category": "proc", "description": "Trap detonations have +5/10/15/20/25% chance to crit at +50% bonus crit damage.", "engineHook": "onTrapDetonate", "dependencies": ["trapMechanic"] },
+
+        { "id": "hnt_tp_cross_weapon_mark", "name": "Cross-Weapon Mark", "tier": 6, "kind": "passive", "ranks": 1, "category": "cross_weapon", "description": "Mark & Execute triggers regardless of weapon equipped. Any first hit, any weapon, applies Mark; any follow-up from a different skill triggers Precision Payoff. (Per §8.2 cross-weapon combo-state propagation — primary cross-weapon node for Hnt.)", "engineHook": "modifyMechanic:markCrossWeapon", "dependencies": ["markMechanic"] },
+        { "id": "hnt_tp_trap_sovereignty", "name": "Trap Sovereignty", "tier": 6, "kind": "passive", "ranks": 3, "category": "conditional", "description": "Snared enemies take +5/10/15% additional damage from your skills (stacks with Snare Sense).", "engineHook": "conditionalStat:enemyDamageTaken:targetSnared", "dependencies": [] },
+        { "id": "hnt_tp_pulse_mastery", "name": "Pulse Mastery", "tier": 6, "kind": "passive", "ranks": 1, "category": "identity", "description": "Trap Pulse (T4 node) applies Snared to all enemies in encounter, not just nearest.", "engineHook": "modifyMechanic:trapPulseAllEnemies", "dependencies": ["trapMechanic"] },
+        { "id": "hnt_tp_snare_bloom", "name": "Snare Bloom", "tier": 6, "kind": "passive", "ranks": 3, "category": "proc", "description": "On killing a Snared enemy, +25/50/75% chance to spawn a Snare-pulse to all enemies in encounter dealing 50% trap damage.", "engineHook": "onEnemyKill:targetSnared", "dependencies": ["trapMechanic"] },
+
+        { "id": "hnt_tp_snare_field", "name": "Snare Field", "tier": 7, "kind": "capstone", "ranks": 1, "category": "identity", "description": "Traps gain +2 arming counts (default 1). Multi-trap chains deal escalating damage per hit (1×, 1.5×, 2×, 2.5×). (Mirrors §10.1 Trapper ascendancy keystone — reshapes Mark & Execute by adding the trap-chain payoff axis: prep-then-detonate scales harder than reactive Marking.)", "engineHook": "modifyMechanic:trapArmingCount+chainDamageEscalation", "dependencies": ["trapMechanic"] },
+        { "id": "hnt_tp_trapper_sovereign", "name": "Trapper Sovereign", "tier": 7, "kind": "capstone_supporting", "ranks": 1, "category": "identity", "description": "Trap detonations always crit when target is Marked. Each chained trap detonation refunds 0.5s on all skill cooldowns.", "engineHook": "onTrapDetonate:targetMarked+chainedRefund", "dependencies": ["trapMechanic", "markMechanic"] }
+      ]
+    }
+  ],
+  "summary": {
+    "tier1Nodes": 9,
+    "tier2Nodes": 12,
+    "tier3Nodes": 15,
+    "tier4Nodes": 12,
+    "tier5Nodes": 15,
+    "tier6Nodes": 12,
+    "tier7Nodes": 6,
+    "categoryDistribution": {
+      "proc": 35,
+      "conditional": 15,
+      "stat": 15,
+      "identity": 15,
+      "buff_migration": 0,
+      "cross_weapon": 1,
+      "_note": "Multi-rank flavor distribution: 66 of 81 nodes (~81%) carry proc/conditional/identity/cross-weapon flavor; 15 (~19%) are pure stat-sticks. Within target. Hnt has the most balanced category split of the 5 classes — 35 procs (heavy on Mark/Trap/Companion event reactions). All 3 tier-7 capstones reshape Mark & Execute signature.",
+      "balancedSplit": "proc/conditional/stat/identity = 35/15/15/15 — clean third-third-third on the non-proc axes."
+    },
+    "engineHookDistribution": {
+      "note": "Phase C engineering: each unique engineHook needs an event-emit point. Hnt-specific hooks: onMarkApply, onPrecisionPayoff, onTrapDetonate, onTrapChain, onCompanionAttack, onCompanionCrit, onCompanionKill, onCompanionSummon, onCompanionLethalHit, companionProcInheritance, onFirstHitOnTarget.",
+      "uniqueHooks": "~36 unique engineHook patterns across 81 nodes; companion- and trap-specific events form the heaviest infrastructure burden."
+    },
+    "dependencies": {
+      "markMechanic": ["hnt_mm_hunters_eye", "hnt_mm_critical_aim", "hnt_mm_headshot_sense", "hnt_mm_precision_cascade", "hnt_mm_mark_hunter", "hnt_mm_mark_reset", "hnt_mm_precision_payoff_mastery", "hnt_mm_mark_echo", "hnt_mm_precision_reaper", "hnt_mm_critical_cycle", "hnt_mm_mark_master", "hnt_mm_headshot_cascade", "hnt_mm_trackers_sigil", "hnt_mm_apex_marksman", "hnt_mm_headhunter", "hnt_mm_marksman_sovereign", "hnt_bm_hunters_mark_bond", "hnt_bm_pack_hunt", "hnt_bm_hunters_pact", "hnt_bm_hunt_cascade", "hnt_bm_pack_bond_mastery", "hnt_bm_pack_mark", "hnt_bm_pack_leader_preview", "hnt_bm_bond_of_hunting", "hnt_bm_beastmaster_sovereign", "hnt_tp_mark_trap", "hnt_tp_mark_trap_cascade", "hnt_tp_cross_weapon_mark", "hnt_tp_trapper_sovereign"],
+      "companionMechanic": ["hnt_bm_pack_bond", "hnt_bm_companions_vigor", "hnt_bm_hunters_mark_bond", "hnt_bm_pack_hunt", "hnt_bm_hunting_tempo", "hnt_bm_bond_of_blood", "hnt_bm_pack_awareness", "hnt_bm_pack_tactics", "hnt_bm_companions_fury", "hnt_bm_packs_inheritance", "hnt_bm_hunters_pact", "hnt_bm_wild_strike", "hnt_bm_beastmasters_ferocity", "hnt_bm_pack_synergy", "hnt_bm_hunt_cascade", "hnt_bm_pack_resilience", "hnt_bm_pack_bond_mastery", "hnt_bm_pack_mark", "hnt_bm_soul_bond", "hnt_bm_pack_inheritance_mastery", "hnt_bm_hunters_loyalty", "hnt_bm_pack_leader_preview", "hnt_bm_pack_sovereign", "hnt_bm_hunt_pact", "hnt_bm_bond_of_hunting", "hnt_bm_pack_leader", "hnt_bm_beastmaster_sovereign"],
+      "trapMechanic": ["hnt_tp_multi_arming", "hnt_tp_trap_trigger", "hnt_tp_heavy_trap", "hnt_tp_chain_trap", "hnt_tp_trappers_tempo", "hnt_tp_trap_stack", "hnt_tp_pierce_trap", "hnt_tp_snare_cascade", "hnt_tp_trap_pulse", "hnt_tp_snare_detonation_mastery", "hnt_tp_mark_trap", "hnt_tp_trap_reservoir", "hnt_tp_chain_reaction", "hnt_tp_mark_trap_cascade", "hnt_tp_trap_crit", "hnt_tp_pulse_mastery", "hnt_tp_snare_bloom", "hnt_tp_snare_field", "hnt_tp_trapper_sovereign"]
+    }
+  }
+}

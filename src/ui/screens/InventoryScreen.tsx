@@ -1370,6 +1370,14 @@ const STAT_LABELS: Record<StatKey, string> = {
   maxLifePenaltyPercent: '% Max Life Penalty',
   ailmentPotency: 'Ailment Potency',
   ailmentTickSpeedMult: 'Ailment Tick Speed',
+  // Phase A Change 3: ailment proc chance (0-100% per hit)
+  ailmentChanceAll: '% Ailment Chance',
+  ailmentChanceBleed: '% Bleed Chance',
+  ailmentChanceBurn: '% Ignite Chance',
+  ailmentChanceChill: '% Chill Chance',
+  ailmentChanceShock: '% Shock Chance',
+  ailmentChancePoison: '% Poison Chance',
+  ailmentChanceOnCrit: '% Ailment on Crit',
 };
 
 function ComparisonPanel({ selected, equipped }: { selected: Item; equipped: Item }) {

@@ -279,6 +279,14 @@ export const BASE_STATS: ResolvedStats = {
   maxLifePenaltyPercent: 0,
   // Ailment scaling (Dagger v2)
   ailmentPotency: 0,
+  // Phase A Change 3 — Ailment proc chance (0 = no roll ever)
+  ailmentChanceAll: 0,
+  ailmentChanceBleed: 0,
+  ailmentChanceBurn: 0,
+  ailmentChanceChill: 0,
+  ailmentChanceShock: 0,
+  ailmentChancePoison: 0,
+  ailmentChanceOnCrit: 0,
   ailmentTickSpeedMult: 0,
 };
 
@@ -527,6 +535,19 @@ export const BASE_GCD = 1.0;
 
 /** Absolute minimum cast/GCD interval (seconds). Prevents degenerate tick rates. */
 export const GCD_FLOOR = 0.4;
+
+// ── Phase A Change 2: Auto-attack tuning ──────────────────────────
+/**
+ * Fraction of weapon-average (attack) or spell-power (caster) damage
+ * an auto-attack deals per swing. Tuned conservatively — autos should
+ * contribute ~5-8% of total DPS at equal gear; skills carry the lion's
+ * share. Raise this to tune autos up if they feel pointless.
+ */
+export const AUTO_ATTACK_BASE_DMG_COEF = 0.6;
+/** Absolute minimum auto-attack interval (seconds). Prevents degenerate rates. */
+export const AUTO_ATTACK_MIN_INTERVAL = 0.2;
+/** Baseline auto-attack interval (seconds) before weapon speedModifier + attackSpeed stat. */
+export const AUTO_ATTACK_BASE_INTERVAL = 1.0;
 
 /** Maximum skill level (applies to all skill kinds). */
 export const SKILL_MAX_LEVEL = 30;

@@ -465,6 +465,24 @@ export interface ActiveSkillDef {
   dotDuration?: number;         // DoT seconds
   dotDamagePercent?: number;    // % of hit applied as DoT per second (0.3 = 30%)
   baseConversion?: ConversionSpec;  // elemental conversion of physical base damage
+  // ── Phase A Change 1: skill-kind / timing fields ──────────────
+  /** Delivery kind. Undefined → treated as 'cast' (legacy behavior). */
+  skillKind?: 'instant' | 'cast' | 'channel' | 'auto';
+  /** Post-cast stiffness for 'instant' skills (seconds). Undefined → 0.2. */
+  recoveryTime?: number;
+  /** Per-tick interval for 'channel' skills (seconds). Undefined → 0.5. */
+  channelTickInterval?: number;
+  /** Mana cost per cast (or per tick for channels). Undefined → 0. */
+  manaCost?: number;
+  // ── Phase A Change 3: ailment trigger chance ──────────────────
+  /**
+   * Base % chance this skill applies an ailment on hit (0-100).
+   * Undefined / 0 → no auto-ailment. Proportional to damage-bucket
+   * composition: a skill with 50 baseAilmentChance dealing 70% cold
+   * + 30% phys rolls 35% chill chance + 15% bleed chance.
+   * Gear/talent bonuses add flat % on top per ailment.
+   */
+  baseAilmentChance?: number;
 }
 
 // --- Unified Skills (10F) ---
@@ -507,6 +525,8 @@ export interface SkillDef {
   recoveryTime?: number;
   /** Mana cost per cast (or per tick for channels). Undefined → 0. */
   manaCost?: number;
+  /** Phase A Change 3: base ailment proc chance 0-100 (see ActiveSkillDef). */
+  baseAilmentChance?: number;
 }
 
 export interface EquippedSkill {

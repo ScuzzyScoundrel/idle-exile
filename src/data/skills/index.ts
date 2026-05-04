@@ -75,6 +75,13 @@ const convertedActiveSkills: SkillDef[] = ACTIVE_SKILL_DEFS.map(s => ({
   dotDuration: s.dotDuration,
   dotDamagePercent: s.dotDamagePercent,
   baseConversion: s.baseConversion,
+  // Phase A Change 1: carry timing/kind fields through conversion
+  skillKind: s.skillKind,
+  recoveryTime: s.recoveryTime,
+  channelTickInterval: s.channelTickInterval,
+  manaCost: s.manaCost,
+  // Phase A Change 3: carry ailment trigger chance
+  baseAilmentChance: s.baseAilmentChance,
   // Wire graph tree for all weapons
   skillGraph: ALL_SKILL_GRAPHS[s.id],
   talentTree: ALL_TALENT_TREES[s.id],

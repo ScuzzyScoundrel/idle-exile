@@ -89,8 +89,21 @@ export function calcSkillDps(
 }
 
 /**
- * Calculate effective cast interval (seconds) for an active skill,
- * accounting for attack/cast speed, ability speed multiplier, and GCD floor.
+ * Calculate effective cast interval (seconds) for an active skill.
+ *
+ * Phase A Change 1: branches on `skill.skillKind`.
+ *   • undefined / 'cast' → legacy: max(castTime/speed, GCD/speed, GCD_FLOOR).
+ *       This preserves current behavior for every skill until Phase A Change 5
+ *       (skill audit) assigns kinds per-skill.
+ *   • 'instant'          → recoveryTime/speed, floor 0.1s. No GCD_FLOOR —
+ *       instants feel snappy and scale with attack speed past the cast floor.
+ *   • 'channel'          → channelTickInterval/speed, floor 0.05s. The tick
+ *       interval IS the cadence; the channel-scheduling layer (tick.ts)
+ *       enforces duration + interruption.
+ *   • 'auto'             → falls through to 'cast' here; auto-attack timing
+ *       is owned by the auto-attack subsystem (Phase A Change 2), not this
+ *       function. This branch exists so the switch is exhaustive and typed
+ *       callers remain safe.
  */
 export function calcSkillCastInterval(
   skill: ActiveSkillDef,
@@ -105,9 +118,21 @@ export function calcSkillCastInterval(
   if (isAttack) speedMult = (1 + stats.attackSpeed / 100) * atkSpeedMult;
   if (isSpell) speedMult = (1 + stats.castSpeed / 100) * atkSpeedMult;
 
+  const kind = skill.skillKind ?? 'cast';
+
+  if (kind === 'instant') {
+    const recovery = (skill.recoveryTime ?? 0.2) / speedMult;
+    return Math.max(recovery, 0.1);
+  }
+
+  if (kind === 'channel') {
+    const tickIvl = (skill.channelTickInterval ?? 0.5) / speedMult;
+    return Math.max(tickIvl, 0.05);
+  }
+
+  // 'cast' (default) and 'auto' (until Change 2 owns it) use legacy path.
   const effectiveCastTime = skill.castTime / speedMult;
   const effectiveGCD = BASE_GCD / speedMult;
-
   return Math.max(effectiveCastTime, effectiveGCD, GCD_FLOOR);
 }
 

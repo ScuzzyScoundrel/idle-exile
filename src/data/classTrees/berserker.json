@@ -1,0 +1,170 @@
+{
+  "$schema": "../../../docs/design/class-tree-schema.md",
+  "classId": "berserker",
+  "version": 1,
+  "authoredDate": "2026-05-03",
+  "spec": "Per COMBAT_AND_CLASS_OVERHAUL_PLAN.md §6.1 — 3 paths × ~27 nodes; 51 points total; tier-N gates at (N-1)*5 points; tier-7 capstone gates at ~31 points; multi-rank passives ~70%; identity/keystone ~30%.",
+  "totalNodes": 81,
+  "identityCount": 15,
+  "multiRankCount": 66,
+  "designNotes": [
+    "Class-First Principle (LOCKED §4.2): class trees are weapon-agnostic. Juggernaut path's 'while no offhand equipped' clauses are offhand-conditional (allowed per §6.3) — captures the 2H tank fantasy without weapon-name gating. Wind-up tag references skill paradigm tag (not weapon name) — applies across any weapon morphed to that paradigm.",
+    "Idle-game context: no movement/standing mechanics. Frenzied state is HP-threshold based (signature §3.2 Rage Threshold), not movement. Bloodied is target debuff. AoE Cleave is encounter-radius, not tile-based.",
+    "Multi-rank flavor directive: 16 of 81 nodes (~20%) are pure stat-sticks; the remaining 65 carry proc/conditional/identity/cross-weapon flavor. At target.",
+    "Buff migrations: 0 (Brs pool not yet authored — no audited active buffs to migrate per SKILL_FANTASY_AUDIT scope). Mana flavor is PURE RAGE: passive 0, build-by-fighting only.",
+    "Cross-weapon node: Cross-Weapon Cleave (Juggernaut T6) — Marked for Cleave triggers regardless of weapon equipped (per §8.2 cross-weapon combo-state propagation).",
+    "All 3 capstones reshape Rage Threshold signature: King of Ruin (Warlord) raises threshold to 65% HP + doubles execute-range damage; Undying Wrath (Reaver) makes Frenzied window self-extending + un-killable while Rage active; Mountain (Juggernaut) makes 2H stance the structural-defense king (offhand-conditional).",
+    "Base-mechanic dependencies tracked per-node in `dependencies` array."
+  ],
+  "paths": [
+    {
+      "id": "warlord",
+      "name": "Warlord",
+      "theme": "Execute axis. Push HP threshold higher, execute-range scaling, big slams. The Finisher; bosses melt at half HP.",
+      "ascendancyMirror": "Warlord (per §10.1)",
+      "nodes": [
+        { "id": "brs_wl_heavy_hands", "name": "Heavy Hands", "tier": 1, "kind": "passive", "ranks": 5, "category": "stat", "description": "+2/4/6/8/10% damage (foundation).", "engineHook": "stat:damage", "dependencies": [] },
+        { "id": "brs_wl_threshold_hunter", "name": "Threshold Hunter", "tier": 1, "kind": "passive", "ranks": 5, "category": "conditional", "description": "+2/4/6/8/10% damage to enemies below 50% HP.", "engineHook": "conditionalStat:damage:enemyHpBelow50", "dependencies": [] },
+        { "id": "brs_wl_rage_tap", "name": "Rage Tap", "tier": 1, "kind": "passive", "ranks": 5, "category": "proc", "description": "On dealing damage, +1/2/3/4/5% chance to gain 5 rage (additional onHit proc).", "engineHook": "onHitDealt", "dependencies": [] },
+
+        { "id": "brs_wl_wind_up_strike", "name": "Wind-Up Strike", "tier": 2, "kind": "passive", "ranks": 5, "category": "proc", "description": "Heavy-skill (wind-up tagged paradigm) hits have +5/10/15/20/25% chance to land at +50% damage.", "engineHook": "onSkillHit:windUpTagged", "dependencies": [] },
+        { "id": "brs_wl_bloodied_strike", "name": "Bloodied Strike", "tier": 2, "kind": "passive", "ranks": 5, "category": "proc", "description": "Hits on Bloodied targets have +5/10/15/20/25% chance to deal +50% damage.", "engineHook": "onSkillHit:targetBloodied", "dependencies": [] },
+        { "id": "brs_wl_brutal_tempo", "name": "Brutal Tempo", "tier": 2, "kind": "passive", "ranks": 5, "category": "stat", "description": "+1/2/3/4/5% attack speed (foundation).", "engineHook": "stat:attackSpeed", "dependencies": [] },
+        { "id": "brs_wl_execute_sense", "name": "Execute Sense", "tier": 2, "kind": "passive", "ranks": 5, "category": "conditional", "description": "+2/4/6/8/10% crit chance against enemies below 50% HP.", "engineHook": "conditionalStat:critChance:enemyHpBelow50", "dependencies": [] },
+
+        { "id": "brs_wl_slam_crit", "name": "Slam Crit", "tier": 3, "kind": "passive", "ranks": 5, "category": "conditional", "description": "+5/10/15/20/25% crit damage with wind-up tagged skills against Bloodied targets.", "engineHook": "conditionalStat:critDamage:windUpTagged+targetBloodied", "dependencies": [] },
+        { "id": "brs_wl_threshold_push", "name": "Threshold Push", "tier": 3, "kind": "passive", "ranks": 5, "category": "stat", "description": "Rage Threshold raises by +1/2/3/4/5% HP (50% → 55% at max — foundation for Warlord's earlier-Frenzied build).", "engineHook": "stat:rageThresholdHpPercent", "dependencies": ["rageThresholdMechanic"] },
+        { "id": "brs_wl_bloodied_mastery", "name": "Bloodied Mastery", "tier": 3, "kind": "passive", "ranks": 3, "category": "stat", "description": "+1/2/3 seconds Bloodied state duration.", "engineHook": "comboStateDuration:bloodied", "dependencies": [] },
+        { "id": "brs_wl_cleave_echo", "name": "Cleave Echo", "tier": 3, "kind": "passive", "ranks": 5, "category": "proc", "description": "Multi-target hits while Bloodied targets exist in encounter have +5/10/15/20/25% chance to apply Bloodied to additional enemies.", "engineHook": "onMultiHitSkillHit:bloodiedTargetExists", "dependencies": [] },
+        { "id": "brs_wl_stagger_mastery", "name": "Stagger Mastery", "tier": 3, "kind": "passive", "ranks": 5, "category": "conditional", "description": "Staggered enemies take +5/10/15/20/25% increased damage.", "engineHook": "conditionalStat:enemyDamageTaken:targetStaggered", "dependencies": [] },
+
+        { "id": "brs_wl_frenzied_power", "name": "Frenzied Power", "tier": 4, "kind": "passive", "ranks": 5, "category": "conditional", "description": "+5/10/15/20/25% damage while in Frenzied state (Frenzied scaler).", "engineHook": "conditionalStat:damage:frenziedActive", "dependencies": ["rageThresholdMechanic"] },
+        { "id": "brs_wl_execute_reaper", "name": "Execute Reaper", "tier": 4, "kind": "passive", "ranks": 3, "category": "proc", "description": "Killing blows refund 5/10/15 rage.", "engineHook": "onEnemyKill", "dependencies": [] },
+        { "id": "brs_wl_bloodied_cascade", "name": "Bloodied Cascade", "tier": 4, "kind": "passive", "ranks": 1, "category": "identity", "description": "On killing a Bloodied enemy, all enemies in encounter become Bloodied for 4s.", "engineHook": "onEnemyKill:targetBloodied", "dependencies": [] },
+        { "id": "brs_wl_heavy_critic", "name": "Heavy Critic", "tier": 4, "kind": "passive", "ranks": 5, "category": "proc", "description": "Wind-up tagged skill crits have +1/2/3/4/5% chance to deal triple damage instead of crit damage (replaces flat crit-mult scaling with spike-proc).", "engineHook": "onSkillCrit:windUpTagged", "dependencies": [] },
+
+        { "id": "brs_wl_power_surge", "name": "Power Surge", "tier": 5, "kind": "passive", "ranks": 5, "category": "stat", "description": "+2/4/6/8/10% damage (foundation pairing with Frenzied).", "engineHook": "stat:damage", "dependencies": [] },
+        { "id": "brs_wl_bloodied_crit", "name": "Bloodied Crit", "tier": 5, "kind": "passive", "ranks": 5, "category": "conditional", "description": "+5/10/15/20/25% crit chance against Bloodied targets.", "engineHook": "conditionalStat:critChance:targetBloodied", "dependencies": [] },
+        { "id": "brs_wl_threshold_mastery", "name": "Threshold Mastery", "tier": 5, "kind": "passive", "ranks": 3, "category": "identity", "description": "Frenzied state's damage bonus increases by +5/10/15% (from base +25% to up to +40% — scales the signature).", "engineHook": "modifyMechanic:frenziedDamageBonus", "dependencies": ["rageThresholdMechanic"] },
+        { "id": "brs_wl_execute_cascade", "name": "Execute Cascade", "tier": 5, "kind": "passive", "ranks": 5, "category": "proc", "description": "On killing an enemy below 25% HP, +5/10/15/20/25% chance to instantly refresh all skill cooldowns.", "engineHook": "onEnemyKill:enemyHpBelow25", "dependencies": [] },
+        { "id": "brs_wl_apex_predator", "name": "Apex Predator", "tier": 5, "kind": "passive", "ranks": 5, "category": "conditional", "description": "+10/20/30/40/50% damage to enemies below 25% HP (deep-execute).", "engineHook": "conditionalStat:damage:enemyHpBelow25", "dependencies": [] },
+
+        { "id": "brs_wl_kings_wrath", "name": "King's Wrath", "tier": 6, "kind": "passive", "ranks": 3, "category": "conditional", "description": "Cooldown recovery +5/10/15% while in Frenzied state.", "engineHook": "conditionalStat:cooldownRecovery:frenziedActive", "dependencies": ["rageThresholdMechanic"] },
+        { "id": "brs_wl_reapers_touch", "name": "Reaper's Touch", "tier": 6, "kind": "passive", "ranks": 3, "category": "conditional", "description": "Execute-tagged skills against Bloodied enemies deal +25/50/75% damage.", "engineHook": "conditionalStat:damage:executeTagged+targetBloodied", "dependencies": [] },
+        { "id": "brs_wl_bloodied_sovereign", "name": "Bloodied Sovereign", "tier": 6, "kind": "passive", "ranks": 1, "category": "identity", "description": "When you cross below 50% HP (entering Frenzied), gain +25% damage and a guaranteed-crit charge for 4s (Frenzied entry payoff).", "engineHook": "onFrenziedEnter", "dependencies": ["rageThresholdMechanic"] },
+        { "id": "brs_wl_heavy_cleave", "name": "Heavy Cleave", "tier": 6, "kind": "passive", "ranks": 3, "category": "proc", "description": "Wind-up tagged hits have +25/50/75% chance to hit 1 additional enemy.", "engineHook": "onSkillHit:windUpTagged", "dependencies": [] },
+
+        { "id": "brs_wl_king_of_ruin", "name": "King of Ruin", "tier": 7, "kind": "capstone", "ranks": 1, "category": "identity", "description": "Rage Threshold raises to 65% HP (from base 50%) — Frenzied state activates earlier and stays active longer. Execute-range skills (those gaining bonuses below threshold) deal +100% damage instead of base +50%. (Mirrors §10.1 Warlord ascendancy keystone — reshapes Rage Threshold by widening the Frenzied window and doubling execute payoffs.)", "engineHook": "modifyMechanic:rageThresholdHpPercent+executeBonus", "dependencies": ["rageThresholdMechanic"] },
+        { "id": "brs_wl_apex_wrath", "name": "Apex Wrath", "tier": 7, "kind": "capstone_supporting", "ranks": 1, "category": "identity", "description": "Frenzied state's damage bonus is +50% instead of +25% (stacks with Threshold Mastery for up to +65%).", "engineHook": "modifyMechanic:frenziedDamageBonus", "dependencies": ["rageThresholdMechanic"] }
+      ]
+    },
+    {
+      "id": "reaver",
+      "name": "Reaver",
+      "theme": "Bloodlust axis. Stay below 50% HP indefinitely; kills extend the low-HP window; cannot die during Rage. The Eternal Frenzy; walks in at 1 HP, walks out with 30 corpses.",
+      "ascendancyMirror": "Reaver (per §10.1)",
+      "nodes": [
+        { "id": "brs_rv_hunger", "name": "Hunger", "tier": 1, "kind": "passive", "ranks": 5, "category": "conditional", "description": "+2/4/6/8/10% damage while below 50% HP.", "engineHook": "conditionalStat:damage:selfHpBelow50", "dependencies": [] },
+        { "id": "brs_rv_wound_tolerance", "name": "Wound Tolerance", "tier": 1, "kind": "passive", "ranks": 5, "category": "stat", "description": "+5/10/15/20/25 maximum HP (foundation tank-cap).", "engineHook": "stat:maxHp", "dependencies": [] },
+        { "id": "brs_rv_bloodlust", "name": "Bloodlust", "tier": 1, "kind": "passive", "ranks": 5, "category": "proc", "description": "On taking a hit, +5/10/15/20/25% chance to gain 3 rage.", "engineHook": "onHitTaken", "dependencies": [] },
+
+        { "id": "brs_rv_reckless", "name": "Reckless", "tier": 2, "kind": "passive", "ranks": 5, "category": "conditional", "description": "+2/4/6/8/10% crit chance while below 50% HP.", "engineHook": "conditionalStat:critChance:selfHpBelow50", "dependencies": [] },
+        { "id": "brs_rv_self_inflict", "name": "Self-Inflict", "tier": 2, "kind": "passive", "ranks": 5, "category": "stat", "description": "+5/10/15/20/25% damage on self-cost skills (paradigm: skills with self-damage component).", "engineHook": "stat:damage:selfCostTagged", "dependencies": [] },
+        { "id": "brs_rv_bloodthirst", "name": "Bloodthirst", "tier": 2, "kind": "passive", "ranks": 5, "category": "proc", "description": "On dealing damage to a Bloodied enemy, +1/2/3/4/5% chance to heal 1% maximum HP.", "engineHook": "onHitDealt:targetBloodied", "dependencies": [] },
+        { "id": "brs_rv_iron_skin", "name": "Iron Skin", "tier": 2, "kind": "passive", "ranks": 5, "category": "conditional", "description": "+2/4/6/8/10% damage reduction while below 50% HP.", "engineHook": "conditionalStat:damageReduction:selfHpBelow50", "dependencies": [] },
+
+        { "id": "brs_rv_endless_wrath", "name": "Endless Wrath", "tier": 3, "kind": "passive", "ranks": 3, "category": "proc", "description": "Each kill while Frenzied extends Frenzied state by +0.5/1.0/1.5 seconds (preview of Undying Wrath capstone).", "engineHook": "onEnemyKill:frenziedActive", "dependencies": ["rageThresholdMechanic"] },
+        { "id": "brs_rv_berserkers_vow", "name": "Berserker's Vow", "tier": 3, "kind": "passive", "ranks": 5, "category": "conditional", "description": "While Frenzied, all hits deal +1/2/3/4/5% damage per hit you've taken in the last 5 seconds (heavy combat scaler).", "engineHook": "conditionalStat:damage:frenziedActive+recentHitsTaken", "dependencies": ["rageThresholdMechanic"] },
+        { "id": "brs_rv_last_stand", "name": "Last Stand", "tier": 3, "kind": "passive", "ranks": 3, "category": "proc", "description": "When you would die, +20/40/60% chance to survive at 1 HP and gain a 50% maximum HP shield for 4s (once per encounter).", "engineHook": "onLethalHit", "dependencies": [] },
+        { "id": "brs_rv_bloodlet", "name": "Bloodlet", "tier": 3, "kind": "passive", "ranks": 3, "category": "stat", "description": "Self-cost skills regen 2/4/6 rage on cast (rewards self-cost paradigm investment).", "engineHook": "onSkillCast:selfCostTagged", "dependencies": [] },
+        { "id": "brs_rv_pain_tolerance", "name": "Pain Tolerance", "tier": 3, "kind": "passive", "ranks": 5, "category": "conditional", "description": "+1/2/3/4/5% damage reduction while above 50% HP (defensive ramp pre-Frenzied).", "engineHook": "conditionalStat:damageReduction:selfHpAbove50", "dependencies": [] },
+
+        { "id": "brs_rv_reavers_spirit", "name": "Reaver's Spirit", "tier": 4, "kind": "passive", "ranks": 1, "category": "identity", "description": "While Frenzied, on-kill bonuses (rage, mana, cooldown reductions) doubled.", "engineHook": "modifyMechanic:onKillBonusMultiplier:frenziedActive", "dependencies": ["rageThresholdMechanic"] },
+        { "id": "brs_rv_blood_frenzy", "name": "Blood Frenzy", "tier": 4, "kind": "passive", "ranks": 1, "category": "identity", "description": "Every kill while Bloodied refreshes Frenzied state to its base duration.", "engineHook": "onEnemyKill:targetBloodied", "dependencies": ["rageThresholdMechanic"] },
+        { "id": "brs_rv_wrath_sustain", "name": "Wrath Sustain", "tier": 4, "kind": "passive", "ranks": 5, "category": "stat", "description": "Lifesteal: +1/2/3/4/5% of damage dealt while Frenzied returns as healing.", "engineHook": "stat:lifesteal:frenziedActive", "dependencies": ["rageThresholdMechanic"] },
+        { "id": "brs_rv_bloodthirst_mastery", "name": "Bloodthirst Mastery", "tier": 4, "kind": "passive", "ranks": 3, "category": "stat", "description": "Killing Bloodied enemies restores +1/2/3% maximum HP.", "engineHook": "onEnemyKill:targetBloodied", "dependencies": [] },
+
+        { "id": "brs_rv_berserkers_resolve", "name": "Berserker's Resolve", "tier": 5, "kind": "passive", "ranks": 5, "category": "conditional", "description": "+5/10/15/20/25% damage reduction while Frenzied.", "engineHook": "conditionalStat:damageReduction:frenziedActive", "dependencies": ["rageThresholdMechanic"] },
+        { "id": "brs_rv_endless_bloodshed", "name": "Endless Bloodshed", "tier": 5, "kind": "passive", "ranks": 5, "category": "proc", "description": "On killing an enemy while Frenzied, +5/10/15/20/25% chance the kill counts as 2 kills for proc purposes (rage, mana, cooldown).", "engineHook": "onEnemyKill:frenziedActive", "dependencies": ["rageThresholdMechanic"] },
+        { "id": "brs_rv_reckless_surge", "name": "Reckless Surge", "tier": 5, "kind": "passive", "ranks": 5, "category": "conditional", "description": "+10/20/30/40/50% crit damage while below 25% HP.", "engineHook": "conditionalStat:critDamage:selfHpBelow25", "dependencies": [] },
+        { "id": "brs_rv_defy_death", "name": "Defy Death", "tier": 5, "kind": "passive", "ranks": 3, "category": "identity", "description": "While in combat, prevent the next lethal hit (cooldown 60/45/30s).", "engineHook": "onLethalHit:cooldownGated", "dependencies": [] },
+        { "id": "brs_rv_wrath_mastery", "name": "Wrath Mastery", "tier": 5, "kind": "passive", "ranks": 5, "category": "conditional", "description": "+5/10/15/20/25% rage generation rate while Frenzied.", "engineHook": "conditionalStat:rageGen:frenziedActive", "dependencies": ["rageThresholdMechanic"] },
+
+        { "id": "brs_rv_last_breath", "name": "Last Breath", "tier": 6, "kind": "passive", "ranks": 1, "category": "identity", "description": "While below 25% HP, all your skills automatically gain Frenzied state bonuses (regardless of base Rage Threshold).", "engineHook": "modifyMechanic:autoFrenzied:selfHpBelow25", "dependencies": ["rageThresholdMechanic"] },
+        { "id": "brs_rv_death_defiance", "name": "Death Defiance", "tier": 6, "kind": "passive", "ranks": 3, "category": "conditional", "description": "+5/10/15% crit chance while below 25% HP.", "engineHook": "conditionalStat:critChance:selfHpBelow25", "dependencies": [] },
+        { "id": "brs_rv_eternal_wrath", "name": "Eternal Wrath", "tier": 6, "kind": "passive", "ranks": 1, "category": "identity", "description": "Frenzied state cannot end while you have an enemy alive in encounter.", "engineHook": "modifyMechanic:frenziedDecayPause:enemyAlive", "dependencies": ["rageThresholdMechanic"] },
+        { "id": "brs_rv_reavers_mark", "name": "Reaver's Mark", "tier": 6, "kind": "passive", "ranks": 3, "category": "proc", "description": "On killing a Bloodied enemy, all enemies in encounter take +5/10/15% damage from your hits for 5s.", "engineHook": "onEnemyKill:targetBloodied", "dependencies": [] },
+
+        { "id": "brs_rv_undying_wrath", "name": "Undying Wrath", "tier": 7, "kind": "capstone", "ranks": 1, "category": "identity", "description": "Each kill while Frenzied extends the Frenzied window by 2s. Cannot die while Rage is active — you stop at 1 HP (once per encounter, on cooldown 90s). (Mirrors §10.1 Reaver ascendancy keystone — reshapes Rage Threshold by making the Frenzied window self-extending and adding death-immunity during Rage.)", "engineHook": "onEnemyKill:frenziedActive+lethalHitImmunity", "dependencies": ["rageThresholdMechanic"] },
+        { "id": "brs_rv_reaver_sovereign", "name": "Reaver Sovereign", "tier": 7, "kind": "capstone_supporting", "ranks": 1, "category": "identity", "description": "Below 25% HP, all your skills cost no rage and gain +50% bonus crit chance.", "engineHook": "conditionalMechanic:freeCostFromRage+critChanceBoost:selfHpBelow25", "dependencies": [] }
+      ]
+    },
+    {
+      "id": "juggernaut",
+      "name": "Juggernaut",
+      "theme": "Defensive AoE axis. 2H stance damage reduction (offhand-conditional per §6.3), wide cleave, sustain through tankiness. The Mountain; sustains by being unkillable.",
+      "ascendancyMirror": "Juggernaut (per §10.1)",
+      "nodes": [
+        { "id": "brs_jg_stalwart", "name": "Stalwart", "tier": 1, "kind": "passive", "ranks": 5, "category": "stat", "description": "+5/10/15/20/25 maximum HP (foundation).", "engineHook": "stat:maxHp", "dependencies": [] },
+        { "id": "brs_jg_iron_body", "name": "Iron Body", "tier": 1, "kind": "passive", "ranks": 5, "category": "stat", "description": "+1/2/3/4/5% damage reduction (foundation).", "engineHook": "stat:damageReduction", "dependencies": [] },
+        { "id": "brs_jg_heavy_stance", "name": "Heavy Stance", "tier": 1, "kind": "passive", "ranks": 5, "category": "conditional", "description": "While no offhand is equipped, +2/4/6/8/10% damage reduction (offhand-conditional per §6.3 — Class-First compliant: gates on equip slot, not weapon name).", "engineHook": "conditionalStat:damageReduction:offhandNone", "dependencies": ["offhandSlotConditional"] },
+
+        { "id": "brs_jg_wide_sweep", "name": "Wide Sweep", "tier": 2, "kind": "passive", "ranks": 3, "category": "stat", "description": "AoE-tagged skills hit +1/2/3 additional enemies.", "engineHook": "stat:aoeTargetCount", "dependencies": [] },
+        { "id": "brs_jg_marked_for_cleave", "name": "Marked for Cleave", "tier": 2, "kind": "passive", "ranks": 5, "category": "proc", "description": "On hitting a target with an AoE-tagged skill, +5/10/15/20/25% chance to apply Marked for Cleave (next AoE on this target deals +25% damage).", "engineHook": "onSkillHit:aoeTagged", "dependencies": [] },
+        { "id": "brs_jg_stagger_sweep", "name": "Stagger Sweep", "tier": 2, "kind": "passive", "ranks": 5, "category": "proc", "description": "AoE crits have +5/10/15/20/25% chance to apply Staggered to all enemies hit.", "engineHook": "onSkillCrit:aoeTagged", "dependencies": [] },
+        { "id": "brs_jg_battle_stance", "name": "Battle Stance", "tier": 2, "kind": "passive", "ranks": 5, "category": "stat", "description": "+2/4/6/8/10% crit damage (foundation).", "engineHook": "stat:critDamage", "dependencies": [] },
+
+        { "id": "brs_jg_cleave_mastery", "name": "Cleave Mastery", "tier": 3, "kind": "passive", "ranks": 5, "category": "conditional", "description": "Marked for Cleave consume payoffs deal +5/10/15/20/25% damage on AoE consumers.", "engineHook": "conditionalStat:damage:onMarkedForCleaveConsume", "dependencies": [] },
+        { "id": "brs_jg_mountain_tempo", "name": "Mountain Tempo", "tier": 3, "kind": "passive", "ranks": 5, "category": "conditional", "description": "+2/4/6/8/10% attack speed while no offhand equipped.", "engineHook": "conditionalStat:attackSpeed:offhandNone", "dependencies": ["offhandSlotConditional"] },
+        { "id": "brs_jg_concussive_force", "name": "Concussive Force", "tier": 3, "kind": "passive", "ranks": 5, "category": "proc", "description": "Heavy-skill (wind-up tagged) hits have +5/10/15/20/25% chance to apply Staggered.", "engineHook": "onSkillHit:windUpTagged", "dependencies": [] },
+        { "id": "brs_jg_cleave_cascade", "name": "Cleave Cascade", "tier": 3, "kind": "passive", "ranks": 3, "category": "proc", "description": "On killing a Marked for Cleave enemy, +20/40/60% chance to apply Marked for Cleave to all enemies in encounter.", "engineHook": "onEnemyKill:targetMarkedForCleave", "dependencies": [] },
+        { "id": "brs_jg_stalwart_mastery", "name": "Stalwart Mastery", "tier": 3, "kind": "passive", "ranks": 5, "category": "proc", "description": "On taking a non-crit hit, +1/2/3/4/5% chance to convert it to a Stagger application on the attacker (defensive-offensive proc).", "engineHook": "onHitTaken:nonCrit", "dependencies": [] },
+
+        { "id": "brs_jg_bulwark", "name": "Bulwark", "tier": 4, "kind": "passive", "ranks": 5, "category": "stat", "description": "+10/20/30/40/50 maximum HP (foundation).", "engineHook": "stat:maxHp", "dependencies": [] },
+        { "id": "brs_jg_crowd_punisher", "name": "Crowd Punisher", "tier": 4, "kind": "passive", "ranks": 5, "category": "conditional", "description": "+1/2/3/4/5% damage per enemy in encounter (max +25% with 5+ enemies).", "engineHook": "conditionalStat:damage:enemyCount", "dependencies": [] },
+        { "id": "brs_jg_mass_stagger", "name": "Mass Stagger", "tier": 4, "kind": "passive", "ranks": 1, "category": "identity", "description": "Staggered enemies count as Bloodied for the consume bonus (cross-state aliasing).", "engineHook": "modifyMechanic:staggeredCountsAsBloodied", "dependencies": [] },
+        { "id": "brs_jg_ironclad", "name": "Ironclad", "tier": 4, "kind": "passive", "ranks": 5, "category": "proc", "description": "On taking a critical hit, gain +20/40/60/80/100% damage reduction for 2s.", "engineHook": "onHitTaken:critTaken", "dependencies": [] },
+
+        { "id": "brs_jg_mountains_step", "name": "Mountain's Step", "tier": 5, "kind": "passive", "ranks": 5, "category": "conditional", "description": "+2/4/6/8/10% cooldown recovery while no offhand equipped.", "engineHook": "conditionalStat:cooldownRecovery:offhandNone", "dependencies": ["offhandSlotConditional"] },
+        { "id": "brs_jg_marked_slam", "name": "Marked Slam", "tier": 5, "kind": "passive", "ranks": 5, "category": "proc", "description": "Hits on Marked for Cleave targets have +5/10/15/20/25% chance to deal +100% damage.", "engineHook": "onSkillHit:targetMarkedForCleave", "dependencies": [] },
+        { "id": "brs_jg_cleave_reach", "name": "Cleave Reach", "tier": 5, "kind": "passive", "ranks": 5, "category": "stat", "description": "AoE skill radius/reach +5/10/15/20/25%.", "engineHook": "stat:aoeRadius", "dependencies": [] },
+        { "id": "brs_jg_stalwart_spirit", "name": "Stalwart Spirit", "tier": 5, "kind": "passive", "ranks": 5, "category": "proc", "description": "On taking a hit, +1/2/3/4/5% chance to gain a Bulwark charge (reduces next hit's damage by 50%).", "engineHook": "onHitTaken", "dependencies": [] },
+        { "id": "brs_jg_mass_slaughter", "name": "Mass Slaughter", "tier": 5, "kind": "passive", "ranks": 5, "category": "proc", "description": "Multi-target kills (kills with same skill within 1s) refund +1/2/3/4/5 rage per chained kill.", "engineHook": "onMultiKillChain", "dependencies": [] },
+
+        { "id": "brs_jg_mountains_wrath", "name": "Mountain's Wrath", "tier": 6, "kind": "passive", "ranks": 3, "category": "conditional", "description": "+5/10/15% damage while no offhand equipped.", "engineHook": "conditionalStat:damage:offhandNone", "dependencies": ["offhandSlotConditional"] },
+        { "id": "brs_jg_cross_weapon_cleave", "name": "Cross-Weapon Cleave", "tier": 6, "kind": "passive", "ranks": 1, "category": "cross_weapon", "description": "Marked for Cleave triggers regardless of weapon equipped. Any AoE skill, any weapon, applies and consumes Cleave. (Per §8.2 cross-weapon combo-state propagation — primary cross-weapon node for Brs.)", "engineHook": "modifyMechanic:cleaveCrossWeapon", "dependencies": [] },
+        { "id": "brs_jg_stagger_cascade", "name": "Stagger Cascade", "tier": 6, "kind": "passive", "ranks": 3, "category": "proc", "description": "On Stagger application, +25/50/75% chance to apply Stagger to all enemies in encounter.", "engineHook": "onStaggerApply", "dependencies": [] },
+        { "id": "brs_jg_sustained_aegis", "name": "Sustained Aegis", "tier": 6, "kind": "passive", "ranks": 3, "category": "proc", "description": "On Bulwark charge consumed, +20/40/60% chance to grant another Bulwark charge instantly.", "engineHook": "onBulwarkChargeConsume", "dependencies": [] },
+
+        { "id": "brs_jg_mountain", "name": "Mountain", "tier": 7, "kind": "capstone", "ranks": 1, "category": "identity", "description": "While no offhand is equipped, all damage taken reduced by 30%. AoE/Cleave skills' radius/reach +50%. (Mirrors §10.1 Juggernaut ascendancy keystone — reshapes Rage Threshold by making the 2H tank stance the structural-defense king. Class-First compliant: offhand-conditional per §6.3, not weapon-conditional.)", "engineHook": "conditionalMechanic:damageReduction+aoeRadius:offhandNone", "dependencies": ["offhandSlotConditional"] },
+        { "id": "brs_jg_juggernaut_sovereign", "name": "Juggernaut Sovereign", "tier": 7, "kind": "capstone_supporting", "ranks": 1, "category": "identity", "description": "Marked for Cleave consume payoffs deal +50% damage to all enemies hit. While no offhand equipped, Bulwark charges no longer have a cooldown (can stack indefinitely).", "engineHook": "modifyMechanic:cleaveConsumeBonus+bulwarkChargeCdRemoval:offhandNone", "dependencies": ["offhandSlotConditional"] }
+      ]
+    }
+  ],
+  "summary": {
+    "tier1Nodes": 9,
+    "tier2Nodes": 12,
+    "tier3Nodes": 15,
+    "tier4Nodes": 12,
+    "tier5Nodes": 15,
+    "tier6Nodes": 12,
+    "tier7Nodes": 6,
+    "categoryDistribution": {
+      "proc": 25,
+      "conditional": 24,
+      "stat": 16,
+      "identity": 15,
+      "buff_migration": 0,
+      "cross_weapon": 1,
+      "_note": "Multi-rank flavor distribution: 65 of 81 nodes (~80%) carry proc/conditional/identity/cross-weapon flavor; 16 (~20%) are pure stat-sticks. At target. Brs has the heaviest conditional-density (24 nodes) due to HP-threshold mechanics (selfHpBelow50, frenziedActive, selfHpBelow25, offhandNone). All 3 tier-7 capstones reshape Rage Threshold signature."
+    },
+    "engineHookDistribution": {
+      "note": "Phase C engineering: each unique engineHook needs an event-emit point. Brs-specific hooks: onFrenziedEnter, onLethalHit, onMultiKillChain, onBulwarkChargeConsume, onStaggerApply, conditionalStat:X:selfHpBelow50/below25, conditionalStat:X:frenziedActive, conditionalStat:X:offhandNone.",
+      "uniqueHooks": "~32 unique engineHook patterns across 81 nodes; HP-threshold conditionals share infrastructure."
+    },
+    "dependencies": {
+      "rageThresholdMechanic": ["brs_wl_threshold_push", "brs_wl_frenzied_power", "brs_wl_threshold_mastery", "brs_wl_kings_wrath", "brs_wl_bloodied_sovereign", "brs_wl_king_of_ruin", "brs_wl_apex_wrath", "brs_rv_endless_wrath", "brs_rv_berserkers_vow", "brs_rv_reavers_spirit", "brs_rv_blood_frenzy", "brs_rv_wrath_sustain", "brs_rv_berserkers_resolve", "brs_rv_endless_bloodshed", "brs_rv_wrath_mastery", "brs_rv_last_breath", "brs_rv_eternal_wrath", "brs_rv_undying_wrath"],
+      "offhandSlotConditional": ["brs_jg_heavy_stance", "brs_jg_mountain_tempo", "brs_jg_mountains_step", "brs_jg_mountains_wrath", "brs_jg_mountain", "brs_jg_juggernaut_sovereign"]
+    }
+  }
+}

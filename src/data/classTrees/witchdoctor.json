@@ -1,0 +1,169 @@
+{
+  "$schema": "../../../docs/design/class-tree-schema.md",
+  "classId": "witchdoctor",
+  "version": 1,
+  "authoredDate": "2026-04-27",
+  "spec": "Per COMBAT_AND_CLASS_OVERHAUL_PLAN.md §6.1 — 3 paths × ~27 nodes; 51 points total; tier-N gates at (N-1)*5 points; tier-7 capstone gates at ~31 points; multi-rank passives ~70%; identity/keystone ~30%.",
+  "totalNodes": 80,
+  "identityCount": 18,
+  "multiRankCount": 62,
+  "designNotes": [
+    "Idle-game context: no movement/standing mechanics; combat is per-zone encounter; no tile concept (use 'all enemies in encounter' / 'in zone').",
+    "Multi-rank flavor: prefer procs / conditionals / state-interactions over flat stat scaling. ~12 of 62 multi-rank nodes are pure stat-sticks; the remaining 50 carry proc/conditional/identity flavor.",
+    "Class-first principle (LOCKED §4.2): class trees are weapon-agnostic. NO weapon-conditional nodes in this version (Curse Conduit + Voodoo Doll removed per user feedback 2026-04-27).",
+    "Buff migrations from SKILL_FANTASY_AUDIT absorbed: Spirit Walker (was Spirit Walk), Voodoo Roar (was Big Bad Voodoo — switched to cast speed per user feedback), Grave Injustice (direct passive promotion).",
+    "Base-mechanic dependencies tracked per-node in `dependencies` array. Phase C engineering can grep for these to know which mechanics block which nodes."
+  ],
+  "paths": [
+    {
+      "id": "plague_priest",
+      "name": "Plague Priest",
+      "theme": "Depth and spread; Pandemic specialist. Stack DoTs deeper, propagate them faster, scale them harder.",
+      "ascendancyMirror": "Plague Priest (per §10.1)",
+      "nodes": [
+        { "id": "wd_pp_lingering_toxin", "name": "Lingering Toxin", "tier": 1, "kind": "passive", "ranks": 5, "category": "proc", "description": "Each poison tick has +1/2/3/4/5% chance to apply an extra Plagued stack.", "engineHook": "onPoisonDotTick", "dependencies": [] },
+        { "id": "wd_pp_hex_stitching", "name": "Hex Stitching", "tier": 1, "kind": "passive", "ranks": 5, "category": "proc", "description": "Chaos DoT ticks have +1/2/3/4/5% chance to refresh DoT duration by 0.5s.", "engineHook": "onChaosDotTick", "dependencies": [] },
+        { "id": "wd_pp_pandemic_vector", "name": "Pandemic Vector", "tier": 1, "kind": "passive", "ranks": 5, "category": "stat", "description": "+0.2/0.4/0.6/0.8/1.0s Plagued state duration.", "engineHook": "comboStateDuration:plagued", "dependencies": [] },
+
+        { "id": "wd_pp_chaos_surge", "name": "Chaos Surge", "tier": 2, "kind": "passive", "ranks": 5, "category": "proc", "description": "Chaos hits have +2/4/6/8/10% chance to deal +50% damage (chaos crit-spike proc).", "engineHook": "onChaosHit", "dependencies": [] },
+        { "id": "wd_pp_plague_reservoir", "name": "Plague Reservoir", "tier": 2, "kind": "passive", "ranks": 3, "category": "stat", "description": "Maximum poison stacks +1/2/3.", "engineHook": "stat:maxPoisonStacks", "dependencies": ["poisonStackCap"] },
+        { "id": "wd_pp_spreading_bile", "name": "Spreading Bile", "tier": 2, "kind": "passive", "ranks": 5, "category": "proc", "description": "Pandemic transfer has +5/10/15/20/25% chance to affect 2 enemies instead of 1.", "engineHook": "onPandemicTransfer", "dependencies": [] },
+        { "id": "wd_pp_toxic_diffusion", "name": "Toxic Diffusion", "tier": 2, "kind": "passive", "ranks": 5, "category": "proc", "description": "Chaos AoE skills have +5/10/15/20/25% chance to also hit one random additional enemy in encounter.", "engineHook": "onChaosAoeCast", "dependencies": [] },
+
+        { "id": "wd_pp_toxic_bloom", "name": "Toxic Bloom", "tier": 3, "kind": "passive", "ranks": 3, "category": "proc", "description": "Locust Swarm has +20/40/60% chance on cast to spawn an extra swarm targeting another enemy.", "engineHook": "onSkillCast:staff_locust_swarm", "dependencies": [] },
+        { "id": "wd_pp_plagued_tempo", "name": "Plagued Tempo", "tier": 3, "kind": "passive", "ranks": 5, "category": "conditional", "description": "+5/10/15/20/25% cast speed while 3+ DoTs are active in encounter.", "engineHook": "conditionalStat:castSpeed", "dependencies": [] },
+        { "id": "wd_pp_plague_conduit", "name": "Plague Conduit", "tier": 3, "kind": "passive", "ranks": 5, "category": "conditional", "description": "Chaos DoTs deal +3/6/9/12/15% damage when you have 3+ DoTs active in encounter.", "engineHook": "conditionalStat:chaosDotDamage", "dependencies": [] },
+        { "id": "wd_pp_endemic_spread", "name": "Endemic Spread", "tier": 3, "kind": "passive", "ranks": 3, "category": "proc", "description": "When you cast a chaos DoT, +10/20/30% chance an existing DoT on a different enemy also spreads to the new target.", "engineHook": "onChaosDotCast", "dependencies": [] },
+        { "id": "wd_pp_diffuse_pestilence", "name": "Diffuse Pestilence", "tier": 3, "kind": "passive", "ranks": 5, "category": "proc", "description": "Plague of Toads' toads have +5/10/15/20/25% chance to leap to a new target on hit.", "engineHook": "onSkillHit:staff_plague_of_toads", "dependencies": [] },
+
+        { "id": "wd_pp_slow_death", "name": "Slow Death", "tier": 4, "kind": "passive", "ranks": 5, "category": "conditional", "description": "DoTs deal +5/10/15/20/25% damage to enemies below 50% HP.", "engineHook": "conditionalStat:dotDamage:enemyHpBelow50", "dependencies": [] },
+        { "id": "wd_pp_festering_wound", "name": "Festering Wound", "tier": 4, "kind": "passive", "ranks": 3, "category": "conditional", "description": "Hexed enemies take +10/20/30% damage from your DoTs.", "engineHook": "conditionalStat:dotDamage:targetHexed", "dependencies": [] },
+        { "id": "wd_pp_pandemic_aftermath", "name": "Pandemic Aftermath", "tier": 4, "kind": "passive", "ranks": 1, "category": "identity", "description": "When Pandemic transfers a DoT, the next DoT tick on the receiving target deals 200% damage.", "engineHook": "onPandemicTransfer", "dependencies": [] },
+        { "id": "wd_pp_decay", "name": "Decay", "tier": 4, "kind": "passive", "ranks": 5, "category": "proc", "description": "Chaos hits on Plagued enemies have +5/10/15/20/25% chance to refresh Plagued to full duration.", "engineHook": "onChaosHit:targetPlagued", "dependencies": [] },
+
+        { "id": "wd_pp_poison_reservoir", "name": "Poison Reservoir", "tier": 5, "kind": "passive", "ranks": 5, "category": "stat", "description": "Maximum poison stacks +2/4/6/8/10 (stacks with Plague Reservoir).", "engineHook": "stat:maxPoisonStacks", "dependencies": ["poisonStackCap"] },
+        { "id": "wd_pp_dread_mastery", "name": "Dread Mastery", "tier": 5, "kind": "passive", "ranks": 5, "category": "proc", "description": "DoTs have +1/2/3/4/5% chance to crit on each tick.", "engineHook": "onDotTick:critRoll", "dependencies": [] },
+        { "id": "wd_pp_plague_aura", "name": "Plague Aura", "tier": 5, "kind": "passive", "ranks": 1, "category": "identity", "description": "During combat, all enemies in the current zone take 1% of your spell power as chaos damage per second (persistent zone DoT, idle-friendly).", "engineHook": "passiveZoneDot:chaos", "dependencies": [] },
+        { "id": "wd_pp_plague_tongue", "name": "Plague Tongue", "tier": 5, "kind": "passive", "ranks": 3, "category": "conditional", "description": "Chaos DoTs increase enemy damage taken from all sources by +1/2/3%.", "engineHook": "conditionalStat:enemyDamageTaken:targetChaosDot", "dependencies": [] },
+        { "id": "wd_pp_death_tide", "name": "Death Tide", "tier": 5, "kind": "passive", "ranks": 3, "category": "proc", "description": "When a Plagued enemy dies, gain a 'Death Tide' stack (max 5, 4s); each stack +5/10/15% chaos damage.", "engineHook": "onEnemyKill:targetPlagued", "dependencies": [] },
+
+        { "id": "wd_pp_spirit_walker", "name": "Spirit Walker", "tier": 6, "kind": "passive", "ranks": 1, "category": "buff_migration", "description": "While a minion is alive, +15% damage. (Migrated from Spirit Walk active buff per SKILL_FANTASY_AUDIT.)", "engineHook": "conditionalStat:damage:minionAlive", "dependencies": [] },
+        { "id": "wd_pp_maximum_spread", "name": "Maximum Spread", "tier": 6, "kind": "passive", "ranks": 1, "category": "identity", "description": "Pandemic transfers gain +1 maximum target (transfers to 2 simultaneously, even before the capstone).", "engineHook": "modifyMechanic:pandemic", "dependencies": [] },
+        { "id": "wd_pp_plague_doctor", "name": "Plague Doctor", "tier": 6, "kind": "passive", "ranks": 3, "category": "proc", "description": "On healing-potion use, your active DoTs detonate for +20/40/60% of remaining duration's damage as instant chaos AoE to all enemies in encounter.", "engineHook": "onHealingPotionUse", "dependencies": ["healingPotions"] },
+        { "id": "wd_pp_endemic", "name": "Endemic", "tier": 6, "kind": "passive", "ranks": 3, "category": "conditional", "description": "Plague Aura damage +0.5/1.0/1.5% per second per enemy in zone (scales with pack size).", "engineHook": "scalingStat:plagueAuraDamage:packSize", "dependencies": ["wd_pp_plague_aura"] },
+
+        { "id": "wd_pp_pandemic_plus", "name": "Pandemic Plus", "tier": 7, "kind": "capstone", "ranks": 1, "category": "identity", "description": "Pandemic spreads to 2 enemies instead of 1 (stacks with Maximum Spread for 3 total). Poison stack cap +15. (Mirrors §10.1 Plague Priest ascendancy + Tier-7 amplification.)", "engineHook": "modifyMechanic:pandemic", "dependencies": ["poisonStackCap"] },
+        { "id": "wd_pp_plague_bearer", "name": "Plague Bearer", "tier": 7, "kind": "capstone_supporting", "ranks": 1, "category": "identity", "description": "Plague Aura also damages enemies hit by your skills, applying a 2-second Plagued state regardless of skill type.", "engineHook": "onAnySkillHit", "dependencies": ["wd_pp_plague_aura"] }
+      ]
+    },
+    {
+      "id": "spirit_whisperer",
+      "name": "Spirit Whisperer",
+      "theme": "Build, buff, and chain your minion court. Necromancer Lord; minions inherit your ferocity.",
+      "ascendancyMirror": "Spirit Whisperer (per §10.1)",
+      "nodes": [
+        { "id": "wd_sw_spirit_bond", "name": "Spirit Bond", "tier": 1, "kind": "passive", "ranks": 5, "category": "proc", "description": "Minion attacks have +2/4/6/8/10% chance to apply Hexed.", "engineHook": "onMinionHit", "dependencies": [] },
+        { "id": "wd_sw_spirit_conduit", "name": "Spirit Conduit", "tier": 1, "kind": "passive", "ranks": 5, "category": "stat", "description": "Minion summons cost 5/10/15/20/25% less mana.", "engineHook": "stat:minionSummonManaCost", "dependencies": [] },
+        { "id": "wd_sw_spirit_vigor", "name": "Spirit Vigor", "tier": 1, "kind": "passive", "ranks": 5, "category": "stat", "description": "Minions gain +5/10/15/20/25% HP.", "engineHook": "stat:minionHp", "dependencies": [] },
+
+        { "id": "wd_sw_pack_tactics", "name": "Pack Tactics", "tier": 2, "kind": "passive", "ranks": 5, "category": "conditional", "description": "When you have 2+ minions, all minions gain +2/4/6/8/10% attack speed.", "engineHook": "conditionalStat:minionAttackSpeed:minionCountAtLeast2", "dependencies": [] },
+        { "id": "wd_sw_soul_bind", "name": "Soul Bind", "tier": 2, "kind": "passive", "ranks": 3, "category": "stat", "description": "Minion duration +2/4/6 seconds.", "engineHook": "stat:minionDuration", "dependencies": [] },
+        { "id": "wd_sw_bone_armor", "name": "Bone Armor", "tier": 2, "kind": "passive", "ranks": 5, "category": "proc", "description": "Minion deaths have +2/4/6/8/10% chance to grant you a brief +20% damage reduction shield (3s).", "engineHook": "onMinionDeath", "dependencies": [] },
+        { "id": "wd_sw_spectral_edge", "name": "Spectral Edge", "tier": 2, "kind": "passive", "ranks": 5, "category": "proc", "description": "Minion crits have +5/10/15/20/25% chance to fire an additional minion attack on the same target.", "engineHook": "onMinionCrit", "dependencies": [] },
+
+        { "id": "wd_sw_dog_pack", "name": "Dog Pack", "tier": 3, "kind": "passive", "ranks": 3, "category": "stat", "description": "Zombie Dogs spawns +1/2/3 extra dogs.", "engineHook": "modifySkill:staff_zombie_dogs:spawnCount", "dependencies": [] },
+        { "id": "wd_sw_fetish_frenzy", "name": "Fetish Frenzy", "tier": 3, "kind": "passive", "ranks": 5, "category": "proc", "description": "Fetish Swarm warriors have +5/10/15/20/25% chance to deal +50% damage on each attack.", "engineHook": "onMinionAttack:source:staff_fetish_swarm", "dependencies": [] },
+        { "id": "wd_sw_spirit_swap", "name": "Spirit Swap", "tier": 3, "kind": "active", "ranks": 1, "category": "identity", "description": "Active skill: sacrifice one of your minions to gain its remaining duration as a +5 mana/sec self-buff.", "engineHook": "activeAbility:sacrificeMinion", "dependencies": [] },
+        { "id": "wd_sw_soul_inheritance", "name": "Soul Inheritance", "tier": 3, "kind": "passive", "ranks": 5, "category": "proc", "description": "Minions inherit +5/10/15/20/25% of your on-hit procs (proc chance scales with rank).", "engineHook": "minionProcInheritance", "dependencies": [] },
+        { "id": "wd_sw_resilient_spirits", "name": "Resilient Spirits", "tier": 3, "kind": "passive", "ranks": 3, "category": "proc", "description": "Minion deaths have +25/50/75% chance to immediately spawn a 'Spirit Echo' (lasts 4s, deals 50% of original minion's damage).", "engineHook": "onMinionDeath", "dependencies": [] },
+
+        { "id": "wd_sw_pack_mastery", "name": "Pack Mastery", "tier": 4, "kind": "passive", "ranks": 5, "category": "proc", "description": "Minion attacks have +1/2/3/4/5% chance to hit twice (double-strike proc — minion damage scaling expressed via proc flavor rather than flat %).", "engineHook": "onMinionAttack", "dependencies": [] },
+        { "id": "wd_sw_spirit_shield", "name": "Spirit Shield", "tier": 4, "kind": "passive", "ranks": 3, "category": "proc", "description": "When a minion dies, your next cast within 3s deals +25/50/75% damage.", "engineHook": "onMinionDeath", "dependencies": [] },
+        { "id": "wd_sw_echo_wail", "name": "Echo Wail", "tier": 4, "kind": "passive", "ranks": 1, "category": "identity", "description": "When a minion dies, all other minions gain +25% damage for 4 seconds (revenge mechanic).", "engineHook": "onMinionDeath", "dependencies": [] },
+        { "id": "wd_sw_iron_bones", "name": "Iron Bones", "tier": 4, "kind": "passive", "ranks": 5, "category": "proc", "description": "When a minion takes a lethal hit, +5/10/15/20/25% chance to survive at 1 HP instead (once per minion lifetime). Replaces redundant flat-HP scaling with a save-from-death proc.", "engineHook": "onMinionLethalHit", "dependencies": [] },
+
+        { "id": "wd_sw_voodoo_roar", "name": "Voodoo Roar", "tier": 5, "kind": "passive", "ranks": 1, "category": "buff_migration", "description": "While 3+ minions are alive, +25% cast speed and +15% damage. (Migrated from Big Bad Voodoo active buff per SKILL_FANTASY_AUDIT; switched from attack speed to cast speed for WD spell-rotation relevance per user feedback.)", "engineHook": "conditionalStat:castSpeed+damage:minionCountAtLeast3", "dependencies": [] },
+        { "id": "wd_sw_soul_ration", "name": "Soul Ration", "tier": 5, "kind": "passive", "ranks": 5, "category": "proc", "description": "Minion attacks have +5/10/15/20/25% chance to restore +5 mana on hit.", "engineHook": "onMinionHit", "dependencies": [] },
+        { "id": "wd_sw_necromantic_rite", "name": "Necromantic Rite", "tier": 5, "kind": "passive", "ranks": 3, "category": "proc", "description": "On-kill, +20/40/60% chance to summon a temporary spirit minion for 6 seconds.", "engineHook": "onEnemyKill", "dependencies": [] },
+        { "id": "wd_sw_inherited_curse", "name": "Inherited Curse", "tier": 5, "kind": "passive", "ranks": 3, "category": "proc", "description": "Minion crits have +25/50/75% chance to apply Hexed.", "engineHook": "onMinionCrit", "dependencies": [] },
+        { "id": "wd_sw_death_mastery", "name": "Death Mastery", "tier": 5, "kind": "passive", "ranks": 5, "category": "proc", "description": "When a minion dies, +5/10/15/20/25% chance you gain a 'Necro Stack' (max 5, 8s); each stack +6% damage.", "engineHook": "onMinionDeath", "dependencies": [] },
+
+        { "id": "wd_sw_grave_injustice", "name": "Grave Injustice", "tier": 6, "kind": "passive", "ranks": 1, "category": "buff_migration", "description": "On kill: reduce all cooldowns by 1s and heal 2% max life. (Migrated from Grave Injustice passive per SKILL_FANTASY_AUDIT — direct talent-tree promotion; engine onKill hooks already exist.)", "engineHook": "onEnemyKill", "dependencies": [] },
+        { "id": "wd_sw_spirit_whisperer", "name": "Spirit Whisperer", "tier": 6, "kind": "passive", "ranks": 1, "category": "identity", "description": "Minions inherit +50% of your on-hit procs and combo-state creation. (No minion cap change — depends on cap mechanic landing in base game; this version is cap-independent per user feedback.)", "engineHook": "minionProcInheritance:50pct", "dependencies": [] },
+        { "id": "wd_sw_eternal_court", "name": "Eternal Court", "tier": 6, "kind": "passive", "ranks": 3, "category": "proc", "description": "When a minion dies, +5/10/15% chance it revives at full HP after 3 seconds.", "engineHook": "onMinionDeath", "dependencies": [] },
+
+        { "id": "wd_sw_soul_tether", "name": "Soul Tether", "tier": 7, "kind": "capstone", "ranks": 1, "category": "identity", "description": "Minions inherit your on-hit procs and combo-state creation in full. Minion attacks count as YOUR attacks for proc-trigger purposes. (Mirrors §10.1 Spirit Whisperer ascendancy keystone — no cap raising in this version per user feedback.)", "engineHook": "minionProcInheritance:100pct+countAsPlayerAttacks", "dependencies": [] },
+        { "id": "wd_sw_pack_sovereign", "name": "Pack Sovereign", "tier": 7, "kind": "capstone_supporting", "ranks": 1, "category": "identity", "description": "Minion crits trigger a chaos AoE around the target dealing 100% of crit damage as splash to all enemies in encounter. (Reframed from 'minions can crit' since earlier nodes already imply minions crit — per user feedback.)", "engineHook": "onMinionCrit", "dependencies": [] }
+      ]
+    },
+    {
+      "id": "voodoo_sovereign",
+      "name": "Voodoo Sovereign",
+      "theme": "Curse everything, double curse damage, make Hex hit hard. The Curse King; Hex transforms from utility into a weapon.",
+      "ascendancyMirror": "Voodoo Sovereign (per §10.1)",
+      "nodes": [
+        { "id": "wd_vs_curse_affinity", "name": "Curse Affinity", "tier": 1, "kind": "passive", "ranks": 5, "category": "proc", "description": "Curse-tagged skills have +1/2/3/4/5% chance to crit.", "engineHook": "stat:critChance:tag:curse", "dependencies": [] },
+        { "id": "wd_vs_hex_sting", "name": "Hex Sting", "tier": 1, "kind": "passive", "ranks": 5, "category": "stat", "description": "Hex deals +5/10/15/20/25% spell power as chaos damage on cast (scales the existing Hex damage).", "engineHook": "modifySkill:staff_hex:damageModifier", "dependencies": [] },
+        { "id": "wd_vs_bound_will", "name": "Bound Will", "tier": 1, "kind": "passive", "ranks": 5, "category": "stat", "description": "Hexed enemies have +1/2/3/4/5% chance to drop 1 extra item on death (utility/QoL).", "engineHook": "onEnemyKill:targetHexed", "dependencies": [] },
+
+        { "id": "wd_vs_curse_mastery", "name": "Curse Mastery", "tier": 2, "kind": "passive", "ranks": 5, "category": "proc", "description": "Hits on cursed enemies have +5/10/15/20/25% chance to apply an additional Hex stack.", "engineHook": "onSkillHit:targetHexed", "dependencies": ["hexStacking"] },
+        { "id": "wd_vs_branding_iron", "name": "Branding Iron", "tier": 2, "kind": "passive", "ranks": 3, "category": "stat", "description": "Hex duration +1/2/3 seconds.", "engineHook": "comboStateDuration:hexed", "dependencies": [] },
+        { "id": "wd_vs_witch_eye", "name": "Witch Eye", "tier": 2, "kind": "passive", "ranks": 5, "category": "conditional", "description": "+5/10/15/20/25% spell power on first cast against any new target (Hunter-like opener bonus).", "engineHook": "conditionalStat:spellPower:firstCastOnTarget", "dependencies": [] },
+        { "id": "wd_vs_cult_ritual", "name": "Cult Ritual", "tier": 2, "kind": "passive", "ranks": 5, "category": "proc", "description": "Hex casts have +20/40/60/80/100% chance to also apply Plagued for 5s (cross-state proc — at max rank, every Hex also Plagues).", "engineHook": "onSkillCast:staff_hex", "dependencies": [] },
+
+        { "id": "wd_vs_hex_spike", "name": "Hex Spike", "tier": 3, "kind": "passive", "ranks": 3, "category": "proc", "description": "Hex has +25/50/75% chance to fire twice on cast (double-cast Hex: applies Hex stack twice, deals cast damage twice). Replaces flat damage scaling with proc flavor per user feedback.", "engineHook": "onSkillCast:staff_hex", "dependencies": [] },
+        { "id": "wd_vs_curse_spread", "name": "Curse Spread", "tier": 3, "kind": "passive", "ranks": 5, "category": "proc", "description": "When a Hexed enemy is hit, +5/10/15/20/25% chance Hex spreads to one nearby enemy in encounter.", "engineHook": "onSkillHit:targetHexed", "dependencies": [] },
+        { "id": "wd_vs_bloodbound", "name": "Bloodbound", "tier": 3, "kind": "passive", "ranks": 5, "category": "proc", "description": "Hexed enemies that die have +20/40/60/80/100% chance to chain-curse the killer of the previous Hexed target — Hex jumps from one corpse-chain to the next. (Replaces dagger-conditional Voodoo Doll per user feedback; weapon-agnostic.)", "engineHook": "onEnemyKill:targetHexed", "dependencies": [] },
+        { "id": "wd_vs_brand_of_suffering", "name": "Brand of Suffering", "tier": 3, "kind": "passive", "ranks": 3, "category": "conditional", "description": "Hexed enemies take +10/20/30% damage from chaos sources.", "engineHook": "conditionalStat:enemyChaosDamageTaken:targetHexed", "dependencies": [] },
+        { "id": "wd_vs_curse_reserve", "name": "Curse Reserve", "tier": 3, "kind": "passive", "ranks": 5, "category": "proc", "description": "Curse-tagged skills have +1/2/3/4/5% chance to cost 0 mana on cast (free-cast proc — replaces flat mana-cost reduction).", "engineHook": "onSkillCast:tag:curse", "dependencies": [] },
+
+        { "id": "wd_vs_hex_reaper", "name": "Hex Reaper", "tier": 4, "kind": "passive", "ranks": 5, "category": "proc", "description": "Skills that consume Hexed have +5/10/15/20/25% chance to consume Hex without removing it (free re-consume window).", "engineHook": "onHexConsume", "dependencies": [] },
+        { "id": "wd_vs_mass_hex", "name": "Mass Hex", "tier": 4, "kind": "passive", "ranks": 3, "category": "stat", "description": "Hex applies to +1/2/3 enemies on cast (chained from primary target).", "engineHook": "modifySkill:staff_hex:targetCount", "dependencies": [] },
+        { "id": "wd_vs_voodoo_mark", "name": "Voodoo Mark", "tier": 4, "kind": "passive", "ranks": 1, "category": "cross_weapon", "description": "All your skills, regardless of weapon, apply Hexed on crit. (Per §8.2 cross-weapon combo-state propagation — primary cross-weapon node for Voodoo path.)", "engineHook": "onAnySkillCrit", "dependencies": [] },
+        { "id": "wd_vs_curse_glutton", "name": "Curse Glutton", "tier": 4, "kind": "passive", "ranks": 5, "category": "proc", "description": "On-kill of a Hexed target, +5/10/15/20/25% chance to instantly refresh all your cooldowns by 0.5s each.", "engineHook": "onEnemyKill:targetHexed", "dependencies": [] },
+
+        { "id": "wd_vs_curse_bound", "name": "Curse Bound", "tier": 5, "kind": "passive", "ranks": 5, "category": "conditional", "description": "Each enemy with Hex active in encounter grants you +1/2/3/4/5% damage.", "engineHook": "conditionalStat:damage:hexedEnemyCount", "dependencies": [] },
+        { "id": "wd_vs_bloodied_curse", "name": "Bloodied Curse", "tier": 5, "kind": "passive", "ranks": 3, "category": "conditional", "description": "Hex deals an additional +10/20/30% damage to enemies below 50% HP.", "engineHook": "conditionalStat:hexDamage:enemyHpBelow50", "dependencies": [] },
+        { "id": "wd_vs_anti_magic_curse", "name": "Anti-Magic Curse", "tier": 5, "kind": "passive", "ranks": 3, "category": "proc", "description": "Hexed enemies' attacks have +5/10/15% chance to deal 0 damage to you (defensive curse).", "engineHook": "onEnemyAttack:enemyHexed", "dependencies": [] },
+        { "id": "wd_vs_brand_of_doom", "name": "Brand of Doom", "tier": 5, "kind": "passive", "ranks": 1, "category": "identity", "description": "Hexed enemies that die explode for 50% of your spell power as chaos damage to all enemies in encounter (no tile concept; idle-friendly).", "engineHook": "onEnemyKill:targetHexed", "dependencies": [] },
+        { "id": "wd_vs_soul_splintering", "name": "Soul Splintering", "tier": 5, "kind": "passive", "ranks": 5, "category": "conditional", "description": "Hex consume payoffs gain +5/10/15/20/25% crit chance.", "engineHook": "conditionalStat:critChance:onHexConsume", "dependencies": [] },
+
+        { "id": "wd_vs_hexcraft_mastery", "name": "Hexcraft Mastery", "tier": 6, "kind": "passive", "ranks": 3, "category": "conditional", "description": "Hex damage modifiers from this path stack +1/2/3 times instead of capping at base (lets you double/triple/quadruple-stack Hex Sting + Hex Spike).", "engineHook": "stackingModifierCap:hexDamage", "dependencies": [] },
+        { "id": "wd_vs_cursed_crown", "name": "Cursed Crown", "tier": 6, "kind": "passive", "ranks": 1, "category": "identity", "description": "Hex can crit. (Tier-6 preview of the Voodoo Sovereign capstone effect; capstone amplifies further.)", "engineHook": "modifyMechanic:hexCanCrit", "dependencies": [] },
+        { "id": "wd_vs_brand_mastery", "name": "Brand Mastery", "tier": 6, "kind": "passive", "ranks": 3, "category": "proc", "description": "Hexed enemies emit chaos pulses every 2 seconds dealing +5/10/15% spell power as damage to all enemies in encounter.", "engineHook": "passiveTick:hexedEnemy", "dependencies": [] },
+        { "id": "wd_vs_witchs_sight", "name": "Witch's Sight", "tier": 6, "kind": "passive", "ranks": 3, "category": "proc", "description": "Crits against Hexed enemies have +25/50/75% chance to apply an additional Hex stack.", "engineHook": "onSkillCrit:targetHexed", "dependencies": ["hexStacking"] },
+
+        { "id": "wd_vs_crowned_in_curses", "name": "Crowned in Curses", "tier": 7, "kind": "capstone", "ranks": 1, "category": "identity", "description": "Hex can crit. Skills that consume Hexed deal 2× damage. (Mirrors §10.1 Voodoo Sovereign ascendancy + Tier-7 amplification.)", "engineHook": "modifyMechanic:hexCanCrit+hexConsumeMultiplier", "dependencies": [] },
+        { "id": "wd_vs_sovereigns_mark", "name": "Sovereign's Mark", "tier": 7, "kind": "capstone_supporting", "ranks": 1, "category": "identity", "description": "On crit against any Hexed target, refund the consumed skill's cooldown.", "engineHook": "onSkillCrit:targetHexed", "dependencies": [] }
+      ]
+    }
+  ],
+  "summary": {
+    "tier1Nodes": 9,
+    "tier2Nodes": 12,
+    "tier3Nodes": 15,
+    "tier4Nodes": 13,
+    "tier5Nodes": 14,
+    "tier6Nodes": 11,
+    "tier7Nodes": 6,
+    "categoryDistribution": {
+      "proc": 38,
+      "conditional": 13,
+      "stat": 11,
+      "identity": 14,
+      "buff_migration": 3,
+      "cross_weapon": 1,
+      "_note": "Counts category field. Spirit Swap has kind=active but category=identity (counted under identity). Flavor lift 2026-04-27: 6 stat-stick nodes upgraded to proc-flavored variants (Chaos Surge, Iron Bones, Pack Mastery, Hex Spike, Cult Ritual, Curse Reserve). Pure stat-sticks now ~14% of total; remaining stat nodes are tier-1/tier-2 foundation pacing (mana cost, base duration, foundation damage scaling) where simple values are appropriate per user 'SOME boring stat stick is fine' directive."
+    },
+    "engineHookDistribution": {
+      "note": "Phase C engineering: each unique engineHook needs an event-emit point in the engine. Procs ride on existing skill/hit/crit/death events; conditionals ride on stat resolution; identity nodes ride on signature mechanic dispatch.",
+      "uniqueHooks": "~30 unique engineHook patterns across 80 nodes; many share base events (onSkillCast, onEnemyKill, onMinionHit, etc.)"
+    },
+    "dependencies": {
+      "poisonStackCap": ["wd_pp_plague_reservoir", "wd_pp_poison_reservoir", "wd_pp_pandemic_plus"],
+      "healingPotions": ["wd_pp_plague_doctor"],
+      "hexStacking": ["wd_vs_curse_mastery", "wd_vs_witchs_sight"],
+      "wd_pp_plague_aura": ["wd_pp_endemic", "wd_pp_plague_bearer"]
+    }
+  }
+}

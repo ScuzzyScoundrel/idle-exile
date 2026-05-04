@@ -6,7 +6,7 @@ import type { Character } from './character';
 import type { Gem, GearSlot, Item, Rarity } from './items';
 import type { CurrencyType } from './currencies';
 import type { IdleMode, AbilityProgress, EquippedSkill, SkillProgress, SkillTimerState } from './skills';
-import type { CombatPhase, BossState, ActiveDebuff, TempBuff, MobInPack, CombatClearResult, ComboState } from './combat';
+import type { CombatPhase, BossState, ActiveDebuff, TempBuff, MobInPack, CombatClearResult, ComboState, ChannelState } from './combat';
 import type { TrapState } from '../engine/combat/traps';
 import type { MinionState } from '../engine/combat/minions';
 import type { DamageType } from './skills';
@@ -151,6 +151,15 @@ export interface GameState {
 
   // Real-time combat (10K-A — ephemeral, reset on rehydrate)
   nextActiveSkillAt: number;
+
+  // Phase A Change 1: active channel tracking (ephemeral, reset on rehydrate).
+  // Null when no channel skill is currently held. Set when a channel skill fires;
+  // cleared when channel expires or is interrupted by another skill cast.
+  channelState: ChannelState | null;
+
+  // Phase A Change 2: auto-attack timing (ephemeral, reset on rehydrate).
+  // Autos fill dead air between skill casts at weapon's natural speed.
+  nextAutoAttackAt: number;
 
   // Per-mob pack state (ephemeral, reset on rehydrate)
   packMobs: MobInPack[];              // each mob has own HP, debuffs, attack timer, affixes

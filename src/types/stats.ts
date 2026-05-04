@@ -104,6 +104,14 @@ export type StatKey =
   | 'maxLifePenaltyPercent'
   // Ailment scaling (Dagger v2)
   | 'ailmentPotency'
-  | 'ailmentTickSpeedMult';
+  | 'ailmentTickSpeedMult'
+  // Phase A Change 3 — Ailment proc chance stats (per-hit roll)
+  | 'ailmentChanceAll'       // flat % added to every ailment chance
+  | 'ailmentChanceBleed'
+  | 'ailmentChanceBurn'
+  | 'ailmentChanceChill'
+  | 'ailmentChanceShock'
+  | 'ailmentChancePoison'
+  | 'ailmentChanceOnCrit';   // flat % added to every ailment chance on crit hits
 
 export type ResolvedStats = Record<StatKey, number>;

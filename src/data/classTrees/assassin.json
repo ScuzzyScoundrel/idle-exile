@@ -1,0 +1,171 @@
+{
+  "$schema": "../../../docs/design/class-tree-schema.md",
+  "classId": "assassin",
+  "version": 1,
+  "authoredDate": "2026-04-27",
+  "spec": "Per COMBAT_AND_CLASS_OVERHAUL_PLAN.md §6.1 — 3 paths × ~27 nodes; 51 points total; tier-N gates at (N-1)*5 points; tier-7 capstone gates at ~31 points; multi-rank passives ~70%; identity/keystone ~30%.",
+  "totalNodes": 81,
+  "identityCount": 19,
+  "multiRankCount": 62,
+  "designNotes": [
+    "Class-First Principle (LOCKED §4.2): class trees are weapon-agnostic. NO weapon-conditional nodes. Offhand-conditional nodes (second_weapon offhand for Blademaster dual-wield) ARE allowed per §6.3.",
+    "Idle-game context: no movement/standing mechanics; combat is per-zone encounter; no tile concept (use 'all enemies in encounter' / 'in zone'). Shadow Caltrops trap is a zone-effect, not a movement-locked AoE.",
+    "Multi-rank flavor directive: 14 of 81 nodes (~17%) are pure stat-sticks; the remaining 67 carry proc/conditional/identity/cross-weapon flavor. Passive scaling is the EXCEPTION.",
+    "Buff migrations from SKILL_FANTASY_AUDIT absorbed: Predator's Mark (Blademaster T4) ← cut button, halved values, conditioned on offhand second-weapon equip; Venom Covenant (Venomcraft T2) ← cut button, conditioned on poison-active state; Shadow Covenant (Shadowdancer T4) ← cut button, conditioned on Shadow Mark active.",
+    "Cross-weapon node: Cross-Weapon Cascade (Shadowdancer T4) — Crit Cascade triggers regardless of weapon equipped (per §8.2 cross-weapon combo-state propagation).",
+    "All 3 capstones reshape Crit Cascade signature: Bladestorm (Blademaster) compounds Cascade tempo via cooldown refunds; Toxic Saint (Venomcraft) makes poisons crit + immune-to-decay while Shadow Mark active; Untouchable (Shadowdancer) makes Shadow Mark application universal + Marked hits generate Shadow Momentum.",
+    "Base-mechanic dependencies tracked per-node in `dependencies` array. Phase C engineering can grep for these to know which mechanics block which nodes."
+  ],
+  "paths": [
+    {
+      "id": "blademaster",
+      "name": "Blademaster",
+      "theme": "Dual-wield crit-burst. Faster swings, fan-strikes, cooldown refund chains. The endless rotation; crits beget crits beget cooldowns.",
+      "ascendancyMirror": "Blademaster (per §10.1)",
+      "nodes": [
+        { "id": "asn_bm_honed_edge", "name": "Honed Edge", "tier": 1, "kind": "passive", "ranks": 5, "category": "stat", "description": "+1/2/3/4/5% crit chance.", "engineHook": "stat:critChance", "dependencies": [] },
+        { "id": "asn_bm_quick_hands", "name": "Quick Hands", "tier": 1, "kind": "passive", "ranks": 5, "category": "proc", "description": "Stab has +5/10/15/20/25% chance to fire twice on cast.", "engineHook": "onSkillCast:dagger_stab", "dependencies": [] },
+        { "id": "asn_bm_killing_tempo", "name": "Killing Tempo", "tier": 1, "kind": "passive", "ranks": 5, "category": "proc", "description": "Multi-hit skills (Blade Dance, Fan of Knives) have +2/4/6/8/10% chance to deal +50% damage on each hit.", "engineHook": "onMultiHitSkillHit", "dependencies": [] },
+
+        { "id": "asn_bm_pinpoint", "name": "Pinpoint", "tier": 2, "kind": "passive", "ranks": 5, "category": "proc", "description": "On crit, +5/10/15/20/25% chance for the next Shadow Mark application to skip its cooldown.", "engineHook": "onSkillCrit", "dependencies": ["critCascadeMechanic"] },
+        { "id": "asn_bm_bladework", "name": "Bladework", "tier": 2, "kind": "passive", "ranks": 5, "category": "stat", "description": "+2/4/6/8/10% attack speed (foundation pacing — pairs with Cascade tempo).", "engineHook": "stat:attackSpeed", "dependencies": [] },
+        { "id": "asn_bm_cutting_edge", "name": "Cutting Edge", "tier": 2, "kind": "passive", "ranks": 5, "category": "stat", "description": "+5/10/15/20/25% crit damage (foundation scaling).", "engineHook": "stat:critDamage", "dependencies": [] },
+        { "id": "asn_bm_twin_strike", "name": "Twin Strike", "tier": 2, "kind": "passive", "ranks": 5, "category": "conditional", "description": "While second-weapon offhand is equipped, +5/10/15/20/25% attack speed on offhand-tagged skills (offhand-conditional per §6.3).", "engineHook": "conditionalStat:attackSpeed:offhandSecondWeapon", "dependencies": ["secondWeaponOffhand"] },
+
+        { "id": "asn_bm_cascading_crit", "name": "Cascading Crit", "tier": 3, "kind": "passive", "ranks": 3, "category": "proc", "description": "Crits have +1/2/3% chance to add an extra Crit Stack (signature accelerator).", "engineHook": "onSkillCrit", "dependencies": ["critCascadeMechanic"] },
+        { "id": "asn_bm_bleeding_edge", "name": "Bleeding Edge", "tier": 3, "kind": "passive", "ranks": 5, "category": "proc", "description": "Bleed ticks have +2/4/6/8/10% chance to crit (integrates §8.3 phys→bleed baseline with Cascade).", "engineHook": "onBleedDotTick:critRoll", "dependencies": [] },
+        { "id": "asn_bm_flurry", "name": "Flurry", "tier": 3, "kind": "passive", "ranks": 3, "category": "proc", "description": "Blade Dance has +20/40/60% chance to fire 1 extra hit.", "engineHook": "onSkillCast:dagger_blade_dance", "dependencies": [] },
+        { "id": "asn_bm_eviscerate", "name": "Eviscerate", "tier": 3, "kind": "passive", "ranks": 5, "category": "proc", "description": "Crits have +5/10/15/20/25% chance to immediately refresh Stab cooldown.", "engineHook": "onSkillCrit", "dependencies": [] },
+        { "id": "asn_bm_cascade_reservoir", "name": "Cascade Reservoir", "tier": 3, "kind": "passive", "ranks": 3, "category": "stat", "description": "Maximum Crit Stacks +1/2/3 (raises §3.2 Cascade ceiling).", "engineHook": "stat:maxCritStacks", "dependencies": ["critCascadeMechanic"] },
+
+        { "id": "asn_bm_predators_mark", "name": "Predator's Mark", "tier": 4, "kind": "passive", "ranks": 1, "category": "buff_migration", "description": "While second-weapon offhand is equipped, +10% crit chance and +20% crit mult. (Migrated from Predator's Mark active buff per SKILL_FANTASY_AUDIT — cut button, halved values, conditioned on dual-wield offhand per §6.3.)", "engineHook": "conditionalStat:critChance+critMult:offhandSecondWeapon", "dependencies": ["secondWeaponOffhand"] },
+        { "id": "asn_bm_killing_edge", "name": "Killing Edge", "tier": 4, "kind": "passive", "ranks": 5, "category": "proc", "description": "Crit hits have +1/2/3/4/5% chance to deal triple damage instead of normal crit damage (replaces flat crit-mult scaling with a spike-proc).", "engineHook": "onSkillCrit", "dependencies": [] },
+        { "id": "asn_bm_bladestorm_tempo", "name": "Bladestorm Tempo", "tier": 4, "kind": "passive", "ranks": 3, "category": "conditional", "description": "Each Crit Stack you have reduces all skill cooldowns by -0.1/-0.2/-0.3s (max -0.5/-1.0/-1.5s with 5 stacks).", "engineHook": "conditionalStat:cooldownReduction:critStackCount", "dependencies": ["critCascadeMechanic"] },
+        { "id": "asn_bm_counter_edge", "name": "Counter Edge", "tier": 4, "kind": "passive", "ranks": 5, "category": "proc", "description": "On taking a hit, +5/10/15/20/25% chance to gain a guaranteed-crit charge (consumed on next attack).", "engineHook": "onHitTaken", "dependencies": [] },
+
+        { "id": "asn_bm_crit_mastery", "name": "Crit Mastery", "tier": 5, "kind": "passive", "ranks": 5, "category": "stat", "description": "+2/4/6/8/10% crit chance (foundation pairing with Cascade gates).", "engineHook": "stat:critChance", "dependencies": [] },
+        { "id": "asn_bm_doubled_stroke", "name": "Doubled Stroke", "tier": 5, "kind": "passive", "ranks": 5, "category": "proc", "description": "Hits on Shadow Marked targets have +1/2/3/4/5% chance to fire twice.", "engineHook": "onSkillHit:targetShadowMarked", "dependencies": [] },
+        { "id": "asn_bm_sharpshot", "name": "Sharpshot", "tier": 5, "kind": "passive", "ranks": 3, "category": "proc", "description": "On crit, +1/2/3 mana refunded to the consumed skill's mana cost.", "engineHook": "onSkillCrit", "dependencies": [] },
+        { "id": "asn_bm_bladework_mastery", "name": "Bladework Mastery", "tier": 5, "kind": "passive", "ranks": 5, "category": "conditional", "description": "Skill cast intervals reduced by +1/2/3/4/5% per Crit Stack on any active Shadow Marked target.", "engineHook": "conditionalStat:castSpeed:critStackCount", "dependencies": ["critCascadeMechanic"] },
+        { "id": "asn_bm_phantom_edge", "name": "Phantom Edge", "tier": 5, "kind": "passive", "ranks": 5, "category": "conditional", "description": "+5/10/15/20/25% crit damage against Shadow Marked targets.", "engineHook": "conditionalStat:critDamage:targetShadowMarked", "dependencies": [] },
+
+        { "id": "asn_bm_cascade_wave", "name": "Cascade Wave", "tier": 6, "kind": "passive", "ranks": 1, "category": "identity", "description": "On reaching 5 Crit Stacks, your next crit fires a chaos AoE around the target dealing 100% spell power as splash to all enemies in encounter.", "engineHook": "onCritStackMax", "dependencies": ["critCascadeMechanic"] },
+        { "id": "asn_bm_steel_wind", "name": "Steel Wind", "tier": 6, "kind": "passive", "ranks": 1, "category": "identity", "description": "Multi-target skills gain +1 enemy hit (Fan of Knives, Blade Dance, Chain Strike).", "engineHook": "modifyMechanic:multiTargetHitCount", "dependencies": [] },
+        { "id": "asn_bm_twin_reaping", "name": "Twin Reaping", "tier": 6, "kind": "passive", "ranks": 3, "category": "conditional", "description": "While second-weapon offhand is equipped, kills refund 1/2/3% of maximum mana per kill.", "engineHook": "conditionalStat:onKillMana:offhandSecondWeapon", "dependencies": ["secondWeaponOffhand"] },
+        { "id": "asn_bm_refraction", "name": "Refraction", "tier": 6, "kind": "passive", "ranks": 3, "category": "proc", "description": "Crits have +5/10/15% chance to apply Exposed regardless of skill (cross-state proc — works on any class skill).", "engineHook": "onSkillCrit", "dependencies": [] },
+
+        { "id": "asn_bm_bladestorm", "name": "Bladestorm", "tier": 7, "kind": "capstone", "ranks": 1, "category": "identity", "description": "Crits have 30% chance to refund the consumed skill's cooldown. While second-weapon offhand is equipped, chain-hit skills (Blade Dance, Fan of Knives, Chain Strike) gain +1 hit. (Mirrors §10.1 Blademaster ascendancy keystone — reshapes Crit Cascade tempo via cooldown refunds.)", "engineHook": "onSkillCrit+offhandConditional", "dependencies": ["secondWeaponOffhand"] },
+        { "id": "asn_bm_storm_cascade", "name": "Storm Cascade", "tier": 7, "kind": "capstone_supporting", "ranks": 1, "category": "identity", "description": "At 5 Crit Stacks, all your skills can crit twice (independent crit rolls per hit).", "engineHook": "modifyMechanic:doubleCritRoll:critStackMax", "dependencies": ["critCascadeMechanic"] }
+      ]
+    },
+    {
+      "id": "venomcraft",
+      "name": "Venomcraft",
+      "theme": "Poison snapshot specialist. Stack poisons deeper, make them crit, fuse poison with Crit Cascade. The Apothecary; poison ticks ARE Cascade triggers.",
+      "ascendancyMirror": "Venomcraft (per §10.1)",
+      "nodes": [
+        { "id": "asn_vc_tainted_blade", "name": "Tainted Blade", "tier": 1, "kind": "passive", "ranks": 5, "category": "proc", "description": "Poison ticks have +2/4/6/8/10% chance to apply an extra Poison stack.", "engineHook": "onPoisonDotTick", "dependencies": [] },
+        { "id": "asn_vc_toxic_edge", "name": "Toxic Edge", "tier": 1, "kind": "passive", "ranks": 5, "category": "stat", "description": "+5/10/15/20/25% poison damage (foundation scaling).", "engineHook": "stat:poisonDamage", "dependencies": [] },
+        { "id": "asn_vc_lingering_doom", "name": "Lingering Doom", "tier": 1, "kind": "passive", "ranks": 5, "category": "stat", "description": "+0.5/1.0/1.5/2.0/2.5s poison duration.", "engineHook": "stat:poisonDuration", "dependencies": [] },
+
+        { "id": "asn_vc_vile_reservoir", "name": "Vile Reservoir", "tier": 2, "kind": "passive", "ranks": 3, "category": "stat", "description": "Maximum poison stacks +1/2/3.", "engineHook": "stat:maxPoisonStacks", "dependencies": ["poisonStackCap"] },
+        { "id": "asn_vc_snakes_coil", "name": "Snake's Coil", "tier": 2, "kind": "passive", "ranks": 5, "category": "proc", "description": "Viper Strike has +20/40/60/80/100% chance to apply Deep Wound twice on cast.", "engineHook": "onSkillCast:dagger_viper_strike", "dependencies": [] },
+        { "id": "asn_vc_plague_bearer", "name": "Plague Bearer", "tier": 2, "kind": "passive", "ranks": 5, "category": "proc", "description": "Poison ticks have +1/2/3/4/5% chance to also apply 1 stack of poison to a different enemy in encounter (poison spread).", "engineHook": "onPoisonDotTick", "dependencies": [] },
+        { "id": "asn_vc_venom_covenant", "name": "Venom Covenant", "tier": 2, "kind": "passive", "ranks": 1, "category": "buff_migration", "description": "While you have an active poison stack on any target, +25% attack speed and +10% damage. (Migrated from Venom Covenant active buff per SKILL_FANTASY_AUDIT — cut button, conditioned on poison-active state to make Venomcraft loop-driven, not button-driven.)", "engineHook": "conditionalStat:attackSpeed+damage:poisonActiveOnAnyTarget", "dependencies": [] },
+
+        { "id": "asn_vc_toxic_burst", "name": "Toxic Burst", "tier": 3, "kind": "passive", "ranks": 5, "category": "proc", "description": "Poison ticks against Shadow Marked targets have +5/10/15/20/25% chance to deal +100% damage.", "engineHook": "onPoisonDotTick:targetShadowMarked", "dependencies": [] },
+        { "id": "asn_vc_withering_strike", "name": "Withering Strike", "tier": 3, "kind": "passive", "ranks": 5, "category": "proc", "description": "Hits against poisoned enemies have +2/4/6/8/10% chance to add a Crit Stack regardless of crit (signature-Cascade feeder via DoT state).", "engineHook": "onSkillHit:targetPoisoned", "dependencies": ["critCascadeMechanic"] },
+        { "id": "asn_vc_snake_pit", "name": "Snake Pit", "tier": 3, "kind": "passive", "ranks": 3, "category": "proc", "description": "Fan of Knives has +20/40/60% chance to apply 2 poison stacks per hit.", "engineHook": "onSkillCast:dagger_fan_of_knives", "dependencies": [] },
+        { "id": "asn_vc_acrid_concentration", "name": "Acrid Concentration", "tier": 3, "kind": "passive", "ranks": 3, "category": "conditional", "description": "Each active poison stack on a target grants +1/2/3% damage on hits to that target.", "engineHook": "conditionalStat:damage:perPoisonStack", "dependencies": [] },
+        { "id": "asn_vc_toxin_reservoir", "name": "Toxin Reservoir", "tier": 3, "kind": "passive", "ranks": 5, "category": "stat", "description": "Maximum poison stacks +2/4/6/8/10 (stacks with Vile Reservoir).", "engineHook": "stat:maxPoisonStacks", "dependencies": ["poisonStackCap"] },
+
+        { "id": "asn_vc_necrotic_bite", "name": "Necrotic Bite", "tier": 4, "kind": "passive", "ranks": 3, "category": "proc", "description": "Critical hits apply 1/2/3 stacks of poison automatically (Cascade-poison fusion: crits feed your poison engine).", "engineHook": "onSkillCrit", "dependencies": [] },
+        { "id": "asn_vc_slow_decay", "name": "Slow Decay", "tier": 4, "kind": "passive", "ranks": 5, "category": "conditional", "description": "Poison ticks deal +5/10/15/20/25% damage to enemies below 50% HP.", "engineHook": "conditionalStat:poisonDamage:enemyHpBelow50", "dependencies": [] },
+        { "id": "asn_vc_toxic_pandemic", "name": "Toxic Pandemic", "tier": 4, "kind": "passive", "ranks": 3, "category": "proc", "description": "When a poisoned enemy dies, +25/50/75% chance their remaining poison stacks transfer to the nearest enemy at full duration. (Asn micro-Pandemic — distinct from WD's full Pandemic.)", "engineHook": "onEnemyKill:targetPoisoned", "dependencies": [] },
+        { "id": "asn_vc_sharpened_toxin", "name": "Sharpened Toxin", "tier": 4, "kind": "passive", "ranks": 5, "category": "proc", "description": "Poison ticks have +1/2/3/4/5% chance to crit (preview of Toxic Saint capstone effect).", "engineHook": "onPoisonDotTick:critRoll", "dependencies": [] },
+
+        { "id": "asn_vc_snakes_eye", "name": "Snake's Eye", "tier": 5, "kind": "passive", "ranks": 3, "category": "proc", "description": "On poison-tick crit, +25/50/75% chance to add a Crit Stack (full DoT-Cascade fusion).", "engineHook": "onPoisonDotCrit", "dependencies": ["critCascadeMechanic"] },
+        { "id": "asn_vc_predators_patience", "name": "Predator's Patience", "tier": 5, "kind": "passive", "ranks": 5, "category": "conditional", "description": "Poison ticks deal +1/2/3/4/5% damage per second the target has been poisoned (max +25% at 25s).", "engineHook": "conditionalStat:poisonDamage:poisonAge", "dependencies": [] },
+        { "id": "asn_vc_curare", "name": "Curare", "tier": 5, "kind": "passive", "ranks": 3, "category": "conditional", "description": "Poisoned enemies take +5/10/15% increased damage from all sources.", "engineHook": "conditionalStat:enemyDamageTaken:targetPoisoned", "dependencies": [] },
+        { "id": "asn_vc_wound_mastery", "name": "Wound Mastery", "tier": 5, "kind": "passive", "ranks": 5, "category": "conditional", "description": "Assassinate's Deep Wound consume payoff deals an additional +10/20/30/40/50% damage.", "engineHook": "modifySkill:dagger_assassinate:deepWoundConsumeDamage", "dependencies": [] },
+        { "id": "asn_vc_snakes_among_us", "name": "Snakes Among Us", "tier": 5, "kind": "passive", "ranks": 5, "category": "proc", "description": "On critical hit, +5/10/15/20/25% chance to apply Deep Wound regardless of skill.", "engineHook": "onSkillCrit", "dependencies": [] },
+
+        { "id": "asn_vc_poison_mastery", "name": "Poison Mastery", "tier": 6, "kind": "passive", "ranks": 3, "category": "conditional", "description": "Poison stack damage modifiers from this path stack +1/2/3 times instead of capping at base (lets you double/triple/quadruple-stack Toxic Edge + Acrid Concentration + Slow Decay).", "engineHook": "stackingModifierCap:poisonDamage", "dependencies": [] },
+        { "id": "asn_vc_coiled_strike", "name": "Coiled Strike", "tier": 6, "kind": "passive", "ranks": 3, "category": "proc", "description": "Crits against poisoned enemies have +20/40/60% chance to fire an additional copy of the consumed skill.", "engineHook": "onSkillCrit:targetPoisoned", "dependencies": [] },
+        { "id": "asn_vc_death_pact", "name": "Death Pact", "tier": 6, "kind": "passive", "ranks": 3, "category": "proc", "description": "Killing a poisoned enemy refunds 1/2/3 mana per active poison stack consumed.", "engineHook": "onEnemyKill:targetPoisoned", "dependencies": [] },
+        { "id": "asn_vc_master_apothecary", "name": "Master Apothecary", "tier": 6, "kind": "passive", "ranks": 1, "category": "identity", "description": "Active poison stacks no longer decay while you have a Crit Stack at max (5/5). (Tier-6 preview of the Toxic Saint capstone effect; capstone amplifies further.)", "engineHook": "modifyMechanic:poisonDecayPause:critStackMax", "dependencies": ["critCascadeMechanic"] },
+
+        { "id": "asn_vc_toxic_saint", "name": "Toxic Saint", "tier": 7, "kind": "capstone", "ranks": 1, "category": "identity", "description": "Poison can crit. Your poison stacks no longer decay while Shadow Mark is active on any target. (Mirrors §10.1 Venomcraft ascendancy keystone — reshapes Crit Cascade by routing every poison tick through the crit engine, with Shadow Mark protecting the snapshot.)", "engineHook": "modifyMechanic:poisonCanCrit+poisonDecayPause:shadowMarkActive", "dependencies": ["critCascadeMechanic"] },
+        { "id": "asn_vc_venom_sovereign", "name": "Venom Sovereign", "tier": 7, "kind": "capstone_supporting", "ranks": 1, "category": "identity", "description": "Poison crits add a Crit Stack and have +50% chance to extend Shadow Mark duration by 1s on the target.", "engineHook": "onPoisonDotCrit", "dependencies": ["critCascadeMechanic"] }
+      ]
+    },
+    {
+      "id": "shadowdancer",
+      "name": "Shadowdancer",
+      "theme": "Mark momentum specialist. Mark applies cheap and often, follow-ups punish marks, Shadow Momentum compresses cooldowns. The Predator; first hit always finishes the encounter.",
+      "ascendancyMirror": "Shadowdancer (per §10.1)",
+      "nodes": [
+        { "id": "asn_sd_stalkers_sense", "name": "Stalker's Sense", "tier": 1, "kind": "passive", "ranks": 5, "category": "proc", "description": "Hits on Shadow Marked targets have +1/2/3/4/5% chance to crit.", "engineHook": "onSkillHit:targetShadowMarked", "dependencies": [] },
+        { "id": "asn_sd_phantom_step", "name": "Phantom Step", "tier": 1, "kind": "passive", "ranks": 5, "category": "stat", "description": "All cooldowns recover +1/2/3/4/5% faster (foundation pacing).", "engineHook": "stat:cooldownRecoveryRate", "dependencies": [] },
+        { "id": "asn_sd_killers_grace", "name": "Killer's Grace", "tier": 1, "kind": "passive", "ranks": 5, "category": "stat", "description": "+1/2/3/4/5s Shadow Mark duration.", "engineHook": "comboStateDuration:shadowMark", "dependencies": [] },
+
+        { "id": "asn_sd_mark_spread", "name": "Mark Spread", "tier": 2, "kind": "passive", "ranks": 5, "category": "proc", "description": "Crits have +5/10/15/20/25% chance to apply Shadow Mark to an additional enemy in encounter.", "engineHook": "onSkillCrit", "dependencies": [] },
+        { "id": "asn_sd_shadow_affinity", "name": "Shadow Affinity", "tier": 2, "kind": "passive", "ranks": 5, "category": "stat", "description": "Shadow-tagged skills (Shadow Mark, Shadow Dash, Shadow Caltrops, Shadow Veil) cost 5/10/15/20/25% less mana.", "engineHook": "stat:manaCost:tag:shadow", "dependencies": [] },
+        { "id": "asn_sd_quick_reflexes", "name": "Quick Reflexes", "tier": 2, "kind": "passive", "ranks": 5, "category": "proc", "description": "On taking a hit, +2/4/6/8/10% chance to gain Shadow Momentum.", "engineHook": "onHitTaken", "dependencies": [] },
+        { "id": "asn_sd_shadow_caltrops_reach", "name": "Shadow Caltrops Reach", "tier": 2, "kind": "passive", "ranks": 1, "category": "identity", "description": "Shadow Caltrops applies Shadow Mark to all enemies in trap zone on detonation.", "engineHook": "modifySkill:dagger_blade_trap:appliesShadowMark", "dependencies": [] },
+
+        { "id": "asn_sd_cooldown_choreography", "name": "Cooldown Choreography", "tier": 3, "kind": "passive", "ranks": 1, "category": "identity", "description": "Shadow Momentum reduces 2s instead of 1s on the next skill's cooldown start.", "engineHook": "modifyMechanic:shadowMomentumValue", "dependencies": [] },
+        { "id": "asn_sd_from_the_shadows", "name": "From the Shadows", "tier": 3, "kind": "passive", "ranks": 5, "category": "conditional", "description": "First hit on a new target deals +5/10/15/20/25% damage (patient-predator opener).", "engineHook": "conditionalStat:damage:firstHitOnTarget", "dependencies": [] },
+        { "id": "asn_sd_hunters_patience", "name": "Hunter's Patience", "tier": 3, "kind": "passive", "ranks": 5, "category": "proc", "description": "Hits against Shadow Marked targets have +2/4/6/8/10% chance to refresh Shadow Mark to full duration.", "engineHook": "onSkillHit:targetShadowMarked", "dependencies": [] },
+        { "id": "asn_sd_twin_marks", "name": "Twin Marks", "tier": 3, "kind": "passive", "ranks": 3, "category": "stat", "description": "Shadow Mark skill applies to +1/2/3 additional enemies on cast (chained from primary target).", "engineHook": "modifySkill:dagger_shadow_mark:targetCount", "dependencies": [] },
+        { "id": "asn_sd_cascade_conduit", "name": "Cascade Conduit", "tier": 3, "kind": "passive", "ranks": 5, "category": "proc", "description": "Re-marks via crit on a Shadow Marked target have +5/10/15/20/25% chance to grant +2 Crit Stacks instead of +1.", "engineHook": "onCascadeReMark", "dependencies": ["critCascadeMechanic"] },
+
+        { "id": "asn_sd_veil_mastery", "name": "Veil Mastery", "tier": 4, "kind": "passive", "ranks": 5, "category": "stat", "description": "Shadow Veil's offensive emerge component deals +5/10/15/20/25% damage.", "engineHook": "modifySkill:dagger_blade_ward:emergeDamage", "dependencies": [] },
+        { "id": "asn_sd_cross_weapon_cascade", "name": "Cross-Weapon Cascade", "tier": 4, "kind": "passive", "ranks": 1, "category": "cross_weapon", "description": "Crit Cascade triggers regardless of weapon equipped. Crits on any skill, any weapon, apply Shadow Mark and feed Crit Stacks. (Per §8.2 cross-weapon combo-state propagation — primary cross-weapon node for Asn.)", "engineHook": "onAnySkillCrit", "dependencies": ["critCascadeMechanic"] },
+        { "id": "asn_sd_echo_strike", "name": "Echo Strike", "tier": 4, "kind": "passive", "ranks": 1, "category": "identity", "description": "On reaching 5 Crit Stacks, your next skill against a Shadow Marked target hits twice.", "engineHook": "onCritStackMax", "dependencies": ["critCascadeMechanic"] },
+        { "id": "asn_sd_shadow_covenant", "name": "Shadow Covenant", "tier": 4, "kind": "passive", "ranks": 1, "category": "buff_migration", "description": "While Shadow Mark is active on any target, +15% defense and +10% crit mult. (Migrated from Shadow Covenant active buff per SKILL_FANTASY_AUDIT — cut button, conditioned on Shadow Mark active to route Shadowdancer through its signature combo state.)", "engineHook": "conditionalStat:defense+critMult:shadowMarkActive", "dependencies": [] },
+
+        { "id": "asn_sd_mark_hunter", "name": "Mark Hunter", "tier": 5, "kind": "passive", "ranks": 3, "category": "identity", "description": "Skills consume Shadow Mark for +25/50/75% bonus damage on the consumer (instead of merely benefiting from the mark; payoff progression).", "engineHook": "onShadowMarkConsume", "dependencies": [] },
+        { "id": "asn_sd_shadow_resurgence", "name": "Shadow Resurgence", "tier": 5, "kind": "passive", "ranks": 3, "category": "proc", "description": "On killing a Shadow Marked enemy, +15/30/45% chance to instantly reduce all skill cooldowns by 1s.", "engineHook": "onEnemyKill:targetShadowMarked", "dependencies": [] },
+        { "id": "asn_sd_predators_eye", "name": "Predator's Eye", "tier": 5, "kind": "passive", "ranks": 3, "category": "proc", "description": "Critical hits against Shadow Marked targets have +5/10/15% chance to also crit on the next non-Marked target hit (Cascade carry).", "engineHook": "onSkillCrit:targetShadowMarked", "dependencies": ["critCascadeMechanic"] },
+        { "id": "asn_sd_phantom_speed", "name": "Phantom Speed", "tier": 5, "kind": "passive", "ranks": 1, "category": "identity", "description": "Shadow Momentum stacks (max 3 stacks); each stack independently applies its cooldown reduction to the next skill.", "engineHook": "modifyMechanic:shadowMomentumStacks", "dependencies": [] },
+        { "id": "asn_sd_stalkers_sigil", "name": "Stalker's Sigil", "tier": 5, "kind": "passive", "ranks": 5, "category": "proc", "description": "On crit, +1/2/3/4/5% chance to apply Shadow Mark to ALL enemies in encounter (burst Marker).", "engineHook": "onSkillCrit", "dependencies": [] },
+
+        { "id": "asn_sd_untouchable_tempo", "name": "Untouchable Tempo", "tier": 6, "kind": "passive", "ranks": 3, "category": "proc", "description": "Hits on Shadow Marked targets have +5/10/15% chance to grant Shadow Momentum (preview of Untouchable capstone).", "engineHook": "onSkillHit:targetShadowMarked", "dependencies": [] },
+        { "id": "asn_sd_veiled_strike", "name": "Veiled Strike", "tier": 6, "kind": "passive", "ranks": 1, "category": "identity", "description": "While Shadow Veil's invulnerability window is active, all your hits crit.", "engineHook": "conditionalMechanic:guaranteedCrit:shadowVeilActive", "dependencies": [] },
+        { "id": "asn_sd_cascade_echo", "name": "Cascade Echo", "tier": 6, "kind": "passive", "ranks": 3, "category": "proc", "description": "When Crit Stacks expire (target dies or stacks decay), +25/50/75% chance to gain Shadow Momentum (signature-momentum bridge).", "engineHook": "onCritStackExpire", "dependencies": ["critCascadeMechanic"] },
+        { "id": "asn_sd_mass_reckoning", "name": "Mass Reckoning", "tier": 6, "kind": "passive", "ranks": 1, "category": "identity", "description": "Skills that consume Shadow Mark consume marks on ALL Shadow Marked enemies in encounter, dealing the consume payoff to each.", "engineHook": "modifyMechanic:shadowMarkConsumeAll", "dependencies": [] },
+
+        { "id": "asn_sd_untouchable", "name": "Untouchable", "tier": 7, "kind": "capstone", "ranks": 1, "category": "identity", "description": "Shadow Mark applies on first hit regardless of skill (no crit required). Hits on Shadow Marked targets generate Shadow Momentum (cooldowns start 2s earlier). (Mirrors §10.1 Shadowdancer ascendancy keystone — reshapes Crit Cascade by making mark application universal.)", "engineHook": "modifyMechanic:firstHitMark+markedHitMomentum", "dependencies": [] },
+        { "id": "asn_sd_shadow_sovereign", "name": "Shadow Sovereign", "tier": 7, "kind": "capstone_supporting", "ranks": 1, "category": "identity", "description": "While 3+ enemies in the encounter are Shadow Marked, +25% crit chance and Crit Stacks decay 50% slower.", "engineHook": "conditionalStat:critChance+critStackDecay:shadowMarkedCountAtLeast3", "dependencies": ["critCascadeMechanic"] }
+      ]
+    }
+  ],
+  "summary": {
+    "tier1Nodes": 9,
+    "tier2Nodes": 12,
+    "tier3Nodes": 15,
+    "tier4Nodes": 12,
+    "tier5Nodes": 15,
+    "tier6Nodes": 12,
+    "tier7Nodes": 6,
+    "categoryDistribution": {
+      "proc": 35,
+      "conditional": 12,
+      "stat": 14,
+      "identity": 16,
+      "buff_migration": 3,
+      "cross_weapon": 1,
+      "_note": "Multi-rank flavor distribution: 67 of 81 nodes (~83%) carry proc/conditional/identity/buff_migration/cross_weapon flavor; 14 (~17%) are pure stat-sticks. Stat-sticks are tier-1/tier-2/tier-3 foundation pacing (crit chance, attack speed, crit damage, mana cost, duration scaling, max stacks) where simple values are appropriate per user 'SOME boring stat stick is fine' directive. All 3 tier-7 capstones reshape Crit Cascade signature."
+    },
+    "engineHookDistribution": {
+      "note": "Phase C engineering: each unique engineHook needs an event-emit point in the engine. Asn-specific hooks: onCritStackChange, onCritStackMax, onCritStackExpire, onCascadeReMark, onShadowMarkConsume, onPoisonDotCrit. Procs ride on existing onSkillCrit/onSkillHit/onPoisonDotTick events; conditionals ride on stat resolution; identity nodes ride on signature mechanic dispatch.",
+      "uniqueHooks": "~32 unique engineHook patterns across 81 nodes; many share base events (onSkillCrit, onSkillHit:targetShadowMarked, onPoisonDotTick, onEnemyKill:targetPoisoned, etc.)"
+    },
+    "dependencies": {
+      "poisonStackCap": ["asn_vc_vile_reservoir", "asn_vc_toxin_reservoir"],
+      "secondWeaponOffhand": ["asn_bm_twin_strike", "asn_bm_predators_mark", "asn_bm_twin_reaping", "asn_bm_bladestorm"],
+      "critCascadeMechanic": ["asn_bm_pinpoint", "asn_bm_cascading_crit", "asn_bm_cascade_reservoir", "asn_bm_bladestorm_tempo", "asn_bm_bladework_mastery", "asn_bm_cascade_wave", "asn_bm_storm_cascade", "asn_vc_withering_strike", "asn_vc_snakes_eye", "asn_vc_master_apothecary", "asn_vc_toxic_saint", "asn_vc_venom_sovereign", "asn_sd_cascade_conduit", "asn_sd_cross_weapon_cascade", "asn_sd_echo_strike", "asn_sd_predators_eye", "asn_sd_cascade_echo", "asn_sd_shadow_sovereign"]
+    }
+  }
+}
