@@ -161,11 +161,7 @@ interface GameActions {
   // Offline progression
   claimOfflineProgress: () => void;
 
-  // Abilities (skill tree management — uses old ability IDs via abilityProgress)
-  allocateAbilityNode: (abilityId: string, nodeId: string) => void;
-  respecAbility: (abilityId: string) => void;
-
-  // Class talent tree
+  // Class talent tree (Phase D wiring pending)
   allocateTalentNode: (nodeId: string) => void;
   respecTalents: () => void;
 
@@ -886,14 +882,6 @@ export const useGameStore = create<GameState & GameActions>()(
       },
 
       // ─── Skill/talent actions (delegated to skillStore) ─────
-      allocateAbilityNode: (abilityId: string, nodeId: string) => {
-        useSkillStore.getState().allocateAbilityNode(abilityId, nodeId);
-      },
-
-      respecAbility: (abilityId: string) => {
-        useSkillStore.getState().respecAbility(abilityId);
-      },
-
       allocateTalentNode: (nodeId: string) => {
         useSkillStore.getState().allocateTalentNode(nodeId);
       },
@@ -1375,7 +1363,7 @@ export const useGameStore = create<GameState & GameActions>()(
     })) as import('zustand').StateCreator<GameState & GameActions, [['zustand/persist', unknown]], []>,
     {
       name: 'idle-exile-save',
-      version: 67,
+      version: 68,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;

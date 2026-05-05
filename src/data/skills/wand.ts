@@ -239,67 +239,16 @@ export const WAND_ABILITIES: AbilityDef[] = [
     weaponType: 'wand', kind: 'buff', icon: '⚡',
     duration: 15, cooldown: 60,
     effect: { damageMult: 1.8, materialDropMult: 1.5 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Sustained Lightning', description: 'Extend Chain Lightning.', nodes: [
-          { id: 'wand_cl_a1', name: 'Persistent Charge', description: '+4s duration', tier: 1, effect: {}, durationBonus: 4 },
-          { id: 'wand_cl_a2', name: 'Sustained Lightning', description: '+8s duration', tier: 2, effect: {}, durationBonus: 8, isPathPayoff: true, requiresNodeId: 'wand_cl_a1' },
-        ]},
-        { id: 'B', name: 'Magnetic Lightning', description: 'Convert materials to item drops.', nodes: [
-          { id: 'wand_cl_b1', name: 'Attract', description: '+10% item drops', tier: 1, effect: { itemDropMult: 1.1 } },
-          { id: 'wand_cl_b2', name: 'Magnetic Lightning', description: 'Swap to +1.3x item drops', tier: 2, effect: { materialDropMult: 1.0, itemDropMult: 1.3 }, isPathPayoff: true, requiresNodeId: 'wand_cl_b1' },
-        ]},
-        { id: 'C', name: 'Storm Surge', description: 'Boost damage.', nodes: [
-          { id: 'wand_cl_c1', name: 'Amplified', description: '+20% damage', tier: 1, effect: { damageMult: 1.2 } },
-          { id: 'wand_cl_c2', name: 'Storm Surge', description: '+40% damage', tier: 2, effect: { damageMult: 1.4 }, isPathPayoff: true, requiresNodeId: 'wand_cl_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
   {
     id: 'wand_time_warp', name: 'Time Warp', description: '2x clear speed for 10s.',
     weaponType: 'wand', kind: 'buff', icon: '⌛',
     duration: 10, cooldown: 90,
     effect: { clearSpeedMult: 2.0 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Extended Warp', description: 'Extend Time Warp.', nodes: [
-          { id: 'wand_tw_a1', name: 'Time Dilation', description: '+2s duration', tier: 1, effect: {}, durationBonus: 2 },
-          { id: 'wand_tw_a2', name: 'Extended Warp', description: '+5s duration', tier: 2, effect: {}, durationBonus: 5, isPathPayoff: true, requiresNodeId: 'wand_tw_a1' },
-        ]},
-        { id: 'B', name: 'Temporal Harvest', description: 'Add material drops.', nodes: [
-          { id: 'wand_tw_b1', name: 'Time Loot', description: '+15% material drops', tier: 1, effect: { materialDropMult: 1.15 } },
-          { id: 'wand_tw_b2', name: 'Temporal Harvest', description: '+30% material drops', tier: 2, effect: { materialDropMult: 1.3 }, isPathPayoff: true, requiresNodeId: 'wand_tw_b1' },
-        ]},
-        { id: 'C', name: 'Haste', description: 'Push clear speed higher.', nodes: [
-          { id: 'wand_tw_c1', name: 'Quickened', description: '+25% clear speed', tier: 1, effect: { clearSpeedMult: 1.25 } },
-          { id: 'wand_tw_c2', name: 'Haste', description: '+50% clear speed', tier: 2, effect: { clearSpeedMult: 1.5 }, isPathPayoff: true, requiresNodeId: 'wand_tw_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
   {
     id: 'wand_mystic_insight', name: 'Mystic Insight', description: '+10% item drops (passive).',
     weaponType: 'wand', kind: 'passive', icon: '👁️',
     effect: { itemDropMult: 1.1 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Material Insight', description: 'Convert to material drops.', nodes: [
-          { id: 'wand_mi_a1', name: 'Resourceful Eye', description: '+8% material drops', tier: 1, effect: { materialDropMult: 1.08 } },
-          { id: 'wand_mi_a2', name: 'Material Insight', description: 'Swap to +15% material drops', tier: 2, effect: { itemDropMult: 1.0, materialDropMult: 1.15 }, isPathPayoff: true, requiresNodeId: 'wand_mi_a1' },
-        ]},
-        { id: 'B', name: 'Dual Insight', description: 'Mix of items and materials.', nodes: [
-          { id: 'wand_mi_b1', name: 'Keen Senses', description: '+3% items', tier: 1, effect: { itemDropMult: 1.03 } },
-          { id: 'wand_mi_b2', name: 'Dual Insight', description: '+5% items + 8% materials', tier: 2, effect: { itemDropMult: 1.05, materialDropMult: 1.08 }, isPathPayoff: true, requiresNodeId: 'wand_mi_b1' },
-        ]},
-        { id: 'C', name: 'Fortune\'s Eye', description: 'Pure item drop stacking.', nodes: [
-          { id: 'wand_mi_c1', name: 'Lucky Find', description: '+5% item drops', tier: 1, effect: { itemDropMult: 1.05 } },
-          { id: 'wand_mi_c2', name: 'Fortune\'s Eye', description: '+20% item drops total', tier: 2, effect: { itemDropMult: 1.2 }, isPathPayoff: true, requiresNodeId: 'wand_mi_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
 ];

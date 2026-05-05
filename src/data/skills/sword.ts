@@ -113,67 +113,16 @@ export const SWORD_ABILITIES: AbilityDef[] = [
     weaponType: 'sword', kind: 'buff', icon: '⚔️',
     duration: 15, cooldown: 60,
     effect: { damageMult: 2.0 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Sustained Fury', description: 'Extend the duration of Blade Fury.', nodes: [
-          { id: 'sword_bf_a1', name: 'Extended Fury', description: '+2s duration', tier: 1, effect: {}, durationBonus: 2 },
-          { id: 'sword_bf_a2', name: 'Sustained Fury', description: '+5s duration', tier: 2, effect: {}, durationBonus: 5, isPathPayoff: true, requiresNodeId: 'sword_bf_a1' },
-        ]},
-        { id: 'B', name: 'Precision Fury', description: 'Add crit chance to Blade Fury.', nodes: [
-          { id: 'sword_bf_b1', name: 'Sharpened Edge', description: '+5% crit chance', tier: 1, effect: { critChanceBonus: 5 } },
-          { id: 'sword_bf_b2', name: 'Precision Fury', description: '+10% crit chance', tier: 2, effect: { critChanceBonus: 10 }, isPathPayoff: true, requiresNodeId: 'sword_bf_b1' },
-        ]},
-        { id: 'C', name: 'Frenzied Fury', description: 'Add attack speed to Blade Fury.', nodes: [
-          { id: 'sword_bf_c1', name: 'Quick Strikes', description: '+20% attack speed', tier: 1, effect: { attackSpeedMult: 1.2 } },
-          { id: 'sword_bf_c2', name: 'Frenzied Fury', description: '+50% attack speed', tier: 2, effect: { attackSpeedMult: 1.5 }, isPathPayoff: true, requiresNodeId: 'sword_bf_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
   {
     id: 'sword_riposte', name: 'Riposte', description: '2x defense for 10s.',
     weaponType: 'sword', kind: 'buff', icon: '🛡️',
     duration: 10, cooldown: 45,
     effect: { defenseMult: 2.0 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Counter Strike', description: 'Add damage while defending.', nodes: [
-          { id: 'sword_rip_a1', name: 'Opportunist', description: '+15% damage', tier: 1, effect: { damageMult: 1.15 } },
-          { id: 'sword_rip_a2', name: 'Counter Strike', description: '+30% damage', tier: 2, effect: { damageMult: 1.3 }, isPathPayoff: true, requiresNodeId: 'sword_rip_a1' },
-        ]},
-        { id: 'B', name: 'Stalwart Guard', description: 'Extend Riposte duration.', nodes: [
-          { id: 'sword_rip_b1', name: 'Hold the Line', description: '+4s duration', tier: 1, effect: {}, durationBonus: 4 },
-          { id: 'sword_rip_b2', name: 'Stalwart Guard', description: '+8s duration', tier: 2, effect: {}, durationBonus: 8, isPathPayoff: true, requiresNodeId: 'sword_rip_b1' },
-        ]},
-        { id: 'C', name: 'Iron Bulwark', description: 'Boost defense further.', nodes: [
-          { id: 'sword_rip_c1', name: 'Fortified Stance', description: '+10 all resist', tier: 1, effect: { resistBonus: 10 } },
-          { id: 'sword_rip_c2', name: 'Iron Bulwark', description: '+25 all resist', tier: 2, effect: { resistBonus: 25 }, isPathPayoff: true, requiresNodeId: 'sword_rip_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
   {
     id: 'sword_keen_edge', name: 'Keen Edge', description: '+15% crit chance (passive).',
     weaponType: 'sword', kind: 'passive', icon: '🗡️',
     effect: { critChanceBonus: 15 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Lethal Edge', description: 'Convert crit chance to crit damage.', nodes: [
-          { id: 'sword_ke_a1', name: 'Keen Blade', description: '+5% crit damage', tier: 1, effect: { critMultiplierBonus: 5 } },
-          { id: 'sword_ke_a2', name: 'Lethal Edge', description: 'Swap to +20% crit damage', tier: 2, effect: { critChanceBonus: 0, critMultiplierBonus: 20 }, isPathPayoff: true, requiresNodeId: 'sword_ke_a1' },
-        ]},
-        { id: 'B', name: 'Balanced Edge', description: 'Mix of crit chance and damage.', nodes: [
-          { id: 'sword_ke_b1', name: 'Honed Strike', description: '+3% crit chance', tier: 1, effect: { critChanceBonus: 3 } },
-          { id: 'sword_ke_b2', name: 'Balanced Edge', description: '+8% crit chance + 8% crit damage', tier: 2, effect: { critChanceBonus: 8, critMultiplierBonus: 8 }, isPathPayoff: true, requiresNodeId: 'sword_ke_b1' },
-        ]},
-        { id: 'C', name: 'Razor Focus', description: 'Pure crit chance stacking.', nodes: [
-          { id: 'sword_ke_c1', name: 'Sharp Eye', description: '+5% crit chance', tier: 1, effect: { critChanceBonus: 5 } },
-          { id: 'sword_ke_c2', name: 'Razor Focus', description: '+10% crit chance', tier: 2, effect: { critChanceBonus: 10 }, isPathPayoff: true, requiresNodeId: 'sword_ke_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
 ];

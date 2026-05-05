@@ -234,67 +234,16 @@ export const GREATSWORD_ABILITIES: AbilityDef[] = [
     weaponType: 'greatsword', kind: 'buff', icon: '⚔️',
     duration: 15, cooldown: 60,
     effect: { damageMult: 1.8, clearSpeedMult: 1.3 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Sustained Momentum', description: 'Extend Momentum duration.', nodes: [
-          { id: 'gs_mom_a1', name: 'Building Speed', description: '+3s duration', tier: 1, effect: {}, durationBonus: 3 },
-          { id: 'gs_mom_a2', name: 'Sustained Momentum', description: '+7s duration', tier: 2, effect: {}, durationBonus: 7, isPathPayoff: true, requiresNodeId: 'gs_mom_a1' },
-        ]},
-        { id: 'B', name: 'Sweeping Momentum', description: 'Add double clears.', nodes: [
-          { id: 'gs_mom_b1', name: 'Wide Arc', description: '+10% clear speed', tier: 1, effect: { clearSpeedMult: 1.1 } },
-          { id: 'gs_mom_b2', name: 'Sweeping Momentum', description: 'Add double clears', tier: 2, effect: { doubleClears: true }, isPathPayoff: true, requiresNodeId: 'gs_mom_b1' },
-        ]},
-        { id: 'C', name: 'Unstoppable Force', description: 'Push damage higher.', nodes: [
-          { id: 'gs_mom_c1', name: 'Heavy Swings', description: '+20% damage', tier: 1, effect: { damageMult: 1.2 } },
-          { id: 'gs_mom_c2', name: 'Unstoppable Force', description: '+50% damage', tier: 2, effect: { damageMult: 1.5 }, isPathPayoff: true, requiresNodeId: 'gs_mom_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
   {
     id: 'greatsword_iron_will', name: 'Iron Will', description: '2.5x defense + 15 all resists for 20s.',
     weaponType: 'greatsword', kind: 'buff', icon: '🛡️',
     duration: 20, cooldown: 75,
     effect: { defenseMult: 2.5, resistBonus: 15 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Enduring Will', description: 'Extend Iron Will duration.', nodes: [
-          { id: 'gs_iw_a1', name: 'Steadfast', description: '+5s duration', tier: 1, effect: {}, durationBonus: 5 },
-          { id: 'gs_iw_a2', name: 'Enduring Will', description: '+10s duration', tier: 2, effect: {}, durationBonus: 10, isPathPayoff: true, requiresNodeId: 'gs_iw_a1' },
-        ]},
-        { id: 'B', name: 'Retaliating Will', description: 'Add damage while defending.', nodes: [
-          { id: 'gs_iw_b1', name: 'Counter Force', description: '+15% damage', tier: 1, effect: { damageMult: 1.15 } },
-          { id: 'gs_iw_b2', name: 'Retaliating Will', description: '+30% damage', tier: 2, effect: { damageMult: 1.3 }, isPathPayoff: true, requiresNodeId: 'gs_iw_b1' },
-        ]},
-        { id: 'C', name: 'Unyielding Will', description: 'Boost defense and resists further.', nodes: [
-          { id: 'gs_iw_c1', name: 'Reinforced', description: '+10 all resists', tier: 1, effect: { resistBonus: 10 } },
-          { id: 'gs_iw_c2', name: 'Unyielding Will', description: '+25 all resists', tier: 2, effect: { resistBonus: 25 }, isPathPayoff: true, requiresNodeId: 'gs_iw_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
   {
     id: 'greatsword_heavy_impact', name: 'Heavy Impact', description: '+20% damage + 20% crit damage (passive).',
     weaponType: 'greatsword', kind: 'passive', icon: '⚔️',
     effect: { damageMult: 1.2, critMultiplierBonus: 20 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Lethal Impact', description: 'Focus on crit damage.', nodes: [
-          { id: 'gs_hi_a1', name: 'Deep Wounds', description: '+10% crit damage', tier: 1, effect: { critMultiplierBonus: 10 } },
-          { id: 'gs_hi_a2', name: 'Lethal Impact', description: '+30% crit damage, less raw damage', tier: 2, effect: { damageMult: 1.0, critMultiplierBonus: 30 }, isPathPayoff: true, requiresNodeId: 'gs_hi_a1' },
-        ]},
-        { id: 'B', name: 'Cleaving Impact', description: 'Add clear speed.', nodes: [
-          { id: 'gs_hi_b1', name: 'Wide Swings', description: '+8% clear speed', tier: 1, effect: { clearSpeedMult: 1.08 } },
-          { id: 'gs_hi_b2', name: 'Cleaving Impact', description: '+15% damage + 15% clear speed', tier: 2, effect: { damageMult: 1.15, clearSpeedMult: 1.15 }, isPathPayoff: true, requiresNodeId: 'gs_hi_b1' },
-        ]},
-        { id: 'C', name: 'Crushing Impact', description: 'Pure damage increase.', nodes: [
-          { id: 'gs_hi_c1', name: 'Heavy Blade', description: '+10% damage', tier: 1, effect: { damageMult: 1.1 } },
-          { id: 'gs_hi_c2', name: 'Crushing Impact', description: '+30% damage total', tier: 2, effect: { damageMult: 1.3 }, isPathPayoff: true, requiresNodeId: 'gs_hi_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
 ];

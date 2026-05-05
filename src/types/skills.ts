@@ -148,7 +148,6 @@ export interface AbilityDef {
   duration?: number;
   cooldown?: number;
   effect: AbilityEffect;
-  skillTree?: AbilitySkillTree;
   mutators?: MutatorDef[];              // DEPRECATED — kept for migration
 }
 
@@ -169,7 +168,6 @@ export interface AbilityProgress {
   abilityId: string;
   xp: number;
   level: number;                        // 0-10
-  allocatedNodes: string[];             // IDs of unlocked skill tree nodes
 }
 
 export const ABILITY_SLOT_UNLOCKS = [1, 5, 15] as const;
@@ -512,9 +510,6 @@ export interface SkillDef {
   // Buff/utility fields (non-active kinds)
   duration?: number;
   effect?: AbilityEffect;
-  skillTree?: AbilitySkillTree;
-  skillGraph?: SkillGraph;
-  talentTree?: TalentTree;
   // Forward-compatible timing fields (Phase 6 engine consumes;
   // current engine ignores). See docs/design/CLASS_SYSTEM_PLAN.md §Combat.
   /** Delivery kind for Phase 6 engine. Undefined → infer from castTime. */
@@ -538,8 +533,6 @@ export interface SkillProgress {
   skillId: string;
   xp: number;
   level: number;
-  allocatedNodes: string[];
-  allocatedRanks?: Record<string, number>;  // talent tree node ranks
   elementTransform?: DamageType;             // per-skill element override (Dagger v2)
 }
 

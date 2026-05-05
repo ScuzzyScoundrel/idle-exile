@@ -1,17 +1,19 @@
 // ============================================================
-// Skill Resolution — formula evaluation, tree resolution, effect resolution
-// Extracted from engine/unifiedSkills.ts (Phase B2)
+// Skill Resolution — formula evaluation, effect resolution
+// Per-skill talent trees retired 2026-05-04 (Phase 2 cleanup) —
+// resolveAbilityEffect / resolveSkillEffect simplified to base effect only.
+// Class talent → modifier resolution lands in Phase D.
 // ============================================================
 
 import type {
   SkillDef, SkillProgress, EquippedAbility,
   AbilityEffect, AbilityProgress, AbilityDef,
-  ResolvedStats, ScalingFormula, SkillTreeNode,
+  ResolvedStats, ScalingFormula,
 } from '../../types';
 import { getAbilityDef } from '../../data/skills';
-import { resolveSkillGraphModifiers, type ResolvedSkillModifier } from '../skillGraph';
+import type { ResolvedSkillModifier } from '../skillGraph';
 export type { ResolvedSkillModifier } from '../skillGraph';
-import { resolveTalentModifiers } from '../talentTree';
+
 /**
  * Merge two AbilityEffects together.
  * Multiplicative fields multiply, additive fields sum, booleans OR.
@@ -47,38 +49,15 @@ export function evaluateFormula(formula: ScalingFormula, stats: ResolvedStats): 
   return Math.max(0, result);
 }
 
-/** Get all nodes from a skill tree as a flat array. */
-export function getAllTreeNodes(def: AbilityDef): SkillTreeNode[] {
-  if (!def.skillTree) return [];
-  return def.skillTree.paths.flatMap(p => p.nodes);
-}
-
 /**
- * Resolve the final effect for an ability (base + allocated skill tree nodes).
- * Replaces old mutator-based resolution.
+ * Resolve the final effect for an ability.
+ * Per-skill talent trees retired — returns the base effect directly.
  */
 export function resolveAbilityEffect(
   def: AbilityDef,
-  progress: AbilityProgress | undefined,
+  _progress: AbilityProgress | undefined,
 ): AbilityEffect {
-  const baseEffect = { ...def.effect };
-  if (!progress || !def.skillTree) return baseEffect;
-
-  const allNodes = getAllTreeNodes(def);
-  let merged = baseEffect;
-
-  for (const nodeId of progress.allocatedNodes) {
-    const node = allNodes.find(n => n.id === nodeId);
-    if (!node) continue;
-
-    if (node.isPathPayoff) {
-      merged = { ...merged, ...node.effect };
-    } else {
-      merged = mergeEffect(merged, node.effect as AbilityEffect);
-    }
-  }
-
-  return merged;
+  return { ...def.effect };
 }
 
 /**
@@ -99,43 +78,26 @@ export function resolveAbilityEffectLegacy(equipped: EquippedAbility): AbilityEf
 }
 
 /**
- * Get the resolved graph modifier for a skill, or null if no graph tree.
- * Talent tree is self-contained — legacy skill graph nodes are NOT merged.
+ * Get the resolved graph modifier for a skill.
+ * Phase 2 cleanup: per-skill graphs retired; always returns null. Phase D
+ * will rewire this to resolve class-talent modifiers from `src/data/classTrees/`.
  */
 export function getSkillGraphModifier(
-  skill: SkillDef,
-  progress: SkillProgress | undefined,
+  _skill: SkillDef,
+  _progress: SkillProgress | undefined,
 ): ResolvedSkillModifier | null {
-  if (skill.talentTree && progress?.allocatedRanks) {
-    return resolveTalentModifiers(skill.talentTree, progress.allocatedRanks);
-  }
-  if (!skill.skillGraph || !progress) return null;
-  return resolveSkillGraphModifiers(skill.skillGraph, progress.allocatedNodes);
+  return null;
 }
 
 /**
  * Resolve the final AbilityEffect for a non-active skill (buff/passive/etc.).
- * Applies skill tree node bonuses from progress.
+ * Per-skill talent trees retired — returns the base effect directly.
  * Returns empty effect for active skills.
  */
 export function resolveSkillEffect(
   skill: SkillDef,
-  progress: SkillProgress | undefined,
+  _progress: SkillProgress | undefined,
 ): AbilityEffect {
   if (skill.kind === 'active') return {};
-  if (!skill.effect) return {};
-
-  if (skill.skillGraph && progress) {
-    const graphMod = resolveSkillGraphModifiers(skill.skillGraph, progress.allocatedNodes);
-    return mergeEffect({ ...skill.effect }, graphMod.abilityEffect);
-  }
-
-  const abilityProgress: AbilityProgress | undefined = progress ? {
-    abilityId: progress.skillId,
-    xp: progress.xp,
-    level: progress.level,
-    allocatedNodes: progress.allocatedNodes,
-  } : undefined;
-
-  return resolveAbilityEffect(skill as any, abilityProgress);
+  return { ...skill.effect };
 }

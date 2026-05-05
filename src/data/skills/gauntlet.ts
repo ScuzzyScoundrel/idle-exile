@@ -235,67 +235,16 @@ export const GAUNTLET_ABILITIES: AbilityDef[] = [
     weaponType: 'gauntlet', kind: 'buff', icon: '🥊',
     duration: 15, cooldown: 60,
     effect: { damageMult: 2.0, attackSpeedMult: 1.15 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Sustained Surge', description: 'Extend Power Surge duration.', nodes: [
-          { id: 'gau_ps_a1', name: 'Flowing Power', description: '+3s duration', tier: 1, effect: {}, durationBonus: 3 },
-          { id: 'gau_ps_a2', name: 'Sustained Surge', description: '+7s duration', tier: 2, effect: {}, durationBonus: 7, isPathPayoff: true, requiresNodeId: 'gau_ps_a1' },
-        ]},
-        { id: 'B', name: 'Critical Surge', description: 'Add crit bonus.', nodes: [
-          { id: 'gau_ps_b1', name: 'Focused Strikes', description: '+8% crit chance', tier: 1, effect: { critChanceBonus: 8 } },
-          { id: 'gau_ps_b2', name: 'Critical Surge', description: '+15% crit chance', tier: 2, effect: { critChanceBonus: 15 }, isPathPayoff: true, requiresNodeId: 'gau_ps_b1' },
-        ]},
-        { id: 'C', name: 'Overwhelming Surge', description: 'Push damage higher.', nodes: [
-          { id: 'gau_ps_c1', name: 'Empowered Fists', description: '+25% damage', tier: 1, effect: { damageMult: 1.25 } },
-          { id: 'gau_ps_c2', name: 'Overwhelming Surge', description: '+50% damage', tier: 2, effect: { damageMult: 1.5 }, isPathPayoff: true, requiresNodeId: 'gau_ps_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
   {
     id: 'gauntlet_arcane_shield', name: 'Arcane Shield', description: '2.5x defense + 15 all resists for 18s.',
     weaponType: 'gauntlet', kind: 'buff', icon: '🛡️',
     duration: 18, cooldown: 75,
     effect: { defenseMult: 2.5, resistBonus: 15 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Lasting Shield', description: 'Extend Arcane Shield duration.', nodes: [
-          { id: 'gau_as_a1', name: 'Reinforced Barrier', description: '+4s duration', tier: 1, effect: {}, durationBonus: 4 },
-          { id: 'gau_as_a2', name: 'Lasting Shield', description: '+8s duration', tier: 2, effect: {}, durationBonus: 8, isPathPayoff: true, requiresNodeId: 'gau_as_a1' },
-        ]},
-        { id: 'B', name: 'Reflective Shield', description: 'Add damage during defense.', nodes: [
-          { id: 'gau_as_b1', name: 'Energy Reflection', description: '+15% damage', tier: 1, effect: { damageMult: 1.15 } },
-          { id: 'gau_as_b2', name: 'Reflective Shield', description: '+30% damage', tier: 2, effect: { damageMult: 1.3 }, isPathPayoff: true, requiresNodeId: 'gau_as_b1' },
-        ]},
-        { id: 'C', name: 'Impenetrable Shield', description: 'Boost defense and resists.', nodes: [
-          { id: 'gau_as_c1', name: 'Warded Fists', description: '+12 all resists', tier: 1, effect: { resistBonus: 12 } },
-          { id: 'gau_as_c2', name: 'Impenetrable Shield', description: '+25 all resists', tier: 2, effect: { resistBonus: 25 }, isPathPayoff: true, requiresNodeId: 'gau_as_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
   {
     id: 'gauntlet_spell_fist', name: 'Spell Fist', description: '+20% damage + 8% crit chance (passive).',
     weaponType: 'gauntlet', kind: 'passive', icon: '🥊',
     effect: { damageMult: 1.2, critChanceBonus: 8 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Elemental Fist', description: 'Convert to crit damage.', nodes: [
-          { id: 'gau_sf_a1', name: 'Charged Strikes', description: '+10% crit damage', tier: 1, effect: { critMultiplierBonus: 10 } },
-          { id: 'gau_sf_a2', name: 'Elemental Fist', description: '+25% crit damage', tier: 2, effect: { critMultiplierBonus: 25 }, isPathPayoff: true, requiresNodeId: 'gau_sf_a1' },
-        ]},
-        { id: 'B', name: 'Swift Fist', description: 'Add attack speed.', nodes: [
-          { id: 'gau_sf_b1', name: 'Quick Jab', description: '+5% attack speed', tier: 1, effect: { attackSpeedMult: 1.05 } },
-          { id: 'gau_sf_b2', name: 'Swift Fist', description: '+10% damage + 10% attack speed', tier: 2, effect: { damageMult: 1.1, attackSpeedMult: 1.1 }, isPathPayoff: true, requiresNodeId: 'gau_sf_b1' },
-        ]},
-        { id: 'C', name: 'Iron Fist', description: 'Pure damage stacking.', nodes: [
-          { id: 'gau_sf_c1', name: 'Heavy Hands', description: '+10% damage', tier: 1, effect: { damageMult: 1.1 } },
-          { id: 'gau_sf_c2', name: 'Iron Fist', description: '+30% damage total', tier: 2, effect: { damageMult: 1.3 }, isPathPayoff: true, requiresNodeId: 'gau_sf_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
 ];

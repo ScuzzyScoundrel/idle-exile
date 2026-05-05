@@ -1,6 +1,8 @@
 // ============================================================
 // Skill Timers — duration, cooldown, buff checks, proc/bonus clears
-// Extracted from engine/unifiedSkills.ts (Phase B1)
+// Phase 2 cleanup 2026-05-04: per-skill talent tree branches removed.
+// Effective duration/cooldown now equals base value (Phase D class talents
+// will reintroduce talent-driven scaling).
 // ============================================================
 
 import type {
@@ -9,31 +11,19 @@ import type {
   ResolvedStats,
 } from '../../types';
 import { getAbilityDef } from '../../data/skills';
-import { resolveSkillGraphModifiers } from '../skillGraph';
-import { getAllTreeNodes, evaluateFormula } from './resolution';
+import { evaluateFormula } from './resolution';
 
 // ─── Duration & Cooldown ───
 
 /**
- * Get effective duration (base + tree node bonuses).
+ * Get effective duration. Per-skill talent trees retired — base duration only.
  */
 export function getEffectiveDuration(
   def: AbilityDef,
-  progress: AbilityProgress | undefined,
+  _progress: AbilityProgress | undefined,
   _stats?: ResolvedStats,
 ): number {
-  if (!def.duration) return 0;
-  let duration = def.duration;
-
-  if (progress && def.skillTree) {
-    const allNodes = getAllTreeNodes(def);
-    for (const nodeId of progress.allocatedNodes) {
-      const node = allNodes.find(n => n.id === nodeId);
-      if (node?.durationBonus) duration += node.durationBonus;
-    }
-  }
-
-  return duration;
+  return def.duration ?? 0;
 }
 
 /**
@@ -52,82 +42,40 @@ export function getEffectiveDurationLegacy(equipped: { abilityId: string; select
 }
 
 /**
- * Get effective cooldown (base - tree node reductions).
+ * Get effective cooldown. Per-skill talent trees retired — base cooldown only.
  */
 export function getEffectiveCooldown(
   def: AbilityDef,
-  progress: AbilityProgress | undefined,
+  _progress: AbilityProgress | undefined,
 ): number {
-  if (!def.cooldown) return 0;
-  let cooldown = def.cooldown;
-
-  if (progress && def.skillTree) {
-    const allNodes = getAllTreeNodes(def);
-    let totalReduction = 0;
-    for (const nodeId of progress.allocatedNodes) {
-      const node = allNodes.find(n => n.id === nodeId);
-      if (node?.cooldownReduction) totalReduction += node.cooldownReduction;
-    }
-    cooldown *= (1 - totalReduction / 100);
-  }
-
-  return Math.max(1, cooldown);
+  return def.cooldown ?? 0;
 }
 
 /**
- * Get effective duration for a skill (base + tree bonuses).
+ * Get effective duration for a skill.
  */
 export function getSkillEffectiveDuration(
   skill: SkillDef,
-  progress: SkillProgress | undefined,
+  _progress: SkillProgress | undefined,
 ): number {
-  if (!skill.duration) return 0;
-
-  if (skill.skillGraph && progress) {
-    const graphMod = resolveSkillGraphModifiers(skill.skillGraph, progress.allocatedNodes);
-    return skill.duration + graphMod.durationBonus;
-  }
-
-  const abilityProgress: AbilityProgress | undefined = progress ? {
-    abilityId: progress.skillId,
-    xp: progress.xp,
-    level: progress.level,
-    allocatedNodes: progress.allocatedNodes,
-  } : undefined;
-
-  return getEffectiveDuration(skill as any, abilityProgress);
+  return skill.duration ?? 0;
 }
 
 /**
- * Get effective cooldown for a skill (base + tree bonuses + speed stat CDR).
+ * Get effective cooldown for a skill (base + speed stat CDR).
  * Attack speed reduces Attack skill cooldowns; cast speed reduces Spell skill cooldowns.
  */
 export function getSkillEffectiveCooldown(
   skill: SkillDef,
-  progress: SkillProgress | undefined,
+  _progress: SkillProgress | undefined,
   speedStat: number = 0,
 ): number {
   if (!skill.cooldown) return 0;
 
-  let cooldown: number;
-
-  if (skill.skillGraph && progress) {
-    const graphMod = resolveSkillGraphModifiers(skill.skillGraph, progress.allocatedNodes);
-    cooldown = skill.cooldown * (1 - graphMod.cooldownReduction / 100);
-  } else {
-    const abilityProgress: AbilityProgress | undefined = progress ? {
-      abilityId: progress.skillId,
-      xp: progress.xp,
-      level: progress.level,
-      allocatedNodes: progress.allocatedNodes,
-    } : undefined;
-    cooldown = getEffectiveCooldown(skill as any, abilityProgress);
-  }
-
+  let cooldown = skill.cooldown;
   if (speedStat > 0) {
     cooldown = cooldown / (1 + speedStat / 100);
   }
-
   return Math.max(1, cooldown);
 }
 

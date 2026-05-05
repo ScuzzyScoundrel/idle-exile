@@ -10,7 +10,6 @@ export {
   mergeEffect,
   EMPTY_EFFECT,
   evaluateFormula,
-  getAllTreeNodes,
   resolveAbilityEffect,
   resolveAbilityEffectLegacy,
   getSkillGraphModifier,
@@ -44,10 +43,6 @@ export {
   getAbilityXpForLevel,
   addAbilityXp,
   getAbilityXpPerClear,
-  canAllocateNode,
-  allocateNode,
-  respecAbility,
-  getRespecCost,
   createAbilityProgress,
 
   // dps

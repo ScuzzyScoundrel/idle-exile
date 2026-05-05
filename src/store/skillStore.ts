@@ -12,13 +12,10 @@ import type {
   GameState,
 } from '../types';
 import { useGameStore } from './gameStore';
-import { getUnifiedSkillDef, getAbilityDef, getSkillDef } from '../data/skills';
+import { getUnifiedSkillDef, getSkillDef } from '../data/skills';
 import {
-  canAllocateNode, allocateNode, respecAbility as respecAbilityEngine, getRespecCost,
   getSkillEffectiveDuration, getSkillEffectiveCooldown,
 } from '../engine/unifiedSkills';
-import { canAllocateTalentRank, allocateTalentRank, respecTalentRanks, getTalentRespecCost } from '../engine/talentTree';
-import { canAllocateGraphNode, allocateGraphNode, respecGraphNodes, getGraphRespecCost } from '../engine/skillGraph';
 import { ZONE_DEFS } from '../data/zones';
 import { SKILL_GCD } from '../data/balance';
 import { resolveStats } from '../engine/character';
@@ -30,11 +27,8 @@ import { getFullEffect } from '../engine/combat/helpers';
 import { computeNextClear } from '../engine/zones/helpers';
 
 interface SkillActions {
-  // Ability / skill graph / talent tree node allocation
-  allocateAbilityNode: (abilityId: string, nodeId: string) => void;
-  respecAbility: (abilityId: string) => void;
-
-  // Class talent tree (currently disabled)
+  // Class talent tree (currently disabled — class trees in src/data/classTrees/
+  // are the active layer; allocation wiring lands in Phase D)
   allocateTalentNode: (nodeId: string) => void;
   respecTalents: () => void;
 
@@ -52,85 +46,7 @@ interface SkillActions {
 
 export const useSkillStore = create<SkillActions>()((_set, _get) => ({
 
-  // ─── Ability / Skill Graph / Talent Tree Node Allocation ───
-
-  allocateAbilityNode: (abilityId: string, nodeId: string) => {
-    useGameStore.setState((state) => {
-      const unifiedDef = getUnifiedSkillDef(abilityId);
-
-      // Talent tree path (v3.2): takes priority
-      if (unifiedDef?.talentTree) {
-        const progress = state.skillProgress[abilityId];
-        if (!progress) return state;
-        const ranks = progress.allocatedRanks ?? {};
-        if (!canAllocateTalentRank(unifiedDef.talentTree, ranks, nodeId, progress.level))
-          return state;
-        const newProgress = { ...state.skillProgress };
-        newProgress[abilityId] = { ...progress, allocatedRanks: allocateTalentRank(ranks, nodeId) };
-        return { skillProgress: newProgress };
-      }
-
-      // Old compact graph path (unchanged)
-      if (unifiedDef?.skillGraph) {
-        const progress = state.skillProgress[abilityId];
-        if (!progress) return state;
-        if (!canAllocateGraphNode(unifiedDef.skillGraph, progress.allocatedNodes, nodeId, progress.level)) return state;
-        const newProgress = { ...state.skillProgress };
-        newProgress[abilityId] = { ...progress, allocatedNodes: allocateGraphNode(progress.allocatedNodes, nodeId) };
-        return { skillProgress: newProgress };
-      }
-
-      // Old tree path
-      const def = getAbilityDef(abilityId);
-      if (!def) return state;
-      const progress = state.abilityProgress[abilityId];
-      if (!progress) return state;
-      if (!canAllocateNode(def, progress, nodeId)) return state;
-      const newProgress = { ...state.abilityProgress };
-      newProgress[abilityId] = allocateNode(progress, nodeId);
-      return { abilityProgress: newProgress };
-    });
-  },
-
-  respecAbility: (abilityId: string) => {
-    useGameStore.setState((state) => {
-      const unifiedDef = getUnifiedSkillDef(abilityId);
-
-      // Talent tree path (v3.2): takes priority
-      if (unifiedDef?.talentTree) {
-        const progress = state.skillProgress[abilityId];
-        if (!progress?.allocatedRanks || Object.keys(progress.allocatedRanks).length === 0)
-          return state;
-        const cost = getTalentRespecCost(progress.level);
-        if (state.gold < cost) return state;
-        const newProgress = { ...state.skillProgress };
-        newProgress[abilityId] = { ...progress, allocatedRanks: respecTalentRanks() };
-        return { skillProgress: newProgress, gold: state.gold - cost };
-      }
-
-      // Old compact graph path (unchanged)
-      if (unifiedDef?.skillGraph) {
-        const progress = state.skillProgress[abilityId];
-        if (!progress || progress.allocatedNodes.length === 0) return state;
-        const cost = getGraphRespecCost(progress.level);
-        if (state.gold < cost) return state;
-        const newProgress = { ...state.skillProgress };
-        newProgress[abilityId] = { ...progress, allocatedNodes: respecGraphNodes() };
-        return { skillProgress: newProgress, gold: state.gold - cost };
-      }
-
-      // Old tree path
-      const progress = state.abilityProgress[abilityId];
-      if (!progress) return state;
-      const cost = getRespecCost(progress);
-      if (state.gold < cost) return state;
-      const newProgress = { ...state.abilityProgress };
-      newProgress[abilityId] = respecAbilityEngine(progress);
-      return { abilityProgress: newProgress, gold: state.gold - cost };
-    });
-  },
-
-  // Class talent tree (disabled — Skill Tree Overhaul Phase 0)
+  // Class talent tree allocation (no-op — Phase D wiring pending)
   allocateTalentNode: (_nodeId: string) => {
     useGameStore.setState((state) => {
       return state; // Class talent trees disabled (Skill Tree Overhaul Phase 0)
@@ -223,7 +139,7 @@ export const useSkillStore = create<SkillActions>()((_set, _get) => ({
     // Init skillProgress if missing
     const newProgress = { ...state.skillProgress };
     if (!newProgress[skillId]) {
-      newProgress[skillId] = { skillId, xp: 0, level: 0, allocatedNodes: [] };
+      newProgress[skillId] = { skillId, xp: 0, level: 0 };
       updates.skillProgress = newProgress;
     }
 

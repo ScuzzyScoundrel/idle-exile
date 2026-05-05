@@ -10,8 +10,6 @@ import type {
 import { getAbilityDef, getUnifiedSkillDef } from '../../data/skills';
 import { resolveAbilityEffect, resolveSkillEffect, mergeEffect } from './resolution';
 import { isAbilityActive } from './timers';
-import { resolveSkillGraphModifiers } from '../skillGraph';
-import { resolveTalentModifiers } from '../talentTree';
 
 // Re-export mergeEffect from resolution (canonical home) for backward compat
 export { mergeEffect } from './resolution';
@@ -125,7 +123,6 @@ export function aggregateSkillBarEffects(
           abilityId: progress.skillId,
           xp: progress.xp,
           level: progress.level,
-          allocatedNodes: progress.allocatedNodes,
         } : undefined;
         if (isAbilityActive(timerAsAbility, skill as any, abilityProgress, now)) {
           const effect = resolveSkillEffect(skill, progress);
@@ -139,30 +136,13 @@ export function aggregateSkillBarEffects(
 }
 
 /**
- * Aggregate globalEffect from ALL equipped skills' graph trees.
- * These cross-skill effects (from keystones) buff ALL skills, not just their own tree.
+ * Aggregate globalEffect from ALL equipped skills' talent trees.
+ * Phase 2 cleanup 2026-05-04: per-skill graphs/talents retired; returns identity
+ * effect. Phase D will rewire this to read from class-tree allocation.
  */
 export function aggregateGraphGlobalEffects(
-  skillBar: (EquippedSkill | null)[],
-  skillProgress: Record<string, SkillProgress>,
+  _skillBar: (EquippedSkill | null)[],
+  _skillProgress: Record<string, SkillProgress>,
 ): AbilityEffect {
-  let result: AbilityEffect = {};
-  for (const slot of skillBar) {
-    if (!slot) continue;
-    const def = getUnifiedSkillDef(slot.skillId);
-    if (!def) continue;
-    const progress = skillProgress[slot.skillId];
-    if (!progress) continue;
-
-    if (def.talentTree && progress.allocatedRanks) {
-      const mod = resolveTalentModifiers(def.talentTree, progress.allocatedRanks);
-      result = mergeEffect(result, mod.globalEffect);
-      continue;
-    }
-
-    if (!def.skillGraph || progress.allocatedNodes.length === 0) continue;
-    const mod = resolveSkillGraphModifiers(def.skillGraph, progress.allocatedNodes);
-    result = mergeEffect(result, mod.globalEffect);
-  }
-  return result;
+  return {};
 }

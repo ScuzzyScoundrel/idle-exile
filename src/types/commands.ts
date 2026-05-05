@@ -214,17 +214,6 @@ export interface ActivateSkillBarSlotCommand {
   slotIndex: number;
 }
 
-export interface AllocateAbilityNodeCommand {
-  type: 'ALLOCATE_ABILITY_NODE';
-  abilityId: string;
-  nodeId: string;
-}
-
-export interface RespecAbilityCommand {
-  type: 'RESPEC_ABILITY';
-  abilityId: string;
-}
-
 export interface AllocateTalentNodeCommand {
   type: 'ALLOCATE_TALENT_NODE';
   nodeId: string;
@@ -354,8 +343,6 @@ export type GameCommand =
   | ToggleSkillAutoCastCommand
   | ReorderSkillBarCommand
   | ActivateSkillBarSlotCommand
-  | AllocateAbilityNodeCommand
-  | RespecAbilityCommand
   | AllocateTalentNodeCommand
   | RespecTalentsCommand
   // Combat

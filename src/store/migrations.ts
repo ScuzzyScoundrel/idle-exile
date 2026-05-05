@@ -345,17 +345,16 @@ export function runMigrations(
       const autoCast = sDef ? (sDef.kind === 'passive' || sDef.kind === 'proc') : false;
       skillBar[i + 1] = { skillId: unifiedId, autoCast };
 
-      // Migrate ability progress to skill progress
+      // Migrate ability progress to skill progress (allocatedNodes dropped Phase 2 cleanup 2026-05-04)
       const oldProg = abilityProg[ea.abilityId];
       if (oldProg) {
         skillProgress[unifiedId] = {
           skillId: unifiedId,
           xp: oldProg.xp,
           level: oldProg.level,
-          allocatedNodes: [...oldProg.allocatedNodes],
         };
       } else {
-        skillProgress[unifiedId] = { skillId: unifiedId, xp: 0, level: 0, allocatedNodes: [] };
+        skillProgress[unifiedId] = { skillId: unifiedId, xp: 0, level: 0 };
       }
 
       // Init timers for buff/toggle/instant/ultimate kinds
@@ -414,9 +413,10 @@ export function runMigrations(
       'wand_searing_ray', 'wand_essence_drain', 'wand_void_blast',
       'wand_chain_lightning_buff', 'wand_time_warp', 'wand_mystic_insight',
     ];
+    // Phase 2 cleanup 2026-05-04: per-skill allocations retired; v68 strips persisted field.
     for (const id of wandSkillIds) {
       if (sp[id]) {
-        sp[id] = { ...sp[id], allocatedNodes: [] };
+        sp[id] = { ...sp[id] };
       }
     }
     // Also clear old abilityProgress for wand abilities
@@ -485,9 +485,10 @@ export function runMigrations(
   if (version < 36) {
     // v36: Chain Lightning tree redesign (51 nodes → 15 nodes, cross-skill synergy).
     // Node IDs changed — reset CL allocatedNodes. Players keep XP/level.
+    // Phase 2 cleanup 2026-05-04: per-skill allocations retired; v68 strips persisted field.
     const sp36 = (state.skillProgress ?? {}) as Record<string, SkillProgress>;
     if (sp36['wand_chain_lightning']) {
-      sp36['wand_chain_lightning'] = { ...sp36['wand_chain_lightning'], allocatedNodes: [] };
+      sp36['wand_chain_lightning'] = { ...sp36['wand_chain_lightning'] };
     }
   }
 
@@ -781,9 +782,10 @@ export function runMigrations(
       'wand_essence_drain', 'wand_void_blast',
       'wand_chain_lightning_buff', 'wand_time_warp', 'wand_mystic_insight',
     ];
+    // Phase 2 cleanup 2026-05-04: per-skill allocations retired; v68 strips persisted field.
     for (const sid of newTreeSkills) {
       if (sp37[sid]) {
-        sp37[sid] = { ...sp37[sid], allocatedNodes: [] };
+        sp37[sid] = { ...sp37[sid] };
       }
     }
   }
@@ -958,6 +960,23 @@ export function runMigrations(
     // recomputed from character level via getAvailableTalentPoints), so
     // players keep all spendable points and can re-allocate freely.
     raw.talentAllocations = [];
+  }
+
+  if (version < 68) {
+    // v68: Phase 2 cleanup — per-skill talent system fully retired.
+    // Strip the now-dead `allocatedNodes` (string[]) and `allocatedRanks`
+    // (Record<string, number>) fields from every persisted SkillProgress
+    // and AbilityProgress entry. Player XP/level are preserved. Class
+    // talent allocation lives on `talentAllocations` (separate field).
+    const sp = (raw.skillProgress ?? {}) as Record<string, Record<string, unknown>>;
+    for (const sid of Object.keys(sp)) {
+      delete sp[sid].allocatedNodes;
+      delete sp[sid].allocatedRanks;
+    }
+    const ap = (raw.abilityProgress ?? {}) as Record<string, Record<string, unknown>>;
+    for (const aid of Object.keys(ap)) {
+      delete ap[aid].allocatedNodes;
+    }
   }
 
   return state;

@@ -3,12 +3,11 @@
 // Replaces engine/unifiedSkills.ts (Phase B7)
 // ============================================================
 
-// Resolution (leaf: mergeEffect, formula eval, tree resolution)
+// Resolution (leaf: mergeEffect, formula eval, effect resolution)
 export {
   mergeEffect,
   EMPTY_EFFECT,
   evaluateFormula,
-  getAllTreeNodes,
   resolveAbilityEffect,
   resolveAbilityEffectLegacy,
   getSkillGraphModifier,
@@ -42,17 +41,13 @@ export {
   aggregateGraphGlobalEffects,
 } from './effects';
 
-// Progression (XP, leveling, tree allocation, respec)
+// Progression (XP, leveling — tree allocation retired Phase 2 cleanup)
 export {
   getIncompatibleAbilities,
   getUnlockedSlotCount,
   getAbilityXpForLevel,
   addAbilityXp,
   getAbilityXpPerClear,
-  canAllocateNode,
-  allocateNode,
-  respecAbility,
-  getRespecCost,
   createAbilityProgress,
 } from './progression';
 

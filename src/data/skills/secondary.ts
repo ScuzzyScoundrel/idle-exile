@@ -648,68 +648,17 @@ export const SECONDARY_ABILITIES: AbilityDef[] = [
     weaponType: 'axe', kind: 'buff', icon: '\uD83E\uDE93',
     duration: 20, cooldown: 90,
     effect: { damageMult: 1.5, doubleClears: true },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Relentless Cleave', description: 'Extend Cleave duration.', nodes: [
-          { id: 'axe_cl_a1', name: 'Sustained Swings', description: '+4s duration', tier: 1, effect: {}, durationBonus: 4 },
-          { id: 'axe_cl_a2', name: 'Relentless Cleave', description: '+8s duration', tier: 2, effect: {}, durationBonus: 8, isPathPayoff: true, requiresNodeId: 'axe_cl_a1' },
-        ]},
-        { id: 'B', name: 'Brutal Cleave', description: 'More damage, no double clears.', nodes: [
-          { id: 'axe_cl_b1', name: 'Heavy Chop', description: '+50% damage', tier: 1, effect: { damageMult: 1.5 } },
-          { id: 'axe_cl_b2', name: 'Brutal Cleave', description: '3x damage, no double clears', tier: 2, effect: { damageMult: 3.0, doubleClears: false }, isPathPayoff: true, requiresNodeId: 'axe_cl_b1' },
-        ]},
-        { id: 'C', name: 'Whirlwind', description: 'Add material drops to Cleave.', nodes: [
-          { id: 'axe_cl_c1', name: 'Scattering Blows', description: '+10% material drops', tier: 1, effect: { materialDropMult: 1.1 } },
-          { id: 'axe_cl_c2', name: 'Whirlwind', description: '+25% material drops', tier: 2, effect: { materialDropMult: 1.25 }, isPathPayoff: true, requiresNodeId: 'axe_cl_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
   {
     id: 'axe_berserker_rage', name: 'Berserker Rage', description: '3x damage for 12s.',
     weaponType: 'axe', kind: 'buff', icon: '\uD83D\uDD25',
     duration: 12, cooldown: 60,
     effect: { damageMult: 3.0 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Frenzied Rage', description: 'Add attack speed to Berserker Rage.', nodes: [
-          { id: 'axe_br_a1', name: 'Wild Swings', description: '+25% attack speed', tier: 1, effect: { attackSpeedMult: 1.25 } },
-          { id: 'axe_br_a2', name: 'Frenzied Rage', description: '+50% attack speed', tier: 2, effect: { attackSpeedMult: 1.5 }, isPathPayoff: true, requiresNodeId: 'axe_br_a1' },
-        ]},
-        { id: 'B', name: 'Sustained Rage', description: 'Extend Berserker Rage duration.', nodes: [
-          { id: 'axe_br_b1', name: 'Lingering Fury', description: '+3s duration', tier: 1, effect: {}, durationBonus: 3 },
-          { id: 'axe_br_b2', name: 'Sustained Rage', description: '+6s duration', tier: 2, effect: {}, durationBonus: 6, isPathPayoff: true, requiresNodeId: 'axe_br_b1' },
-        ]},
-        { id: 'C', name: 'Blood Rage', description: 'Add crit during rage.', nodes: [
-          { id: 'axe_br_c1', name: 'Reckless Strikes', description: '+10% crit chance', tier: 1, effect: { critChanceBonus: 10 } },
-          { id: 'axe_br_c2', name: 'Blood Rage', description: '+20% crit damage', tier: 2, effect: { critMultiplierBonus: 20 }, isPathPayoff: true, requiresNodeId: 'axe_br_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
   {
     id: 'axe_heavy_blows', name: 'Heavy Blows', description: '+20% damage (passive).',
     weaponType: 'axe', kind: 'passive', icon: '\uD83D\uDCA2',
     effect: { damageMult: 1.2 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Devastating Blows', description: 'Convert to crit damage.', nodes: [
-          { id: 'axe_hb_a1', name: 'Focused Impact', description: '+8% crit damage', tier: 1, effect: { critMultiplierBonus: 8 } },
-          { id: 'axe_hb_a2', name: 'Devastating Blows', description: '+15% crit damage, less raw damage', tier: 2, effect: { damageMult: 1.0, critMultiplierBonus: 15 }, isPathPayoff: true, requiresNodeId: 'axe_hb_a1' },
-        ]},
-        { id: 'B', name: 'Scavenging Blows', description: 'Add material drop bonus.', nodes: [
-          { id: 'axe_hb_b1', name: 'Resourceful', description: '+5% material drops', tier: 1, effect: { materialDropMult: 1.05 } },
-          { id: 'axe_hb_b2', name: 'Scavenging Blows', description: '+10% damage + 10% materials', tier: 2, effect: { damageMult: 1.1, materialDropMult: 1.1 }, isPathPayoff: true, requiresNodeId: 'axe_hb_b1' },
-        ]},
-        { id: 'C', name: 'Crushing Blows', description: 'Pure damage increase.', nodes: [
-          { id: 'axe_hb_c1', name: 'Power Strikes', description: '+10% damage', tier: 1, effect: { damageMult: 1.1 } },
-          { id: 'axe_hb_c2', name: 'Crushing Blows', description: '+30% damage total', tier: 2, effect: { damageMult: 1.3 }, isPathPayoff: true, requiresNodeId: 'axe_hb_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
 
   // ==================== Mace — Tanky, consistent ====================
@@ -718,68 +667,17 @@ export const SECONDARY_ABILITIES: AbilityDef[] = [
     weaponType: 'mace', kind: 'buff', icon: '\uD83D\uDCA5',
     duration: 15, cooldown: 75,
     effect: { damageMult: 1.3, ignoreHazards: true },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Lingering Shockwave', description: 'Extend Shockwave duration.', nodes: [
-          { id: 'mace_sw_a1', name: 'Aftershock', description: '+4s duration', tier: 1, effect: {}, durationBonus: 4 },
-          { id: 'mace_sw_a2', name: 'Lingering Shockwave', description: '+8s duration', tier: 2, effect: {}, durationBonus: 8, isPathPayoff: true, requiresNodeId: 'mace_sw_a1' },
-        ]},
-        { id: 'B', name: 'Defensive Shockwave', description: 'Add defense to Shockwave.', nodes: [
-          { id: 'mace_sw_b1', name: 'Stabilized', description: '+50% defense', tier: 1, effect: { defenseMult: 1.5 } },
-          { id: 'mace_sw_b2', name: 'Defensive Shockwave', description: '+2x defense', tier: 2, effect: { defenseMult: 2.0 }, isPathPayoff: true, requiresNodeId: 'mace_sw_b1' },
-        ]},
-        { id: 'C', name: 'Quake', description: 'Boost Shockwave damage.', nodes: [
-          { id: 'mace_sw_c1', name: 'Tremor', description: '+20% damage', tier: 1, effect: { damageMult: 1.2 } },
-          { id: 'mace_sw_c2', name: 'Quake', description: '+50% damage', tier: 2, effect: { damageMult: 1.5 }, isPathPayoff: true, requiresNodeId: 'mace_sw_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
   {
     id: 'mace_fortify', name: 'Fortify', description: '3x defense for 20s.',
     weaponType: 'mace', kind: 'buff', icon: '\uD83C\uDFF0',
     duration: 20, cooldown: 60,
     effect: { defenseMult: 3.0 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Elemental Fortify', description: 'Add resist bonus.', nodes: [
-          { id: 'mace_fo_a1', name: 'Warded', description: '+12 all resists', tier: 1, effect: { resistBonus: 12 } },
-          { id: 'mace_fo_a2', name: 'Elemental Fortify', description: '+25 all resists', tier: 2, effect: { resistBonus: 25 }, isPathPayoff: true, requiresNodeId: 'mace_fo_a1' },
-        ]},
-        { id: 'B', name: 'Iron Wall', description: 'Extend Fortify duration.', nodes: [
-          { id: 'mace_fo_b1', name: 'Steadfast', description: '+5s duration', tier: 1, effect: {}, durationBonus: 5 },
-          { id: 'mace_fo_b2', name: 'Iron Wall', description: '+10s duration', tier: 2, effect: {}, durationBonus: 10, isPathPayoff: true, requiresNodeId: 'mace_fo_b1' },
-        ]},
-        { id: 'C', name: 'Thorns', description: 'Add damage while fortified.', nodes: [
-          { id: 'mace_fo_c1', name: 'Retaliate', description: '+15% damage', tier: 1, effect: { damageMult: 1.15 } },
-          { id: 'mace_fo_c2', name: 'Thorns', description: '+30% damage while defending', tier: 2, effect: { damageMult: 1.3 }, isPathPayoff: true, requiresNodeId: 'mace_fo_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
   {
     id: 'mace_crushing_force', name: 'Crushing Force', description: '+10% damage + 10 all resists (passive).',
     weaponType: 'mace', kind: 'passive', icon: '\uD83D\uDD28',
     effect: { damageMult: 1.1, resistBonus: 10 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Iron Skin', description: 'Focus on resists.', nodes: [
-          { id: 'mace_cf_a1', name: 'Hardened', description: '+5 all resists', tier: 1, effect: { resistBonus: 5 } },
-          { id: 'mace_cf_a2', name: 'Iron Skin', description: '+20 resists, no damage', tier: 2, effect: { damageMult: 1.0, resistBonus: 20 }, isPathPayoff: true, requiresNodeId: 'mace_cf_a1' },
-        ]},
-        { id: 'B', name: 'Crushing Power', description: 'Focus on damage.', nodes: [
-          { id: 'mace_cf_b1', name: 'Heavy Hitter', description: '+5% damage', tier: 1, effect: { damageMult: 1.05 } },
-          { id: 'mace_cf_b2', name: 'Crushing Power', description: '+20% damage, no resists', tier: 2, effect: { damageMult: 1.2, resistBonus: 0 }, isPathPayoff: true, requiresNodeId: 'mace_cf_b1' },
-        ]},
-        { id: 'C', name: 'Balanced Force', description: 'Enhance both.', nodes: [
-          { id: 'mace_cf_c1', name: 'Steady Force', description: '+5% damage', tier: 1, effect: { damageMult: 1.05 } },
-          { id: 'mace_cf_c2', name: 'Balanced Force', description: '+15% damage + 15 resists', tier: 2, effect: { damageMult: 1.15, resistBonus: 15 }, isPathPayoff: true, requiresNodeId: 'mace_cf_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
 
   // ==================== Greataxe — Brutal, bleeds ====================
@@ -788,68 +686,17 @@ export const SECONDARY_ABILITIES: AbilityDef[] = [
     weaponType: 'greataxe', kind: 'buff', icon: '\uD83E\uDE78',
     duration: 15, cooldown: 60,
     effect: { damageMult: 2.0, attackSpeedMult: 1.2 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Prolonged Rage', description: 'Extend Bloodrage duration.', nodes: [
-          { id: 'ga_br_a1', name: 'Festering Rage', description: '+3s duration', tier: 1, effect: {}, durationBonus: 3 },
-          { id: 'ga_br_a2', name: 'Prolonged Rage', description: '+7s duration', tier: 2, effect: {}, durationBonus: 7, isPathPayoff: true, requiresNodeId: 'ga_br_a1' },
-        ]},
-        { id: 'B', name: 'Frenzied Rage', description: 'Push attack speed higher.', nodes: [
-          { id: 'ga_br_b1', name: 'Wild Strikes', description: '+15% attack speed', tier: 1, effect: { attackSpeedMult: 1.15 } },
-          { id: 'ga_br_b2', name: 'Frenzied Rage', description: '+30% attack speed', tier: 2, effect: { attackSpeedMult: 1.3 }, isPathPayoff: true, requiresNodeId: 'ga_br_b1' },
-        ]},
-        { id: 'C', name: 'Bloodthirsty', description: 'Boost damage further.', nodes: [
-          { id: 'ga_br_c1', name: 'Savage Strikes', description: '+25% damage', tier: 1, effect: { damageMult: 1.25 } },
-          { id: 'ga_br_c2', name: 'Bloodthirsty', description: '+50% damage', tier: 2, effect: { damageMult: 1.5 }, isPathPayoff: true, requiresNodeId: 'ga_br_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
   {
     id: 'greataxe_savage_roar', name: 'Savage Roar', description: '1.5x damage + double clears for 12s.',
     weaponType: 'greataxe', kind: 'buff', icon: '\uD83D\uDCA2',
     duration: 12, cooldown: 75,
     effect: { damageMult: 1.5, doubleClears: true },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Lingering Roar', description: 'Extend Savage Roar duration.', nodes: [
-          { id: 'ga_sr_a1', name: 'Echoing Roar', description: '+3s duration', tier: 1, effect: {}, durationBonus: 3 },
-          { id: 'ga_sr_a2', name: 'Lingering Roar', description: '+6s duration', tier: 2, effect: {}, durationBonus: 6, isPathPayoff: true, requiresNodeId: 'ga_sr_a1' },
-        ]},
-        { id: 'B', name: 'Intimidating Roar', description: 'Add defense bonus.', nodes: [
-          { id: 'ga_sr_b1', name: 'Fearsome', description: '+50% defense', tier: 1, effect: { defenseMult: 1.5 } },
-          { id: 'ga_sr_b2', name: 'Intimidating Roar', description: '+2x defense', tier: 2, effect: { defenseMult: 2.0 }, isPathPayoff: true, requiresNodeId: 'ga_sr_b1' },
-        ]},
-        { id: 'C', name: 'Brutal Roar', description: 'Push damage higher.', nodes: [
-          { id: 'ga_sr_c1', name: 'Vicious', description: '+25% damage', tier: 1, effect: { damageMult: 1.25 } },
-          { id: 'ga_sr_c2', name: 'Brutal Roar', description: '+50% damage, no double clears', tier: 2, effect: { damageMult: 2.0, doubleClears: false }, isPathPayoff: true, requiresNodeId: 'ga_sr_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
   {
     id: 'greataxe_butchery', name: 'Butchery', description: '+25% damage + 10% crit chance (passive).',
     weaponType: 'greataxe', kind: 'passive', icon: '\uD83E\uDE93',
     effect: { damageMult: 1.25, critChanceBonus: 10 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Execution', description: 'Focus on crit.', nodes: [
-          { id: 'ga_bu_a1', name: 'Precise Chop', description: '+5% crit chance', tier: 1, effect: { critChanceBonus: 5 } },
-          { id: 'ga_bu_a2', name: 'Execution', description: '+15% crit chance, less raw damage', tier: 2, effect: { damageMult: 1.1, critChanceBonus: 15 }, isPathPayoff: true, requiresNodeId: 'ga_bu_a1' },
-        ]},
-        { id: 'B', name: 'Scavenging Strikes', description: 'Add material drops.', nodes: [
-          { id: 'ga_bu_b1', name: 'Resourceful', description: '+8% material drops', tier: 1, effect: { materialDropMult: 1.08 } },
-          { id: 'ga_bu_b2', name: 'Scavenging Strikes', description: '+15% material drops', tier: 2, effect: { materialDropMult: 1.15 }, isPathPayoff: true, requiresNodeId: 'ga_bu_b1' },
-        ]},
-        { id: 'C', name: 'Merciless', description: 'Pure damage stacking.', nodes: [
-          { id: 'ga_bu_c1', name: 'Savage Force', description: '+10% damage', tier: 1, effect: { damageMult: 1.1 } },
-          { id: 'ga_bu_c2', name: 'Merciless', description: '+35% damage total', tier: 2, effect: { damageMult: 1.35 }, isPathPayoff: true, requiresNodeId: 'ga_bu_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
 
   // ==================== Maul — Ground slams, tanky ====================
@@ -858,68 +705,17 @@ export const SECONDARY_ABILITIES: AbilityDef[] = [
     weaponType: 'maul', kind: 'buff', icon: '\uD83C\uDF0B',
     duration: 12, cooldown: 60,
     effect: { damageMult: 2.2, clearSpeedMult: 1.2 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Aftershock', description: 'Extend Earthquake duration.', nodes: [
-          { id: 'maul_eq_a1', name: 'Tremors', description: '+3s duration', tier: 1, effect: {}, durationBonus: 3 },
-          { id: 'maul_eq_a2', name: 'Aftershock', description: '+6s duration', tier: 2, effect: {}, durationBonus: 6, isPathPayoff: true, requiresNodeId: 'maul_eq_a1' },
-        ]},
-        { id: 'B', name: 'Fissure', description: 'Add material drops.', nodes: [
-          { id: 'maul_eq_b1', name: 'Cracked Ground', description: '+10% material drops', tier: 1, effect: { materialDropMult: 1.1 } },
-          { id: 'maul_eq_b2', name: 'Fissure', description: '+25% material drops', tier: 2, effect: { materialDropMult: 1.25 }, isPathPayoff: true, requiresNodeId: 'maul_eq_b1' },
-        ]},
-        { id: 'C', name: 'Tectonic Slam', description: 'Push damage higher.', nodes: [
-          { id: 'maul_eq_c1', name: 'Heavy Impact', description: '+20% damage', tier: 1, effect: { damageMult: 1.2 } },
-          { id: 'maul_eq_c2', name: 'Tectonic Slam', description: '+50% damage', tier: 2, effect: { damageMult: 1.5 }, isPathPayoff: true, requiresNodeId: 'maul_eq_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
   {
     id: 'maul_stone_skin', name: 'Stone Skin', description: '3x defense + 20 all resists for 20s.',
     weaponType: 'maul', kind: 'buff', icon: '\uD83C\uDFF0',
     duration: 20, cooldown: 75,
     effect: { defenseMult: 3.0, resistBonus: 20 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Enduring Stone', description: 'Extend Stone Skin duration.', nodes: [
-          { id: 'maul_ss_a1', name: 'Hardened', description: '+5s duration', tier: 1, effect: {}, durationBonus: 5 },
-          { id: 'maul_ss_a2', name: 'Enduring Stone', description: '+10s duration', tier: 2, effect: {}, durationBonus: 10, isPathPayoff: true, requiresNodeId: 'maul_ss_a1' },
-        ]},
-        { id: 'B', name: 'Retaliating Stone', description: 'Add damage while defended.', nodes: [
-          { id: 'maul_ss_b1', name: 'Thorns', description: '+15% damage', tier: 1, effect: { damageMult: 1.15 } },
-          { id: 'maul_ss_b2', name: 'Retaliating Stone', description: '+30% damage', tier: 2, effect: { damageMult: 1.3 }, isPathPayoff: true, requiresNodeId: 'maul_ss_b1' },
-        ]},
-        { id: 'C', name: 'Mountain\'s Resolve', description: 'Boost resists and defense further.', nodes: [
-          { id: 'maul_ss_c1', name: 'Iron Core', description: '+15 all resists', tier: 1, effect: { resistBonus: 15 } },
-          { id: 'maul_ss_c2', name: 'Mountain\'s Resolve', description: '+30 all resists', tier: 2, effect: { resistBonus: 30 }, isPathPayoff: true, requiresNodeId: 'maul_ss_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
   {
     id: 'maul_crushing_weight', name: 'Crushing Weight', description: '+15% damage + 15% defense (passive).',
     weaponType: 'maul', kind: 'passive', icon: '\uD83D\uDD28',
     effect: { damageMult: 1.15, defenseMult: 1.15 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Immovable', description: 'Focus on defense.', nodes: [
-          { id: 'maul_cw_a1', name: 'Sturdy', description: '+10% defense', tier: 1, effect: { defenseMult: 1.1 } },
-          { id: 'maul_cw_a2', name: 'Immovable', description: '+30% defense, less damage', tier: 2, effect: { damageMult: 1.0, defenseMult: 1.3 }, isPathPayoff: true, requiresNodeId: 'maul_cw_a1' },
-        ]},
-        { id: 'B', name: 'Weighted Blows', description: 'Focus on damage.', nodes: [
-          { id: 'maul_cw_b1', name: 'Heavy Hitter', description: '+10% damage', tier: 1, effect: { damageMult: 1.1 } },
-          { id: 'maul_cw_b2', name: 'Weighted Blows', description: '+30% damage, less defense', tier: 2, effect: { damageMult: 1.3, defenseMult: 1.0 }, isPathPayoff: true, requiresNodeId: 'maul_cw_b1' },
-        ]},
-        { id: 'C', name: 'Balanced Might', description: 'Enhance both equally.', nodes: [
-          { id: 'maul_cw_c1', name: 'Steady', description: '+5% damage + 5% defense', tier: 1, effect: { damageMult: 1.05, defenseMult: 1.05 } },
-          { id: 'maul_cw_c2', name: 'Balanced Might', description: '+20% damage + 20% defense', tier: 2, effect: { damageMult: 1.2, defenseMult: 1.2 }, isPathPayoff: true, requiresNodeId: 'maul_cw_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
 
   // ==================== Scepter — Divine hybrid, phys+ele ====================
@@ -928,68 +724,17 @@ export const SECONDARY_ABILITIES: AbilityDef[] = [
     weaponType: 'scepter', kind: 'buff', icon: '\uD83D\uDD31',
     duration: 15, cooldown: 60,
     effect: { damageMult: 1.8, resistBonus: 25 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Lasting Favor', description: 'Extend Divine Favor duration.', nodes: [
-          { id: 'scep_df_a1', name: 'Blessed', description: '+4s duration', tier: 1, effect: {}, durationBonus: 4 },
-          { id: 'scep_df_a2', name: 'Lasting Favor', description: '+8s duration', tier: 2, effect: {}, durationBonus: 8, isPathPayoff: true, requiresNodeId: 'scep_df_a1' },
-        ]},
-        { id: 'B', name: 'Righteous Fury', description: 'Add crit chance.', nodes: [
-          { id: 'scep_df_b1', name: 'Holy Precision', description: '+8% crit chance', tier: 1, effect: { critChanceBonus: 8 } },
-          { id: 'scep_df_b2', name: 'Righteous Fury', description: '+15% crit chance', tier: 2, effect: { critChanceBonus: 15 }, isPathPayoff: true, requiresNodeId: 'scep_df_b1' },
-        ]},
-        { id: 'C', name: 'Empowered Favor', description: 'Boost damage further.', nodes: [
-          { id: 'scep_df_c1', name: 'Inspired', description: '+20% damage', tier: 1, effect: { damageMult: 1.2 } },
-          { id: 'scep_df_c2', name: 'Empowered Favor', description: '+40% damage', tier: 2, effect: { damageMult: 1.4 }, isPathPayoff: true, requiresNodeId: 'scep_df_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
   {
     id: 'scepter_zealotry', name: 'Zealotry', description: '1.5x damage + 1.3x XP for 12s.',
     weaponType: 'scepter', kind: 'buff', icon: '\u2728',
     duration: 12, cooldown: 75,
     effect: { damageMult: 1.5, xpMult: 1.3 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Sustained Zeal', description: 'Extend Zealotry duration.', nodes: [
-          { id: 'scep_ze_a1', name: 'Devout', description: '+3s duration', tier: 1, effect: {}, durationBonus: 3 },
-          { id: 'scep_ze_a2', name: 'Sustained Zeal', description: '+6s duration', tier: 2, effect: {}, durationBonus: 6, isPathPayoff: true, requiresNodeId: 'scep_ze_a1' },
-        ]},
-        { id: 'B', name: 'Enlightened Zeal', description: 'Push XP bonus higher.', nodes: [
-          { id: 'scep_ze_b1', name: 'Studious', description: '+10% XP', tier: 1, effect: { xpMult: 1.1 } },
-          { id: 'scep_ze_b2', name: 'Enlightened Zeal', description: '+25% XP', tier: 2, effect: { xpMult: 1.25 }, isPathPayoff: true, requiresNodeId: 'scep_ze_b1' },
-        ]},
-        { id: 'C', name: 'Fanatical Zeal', description: 'Boost damage higher.', nodes: [
-          { id: 'scep_ze_c1', name: 'Fervent', description: '+25% damage', tier: 1, effect: { damageMult: 1.25 } },
-          { id: 'scep_ze_c2', name: 'Fanatical Zeal', description: '+50% damage, less XP', tier: 2, effect: { damageMult: 1.5, xpMult: 1.0 }, isPathPayoff: true, requiresNodeId: 'scep_ze_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
   {
     id: 'scepter_consecration', name: 'Consecration', description: '+12% crit chance + 10 all resists (passive).',
     weaponType: 'scepter', kind: 'passive', icon: '\uD83D\uDD31',
     effect: { critChanceBonus: 12, resistBonus: 10 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Holy Ground', description: 'Focus on resists.', nodes: [
-          { id: 'scep_co_a1', name: 'Sacred Ward', description: '+8 all resists', tier: 1, effect: { resistBonus: 8 } },
-          { id: 'scep_co_a2', name: 'Holy Ground', description: '+20 resists, less crit', tier: 2, effect: { critChanceBonus: 5, resistBonus: 20 }, isPathPayoff: true, requiresNodeId: 'scep_co_a1' },
-        ]},
-        { id: 'B', name: 'Divine Judgment', description: 'Focus on crit.', nodes: [
-          { id: 'scep_co_b1', name: 'Keen Judgment', description: '+5% crit chance', tier: 1, effect: { critChanceBonus: 5 } },
-          { id: 'scep_co_b2', name: 'Divine Judgment', description: '+15% crit + 15% crit damage', tier: 2, effect: { critChanceBonus: 15, critMultiplierBonus: 15 }, isPathPayoff: true, requiresNodeId: 'scep_co_b1' },
-        ]},
-        { id: 'C', name: 'Balanced Sanctity', description: 'Enhance both equally.', nodes: [
-          { id: 'scep_co_c1', name: 'Anointed', description: '+3% crit + 5 resists', tier: 1, effect: { critChanceBonus: 3, resistBonus: 5 } },
-          { id: 'scep_co_c2', name: 'Balanced Sanctity', description: '+8% crit + 12 resists', tier: 2, effect: { critChanceBonus: 8, resistBonus: 12 }, isPathPayoff: true, requiresNodeId: 'scep_co_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
 
   // ==================== Tome — Arcane knowledge, curses ====================
@@ -998,67 +743,16 @@ export const SECONDARY_ABILITIES: AbilityDef[] = [
     weaponType: 'tome', kind: 'buff', icon: '\uD83D\uDCD6',
     duration: 15, cooldown: 60,
     effect: { damageMult: 2.0, xpMult: 1.2 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Deep Study', description: 'Extend Forbidden Knowledge duration.', nodes: [
-          { id: 'tome_fk_a1', name: 'Engrossed', description: '+3s duration', tier: 1, effect: {}, durationBonus: 3 },
-          { id: 'tome_fk_a2', name: 'Deep Study', description: '+7s duration', tier: 2, effect: {}, durationBonus: 7, isPathPayoff: true, requiresNodeId: 'tome_fk_a1' },
-        ]},
-        { id: 'B', name: 'Arcane Mastery', description: 'Push XP bonus higher.', nodes: [
-          { id: 'tome_fk_b1', name: 'Quick Learner', description: '+10% XP', tier: 1, effect: { xpMult: 1.1 } },
-          { id: 'tome_fk_b2', name: 'Arcane Mastery', description: '+25% XP', tier: 2, effect: { xpMult: 1.25 }, isPathPayoff: true, requiresNodeId: 'tome_fk_b1' },
-        ]},
-        { id: 'C', name: 'Dark Knowledge', description: 'Push damage higher.', nodes: [
-          { id: 'tome_fk_c1', name: 'Empowered Pages', description: '+25% damage', tier: 1, effect: { damageMult: 1.25 } },
-          { id: 'tome_fk_c2', name: 'Dark Knowledge', description: '+50% damage', tier: 2, effect: { damageMult: 1.5 }, isPathPayoff: true, requiresNodeId: 'tome_fk_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
   {
     id: 'tome_eldritch_ward', name: 'Eldritch Ward', description: '2x defense + ignore hazards for 18s.',
     weaponType: 'tome', kind: 'buff', icon: '\uD83D\uDD2E',
     duration: 18, cooldown: 90,
     effect: { defenseMult: 2.0, ignoreHazards: true },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Lasting Ward', description: 'Extend Eldritch Ward duration.', nodes: [
-          { id: 'tome_ew_a1', name: 'Persistent Glyph', description: '+4s duration', tier: 1, effect: {}, durationBonus: 4 },
-          { id: 'tome_ew_a2', name: 'Lasting Ward', description: '+8s duration', tier: 2, effect: {}, durationBonus: 8, isPathPayoff: true, requiresNodeId: 'tome_ew_a1' },
-        ]},
-        { id: 'B', name: 'Fortified Ward', description: 'Add resist bonus.', nodes: [
-          { id: 'tome_ew_b1', name: 'Warded Pages', description: '+15 all resists', tier: 1, effect: { resistBonus: 15 } },
-          { id: 'tome_ew_b2', name: 'Fortified Ward', description: '+30 all resists', tier: 2, effect: { resistBonus: 30 }, isPathPayoff: true, requiresNodeId: 'tome_ew_b1' },
-        ]},
-        { id: 'C', name: 'Empowered Ward', description: 'Add damage during defense.', nodes: [
-          { id: 'tome_ew_c1', name: 'Retaliating Glyphs', description: '+15% damage', tier: 1, effect: { damageMult: 1.15 } },
-          { id: 'tome_ew_c2', name: 'Empowered Ward', description: '+30% damage', tier: 2, effect: { damageMult: 1.3 }, isPathPayoff: true, requiresNodeId: 'tome_ew_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
   {
     id: 'tome_ancient_wisdom', name: 'Ancient Wisdom', description: '+15% XP + 10% item drops (passive).',
     weaponType: 'tome', kind: 'passive', icon: '\uD83D\uDCD6',
     effect: { xpMult: 1.15, itemDropMult: 1.1 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Lore Master', description: 'Focus on XP.', nodes: [
-          { id: 'tome_aw_a1', name: 'Studious', description: '+8% XP', tier: 1, effect: { xpMult: 1.08 } },
-          { id: 'tome_aw_a2', name: 'Lore Master', description: '+25% XP, less item drops', tier: 2, effect: { xpMult: 1.25, itemDropMult: 1.0 }, isPathPayoff: true, requiresNodeId: 'tome_aw_a1' },
-        ]},
-        { id: 'B', name: 'Treasure Seeker', description: 'Focus on item drops.', nodes: [
-          { id: 'tome_aw_b1', name: 'Keen Eye', description: '+5% item drops', tier: 1, effect: { itemDropMult: 1.05 } },
-          { id: 'tome_aw_b2', name: 'Treasure Seeker', description: '+20% item drops, less XP', tier: 2, effect: { xpMult: 1.0, itemDropMult: 1.2 }, isPathPayoff: true, requiresNodeId: 'tome_aw_b1' },
-        ]},
-        { id: 'C', name: 'Balanced Wisdom', description: 'Enhance both equally.', nodes: [
-          { id: 'tome_aw_c1', name: 'Insightful', description: '+5% XP + 3% items', tier: 1, effect: { xpMult: 1.05, itemDropMult: 1.03 } },
-          { id: 'tome_aw_c2', name: 'Balanced Wisdom', description: '+12% XP + 8% items', tier: 2, effect: { xpMult: 1.12, itemDropMult: 1.08 }, isPathPayoff: true, requiresNodeId: 'tome_aw_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
 ];

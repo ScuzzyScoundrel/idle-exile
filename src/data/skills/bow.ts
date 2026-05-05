@@ -227,67 +227,16 @@ export const BOW_ABILITIES: AbilityDef[] = [
     weaponType: 'bow', kind: 'buff', icon: '🏹',
     duration: 15, cooldown: 60,
     effect: { attackSpeedMult: 2.0 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Sustained Fire', description: 'Extend Rapid Fire.', nodes: [
-          { id: 'bow_rf_a1', name: 'Steady Aim', description: '+4s duration', tier: 1, effect: {}, durationBonus: 4 },
-          { id: 'bow_rf_a2', name: 'Sustained Fire', description: '+8s duration', tier: 2, effect: {}, durationBonus: 8, isPathPayoff: true, requiresNodeId: 'bow_rf_a1' },
-        ]},
-        { id: 'B', name: 'Precise Fire', description: 'Add crit chance.', nodes: [
-          { id: 'bow_rf_b1', name: 'Focused Shot', description: '+8% crit chance', tier: 1, effect: { critChanceBonus: 8 } },
-          { id: 'bow_rf_b2', name: 'Precise Fire', description: '+15% crit chance', tier: 2, effect: { critChanceBonus: 15 }, isPathPayoff: true, requiresNodeId: 'bow_rf_b1' },
-        ]},
-        { id: 'C', name: 'Barrage', description: 'Push attack speed further.', nodes: [
-          { id: 'bow_rf_c1', name: 'Quick Draw', description: '+25% attack speed', tier: 1, effect: { attackSpeedMult: 1.25 } },
-          { id: 'bow_rf_c2', name: 'Barrage', description: '+50% attack speed', tier: 2, effect: { attackSpeedMult: 1.5 }, isPathPayoff: true, requiresNodeId: 'bow_rf_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
   {
     id: 'bow_piercing_shot', name: 'Piercing Shot', description: 'Ignore hazards for 12s.',
     weaponType: 'bow', kind: 'buff', icon: '➡️',
     duration: 12, cooldown: 75,
     effect: { ignoreHazards: true },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Power Shot', description: 'Add damage.', nodes: [
-          { id: 'bow_ps_a1', name: 'Heavy Arrow', description: '+25% damage', tier: 1, effect: { damageMult: 1.25 } },
-          { id: 'bow_ps_a2', name: 'Power Shot', description: '+50% damage', tier: 2, effect: { damageMult: 1.5 }, isPathPayoff: true, requiresNodeId: 'bow_ps_a1' },
-        ]},
-        { id: 'B', name: 'Sustained Pierce', description: 'Extend Piercing Shot.', nodes: [
-          { id: 'bow_ps_b1', name: 'Long Range', description: '+4s duration', tier: 1, effect: {}, durationBonus: 4 },
-          { id: 'bow_ps_b2', name: 'Sustained Pierce', description: '+8s duration', tier: 2, effect: {}, durationBonus: 8, isPathPayoff: true, requiresNodeId: 'bow_ps_b1' },
-        ]},
-        { id: 'C', name: 'Armor Piercing', description: 'Add defense penetration.', nodes: [
-          { id: 'bow_ps_c1', name: 'Penetrating', description: '+10% damage', tier: 1, effect: { damageMult: 1.1 } },
-          { id: 'bow_ps_c2', name: 'Armor Piercing', description: '+20% damage + ignore hazards', tier: 2, effect: { damageMult: 1.2 }, isPathPayoff: true, requiresNodeId: 'bow_ps_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
   {
     id: 'bow_eagle_eye', name: 'Eagle Eye', description: '+10% item drops (passive).',
     weaponType: 'bow', kind: 'passive', icon: '🦅',
     effect: { itemDropMult: 1.1 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Hawk Eye', description: 'Convert to crit chance.', nodes: [
-          { id: 'bow_ee_a1', name: 'Sharp Sight', description: '+4% crit chance', tier: 1, effect: { critChanceBonus: 4 } },
-          { id: 'bow_ee_a2', name: 'Hawk Eye', description: 'Swap to +8% crit chance', tier: 2, effect: { itemDropMult: 1.0, critChanceBonus: 8 }, isPathPayoff: true, requiresNodeId: 'bow_ee_a1' },
-        ]},
-        { id: 'B', name: 'Quick Draw', description: 'Add attack speed.', nodes: [
-          { id: 'bow_ee_b1', name: 'Nimble', description: '+3% attack speed', tier: 1, effect: { attackSpeedMult: 1.03 } },
-          { id: 'bow_ee_b2', name: 'Quick Draw', description: '+5% item drops + 5% attack speed', tier: 2, effect: { itemDropMult: 1.05, attackSpeedMult: 1.05 }, isPathPayoff: true, requiresNodeId: 'bow_ee_b1' },
-        ]},
-        { id: 'C', name: 'Treasure Hunter', description: 'Pure item drop stacking.', nodes: [
-          { id: 'bow_ee_c1', name: 'Keen Finder', description: '+5% item drops', tier: 1, effect: { itemDropMult: 1.05 } },
-          { id: 'bow_ee_c2', name: 'Treasure Hunter', description: '+20% item drops total', tier: 2, effect: { itemDropMult: 1.2 }, isPathPayoff: true, requiresNodeId: 'bow_ee_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
 ];

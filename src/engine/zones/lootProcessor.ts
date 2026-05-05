@@ -466,13 +466,13 @@ export function processClears(
     const skillDef = getUnifiedSkillDef(equipped.skillId);
     if (!skillDef) continue;
     const existing = newSkillProgress[equipped.skillId] ?? {
-      skillId: equipped.skillId, xp: 0, level: 0, allocatedNodes: [],
+      skillId: equipped.skillId, xp: 0, level: 0,
     };
-    const tempProgress = { abilityId: existing.skillId, xp: existing.xp, level: existing.level, allocatedNodes: existing.allocatedNodes };
+    const tempProgress = { abilityId: existing.skillId, xp: existing.xp, level: existing.level };
     const updated = addAbilityXp(tempProgress, totalAbilityXp);
     newSkillProgress[equipped.skillId] = {
       ...existing,
-      xp: updated.xp, level: updated.level, allocatedNodes: updated.allocatedNodes,
+      xp: updated.xp, level: updated.level,
     };
     const oldId = reverseAbilityMap[equipped.skillId];
     if (oldId) {

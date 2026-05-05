@@ -188,14 +188,6 @@ export function dispatch(command: GameCommand): CommandResult {
       useSkillStore.getState().activateSkillBarSlot(command.slotIndex);
       return { success: true };
 
-    case 'ALLOCATE_ABILITY_NODE':
-      useSkillStore.getState().allocateAbilityNode(command.abilityId, command.nodeId);
-      return { success: true };
-
-    case 'RESPEC_ABILITY':
-      useSkillStore.getState().respecAbility(command.abilityId);
-      return { success: true };
-
     case 'ALLOCATE_TALENT_NODE':
       useSkillStore.getState().allocateTalentNode(command.nodeId);
       return { success: true };

@@ -141,11 +141,6 @@ const convertedAbilities: SkillDef[] = ABILITY_DEFS.map(a => {
     // Buff/utility fields
     duration: a.duration,
     effect: a.effect,
-    // Per-skill talent trees retired 2026-05-04. Inline `a.skillTree` from
-    // the legacy data files still flows through the field below; engine
-    // reads of it will be removed in a follow-up cleanup. UI no longer
-    // renders these (SkillGraphView + TalentTreeView deleted).
-    skillTree: a.skillTree,
   };
 });
 

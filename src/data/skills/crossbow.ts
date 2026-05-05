@@ -228,67 +228,16 @@ export const CROSSBOW_ABILITIES: AbilityDef[] = [
     weaponType: 'crossbow', kind: 'buff', icon: '💣',
     duration: 5, cooldown: 90,
     effect: { damageMult: 4.0 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Sustained Power', description: 'Extend Power Shot.', nodes: [
-          { id: 'xbow_ps_a1', name: 'Charged Bolt', description: '+2s duration', tier: 1, effect: {}, durationBonus: 2 },
-          { id: 'xbow_ps_a2', name: 'Sustained Power', description: '+4s duration', tier: 2, effect: {}, durationBonus: 4, isPathPayoff: true, requiresNodeId: 'xbow_ps_a1' },
-        ]},
-        { id: 'B', name: 'Guaranteed Crit', description: 'Add massive crit chance.', nodes: [
-          { id: 'xbow_ps_b1', name: 'Precision Bolt', description: '+25% crit chance', tier: 1, effect: { critChanceBonus: 25 } },
-          { id: 'xbow_ps_b2', name: 'Guaranteed Crit', description: '+50% crit chance', tier: 2, effect: { critChanceBonus: 50 }, isPathPayoff: true, requiresNodeId: 'xbow_ps_b1' },
-        ]},
-        { id: 'C', name: 'Overkill', description: 'Push damage even higher.', nodes: [
-          { id: 'xbow_ps_c1', name: 'Heavy Load', description: '+50% damage', tier: 1, effect: { damageMult: 1.5 } },
-          { id: 'xbow_ps_c2', name: 'Overkill', description: '+100% damage (8x total)', tier: 2, effect: { damageMult: 2.0 }, isPathPayoff: true, requiresNodeId: 'xbow_ps_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
   {
     id: 'crossbow_explosive_bolt', name: 'Explosive Bolt', description: '2x damage + 1.5x materials for 15s.',
     weaponType: 'crossbow', kind: 'buff', icon: '💥',
     duration: 15, cooldown: 75,
     effect: { damageMult: 2.0, materialDropMult: 1.5 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Chain Explosions', description: 'Extend Explosive Bolt.', nodes: [
-          { id: 'xbow_eb_a1', name: 'Lingering Fire', description: '+4s duration', tier: 1, effect: {}, durationBonus: 4 },
-          { id: 'xbow_eb_a2', name: 'Chain Explosions', description: '+8s duration', tier: 2, effect: {}, durationBonus: 8, isPathPayoff: true, requiresNodeId: 'xbow_eb_a1' },
-        ]},
-        { id: 'B', name: 'Cluster Bolt', description: 'Add double clears.', nodes: [
-          { id: 'xbow_eb_b1', name: 'Scatter Shot', description: '+10% damage', tier: 1, effect: { damageMult: 1.1 } },
-          { id: 'xbow_eb_b2', name: 'Cluster Bolt', description: 'Add double clears', tier: 2, effect: { doubleClears: true }, isPathPayoff: true, requiresNodeId: 'xbow_eb_b1' },
-        ]},
-        { id: 'C', name: 'Incendiary', description: 'Boost material drops.', nodes: [
-          { id: 'xbow_eb_c1', name: 'Salvage Blast', description: '+15% material drops', tier: 1, effect: { materialDropMult: 1.15 } },
-          { id: 'xbow_eb_c2', name: 'Incendiary', description: '+30% material drops', tier: 2, effect: { materialDropMult: 1.3 }, isPathPayoff: true, requiresNodeId: 'xbow_eb_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
   {
     id: 'crossbow_steady_aim', name: 'Steady Aim', description: '+20% crit, -10% attack speed (passive).',
     weaponType: 'crossbow', kind: 'passive', icon: '🎯',
     effect: { critChanceBonus: 20, attackSpeedMult: 0.9 },
-    skillTree: {
-      paths: [
-        { id: 'A', name: 'Pure Aim', description: 'Remove speed penalty.', nodes: [
-          { id: 'xbow_sa_a1', name: 'Improved Mechanism', description: 'Reduce speed penalty', tier: 1, effect: { attackSpeedMult: 1.05 } },
-          { id: 'xbow_sa_a2', name: 'Pure Aim', description: '+15% crit, no speed penalty', tier: 2, effect: { critChanceBonus: 15, attackSpeedMult: 1.0 }, isPathPayoff: true, requiresNodeId: 'xbow_sa_a1' },
-        ]},
-        { id: 'B', name: 'Heavy Bolts', description: 'Add damage, more speed penalty.', nodes: [
-          { id: 'xbow_sa_b1', name: 'Weighted Tips', description: '+5% damage', tier: 1, effect: { damageMult: 1.05 } },
-          { id: 'xbow_sa_b2', name: 'Heavy Bolts', description: '+10% crit + 10% damage, -15% speed', tier: 2, effect: { critChanceBonus: 10, damageMult: 1.1, attackSpeedMult: 0.85 }, isPathPayoff: true, requiresNodeId: 'xbow_sa_b1' },
-        ]},
-        { id: 'C', name: 'Marksman', description: 'Pure crit focus.', nodes: [
-          { id: 'xbow_sa_c1', name: 'Careful Aim', description: '+5% crit chance', tier: 1, effect: { critChanceBonus: 5 } },
-          { id: 'xbow_sa_c2', name: 'Marksman', description: '+30% crit total', tier: 2, effect: { critChanceBonus: 30 }, isPathPayoff: true, requiresNodeId: 'xbow_sa_c1' },
-        ]},
-      ],
-      maxPoints: 4,
-    },
   },
 ];
