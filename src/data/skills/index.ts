@@ -4,8 +4,9 @@
 // ============================================================
 
 import type { SkillDef, SkillKind, WeaponType, ActiveSkillDef, AbilityDef } from '../../types';
-import { ALL_SKILL_GRAPHS } from '../skillGraphs/index';
-import { ALL_TALENT_TREES } from '../skillGraphs/talentTrees';
+// 2026-05-04 archive sweep: per-skill `skillGraphs/` + per-ability `classTalents.ts`
+// retired in favor of the JSON class-tree registry (`src/data/classTrees/`).
+// Originals preserved at `src/data/_archive/` for historical reference.
 
 // Per-weapon imports
 import { SWORD_ACTIVE_SKILLS, SWORD_ABILITIES } from './sword';
@@ -111,9 +112,7 @@ const convertedActiveSkills: SkillDef[] = ACTIVE_SKILL_DEFS.map(s => ({
   manaCost: s.manaCost,
   // Phase A Change 3: carry ailment trigger chance
   baseAilmentChance: s.baseAilmentChance,
-  // Wire graph tree for all weapons
-  skillGraph: ALL_SKILL_GRAPHS[s.id],
-  talentTree: ALL_TALENT_TREES[s.id],
+  // Per-skill talent graphs retired 2026-05-04 — class trees in src/data/classTrees/ are the new authoring layer.
 }));
 
 // Convert AbilityDefs -> SkillDefs (keep original kind)
@@ -123,9 +122,6 @@ const convertedAbilities: SkillDef[] = ABILITY_DEFS.map(a => {
 
   // Track all ability ID mappings (even unchanged ones) for migration
   ABILITY_ID_MIGRATION[a.id] = newId;
-
-  // Check if this ability has a graph tree (replaces old skillTree)
-  const graph = ALL_SKILL_GRAPHS[newId];
 
   return {
     id: newId,
@@ -145,9 +141,11 @@ const convertedAbilities: SkillDef[] = ABILITY_DEFS.map(a => {
     // Buff/utility fields
     duration: a.duration,
     effect: a.effect,
-    // Graph tree replaces old skillTree for wand abilities
-    skillTree: graph ? undefined : a.skillTree,
-    skillGraph: graph,
+    // Per-skill talent trees retired 2026-05-04. Inline `a.skillTree` from
+    // the legacy data files still flows through the field below; engine
+    // reads of it will be removed in a follow-up cleanup. UI no longer
+    // renders these (SkillGraphView + TalentTreeView deleted).
+    skillTree: a.skillTree,
   };
 });
 
