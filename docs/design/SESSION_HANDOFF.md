@@ -1,6 +1,6 @@
 # Session Handoff — READ THIS FIRST
 
-**Last updated:** 2026-05-04 (Phase B step 9 + Phase A cleanup + §15.4 rename + Phase C step 1 registry + Phase C3 step 1 weapon pools all complete).
+**Last updated:** 2026-05-04 (Phase B step 9 + Phase A cleanup + §15.4 rename + Phase C step 1 registry + Phase C3 steps 1+2 weapon pools all complete).
 **Purpose:** If you're resuming the idle-exile combat-and-class overhaul in a new session, read this doc first to refresh the full picture in <5 minutes. Then dive into whichever detailed doc the next-move section points to.
 
 ---
@@ -17,7 +17,7 @@
 
 **Phase C3 step 1 — new weapon pools: COMPLETE 2026-05-04.** WeaponType union extended with `flail` / `claws` / `scythe` (3 missing Phase B class-default weapons). Three new per-weapon skill files authored at full quality (10 actives + 3 passive abilities each, all with `skillKind` / `manaCost` / `baseAilmentChance` per Phase A schema): `src/data/skills/flail.ts` (Brs AoE-cleave), `src/data/skills/claws.ts` (Brs/Asn dual-wield bleed), `src/data/skills/scythe.ts` (WD reach/reaper). Bow rebuilt 6 → 10 actives with stale ID cleanup (`bow_multi_shot` → `bow_ice_barrage`, `bow_smoke_arrow` → `bow_shock_arrow`) + new pair-fusion enablers (Hunter's Mark / Bear Trap / Pierce Volley / Tracking Shot). `src/data/weapons.ts` extended with new WEAPON_TYPE_META entries.
 
-**Phase C3 step 2 (DEFERRED): wand/gauntlet/greatsword/crossbow rebuilds** — these 4 weapon types currently have legacy pre-audit content in `src/data/skills/secondary.ts` (6-7 actives each); per design-lock plan they should be rebuilt to match the new per-weapon-file quality bar (10 actives + 3 abilities each with Phase A schema fields + pair-fusion enablers) and extracted out of `secondary.ts` into per-weapon files. Defer to a session focused on this rebuild.
+**Phase C3 step 2 — wand/gauntlet/greatsword/crossbow rebuilds: COMPLETE 2026-05-04.** Extracted from `secondary.ts` (1750 → 1064 lines) into per-weapon files matching the flail/claws/scythe quality bar: `src/data/skills/wand.ts` (10 actives + 3 abilities — Sor/Asn shared, Arcane Blade canonical), `src/data/skills/gauntlet.ts` (10+3 — Sor melee-spell, Spellreaver canonical battle-mage), `src/data/skills/greatsword.ts` (10+3 — Brs flagship cleave), `src/data/skills/crossbow.ts` (10+3 — Hnt heavy ranged). All skills now carry Phase A schema fields (`skillKind`/`manaCost`/`baseAilmentChance`). Each pool got 3-4 new pair-fusion enabler skills (Cascade Bolt, Crit Channel, Volley Convergence, Element Mark on wand; Frenzy Channel, Forge Convergence, Element Combo on gauntlet; Cascade Cleave, Hunter's Cleave, Mana Sacrifice on greatsword; Convergence Bolt, Resonant Trap, Heavy Mark, Pierce Bolt on crossbow). `secondary.ts` retains 6 remaining weapon types (axe/mace/greataxe/maul/scepter/tome) as legacy.
 
 **Phase C step 2 / E / F: NOT STARTED.** UI/engine cutover to JSON node ids (save-breaking, needs effect-data migration), ascendancies, full multi-class engineering all queued.
 
@@ -208,7 +208,8 @@ Minor open considerations (not blocking):
 
 ### Recommended next-session order
 
-1. **Phase C3 step 2 — wand/gauntlet/greatsword/crossbow rebuilds** — extract from `secondary.ts` into per-weapon files, expand each to 10 actives + 3 abilities matching the flail/claws/scythe quality bar, add pair-fusion enabler skills.
+1. **Phase C step 2 — UI/engine cutover to JSON node ids + save migration v67** — author inline `effects[]` arrays in JSON nodes (or a side-table), switch `engine/classTalents.ts` lookups to read from the registry, save migration v67 to clear legacy `talentAllocations` (forces free respec; legacy `wd_voodoo_1` ↔ JSON `wd_pp_lingering_toxin` are different id spaces).
+2. **§8.1 ComboStateSpec schema migration** — combo states currently hardcoded in `engine/combat/combo.ts` (needed for new fused states from Phase C3 pools: Hunter's Shadow, Hunter's Mark, Element-Mark, Self-Bloodied, plus Snared/Disarmed/Bloodied/Frenzy stacks).
 2. **Phase C step 2** — UI/engine cutover to JSON node ids: author inline `effects[]` arrays in JSON nodes (or a side-table), switch `engine/classTalents.ts` lookups to read from the registry, save migration v67 to clear legacy `talentAllocations` (free respec).
 3. **§8.1 ComboStateSpec schema migration** — combo states currently hardcoded in `engine/combat/combo.ts` (needed for new fused states: Hunter's Shadow, Hunter's Mark, Element-Mark, Self-Bloodied)
 4. **Channel duration expiry enforcement** (§9.1) — last remaining Phase A deferral

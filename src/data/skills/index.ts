@@ -12,11 +12,19 @@ import { SWORD_ACTIVE_SKILLS, SWORD_ABILITIES } from './sword';
 import { DAGGER_ACTIVE_SKILLS, DAGGER_ABILITIES } from './dagger';
 import { STAFF_ACTIVE_SKILLS, STAFF_ABILITIES } from './staff';
 import { BOW_ACTIVE_SKILLS, BOW_ABILITIES } from './bow';
-import { SECONDARY_ACTIVE_SKILLS, SECONDARY_ABILITIES } from './secondary';
-// Phase C3 (2026-05-04): new per-weapon pools — Berserker + Witchdoctor defaults.
+// Phase C3 step 1 (2026-05-04): Berserker + Witchdoctor default weapons.
 import { FLAIL_ACTIVE_SKILLS, FLAIL_ABILITIES } from './flail';
 import { CLAWS_ACTIVE_SKILLS, CLAWS_ABILITIES } from './claws';
 import { SCYTHE_ACTIVE_SKILLS, SCYTHE_ABILITIES } from './scythe';
+// Phase C3 step 2 (2026-05-04): extracted from secondary.ts + rebuilt to v2 quality bar.
+import { WAND_ACTIVE_SKILLS, WAND_ABILITIES } from './wand';
+import { GAUNTLET_ACTIVE_SKILLS, GAUNTLET_ABILITIES } from './gauntlet';
+import { GREATSWORD_ACTIVE_SKILLS, GREATSWORD_ABILITIES } from './greatsword';
+import { CROSSBOW_ACTIVE_SKILLS, CROSSBOW_ABILITIES } from './crossbow';
+// Legacy "secondary" pool — remaining weapon types not yet extracted/rebuilt:
+// axe, mace, greataxe, maul, scepter, tome (6 types × 7 actives + 3 abilities each).
+// Future Phase C3 steps will extract these into per-weapon files as needed.
+import { SECONDARY_ACTIVE_SKILLS, SECONDARY_ABILITIES } from './secondary';
 
 // ============================================================
 // Merged arrays (preserve original export names)
@@ -27,10 +35,14 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
   ...DAGGER_ACTIVE_SKILLS,
   ...STAFF_ACTIVE_SKILLS,
   ...BOW_ACTIVE_SKILLS,
-  ...SECONDARY_ACTIVE_SKILLS,
   ...FLAIL_ACTIVE_SKILLS,
   ...CLAWS_ACTIVE_SKILLS,
   ...SCYTHE_ACTIVE_SKILLS,
+  ...WAND_ACTIVE_SKILLS,
+  ...GAUNTLET_ACTIVE_SKILLS,
+  ...GREATSWORD_ACTIVE_SKILLS,
+  ...CROSSBOW_ACTIVE_SKILLS,
+  ...SECONDARY_ACTIVE_SKILLS,
 ];
 
 export const ABILITY_DEFS: AbilityDef[] = [
@@ -38,10 +50,14 @@ export const ABILITY_DEFS: AbilityDef[] = [
   ...DAGGER_ABILITIES,
   ...STAFF_ABILITIES,
   ...BOW_ABILITIES,
-  ...SECONDARY_ABILITIES,
   ...FLAIL_ABILITIES,
   ...CLAWS_ABILITIES,
   ...SCYTHE_ABILITIES,
+  ...WAND_ABILITIES,
+  ...GAUNTLET_ABILITIES,
+  ...GREATSWORD_ABILITIES,
+  ...CROSSBOW_ABILITIES,
+  ...SECONDARY_ABILITIES,
 ];
 
 // ============================================================
