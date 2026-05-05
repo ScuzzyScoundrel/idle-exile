@@ -98,6 +98,14 @@ export type TalentEffect =
   | { kind: 'procOnCrit'; chance: number; action: TalentAction }
   /** Conditional modifier: while target has tag, multiply stat. */
   | { kind: 'whileTag'; tag: TalentTag; stat: string; mult: number }
+  /** Conditional modifier: while PLAYER's HP fraction is below threshold (0-1).
+   *  E.g. threshold=0.5 → fires while currentHp/maxLife < 50%. Phase F (Brs
+   *  Reaver / low-HP scaling). */
+  | { kind: 'whileSelfHpBelow'; threshold: number; stat: string; mult: number }
+  /** Conditional modifier: while TARGET's HP fraction is below threshold (0-1).
+   *  E.g. threshold=0.5 → fires when struck target is below 50% HP. Phase F
+   *  (Brs Warlord execute-range / Hnt finisher nodes). */
+  | { kind: 'whileTargetHpBelow'; threshold: number; stat: string; mult: number }
   /** Per-stack modifier (e.g. +5% damage per poison stack, capped). */
   | { kind: 'perStack'; stack: string; stat: string; perStackDelta: number; cap?: number }
   /** Adds a damage tag to skills matching a source tag

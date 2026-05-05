@@ -61,6 +61,10 @@ export function scaleTalentEffectByRank(effect: TalentEffect, rank: number): Tal
       return { ...effect, mult: 1 + (effect.mult - 1) * rank };
     case 'whileTag':
       return { ...effect, mult: 1 + (effect.mult - 1) * rank };
+    case 'whileSelfHpBelow':
+      return { ...effect, mult: 1 + (effect.mult - 1) * rank };
+    case 'whileTargetHpBelow':
+      return { ...effect, mult: 1 + (effect.mult - 1) * rank };
     case 'perStack':
       return {
         ...effect,
@@ -127,13 +131,20 @@ function targetHasTag(debuffs: ActiveDebuff[], tag: TalentTag): boolean {
   return debuffs.some(d => d.debuffId === did);
 }
 
-/** Folds whileTag + perStack modifiers into effectiveStats
- *  based on current target-debuff state. Legacy `stat` / `statMult` also
- *  handled so authors can use either effect shape. */
+/** Folds whileTag + perStack + whileSelfHpBelow + whileTargetHpBelow
+ *  modifiers into effectiveStats based on current target-debuff state +
+ *  player and target HP fractions. Legacy `stat` / `statMult` also
+ *  handled so authors can use either effect shape.
+ *
+ *  Phase F (2026-05-05): adds `selfHpFraction` + `targetHpFraction`
+ *  parameters (both 0-1, default 1 = "no HP-conditional fires"). Callers
+ *  that don't track HP can omit them. */
 export function applyConditionalTalentEffects(
   effects: TalentEffect[],
   stats: ResolvedStats,
   targetDebuffs: ActiveDebuff[],
+  selfHpFraction: number = 1,
+  targetHpFraction: number = 1,
 ): { damageMult: number } {
   let damageMult = 1;
   for (const eff of effects) {
@@ -152,6 +163,22 @@ export function applyConditionalTalentEffects(
         break;
       case 'whileTag':
         if (targetHasTag(targetDebuffs, eff.tag)) {
+          if (eff.stat === 'damageMult') damageMult *= eff.mult;
+          else if (typeof (stats as any)[eff.stat] === 'number') {
+            (stats as any)[eff.stat] *= eff.mult;
+          }
+        }
+        break;
+      case 'whileSelfHpBelow':
+        if (selfHpFraction < eff.threshold) {
+          if (eff.stat === 'damageMult') damageMult *= eff.mult;
+          else if (typeof (stats as any)[eff.stat] === 'number') {
+            (stats as any)[eff.stat] *= eff.mult;
+          }
+        }
+        break;
+      case 'whileTargetHpBelow':
+        if (targetHpFraction < eff.threshold) {
           if (eff.stat === 'damageMult') damageMult *= eff.mult;
           else if (typeof (stats as any)[eff.stat] === 'number') {
             (stats as any)[eff.stat] *= eff.mult;
@@ -182,6 +209,10 @@ export function applyConditionalTalentEffects(
   }
   return { damageMult };
 }
+
+// Re-export TALENT_TAG_TO_DEBUFF type guard helpers for tests / callers
+// that need to know what conditional kinds fire on what state — kept
+// internal for now but the structure is here.
 
 export interface TalentProcContext {
   /** Target debuffs at proc time. New debuffs from this proc append here. */

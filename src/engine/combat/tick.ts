@@ -521,9 +521,17 @@ export function runCombatTick(
 
   // Phase 4 sub-phase 5: fold whileTag + perStack class-talent modifiers
   // into damageMult based on the CURRENT front-target's debuff state.
+  // Phase F (2026-05-05): also pass player HP + target HP fractions so
+  // whileSelfHpBelow + whileTargetHpBelow conditionals fire correctly.
   if (talentEffects.length > 0) {
+    const selfHpFraction = effectiveStats.maxLife > 0
+      ? state.currentHp / effectiveStats.maxLife
+      : 1;
+    const targetHpFraction = phase === 'boss_fight' && state.bossState
+      ? (state.bossState.bossMaxHp > 0 ? state.bossState.bossCurrentHp / state.bossState.bossMaxHp : 1)
+      : (frontMobMaxHp > 0 ? frontMobHp / frontMobMaxHp : 1);
     const talentConditional = applyConditionalTalentEffects(
-      talentEffects, effectiveStats, targetDebuffs,
+      talentEffects, effectiveStats, targetDebuffs, selfHpFraction, targetHpFraction,
     );
     damageMult *= talentConditional.damageMult;
   }

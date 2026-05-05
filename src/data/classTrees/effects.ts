@@ -194,10 +194,25 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'brs_wl_power_surge': [
     { kind: 'statMult', stat: 'damageMult', mult: 1.02 },
   ],
+  // Phase F F1a (2026-05-05): whileTargetHpBelow unlocks Warlord execute
+  // tier. "+2/4/6/8/10% damage to enemies below 50% HP" rank-1 → +10% at rank 5.
+  'brs_wl_threshold_hunter': [
+    { kind: 'whileTargetHpBelow', threshold: 0.5, stat: 'damageMult', mult: 1.02 },
+  ],
+  // "+10/20/30/40/50% damage to enemies below 25% HP" rank-1 → +50% at rank 5
+  // (deeper execute scaling).
+  'brs_wl_apex_predator': [
+    { kind: 'whileTargetHpBelow', threshold: 0.25, stat: 'damageMult', mult: 1.10 },
+  ],
 
   // ── Reaver path ─────────────────────────────────────────────────────
   'brs_rv_wound_tolerance': [
     { kind: 'stat', stat: 'maxLife', delta: 5 },
+  ],
+  // Phase F F1a (2026-05-05): whileSelfHpBelow unlocks Reaver low-HP tier.
+  // "+2/4/6/8/10% damage while below 50% HP" rank-1 → +10% at rank 5.
+  'brs_rv_hunger': [
+    { kind: 'whileSelfHpBelow', threshold: 0.5, stat: 'damageMult', mult: 1.02 },
   ],
 
   // ── Juggernaut path ─────────────────────────────────────────────────
