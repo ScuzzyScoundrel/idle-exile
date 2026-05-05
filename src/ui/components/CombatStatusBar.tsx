@@ -6,6 +6,20 @@ import { GATHERING_PROFESSION_DEFS } from '../../data/gatheringProfessions';
 import { calcGatheringXpRequired } from '../../engine/gathering';
 import { resolveStats } from '../../engine/character';
 
+// Player-facing labels + colors for each ailment debuff. Labels are
+// short to fit inline pills in the HUD; colors mirror the damage type.
+const AILMENT_STYLE: Record<string, { label: string; color: string }> = {
+  poisoned:   { label: 'Pois', color: 'bg-green-700/70 text-green-100' },
+  bleeding:   { label: 'Bleed', color: 'bg-red-800/70 text-red-100' },
+  burning:    { label: 'Burn', color: 'bg-orange-700/70 text-orange-100' },
+  chilled:    { label: 'Chill', color: 'bg-cyan-700/70 text-cyan-100' },
+  shocked:    { label: 'Shock', color: 'bg-yellow-700/70 text-yellow-100' },
+  frostbite:  { label: 'Froz', color: 'bg-blue-800/70 text-blue-100' },
+  hexed:      { label: 'Hex', color: 'bg-pink-700/70 text-pink-100' },
+  cursed:     { label: 'Curse', color: 'bg-purple-700/70 text-purple-100' },
+  marked:     { label: 'Mark', color: 'bg-amber-700/70 text-amber-100' },
+};
+
 export default function CombatStatusBar() {
   const idleStartTime = useGameStore(s => s.idleStartTime);
   const currentZoneId = useGameStore(s => s.currentZoneId);
@@ -20,6 +34,12 @@ export default function CombatStatusBar() {
   const character = useGameStore(s => s.character);
   const gatheringSkills = useGameStore(s => s.gatheringSkills);
   const currentEs = useGameStore(s => s.currentEs);
+  // Phase E follow-up (Combat HUD wire-up 2026-05-05) — surface mana,
+  // swing timer, and front-mob ailment stacks that the engine has been
+  // emitting silently since Phase A.
+  const nextAutoAttackAt = useGameStore(s => s.nextAutoAttackAt);
+  const packMobs = useGameStore(s => s.packMobs);
+  const activeDebuffs = useGameStore(s => s.activeDebuffs);
 
   // Tick for smooth progress bar animation
   const [, setTick] = useState(0);
@@ -84,6 +104,32 @@ export default function CombatStatusBar() {
   const hpColor = hpPct > 60 ? 'bg-green-500' : hpPct > 30 ? 'bg-yellow-500' : 'bg-red-500';
   const esPct = maxEs > 0 ? Math.max(0, Math.min(100, (currentEs / maxEs) * 100)) : 0;
 
+  // Mana (Phase A — engine consumes; Phase E follow-up — UI surfaces).
+  const mana = character.mana;
+  const manaPct = mana && mana.max > 0
+    ? Math.max(0, Math.min(100, (mana.current / mana.max) * 100))
+    : 0;
+
+  // Swing timer — seconds until next auto-attack. Negative ms means
+  // "ready to swing" (engine fires on next tick).
+  const swingMsRemaining = nextAutoAttackAt - Date.now();
+  const swingReady = swingMsRemaining <= 0;
+  const swingSecLabel = swingReady ? '◉' : `${(swingMsRemaining / 1000).toFixed(1)}s`;
+
+  // Active ailments on the front target. During clearing this is the
+  // first mob in the pack; during a boss fight this is the boss-attached
+  // ephemeral list at `state.activeDebuffs`. Filter to known ailments.
+  const targetDebuffs = combatPhase === 'boss_fight'
+    ? (activeDebuffs ?? [])
+    : (packMobs[0]?.debuffs ?? []);
+  const ailmentPills = targetDebuffs
+    .filter(d => AILMENT_STYLE[d.debuffId])
+    .map(d => ({
+      id: `${d.debuffId}_${d.appliedBySkillId}`,
+      style: AILMENT_STYLE[d.debuffId],
+      stacks: d.stacks,
+    }));
+
   // Clear progress (mob HP)
   const nowMs = Date.now();
   const clearDurationMs = currentClearTime > 0 ? currentClearTime * 1000 : 1;
@@ -118,7 +164,7 @@ export default function CombatStatusBar() {
         {/* Zone name */}
         <span className="text-gray-300 font-semibold truncate shrink-0">{zone.name}</span>
 
-        {/* Player HP bar (+ ES bar if applicable) */}
+        {/* Player HP bar (+ ES bar + Mana bar if applicable) */}
         <div className="flex items-center gap-1.5 min-w-0 flex-1">
           <span className="text-gray-400 shrink-0">HP</span>
           <div className="flex-1 flex flex-col gap-0.5">
@@ -132,10 +178,26 @@ export default function CombatStatusBar() {
                      style={{ width: `${esPct}%` }} />
               </div>
             )}
+            {mana && mana.max > 0 && (
+              <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                <div className="h-full bg-indigo-500 rounded-full transition-all duration-150"
+                     style={{ width: `${manaPct}%` }} />
+              </div>
+            )}
           </div>
-          <span className="text-gray-400 font-mono shrink-0">
-            {Math.ceil(currentHp)}/{maxHp}
-            {maxEs > 0 && <span className="text-blue-400 text-[11px] ml-1">ES:{Math.ceil(currentEs)}/{maxEs}</span>}
+          <span className="text-gray-400 font-mono shrink-0 leading-tight text-right">
+            <span>{Math.ceil(currentHp)}/{maxHp}</span>
+            {maxEs > 0 && <span className="block text-blue-400 text-[10px]">ES:{Math.ceil(currentEs)}/{maxEs}</span>}
+            {mana && mana.max > 0 && <span className="block text-indigo-300 text-[10px]">M:{Math.ceil(mana.current)}/{mana.max}</span>}
+          </span>
+          {/* Swing-timer indicator — next auto-attack countdown. */}
+          <span
+            className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] font-mono ${
+              swingReady ? 'bg-emerald-700/70 text-emerald-100' : 'bg-gray-700/70 text-gray-300'
+            }`}
+            title="Next auto-attack swing"
+          >
+            {swingSecLabel}
           </span>
         </div>
 
@@ -161,6 +223,21 @@ export default function CombatStatusBar() {
             <div className="flex-1" />
           )}
         </div>
+
+        {/* Ailment stack pills — front mob in clearing, boss in boss_fight. */}
+        {ailmentPills.length > 0 && (
+          <div className="flex items-center gap-1 shrink-0 max-w-[200px] overflow-hidden">
+            {ailmentPills.slice(0, 6).map(pill => (
+              <span
+                key={pill.id}
+                className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${pill.style.color}`}
+                title={`${pill.style.label} × ${pill.stacks}`}
+              >
+                {pill.style.label}{pill.stacks > 1 && <span className="font-bold ml-0.5">×{pill.stacks}</span>}
+              </span>
+            ))}
+          </div>
+        )}
 
         {/* Boss countdown or phase badge */}
         {phaseBadge ? (
