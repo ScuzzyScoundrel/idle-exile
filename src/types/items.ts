@@ -120,6 +120,8 @@ export type ArmorType = 'plate' | 'leather' | 'cloth';
 export type WeaponType =
   | 'sword' | 'axe' | 'mace' | 'dagger' | 'staff' | 'wand' | 'bow' | 'crossbow'
   | 'greatsword' | 'greataxe' | 'maul' | 'scepter' | 'gauntlet' | 'tome'
+  // Phase C3 (2026-05-04): Berserker + Witchdoctor default weapons.
+  | 'flail' | 'claws' | 'scythe'
   | 'tool';
 export type WeaponScalingType = 'attack' | 'spell' | 'hybrid';
 export type OffhandType = 'shield' | 'focus' | 'quiver';

@@ -45,6 +45,11 @@ export const WEAPON_TYPE_META: Record<WeaponType, WeaponTypeMeta> = {
   staff:      { scaling: 'spell',  speedModifier: 0.8,  handedness: '2h', category: 'spell',  affixScaleMultiplier: 2.0 },
   tome:       { scaling: 'spell',  speedModifier: 1.0,  handedness: '2h', category: 'spell',  affixScaleMultiplier: 2.0 },
 
+  // Phase C3 (2026-05-04): Berserker + Witchdoctor default weapons
+  flail:      { scaling: 'attack', speedModifier: 0.8,  handedness: '1h', category: 'melee',  affixScaleMultiplier: 1.0 },
+  claws:      { scaling: 'attack', speedModifier: 1.4,  handedness: '1h', category: 'melee',  affixScaleMultiplier: 1.0 },
+  scythe:     { scaling: 'hybrid', speedModifier: 0.85, handedness: '2h', category: 'melee',  affixScaleMultiplier: 2.0 },
+
   // Profession tool (not used in combat)
   tool:       { scaling: 'attack', speedModifier: 1.0,  handedness: '1h', category: 'melee',  affixScaleMultiplier: 1.0 },
 };

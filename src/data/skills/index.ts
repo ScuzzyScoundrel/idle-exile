@@ -13,6 +13,10 @@ import { DAGGER_ACTIVE_SKILLS, DAGGER_ABILITIES } from './dagger';
 import { STAFF_ACTIVE_SKILLS, STAFF_ABILITIES } from './staff';
 import { BOW_ACTIVE_SKILLS, BOW_ABILITIES } from './bow';
 import { SECONDARY_ACTIVE_SKILLS, SECONDARY_ABILITIES } from './secondary';
+// Phase C3 (2026-05-04): new per-weapon pools — Berserker + Witchdoctor defaults.
+import { FLAIL_ACTIVE_SKILLS, FLAIL_ABILITIES } from './flail';
+import { CLAWS_ACTIVE_SKILLS, CLAWS_ABILITIES } from './claws';
+import { SCYTHE_ACTIVE_SKILLS, SCYTHE_ABILITIES } from './scythe';
 
 // ============================================================
 // Merged arrays (preserve original export names)
@@ -24,6 +28,9 @@ export const ACTIVE_SKILL_DEFS: ActiveSkillDef[] = [
   ...STAFF_ACTIVE_SKILLS,
   ...BOW_ACTIVE_SKILLS,
   ...SECONDARY_ACTIVE_SKILLS,
+  ...FLAIL_ACTIVE_SKILLS,
+  ...CLAWS_ACTIVE_SKILLS,
+  ...SCYTHE_ACTIVE_SKILLS,
 ];
 
 export const ABILITY_DEFS: AbilityDef[] = [
@@ -32,6 +39,9 @@ export const ABILITY_DEFS: AbilityDef[] = [
   ...STAFF_ABILITIES,
   ...BOW_ABILITIES,
   ...SECONDARY_ABILITIES,
+  ...FLAIL_ABILITIES,
+  ...CLAWS_ABILITIES,
+  ...SCYTHE_ABILITIES,
 ];
 
 // ============================================================
@@ -54,6 +64,9 @@ export const ABILITY_ID_MIGRATION: Record<string, string> = {};
 ABILITY_ID_MIGRATION['dagger_blade_flurry'] = 'dagger_blade_dance';
 ABILITY_ID_MIGRATION['dagger_lightning_lunge'] = 'dagger_chain_strike';
 ABILITY_ID_MIGRATION['dagger_smoke_screen'] = 'dagger_shadow_mark';
+// Bow v2 (Phase C3 2026-05-04): id ↔ name alignment
+ABILITY_ID_MIGRATION['bow_multi_shot'] = 'bow_ice_barrage';
+ABILITY_ID_MIGRATION['bow_smoke_arrow'] = 'bow_shock_arrow';
 
 // Convert ActiveSkillDefs -> SkillDefs (kind: 'active')
 const convertedActiveSkills: SkillDef[] = ACTIVE_SKILL_DEFS.map(s => ({

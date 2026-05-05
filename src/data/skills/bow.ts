@@ -1,13 +1,46 @@
+// ============================================================
+// Bow v2 — Hunter primary skill definitions (Phase C3 cleanup + expansion)
+// 10 active skills + 3 abilities (buffs/passive)
+// Per design: COMBAT_AND_CLASS_OVERHAUL_PLAN.md §8.3 weapon paradigms;
+// CLASS_FANTASY_BRIEFS.md §5 (Hunter — Mark & Execute signature);
+// MULTI_CLASS_PAIRS.md §4 §7 §9 §10 (Soul Trapper, Nightstalker,
+// Arcane Archer, Warden — bow-canonical pair builds)
+// ============================================================
+//
+// PARADIGM (locked): Setup-and-execute precision projectile. Mark a
+// target → next shot is empowered (Hunter signature). Traps + Marks
+// are the engine; basic shots are sustain.
+//
+// SIGNATURE INTERACTIONS:
+//   • Hunter's Mark: combo state on first hit (8s base). Next hit on
+//     Marked target +30% crit chance and gains Precision Payoff (+150%
+//     damage on crit).
+//   • Bear Trap: armed for 6s, detonates on first enemy contact, applies
+//     Snared (3s, attack speed -50%).
+//   • Pierce: line shots can hit multiple targets in encounter.
+//   • Stealth: out-of-combat first shot guaranteed crit.
+//
+// PHASE C3 CLEANUP (2026-05-04):
+//   • bow_multi_shot → bow_ice_barrage (id matches "Ice Barrage" name)
+//   • bow_smoke_arrow → bow_shock_arrow (id matches "Shock Arrow" name)
+//   • bow_rapid_fire ID conflict (active + ability) is handled by the
+//     CONFLICTING_ABILITY_IDS rename in skills/index.ts; the ability
+//     becomes `bow_rapid_fire_buff` at registry time.
+//   • Save migration: ABILITY_ID_MIGRATION entries in skills/index.ts.
+//   • Pool grew from 6 → 10 actives by adding 4 Hunter-signature skills:
+//     Hunter's Mark, Bear Trap, Pierce Volley, Tracking Shot.
+
 import type { ActiveSkillDef, AbilityDef } from '../../types';
 
 export const BOW_ACTIVE_SKILLS: ActiveSkillDef[] = [
+  // ── 1. Arrow Shot (default basic) ──
   {
     id: 'bow_arrow_shot',
     name: 'Arrow Shot',
     skillKind: 'cast',
     manaCost: 4,
     baseAilmentChance: 0,
-    description: 'A basic arrow shot.',
+    description: 'A basic arrow shot. First hit on an unmarked target applies Hunter\'s Mark (8s).',
     weaponType: 'bow',
     tags: ['Attack', 'Physical', 'Projectile'],
     baseDamage: 0,
@@ -16,15 +49,16 @@ export const BOW_ACTIVE_SKILLS: ActiveSkillDef[] = [
     castTime: 1.0,
     cooldown: 3,
     levelRequired: 1,
-    icon: '\uD83C\uDFF9',
+    icon: '🏹',
   },
+  // ── 2. Rapid Fire ──
   {
     id: 'bow_rapid_fire',
     name: 'Rapid Fire',
     skillKind: 'cast',
     manaCost: 8,
     baseAilmentChance: 0,
-    description: 'Loose arrows with incredible speed.',
+    description: 'Loose 3 arrows in quick succession. Each can crit independently and refresh Hunter\'s Mark.',
     weaponType: 'bow',
     tags: ['Attack', 'Physical', 'Projectile'],
     baseDamage: 0,
@@ -33,33 +67,17 @@ export const BOW_ACTIVE_SKILLS: ActiveSkillDef[] = [
     castTime: 0.7,
     cooldown: 4,
     levelRequired: 4,
-    icon: '\uD83C\uDFF9',
+    icon: '🏹',
+    hitCount: 3,
   },
-  {
-    id: 'bow_multi_shot',
-    name: 'Ice Barrage',
-    skillKind: 'cast',
-    manaCost: 12,
-    baseAilmentChance: 30,
-    description: 'Fire a volley of frost-tipped arrows in a wide spread.',
-    weaponType: 'bow',
-    tags: ['Attack', 'Cold', 'Projectile', 'AoE'],
-    baseDamage: 4,
-    weaponDamagePercent: 0.75,
-    spellPowerRatio: 0,
-    castTime: 1.1,
-    cooldown: 5,
-    levelRequired: 8,
-    icon: '\u2744\uFE0F',
-    baseConversion: { from: 'physical', to: 'cold', percent: 65 },
-  },
+  // ── 3. Burning Arrow ──
   {
     id: 'bow_burning_arrow',
     name: 'Burning Arrow',
     skillKind: 'cast',
     manaCost: 10,
     baseAilmentChance: 25,
-    description: 'Ignite an arrow tip, adding fire damage.',
+    description: 'Ignite an arrow tip, adding fire damage and chance to apply Ignite.',
     weaponType: 'bow',
     tags: ['Attack', 'Fire', 'Projectile'],
     baseDamage: 4,
@@ -68,34 +86,57 @@ export const BOW_ACTIVE_SKILLS: ActiveSkillDef[] = [
     castTime: 1.0,
     cooldown: 5,
     levelRequired: 6,
-    icon: '\uD83D\uDD25',
+    icon: '🔥',
     baseConversion: { from: 'physical', to: 'fire', percent: 65 },
   },
+  // ── 4. Ice Barrage (renamed from bow_multi_shot) ──
   {
-    id: 'bow_smoke_arrow',
+    id: 'bow_ice_barrage',
+    name: 'Ice Barrage',
+    skillKind: 'cast',
+    manaCost: 12,
+    baseAilmentChance: 30,
+    description: 'Fire a volley of frost-tipped arrows in a wide spread. Hits up to 3 enemies.',
+    weaponType: 'bow',
+    tags: ['Attack', 'Cold', 'Projectile', 'AoE'],
+    baseDamage: 4,
+    weaponDamagePercent: 0.75,
+    spellPowerRatio: 0,
+    castTime: 1.1,
+    cooldown: 5,
+    levelRequired: 8,
+    icon: '❄️',
+    baseConversion: { from: 'physical', to: 'cold', percent: 65 },
+    hitCount: 3,
+  },
+  // ── 5. Shock Arrow (renamed from bow_smoke_arrow) ──
+  {
+    id: 'bow_shock_arrow',
     name: 'Shock Arrow',
     skillKind: 'cast',
     manaCost: 10,
     baseAilmentChance: 25,
-    description: 'Fire a crackling arrow charged with lightning.',
+    description: 'Fire a crackling arrow charged with lightning. Chains to 1 nearby enemy.',
     weaponType: 'bow',
-    tags: ['Attack', 'Lightning', 'Projectile'],
+    tags: ['Attack', 'Lightning', 'Projectile', 'Chain'],
     baseDamage: 3,
     weaponDamagePercent: 0.7,
     spellPowerRatio: 0,
     castTime: 1.0,
     cooldown: 5,
     levelRequired: 10,
-    icon: '\u26A1',
+    icon: '⚡',
     baseConversion: { from: 'physical', to: 'lightning', percent: 65 },
+    chainCount: 1,
   },
+  // ── 6. Snipe ──
   {
     id: 'bow_snipe',
     name: 'Snipe',
     skillKind: 'cast',
     manaCost: 25,
     baseAilmentChance: 0,
-    description: 'Take careful aim for a devastating long-range shot.',
+    description: 'Take careful aim for a devastating long-range shot. +100% crit chance vs Marked targets.',
     weaponType: 'bow',
     tags: ['Attack', 'Physical', 'Projectile'],
     baseDamage: 10,
@@ -104,14 +145,86 @@ export const BOW_ACTIVE_SKILLS: ActiveSkillDef[] = [
     castTime: 1.8,
     cooldown: 10,
     levelRequired: 14,
-    icon: '\uD83C\uDFAF',
+    icon: '🎯',
+  },
+  // ── 7. Hunter's Mark (NEW — pair fusion enabler) ──
+  {
+    id: 'bow_hunters_mark',
+    name: 'Hunter\'s Mark',
+    skillKind: 'cast',
+    manaCost: 6,
+    baseAilmentChance: 0,
+    description: 'Mark a target for 8s. Marked targets grant +30% crit chance to your next attack and take +25% damage from you.',
+    weaponType: 'bow',
+    tags: ['Attack', 'Utility', 'Projectile'],
+    baseDamage: 1,
+    weaponDamagePercent: 0.4,
+    spellPowerRatio: 0,
+    castTime: 0.6,
+    cooldown: 6,
+    levelRequired: 4,
+    icon: '👁️',
+  },
+  // ── 8. Bear Trap (NEW — pair fusion enabler) ──
+  {
+    id: 'bow_bear_trap',
+    name: 'Bear Trap',
+    skillKind: 'cast',
+    manaCost: 14,
+    baseAilmentChance: 100,
+    description: 'Set a trap (armed 6s). First enemy to engage is Snared (3s, attack speed -50%) and takes physical damage.',
+    weaponType: 'bow',
+    tags: ['Attack', 'Physical', 'Utility', 'Trap'],
+    baseDamage: 5,
+    weaponDamagePercent: 1.0,
+    spellPowerRatio: 0,
+    castTime: 0.8,
+    cooldown: 12,
+    levelRequired: 8,
+    icon: '🪤',
+  },
+  // ── 9. Pierce Volley (NEW — Arcane Archer canonical) ──
+  {
+    id: 'bow_pierce_volley',
+    name: 'Pierce Volley',
+    skillKind: 'cast',
+    manaCost: 14,
+    baseAilmentChance: 0,
+    description: 'Single arrow that pierces all enemies in a line. Damage scales +20% per pierced target.',
+    weaponType: 'bow',
+    tags: ['Attack', 'Physical', 'Projectile', 'Heavy'],
+    baseDamage: 4,
+    weaponDamagePercent: 1.1,
+    spellPowerRatio: 0,
+    castTime: 1.2,
+    cooldown: 7,
+    levelRequired: 12,
+    icon: '➡️',
+  },
+  // ── 10. Tracking Shot (NEW — Mark+Spirit pair payoff) ──
+  {
+    id: 'bow_tracking_shot',
+    name: 'Tracking Shot',
+    skillKind: 'cast',
+    manaCost: 18,
+    baseAilmentChance: 0,
+    description: 'Homing shot that automatically targets the lowest-HP Marked enemy. +100% damage if target is below 50% HP (execute synergy).',
+    weaponType: 'bow',
+    tags: ['Attack', 'Physical', 'Projectile', 'Heavy'],
+    baseDamage: 6,
+    weaponDamagePercent: 1.4,
+    spellPowerRatio: 0,
+    castTime: 1.0,
+    cooldown: 9,
+    levelRequired: 16,
+    icon: '🏹',
   },
 ];
 
 export const BOW_ABILITIES: AbilityDef[] = [
   {
     id: 'bow_rapid_fire', name: 'Rapid Fire', description: '2x attack speed for 15s.',
-    weaponType: 'bow', kind: 'buff', icon: '\uD83C\uDFF9',
+    weaponType: 'bow', kind: 'buff', icon: '🏹',
     duration: 15, cooldown: 60,
     effect: { attackSpeedMult: 2.0 },
     skillTree: {
@@ -134,7 +247,7 @@ export const BOW_ABILITIES: AbilityDef[] = [
   },
   {
     id: 'bow_piercing_shot', name: 'Piercing Shot', description: 'Ignore hazards for 12s.',
-    weaponType: 'bow', kind: 'buff', icon: '\u27A1\uFE0F',
+    weaponType: 'bow', kind: 'buff', icon: '➡️',
     duration: 12, cooldown: 75,
     effect: { ignoreHazards: true },
     skillTree: {
@@ -157,7 +270,7 @@ export const BOW_ABILITIES: AbilityDef[] = [
   },
   {
     id: 'bow_eagle_eye', name: 'Eagle Eye', description: '+10% item drops (passive).',
-    weaponType: 'bow', kind: 'passive', icon: '\uD83E\uDD85',
+    weaponType: 'bow', kind: 'passive', icon: '🦅',
     effect: { itemDropMult: 1.1 },
     skillTree: {
       paths: [
