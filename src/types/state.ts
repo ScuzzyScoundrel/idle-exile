@@ -98,6 +98,15 @@ export interface GameState {
   // Each rank up to `node.ranks` (per JSON tree) costs 1 talent point.
   talentRanks: Record<string, number>;
 
+  // Ascendancy (v70 — Phase E)
+  // Player picks one ascendancy per character at level 25. Once picked,
+  // the chosen id stays fixed (respec resets ranks but keeps the choice;
+  // ascendancy switch requires a separate path TBD).
+  // `null` until level 25 OR until player picks for the first time.
+  ascendancyId: string | null;
+  // Map ascendancy node id → current allocated rank.
+  ascendancyRanks: Record<string, number>;
+
   // Skill graph debuffs (v29 — ephemeral, not persisted)
   activeDebuffs: ActiveDebuff[];
 

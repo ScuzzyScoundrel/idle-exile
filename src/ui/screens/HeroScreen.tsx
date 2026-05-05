@@ -12,6 +12,7 @@ import ClassSilhouette from '../components/ClassSilhouette';
 import SkillPanel from '../components/SkillPanel';
 import AttributePanel from '../components/AttributePanel';
 import ClassTalentPanel from '../components/ClassTalentPanel';
+import AscendancyPanel from '../components/AscendancyPanel';
 import InventoryScreen from './InventoryScreen';
 
 /* ── Constants ── */
@@ -112,6 +113,7 @@ export default function HeroScreen() {
       {/* Attributes + Class Talents (Phase 2f + 3a.5) */}
       <AttributePanel />
       <ClassTalentPanel />
+      <AscendancyPanel />
 
       {/* Top row: Equipment (left) | Stats (right) */}
       <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-3">

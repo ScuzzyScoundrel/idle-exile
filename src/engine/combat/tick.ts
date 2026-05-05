@@ -39,6 +39,7 @@ import { getClassDamageModifier } from '../classResource';
 import { getClassSkillAdjustment, getEffectiveSkillDef } from '../classAdjustment';
 import {
   collectTalentEffects,
+  collectAscendancyEffects,
   applyConditionalTalentEffects,
   dispatchProcOnHit,
   dispatchProcOnCrit,
@@ -309,10 +310,11 @@ export function runCombatTick(
 
   // Phase 4 sub-phase 5: collect allocated class-talent TalentEffects.
   // Phase D (2026-05-05): ranks-aware — effects scaled by allocated rank.
-  const talentEffects = collectTalentEffects(
-    state.character.class,
-    state.talentRanks ?? {},
-  );
+  // Phase E (2026-05-05): ascendancy effects concat into the same pipeline.
+  const talentEffects = [
+    ...collectTalentEffects(state.character.class, state.talentRanks ?? {}),
+    ...collectAscendancyEffects(state.ascendancyId ?? null, state.ascendancyRanks ?? {}),
+  ];
 
   const stats = resolveStats(state.character);
   const abilityEffect = getFullEffect(state, now, false);

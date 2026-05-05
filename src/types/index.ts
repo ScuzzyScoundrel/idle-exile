@@ -13,6 +13,7 @@ export * from './currencies';
 export * from './combat';
 export * from './skills';
 export * from './classTree';
+export * from './ascendancy';
 export * from './crafting';
 export * from './quests';
 export * from './state';

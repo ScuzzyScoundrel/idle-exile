@@ -21,6 +21,12 @@ import {
   respecTalents as respecTalentsEngine, getTalentRespecCost,
   getTotalAllocatedRanks,
 } from '../engine/classTalents';
+import {
+  canAllocateAscendancyNode, allocateAscendancyNode as allocateAscendancyNodeEngine,
+  respecAscendancy as respecAscendancyEngine, getAscendancyRespecCost,
+  getTotalAllocatedAscendancyRanks, ASCENDANCY_UNLOCK_LEVEL,
+} from '../engine/ascendancy';
+import { CLASS_ASCENDANCY_OPTIONS } from '../data/ascendancies';
 import { ZONE_DEFS } from '../data/zones';
 import { SKILL_GCD } from '../data/balance';
 import { resolveStats } from '../engine/character';
@@ -32,10 +38,14 @@ import { getFullEffect } from '../engine/combat/helpers';
 import { computeNextClear } from '../engine/zones/helpers';
 
 interface SkillActions {
-  // Class talent tree (currently disabled — class trees in src/data/classTrees/
-  // are the active layer; allocation wiring lands in Phase D)
+  // Class talent tree (Phase D — multi-rank ranks record).
   allocateTalentNode: (nodeId: string) => void;
   respecTalents: () => void;
+
+  // Ascendancy (Phase E — chosen at level 25, separate point pool).
+  pickAscendancy: (ascendancyId: string) => void;
+  allocateAscendancyNode: (nodeId: string) => void;
+  respecAscendancy: () => void;
 
   // Active skill equip (internal — slot 0)
   equipSkill: (skillId: string, slot?: number) => void;
@@ -69,6 +79,37 @@ export const useSkillStore = create<SkillActions>()((_set, _get) => ({
       const cost = getTalentRespecCost(state.character.level);
       if (state.gold < cost) return state;
       return { talentRanks: respecTalentsEngine(), gold: state.gold - cost };
+    });
+  },
+
+  // ── Ascendancy actions (Phase E 2026-05-05) ────────────────────────
+  // First-pick is irreversible until a paid respec lands later. Validates
+  // level gate + that the chosen id matches one of the class's options.
+  pickAscendancy: (ascendancyId: string) => {
+    useGameStore.setState((state) => {
+      if (state.character.level < ASCENDANCY_UNLOCK_LEVEL) return state;
+      if (state.ascendancyId) return state;     // Already picked — no-op.
+      const options = CLASS_ASCENDANCY_OPTIONS[state.character.class];
+      if (!options.includes(ascendancyId)) return state;
+      return { ascendancyId, ascendancyRanks: {} };
+    });
+  },
+
+  allocateAscendancyNode: (nodeId: string) => {
+    useGameStore.setState((state) => {
+      if (!canAllocateAscendancyNode(state.ascendancyId, state.ascendancyRanks, nodeId, state.character.level)) {
+        return state;
+      }
+      return { ascendancyRanks: allocateAscendancyNodeEngine(state.ascendancyRanks, nodeId) };
+    });
+  },
+
+  respecAscendancy: () => {
+    useGameStore.setState((state) => {
+      if (getTotalAllocatedAscendancyRanks(state.ascendancyRanks) === 0) return state;
+      const cost = getAscendancyRespecCost(state.character.level);
+      if (state.gold < cost) return state;
+      return { ascendancyRanks: respecAscendancyEngine(), gold: state.gold - cost };
     });
   },
 

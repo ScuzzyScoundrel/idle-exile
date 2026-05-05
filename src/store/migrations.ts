@@ -979,6 +979,14 @@ export function runMigrations(
     }
   }
 
+  if (version < 70) {
+    // v70: Phase E — ascendancy fields. Players keep their character;
+    // ascendancy unlocks at level 25 and is opt-in (UI prompts the choice).
+    // Initialize as null/empty — player picks via AscendancyPanel.
+    if (raw.ascendancyId === undefined) raw.ascendancyId = null;
+    if (raw.ascendancyRanks === undefined) raw.ascendancyRanks = {};
+  }
+
   if (version < 69) {
     // v69: Phase D — multi-rank class talent engine.
     // Convert flat `talentAllocations: string[]` → `talentRanks: Record<string, number>`

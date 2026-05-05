@@ -11,6 +11,7 @@ import { calcSetBonuses, calcDefensiveEfficiency } from '../../engine/setBonus';
 import SkillPanel from '../components/SkillPanel';
 import AttributePanel from '../components/AttributePanel';
 import ClassTalentPanel from '../components/ClassTalentPanel';
+import AscendancyPanel from '../components/AscendancyPanel';
 // ClassTalentPanel removed (Skill Tree Overhaul Phase 0)
 import { calcSkillDps, calcRotationDps, getDefaultSkillForWeapon } from '../../engine/unifiedSkills';
 import { resolveStats, getWeaponDamageInfo } from '../../engine/character';
@@ -249,6 +250,7 @@ export default function CharacterScreen() {
       <AttributePanel />
 
       <ClassTalentPanel />
+      <AscendancyPanel />
 
       {/* Paper Doll — icon grid layout */}
       <div className="panel-stone p-3 overflow-hidden">

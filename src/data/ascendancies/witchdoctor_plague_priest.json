@@ -1,0 +1,94 @@
+{
+  "$schema": "../../../docs/design/ascendancy-schema.md",
+  "id": "plague_priest",
+  "classId": "witchdoctor",
+  "name": "Plague Priest",
+  "theme": "Apotheosis of the Pandemic specialist. Poison reservoirs swell, Plague Aura sears the encounter, every death seeds the next outbreak.",
+  "version": 1,
+  "authoredDate": "2026-05-05",
+  "totalNodes": 8,
+  "designNotes": [
+    "Capstone effect mirrors §10.1: 'Poison stack cap +15. Pandemic spreads DoTs to 2 targets on death instead of 1.'",
+    "Pairs with the witchdoctor.json plague_priest path — same id, mirrors the path-7 capstone Pandemic Plus + amplifies further.",
+    "8-node compact tree, 3 tiers, ~14 total ranks (most multi-rank). Tier-3 capstone gates on Tier-2 progress (`requiresNodeId`).",
+    "Engine wiring status (2026-05-05): chaos-damage stat-stick + hex-conditional damageMult are wired today via TalentEffect dispatcher. Pandemic-mechanic + plague-aura nodes are decorative until Phase F engine wiring lands the matching event hooks."
+  ],
+  "nodes": [
+    {
+      "id": "asc_wd_pp_apothecarys_reservoir",
+      "name": "Apothecary's Reservoir",
+      "tier": 1,
+      "ranks": 5,
+      "description": "Maximum poison stacks +1/2/3/4/5 (foundation reservoir for the capstone +15).",
+      "engineHook": "stat:maxPoisonStacks",
+      "dependencies": ["poisonStackCap"]
+    },
+    {
+      "id": "asc_wd_pp_pandemic_tempo",
+      "name": "Pandemic Tempo",
+      "tier": 1,
+      "ranks": 3,
+      "description": "Each chaos DoT tick has +2/4/6% chance to refresh Plagued duration to full on the affected target.",
+      "engineHook": "onChaosDotTick",
+      "dependencies": []
+    },
+    {
+      "id": "asc_wd_pp_slow_death_bloom",
+      "name": "Slow Death Bloom",
+      "tier": 1,
+      "ranks": 5,
+      "description": "+1/2/3/4/5% chaos damage (deepens path-1 elemental scaling).",
+      "engineHook": "stat:incChaosDamage",
+      "dependencies": []
+    },
+    {
+      "id": "asc_wd_pp_diffuse_mastery",
+      "name": "Diffuse Mastery",
+      "tier": 2,
+      "ranks": 1,
+      "description": "Pandemic transfers permanently affect +1 enemy (stacks with Maximum Spread for total +2 before capstone).",
+      "engineHook": "modifyMechanic:pandemic",
+      "dependencies": [],
+      "requiresNodeId": "asc_wd_pp_apothecarys_reservoir"
+    },
+    {
+      "id": "asc_wd_pp_plague_bearers_mark",
+      "name": "Plague Bearer's Mark",
+      "tier": 2,
+      "ranks": 5,
+      "description": "Hexed enemies take +2/4/6/8/10% additional damage from your skills (additive vs class-tree Brand of Suffering).",
+      "engineHook": "conditionalStat:damage:targetHexed",
+      "dependencies": []
+    },
+    {
+      "id": "asc_wd_pp_endemic_pulse",
+      "name": "Endemic Pulse",
+      "tier": 2,
+      "ranks": 3,
+      "description": "Plague Aura damage +25/50/75% (specifically scales the wd_pp_plague_aura class-tree node).",
+      "engineHook": "modifyMechanic:plagueAuraDamage",
+      "dependencies": ["wd_pp_plague_aura"]
+    },
+    {
+      "id": "asc_wd_pp_festering_aftermath",
+      "name": "Festering Aftermath",
+      "tier": 3,
+      "ranks": 3,
+      "description": "On killing a Plagued enemy, +20/40/60% chance for the next chaos DoT tick on a different enemy in encounter to deal +200% damage.",
+      "engineHook": "onEnemyKill:targetPlagued",
+      "dependencies": [],
+      "requiresNodeId": "asc_wd_pp_diffuse_mastery"
+    },
+    {
+      "id": "asc_wd_pp_plague_sovereign",
+      "name": "Plague Sovereign",
+      "tier": 3,
+      "ranks": 1,
+      "description": "Maximum poison stacks +15. Pandemic spreads chaos DoTs to 2 enemies on death instead of 1 (stacks with Diffuse Mastery + Maximum Spread). The §10.1 ascendancy keystone.",
+      "engineHook": "modifyMechanic:pandemic+stat:maxPoisonStacks",
+      "dependencies": ["poisonStackCap"],
+      "requiresNodeId": "asc_wd_pp_diffuse_mastery",
+      "isCapstone": true
+    }
+  ]
+}

@@ -22,6 +22,7 @@ import type {
   ActiveDebuff, ResolvedStats,
 } from '../types';
 import { getNodeEffects } from '../data/classTrees';
+import { getAscendancyNodeEffects } from '../data/ascendancies';
 import { applyDebuffToList } from './combat/helpers';
 
 /** Map TalentTag → debuff id registered in data/debuffs.ts. */
@@ -87,6 +88,25 @@ export function collectTalentEffects(
   for (const [nodeId, rank] of Object.entries(ranks)) {
     if (rank <= 0) continue;
     const effects = getNodeEffects(charClass, nodeId);
+    for (const eff of effects) {
+      result.push(scaleTalentEffectByRank(eff, rank));
+    }
+  }
+  return result;
+}
+
+/** Extract all ascendancy effects for a chosen tree, scaled by allocated ranks.
+ *  Phase E (2026-05-05): same scaling pipeline as class talents — ascendancy
+ *  effects feed the same dispatcher (whileTag / perStack / procOn* / etc.). */
+export function collectAscendancyEffects(
+  ascendancyId: string | null,
+  ranks: Record<string, number>,
+): TalentEffect[] {
+  if (!ascendancyId) return [];
+  const result: TalentEffect[] = [];
+  for (const [nodeId, rank] of Object.entries(ranks)) {
+    if (rank <= 0) continue;
+    const effects = getAscendancyNodeEffects(ascendancyId, nodeId);
     for (const eff of effects) {
       result.push(scaleTalentEffectByRank(eff, rank));
     }
