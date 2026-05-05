@@ -825,14 +825,27 @@ export function runCombatTick(
       t === 'Physical' || t === 'Fire' || t === 'Cold' || t === 'Lightning' || t === 'Chaos'
       || t === 'Attack' || t === 'Spell'
     );
+    // Phase F F1b (2026-05-05): wire broadcast / cooldown-refund / mana
+    // refs so the new TalentActions can mutate live state.
+    const broadcastDebuffLists = phase === 'boss_fight'
+      ? [newDebuffs]
+      : state.packMobs.map(m => m.debuffs);
+    const manaRef = { current: state.character.mana.current, max: state.character.mana.max };
     const procCtx: TalentProcContext = {
       targetDebuffs: newDebuffs,
       life: { value: 0, max: 0 },  // no healSelf on hit/crit in current keystones
       sourceSkillId: skill.id,
       hitDamageTag: hitTag,
+      broadcastDebuffLists,
+      skillTimers: state.skillTimers,
+      mana: manaRef,
     };
     dispatchProcOnHit(talentEffects, procCtx);
     if (roll.isCrit) dispatchProcOnCrit(talentEffects, procCtx);
+    // Read back mana mutations from refundMana action.
+    if (manaRef.current !== state.character.mana.current) {
+      state.character.mana.current = manaRef.current;
+    }
   }
 
   // debuffOnCrit: apply guaranteed debuff on crit
@@ -2233,14 +2246,24 @@ export function runCombatTick(
         t === 'Physical' || t === 'Fire' || t === 'Cold' || t === 'Lightning' || t === 'Chaos'
         || t === 'Attack' || t === 'Spell'
       );
+      // Phase F F1b (2026-05-05): same broadcast / cooldown / mana refs
+      // as hit/crit ctx — kill procs can also broadcast tags and refund.
+      const killBroadcast = state.packMobs.map(m => m.debuffs);
+      const killManaRef = { current: state.character.mana.current, max: state.character.mana.max };
       const killProcCtx: TalentProcContext = {
         targetDebuffs: newDebuffs,
         life: { value: playerHp, max: effectiveMaxLife },
         sourceSkillId: skill.id,
         hitDamageTag: killTag,
+        broadcastDebuffLists: killBroadcast,
+        skillTimers: state.skillTimers,
+        mana: killManaRef,
       };
       dispatchProcOnKill(talentEffects, killProcCtx);
       playerHp = killProcCtx.life.value;
+      if (killManaRef.current !== state.character.mana.current) {
+        state.character.mana.current = killManaRef.current;
+      }
     }
     {
       const totalLifeOnKill = (graphMod?.lifeOnKill ?? 0) + (effectiveStats.lifeOnKill ?? 0);

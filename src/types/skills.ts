@@ -117,10 +117,23 @@ export type TalentAction =
   | { kind: 'summon'; minionType: string; count?: number; durationSec?: number }
   /** Apply a gameplay tag (poison stack, hex debuff). */
   | { kind: 'applyTag'; tag: TalentTag; stacks?: number; duration?: number }
+  /** Apply a gameplay tag to ALL enemies in encounter (broadcast).
+   *  Phase F (2026-05-05): pack-wide / boss-side broadcast for Stalker's
+   *  Sigil / Pyre Bloom / Frozen Apocalypse / Stagger Cascade etc. */
+  | { kind: 'applyTagAll'; tag: TalentTag; stacks?: number; duration?: number }
   /** Trigger a skill by id (free cast). */
   | { kind: 'triggerSkill'; skillId: string }
   /** Heal self a flat amount. */
   | { kind: 'healSelf'; amount: number }
+  /** Refund the consumed skill's cooldown (clears `cooldownUntil`).
+   *  Phase F (2026-05-05): Bladestorm capstone / Eviscerate / Execute
+   *  Cascade / Precision Reaper. Optional `percent` 0-100 (default 100 =
+   *  full refund). Mutates ctx.skillTimers in-place. */
+  | { kind: 'refundCooldown'; percent?: number }
+  /** Restore flat mana to the player. Phase F (2026-05-05): Mana Surge /
+   *  Sniper's Tempo / Sharpshot. Mutates ctx.mana in-place; caller
+   *  reads back into state. */
+  | { kind: 'refundMana'; amount: number }
   /** Grant a buff by id. */
   | { kind: 'grantBuff'; buffId: string; duration: number };
 

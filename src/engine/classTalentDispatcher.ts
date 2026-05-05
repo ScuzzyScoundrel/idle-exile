@@ -19,7 +19,7 @@
 
 import type {
   CharacterClass, TalentEffect, TalentAction, TalentTag, DamageTag,
-  ActiveDebuff, ResolvedStats,
+  ActiveDebuff, ResolvedStats, SkillTimerState,
 } from '../types';
 import { getNodeEffects } from '../data/classTrees';
 import { getAscendancyNodeEffects } from '../data/ascendancies';
@@ -223,6 +223,15 @@ export interface TalentProcContext {
   sourceSkillId: string;
   /** Skill tag (from the hit that triggered) for procOnHit/Kill filters. */
   hitDamageTag?: DamageTag;
+  // Phase F F1b additions (2026-05-05) — optional refs for new actions.
+  // When omitted, the corresponding action becomes a no-op (graceful).
+  /** All enemy debuff lists for `applyTagAll` broadcast (each pack mob's
+   *  debuffs in clearing; `[activeDebuffs]` in boss_fight). */
+  broadcastDebuffLists?: ActiveDebuff[][];
+  /** Live skill-timer array for `refundCooldown` to mutate cooldownUntil. */
+  skillTimers?: SkillTimerState[];
+  /** Player mana ref for `refundMana` (caller reads back into state). */
+  mana?: { current: number; max: number };
 }
 
 /** Roll chance and dispatch action. chance is 0-100 (not 0-1). */
@@ -239,8 +248,39 @@ function executeAction(action: TalentAction, ctx: TalentProcContext): void {
       applyDebuffToList(ctx.targetDebuffs, did, action.stacks ?? 1, action.duration ?? 4, ctx.sourceSkillId);
       break;
     }
+    case 'applyTagAll': {
+      const did = TALENT_TAG_TO_DEBUFF[action.tag];
+      if (!did) return;
+      const lists = ctx.broadcastDebuffLists;
+      if (!lists) return; // graceful no-op when caller didn't provide refs
+      for (const list of lists) {
+        applyDebuffToList(list, did, action.stacks ?? 1, action.duration ?? 4, ctx.sourceSkillId);
+      }
+      break;
+    }
     case 'healSelf':
       ctx.life.value = Math.min(ctx.life.max, ctx.life.value + action.amount);
+      break;
+    case 'refundCooldown': {
+      // Set the consumed skill's cooldownUntil to now (full refund) or
+      // shorten by `percent` of the original remaining window.
+      const timers = ctx.skillTimers;
+      if (!timers) return;
+      const timer = timers.find(t => t.skillId === ctx.sourceSkillId);
+      if (!timer || timer.cooldownUntil === null) return;
+      const now = Date.now();
+      const pct = action.percent ?? 100;
+      if (pct >= 100) {
+        timer.cooldownUntil = now;
+      } else {
+        const remaining = Math.max(0, timer.cooldownUntil - now);
+        timer.cooldownUntil = now + remaining * (1 - pct / 100);
+      }
+      break;
+    }
+    case 'refundMana':
+      if (!ctx.mana) return;
+      ctx.mana.current = Math.min(ctx.mana.max, ctx.mana.current + action.amount);
       break;
     // Deferred (Phase 4.1):
     case 'summon':

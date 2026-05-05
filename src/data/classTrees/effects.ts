@@ -106,6 +106,18 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'asn_bm_crit_mastery': [
     { kind: 'stat', stat: 'critChance', delta: 2 },
   ],
+  // Phase F F1b (2026-05-05): refundMana action unlocks Asn mana-on-crit.
+  // "+1/2/3 mana on crit" rank-1 → 100% chance, refunds 1 mana per crit.
+  'asn_bm_sharpshot': [
+    { kind: 'procOnCrit', chance: 100, action: { kind: 'refundMana', amount: 1 } },
+  ],
+  // refundCooldown action unlocks Eviscerate. "Crits +5/10/15/20/25%
+  // chance to refresh consumed-skill cooldown" rank-1 → 5%, full refund.
+  // Broader than design intent ("refresh Stab") since procOnCrit can't
+  // filter by skill id today.
+  'asn_bm_eviscerate': [
+    { kind: 'procOnCrit', chance: 5, action: { kind: 'refundCooldown' } },
+  ],
 
   // ── Venomcraft path ─────────────────────────────────────────────────
   // "+5% poison damage" — approximated as +5% chaos channel.
@@ -138,6 +150,11 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'asn_sd_phantom_step': [
     { kind: 'stat', stat: 'cooldownRecovery', delta: 1 },
   ],
+  // Phase F F1b (2026-05-05): applyTagAll action unlocks burst-Marker.
+  // "On crit, +1/2/3/4/5% chance to apply Mark to ALL enemies" rank-1 → 1%.
+  'asn_sd_stalkers_sigil': [
+    { kind: 'procOnCrit', chance: 1, action: { kind: 'applyTagAll', tag: 'mark', stacks: 1, duration: 8 } },
+  ],
 
   // ====================================================================
   // SORCERER
@@ -155,6 +172,11 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   // Resonance bank-size seed (maxResonanceCharges not yet on ResolvedStats).
   'sor_ar_bank_mastery': [
     { kind: 'stat', stat: 'maxResonanceCharges', delta: 1 },
+  ],
+  // Phase F F1b (2026-05-05): refundMana unlocks Arcanist crit-economy.
+  // "On crit, +1/2/3 mana refunded" rank-1 → 100% chance, +1 mana per crit.
+  'sor_ar_mana_surge': [
+    { kind: 'procOnCrit', chance: 100, action: { kind: 'refundMana', amount: 1 } },
   ],
 
   // ── Specialist path ─────────────────────────────────────────────────
@@ -175,6 +197,13 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   // "Shocked enemies take +2% damage per Shock stack."
   'sor_sp_shock_mastery': [
     { kind: 'perStack', stack: 'shock', stat: 'damageMult', perStackDelta: 0.02, cap: 0.10 },
+  ],
+  // Phase F F1b (2026-05-05): applyTagAll unlocks Storm Crest broadcast.
+  // "Lightning crits +1/2/3/4/5% chance to apply Shock to all enemies"
+  // rank-1 → 1%. Broader than design intent (procOnCrit cannot filter
+  // by element today) — fires on any crit, not just lightning crits.
+  'sor_sp_storm_crest': [
+    { kind: 'procOnCrit', chance: 1, action: { kind: 'applyTagAll', tag: 'shock', stacks: 1, duration: 4 } },
   ],
   'sor_sp_element_mastery': [
     { kind: 'stat', stat: 'incElementalDamage', delta: 5 },
@@ -243,6 +272,11 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   // "+1% damage to Marked targets."
   'hnt_mm_mark_hunter': [
     { kind: 'whileTag', tag: 'mark', stat: 'damageMult', mult: 1.01 },
+  ],
+  // Phase F F1b (2026-05-05): refundMana unlocks Hunter sniper economy.
+  // "On crit, consumed skill regains 1/2/3 mana" rank-1 → 100% chance, +1.
+  'hnt_mm_snipers_tempo': [
+    { kind: 'procOnCrit', chance: 100, action: { kind: 'refundMana', amount: 1 } },
   ],
 
   // ── Beastmaster path ────────────────────────────────────────────────
