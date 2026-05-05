@@ -1,34 +1,47 @@
 // ============================================================
-// Class Tree Effects Side-Table — Phase C step 2 engine bridge
+// Class Tree Effects Side-Table — engine bridge for JSON nodes
 // ============================================================
 //
 // Maps JSON-tree node ids → typed `TalentEffect[]` data the engine
-// dispatcher consumes. The JSON files (witchdoctor.json, etc.) carry
+// dispatcher consumes. The JSON files (witchdoctor.json etc.) carry
 // STRUCTURE + IDENTITY (id, name, description, ranks, prereqs, tier,
 // engineHook hints); this side-table carries the typed engine effects
-// that those nodes produce at runtime.
+// those nodes produce at runtime.
 //
-// Why a side-table instead of inline `effects?` field on JSON nodes?
-//   • Most nodes (~70%) have proc/conditional/identity engineHooks that
-//     need new engine code to support — populating their `effects[]`
-//     today would either lie or stay empty.
-//   • Stat-stick nodes (~15-20%) translate cleanly to TalentEffect today.
-//   • A side-table lets us populate effects INCREMENTALLY as engine
-//     wiring catches up, without churning the JSON authoring files.
+// Engine support audit (see engine/classTalentDispatcher.ts):
+//   FULLY WIRED  : `stat`, `statMult`, `whileTag`, `perStack`,
+//                  `procOnHit`, `procOnCrit`, `procOnKill`, `procOnTag`
+//   ACTIONS WIRED: `applyTag`, `healSelf`
+//   STUBS        : `summon`, `triggerSkill`, `grantBuff`, `grantTagOnSkill`
 //
-// Population status (2026-05-04):
-//   • This file ships with a SKELETON + ~10 worked stat-stick examples
-//     as proof-of-pattern. Full population (~80-100 stat-stick nodes
-//     across 5 classes) is staged content authoring — left for follow-ups.
-//   • Nodes NOT in this map → `getNodeEffects` returns []  (no-op until
-//     Phase F engine wiring lands per-engineHook handlers).
+// `applyTag` works for tags registered in TALENT_TAG_TO_DEBUFF:
+//   hex / curse / mark / poison / bleed / ignite / chill / shock / frozen.
+//
+// Authoring conventions for the entries below:
+//   • Rank-1 values only (multi-rank engine support pending Phase D).
+//   • `whileTag … damageMult` is the canonical "+X% damage vs tagged" form
+//     (engine special-cases damageMult; multiplying %-based stats would
+//     misbehave). For DoT/element-specific bonuses where this is too broad,
+//     the entry is omitted (decorative — node is allocatable but no-op).
+//   • `perStack` keyed on a TalentTag counts that tag's stacks on the
+//     target — see TALENT_TAG_TO_DEBUFF for valid keys.
+//   • Some entries reference stats (e.g. `maxPoisonStacks`) NOT in
+//     `ResolvedStats.StatKey`. The dispatcher silent-no-ops unknown keys
+//     so these are forward-compat seeds — they activate when the stat
+//     lands on `ResolvedStats`.
+//   • Capstones, signature-mechanic identity nodes, summon/trigger/buff
+//     procs, mechanic-event hooks (onResonanceChargeGain, onMinionDeath,
+//     onTrapDetonate, onFrenziedEnter, …) are NOT in this map — those
+//     ride on Phase F engine wiring and are intentionally decorative
+//     until then.
 //
 // Adding effects for a node:
-//   1. Verify the node's engineHook is one the engine actually consumes
-//      (currently: stat / statMult / whileTag / perStack / procOnHit/Crit/
-//       Kill/Tag — see TalentEffect union in src/types/skills.ts).
-//   2. Add an entry to NODE_EFFECTS keyed by node id.
-//   3. tsc validates the TalentEffect shape; engine dispatch runs the rest.
+//   1. Verify the node's engineHook is currently consumed by the
+//      dispatcher (stat / statMult / whileTag / perStack / procOnHit /
+//      procOnCrit / procOnKill / procOnTag) and the action is `applyTag`
+//      or `healSelf`.
+//   2. Add an entry to NODE_EFFECTS keyed by the JSON node id.
+//   3. tsc validates the TalentEffect shape; engine dispatch handles the rest.
 
 import type { TalentEffect } from '../../types';
 
@@ -38,43 +51,190 @@ import type { TalentEffect } from '../../types';
  * decorative (allocation still costs a point; description still shows).
  */
 export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
-  // ────────────────────────────────────────────
-  // Witchdoctor — Plague Priest path stat-sticks
-  // ────────────────────────────────────────────
-  // "Plague Reservoir — Maximum poison stacks +1/2/3" — stat-stick (treated
-  // as 1-rank for now; multi-rank engine support pending).
+
+  // ====================================================================
+  // WITCHDOCTOR
+  // ====================================================================
+
+  // ── Plague Priest path ──────────────────────────────────────────────
+  // Stack-cap seeds (forward-compat: maxPoisonStacks not yet on ResolvedStats).
   'wd_pp_plague_reservoir': [
     { kind: 'stat', stat: 'maxPoisonStacks', delta: 1 },
   ],
-  // "Poison Reservoir — Maximum poison stacks +2/4/6/8/10" — stat-stick
   'wd_pp_poison_reservoir': [
     { kind: 'stat', stat: 'maxPoisonStacks', delta: 2 },
   ],
+  // "Hexed enemies take +10% damage from your DoTs." — broadened to global
+  // damageMult vs hexed (engine cannot isolate DoT damage on whileTag).
+  'wd_pp_festering_wound': [
+    { kind: 'whileTag', tag: 'hex', stat: 'damageMult', mult: 1.10 },
+  ],
 
-  // ────────────────────────────────────────────
-  // Witchdoctor — Spirit Whisperer / Plague Doctor path samples
-  // ────────────────────────────────────────────
-  // (To be populated as Phase F engine wiring lands.)
+  // ── Voodoo Sovereign path ───────────────────────────────────────────
+  // "Hexed enemies take +10% damage from chaos sources." — broadened to
+  // global damageMult vs hexed (engine cannot isolate chaos channel).
+  'wd_vs_brand_of_suffering': [
+    { kind: 'whileTag', tag: 'hex', stat: 'damageMult', mult: 1.10 },
+  ],
+  // "All your skills, regardless of weapon, apply Hexed on crit." —
+  // procOnCrit + applyTag(hex) at 100% chance.
+  'wd_vs_voodoo_mark': [
+    { kind: 'procOnCrit', chance: 100, action: { kind: 'applyTag', tag: 'hex', stacks: 1, duration: 6 } },
+  ],
 
-  // ────────────────────────────────────────────
-  // Assassin — Blademaster / Venomcraft / Shadowdancer stat-sticks
-  // ────────────────────────────────────────────
-  // (Sample translations from descriptions — populate as engine ships.)
+  // ── Spirit Whisperer path ──────────────────────────────────────────
+  // Minion-event nodes — no engine wiring today; left empty.
 
-  // ────────────────────────────────────────────
-  // Sorcerer — Elementalist / Arcanist / Specialist stat-sticks
-  // ────────────────────────────────────────────
-  // (Sample translations from descriptions — populate as engine ships.)
+  // ====================================================================
+  // ASSASSIN
+  // ====================================================================
 
-  // ────────────────────────────────────────────
-  // Berserker — Warlord / Reaver / Juggernaut stat-sticks
-  // ────────────────────────────────────────────
-  // (Sample translations from descriptions — populate as engine ships.)
+  // ── Blademaster path ────────────────────────────────────────────────
+  'asn_bm_honed_edge': [
+    { kind: 'stat', stat: 'critChance', delta: 1 },
+  ],
+  'asn_bm_bladework': [
+    { kind: 'stat', stat: 'attackSpeed', delta: 2 },
+  ],
+  'asn_bm_cutting_edge': [
+    { kind: 'stat', stat: 'critMultiplier', delta: 5 },
+  ],
+  // Crit-stack ceiling (forward-compat: maxCritStacks not yet on ResolvedStats).
+  'asn_bm_cascade_reservoir': [
+    { kind: 'stat', stat: 'maxCritStacks', delta: 1 },
+  ],
+  'asn_bm_crit_mastery': [
+    { kind: 'stat', stat: 'critChance', delta: 2 },
+  ],
 
-  // ────────────────────────────────────────────
-  // Hunter — Marksman / Beastmaster / Trapper stat-sticks
-  // ────────────────────────────────────────────
-  // (Sample translations from descriptions — populate as engine ships.)
+  // ── Venomcraft path ─────────────────────────────────────────────────
+  // "+5% poison damage" — approximated as +5% chaos channel.
+  'asn_vc_toxic_edge': [
+    { kind: 'stat', stat: 'incChaosDamage', delta: 5 },
+  ],
+  'asn_vc_lingering_doom': [
+    { kind: 'stat', stat: 'ailmentDuration', delta: 0.5 },
+  ],
+  'asn_vc_vile_reservoir': [
+    { kind: 'stat', stat: 'maxPoisonStacks', delta: 1 },
+  ],
+  // "+1% damage per active poison stack on target."
+  'asn_vc_acrid_concentration': [
+    { kind: 'perStack', stack: 'poison', stat: 'damageMult', perStackDelta: 0.01, cap: 0.05 },
+  ],
+  'asn_vc_toxin_reservoir': [
+    { kind: 'stat', stat: 'maxPoisonStacks', delta: 2 },
+  ],
+  // "Critical hits apply 1 stack of poison automatically."
+  'asn_vc_necrotic_bite': [
+    { kind: 'procOnCrit', chance: 100, action: { kind: 'applyTag', tag: 'poison', stacks: 1, duration: 6 } },
+  ],
+  // "Poisoned enemies take +5% damage from all sources."
+  'asn_vc_curare': [
+    { kind: 'whileTag', tag: 'poison', stat: 'damageMult', mult: 1.05 },
+  ],
+
+  // ── Shadowdancer path ───────────────────────────────────────────────
+  'asn_sd_phantom_step': [
+    { kind: 'stat', stat: 'cooldownRecovery', delta: 1 },
+  ],
+
+  // ====================================================================
+  // SORCERER
+  // ====================================================================
+
+  // ── Elementalist path ───────────────────────────────────────────────
+  'sor_el_element_affinity': [
+    { kind: 'stat', stat: 'incElementalDamage', delta: 1 },
+  ],
+  'sor_el_conduit_mastery': [
+    { kind: 'stat', stat: 'spellPower', delta: 5 },
+  ],
+
+  // ── Arcanist path ───────────────────────────────────────────────────
+  // Resonance bank-size seed (maxResonanceCharges not yet on ResolvedStats).
+  'sor_ar_bank_mastery': [
+    { kind: 'stat', stat: 'maxResonanceCharges', delta: 1 },
+  ],
+
+  // ── Specialist path ─────────────────────────────────────────────────
+  'sor_sp_pyre_affinity': [
+    { kind: 'stat', stat: 'incFireDamage', delta: 2 },
+  ],
+  'sor_sp_frost_affinity': [
+    { kind: 'stat', stat: 'incColdDamage', delta: 2 },
+  ],
+  'sor_sp_storm_affinity': [
+    { kind: 'stat', stat: 'incLightningDamage', delta: 2 },
+  ],
+  // "Ignite damage +5%." — approximated as global ailmentPotency
+  // (broader than ignite-only, but the closest live stat).
+  'sor_sp_ignite_mastery': [
+    { kind: 'stat', stat: 'ailmentPotency', delta: 5 },
+  ],
+  // "Shocked enemies take +2% damage per Shock stack."
+  'sor_sp_shock_mastery': [
+    { kind: 'perStack', stack: 'shock', stat: 'damageMult', perStackDelta: 0.02, cap: 0.10 },
+  ],
+  'sor_sp_element_mastery': [
+    { kind: 'stat', stat: 'incElementalDamage', delta: 5 },
+  ],
+
+  // ====================================================================
+  // BERSERKER
+  // ====================================================================
+
+  // ── Warlord path ────────────────────────────────────────────────────
+  'brs_wl_heavy_hands': [
+    { kind: 'statMult', stat: 'damageMult', mult: 1.02 },
+  ],
+  'brs_wl_brutal_tempo': [
+    { kind: 'stat', stat: 'attackSpeed', delta: 1 },
+  ],
+  'brs_wl_power_surge': [
+    { kind: 'statMult', stat: 'damageMult', mult: 1.02 },
+  ],
+
+  // ── Reaver path ─────────────────────────────────────────────────────
+  'brs_rv_wound_tolerance': [
+    { kind: 'stat', stat: 'maxLife', delta: 5 },
+  ],
+
+  // ── Juggernaut path ─────────────────────────────────────────────────
+  'brs_jg_stalwart': [
+    { kind: 'stat', stat: 'maxLife', delta: 5 },
+  ],
+  'brs_jg_iron_body': [
+    { kind: 'stat', stat: 'damageTakenReduction', delta: 1 },
+  ],
+  'brs_jg_battle_stance': [
+    { kind: 'stat', stat: 'critMultiplier', delta: 2 },
+  ],
+  'brs_jg_bulwark': [
+    { kind: 'stat', stat: 'maxLife', delta: 10 },
+  ],
+
+  // ====================================================================
+  // HUNTER
+  // ====================================================================
+
+  // ── Marksman path ───────────────────────────────────────────────────
+  'hnt_mm_steady_aim': [
+    { kind: 'stat', stat: 'critChance', delta: 1 },
+  ],
+  'hnt_mm_crit_mastery': [
+    { kind: 'stat', stat: 'critChance', delta: 2 },
+  ],
+  // "+1% damage to Marked targets."
+  'hnt_mm_mark_hunter': [
+    { kind: 'whileTag', tag: 'mark', stat: 'damageMult', mult: 1.01 },
+  ],
+
+  // ── Beastmaster path ────────────────────────────────────────────────
+  // Companion-event nodes — no engine wiring today; left empty.
+
+  // ── Trapper path ────────────────────────────────────────────────────
+  // Trap-event nodes — no engine wiring today; left empty.
 };
 
 /** Lookup typed effects for a node id. Returns [] for unwired nodes. */
