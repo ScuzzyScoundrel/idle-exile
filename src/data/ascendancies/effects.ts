@@ -231,6 +231,87 @@ export const ASCENDANCY_NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'asc_sor_sp_element_crit': [
     { kind: 'stat', stat: 'critMultiplier', delta: 5 },
   ],
+
+  // ── Berserker — Warlord ───────────────────────────────────────────
+  // 6 of 8 wired today. Threshold Push (rageThresholdHpPercent stat)
+  // and King of Ruin capstone (threshold +15% + execute bonus) are
+  // decorative until Phase F lands the Rage Threshold mechanic.
+  'asc_brs_wl_heavy_hands': [
+    { kind: 'statMult', stat: 'damageMult', mult: 1.01 },
+  ],
+  'asc_brs_wl_bloodlust_tempo': [
+    { kind: 'stat', stat: 'attackSpeed', delta: 1 },
+  ],
+  // "+5% damage vs bleeding" rank-1 → +15% at rank 3.
+  'asc_brs_wl_threshold_hunter': [
+    { kind: 'whileTag', tag: 'bleed', stat: 'damageMult', mult: 1.05 },
+  ],
+  // "1% chance on crit to apply 2 bleed stacks" rank-1 → 5% at rank 5.
+  'asc_brs_wl_bloodbath': [
+    { kind: 'procOnCrit', chance: 1, action: { kind: 'applyTag', tag: 'bleed', stacks: 2, duration: 6 } },
+  ],
+  'asc_brs_wl_slam_mastery': [
+    { kind: 'stat', stat: 'critMultiplier', delta: 5 },
+  ],
+  'asc_brs_wl_apex_predator': [
+    { kind: 'whileTag', tag: 'bleed', stat: 'damageMult', mult: 1.05 },
+  ],
+
+  // ── Berserker — Reaver ────────────────────────────────────────────
+  // 7 of 8 wired today (heaviest Berserker wire-rate). Undying Wrath
+  // capstone (frenzied window extension + lethal-hit immunity) is
+  // decorative until Phase F lands Rage Threshold + Frenzied.
+  'asc_brs_rv_wound_tolerance': [
+    { kind: 'stat', stat: 'maxLife', delta: 5 },
+  ],
+  'asc_brs_rv_bloodlet': [
+    { kind: 'stat', stat: 'lifeOnHit', delta: 1 },
+  ],
+  'asc_brs_rv_reckless': [
+    { kind: 'stat', stat: 'critChance', delta: 1 },
+  ],
+  // "5% chance on crit to apply 2 bleed stacks" rank-1 → 25% at rank 5.
+  'asc_brs_rv_bloody_crit': [
+    { kind: 'procOnCrit', chance: 5, action: { kind: 'applyTag', tag: 'bleed', stacks: 2, duration: 6 } },
+  ],
+  'asc_brs_rv_bloodied_strike': [
+    { kind: 'whileTag', tag: 'bleed', stat: 'damageMult', mult: 1.05 },
+  ],
+  'asc_brs_rv_iron_skin': [
+    { kind: 'stat', stat: 'damageTakenReduction', delta: 5 },
+  ],
+  'asc_brs_rv_wrath_sustain': [
+    { kind: 'stat', stat: 'lifeLeechPercent', delta: 1 },
+  ],
+
+  // ── Berserker — Juggernaut ────────────────────────────────────────
+  // 7 of 8 wired today. Heavy Stance is authored as a flat DR stat
+  // (additive with Iron Body); the offhand-conditional clause from
+  // the original design is folded into the engine-side dispatch via
+  // Mountain capstone, decorative until Phase F.
+  'asc_brs_jg_stalwart': [
+    { kind: 'stat', stat: 'maxLife', delta: 5 },
+  ],
+  'asc_brs_jg_iron_body': [
+    { kind: 'stat', stat: 'damageTakenReduction', delta: 1 },
+  ],
+  'asc_brs_jg_heavy_stance': [
+    { kind: 'stat', stat: 'damageTakenReduction', delta: 1 },
+  ],
+  'asc_brs_jg_battle_cleave': [
+    { kind: 'stat', stat: 'incAoEDamage', delta: 1 },
+  ],
+  'asc_brs_jg_stagger_sweep': [
+    { kind: 'whileTag', tag: 'bleed', stat: 'damageMult', mult: 1.05 },
+  ],
+  // Multi-effect node: block chance + max life.
+  'asc_brs_jg_iron_aegis': [
+    { kind: 'stat', stat: 'blockChance', delta: 5 },
+    { kind: 'stat', stat: 'maxLife', delta: 10 },
+  ],
+  'asc_brs_jg_bulwark': [
+    { kind: 'stat', stat: 'maxLife', delta: 10 },
+  ],
 };
 
 /** Lookup typed effects for an ascendancy node id. */

@@ -1,0 +1,93 @@
+{
+  "$schema": "../../../docs/design/ascendancy-schema.md",
+  "id": "reaver",
+  "classId": "berserker",
+  "name": "Reaver",
+  "theme": "Apotheosis of the Eternal Frenzy. Walks in at 1 HP, walks out with 30 corpses; cannot die while Rage burns.",
+  "version": 1,
+  "authoredDate": "2026-05-05",
+  "totalNodes": 8,
+  "designNotes": [
+    "Capstone effect mirrors §10.1: 'Each kill while Frenzied extends the Frenzied window by 2s. Cannot die while Rage is active.'",
+    "Pairs with berserker.json reaver path — same id, mirrors path-7 capstone Undying Wrath + amplifies.",
+    "8-node compact tree, 3 tiers, ~24 total ranks. Tier-3 capstone gates on Iron Skin.",
+    "Engine wiring status (2026-05-05): 7 of 8 wireable today — heaviest Berserker wire-rate due to foundation life/leech stats and bleed-baseline interactions. Frenzied state extension + lethal-hit immunity (Undying Wrath capstone) are decorative until Phase F lands the Rage Threshold mechanic."
+  ],
+  "nodes": [
+    {
+      "id": "asc_brs_rv_wound_tolerance",
+      "name": "Wound Tolerance",
+      "tier": 1,
+      "ranks": 5,
+      "description": "+5/10/15/20/25 maximum HP (foundation reservoir for the low-HP fantasy).",
+      "engineHook": "stat:maxLife",
+      "dependencies": []
+    },
+    {
+      "id": "asc_brs_rv_bloodlet",
+      "name": "Bloodlet",
+      "tier": 1,
+      "ranks": 5,
+      "description": "+1/2/3/4/5 life on hit (sustain through the Bloodied window).",
+      "engineHook": "stat:lifeOnHit",
+      "dependencies": []
+    },
+    {
+      "id": "asc_brs_rv_reckless",
+      "name": "Reckless",
+      "tier": 1,
+      "ranks": 3,
+      "description": "+1/2/3% crit chance (foundation — pairs with Bloody Crit's bleed application).",
+      "engineHook": "stat:critChance",
+      "dependencies": []
+    },
+    {
+      "id": "asc_brs_rv_bloody_crit",
+      "name": "Bloody Crit",
+      "tier": 2,
+      "ranks": 5,
+      "description": "On crit, +5/10/15/20/25% chance to apply 2 additional Bleed stacks (deepens Bloodied stack engine on top of base bleed application).",
+      "engineHook": "onSkillCrit",
+      "dependencies": []
+    },
+    {
+      "id": "asc_brs_rv_bloodied_strike",
+      "name": "Bloodied Strike",
+      "tier": 2,
+      "ranks": 3,
+      "description": "+5/10/15% damage to Bleeding enemies (Bloodied-target scaler).",
+      "engineHook": "conditionalStat:damage:targetBleeding",
+      "dependencies": []
+    },
+    {
+      "id": "asc_brs_rv_iron_skin",
+      "name": "Iron Skin",
+      "tier": 2,
+      "ranks": 1,
+      "description": "+5% damage taken reduction (defensive backbone for the low-HP commitment).",
+      "engineHook": "stat:damageTakenReduction",
+      "dependencies": []
+    },
+    {
+      "id": "asc_brs_rv_wrath_sustain",
+      "name": "Wrath Sustain",
+      "tier": 3,
+      "ranks": 3,
+      "description": "+1/2/3% lifesteal — damage dealt returns as healing (the engine of Eternal Frenzy).",
+      "engineHook": "stat:lifeLeechPercent",
+      "dependencies": [],
+      "requiresNodeId": "asc_brs_rv_iron_skin"
+    },
+    {
+      "id": "asc_brs_rv_undying_wrath",
+      "name": "Undying Wrath",
+      "tier": 3,
+      "ranks": 1,
+      "description": "Each kill while Frenzied extends the Frenzied window by 2 seconds. Cannot die while Rage is active — you stop at 1 HP (once per encounter, 90s cooldown). The §10.1 ascendancy keystone.",
+      "engineHook": "onEnemyKill:frenziedActive+lethalHitImmunity",
+      "dependencies": ["rageThresholdMechanic"],
+      "requiresNodeId": "asc_brs_rv_iron_skin",
+      "isCapstone": true
+    }
+  ]
+}

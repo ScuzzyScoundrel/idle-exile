@@ -1,0 +1,93 @@
+{
+  "$schema": "../../../docs/design/ascendancy-schema.md",
+  "id": "warlord",
+  "classId": "berserker",
+  "name": "Warlord",
+  "theme": "Apotheosis of the Finisher. Threshold rises, execute range doubles, Bloodied bosses melt at the first heavy strike.",
+  "version": 1,
+  "authoredDate": "2026-05-05",
+  "totalNodes": 8,
+  "designNotes": [
+    "Capstone effect mirrors §10.1: 'Rage Threshold raises to 50% HP. Execute-range skills gain +100% damage instead of +50%.'",
+    "Pairs with berserker.json warlord path — same id, mirrors path-7 capstone King of Ruin + amplifies.",
+    "8-node compact tree, 3 tiers, ~22 total ranks. Tier-3 capstone gates on Slam Mastery.",
+    "Engine wiring status (2026-05-05): 6 of 8 wireable today. Bloodied combo state (signature class-tree mechanic) is approximated via whileTag(bleed) damageMult — Berserker auto-applies bleed via §8.3 ailment baseline, so the conditional fires correctly in combat. Threshold Push (Rage Threshold +5% HP) and King of Ruin capstone (threshold raise to 50% + execute +100%) are decorative until Phase F lands the Rage Threshold mechanic."
+  ],
+  "nodes": [
+    {
+      "id": "asc_brs_wl_heavy_hands",
+      "name": "Heavy Hands",
+      "tier": 1,
+      "ranks": 5,
+      "description": "+1/2/3/4/5% damage (foundation scaling).",
+      "engineHook": "stat:damage",
+      "dependencies": []
+    },
+    {
+      "id": "asc_brs_wl_bloodlust_tempo",
+      "name": "Bloodlust Tempo",
+      "tier": 1,
+      "ranks": 5,
+      "description": "+1/2/3/4/5% attack speed (foundation tempo for the execute window).",
+      "engineHook": "stat:attackSpeed",
+      "dependencies": []
+    },
+    {
+      "id": "asc_brs_wl_threshold_hunter",
+      "name": "Threshold Hunter",
+      "tier": 1,
+      "ranks": 3,
+      "description": "+5/10/15% damage to Bleeding enemies (foundation Bloodied-target scaler — bleed is the §8.3 baseline ailment for the path).",
+      "engineHook": "conditionalStat:damage:targetBleeding",
+      "dependencies": []
+    },
+    {
+      "id": "asc_brs_wl_bloodbath",
+      "name": "Bloodbath",
+      "tier": 2,
+      "ranks": 5,
+      "description": "On crit, +1/2/3/4/5% chance to apply 2 Bleed stacks instead of the base 1 (deepens the Bloodied stack engine).",
+      "engineHook": "onSkillCrit",
+      "dependencies": []
+    },
+    {
+      "id": "asc_brs_wl_threshold_push",
+      "name": "Threshold Push",
+      "tier": 2,
+      "ranks": 1,
+      "description": "Rage Threshold raises by +5% HP (Frenzied window opens earlier).",
+      "engineHook": "modifyMechanic:rageThresholdHpPercent",
+      "dependencies": ["rageThresholdMechanic"]
+    },
+    {
+      "id": "asc_brs_wl_slam_mastery",
+      "name": "Slam Mastery",
+      "tier": 2,
+      "ranks": 3,
+      "description": "+5/10/15% crit damage (foundation amplifier — pairs with Bloodied-target scaling).",
+      "engineHook": "stat:critMultiplier",
+      "dependencies": []
+    },
+    {
+      "id": "asc_brs_wl_apex_predator",
+      "name": "Apex Predator",
+      "tier": 3,
+      "ranks": 3,
+      "description": "+5/10/15% damage to Bleeding enemies (deeper Bloodied scaling — stacks with Threshold Hunter).",
+      "engineHook": "conditionalStat:damage:targetBleeding",
+      "dependencies": [],
+      "requiresNodeId": "asc_brs_wl_slam_mastery"
+    },
+    {
+      "id": "asc_brs_wl_king_of_ruin",
+      "name": "King of Ruin",
+      "tier": 3,
+      "ranks": 1,
+      "description": "Rage Threshold raises to 65% HP (from base 50%). Execute-range skills (those gaining bonuses below threshold) deal +100% damage instead of +50%. The §10.1 ascendancy keystone.",
+      "engineHook": "modifyMechanic:rageThresholdHpPercent+executeBonus",
+      "dependencies": ["rageThresholdMechanic"],
+      "requiresNodeId": "asc_brs_wl_slam_mastery",
+      "isCapstone": true
+    }
+  ]
+}

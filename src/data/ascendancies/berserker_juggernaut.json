@@ -1,0 +1,93 @@
+{
+  "$schema": "../../../docs/design/ascendancy-schema.md",
+  "id": "juggernaut",
+  "classId": "berserker",
+  "name": "Juggernaut",
+  "theme": "Apotheosis of the Mountain. 2H stance redirects the world's blows; AoE radius widens; sustains by being unkillable.",
+  "version": 1,
+  "authoredDate": "2026-05-05",
+  "totalNodes": 8,
+  "designNotes": [
+    "Capstone effect mirrors §10.1: 'All damage taken reduced by 30% while wielding 2H. Flail sweep cone widens.' (idle-exile reframe per §6.3: offhand-conditional, not weapon-conditional — Class-First compliant.)",
+    "Pairs with berserker.json juggernaut path — same id, mirrors path-7 capstone Mountain + amplifies.",
+    "8-node compact tree, 3 tiers, ~26 total ranks. Tier-3 capstone gates on Battle Cleave.",
+    "Engine wiring status (2026-05-05): 7 of 8 wireable today — clean foundation defensive stats + AoE damage + bleed conditional. Heavy Stance and Mountain capstone offhand-conditional clauses are decorative until Phase F lands offhand-slot-conditional dispatch."
+  ],
+  "nodes": [
+    {
+      "id": "asc_brs_jg_stalwart",
+      "name": "Stalwart",
+      "tier": 1,
+      "ranks": 5,
+      "description": "+5/10/15/20/25 maximum HP (foundation tank-cap for the Mountain).",
+      "engineHook": "stat:maxLife",
+      "dependencies": []
+    },
+    {
+      "id": "asc_brs_jg_iron_body",
+      "name": "Iron Body",
+      "tier": 1,
+      "ranks": 5,
+      "description": "+1/2/3/4/5% damage reduction (foundation defensive scaling).",
+      "engineHook": "stat:damageTakenReduction",
+      "dependencies": []
+    },
+    {
+      "id": "asc_brs_jg_heavy_stance",
+      "name": "Heavy Stance",
+      "tier": 1,
+      "ranks": 3,
+      "description": "+1/2/3% additional damage reduction (stacks additively with Iron Body — foundation +6% DR cap from this path).",
+      "engineHook": "stat:damageTakenReduction",
+      "dependencies": []
+    },
+    {
+      "id": "asc_brs_jg_battle_cleave",
+      "name": "Battle Cleave",
+      "tier": 2,
+      "ranks": 5,
+      "description": "+1/2/3/4/5% AoE damage (foundation cleave amplifier).",
+      "engineHook": "stat:incAoEDamage",
+      "dependencies": []
+    },
+    {
+      "id": "asc_brs_jg_stagger_sweep",
+      "name": "Stagger Sweep",
+      "tier": 2,
+      "ranks": 3,
+      "description": "+5/10/15% damage to Bleeding enemies (Bloodied-target scaler — pairs with Berserker's auto-bleed application via §8.3 baseline).",
+      "engineHook": "conditionalStat:damage:targetBleeding",
+      "dependencies": []
+    },
+    {
+      "id": "asc_brs_jg_iron_aegis",
+      "name": "Iron Aegis",
+      "tier": 2,
+      "ranks": 1,
+      "description": "+5% block chance and +10 maximum HP (multi-effect identity — defensive double-investment).",
+      "engineHook": "stat:blockChance+stat:maxLife",
+      "dependencies": []
+    },
+    {
+      "id": "asc_brs_jg_bulwark",
+      "name": "Bulwark",
+      "tier": 3,
+      "ranks": 3,
+      "description": "+10/20/30 maximum HP (deeper tank-cap — stacks with Stalwart).",
+      "engineHook": "stat:maxLife",
+      "dependencies": [],
+      "requiresNodeId": "asc_brs_jg_battle_cleave"
+    },
+    {
+      "id": "asc_brs_jg_mountain",
+      "name": "Mountain",
+      "tier": 3,
+      "ranks": 1,
+      "description": "While no offhand is equipped, all damage taken reduced by 30%. AoE/Cleave skill radius +50%. The §10.1 ascendancy keystone (idle-exile §6.3 reframe: offhand-slot-conditional, not weapon-name-conditional — Class-First compliant).",
+      "engineHook": "conditionalMechanic:damageReduction+aoeRadius:offhandNone",
+      "dependencies": ["offhandSlotConditional"],
+      "requiresNodeId": "asc_brs_jg_battle_cleave",
+      "isCapstone": true
+    }
+  ]
+}

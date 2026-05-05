@@ -28,6 +28,9 @@ import assassinShadowdancer from './assassin_shadowdancer.json';
 import sorcererElementalist from './sorcerer_elementalist.json';
 import sorcererArcanist from './sorcerer_arcanist.json';
 import sorcererSpecialist from './sorcerer_specialist.json';
+import berserkerWarlord from './berserker_warlord.json';
+import berserkerReaver from './berserker_reaver.json';
+import berserkerJuggernaut from './berserker_juggernaut.json';
 import { getAscendancyNodeEffectsById } from './effects';
 
 /**
@@ -58,6 +61,10 @@ export const ASCENDANCY_TREES: Record<string, AscendancyTreeData> = {
   elementalist:     sorcererElementalist as AscendancyTreeData,
   arcanist:         sorcererArcanist as AscendancyTreeData,
   specialist:       sorcererSpecialist as AscendancyTreeData,
+  // Berserker (3/3)
+  warlord:          berserkerWarlord as AscendancyTreeData,
+  reaver:           berserkerReaver as AscendancyTreeData,
+  juggernaut:       berserkerJuggernaut as AscendancyTreeData,
 };
 
 /**
