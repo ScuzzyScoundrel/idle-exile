@@ -93,8 +93,10 @@ export interface GameState {
   skillProgress: Record<string, SkillProgress>;
   skillTimers: SkillTimerState[];
 
-  // Class talent tree (v28)
-  talentAllocations: string[];
+  // Class talent tree (v28; multi-rank since v69 — Phase D)
+  // Map node id → current allocated rank. Rank 0 / missing = unallocated.
+  // Each rank up to `node.ranks` (per JSON tree) costs 1 talent point.
+  talentRanks: Record<string, number>;
 
   // Skill graph debuffs (v29 — ephemeral, not persisted)
   activeDebuffs: ActiveDebuff[];

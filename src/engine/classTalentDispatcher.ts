@@ -39,18 +39,57 @@ const TALENT_TAG_TO_DEBUFF: Record<TalentTag, string> = {
   taunt: 'taunted',     // Placeholder — no matching debuff yet.
 };
 
-/** Extract all talent effects from allocated nodes for a class.
- *  Phase C step 2: reads from JSON class-tree registry via getNodeEffects
- *  (combines inline JSON `effects?` + side-table `effects.ts` lookups). */
+/**
+ * Scale a TalentEffect by an allocated rank.
+ *
+ * Phase D (2026-05-05): effects.ts entries are authored at rank-1 values;
+ * a node at rank N produces N× the rank-1 effect. Scaling rules per kind:
+ *   • stat:        delta * rank
+ *   • statMult:    1 + (mult - 1) * rank   (linear additive scaling)
+ *   • whileTag:    1 + (mult - 1) * rank   (same — additive while-tag bonus)
+ *   • perStack:    perStackDelta * rank, cap also scaled
+ *   • procOnHit/Crit/Kill/Tag: chance * rank, capped at 100
+ *   • grantTagOnSkill: not scaled (boolean-shape)
+ */
+export function scaleTalentEffectByRank(effect: TalentEffect, rank: number): TalentEffect {
+  if (rank <= 1) return effect;
+  switch (effect.kind) {
+    case 'stat':
+      return { ...effect, delta: effect.delta * rank };
+    case 'statMult':
+      return { ...effect, mult: 1 + (effect.mult - 1) * rank };
+    case 'whileTag':
+      return { ...effect, mult: 1 + (effect.mult - 1) * rank };
+    case 'perStack':
+      return {
+        ...effect,
+        perStackDelta: effect.perStackDelta * rank,
+        cap: effect.cap !== undefined ? effect.cap * rank : undefined,
+      };
+    case 'procOnHit':
+    case 'procOnKill':
+    case 'procOnCrit':
+    case 'procOnTag':
+      return { ...effect, chance: Math.min(100, effect.chance * rank) };
+    case 'grantTagOnSkill':
+      return effect;
+  }
+}
+
+/** Extract all talent effects for a class, scaled by their allocated ranks.
+ *  Phase D (2026-05-05): reads `talentRanks: Record<string, number>` shape
+ *  and applies `scaleTalentEffectByRank` per entry. */
 export function collectTalentEffects(
   charClass: CharacterClass,
-  allocatedNodeIds: string[],
+  ranks: Record<string, number>,
 ): TalentEffect[] {
-  if (allocatedNodeIds.length === 0) return [];
   const result: TalentEffect[] = [];
-  for (const nodeId of allocatedNodeIds) {
+  for (const [nodeId, rank] of Object.entries(ranks)) {
+    if (rank <= 0) continue;
     const effects = getNodeEffects(charClass, nodeId);
-    if (effects.length > 0) result.push(...effects);
+    for (const eff of effects) {
+      result.push(scaleTalentEffectByRank(eff, rank));
+    }
   }
   return result;
 }

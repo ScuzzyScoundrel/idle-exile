@@ -295,7 +295,7 @@ function createInitialState(): GameState {
     skillBar: [null, null, null, null],
     skillProgress: {},
     skillTimers: [],
-    talentAllocations: [],
+    talentRanks: {},
     activeDebuffs: [],
     consecutiveHits: 0,
     lastSkillsCast: [],
@@ -1363,7 +1363,7 @@ export const useGameStore = create<GameState & GameActions>()(
     })) as import('zustand').StateCreator<GameState & GameActions, [['zustand/persist', unknown]], []>,
     {
       name: 'idle-exile-save',
-      version: 68,
+      version: 69,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;

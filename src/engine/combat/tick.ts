@@ -308,10 +308,10 @@ export function runCombatTick(
   }
 
   // Phase 4 sub-phase 5: collect allocated class-talent TalentEffects.
-  // Fast path when no allocations / no `effects` on any allocated node.
+  // Phase D (2026-05-05): ranks-aware — effects scaled by allocated rank.
   const talentEffects = collectTalentEffects(
     state.character.class,
-    state.talentAllocations ?? [],
+    state.talentRanks ?? {},
   );
 
   const stats = resolveStats(state.character);

@@ -7,7 +7,10 @@ import { useGameStore } from '../../store/gameStore';
 import { useSkillStore } from '../../store/skillStore';
 import { CharacterClass } from '../../types';
 import { getClassTree } from '../../data/classTrees';
-import { canAllocateTalentNode, getAvailableTalentPoints, getTalentRespecCost } from '../../engine/classTalents';
+import {
+  canAllocateTalentNode, getAvailableTalentPoints, getTalentRespecCost,
+  getTotalAllocatedRanks,
+} from '../../engine/classTalents';
 
 const CLASS_ACCENT: Record<CharacterClass, { tab: string; allocated: string; border: string; badge: string }> = {
   berserker: { tab: 'bg-red-700', allocated: 'border-red-500 bg-red-950/50', border: 'border-red-400', badge: 'bg-red-600' },
@@ -19,7 +22,7 @@ const CLASS_ACCENT: Record<CharacterClass, { tab: string; allocated: string; bor
 
 export default function ClassTalentPanel() {
   const character = useGameStore(s => s.character);
-  const talentAllocations = useGameStore(s => s.talentAllocations);
+  const talentRanks = useGameStore(s => s.talentRanks);
   const gold = useGameStore(s => s.gold);
   const allocateTalentNode = useSkillStore(s => s.allocateTalentNode);
   const respecTalents = useSkillStore(s => s.respecTalents);
@@ -27,7 +30,8 @@ export default function ClassTalentPanel() {
   const charClass = character.class;
   const tree = getClassTree(charClass);
   const accent = CLASS_ACCENT[charClass];
-  const availablePoints = getAvailableTalentPoints(character.level, talentAllocations.length);
+  const totalAllocated = getTotalAllocatedRanks(talentRanks);
+  const availablePoints = getAvailableTalentPoints(character.level, totalAllocated);
   const respecCost = getTalentRespecCost(character.level);
 
   // Phase C step 2: path id is now a JSON string (e.g. "plague_priest").
@@ -48,7 +52,7 @@ export default function ClassTalentPanel() {
         <h3 className="text-sm font-bold text-gray-300">
           Class Talents
           <span className="text-xs text-gray-500 font-normal ml-2">
-            {talentAllocations.length} allocated
+            {totalAllocated} allocated
             {availablePoints > 0 && <span className="text-yellow-400 ml-1">({availablePoints} available)</span>}
           </span>
         </h3>
@@ -60,7 +64,10 @@ export default function ClassTalentPanel() {
           {/* Path Tabs */}
           <div className="flex gap-1">
             {tree.paths.map((path) => {
-              const allocatedInPath = path.nodes.filter(n => talentAllocations.includes(n.id)).length;
+              const allocatedInPath = path.nodes.reduce(
+                (sum, n) => sum + (talentRanks[n.id] ?? 0),
+                0,
+              );
               return (
                 <button
                   key={path.id}
@@ -83,8 +90,10 @@ export default function ClassTalentPanel() {
           {/* Nodes */}
           <div className="space-y-1">
             {currentPath.nodes.map((node) => {
-              const isAllocated = talentAllocations.includes(node.id);
-              const canAlloc = canAllocateTalentNode(charClass, talentAllocations, node.id, character.level);
+              const currentRank = talentRanks[node.id] ?? 0;
+              const isAllocated = currentRank > 0;
+              const isMaxed = currentRank >= node.ranks;
+              const canAlloc = canAllocateTalentNode(charClass, talentRanks, node.id, character.level);
               const isCapstone = node.kind === 'capstone' || node.kind === 'capstone_supporting';
               const isIdentity = node.category === 'identity';
 
@@ -92,20 +101,22 @@ export default function ClassTalentPanel() {
                 <button
                   key={node.id}
                   onClick={() => canAlloc && allocateTalentNode(node.id)}
-                  disabled={!canAlloc && !isAllocated}
+                  disabled={!canAlloc}
                   className={`w-full text-left rounded-lg border p-2 transition-all ${
-                    isAllocated
+                    isMaxed
                       ? accent.allocated
-                      : canAlloc
-                        ? 'border-green-600 bg-green-950/30 hover:bg-green-950/50 cursor-pointer'
-                        : 'border-gray-700 bg-gray-900/30 opacity-50'
+                      : isAllocated
+                        ? `${accent.allocated} hover:bg-opacity-75 cursor-pointer`
+                        : canAlloc
+                          ? 'border-green-600 bg-green-950/30 hover:bg-green-950/50 cursor-pointer'
+                          : 'border-gray-700 bg-gray-900/30 opacity-50'
                   } ${isCapstone ? 'ring-1 ring-yellow-600/70' : isIdentity ? 'ring-1 ring-yellow-600/30' : ''}`}
                 >
                   <div className="flex items-center gap-2">
                     <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
-                      isAllocated ? `${accent.badge} text-white` : canAlloc ? 'bg-green-700 text-green-200' : 'bg-gray-700 text-gray-500'
+                      isMaxed ? `${accent.badge} text-white` : isAllocated ? 'bg-yellow-700 text-yellow-100' : canAlloc ? 'bg-green-700 text-green-200' : 'bg-gray-700 text-gray-500'
                     }`}>
-                      {isAllocated ? '\u2713' : node.tier}
+                      {isMaxed ? '\u2713' : node.tier}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
@@ -119,7 +130,9 @@ export default function ClassTalentPanel() {
                           <span className="text-xs text-yellow-500 font-bold">IDENTITY</span>
                         )}
                         {node.ranks > 1 && (
-                          <span className="text-xs text-gray-500">ranks: {node.ranks}</span>
+                          <span className={`text-xs font-mono ${isAllocated ? 'text-yellow-300' : 'text-gray-500'}`}>
+                            {currentRank}/{node.ranks}
+                          </span>
                         )}
                       </div>
                       <div className="text-xs text-gray-400">{node.description}</div>
@@ -137,9 +150,9 @@ export default function ClassTalentPanel() {
             </span>
             <button
               onClick={respecTalents}
-              disabled={gold < respecCost || talentAllocations.length === 0}
+              disabled={gold < respecCost || totalAllocated === 0}
               className={`text-xs px-2 py-1 rounded ${
-                gold >= respecCost && talentAllocations.length > 0
+                gold >= respecCost && totalAllocated > 0
                   ? 'bg-red-900 hover:bg-red-800 text-red-300'
                   : 'bg-gray-700 text-gray-600 cursor-not-allowed'
               }`}

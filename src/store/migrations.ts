@@ -979,5 +979,20 @@ export function runMigrations(
     }
   }
 
+  if (version < 69) {
+    // v69: Phase D — multi-rank class talent engine.
+    // Convert flat `talentAllocations: string[]` → `talentRanks: Record<string, number>`
+    // where each previously-allocated id gets rank=1. Players keep all
+    // existing investments at rank-1; new clicks now stack ranks up to
+    // each node's `ranks` cap. The new field replaces the old.
+    const oldArray = (raw.talentAllocations ?? []) as string[];
+    const newRanks: Record<string, number> = {};
+    for (const id of oldArray) {
+      newRanks[id] = (newRanks[id] ?? 0) + 1; // accumulator handles dup ids defensively
+    }
+    raw.talentRanks = newRanks;
+    delete raw.talentAllocations;
+  }
+
   return state;
 }

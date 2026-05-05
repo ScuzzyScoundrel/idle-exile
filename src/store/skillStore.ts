@@ -16,6 +16,11 @@ import { getUnifiedSkillDef, getSkillDef } from '../data/skills';
 import {
   getSkillEffectiveDuration, getSkillEffectiveCooldown,
 } from '../engine/unifiedSkills';
+import {
+  canAllocateTalentNode, allocateTalentNode as allocateTalentNodeEngine,
+  respecTalents as respecTalentsEngine, getTalentRespecCost,
+  getTotalAllocatedRanks,
+} from '../engine/classTalents';
 import { ZONE_DEFS } from '../data/zones';
 import { SKILL_GCD } from '../data/balance';
 import { resolveStats } from '../engine/character';
@@ -46,16 +51,24 @@ interface SkillActions {
 
 export const useSkillStore = create<SkillActions>()((_set, _get) => ({
 
-  // Class talent tree allocation (no-op — Phase D wiring pending)
-  allocateTalentNode: (_nodeId: string) => {
+  // Class talent tree allocation (Phase D 2026-05-05 — multi-rank).
+  // ranks: Record<nodeId, currentRank>. Each click increments by 1.
+  allocateTalentNode: (nodeId: string) => {
     useGameStore.setState((state) => {
-      return state; // Class talent trees disabled (Skill Tree Overhaul Phase 0)
+      const ranks = state.talentRanks;
+      if (!canAllocateTalentNode(state.character.class, ranks, nodeId, state.character.level)) {
+        return state;
+      }
+      return { talentRanks: allocateTalentNodeEngine(ranks, nodeId) };
     });
   },
 
   respecTalents: () => {
     useGameStore.setState((state) => {
-      return state; // Class talent trees disabled (Skill Tree Overhaul Phase 0)
+      if (getTotalAllocatedRanks(state.talentRanks) === 0) return state;
+      const cost = getTalentRespecCost(state.character.level);
+      if (state.gold < cost) return state;
+      return { talentRanks: respecTalentsEngine(), gold: state.gold - cost };
     });
   },
 

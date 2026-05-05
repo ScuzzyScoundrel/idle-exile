@@ -1,16 +1,28 @@
-// Phase C step 2 (2026-05-04): cutover to JSON class-tree registry.
-// Engine now reads from `src/data/classTrees/*.json` via the registry
-// (`src/data/classTrees/index.ts`) instead of the legacy effect-data
-// trees in `src/data/classTalents.ts`. Save migration v67 cleared the
-// legacy `talentAllocations` (different node id space).
+// ============================================================
+// Class Talents — engine API (Phase D: multi-rank, 2026-05-05)
+// ============================================================
 //
-// Multi-rank: the JSON nodes carry `ranks: 1-5`, but for now allocation
-// is treated as 1-point-per-node (same as the legacy 24-point trees).
-// Phase D will add multi-rank engine support — until then the side-table
-// effects.ts treats each node as if `ranks: 1`.
+// Save shape: `talentRanks: Record<string, number>` — node id → current
+// rank. Each rank up to `node.ranks` (per JSON tree) costs 1 talent point.
+//
+// Phase C step 2 (2026-05-04): cutover to JSON class-tree registry. Engine
+// reads from `src/data/classTrees/*.json` via the registry.
+//
+// Phase D (2026-05-05): multi-rank support — `talentAllocations: string[]`
+// flat list replaced with `talentRanks: Record<string, number>`. Save
+// migration v69 converts existing single-rank arrays to rank=1 records.
+// Effect scaling lives in `engine/classTalentDispatcher.ts`
+// (`scaleTalentEffectByRank`); this file only handles allocation rules.
+
 import { CharacterClass, AbilityEffect, SkillTreeNode } from '../types';
-import { findClassTreeNode, getClassTreeAllNodes, getNodeEffects } from '../data/classTrees';
-import { mergeEffect } from './unifiedSkills';
+import { findClassTreeNode, getClassTreeAllNodes } from '../data/classTrees';
+
+/** Sum of all rank values — total talent points spent. */
+export function getTotalAllocatedRanks(ranks: Record<string, number>): number {
+  let total = 0;
+  for (const r of Object.values(ranks)) total += r;
+  return total;
+}
 
 /**
  * Get all talent nodes for a class as a flat array — JSON-tree registry.
@@ -31,62 +43,54 @@ export function getAllTalentNodes(charClass: CharacterClass): SkillTreeNode[] {
   }));
 }
 
-/** Aggregate all allocated talent nodes into a single AbilityEffect.
- *  Reads typed effects via the registry's `getNodeEffects` (which combines
- *  inline JSON `effects?` field + side-table `effects.ts` lookups). */
-export function aggregateClassTalentEffect(
-  charClass: CharacterClass,
-  allocatedNodeIds: string[],
-): AbilityEffect {
-  if (allocatedNodeIds.length === 0) return {};
-  let result: AbilityEffect = {};
-  for (const nodeId of allocatedNodeIds) {
-    // For Phase C step 2, AbilityEffect aggregation only consumes the
-    // side-table's `stat`/`statMult` effects via mergeEffect compatibility.
-    // Proc/conditional/identity effects flow through classTalentDispatcher.
-    const effects = getNodeEffects(charClass, nodeId);
-    for (const eff of effects) {
-      // Best-effort translation: stat/statMult kinds map to AbilityEffect.
-      // Other kinds are dispatcher-side and don't aggregate here.
-      if (eff.kind === 'stat' || eff.kind === 'statMult') {
-        result = mergeEffect(result, {} as AbilityEffect);
-      }
-    }
-  }
-  return result;
-}
-
-/** Check if a talent node can be allocated. JSON-tree registry version. */
+/**
+ * Check if a talent node can have another rank allocated.
+ *
+ * Multi-rank rules (Phase D):
+ *   1. Node must exist in the class tree.
+ *   2. Current rank < node.ranks (max).
+ *   3. At least 1 talent point available.
+ *   4. If `requiresNodeId`: prerequisite must be at MAX rank (full investment
+ *      gates the next node — encourages path commitment).
+ */
 export function canAllocateTalentNode(
   charClass: CharacterClass,
-  allocatedNodeIds: string[],
+  ranks: Record<string, number>,
   nodeId: string,
   characterLevel: number,
 ): boolean {
-  // Already allocated
-  if (allocatedNodeIds.includes(nodeId)) return false;
-
-  // No points available
-  if (getAvailableTalentPoints(characterLevel, allocatedNodeIds.length) <= 0) return false;
-
-  // Node must exist in JSON registry
   const node = findClassTreeNode(charClass, nodeId);
   if (!node) return false;
 
-  // Prerequisite must be allocated
-  if (node.requiresNodeId && !allocatedNodeIds.includes(node.requiresNodeId)) return false;
+  // Rank cap
+  const currentRank = ranks[nodeId] ?? 0;
+  if (currentRank >= node.ranks) return false;
+
+  // Points available
+  if (getAvailableTalentPoints(characterLevel, getTotalAllocatedRanks(ranks)) <= 0) return false;
+
+  // Prerequisite at max rank
+  if (node.requiresNodeId) {
+    const prereqNode = findClassTreeNode(charClass, node.requiresNodeId);
+    if (!prereqNode) return false;
+    const prereqRank = ranks[node.requiresNodeId] ?? 0;
+    if (prereqRank < prereqNode.ranks) return false;
+  }
 
   return true;
 }
 
-/** Allocate a talent node — returns new array with node added. */
-export function allocateTalentNode(allocatedNodeIds: string[], nodeId: string): string[] {
-  return [...allocatedNodeIds, nodeId];
+/** Allocate one rank to a node — returns new ranks record (immutable). */
+export function allocateTalentNode(
+  ranks: Record<string, number>,
+  nodeId: string,
+): Record<string, number> {
+  return { ...ranks, [nodeId]: (ranks[nodeId] ?? 0) + 1 };
 }
 
-/** Respec all talents — returns empty array. */
-export function respecTalents(): string[] {
-  return [];
+/** Respec all talents — returns empty record. */
+export function respecTalents(): Record<string, number> {
+  return {};
 }
 
 /** Gold cost to respec talents. */
@@ -94,7 +98,7 @@ export function getTalentRespecCost(characterLevel: number): number {
   return 25 * characterLevel;
 }
 
-/** Available talent points = level - allocated count. */
-export function getAvailableTalentPoints(characterLevel: number, allocatedCount: number): number {
-  return Math.max(0, characterLevel - allocatedCount);
+/** Available talent points = level - total ranks spent. */
+export function getAvailableTalentPoints(characterLevel: number, totalRanks: number): number {
+  return Math.max(0, characterLevel - totalRanks);
 }
