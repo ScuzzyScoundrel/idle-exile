@@ -312,6 +312,83 @@ export const ASCENDANCY_NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'asc_brs_jg_bulwark': [
     { kind: 'stat', stat: 'maxLife', delta: 10 },
   ],
+
+  // ── Hunter — Marksman ─────────────────────────────────────────────
+  // 7 of 8 wired today. First-hit-guaranteed-crit + precision-payoff
+  // bonus capstone needs Phase F (firstHitOnTarget condition + payoff
+  // mechanic dispatch).
+  'asc_hnt_mm_steady_aim': [
+    { kind: 'stat', stat: 'critChance', delta: 1 },
+  ],
+  'asc_hnt_mm_hunters_edge': [
+    { kind: 'stat', stat: 'critMultiplier', delta: 1 },
+  ],
+  'asc_hnt_mm_mark_tracker': [
+    { kind: 'stat', stat: 'ailmentDuration', delta: 0.5 },
+  ],
+  // "5% chance on crit to apply Mark" rank-1 → 25% at rank 5.
+  'asc_hnt_mm_critical_aim': [
+    { kind: 'procOnCrit', chance: 5, action: { kind: 'applyTag', tag: 'mark', stacks: 1, duration: 8 } },
+  ],
+  // "+5% damage vs marked" rank-1 → +15% at rank 3.
+  'asc_hnt_mm_mark_hunter': [
+    { kind: 'whileTag', tag: 'mark', stat: 'damageMult', mult: 1.05 },
+  ],
+  'asc_hnt_mm_snipers_tempo': [
+    { kind: 'stat', stat: 'critChance', delta: 5 },
+  ],
+  // "+10% damage vs marked" rank-1 → +30% at rank 3 (stacks deeper).
+  'asc_hnt_mm_predators_mark': [
+    { kind: 'whileTag', tag: 'mark', stat: 'damageMult', mult: 1.10 },
+  ],
+
+  // ── Hunter — Beastmaster ──────────────────────────────────────────
+  // 5 of 8 wired today. Pack Bond / Companion's Vigor are forward-compat
+  // (companion stats not on ResolvedStats); Pack Leader capstone needs
+  // Phase F (companion summoning + proc inheritance dispatch).
+  'asc_hnt_bm_pack_bond': [
+    { kind: 'stat', stat: 'companionDamage', delta: 5 },
+  ],
+  'asc_hnt_bm_companions_vigor': [
+    { kind: 'stat', stat: 'companionHp', delta: 5 },
+  ],
+  'asc_hnt_bm_bond_of_wild': [
+    { kind: 'stat', stat: 'critChance', delta: 1 },
+  ],
+  'asc_hnt_bm_pack_tempo': [
+    { kind: 'stat', stat: 'attackSpeed', delta: 1 },
+  ],
+  'asc_hnt_bm_wild_mark': [
+    { kind: 'procOnCrit', chance: 5, action: { kind: 'applyTag', tag: 'mark', stacks: 1, duration: 8 } },
+  ],
+  'asc_hnt_bm_pack_awareness': [
+    { kind: 'statMult', stat: 'damageMult', mult: 1.05 },
+  ],
+  'asc_hnt_bm_bond_of_hunting': [
+    { kind: 'whileTag', tag: 'mark', stat: 'damageMult', mult: 1.05 },
+  ],
+
+  // ── Hunter — Trapper ──────────────────────────────────────────────
+  // 5 of 8 wired today. Multi-Arming / Heavy Trap / Snare Field
+  // capstone are decorative until Phase F lands the trap mechanic +
+  // onTrapDetonate dispatch.
+  'asc_hnt_tp_trappers_hand': [
+    { kind: 'whileTag', tag: 'bleed', stat: 'damageMult', mult: 1.05 },
+  ],
+  'asc_hnt_tp_quick_reload': [
+    { kind: 'stat', stat: 'cooldownRecovery', delta: 1 },
+  ],
+  'asc_hnt_tp_snare_sense': [
+    { kind: 'stat', stat: 'critChance', delta: 1 },
+  ],
+  // "5% chance on hit to apply Bleed" 1-rank.
+  'asc_hnt_tp_trap_trigger': [
+    { kind: 'procOnHit', chance: 5, action: { kind: 'applyTag', tag: 'bleed', stacks: 1, duration: 6 } },
+  ],
+  // "+2% cooldown recovery" rank-1 → +6% at rank 3 (stacks with Quick Reload).
+  'asc_hnt_tp_cooldown_mastery': [
+    { kind: 'stat', stat: 'cooldownRecovery', delta: 2 },
+  ],
 };
 
 /** Lookup typed effects for an ascendancy node id. */

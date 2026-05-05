@@ -1,0 +1,93 @@
+{
+  "$schema": "../../../docs/design/ascendancy-schema.md",
+  "id": "beastmaster",
+  "classId": "hunter",
+  "name": "Beastmaster",
+  "theme": "Apotheosis of the Pack. Two-on-one against every encounter — your beast hunts alongside, inherits your procs, marks alongside.",
+  "version": 1,
+  "authoredDate": "2026-05-05",
+  "totalNodes": 8,
+  "designNotes": [
+    "Capstone effect mirrors §10.1: 'Summon a permanent animal companion (pick wolf / hawk / panther) that inherits your on-hit procs.'",
+    "Pairs with hunter.json beastmaster path — same id, mirrors path-7 capstone Pack Leader + amplifies.",
+    "8-node compact tree, 3 tiers, ~22 total ranks. Tier-3 capstone gates on Pack Tempo.",
+    "Engine wiring status (2026-05-05): 5 of 8 wireable today — companion-stat foundations (Pack Bond / Companion's Vigor) are decorative until Phase F lands the companion mechanic; player-side stat-sticks and Mark conditionals work. Pack Leader capstone (permanent companion + full proc inheritance) needs Phase F."
+  ],
+  "nodes": [
+    {
+      "id": "asc_hnt_bm_pack_bond",
+      "name": "Pack Bond",
+      "tier": 1,
+      "ranks": 5,
+      "description": "Companion damage +5/10/15/20/25% (foundation Pack scaling).",
+      "engineHook": "stat:companionDamage",
+      "dependencies": ["companionMechanic"]
+    },
+    {
+      "id": "asc_hnt_bm_companions_vigor",
+      "name": "Companion's Vigor",
+      "tier": 1,
+      "ranks": 5,
+      "description": "Companion HP +5/10/15/20/25% (foundation survivability).",
+      "engineHook": "stat:companionHp",
+      "dependencies": ["companionMechanic"]
+    },
+    {
+      "id": "asc_hnt_bm_bond_of_wild",
+      "name": "Bond of the Wild",
+      "tier": 1,
+      "ranks": 3,
+      "description": "+1/2/3% crit chance (foundation — your shots and your beast's bites both crit harder).",
+      "engineHook": "stat:critChance",
+      "dependencies": []
+    },
+    {
+      "id": "asc_hnt_bm_pack_tempo",
+      "name": "Pack Tempo",
+      "tier": 2,
+      "ranks": 5,
+      "description": "+1/2/3/4/5% attack speed (foundation tempo for hand-off rotations).",
+      "engineHook": "stat:attackSpeed",
+      "dependencies": []
+    },
+    {
+      "id": "asc_hnt_bm_wild_mark",
+      "name": "Wild Mark",
+      "tier": 2,
+      "ranks": 5,
+      "description": "On crit, +5/10/15/20/25% chance to apply Mark (cross-skill Mark applier — preserves Mark engine even mid-companion-rotation).",
+      "engineHook": "onSkillCrit",
+      "dependencies": []
+    },
+    {
+      "id": "asc_hnt_bm_pack_awareness",
+      "name": "Pack Awareness",
+      "tier": 2,
+      "ranks": 1,
+      "description": "+5% damage (1-rank identity — foundation amplifier representing the always-on companion presence).",
+      "engineHook": "statMult:damage",
+      "dependencies": []
+    },
+    {
+      "id": "asc_hnt_bm_bond_of_hunting",
+      "name": "Bond of Hunting",
+      "tier": 3,
+      "ranks": 3,
+      "description": "+5/10/15% damage to Marked targets (Marked-vulnerability scaler — your hits + companion's hits both benefit).",
+      "engineHook": "conditionalStat:damage:targetMarked",
+      "dependencies": [],
+      "requiresNodeId": "asc_hnt_bm_pack_tempo"
+    },
+    {
+      "id": "asc_hnt_bm_pack_leader",
+      "name": "Pack Leader",
+      "tier": 3,
+      "ranks": 1,
+      "description": "Summon a permanent animal companion (pick wolf / hawk / panther at ascendancy time). It inherits your on-hit procs and Mark application in full. The §10.1 ascendancy keystone.",
+      "engineHook": "summonPermanentCompanion+fullProcInheritance",
+      "dependencies": ["companionMechanic"],
+      "requiresNodeId": "asc_hnt_bm_pack_tempo",
+      "isCapstone": true
+    }
+  ]
+}

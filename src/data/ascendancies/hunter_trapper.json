@@ -1,0 +1,93 @@
+{
+  "$schema": "../../../docs/design/ascendancy-schema.md",
+  "id": "trapper",
+  "classId": "hunter",
+  "name": "Trapper",
+  "theme": "Apotheosis of the Setup Master. Prep the encounter before it starts; watch the chain detonate; arm twice as often, escalate per hit.",
+  "version": 1,
+  "authoredDate": "2026-05-05",
+  "totalNodes": 8,
+  "designNotes": [
+    "Capstone effect mirrors §10.1: 'Traps gain +2 arming count. Multi-trap chains deal escalating damage per hit.'",
+    "Pairs with hunter.json trapper path — same id, mirrors path-7 capstone Snare Field + amplifies.",
+    "8-node compact tree, 3 tiers, ~22 total ranks. Tier-3 capstone gates on Cooldown Mastery.",
+    "Engine wiring status (2026-05-05): 5 of 8 wireable today — trap-event nodes (Multi-Arming / Heavy Trap / Snare Field capstone) are decorative until Phase F lands the trap mechanic + onTrapDetonate dispatch. Bleed and Mark conditionals + cooldown recovery work."
+  ],
+  "nodes": [
+    {
+      "id": "asc_hnt_tp_trappers_hand",
+      "name": "Trapper's Hand",
+      "tier": 1,
+      "ranks": 5,
+      "description": "+5/10/15/20/25% damage to Bleeding enemies (foundation — trap detonations stack bleed via §8.3 ailment baseline).",
+      "engineHook": "conditionalStat:damage:targetBleeding",
+      "dependencies": []
+    },
+    {
+      "id": "asc_hnt_tp_quick_reload",
+      "name": "Quick Reload",
+      "tier": 1,
+      "ranks": 5,
+      "description": "+1/2/3/4/5% cooldown recovery (foundation — traps live on cooldowns; faster reset = more chains).",
+      "engineHook": "stat:cooldownRecovery",
+      "dependencies": []
+    },
+    {
+      "id": "asc_hnt_tp_snare_sense",
+      "name": "Snare Sense",
+      "tier": 1,
+      "ranks": 3,
+      "description": "+1/2/3% crit chance (foundation — primer for trap-detonation crits).",
+      "engineHook": "stat:critChance",
+      "dependencies": []
+    },
+    {
+      "id": "asc_hnt_tp_multi_arming",
+      "name": "Multi-Arming",
+      "tier": 2,
+      "ranks": 5,
+      "description": "Traps have +1/2/3/4/5% chance to arm a second time on detonation (Snare Field preview).",
+      "engineHook": "onTrapDetonate",
+      "dependencies": ["trapMechanic"]
+    },
+    {
+      "id": "asc_hnt_tp_heavy_trap",
+      "name": "Heavy Trap",
+      "tier": 2,
+      "ranks": 3,
+      "description": "+2/4/6% trap detonation damage (foundation trap scaler).",
+      "engineHook": "stat:trapDetonationDamage",
+      "dependencies": ["trapMechanic"]
+    },
+    {
+      "id": "asc_hnt_tp_trap_trigger",
+      "name": "Trap Trigger",
+      "tier": 2,
+      "ranks": 1,
+      "description": "On hit, +5% chance to apply Bleed (cross-skill bleed applier — feeds the Bleeding-vulnerability stack).",
+      "engineHook": "onSkillHit",
+      "dependencies": []
+    },
+    {
+      "id": "asc_hnt_tp_cooldown_mastery",
+      "name": "Cooldown Mastery",
+      "tier": 3,
+      "ranks": 3,
+      "description": "+2/4/6% cooldown recovery (deeper trap-cycling — stacks with Quick Reload).",
+      "engineHook": "stat:cooldownRecovery",
+      "dependencies": [],
+      "requiresNodeId": "asc_hnt_tp_quick_reload"
+    },
+    {
+      "id": "asc_hnt_tp_snare_field",
+      "name": "Snare Field",
+      "tier": 3,
+      "ranks": 1,
+      "description": "Traps gain +2 arming counts (default 1). Multi-trap chains deal escalating damage per hit (1×, 1.5×, 2×, 2.5×). The §10.1 ascendancy keystone.",
+      "engineHook": "modifyMechanic:trapArmingCount+chainDamageEscalation",
+      "dependencies": ["trapMechanic"],
+      "requiresNodeId": "asc_hnt_tp_quick_reload",
+      "isCapstone": true
+    }
+  ]
+}

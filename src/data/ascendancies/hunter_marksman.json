@@ -1,0 +1,93 @@
+{
+  "$schema": "../../../docs/design/ascendancy-schema.md",
+  "id": "marksman",
+  "classId": "hunter",
+  "name": "Marksman",
+  "theme": "Apotheosis of the Headhunter. Every encounter opens with a guaranteed crit on a Marked head; Precision Payoffs detonate at +50%.",
+  "version": 1,
+  "authoredDate": "2026-05-05",
+  "totalNodes": 8,
+  "designNotes": [
+    "Capstone effect mirrors §10.1: 'First hit on any new target always crits. Precision payoffs deal +50% damage.'",
+    "Pairs with hunter.json marksman path — same id, mirrors path-7 capstone Headhunter + amplifies.",
+    "8-node compact tree, 3 tiers, ~22 total ranks. Tier-3 capstone gates on Mark Hunter.",
+    "Engine wiring status (2026-05-05): 7 of 8 wireable today (clean Mark palette + crit stat-sticks). First-hit-guaranteed-crit + precision-payoff bonus capstone needs Phase F (firstHitOnTarget condition + precision payoff hook)."
+  ],
+  "nodes": [
+    {
+      "id": "asc_hnt_mm_steady_aim",
+      "name": "Steady Aim",
+      "tier": 1,
+      "ranks": 5,
+      "description": "+1/2/3/4/5% crit chance (foundation — opener-crit reliability).",
+      "engineHook": "stat:critChance",
+      "dependencies": []
+    },
+    {
+      "id": "asc_hnt_mm_hunters_edge",
+      "name": "Hunter's Edge",
+      "tier": 1,
+      "ranks": 5,
+      "description": "+1/2/3/4/5% crit damage (foundation amplifier).",
+      "engineHook": "stat:critMultiplier",
+      "dependencies": []
+    },
+    {
+      "id": "asc_hnt_mm_mark_tracker",
+      "name": "Mark Tracker",
+      "tier": 1,
+      "ranks": 3,
+      "description": "+0.5/1.0/1.5s ailment duration (extends Mark/Tracked windows via the ailment-duration channel).",
+      "engineHook": "stat:ailmentDuration",
+      "dependencies": []
+    },
+    {
+      "id": "asc_hnt_mm_critical_aim",
+      "name": "Critical Aim",
+      "tier": 2,
+      "ranks": 5,
+      "description": "On crit, +5/10/15/20/25% chance to apply Mark to the target (cross-skill Mark applier).",
+      "engineHook": "onSkillCrit",
+      "dependencies": []
+    },
+    {
+      "id": "asc_hnt_mm_mark_hunter",
+      "name": "Mark Hunter",
+      "tier": 2,
+      "ranks": 3,
+      "description": "+5/10/15% damage to Marked targets (foundation Mark-vulnerability scaler).",
+      "engineHook": "conditionalStat:damage:targetMarked",
+      "dependencies": []
+    },
+    {
+      "id": "asc_hnt_mm_snipers_tempo",
+      "name": "Sniper's Tempo",
+      "tier": 2,
+      "ranks": 1,
+      "description": "+5% crit chance (1-rank identity — foundation amplifier, pairs with the opener-crit fantasy).",
+      "engineHook": "stat:critChance",
+      "dependencies": []
+    },
+    {
+      "id": "asc_hnt_mm_predators_mark",
+      "name": "Predator's Mark",
+      "tier": 3,
+      "ranks": 3,
+      "description": "+10/20/30% damage to Marked targets (deeper Marked-vulnerability — stacks with Mark Hunter).",
+      "engineHook": "conditionalStat:damage:targetMarked",
+      "dependencies": [],
+      "requiresNodeId": "asc_hnt_mm_mark_hunter"
+    },
+    {
+      "id": "asc_hnt_mm_headhunter",
+      "name": "Headhunter",
+      "tier": 3,
+      "ranks": 1,
+      "description": "First hit on any new target always crits. Precision Payoffs deal +50% damage. The §10.1 ascendancy keystone.",
+      "engineHook": "modifyMechanic:firstHitGuaranteedCrit+precisionPayoffBonus",
+      "dependencies": ["markMechanic"],
+      "requiresNodeId": "asc_hnt_mm_mark_hunter",
+      "isCapstone": true
+    }
+  ]
+}

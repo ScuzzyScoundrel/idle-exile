@@ -31,6 +31,9 @@ import sorcererSpecialist from './sorcerer_specialist.json';
 import berserkerWarlord from './berserker_warlord.json';
 import berserkerReaver from './berserker_reaver.json';
 import berserkerJuggernaut from './berserker_juggernaut.json';
+import hunterMarksman from './hunter_marksman.json';
+import hunterBeastmaster from './hunter_beastmaster.json';
+import hunterTrapper from './hunter_trapper.json';
 import { getAscendancyNodeEffectsById } from './effects';
 
 /**
@@ -65,6 +68,10 @@ export const ASCENDANCY_TREES: Record<string, AscendancyTreeData> = {
   warlord:          berserkerWarlord as AscendancyTreeData,
   reaver:           berserkerReaver as AscendancyTreeData,
   juggernaut:       berserkerJuggernaut as AscendancyTreeData,
+  // Hunter (3/3)
+  marksman:         hunterMarksman as AscendancyTreeData,
+  beastmaster:      hunterBeastmaster as AscendancyTreeData,
+  trapper:          hunterTrapper as AscendancyTreeData,
 };
 
 /**
