@@ -88,6 +88,76 @@ export const ASCENDANCY_NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'asc_wd_vs_bloodied_curse': [
     { kind: 'procOnCrit', chance: 5, action: { kind: 'applyTag', tag: 'hex', stacks: 2, duration: 6 } },
   ],
+
+  // ── Assassin — Blademaster ────────────────────────────────────────
+  // 3 of 8 wired today (foundation stat-sticks). Crit Cascade mechanic +
+  // dual-wield offhand check + cooldown-refund-on-crit are Phase F.
+  'asc_asn_bm_honed_apex': [
+    { kind: 'stat', stat: 'critChance', delta: 1 },
+  ],
+  'asc_asn_bm_bladework_mastery': [
+    { kind: 'stat', stat: 'attackSpeed', delta: 1 },
+  ],
+  'asc_asn_bm_twin_edge': [
+    { kind: 'stat', stat: 'critMultiplier', delta: 5 },
+  ],
+
+  // ── Assassin — Venomcraft ─────────────────────────────────────────
+  // 6 of 8 wired today (heaviest wire-rate of the Asn set due to poison
+  // palette match). Toxic Saint capstone (poison-can-crit + decay-pause)
+  // and the maxPoisonStacks seed are Phase F / forward-compat.
+  'asc_asn_vc_snake_charmer': [
+    { kind: 'stat', stat: 'incChaosDamage', delta: 1 },
+  ],
+  'asc_asn_vc_lingering_toxin': [
+    { kind: 'stat', stat: 'ailmentDuration', delta: 0.5 },
+  ],
+  'asc_asn_vc_vile_reservoir': [
+    { kind: 'stat', stat: 'maxPoisonStacks', delta: 1 },
+  ],
+  // "+2% damage per poison stack on target" rank-1 → +6% at rank 3.
+  'asc_asn_vc_poison_mastery': [
+    { kind: 'perStack', stack: 'poison', stat: 'damageMult', perStackDelta: 0.02, cap: 0.06 },
+  ],
+  // "5% chance on crit to apply 2 poison stacks" — broadened (no target
+  // filter on procOnCrit). Rank-1 → 25% at rank 5.
+  'asc_asn_vc_tainted_strike': [
+    { kind: 'procOnCrit', chance: 5, action: { kind: 'applyTag', tag: 'poison', stacks: 2, duration: 6 } },
+  ],
+  // "+10% damage vs poisoned" 1-rank.
+  'asc_asn_vc_withering_reach': [
+    { kind: 'whileTag', tag: 'poison', stat: 'damageMult', mult: 1.10 },
+  ],
+  // "+5% damage vs poisoned" rank-1 → +15% at rank 3 (stacks via the
+  // mult-update rule: 1 + 0.05 * 3 = 1.15).
+  'asc_asn_vc_predators_patience': [
+    { kind: 'whileTag', tag: 'poison', stat: 'damageMult', mult: 1.05 },
+  ],
+
+  // ── Assassin — Shadowdancer ───────────────────────────────────────
+  // 6 of 8 wired today. First-hit-Mark + Mark-hit-generates-Momentum
+  // capstone, plus Twin Marks chain-count, need Phase F.
+  'asc_asn_sd_stalkers_eye': [
+    { kind: 'stat', stat: 'critChance', delta: 1 },
+  ],
+  'asc_asn_sd_phantom_step': [
+    { kind: 'stat', stat: 'cooldownRecovery', delta: 1 },
+  ],
+  'asc_asn_sd_killers_grace': [
+    { kind: 'stat', stat: 'ailmentDuration', delta: 0.5 },
+  ],
+  // "+1% damage vs marked" rank-1 → +5% at rank 5.
+  'asc_asn_sd_mark_stalker': [
+    { kind: 'whileTag', tag: 'mark', stat: 'damageMult', mult: 1.01 },
+  ],
+  // "10% chance on crit to apply Mark" rank-1 → 30% at rank 3.
+  'asc_asn_sd_shadow_reach': [
+    { kind: 'procOnCrit', chance: 10, action: { kind: 'applyTag', tag: 'mark', stacks: 1, duration: 8 } },
+  ],
+  // "+10% damage vs marked" rank-1 → +30% at rank 3 (stacks deeper).
+  'asc_asn_sd_mark_hunter': [
+    { kind: 'whileTag', tag: 'mark', stat: 'damageMult', mult: 1.10 },
+  ],
 };
 
 /** Lookup typed effects for an ascendancy node id. */

@@ -1,0 +1,93 @@
+{
+  "$schema": "../../../docs/design/ascendancy-schema.md",
+  "id": "shadowdancer",
+  "classId": "assassin",
+  "name": "Shadowdancer",
+  "theme": "Apotheosis of the Predator. First hit always Marks, every Marked hit feeds Shadow Momentum, the encounter ends before it starts.",
+  "version": 1,
+  "authoredDate": "2026-05-05",
+  "totalNodes": 8,
+  "designNotes": [
+    "Capstone effect mirrors §10.1: 'Mark applies on first hit regardless of skill. Hits on marked targets generate Shadow Momentum.'",
+    "Pairs with assassin.json shadowdancer path — same id, mirrors path-7 capstone Untouchable + amplifies.",
+    "8-node compact tree, 3 tiers, ~22 total ranks. Tier-3 capstone gates on Mark Hunter.",
+    "Engine wiring status (2026-05-05): 6 of 8 nodes wireable today (stat:critChance / stat:cooldownRecovery / stat:ailmentDuration / whileTag(mark) damageMult / procOnCrit applyTag(mark)). First-hit-Mark + Mark-hit-generates-Momentum capstone needs Phase F."
+  ],
+  "nodes": [
+    {
+      "id": "asc_asn_sd_stalkers_eye",
+      "name": "Stalker's Eye",
+      "tier": 1,
+      "ranks": 5,
+      "description": "+1/2/3/4/5% crit chance (foundation — Marks become more reliable).",
+      "engineHook": "stat:critChance",
+      "dependencies": []
+    },
+    {
+      "id": "asc_asn_sd_phantom_step",
+      "name": "Phantom Step",
+      "tier": 1,
+      "ranks": 5,
+      "description": "+1/2/3/4/5% cooldown recovery (foundation pacing — pairs with Shadow Momentum).",
+      "engineHook": "stat:cooldownRecovery",
+      "dependencies": []
+    },
+    {
+      "id": "asc_asn_sd_killers_grace",
+      "name": "Killer's Grace",
+      "tier": 1,
+      "ranks": 3,
+      "description": "+0.5/1.0/1.5s ailment duration (broadens Shadow Mark windows via the ailment-duration channel).",
+      "engineHook": "stat:ailmentDuration",
+      "dependencies": []
+    },
+    {
+      "id": "asc_asn_sd_mark_stalker",
+      "name": "Mark Stalker",
+      "tier": 2,
+      "ranks": 5,
+      "description": "+1/2/3/4/5% damage to Marked targets (foundation Mark vulnerability scaler).",
+      "engineHook": "conditionalStat:damage:targetMarked",
+      "dependencies": []
+    },
+    {
+      "id": "asc_asn_sd_shadow_reach",
+      "name": "Shadow Reach",
+      "tier": 2,
+      "ranks": 3,
+      "description": "On crit, +10/20/30% chance to apply Mark to the target (cross-skill Mark applier).",
+      "engineHook": "onSkillCrit",
+      "dependencies": []
+    },
+    {
+      "id": "asc_asn_sd_twin_marks",
+      "name": "Twin Marks",
+      "tier": 2,
+      "ranks": 1,
+      "description": "Mark application reaches one additional enemy in encounter (chained from primary target).",
+      "engineHook": "modifyMechanic:markChainCount",
+      "dependencies": []
+    },
+    {
+      "id": "asc_asn_sd_mark_hunter",
+      "name": "Mark Hunter",
+      "tier": 3,
+      "ranks": 3,
+      "description": "+10/20/30% damage to Marked targets (stacks with Mark Stalker for deeper Marked-vulnerability scaling).",
+      "engineHook": "conditionalStat:damage:targetMarked",
+      "dependencies": [],
+      "requiresNodeId": "asc_asn_sd_mark_stalker"
+    },
+    {
+      "id": "asc_asn_sd_untouchable",
+      "name": "Untouchable",
+      "tier": 3,
+      "ranks": 1,
+      "description": "Mark applies on first hit regardless of skill (no crit required). Hits on Marked targets generate Shadow Momentum (cooldowns start 2s earlier). The §10.1 ascendancy keystone.",
+      "engineHook": "modifyMechanic:firstHitMark+markedHitMomentum",
+      "dependencies": [],
+      "requiresNodeId": "asc_asn_sd_mark_stalker",
+      "isCapstone": true
+    }
+  ]
+}

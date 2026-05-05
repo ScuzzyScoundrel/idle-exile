@@ -1,0 +1,93 @@
+{
+  "$schema": "../../../docs/design/ascendancy-schema.md",
+  "id": "blademaster",
+  "classId": "assassin",
+  "name": "Blademaster",
+  "theme": "Apotheosis of the dual-wield crit-burst. Endless rotation — crits refund cooldowns, chain hits multiply, the Cascade never stops.",
+  "version": 1,
+  "authoredDate": "2026-05-05",
+  "totalNodes": 8,
+  "designNotes": [
+    "Capstone effect mirrors §10.1: 'Crits have 30% chance to refund the skill's cooldown. While dual-wielding, chain attacks gain +1 hit.'",
+    "Pairs with assassin.json blademaster path — same id, mirrors path-7 capstone Bladestorm + amplifies via this ascendancy.",
+    "8-node compact tree, 3 tiers, ~22 total ranks. Tier-3 capstone gates on Endless Rotation.",
+    "Engine wiring status (2026-05-05): 3 of 8 nodes wireable today (Honed Apex / Bladework Mastery / Twin Edge — pure stat-sticks). Crit Cascade mechanic + dual-wield offhand check + cooldown-refund-on-crit action are decorative until Phase F."
+  ],
+  "nodes": [
+    {
+      "id": "asc_asn_bm_honed_apex",
+      "name": "Honed Apex",
+      "tier": 1,
+      "ranks": 5,
+      "description": "+1/2/3/4/5% crit chance (foundation pairing with the Cascade gates).",
+      "engineHook": "stat:critChance",
+      "dependencies": []
+    },
+    {
+      "id": "asc_asn_bm_bladework_mastery",
+      "name": "Bladework Mastery",
+      "tier": 1,
+      "ranks": 5,
+      "description": "+1/2/3/4/5% attack speed (foundation tempo for chain rotations).",
+      "engineHook": "stat:attackSpeed",
+      "dependencies": []
+    },
+    {
+      "id": "asc_asn_bm_twin_edge",
+      "name": "Twin Edge",
+      "tier": 1,
+      "ranks": 3,
+      "description": "+5/10/15% crit damage (foundation scaling).",
+      "engineHook": "stat:critMultiplier",
+      "dependencies": []
+    },
+    {
+      "id": "asc_asn_bm_cascade_conduit",
+      "name": "Cascade Conduit",
+      "tier": 2,
+      "ranks": 5,
+      "description": "On crit, +5/10/15/20/25% chance to add an extra Crit Stack (signature accelerator).",
+      "engineHook": "onSkillCrit",
+      "dependencies": ["critCascadeMechanic"]
+    },
+    {
+      "id": "asc_asn_bm_bladework_storm",
+      "name": "Bladework Storm",
+      "tier": 2,
+      "ranks": 3,
+      "description": "+5/10/15% damage per Crit Stack on you (max +25/50/75% at 5 stacks — pairs with Cascade Conduit).",
+      "engineHook": "perStack:critStack",
+      "dependencies": ["critCascadeMechanic"]
+    },
+    {
+      "id": "asc_asn_bm_twin_bloom",
+      "name": "Twin Bloom",
+      "tier": 2,
+      "ranks": 1,
+      "description": "While dual-wielding, +15% attack speed (offhand-conditional per §6.3).",
+      "engineHook": "conditionalStat:attackSpeed:offhandSecondWeapon",
+      "dependencies": ["secondWeaponOffhand"]
+    },
+    {
+      "id": "asc_asn_bm_endless_rotation",
+      "name": "Endless Rotation",
+      "tier": 3,
+      "ranks": 3,
+      "description": "On crit, +10/20/30% chance to refund 25% of the consumed skill's cooldown (preview of Bladestorm capstone).",
+      "engineHook": "onSkillCrit:cooldownRefund",
+      "dependencies": [],
+      "requiresNodeId": "asc_asn_bm_cascade_conduit"
+    },
+    {
+      "id": "asc_asn_bm_bladestorm",
+      "name": "Bladestorm",
+      "tier": 3,
+      "ranks": 1,
+      "description": "Crits have 30% chance to refund the consumed skill's cooldown. While dual-wielding, chain-hit skills (Blade Dance, Fan of Knives, Chain Strike) gain +1 hit. The §10.1 ascendancy keystone.",
+      "engineHook": "onSkillCrit:cooldownRefund+modifyMechanic:chainHitCount:offhandSecondWeapon",
+      "dependencies": ["secondWeaponOffhand"],
+      "requiresNodeId": "asc_asn_bm_cascade_conduit",
+      "isCapstone": true
+    }
+  ]
+}

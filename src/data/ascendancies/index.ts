@@ -22,6 +22,9 @@ import type { CharacterClass, AscendancyTreeData, TalentEffect } from '../../typ
 import witchdoctorPlaguePriest from './witchdoctor_plague_priest.json';
 import witchdoctorSpiritWhisperer from './witchdoctor_spirit_whisperer.json';
 import witchdoctorVoodooSovereign from './witchdoctor_voodoo_sovereign.json';
+import assassinBlademaster from './assassin_blademaster.json';
+import assassinVenomcraft from './assassin_venomcraft.json';
+import assassinShadowdancer from './assassin_shadowdancer.json';
 import { getAscendancyNodeEffectsById } from './effects';
 
 /**
@@ -40,9 +43,14 @@ import { getAscendancyNodeEffectsById } from './effects';
  * collide), so a flat record works without compound class+id keys.
  */
 export const ASCENDANCY_TREES: Record<string, AscendancyTreeData> = {
+  // Witchdoctor (3/3)
   plague_priest:    witchdoctorPlaguePriest as AscendancyTreeData,
   spirit_whisperer: witchdoctorSpiritWhisperer as AscendancyTreeData,
   voodoo_sovereign: witchdoctorVoodooSovereign as AscendancyTreeData,
+  // Assassin (3/3)
+  blademaster:      assassinBlademaster as AscendancyTreeData,
+  venomcraft:       assassinVenomcraft as AscendancyTreeData,
+  shadowdancer:     assassinShadowdancer as AscendancyTreeData,
 };
 
 /**

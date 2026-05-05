@@ -1,0 +1,93 @@
+{
+  "$schema": "../../../docs/design/ascendancy-schema.md",
+  "id": "venomcraft",
+  "classId": "assassin",
+  "name": "Venomcraft",
+  "theme": "Apotheosis of the Apothecary. Poisons crit, poisons never decay under Shadow Mark, every tick is a Cascade trigger.",
+  "version": 1,
+  "authoredDate": "2026-05-05",
+  "totalNodes": 8,
+  "designNotes": [
+    "Capstone effect mirrors §10.1: 'Poison can crit. Your poison stacks no longer decay while you have Shadow Mark active.'",
+    "Pairs with assassin.json venomcraft path — same id, mirrors path-7 capstone Toxic Saint + amplifies.",
+    "8-node compact tree, 3 tiers, ~25 total ranks. Tier-3 capstone gates on Withering Reach.",
+    "Engine wiring status (2026-05-05): 6 of 8 nodes wireable today via existing palette (stat:incChaosDamage / stat:ailmentDuration / perStack(poison) / procOnCrit applyTag(poison) / whileTag(poison) damageMult). Poison-can-crit + decay-pause-while-shadow-mark capstone needs Phase F."
+  ],
+  "nodes": [
+    {
+      "id": "asc_asn_vc_snake_charmer",
+      "name": "Snake Charmer",
+      "tier": 1,
+      "ranks": 5,
+      "description": "+1/2/3/4/5% chaos damage (poison's native channel — foundation).",
+      "engineHook": "stat:incChaosDamage",
+      "dependencies": []
+    },
+    {
+      "id": "asc_asn_vc_lingering_toxin",
+      "name": "Lingering Toxin",
+      "tier": 1,
+      "ranks": 5,
+      "description": "+0.5/1.0/1.5/2.0/2.5s ailment duration (lengthens poison snapshots).",
+      "engineHook": "stat:ailmentDuration",
+      "dependencies": []
+    },
+    {
+      "id": "asc_asn_vc_vile_reservoir",
+      "name": "Vile Reservoir",
+      "tier": 1,
+      "ranks": 3,
+      "description": "Maximum poison stacks +1/2/3 (deepens stack ceiling for snapshot builds).",
+      "engineHook": "stat:maxPoisonStacks",
+      "dependencies": ["poisonStackCap"]
+    },
+    {
+      "id": "asc_asn_vc_poison_mastery",
+      "name": "Poison Mastery",
+      "tier": 2,
+      "ranks": 3,
+      "description": "+2/4/6% damage per poison stack on target (rewards stacking before consuming).",
+      "engineHook": "perStack:poison",
+      "dependencies": []
+    },
+    {
+      "id": "asc_asn_vc_tainted_strike",
+      "name": "Tainted Strike",
+      "tier": 2,
+      "ranks": 5,
+      "description": "On crit, +5/10/15/20/25% chance to apply 2 additional poison stacks (Cascade-poison fusion preview).",
+      "engineHook": "onSkillCrit",
+      "dependencies": []
+    },
+    {
+      "id": "asc_asn_vc_withering_reach",
+      "name": "Withering Reach",
+      "tier": 2,
+      "ranks": 1,
+      "description": "Poisoned enemies take +10% damage from your skills (broad whileTag scaler).",
+      "engineHook": "conditionalStat:damage:targetPoisoned",
+      "dependencies": []
+    },
+    {
+      "id": "asc_asn_vc_predators_patience",
+      "name": "Predator's Patience",
+      "tier": 3,
+      "ranks": 3,
+      "description": "+5/10/15% damage to poisoned targets (stacks with Withering Reach for deeper poisoned-vulnerability scaling).",
+      "engineHook": "conditionalStat:damage:targetPoisoned",
+      "dependencies": [],
+      "requiresNodeId": "asc_asn_vc_withering_reach"
+    },
+    {
+      "id": "asc_asn_vc_toxic_saint",
+      "name": "Toxic Saint",
+      "tier": 3,
+      "ranks": 1,
+      "description": "Poison can crit. Your poison stacks no longer decay while Shadow Mark is active on any target. The §10.1 ascendancy keystone.",
+      "engineHook": "modifyMechanic:poisonCanCrit+poisonDecayPause:shadowMarkActive",
+      "dependencies": ["critCascadeMechanic"],
+      "requiresNodeId": "asc_asn_vc_withering_reach",
+      "isCapstone": true
+    }
+  ]
+}
