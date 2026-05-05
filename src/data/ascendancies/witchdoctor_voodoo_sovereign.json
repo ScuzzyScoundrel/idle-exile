@@ -1,0 +1,93 @@
+{
+  "$schema": "../../../docs/design/ascendancy-schema.md",
+  "id": "voodoo_sovereign",
+  "classId": "witchdoctor",
+  "name": "Voodoo Sovereign",
+  "theme": "Apotheosis of the Curse King. Hex crits, Hex consumes detonate at 2× damage, every skill bears the curse.",
+  "version": 1,
+  "authoredDate": "2026-05-05",
+  "totalNodes": 8,
+  "designNotes": [
+    "Capstone effect mirrors §10.1: 'Hex can crit. Skills that consume Hexed deal 2× damage.'",
+    "Pairs with witchdoctor.json voodoo_sovereign path — same id, mirrors the path-7 capstone Crowned in Curses + amplifies via this ascendancy.",
+    "8-node compact tree, 3 tiers, ~24 total ranks. Tier-3 capstone gates on Witch's Eye.",
+    "Engine wiring status (2026-05-05): 5 of 8 nodes have working effects today (whileTag(hex) damageMult, perStack(hex) damageMult, procOnCrit applyTag(hex), incChaosDamage stat). Hex-can-crit + hex-consume-2x-damage capstone is decorative until Phase F lands modifyMechanic:hexCanCrit + onHexConsume hooks."
+  ],
+  "nodes": [
+    {
+      "id": "asc_wd_vs_curse_affinity",
+      "name": "Curse Affinity",
+      "tier": 1,
+      "ranks": 5,
+      "description": "+1/2/3/4/5% damage to Hexed targets (foundation curse-vulnerability scaler).",
+      "engineHook": "conditionalStat:damage:targetHexed",
+      "dependencies": []
+    },
+    {
+      "id": "asc_wd_vs_voodoo_strength",
+      "name": "Voodoo Strength",
+      "tier": 1,
+      "ranks": 5,
+      "description": "+1/2/3/4/5% chaos damage (foundation scaling — chaos is the Voodoo Sovereign's native channel).",
+      "engineHook": "stat:incChaosDamage",
+      "dependencies": []
+    },
+    {
+      "id": "asc_wd_vs_hex_mark",
+      "name": "Hex Mark",
+      "tier": 1,
+      "ranks": 3,
+      "description": "On crit, +5/10/15% chance to apply Hexed regardless of skill (cross-skill Hex applier).",
+      "engineHook": "onSkillCrit",
+      "dependencies": []
+    },
+    {
+      "id": "asc_wd_vs_curse_bound",
+      "name": "Curse Bound",
+      "tier": 2,
+      "ranks": 3,
+      "description": "+2/4/6% damage per Hex stack on target (rewards stacking the curse before consuming it).",
+      "engineHook": "perStack:hex",
+      "dependencies": ["hexStacking"]
+    },
+    {
+      "id": "asc_wd_vs_bloodied_curse",
+      "name": "Bloodied Curse",
+      "tier": 2,
+      "ranks": 5,
+      "description": "Crits have +5/10/15/20/25% chance to apply 2 additional Hex stacks on hit (broader than design intent — engine cannot filter procOnCrit by target tag today, so this fires on any crit).",
+      "engineHook": "onSkillCrit:targetHexed",
+      "dependencies": ["hexStacking"]
+    },
+    {
+      "id": "asc_wd_vs_witchs_eye",
+      "name": "Witch's Eye",
+      "tier": 2,
+      "ranks": 1,
+      "description": "All your skills, regardless of weapon, apply Hexed on hit (cross-weapon Hex applier — universal Witchdoctor curse flavor).",
+      "engineHook": "modifyMechanic:hexCrossWeapon",
+      "dependencies": []
+    },
+    {
+      "id": "asc_wd_vs_hex_reaver",
+      "name": "Hex Reaver",
+      "tier": 3,
+      "ranks": 3,
+      "description": "On killing a Hexed enemy, gain a 4-second Curse Empowered stack (max 5); each stack +5/10/15% chaos damage.",
+      "engineHook": "onEnemyKill:targetHexed",
+      "dependencies": [],
+      "requiresNodeId": "asc_wd_vs_witchs_eye"
+    },
+    {
+      "id": "asc_wd_vs_crowned_in_curses",
+      "name": "Crowned in Curses",
+      "tier": 3,
+      "ranks": 1,
+      "description": "Hex can crit. Skills that consume Hexed deal 2× damage. The §10.1 ascendancy keystone.",
+      "engineHook": "modifyMechanic:hexCanCrit+hexConsumeMultiplier",
+      "dependencies": [],
+      "requiresNodeId": "asc_wd_vs_witchs_eye",
+      "isCapstone": true
+    }
+  ]
+}

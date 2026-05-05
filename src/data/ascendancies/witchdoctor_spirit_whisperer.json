@@ -1,0 +1,93 @@
+{
+  "$schema": "../../../docs/design/ascendancy-schema.md",
+  "id": "spirit_whisperer",
+  "classId": "witchdoctor",
+  "name": "Spirit Whisperer",
+  "theme": "Apotheosis of the Necromancer Lord. Your minion court IS your weapon — they inherit your ferocity in full.",
+  "version": 1,
+  "authoredDate": "2026-05-05",
+  "totalNodes": 8,
+  "designNotes": [
+    "Capstone effect mirrors §10.1: 'Minion count +2. Minions inherit your on-hit procs and combo-state creation.'",
+    "Pairs with witchdoctor.json spirit_whisperer path — same id, mirrors the path-7 capstone Soul Tether + amplifies via cap raise + full inheritance.",
+    "8-node compact tree, 3 tiers, ~21 total ranks. Tier-3 capstone gates on Necromantic Bond.",
+    "Engine wiring status (2026-05-05): minion-event hooks NOT yet wired — every node here is decorative until Phase F lands the minion event dispatch (onMinionAttack/Crit/Death + proc inheritance + minion HP/AS scaling stats)."
+  ],
+  "nodes": [
+    {
+      "id": "asc_wd_sw_soul_anchor",
+      "name": "Soul Anchor",
+      "tier": 1,
+      "ranks": 5,
+      "description": "Minions gain +2/4/6/8/10% maximum HP (foundation reservoir for the larger pack at capstone).",
+      "engineHook": "stat:minionHp",
+      "dependencies": ["minionMechanic"]
+    },
+    {
+      "id": "asc_wd_sw_pack_tempo",
+      "name": "Pack Tempo",
+      "tier": 1,
+      "ranks": 3,
+      "description": "Minions gain +2/4/6% attack speed.",
+      "engineHook": "stat:minionAttackSpeed",
+      "dependencies": ["minionMechanic"]
+    },
+    {
+      "id": "asc_wd_sw_spirit_conduit",
+      "name": "Spirit Conduit",
+      "tier": 1,
+      "ranks": 3,
+      "description": "Minions inherit +5/10/15% of your on-hit procs (preview of capstone full inheritance).",
+      "engineHook": "minionProcInheritance",
+      "dependencies": ["minionMechanic"]
+    },
+    {
+      "id": "asc_wd_sw_soul_tether",
+      "name": "Soul Tether",
+      "tier": 2,
+      "ranks": 5,
+      "description": "On minion crit, +2/4/6/8/10% chance your next skill on the same target also crits.",
+      "engineHook": "onMinionCrit",
+      "dependencies": ["minionMechanic"]
+    },
+    {
+      "id": "asc_wd_sw_necromantic_bond",
+      "name": "Necromantic Bond",
+      "tier": 2,
+      "ranks": 1,
+      "description": "Minions are summoned with +25% duration permanently.",
+      "engineHook": "modifyMechanic:minionDuration",
+      "dependencies": ["minionMechanic"]
+    },
+    {
+      "id": "asc_wd_sw_deaths_echo",
+      "name": "Death's Echo",
+      "tier": 2,
+      "ranks": 3,
+      "description": "On minion death, +20/40/60% chance to spawn a 4-second Spirit Echo dealing 50% of the original minion's damage.",
+      "engineHook": "onMinionDeath",
+      "dependencies": ["minionMechanic"]
+    },
+    {
+      "id": "asc_wd_sw_inheritors_mark",
+      "name": "Inheritor's Mark",
+      "tier": 3,
+      "ranks": 3,
+      "description": "Minion attacks have +25/50/75% chance to apply Hexed (cross-state via minions — pairs with the Voodoo Sovereign curse engine).",
+      "engineHook": "onMinionHit",
+      "dependencies": ["minionMechanic"],
+      "requiresNodeId": "asc_wd_sw_necromantic_bond"
+    },
+    {
+      "id": "asc_wd_sw_pack_sovereign",
+      "name": "Pack Sovereign",
+      "tier": 3,
+      "ranks": 1,
+      "description": "Maximum minion count +2. Minions inherit your on-hit procs and combo-state creation in full. The §10.1 ascendancy keystone.",
+      "engineHook": "modifyMechanic:minionCap+minionProcInheritance:100pct",
+      "dependencies": ["minionMechanic"],
+      "requiresNodeId": "asc_wd_sw_necromantic_bond",
+      "isCapstone": true
+    }
+  ]
+}

@@ -20,6 +20,8 @@
 import type { CharacterClass, AscendancyTreeData, TalentEffect } from '../../types';
 
 import witchdoctorPlaguePriest from './witchdoctor_plague_priest.json';
+import witchdoctorSpiritWhisperer from './witchdoctor_spirit_whisperer.json';
+import witchdoctorVoodooSovereign from './witchdoctor_voodoo_sovereign.json';
 import { getAscendancyNodeEffectsById } from './effects';
 
 /**
@@ -29,12 +31,18 @@ import { getAscendancyNodeEffectsById } from './effects';
  * imports as their literal narrow type. The cast trusts JSON at the
  * boundary; TS verifies all consumer code against the wider type.
  *
- * Phase E1 (2026-05-05): Witchdoctor's Plague Priest authored as the
- * first proof. Remaining 14 trees pending — see CLASS_ASCENDANCY_OPTIONS
- * for the full target list per class.
+ * Phase E1+E2a (2026-05-05): Witchdoctor's full ascendancy set authored
+ * (Plague Priest + Spirit Whisperer + Voodoo Sovereign — 3/15 done).
+ * Remaining 12 trees pending — see CLASS_ASCENDANCY_OPTIONS for full list.
+ *
+ * Note: ASCENDANCY_TREES is keyed by ascendancy id. Ids are unique across
+ * classes by design (plague_priest, blademaster, marksman, etc. don't
+ * collide), so a flat record works without compound class+id keys.
  */
 export const ASCENDANCY_TREES: Record<string, AscendancyTreeData> = {
-  plague_priest: witchdoctorPlaguePriest as AscendancyTreeData,
+  plague_priest:    witchdoctorPlaguePriest as AscendancyTreeData,
+  spirit_whisperer: witchdoctorSpiritWhisperer as AscendancyTreeData,
+  voodoo_sovereign: witchdoctorVoodooSovereign as AscendancyTreeData,
 };
 
 /**
