@@ -204,6 +204,93 @@ export interface ComboState {
 }
 
 // ──────────────────────────────────────────────────────────────
+// ComboStateSpec — first-class typed combo state schema (§8.1)
+// ──────────────────────────────────────────────────────────────
+//
+// Phase C3 §8.1 migration (2026-05-04): combo states are now first-class
+// typed entities with their own definitions, decoupled from the skills
+// that create/consume them. Source-of-truth: `src/data/comboStates.ts`
+// (the COMBO_STATE_SPECS registry).
+//
+// Why?
+//   • Phase C3 weapon pools introduced 7+ new states (bloodied, snared,
+//     disarmed, frenzy, marked, marked_for_cleave, sundered) that the
+//     legacy hardcoded combo.ts couldn't host without bloat.
+//   • Phase F pair-fusion mechanics need fused states (hunters_shadow,
+//     cursed_cascade, element_mark, self_bloodied, resonance_charge,
+//     tracking_spirit, crit_stack) — these need data definitions BEFORE
+//     engine wiring lands.
+//   • A typed registry lets UI render state badges/tooltips without
+//     reaching into engine internals.
+//
+// Adding a new state: drop one entry in COMBO_STATE_SPECS. Skills then
+// reference the state by id in COMBO_STATE_CREATORS / CONSUMERS.
+
+/** Where the combo state lives. */
+export type ComboStateSide = 'player' | 'target';
+
+/** UI-grouping/filter category for the state. */
+export type ComboStateCategory =
+  | 'self'    // Player-side buff (Frenzy, Self-Bloodied, Crit Stack, Resonance)
+  | 'target'  // Enemy-side debuff (Bloodied, Hexed, Plagued, Marked, Snared)
+  | 'aura'    // Persistent zone/encounter effect (Plague Aura, Shadow Veil)
+  | 'stack'   // Stacking counter (Soul Stack, Frenzy stacks, Crit Stacks)
+  | 'fusion'; // Phase F pair-fusion state (Hunter's Shadow, Cursed Cascade)
+
+/**
+ * First-class combo state definition.
+ *
+ * Adding a new state is one entry in `COMBO_STATE_SPECS`. Skills reference
+ * the state's id; engine wiring resolves data via `getComboStateSpec(id)`.
+ */
+export interface ComboStateSpec {
+  /** Stable identifier — used in skills/talents/save data. */
+  id: string;
+  /** Player-facing name (e.g. "Bloodied", "Hunter's Mark"). */
+  name: string;
+  /** One-line player-facing description. */
+  description: string;
+  /** Default base duration when created (seconds). */
+  defaultDuration: number;
+  /** Max stack count (1 for singletons, 5 for stacking states). */
+  maxStacks: number;
+  /** Default effect when state is active/consumed. */
+  defaultEffect: ComboStateEffect;
+  /** UI/filter category. */
+  category: ComboStateCategory;
+  /** Whether the state lives on the player or on a target enemy. */
+  side: ComboStateSide;
+  /**
+   * Optional: this is a pair-fusion state combining two simpler states.
+   * Used by Phase F pair-fusion engine to detect fused-state activation.
+   * Example: `hunters_shadow` combines `marked` + `shadow_mark` for the
+   * Asn+Hnt Nightstalker pair.
+   */
+  fusion?: {
+    /** Stable ids of the two parent states this fusion combines. */
+    combines: [string, string];
+    /** Pair archetype name this fusion belongs to (e.g. "Nightstalker"). */
+    pair: string;
+  };
+  /**
+   * Optional: when the carrier (host) of this state dies, what happens?
+   * Replaces the legacy CARRIER_DEATH_BEHAVIOR map.
+   *   - 'transfer': remaining duration preserved, jumps to next enemy.
+   *   - 'chain':    fresh duration, jumps to next enemy.
+   *   - 'spawn_spirit': spawns a tracking spirit (Phase F Soul Trapper).
+   */
+  carrierDeath?: {
+    mode: 'transfer' | 'chain' | 'spawn_spirit';
+    freshDuration?: number; // required for 'chain' mode
+  };
+  /**
+   * Optional: pair archetype this state is canonical for. Used by UI to
+   * group states by pair brief, and by engine to gate state-aware procs.
+   */
+  pairArchetype?: string;
+}
+
+// ──────────────────────────────────────────────────────────────
 // Channel state — active-channel tracking for skillKind: 'channel'
 // ──────────────────────────────────────────────────────────────
 // Phase A Change 1. Tracks an in-progress channel skill. Null when

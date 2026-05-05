@@ -1,6 +1,6 @@
 # Session Handoff — READ THIS FIRST
 
-**Last updated:** 2026-05-04 (Phase B step 9 + Phase A cleanup + §15.4 rename + Phase C steps 1+2 + Phase C3 steps 1+2 all complete).
+**Last updated:** 2026-05-04 (Phase B step 9 + Phase A cleanup + §15.4 rename + Phase C steps 1+2 + Phase C3 steps 1+2 + §8.1 ComboStateSpec all complete).
 **Purpose:** If you're resuming the idle-exile combat-and-class overhaul in a new session, read this doc first to refresh the full picture in <5 minutes. Then dive into whichever detailed doc the next-move section points to.
 
 ---
@@ -21,7 +21,9 @@
 
 **Phase C step 2 — UI/engine cutover to JSON node ids: COMPLETE 2026-05-04.** Engine (`engine/classTalents.ts` + `engine/classTalentDispatcher.ts`) and UI (`ClassTalentPanel.tsx`) now read class talent trees from the JSON registry (`src/data/classTrees/index.ts`) instead of the legacy 24-point trees in `src/data/classTalents.ts`. Side-table `src/data/classTrees/effects.ts` provides typed `TalentEffect[]` for the subset of nodes whose engine wiring exists today; `getNodeEffects(classId, nodeId)` combines inline JSON `effects?` field + side-table lookups. Save migration v67 cleared legacy `talentAllocations` (different node id space — `wd_voodoo_1` ↔ `wd_pp_lingering_toxin`); players keep all talent points and re-spec into the new JSON tree. UI now renders JSON `theme` for path subtitles, `description` directly for nodes, with capstone/identity/multi-rank badges. Multi-rank engine support deferred (each node treated as 1-point allocate-once until Phase D adds it).
 
-**Phase E / F: NOT STARTED.** Ascendancies, full multi-class engineering all queued.
+**§8.1 ComboStateSpec migration: COMPLETE 2026-05-04.** Combo states are now first-class typed entities with their own definitions in `src/data/comboStates.ts`. New `ComboStateSpec` type in `src/types/combat.ts` (id / name / description / defaultDuration / maxStacks / defaultEffect / category / side / fusion / carrierDeath / pairArchetype). Registry covers 25 states: 11 legacy (exposed / dance_momentum / deep_wound / shadow_mark / chain_surge / shadow_momentum / plagued / haunted / hexed / soul_stack / spirit_link), 7 Phase C3 weapon-pool states (bloodied / snared / disarmed / frenzy / marked / marked_for_cleave / sundered), 7 Phase F pair-fusion states data-only (crit_stack / resonance_charge / self_bloodied / hunters_shadow / cursed_cascade / element_mark / tracking_spirit). New `createStateFromSpec` helper in `engine/combat/combo.ts` is the modular path for future authoring — looks up spec defaults from the registry. Existing skill creator/consumer wiring (`COMBO_STATE_CREATORS` / `COMBO_STATE_CONSUMERS`) preserved for backwards-compat.
+
+**Phase E / F: NOT STARTED.** Ascendancies, full multi-class engineering all queued. Phase F now has data definitions for all fused states — engine wiring is the remaining work.
 
 ---
 
@@ -210,10 +212,11 @@ Minor open considerations (not blocking):
 
 ### Recommended next-session order
 
-1. **§8.1 ComboStateSpec schema migration** — combo states currently hardcoded in `engine/combat/combo.ts` (needed for new fused states from Phase C3 pools: Hunter's Shadow, Hunter's Mark, Element-Mark, Self-Bloodied, plus Snared/Disarmed/Bloodied/Frenzy stacks). Foundational — every Phase F pair-fusion mechanic depends on this.
-2. **Populate `src/data/classTrees/effects.ts`** — author typed `TalentEffect[]` for the ~80-100 stat-stick nodes across 5 classes (currently ships with 2 worked examples + skeleton). Pure data work; no engine changes. Players gain meaningful talent power.
-3. **Phase D — multi-rank engine support** — each JSON node has `ranks: 1-5` but allocation is currently 1-point-per-node. Add `talentRanks: Record<string, number>` save field + multi-rank UI (rank badges, multi-click allocation) + multi-rank effect scaling.
-4. **Channel duration expiry enforcement** (§9.1) — last remaining Phase A deferral.
+1. **Populate `src/data/classTrees/effects.ts`** — author typed `TalentEffect[]` for the ~80-100 stat-stick nodes across 5 classes (currently ships with 2 worked examples + skeleton). Pure data work; no engine changes. Players gain meaningful talent power. Lowest risk, highest player-facing value.
+2. **Phase D — multi-rank engine support** — each JSON node has `ranks: 1-5` but allocation is currently 1-point-per-node. Add `talentRanks: Record<string, number>` save field + multi-rank UI (rank badges, multi-click allocation) + multi-rank effect scaling.
+3. **Phase E ascendancies** — 5 classes × 3 ascendancies × ~8 nodes (~120 total). Author JSON ascendancy trees alongside the class trees; gate via character-creation choice; engine reads via the JSON registry.
+4. **Phase F multi-class engineering** — `SkillToggleMorph` schema, `Character.skillToggles` field, `getEffectiveSkillDef` toggle resolution, fusion-mechanic dispatch sites. Combo state data definitions for all fused states already exist (commit DA7…); engine + UI is the remaining work.
+5. **Channel duration expiry enforcement** (§9.1) — last remaining Phase A deferral.
 2. **Phase C step 2** — UI/engine cutover to JSON node ids: author inline `effects[]` arrays in JSON nodes (or a side-table), switch `engine/classTalents.ts` lookups to read from the registry, save migration v67 to clear legacy `talentAllocations` (free respec).
 3. **§8.1 ComboStateSpec schema migration** — combo states currently hardcoded in `engine/combat/combo.ts` (needed for new fused states: Hunter's Shadow, Hunter's Mark, Element-Mark, Self-Bloodied)
 4. **Channel duration expiry enforcement** (§9.1) — last remaining Phase A deferral

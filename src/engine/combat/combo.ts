@@ -1,10 +1,21 @@
 // ============================================================
-// Idle Exile — Combo State Engine (Dagger v2)
+// Idle Exile — Combo State Engine (Dagger v2 + §8.1 migration)
 // Pure functions for creating, consuming, ticking combo states.
 // No store dependency — called by tick.ts.
 // ============================================================
+//
+// §8.1 ComboStateSpec migration (2026-05-04):
+//   • State DEFINITIONS (id/name/description/duration/maxStacks/effect/
+//     category/side/fusion/carrierDeath) live in `src/data/comboStates.ts`
+//     as the typed COMBO_STATE_SPECS registry.
+//   • This file holds the WIRING — which skills create/consume which
+//     states (COMBO_STATE_CREATORS / COMBO_STATE_CONSUMERS), and the
+//     pure runtime functions (createComboState, consumeComboState, etc.).
+//   • CARRIER_DEATH_BEHAVIOR is preserved here for engine-call backwards-
+//     compat; new authoring should put `carrierDeath` on the spec instead.
 
 import type { ComboState, ComboStateEffect } from '../../types';
+import { getComboStateSpec } from '../../data/comboStates';
 
 // ─── Combo State Data ───
 
@@ -16,6 +27,9 @@ export interface ComboStateConfig {
   createOn?: 'onCast' | 'onCrit' | 'onKill';  // default: onCast
   minTargetsHit?: number;   // gate: only create if skill hits N+ distinct targets
 }
+
+// Re-export the registry helpers so engine consumers have a single import surface.
+export { getComboStateSpec, getAllComboStateSpecs, getComboStateSpecsByPair, getComboStateSpecsBySide } from '../../data/comboStates';
 
 /** Default combo states created by dagger skills on cast.
  *  Talent trees can override/extend via SkillModifier.comboStateCreation. */
@@ -131,6 +145,42 @@ export function hasComboState(states: ComboState[], stateId: string): boolean {
 /** Get a combo state from the list. */
 export function getComboState(states: ComboState[], stateId: string): ComboState | undefined {
   return states.find(s => s.stateId === stateId);
+}
+
+/**
+ * Create or refresh a combo state from its registered ComboStateSpec.
+ *
+ * Phase C3 §8.1 modular path — new authoring should prefer this over the
+ * lower-level `createComboState`. State id is the only required argument;
+ * the spec's defaultDuration / maxStacks / defaultEffect are pulled from
+ * the registry. Override any field via the optional `overrides` arg.
+ *
+ * Returns the unchanged states array if the state id has no registered
+ * spec (warns to console once per unknown id).
+ */
+const _warnedUnknownSpecs = new Set<string>();
+export function createStateFromSpec(
+  states: ComboState[],
+  stateId: string,
+  sourceSkillId: string,
+  overrides?: Partial<{ duration: number; maxStacks: number; effect: ComboStateEffect }>,
+): ComboState[] {
+  const spec = getComboStateSpec(stateId);
+  if (!spec) {
+    if (!_warnedUnknownSpecs.has(stateId)) {
+      _warnedUnknownSpecs.add(stateId);
+      console.warn(`[combo] createStateFromSpec: unknown state id "${stateId}" — add to COMBO_STATE_SPECS in src/data/comboStates.ts`);
+    }
+    return states;
+  }
+  return createComboState(
+    states,
+    stateId,
+    sourceSkillId,
+    overrides?.effect ?? spec.defaultEffect,
+    overrides?.duration ?? spec.defaultDuration,
+    overrides?.maxStacks ?? spec.maxStacks,
+  );
 }
 
 /** Create or refresh a combo state. Returns updated array. */

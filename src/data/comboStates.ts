@@ -1,0 +1,330 @@
+// ============================================================
+// Combo State Registry — Phase C3 §8.1 migration source-of-truth
+// ============================================================
+//
+// First-class typed definitions for every combo state in the engine.
+// Skills, talents, and UI reference states by id; engine + UI resolve
+// metadata (name, description, duration, effect) via this registry.
+//
+// MIGRATION HISTORY:
+//   • Pre-§8.1 (2026-05-04): combo states were implicit — defined inline
+//     by their creator skill in `engine/combat/combo.ts:COMBO_STATE_CREATORS`.
+//     New Phase C3 weapon pools (Bloodied, Snared, Frenzy, Marked, etc.)
+//     and Phase F pair-fusion states (Hunter's Shadow, Cursed Cascade,
+//     Element-Mark, etc.) couldn't host their definitions cleanly.
+//   • §8.1 migration: states extracted to this registry. Creator/consumer
+//     wiring stays in combo.ts; the data lives here.
+//
+// ADDING A NEW STATE:
+//   1. Add an entry to COMBO_STATE_SPECS keyed by stable id.
+//   2. (If a skill creates it) wire COMBO_STATE_CREATORS in combo.ts
+//      to reference the state id.
+//   3. (If a skill consumes it) wire COMBO_STATE_CONSUMERS in combo.ts.
+//
+// SCHEMA: see `ComboStateSpec` in `src/types/combat.ts`.
+
+import type { ComboStateSpec } from '../types';
+
+export const COMBO_STATE_SPECS: Record<string, ComboStateSpec> = {
+  // ────────────────────────────────────────────
+  // Dagger v2 (Assassin) — pre-§8.1 hardcoded states
+  // ────────────────────────────────────────────
+  exposed: {
+    id: 'exposed',
+    name: 'Exposed',
+    description: 'Vulnerable to follow-up. Next non-Stab skill deals +25% damage.',
+    defaultDuration: 3,
+    maxStacks: 1,
+    defaultEffect: { incDamage: 25 },
+    category: 'target',
+    side: 'target',
+  },
+  dance_momentum: {
+    id: 'dance_momentum',
+    name: 'Dance Momentum',
+    description: 'Triple-target sweep momentum. Next single-target skill splashes 1 adjacent enemy at 50% damage.',
+    defaultDuration: 4,
+    maxStacks: 1,
+    defaultEffect: { incDamage: 15 },
+    category: 'self',
+    side: 'player',
+  },
+  deep_wound: {
+    id: 'deep_wound',
+    name: 'Deep Wound',
+    description: 'Bleeding wound primed for execution. Consumed by Assassinate for +50 chaos burst.',
+    defaultDuration: 5,
+    maxStacks: 1,
+    defaultEffect: { burstDamage: 50, burstElement: 'chaos' },
+    category: 'target',
+    side: 'target',
+  },
+  shadow_mark: {
+    id: 'shadow_mark',
+    name: 'Shadow Mark',
+    description: 'Marked from the shadows. Consumed by next skill — per-skill bonus depending on which skill consumes it.',
+    defaultDuration: 5,
+    maxStacks: 1,
+    defaultEffect: { incDamage: 20 },
+    category: 'target',
+    side: 'target',
+  },
+  chain_surge: {
+    id: 'chain_surge',
+    name: 'Chain Surge',
+    description: 'Lightning rebound. Next single-target skill chains to 1 additional enemy.',
+    defaultDuration: 3,
+    maxStacks: 1,
+    defaultEffect: { incDamage: 10 },
+    category: 'self',
+    side: 'player',
+  },
+  shadow_momentum: {
+    id: 'shadow_momentum',
+    name: 'Shadow Momentum',
+    description: 'Stealth tempo. Next skill cooldown starts 2s earlier.',
+    defaultDuration: 2,
+    maxStacks: 1,
+    defaultEffect: { cooldownAcceleration: 2 },
+    category: 'self',
+    side: 'player',
+  },
+
+  // ────────────────────────────────────────────
+  // Staff v2 (Witchdoctor) — pre-§8.1 hardcoded states
+  // ────────────────────────────────────────────
+  plagued: {
+    id: 'plagued',
+    name: 'Plagued',
+    description: 'Infested with locusts. Pandemic vector — transfers to nearest enemy on host death.',
+    defaultDuration: 6,
+    maxStacks: 1,
+    defaultEffect: { incDamage: 0 },
+    category: 'target',
+    side: 'target',
+    carrierDeath: { mode: 'transfer' },
+  },
+  haunted: {
+    id: 'haunted',
+    name: 'Haunted',
+    description: 'A spirit clings to the target. Consumed by Spirit Barrage for guaranteed crit + 30% bonus.',
+    defaultDuration: 5,
+    maxStacks: 1,
+    defaultEffect: { incDamage: 30, guaranteedCrit: true },
+    category: 'target',
+    side: 'target',
+    carrierDeath: { mode: 'chain', freshDuration: 6 },
+  },
+  hexed: {
+    id: 'hexed',
+    name: 'Hexed',
+    description: 'Cursed by voodoo. Consumed by Soul Harvest for 2× damage.',
+    defaultDuration: 5,
+    maxStacks: 1,
+    defaultEffect: { incDamage: 100 },
+    category: 'target',
+    side: 'target',
+  },
+  soul_stack: {
+    id: 'soul_stack',
+    name: 'Soul Stack',
+    description: 'Reaped soul. Spent on Bouncing Skull / Mass Sacrifice for chain payoff.',
+    defaultDuration: 10,
+    maxStacks: 5,
+    defaultEffect: { extraChains: 1 },
+    category: 'stack',
+    side: 'player',
+  },
+  spirit_link: {
+    id: 'spirit_link',
+    name: 'Spirit Link',
+    description: 'Bond between summoner and minion. Active while a minion lives.',
+    defaultDuration: 999,           // effectively infinite — pruned via minion subsystem
+    maxStacks: 1,
+    defaultEffect: { incDamage: 0 },
+    category: 'aura',
+    side: 'player',
+  },
+
+  // ────────────────────────────────────────────
+  // Phase C3 weapon-pool states (NEW — flail/claws/scythe/bow/etc.)
+  // ────────────────────────────────────────────
+  bloodied: {
+    id: 'bloodied',
+    name: 'Bloodied',
+    description: 'Wounded and primed for execution. Berserker combo state — applied by direct hits while you are <50% HP.',
+    defaultDuration: 5,
+    maxStacks: 1,
+    defaultEffect: { incDamage: 25 },
+    category: 'target',
+    side: 'target',
+  },
+  snared: {
+    id: 'snared',
+    name: 'Snared',
+    description: 'Caught in a trap or net. Attack speed -50%.',
+    defaultDuration: 3,
+    maxStacks: 1,
+    defaultEffect: { incDamage: 0 },
+    category: 'target',
+    side: 'target',
+  },
+  disarmed: {
+    id: 'disarmed',
+    name: 'Disarmed',
+    description: 'Weapon wrapped or knocked aside. Attack speed -25%.',
+    defaultDuration: 3,
+    maxStacks: 1,
+    defaultEffect: { incDamage: 0 },
+    category: 'target',
+    side: 'target',
+  },
+  frenzy: {
+    id: 'frenzy',
+    name: 'Frenzy',
+    description: 'Bloodlust building. Each stack: +5% attack speed. Decays after 3s without a hit.',
+    defaultDuration: 3,
+    maxStacks: 5,
+    defaultEffect: { incDamage: 0 },
+    category: 'stack',
+    side: 'player',
+  },
+  marked: {
+    id: 'marked',
+    name: 'Hunter\'s Mark',
+    description: 'Tracked by the Hunter. +30% crit chance to next attack against this target. +25% damage taken.',
+    defaultDuration: 8,
+    maxStacks: 1,
+    defaultEffect: { incCritChance: 30, incDamage: 25 },
+    category: 'target',
+    side: 'target',
+  },
+  marked_for_cleave: {
+    id: 'marked_for_cleave',
+    name: 'Marked for Cleave',
+    description: 'Tagged for AoE follow-up. Your next AoE skill deals +50% damage to this target.',
+    defaultDuration: 4,
+    maxStacks: 1,
+    defaultEffect: { incDamage: 50 },
+    category: 'target',
+    side: 'target',
+  },
+  sundered: {
+    id: 'sundered',
+    name: 'Sundered',
+    description: 'Armor cracked. Target takes +15% physical damage.',
+    defaultDuration: 5,
+    maxStacks: 1,
+    defaultEffect: { incDamage: 15 },
+    category: 'target',
+    side: 'target',
+  },
+
+  // ────────────────────────────────────────────
+  // Phase F pair-fusion states (DATA-ONLY for now)
+  // Engine wiring lands when pair-fusion mechanics implement.
+  // ────────────────────────────────────────────
+  crit_stack: {
+    id: 'crit_stack',
+    name: 'Crit Stack',
+    description: 'Cascade momentum. Each stack compounds crit damage on Cascade-eligible payoffs. Asn signature.',
+    defaultDuration: 6,
+    maxStacks: 5,
+    defaultEffect: { incCritMultiplier: 10 },
+    category: 'stack',
+    side: 'target',                  // Cascade lives on the target
+    pairArchetype: 'Assassin',       // Class signature, but used by Asn pairs (Blood Cultist, Dark Reaver, etc.)
+  },
+  resonance_charge: {
+    id: 'resonance_charge',
+    name: 'Resonance Charge',
+    description: 'Elemental charge built up. At 4 unique elements, next cast becomes Convergence. Sor signature.',
+    defaultDuration: 999,             // persistent until Convergence consumes
+    maxStacks: 4,                     // 4 unique elements: fire / cold / lightning / chaos
+    defaultEffect: { incDamage: 0 },
+    category: 'stack',
+    side: 'player',
+    pairArchetype: 'Sorcerer',
+  },
+  self_bloodied: {
+    id: 'self_bloodied',
+    name: 'Self-Bloodied',
+    description: 'You are wounded. While <50% HP, +25% damage to Marked targets. Spellreaver fusion.',
+    defaultDuration: 999,             // persistent — driven by HP threshold
+    maxStacks: 1,
+    defaultEffect: { incDamage: 25 },
+    category: 'self',
+    side: 'player',
+    pairArchetype: 'Spellreaver',
+  },
+  hunters_shadow: {
+    id: 'hunters_shadow',
+    name: 'Hunter\'s Shadow',
+    description: 'Fused Mark + Shadow Mark. +30% crit chance AND +25% damage taken. Refreshed by Cascade crits. Nightstalker fusion.',
+    defaultDuration: 8,
+    maxStacks: 1,
+    defaultEffect: { incCritChance: 30, incDamage: 25 },
+    category: 'fusion',
+    side: 'target',
+    fusion: { combines: ['marked', 'shadow_mark'], pair: 'Nightstalker' },
+    pairArchetype: 'Nightstalker',
+  },
+  cursed_cascade: {
+    id: 'cursed_cascade',
+    name: 'Cursed Cascade',
+    description: 'Crit on Hexed target. On death: Hex + DoTs spread to nearest enemy with full duration. Blood Cultist fusion.',
+    defaultDuration: 5,
+    maxStacks: 1,
+    defaultEffect: { incDamage: 0 },
+    category: 'fusion',
+    side: 'target',
+    fusion: { combines: ['hexed', 'crit_stack'], pair: 'Blood Cultist' },
+    pairArchetype: 'Blood Cultist',
+    carrierDeath: { mode: 'transfer' },
+  },
+  element_mark: {
+    id: 'element_mark',
+    name: 'Element-Mark',
+    description: 'Marked with the next-cycle element. Marked target takes +25% damage from that element\'s ailment. Arcane Archer fusion.',
+    defaultDuration: 8,
+    maxStacks: 1,
+    defaultEffect: { incDamage: 25 },
+    category: 'fusion',
+    side: 'target',
+    fusion: { combines: ['marked', 'resonance_charge'], pair: 'Arcane Archer' },
+    pairArchetype: 'Arcane Archer',
+  },
+  tracking_spirit: {
+    id: 'tracking_spirit',
+    name: 'Tracking Spirit',
+    description: 'Spirit released by a cursed-trapped death. Follows you for 10s. Consumed by next Hunter\'s Mark — adds 50% of dead target\'s max HP as chaos damage to new target. Soul Trapper fusion.',
+    defaultDuration: 10,
+    maxStacks: 5,
+    defaultEffect: { incDamage: 0 },
+    category: 'fusion',
+    side: 'player',
+    fusion: { combines: ['hexed', 'snared'], pair: 'Soul Trapper' },
+    pairArchetype: 'Soul Trapper',
+    carrierDeath: { mode: 'spawn_spirit' },
+  },
+};
+
+/** Lookup a combo state spec by id. Returns undefined for unknown ids. */
+export function getComboStateSpec(stateId: string): ComboStateSpec | undefined {
+  return COMBO_STATE_SPECS[stateId];
+}
+
+/** All combo state specs as an array — useful for UI iteration / debug tooling. */
+export function getAllComboStateSpecs(): ComboStateSpec[] {
+  return Object.values(COMBO_STATE_SPECS);
+}
+
+/** All states matching a pair archetype (e.g. all "Blood Cultist" states). */
+export function getComboStateSpecsByPair(pairArchetype: string): ComboStateSpec[] {
+  return Object.values(COMBO_STATE_SPECS).filter(s => s.pairArchetype === pairArchetype);
+}
+
+/** All states for a side (player / target). */
+export function getComboStateSpecsBySide(side: 'player' | 'target'): ComboStateSpec[] {
+  return Object.values(COMBO_STATE_SPECS).filter(s => s.side === side);
+}
