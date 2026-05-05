@@ -1,12 +1,42 @@
 import { CharacterClass, AbilitySkillTree, SkillTreePath } from '../types';
 
-// Phase 4 sub-phase 6: Witchdoctor + Assassin nodes re-authored with
-// the new TalentEffect union for keystones (tier-3 payoff + tier-4).
-// Stat-stick nodes keep the legacy `effect` shape — cheap scaling
-// backbone. Vestigial keys (clearSpeedMult/doubleClears/xpMult/
-// itemDropMult/materialDropMult/ignoreHazards) removed from all MVP
-// class nodes; translated to damageMult / defenseMult / resistBonus.
-// Legacy Warrior/Mage/Ranger/Rogue nodes unchanged (not MVP).
+// ============================================================
+// LEGACY effect-data scaffolding — Phase C engineering bridge
+// ============================================================
+//
+// Status (2026-05-04, post §15.4 rename + Phase C step 1 registry):
+//   • The DESIGN source-of-truth for class talent trees is now the JSON
+//     authoring registry: `src/data/classTrees/index.ts` + the per-class
+//     JSON files. See `src/types/classTree.ts` for the typed shape.
+//   • This file (`classTalents.ts`) holds the LEGACY 24-point trees with
+//     typed `effect: AbilityEffect` data the engine still consumes via
+//     `engine/classTalents.ts` and `engine/classTalentDispatcher.ts`.
+//   • Node id spaces DO NOT MATCH between the two systems:
+//       legacy: `wd_voodoo_1` (24 points, 8 nodes/path × 3 paths)
+//       JSON:   `wd_pp_lingering_toxin` (51 points, ~27 nodes/path × 3 paths)
+//   • The legacy keys (warrior/mage/ranger/rogue) survive in the
+//     CLASS_TALENT_TREES record under their POST-§15.4 renamed entries
+//     (berserker/sorcerer/hunter; rogue paths deleted, see `69ae2e6a`).
+//
+// Phase C step 2 will:
+//   1. Author inline `effects[]` data on JSON nodes (or a side-table).
+//   2. Switch `engine/classTalents.ts` lookups to read from the JSON
+//      registry via `getClassTreeAllNodes` / `findClassTreeNode`.
+//   3. Add save migration v67 to clear legacy `talentAllocations` (force
+//      a free respec, since legacy node ids no longer exist).
+//   4. Delete this file once the cutover is complete.
+//
+// Until then: this file remains the engine's effect source. Do not
+// author NEW design content here — author it in the JSON trees.
+//
+// Phase 4 sub-phase 6 history (kept for context): Witchdoctor + Assassin
+// nodes were re-authored here with the new TalentEffect union for keystones
+// (tier-3 payoff + tier-4). Stat-stick nodes keep the legacy `effect` shape.
+// Vestigial keys (clearSpeedMult/doubleClears/xpMult/itemDropMult/
+// materialDropMult/ignoreHazards) removed from MVP class nodes; translated
+// to damageMult / defenseMult / resistBonus. Legacy
+// Warrior(→Berserker)/Mage(→Sorcerer)/Ranger(→Hunter) nodes unchanged.
+// Rogue paths removed entirely (rogue absorbed into Assassin per §15.4).
 
 // ─── Warrior ────────────────────────────────────────────────────────────────
 

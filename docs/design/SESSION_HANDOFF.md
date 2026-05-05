@@ -1,6 +1,6 @@
 # Session Handoff — READ THIS FIRST
 
-**Last updated:** 2026-05-03 (Phase B step 9 complete — all 10 multi-class pair briefs authored).
+**Last updated:** 2026-05-04 (Phase B step 9 + Phase A cleanup + §15.4 rename + Phase C step 1 registry all complete).
 **Purpose:** If you're resuming the idle-exile combat-and-class overhaul in a new session, read this doc first to refresh the full picture in <5 minutes. Then dive into whichever detailed doc the next-move section points to.
 
 ---
@@ -11,7 +11,11 @@
 
 **Phase B — Design Lock: 100% COMPLETE 2026-05-03.** Class fantasy briefs (5/5), 4-Layer Multi-Class Identity Model locked, Class-First weapon-default Model B locked, **all 10 multi-class pair briefs authored 2026-05-03 (Cross-Pair Consistency Check 4/4 PASSED)**, skill audit complete + applied, Asn×Staff morph retune complete, **all 5 class trees authored as JSON 2026-05-03 (404 total nodes; cross-class consistency check ✅ passed 10/10)**. **No design-lock work remains.**
 
-**Phase C / E / F: NOT STARTED.** Content authoring, ascendancies, full multi-class engineering all queued. **Phase A cleanup is the recommended next-up** since it unblocks the dormant proc handlers shared by 6 of the 10 pair fusion mechanics.
+**Phase C step 1 — JSON class-tree registry: COMPLETE 2026-05-04.** `tsconfig.app.json` enables `resolveJsonModule`. New typed shape `ClassTreeData` at `src/types/classTree.ts`. New registry at `src/data/classTrees/index.ts` exports `CLASS_TREES` map + helpers (`getClassTree`, `findClassTreeNode`, `getClassTreeAllNodes`, `getClassTreeNodeIds`, `getClassTreeMaxPoints`). **Adding a future class is now a 2-line change in the registry + 1-line union update — designed for the user's stated "classes are just the beginning" growth path.** `src/data/classTalents.ts` carries a deprecation header pointing engineers at the JSON registry; it remains the engine's effect-data source until Phase C step 2.
+
+**§15.4 CharacterClass type rename: COMPLETE 2026-05-04** (commit `69ae2e6a`). Save migration v66 added. CharacterClass union is now `'berserker' | 'sorcerer' | 'hunter' | 'witchdoctor' | 'assassin'`.
+
+**Phase C step 2 / E / F: NOT STARTED.** UI/engine cutover to JSON node ids (save-breaking, needs effect-data migration), ascendancies, full multi-class engineering all queued.
 
 ---
 
@@ -196,17 +200,16 @@ Minor open considerations (not blocking):
 
 **Paste this prompt to start fresh:**
 
-> "Read `/home/jerris/idle-exile/docs/design/SESSION_HANDOFF.md` to refresh context on the idle-exile combat-and-class overhaul. **Phase B is 100% locked as of 2026-05-03 (all 5 class trees + all 10 multi-class pair briefs authored, both consistency checks passed) AND Phase A proc-handler cleanup is DONE 2026-05-03 (`onKill`/`onHitDealt`/`onHitTaken`/`onCrit` mana gains live in `tick.ts`).** Proceed with [PICK ONE]: (a) §15.4 `CharacterClass` type rename (warrior→berserker, mage→sorcerer, ranger→hunter, absorb rogue into assassin) — clears the rename caveats appearing in 9 of 10 pair briefs; OR (b) Phase C engine wiring for the 5 new class JSON trees (resolveJsonModule + classTalentDispatcher.ts upgrade); OR (c) Phase C3 weapon-pool rebuilds — bow expansion + 7 other weapon pools (greatsword/flail/claws/wand/gauntlets/crossbow/scythe) authored from scratch — unlocks Sor/Brs/Hnt-side pair toggles; OR (d) §8.1 ComboStateSpec schema migration (needed for fused states: Hunter's Shadow, Hunter's Mark, Element-Mark, Self-Bloodied). My recommendation: (a) — type rename is small, mechanical, and clears 9 of 10 pair-brief caveats in one pass."
+> "Read `/home/jerris/idle-exile/docs/design/SESSION_HANDOFF.md` to refresh context on the idle-exile combat-and-class overhaul. **Phase B is 100% locked, Phase A cleanup is done, §15.4 rename is done, and Phase C step 1 (JSON class-tree registry infrastructure) is done as of 2026-05-04.** The new modular registry lives at `src/data/classTrees/index.ts` — adding a future class is now a 2-line registry change. Proceed with [PICK ONE]: (a) Phase C step 2 — UI/engine cutover to JSON node ids + save migration v67 (save-breaking; needs effect-data planning since JSON nodes only carry `description` + `engineHook` strings, not typed `effects[]` data); OR (b) Phase C3 weapon-pool rebuilds — bow expansion + 7 other weapon pools (greatsword/flail/claws/wand/gauntlets/crossbow/scythe) authored from scratch — unlocks Sor/Brs/Hnt-side pair toggles; OR (c) §8.1 ComboStateSpec schema migration (needed for fused states: Hunter's Shadow, Hunter's Mark, Element-Mark, Self-Bloodied); OR (d) Phase E ascendancies (~120 nodes). My recommendation: (b) — Phase C3 weapon pools unblock the most downstream work (9 of 10 pair brief Sor/Brs/Hnt-side toggle drafts) and are pure additive content."
 
-### Recommended next-session order (post-Phase-B + Phase-A-cleanup)
+### Recommended next-session order
 
-1. **§15.4 CharacterClass type rename** — warrior→berserker, mage→sorcerer, ranger→hunter, rogue→absorbed into assassin (clears the rename caveats appearing in 9 of 10 pair briefs; small mechanical refactor)
-2. **Phase C engine wiring** for class JSON trees (resolveJsonModule + classTalentDispatcher.ts upgrade; deprecate legacy `classTalents.ts`)
-3. **Phase C3 weapon-pool rebuilds** — bow expansion + 7 other weapon pools authored from scratch (greatsword/flail/claws/wand/gauntlets/crossbow/scythe) + skill expansion to 15-20/class. **This is the biggest unlock for pair toggles** — Sor/Brs/Hnt-side toggle drafts in 9 of 10 pair briefs become implementable.
-4. **§8.1 ComboStateSpec schema migration** — combo states currently hardcoded in `engine/combat/combo.ts` (needed for new fused states: Hunter's Shadow, Hunter's Mark, Element-Mark, Self-Bloodied)
-5. **Channel duration expiry enforcement** (§9.1) — last remaining Phase A deferral
-6. **Phase E ascendancies** — 5 classes × 3 ascendancies × ~8 nodes
-7. **Phase F multi-class engineering** — `SkillToggleMorph` schema, `Character.skillToggles` field, `getEffectiveSkillDef` toggle resolution, fusion mechanic dispatch sites (10 mechanics × ~40 toggle morphs)
+1. **Phase C3 weapon-pool rebuilds** — bow expansion + 7 other weapon pools authored from scratch (greatsword/flail/claws/wand/gauntlets/crossbow/scythe) + skill expansion to 15-20/class. **Biggest unlock for pair toggles** — Sor/Brs/Hnt-side toggle drafts in 9 of 10 pair briefs become implementable.
+2. **Phase C step 2** — UI/engine cutover to JSON node ids: author inline `effects[]` arrays in JSON nodes (or a side-table), switch `engine/classTalents.ts` lookups to read from the registry, save migration v67 to clear legacy `talentAllocations` (free respec).
+3. **§8.1 ComboStateSpec schema migration** — combo states currently hardcoded in `engine/combat/combo.ts` (needed for new fused states: Hunter's Shadow, Hunter's Mark, Element-Mark, Self-Bloodied)
+4. **Channel duration expiry enforcement** (§9.1) — last remaining Phase A deferral
+5. **Phase E ascendancies** — 5 classes × 3 ascendancies × ~8 nodes
+6. **Phase F multi-class engineering** — `SkillToggleMorph` schema, `Character.skillToggles` field, `getEffectiveSkillDef` toggle resolution, fusion mechanic dispatch sites (10 mechanics × ~40 toggle morphs)
 
 ---
 

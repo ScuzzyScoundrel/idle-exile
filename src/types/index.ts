@@ -12,6 +12,7 @@ export * from './zones';
 export * from './currencies';
 export * from './combat';
 export * from './skills';
+export * from './classTree';
 export * from './crafting';
 export * from './quests';
 export * from './state';
