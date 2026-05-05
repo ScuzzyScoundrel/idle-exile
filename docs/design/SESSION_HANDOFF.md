@@ -1,6 +1,6 @@
 # Session Handoff — READ THIS FIRST
 
-**Last updated:** 2026-05-04 (Phase B step 9 + Phase A cleanup + §15.4 rename + Phase C step 1 registry + Phase C3 steps 1+2 weapon pools all complete).
+**Last updated:** 2026-05-04 (Phase B step 9 + Phase A cleanup + §15.4 rename + Phase C steps 1+2 + Phase C3 steps 1+2 all complete).
 **Purpose:** If you're resuming the idle-exile combat-and-class overhaul in a new session, read this doc first to refresh the full picture in <5 minutes. Then dive into whichever detailed doc the next-move section points to.
 
 ---
@@ -19,7 +19,9 @@
 
 **Phase C3 step 2 — wand/gauntlet/greatsword/crossbow rebuilds: COMPLETE 2026-05-04.** Extracted from `secondary.ts` (1750 → 1064 lines) into per-weapon files matching the flail/claws/scythe quality bar: `src/data/skills/wand.ts` (10 actives + 3 abilities — Sor/Asn shared, Arcane Blade canonical), `src/data/skills/gauntlet.ts` (10+3 — Sor melee-spell, Spellreaver canonical battle-mage), `src/data/skills/greatsword.ts` (10+3 — Brs flagship cleave), `src/data/skills/crossbow.ts` (10+3 — Hnt heavy ranged). All skills now carry Phase A schema fields (`skillKind`/`manaCost`/`baseAilmentChance`). Each pool got 3-4 new pair-fusion enabler skills (Cascade Bolt, Crit Channel, Volley Convergence, Element Mark on wand; Frenzy Channel, Forge Convergence, Element Combo on gauntlet; Cascade Cleave, Hunter's Cleave, Mana Sacrifice on greatsword; Convergence Bolt, Resonant Trap, Heavy Mark, Pierce Bolt on crossbow). `secondary.ts` retains 6 remaining weapon types (axe/mace/greataxe/maul/scepter/tome) as legacy.
 
-**Phase C step 2 / E / F: NOT STARTED.** UI/engine cutover to JSON node ids (save-breaking, needs effect-data migration), ascendancies, full multi-class engineering all queued.
+**Phase C step 2 — UI/engine cutover to JSON node ids: COMPLETE 2026-05-04.** Engine (`engine/classTalents.ts` + `engine/classTalentDispatcher.ts`) and UI (`ClassTalentPanel.tsx`) now read class talent trees from the JSON registry (`src/data/classTrees/index.ts`) instead of the legacy 24-point trees in `src/data/classTalents.ts`. Side-table `src/data/classTrees/effects.ts` provides typed `TalentEffect[]` for the subset of nodes whose engine wiring exists today; `getNodeEffects(classId, nodeId)` combines inline JSON `effects?` field + side-table lookups. Save migration v67 cleared legacy `talentAllocations` (different node id space — `wd_voodoo_1` ↔ `wd_pp_lingering_toxin`); players keep all talent points and re-spec into the new JSON tree. UI now renders JSON `theme` for path subtitles, `description` directly for nodes, with capstone/identity/multi-rank badges. Multi-rank engine support deferred (each node treated as 1-point allocate-once until Phase D adds it).
+
+**Phase E / F: NOT STARTED.** Ascendancies, full multi-class engineering all queued.
 
 ---
 
@@ -208,8 +210,10 @@ Minor open considerations (not blocking):
 
 ### Recommended next-session order
 
-1. **Phase C step 2 — UI/engine cutover to JSON node ids + save migration v67** — author inline `effects[]` arrays in JSON nodes (or a side-table), switch `engine/classTalents.ts` lookups to read from the registry, save migration v67 to clear legacy `talentAllocations` (forces free respec; legacy `wd_voodoo_1` ↔ JSON `wd_pp_lingering_toxin` are different id spaces).
-2. **§8.1 ComboStateSpec schema migration** — combo states currently hardcoded in `engine/combat/combo.ts` (needed for new fused states from Phase C3 pools: Hunter's Shadow, Hunter's Mark, Element-Mark, Self-Bloodied, plus Snared/Disarmed/Bloodied/Frenzy stacks).
+1. **§8.1 ComboStateSpec schema migration** — combo states currently hardcoded in `engine/combat/combo.ts` (needed for new fused states from Phase C3 pools: Hunter's Shadow, Hunter's Mark, Element-Mark, Self-Bloodied, plus Snared/Disarmed/Bloodied/Frenzy stacks). Foundational — every Phase F pair-fusion mechanic depends on this.
+2. **Populate `src/data/classTrees/effects.ts`** — author typed `TalentEffect[]` for the ~80-100 stat-stick nodes across 5 classes (currently ships with 2 worked examples + skeleton). Pure data work; no engine changes. Players gain meaningful talent power.
+3. **Phase D — multi-rank engine support** — each JSON node has `ranks: 1-5` but allocation is currently 1-point-per-node. Add `talentRanks: Record<string, number>` save field + multi-rank UI (rank badges, multi-click allocation) + multi-rank effect scaling.
+4. **Channel duration expiry enforcement** (§9.1) — last remaining Phase A deferral.
 2. **Phase C step 2** — UI/engine cutover to JSON node ids: author inline `effects[]` arrays in JSON nodes (or a side-table), switch `engine/classTalents.ts` lookups to read from the registry, save migration v67 to clear legacy `talentAllocations` (free respec).
 3. **§8.1 ComboStateSpec schema migration** — combo states currently hardcoded in `engine/combat/combo.ts` (needed for new fused states: Hunter's Shadow, Hunter's Mark, Element-Mark, Self-Bloodied)
 4. **Channel duration expiry enforcement** (§9.1) — last remaining Phase A deferral

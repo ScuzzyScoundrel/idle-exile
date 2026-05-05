@@ -946,5 +946,19 @@ export function runMigrations(
     }
   }
 
+  if (version < 67) {
+    // v67: Phase C step 2 cutover — class talent system now reads from the
+    // JSON class-tree registry (src/data/classTrees/*.json). Legacy node
+    // ids (e.g. `wd_voodoo_1`, 24-point trees) and JSON ids (e.g.
+    // `wd_pp_lingering_toxin`, 51-point trees) live in different id spaces;
+    // the legacy allocations cannot be mapped 1:1.
+    //
+    // Resolution: clear `talentAllocations` so players get a free respec
+    // into the new tree. Talent points are not consumed (they're
+    // recomputed from character level via getAvailableTalentPoints), so
+    // players keep all spendable points and can re-allocate freely.
+    raw.talentAllocations = [];
+  }
+
   return state;
 }

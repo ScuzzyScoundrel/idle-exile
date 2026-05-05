@@ -21,7 +21,7 @@ import type {
   CharacterClass, TalentEffect, TalentAction, TalentTag, DamageTag,
   ActiveDebuff, ResolvedStats,
 } from '../types';
-import { CLASS_TALENT_TREES } from '../data/classTalents';
+import { getNodeEffects } from '../data/classTrees';
 import { applyDebuffToList } from './combat/helpers';
 
 /** Map TalentTag → debuff id registered in data/debuffs.ts. */
@@ -39,20 +39,18 @@ const TALENT_TAG_TO_DEBUFF: Record<TalentTag, string> = {
   taunt: 'taunted',     // Placeholder — no matching debuff yet.
 };
 
-/** Extract all talent effects from allocated nodes for a class. */
+/** Extract all talent effects from allocated nodes for a class.
+ *  Phase C step 2: reads from JSON class-tree registry via getNodeEffects
+ *  (combines inline JSON `effects?` + side-table `effects.ts` lookups). */
 export function collectTalentEffects(
   charClass: CharacterClass,
   allocatedNodeIds: string[],
 ): TalentEffect[] {
   if (allocatedNodeIds.length === 0) return [];
-  const tree = CLASS_TALENT_TREES[charClass];
-  if (!tree) return [];
   const result: TalentEffect[] = [];
-  for (const path of tree.paths) {
-    for (const node of path.nodes) {
-      if (!allocatedNodeIds.includes(node.id)) continue;
-      if (node.effects && node.effects.length > 0) result.push(...node.effects);
-    }
+  for (const nodeId of allocatedNodeIds) {
+    const effects = getNodeEffects(charClass, nodeId);
+    if (effects.length > 0) result.push(...effects);
   }
   return result;
 }

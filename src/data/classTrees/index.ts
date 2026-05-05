@@ -34,13 +34,14 @@
 //     dispatch (classTalentDispatcher.ts) keeps using the legacy file
 //     until effect-data migration completes.
 
-import type { CharacterClass, ClassTreeData, ClassTreeNodeData, ClassTreePathData } from '../../types';
+import type { CharacterClass, ClassTreeData, ClassTreeNodeData, ClassTreePathData, TalentEffect } from '../../types';
 
 import witchdoctorTree from './witchdoctor.json';
 import assassinTree from './assassin.json';
 import sorcererTree from './sorcerer.json';
 import berserkerTree from './berserker.json';
 import hunterTree from './hunter.json';
+import { getNodeEffectsById } from './effects';
 
 /**
  * The registry. Adding a class is one entry here + one import above.
@@ -113,4 +114,25 @@ export function getClassTreeNodeIds(classId: CharacterClass): string[] {
  */
 export function getClassTreeMaxPoints(_classId: CharacterClass): number {
   return CLASS_TREE_MAX_POINTS;
+}
+
+/**
+ * Resolve a JSON-tree node's runtime effects.
+ *
+ * Order of precedence:
+ *   1. Inline `effects?` field on the JSON node (forward-compatible — when
+ *      Phase F authoring populates effects directly in JSON).
+ *   2. Side-table lookup via `effects.ts` (incremental engine wiring path).
+ *   3. Empty array — node is "decorative" (still costs a point + shows
+ *      description, but produces no engine effect until wiring lands).
+ *
+ * The two sources are concatenated so a node CAN have both inline effects
+ * (authored in JSON) AND additional side-table effects (engine extensions).
+ */
+export function getNodeEffects(classId: CharacterClass, nodeId: string): TalentEffect[] {
+  const node = findClassTreeNode(classId, nodeId);
+  if (!node) return [];
+  const inline = node.effects ?? [];
+  const sideTable = getNodeEffectsById(nodeId);
+  return [...inline, ...sideTable];
 }

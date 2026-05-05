@@ -1,8 +1,12 @@
+// Phase C step 2 (2026-05-04): cutover to JSON class-tree registry.
+// Reads tree structure + node descriptions directly from
+// `src/data/classTrees/*.json` via the registry. Path ids are now JSON
+// strings (e.g. "plague_priest") rather than the legacy 'A'/'B'/'C' literals.
 import { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { useSkillStore } from '../../store/skillStore';
-import { CharacterClass, SkillTreeNode, TalentEffect, TalentAction } from '../../types';
-import { CLASS_TALENT_TREES } from '../../data/classTalents';
+import { CharacterClass } from '../../types';
+import { getClassTree } from '../../data/classTrees';
 import { canAllocateTalentNode, getAvailableTalentPoints, getTalentRespecCost } from '../../engine/classTalents';
 
 const CLASS_ACCENT: Record<CharacterClass, { tab: string; allocated: string; border: string; badge: string }> = {
@@ -13,47 +17,6 @@ const CLASS_ACCENT: Record<CharacterClass, { tab: string; allocated: string; bor
   assassin: { tab: 'bg-teal-700', allocated: 'border-teal-500 bg-teal-950/50', border: 'border-teal-400', badge: 'bg-teal-600' },
 };
 
-function formatEffect(node: SkillTreeNode): string {
-  const parts: string[] = [];
-  const eff = node.effect;
-  if (eff.damageMult && eff.damageMult !== 1) parts.push(`${eff.damageMult > 1 ? '+' : ''}${Math.round((eff.damageMult - 1) * 100)}% damage`);
-  if (eff.defenseMult && eff.defenseMult !== 1) parts.push(`${eff.defenseMult > 1 ? '+' : ''}${Math.round((eff.defenseMult - 1) * 100)}% defense`);
-  if (eff.clearSpeedMult && eff.clearSpeedMult !== 1) parts.push(`+${Math.round((eff.clearSpeedMult - 1) * 100)}% clear speed`);
-  if (eff.critChanceBonus) parts.push(`+${eff.critChanceBonus}% crit`);
-  if (eff.critMultiplierBonus) parts.push(`+${eff.critMultiplierBonus}% crit dmg`);
-  if (eff.xpMult && eff.xpMult !== 1) parts.push(`+${Math.round((eff.xpMult - 1) * 100)}% XP`);
-  if (eff.itemDropMult && eff.itemDropMult !== 1) parts.push(`+${Math.round((eff.itemDropMult - 1) * 100)}% items`);
-  if (eff.materialDropMult && eff.materialDropMult !== 1) parts.push(`+${Math.round((eff.materialDropMult - 1) * 100)}% materials`);
-  if (eff.resistBonus) parts.push(`+${eff.resistBonus} resist`);
-  if (eff.ignoreHazards) parts.push('Ignore hazards');
-  if (eff.doubleClears) parts.push('Double clears');
-  return parts.join(', ');
-}
-
-function formatAction(a: TalentAction): string {
-  switch (a.kind) {
-    case 'applyTag': return `apply ${a.stacks ?? 1}× ${a.tag}${a.duration ? ` (${a.duration}s)` : ''}`;
-    case 'summon':   return `summon ${a.count ?? 1}× ${a.minionType}${a.durationSec ? ` (${a.durationSec}s)` : ''}`;
-    case 'triggerSkill': return `cast ${a.skillId}`;
-    case 'healSelf': return `heal ${a.amount}`;
-    case 'grantBuff': return `grant ${a.buffId} (${a.duration}s)`;
-  }
-}
-
-function formatTalentEffect(eff: TalentEffect): string {
-  switch (eff.kind) {
-    case 'stat':     return `${eff.delta > 0 ? '+' : ''}${eff.delta} ${eff.stat}`;
-    case 'statMult': return `${eff.mult > 1 ? '+' : '-'}${Math.abs(Math.round((eff.mult - 1) * 100))}% ${eff.stat}`;
-    case 'procOnTag': return `On applying ${eff.tag}: ${eff.chance}% → ${formatAction(eff.action)}`;
-    case 'procOnKill': return `On kill${eff.tag ? ` (${eff.tag})` : ''}: ${eff.chance}% → ${formatAction(eff.action)}`;
-    case 'procOnHit':  return `On hit${eff.tag ? ` (${eff.tag})` : ''}: ${eff.chance}% → ${formatAction(eff.action)}`;
-    case 'procOnCrit': return `On crit: ${eff.chance}% → ${formatAction(eff.action)}`;
-    case 'whileTag':   return `While target ${eff.tag}: ${eff.mult > 1 ? '+' : '-'}${Math.abs(Math.round((eff.mult - 1) * 100))}% ${eff.stat}`;
-    case 'perStack':   return `+${Math.round(eff.perStackDelta * 100)}% ${eff.stat} per ${eff.stack} stack${eff.cap ? ` (cap ${Math.round(eff.cap * 100)}%)` : ''}`;
-    case 'grantTagOnSkill': return `Grants ${eff.addTag} to ${eff.skillTag} skills`;
-  }
-}
-
 export default function ClassTalentPanel() {
   const character = useGameStore(s => s.character);
   const talentAllocations = useGameStore(s => s.talentAllocations);
@@ -61,16 +24,20 @@ export default function ClassTalentPanel() {
   const allocateTalentNode = useSkillStore(s => s.allocateTalentNode);
   const respecTalents = useSkillStore(s => s.respecTalents);
 
-  const [selectedPath, setSelectedPath] = useState<'A' | 'B' | 'C'>('A');
-  const [collapsed, setCollapsed] = useState(false);
-
   const charClass = character.class;
-  const tree = CLASS_TALENT_TREES[charClass];
+  const tree = getClassTree(charClass);
   const accent = CLASS_ACCENT[charClass];
   const availablePoints = getAvailableTalentPoints(character.level, talentAllocations.length);
   const respecCost = getTalentRespecCost(character.level);
 
-  const currentPath = tree.paths.find(p => p.id === selectedPath)!;
+  // Phase C step 2: path id is now a JSON string (e.g. "plague_priest").
+  // Default to first path of current class tree on mount + on class change.
+  const [selectedPathId, setSelectedPathId] = useState<string>(tree.paths[0]?.id ?? '');
+  const [collapsed, setCollapsed] = useState(false);
+
+  // Guard against class change leaving stale path selection.
+  const currentPath = tree.paths.find(p => p.id === selectedPathId) ?? tree.paths[0];
+  if (!currentPath) return null;
 
   return (
     <div className="bg-gray-800 rounded-lg p-3 space-y-2">
@@ -97,9 +64,9 @@ export default function ClassTalentPanel() {
               return (
                 <button
                   key={path.id}
-                  onClick={() => setSelectedPath(path.id)}
+                  onClick={() => setSelectedPathId(path.id)}
                   className={`flex-1 py-1.5 px-2 rounded text-xs font-semibold transition-all ${
-                    selectedPath === path.id
+                    selectedPathId === path.id
                       ? `${accent.tab} text-white`
                       : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
                   }`}
@@ -110,17 +77,16 @@ export default function ClassTalentPanel() {
             })}
           </div>
 
-          {/* Path Description */}
-          <div className="text-xs text-gray-500">{currentPath.description}</div>
+          {/* Path Theme (JSON `theme` field \u2014 Phase B authoring) */}
+          <div className="text-xs text-gray-500">{currentPath.theme}</div>
 
           {/* Nodes */}
           <div className="space-y-1">
             {currentPath.nodes.map((node) => {
               const isAllocated = talentAllocations.includes(node.id);
               const canAlloc = canAllocateTalentNode(charClass, talentAllocations, node.id, character.level);
-              const effectStr = formatEffect(node);
-              const talentEffects = node.effects ?? [];
-              const hasKeystoneMechanic = talentEffects.length > 0;
+              const isCapstone = node.kind === 'capstone' || node.kind === 'capstone_supporting';
+              const isIdentity = node.category === 'identity';
 
               return (
                 <button
@@ -133,7 +99,7 @@ export default function ClassTalentPanel() {
                       : canAlloc
                         ? 'border-green-600 bg-green-950/30 hover:bg-green-950/50 cursor-pointer'
                         : 'border-gray-700 bg-gray-900/30 opacity-50'
-                  } ${hasKeystoneMechanic ? 'ring-1 ring-yellow-600/70' : node.isPathPayoff ? 'ring-1 ring-yellow-600/30' : ''}`}
+                  } ${isCapstone ? 'ring-1 ring-yellow-600/70' : isIdentity ? 'ring-1 ring-yellow-600/30' : ''}`}
                 >
                   <div className="flex items-center gap-2">
                     <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
@@ -142,30 +108,21 @@ export default function ClassTalentPanel() {
                       {isAllocated ? '\u2713' : node.tier}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <span className={`text-xs font-bold ${isAllocated ? 'text-white' : canAlloc ? 'text-white' : 'text-gray-400'}`}>
                           {node.name}
                         </span>
-                        {hasKeystoneMechanic && (
-                          <span className="text-xs text-yellow-400 font-bold">KEYSTONE</span>
+                        {isCapstone && (
+                          <span className="text-xs text-yellow-400 font-bold">CAPSTONE</span>
                         )}
-                        {!hasKeystoneMechanic && node.isPathPayoff && (
-                          <span className="text-xs text-yellow-500 font-bold">PAYOFF</span>
+                        {isIdentity && !isCapstone && (
+                          <span className="text-xs text-yellow-500 font-bold">IDENTITY</span>
+                        )}
+                        {node.ranks > 1 && (
+                          <span className="text-xs text-gray-500">ranks: {node.ranks}</span>
                         )}
                       </div>
                       <div className="text-xs text-gray-400">{node.description}</div>
-                      {effectStr && (
-                        <div className="text-xs text-gray-500 mt-0.5">{effectStr}</div>
-                      )}
-                      {talentEffects.length > 0 && (
-                        <div className="mt-1 space-y-0.5">
-                          {talentEffects.map((eff, idx) => (
-                            <div key={idx} className="text-xs text-yellow-300/90 font-medium">
-                              {'\u25C6 '}{formatTalentEffect(eff)}
-                            </div>
-                          ))}
-                        </div>
-                      )}
                     </div>
                   </div>
                 </button>
