@@ -6,6 +6,19 @@ import { GATHERING_PROFESSION_DEFS } from '../../data/gatheringProfessions';
 import { calcGatheringXpRequired } from '../../engine/gathering';
 import { resolveStats } from '../../engine/character';
 
+// Player-facing labels + colors for active minion types. Labels are
+// short to fit inline HUD pills. Add a new entry when authoring a new
+// minion (per engine/combat/minions.ts MinionState.type strings).
+const MINION_STYLE: Record<string, { label: string; color: string }> = {
+  zombie_dog: { label: 'Dogs',    color: 'bg-amber-800/70 text-amber-100' },
+  fetish:     { label: 'Fetish',  color: 'bg-purple-800/70 text-purple-100' },
+  spirit:     { label: 'Spirit',  color: 'bg-cyan-800/70 text-cyan-100' },
+  zombie:     { label: 'Zombie',  color: 'bg-stone-700/70 text-stone-100' },
+  hawk:       { label: 'Hawk',    color: 'bg-sky-800/70 text-sky-100' },
+  wolf:       { label: 'Wolf',    color: 'bg-slate-700/70 text-slate-100' },
+  panther:    { label: 'Panther', color: 'bg-zinc-800/70 text-zinc-100' },
+};
+
 // Player-facing labels + colors for each ailment debuff. Labels are
 // short to fit inline pills in the HUD; colors mirror the damage type.
 const AILMENT_STYLE: Record<string, { label: string; color: string }> = {
@@ -40,6 +53,7 @@ export default function CombatStatusBar() {
   const nextAutoAttackAt = useGameStore(s => s.nextAutoAttackAt);
   const packMobs = useGameStore(s => s.packMobs);
   const activeDebuffs = useGameStore(s => s.activeDebuffs);
+  const activeMinions = useGameStore(s => s.activeMinions);
 
   // Tick for smooth progress bar animation
   const [, setTick] = useState(0);
@@ -130,6 +144,22 @@ export default function CombatStatusBar() {
       stacks: d.stacks,
     }));
 
+  // Active minions, grouped by type for compact HUD pills. The engine
+  // tracks per-instance state; we only show count + soonest expiry per
+  // type (e.g. "Dogs ×3 — 8s") to keep the bar scannable.
+  const minionGroups: Record<string, { count: number; soonestExpiry: number }> = {};
+  for (const m of activeMinions ?? []) {
+    if (!minionGroups[m.type]) minionGroups[m.type] = { count: 0, soonestExpiry: Infinity };
+    minionGroups[m.type].count++;
+    minionGroups[m.type].soonestExpiry = Math.min(minionGroups[m.type].soonestExpiry, m.expiresAt);
+  }
+  const minionPills = Object.entries(minionGroups).map(([type, group]) => ({
+    type,
+    style: MINION_STYLE[type] ?? { label: type, color: 'bg-gray-700/70 text-gray-200' },
+    count: group.count,
+    remainingSec: Math.max(0, (group.soonestExpiry - Date.now()) / 1000),
+  }));
+
   // Clear progress (mob HP)
   const nowMs = Date.now();
   const clearDurationMs = currentClearTime > 0 ? currentClearTime * 1000 : 1;
@@ -200,6 +230,24 @@ export default function CombatStatusBar() {
             {swingSecLabel}
           </span>
         </div>
+
+        {/* Active minion pills — grouped by type, shows count + soonest expiry. */}
+        {minionPills.length > 0 && (
+          <div className="flex items-center gap-1 shrink-0">
+            {minionPills.map(pill => (
+              <span
+                key={pill.type}
+                className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${pill.style.color}`}
+                title={`${pill.style.label} × ${pill.count} (${pill.remainingSec.toFixed(0)}s)`}
+              >
+                {pill.style.label}<span className="font-bold ml-0.5">×{pill.count}</span>
+                {pill.remainingSec > 0 && pill.remainingSec < 60 && (
+                  <span className="text-[9px] opacity-70 ml-1">{pill.remainingSec.toFixed(0)}s</span>
+                )}
+              </span>
+            ))}
+          </div>
+        )}
 
         {/* Mob progress OR Boss HP */}
         <div className="flex items-center gap-1.5 min-w-0 flex-1">
