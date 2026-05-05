@@ -1,0 +1,93 @@
+{
+  "$schema": "../../../docs/design/ascendancy-schema.md",
+  "id": "elementalist",
+  "classId": "sorcerer",
+  "name": "Elementalist",
+  "theme": "Apotheosis of the Transmuter. Conversion stacks beyond cap, every element-swap fuels Resonance, physical damage barely exists.",
+  "version": 1,
+  "authoredDate": "2026-05-05",
+  "totalNodes": 8,
+  "designNotes": [
+    "Capstone effect mirrors §10.1: 'Conversion effects stack to 150% instead of 100%. Element-swap procs also reset the Resonance counter.'",
+    "Pairs with sorcerer.json elementalist path — same id, mirrors path-7 capstone Element Shifter + amplifies.",
+    "8-node compact tree, 3 tiers, ~22 total ranks. Tier-3 capstone gates on Element Pulse.",
+    "Engine wiring status (2026-05-05): 4 of 8 wireable today (incElementalDamage / incChaosDamage / procOnCrit applyTag(chill) / whileTag(shock) damageMult). Resonance-charge mechanic + conversion-stack-cap + Element Cascade cooldown action are decorative until Phase F."
+  ],
+  "nodes": [
+    {
+      "id": "asc_sor_el_element_affinity",
+      "name": "Element Affinity",
+      "tier": 1,
+      "ranks": 5,
+      "description": "+1/2/3/4/5% elemental damage (foundation triad scaling).",
+      "engineHook": "stat:incElementalDamage",
+      "dependencies": []
+    },
+    {
+      "id": "asc_sor_el_chaos_tap",
+      "name": "Chaos Tap",
+      "tier": 1,
+      "ranks": 5,
+      "description": "+1/2/3/4/5% chaos damage (Elementalist deals chaos via conversion procs — foundation scaler).",
+      "engineHook": "stat:incChaosDamage",
+      "dependencies": []
+    },
+    {
+      "id": "asc_sor_el_spell_cycle",
+      "name": "Spell Cycle",
+      "tier": 1,
+      "ranks": 3,
+      "description": "On crit, +5/10/15% chance to apply Chill (cross-element accelerator).",
+      "engineHook": "onSkillCrit",
+      "dependencies": []
+    },
+    {
+      "id": "asc_sor_el_resonant_crit",
+      "name": "Resonant Crit",
+      "tier": 2,
+      "ranks": 5,
+      "description": "On crit, +5/10/15/20/25% chance to add a Resonance charge of a random missing element (Resonance accelerator).",
+      "engineHook": "onSkillCrit",
+      "dependencies": ["resonanceMechanic"]
+    },
+    {
+      "id": "asc_sor_el_element_pulse",
+      "name": "Element Pulse",
+      "tier": 2,
+      "ranks": 3,
+      "description": "+5/10/15% damage to Shocked enemies (lightning-flavored deepening).",
+      "engineHook": "conditionalStat:damage:targetShocked",
+      "dependencies": []
+    },
+    {
+      "id": "asc_sor_el_hybrid_mastery",
+      "name": "Hybrid Mastery",
+      "tier": 2,
+      "ranks": 1,
+      "description": "Hybrid-damage skills (2+ damage types) deal +25% damage.",
+      "engineHook": "conditionalStat:damage:hybridDamageTypes",
+      "dependencies": []
+    },
+    {
+      "id": "asc_sor_el_element_cascade",
+      "name": "Element Cascade",
+      "tier": 3,
+      "ranks": 3,
+      "description": "On killing a Chilled enemy, +20/40/60% chance to refresh all skill cooldowns by 0.5s.",
+      "engineHook": "onEnemyKill:targetChilled",
+      "dependencies": [],
+      "requiresNodeId": "asc_sor_el_element_pulse"
+    },
+    {
+      "id": "asc_sor_el_element_shifter",
+      "name": "Element Shifter",
+      "tier": 3,
+      "ranks": 1,
+      "description": "Conversion effects stack to 150% instead of 100%. Element-swap procs also reset the Resonance counter (free Convergence cycles). The §10.1 ascendancy keystone.",
+      "engineHook": "modifyMechanic:conversionStackCap+resonanceCounterReset",
+      "dependencies": ["resonanceMechanic", "convergenceMechanic"],
+      "requiresNodeId": "asc_sor_el_element_pulse",
+      "isCapstone": true
+    }
+  ]
+}

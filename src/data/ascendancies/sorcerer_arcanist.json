@@ -1,0 +1,93 @@
+{
+  "$schema": "../../../docs/design/ascendancy-schema.md",
+  "id": "arcanist",
+  "classId": "sorcerer",
+  "name": "Arcanist",
+  "theme": "Apotheosis of the Banker. Oversize the Resonance bank, hold charges through eternity, every spend bursts the cast tempo.",
+  "version": 1,
+  "authoredDate": "2026-05-05",
+  "totalNodes": 8,
+  "designNotes": [
+    "Capstone effect mirrors §10.1: 'Resonance charges cap +5. Spending Resonance grants a brief cast-speed burst.'",
+    "Pairs with sorcerer.json arcanist path — same id, mirrors path-7 capstone Saturation + amplifies.",
+    "8-node compact tree, 3 tiers, ~24 total ranks. Tier-3 capstone gates on Hold the Charge.",
+    "Engine wiring status (2026-05-05): 4 of 8 wireable today (spellPower / castSpeed / critChance / whileTag(shock) damageMult). Resonance bank-size + spend-cast-speed-burst capstone + Bank Reservoir mana stat decorative until Phase F (mana not on ResolvedStats yet)."
+  ],
+  "nodes": [
+    {
+      "id": "asc_sor_ar_spell_mastery",
+      "name": "Spell Mastery",
+      "tier": 1,
+      "ranks": 5,
+      "description": "+1/2/3/4/5% spell power (foundation scaling).",
+      "engineHook": "stat:spellPower",
+      "dependencies": []
+    },
+    {
+      "id": "asc_sor_ar_channel_tempo",
+      "name": "Channel Tempo",
+      "tier": 1,
+      "ranks": 5,
+      "description": "+1/2/3/4/5% cast speed (foundation pacing — pairs with Resonance churn).",
+      "engineHook": "stat:castSpeed",
+      "dependencies": []
+    },
+    {
+      "id": "asc_sor_ar_bank_mastery",
+      "name": "Bank Mastery",
+      "tier": 1,
+      "ranks": 3,
+      "description": "Maximum Resonance charges +1/2/3 (raises the bank ceiling).",
+      "engineHook": "stat:maxResonanceCharges",
+      "dependencies": ["resonanceMechanic"]
+    },
+    {
+      "id": "asc_sor_ar_resonant_crit",
+      "name": "Resonant Crit",
+      "tier": 2,
+      "ranks": 5,
+      "description": "+1/2/3/4/5% crit chance (foundation scaling — pairs with Convergence crit gates).",
+      "engineHook": "stat:critChance",
+      "dependencies": []
+    },
+    {
+      "id": "asc_sor_ar_hold_the_charge",
+      "name": "Hold the Charge",
+      "tier": 2,
+      "ranks": 1,
+      "description": "Resonance charges no longer expire while in combat (full bank persistence).",
+      "engineHook": "modifyMechanic:resonanceChargeDecayPause:inCombat",
+      "dependencies": ["resonanceMechanic"]
+    },
+    {
+      "id": "asc_sor_ar_bank_reservoir",
+      "name": "Bank Reservoir",
+      "tier": 2,
+      "ranks": 3,
+      "description": "+20/40/60 maximum mana (foundation mana cap for Resonance spend cycles).",
+      "engineHook": "stat:maxMana",
+      "dependencies": []
+    },
+    {
+      "id": "asc_sor_ar_spell_cascade",
+      "name": "Spell Cascade",
+      "tier": 3,
+      "ranks": 3,
+      "description": "+5/10/15% damage to Shocked enemies (Convergence shock-amplifier).",
+      "engineHook": "conditionalStat:damage:targetShocked",
+      "dependencies": [],
+      "requiresNodeId": "asc_sor_ar_hold_the_charge"
+    },
+    {
+      "id": "asc_sor_ar_saturation",
+      "name": "Saturation",
+      "tier": 3,
+      "ranks": 1,
+      "description": "Maximum Resonance charges +5 (4 → 9 with full bank). Spending Resonance grants +50% cast speed for 4 seconds. The §10.1 ascendancy keystone.",
+      "engineHook": "modifyMechanic:maxResonanceCharges+spendCastSpeedBurst",
+      "dependencies": ["resonanceMechanic", "convergenceMechanic"],
+      "requiresNodeId": "asc_sor_ar_hold_the_charge",
+      "isCapstone": true
+    }
+  ]
+}

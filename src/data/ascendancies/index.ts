@@ -25,6 +25,9 @@ import witchdoctorVoodooSovereign from './witchdoctor_voodoo_sovereign.json';
 import assassinBlademaster from './assassin_blademaster.json';
 import assassinVenomcraft from './assassin_venomcraft.json';
 import assassinShadowdancer from './assassin_shadowdancer.json';
+import sorcererElementalist from './sorcerer_elementalist.json';
+import sorcererArcanist from './sorcerer_arcanist.json';
+import sorcererSpecialist from './sorcerer_specialist.json';
 import { getAscendancyNodeEffectsById } from './effects';
 
 /**
@@ -51,6 +54,10 @@ export const ASCENDANCY_TREES: Record<string, AscendancyTreeData> = {
   blademaster:      assassinBlademaster as AscendancyTreeData,
   venomcraft:       assassinVenomcraft as AscendancyTreeData,
   shadowdancer:     assassinShadowdancer as AscendancyTreeData,
+  // Sorcerer (3/3)
+  elementalist:     sorcererElementalist as AscendancyTreeData,
+  arcanist:         sorcererArcanist as AscendancyTreeData,
+  specialist:       sorcererSpecialist as AscendancyTreeData,
 };
 
 /**

@@ -1,0 +1,93 @@
+{
+  "$schema": "../../../docs/design/ascendancy-schema.md",
+  "id": "specialist",
+  "classId": "sorcerer",
+  "name": "Specialist",
+  "theme": "Apotheosis of the Avatar. Pick one element at ascendancy time — Pyromancer / Cryomancer / Stormcaller — chosen element ascends; others scale beneath it.",
+  "version": 1,
+  "authoredDate": "2026-05-05",
+  "totalNodes": 8,
+  "designNotes": [
+    "Capstone effect mirrors §10.1: 'Pick one element at ascendancy time. Chosen element gains +50% damage; other elements gain +25%. Element-swap procs no longer reset chosen element charge.'",
+    "Pairs with sorcerer.json specialist path — same id, mirrors path-7 capstone Avatar of Element + amplifies.",
+    "8-node compact tree, 3 tiers, ~32 total ranks. Tier-3 capstone gates on Element Crit.",
+    "Specialist is sub-typed at ascendancy time (Pyromancer/Cryomancer/Stormcaller). Phase E1 ships the universal version — element-pick UI + chosen-element protection lands in Phase F. The 6 affinity + mastery nodes apply to ALL three elements until then.",
+    "Engine wiring status (2026-05-05): 7 of 8 nodes wireable today — heaviest wire-rate of any ascendancy yet (incFire/Cold/Lightning damage stat sticks + whileTag(ignite/chill/shock) damageMult). Avatar of Element capstone needs Phase F (player-pick UI + chosen-element charge protection)."
+  ],
+  "nodes": [
+    {
+      "id": "asc_sor_sp_pyre_affinity",
+      "name": "Pyre Affinity",
+      "tier": 1,
+      "ranks": 5,
+      "description": "+2/4/6/8/10% fire damage (foundation Pyromancer scaling).",
+      "engineHook": "stat:incFireDamage",
+      "dependencies": []
+    },
+    {
+      "id": "asc_sor_sp_frost_affinity",
+      "name": "Frost Affinity",
+      "tier": 1,
+      "ranks": 5,
+      "description": "+2/4/6/8/10% cold damage (foundation Cryomancer scaling).",
+      "engineHook": "stat:incColdDamage",
+      "dependencies": []
+    },
+    {
+      "id": "asc_sor_sp_storm_affinity",
+      "name": "Storm Affinity",
+      "tier": 1,
+      "ranks": 5,
+      "description": "+2/4/6/8/10% lightning damage (foundation Stormcaller scaling).",
+      "engineHook": "stat:incLightningDamage",
+      "dependencies": []
+    },
+    {
+      "id": "asc_sor_sp_ignite_mastery",
+      "name": "Ignite Mastery",
+      "tier": 2,
+      "ranks": 5,
+      "description": "+5/10/15/20/25% damage to Ignited enemies (Pyromancer deepening).",
+      "engineHook": "conditionalStat:damage:targetIgnited",
+      "dependencies": []
+    },
+    {
+      "id": "asc_sor_sp_chill_mastery",
+      "name": "Chill Mastery",
+      "tier": 2,
+      "ranks": 5,
+      "description": "+5/10/15/20/25% damage to Chilled enemies (Cryomancer deepening).",
+      "engineHook": "conditionalStat:damage:targetChilled",
+      "dependencies": []
+    },
+    {
+      "id": "asc_sor_sp_shock_mastery",
+      "name": "Shock Mastery",
+      "tier": 2,
+      "ranks": 5,
+      "description": "+5/10/15/20/25% damage to Shocked enemies (Stormcaller deepening).",
+      "engineHook": "conditionalStat:damage:targetShocked",
+      "dependencies": []
+    },
+    {
+      "id": "asc_sor_sp_element_crit",
+      "name": "Element Crit",
+      "tier": 3,
+      "ranks": 3,
+      "description": "+5/10/15% crit damage (broad amplifier — pairs with element-conditional whileTag bonuses below).",
+      "engineHook": "stat:critMultiplier",
+      "dependencies": []
+    },
+    {
+      "id": "asc_sor_sp_avatar_of_element",
+      "name": "Avatar of Element",
+      "tier": 3,
+      "ranks": 1,
+      "description": "Pick one element at ascendancy time. Chosen element gains +50% damage; other elements gain +25% damage. Element-swap procs no longer reset chosen element charge. The §10.1 ascendancy keystone.",
+      "engineHook": "modifyMechanic:chosenElementBonus+chargeProtection",
+      "dependencies": ["resonanceMechanic"],
+      "requiresNodeId": "asc_sor_sp_element_crit",
+      "isCapstone": true
+    }
+  ]
+}

@@ -158,6 +158,79 @@ export const ASCENDANCY_NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'asc_asn_sd_mark_hunter': [
     { kind: 'whileTag', tag: 'mark', stat: 'damageMult', mult: 1.10 },
   ],
+
+  // ── Sorcerer — Elementalist ───────────────────────────────────────
+  // 4 of 8 wired today. Resonance mechanic + conversion-stack-cap +
+  // hybrid-damage-types condition + Element Cascade cooldown action
+  // are decorative until Phase F.
+  'asc_sor_el_element_affinity': [
+    { kind: 'stat', stat: 'incElementalDamage', delta: 1 },
+  ],
+  'asc_sor_el_chaos_tap': [
+    { kind: 'stat', stat: 'incChaosDamage', delta: 1 },
+  ],
+  // "5% chance on crit to apply Chill" rank-1 → 15% at rank 3.
+  'asc_sor_el_spell_cycle': [
+    { kind: 'procOnCrit', chance: 5, action: { kind: 'applyTag', tag: 'chill', stacks: 1, duration: 4 } },
+  ],
+  // "+5% damage vs shocked" rank-1 → +15% at rank 3.
+  'asc_sor_el_element_pulse': [
+    { kind: 'whileTag', tag: 'shock', stat: 'damageMult', mult: 1.05 },
+  ],
+
+  // ── Sorcerer — Arcanist ───────────────────────────────────────────
+  // 4 of 8 wired today. Resonance bank-size + cast-speed burst on
+  // Resonance spend + maxMana stat (mana not on ResolvedStats yet)
+  // are decorative until Phase F.
+  'asc_sor_ar_spell_mastery': [
+    { kind: 'stat', stat: 'spellPower', delta: 1 },
+  ],
+  'asc_sor_ar_channel_tempo': [
+    { kind: 'stat', stat: 'castSpeed', delta: 1 },
+  ],
+  // Forward-compat seed: maxResonanceCharges not on ResolvedStats.
+  'asc_sor_ar_bank_mastery': [
+    { kind: 'stat', stat: 'maxResonanceCharges', delta: 1 },
+  ],
+  'asc_sor_ar_resonant_crit': [
+    { kind: 'stat', stat: 'critChance', delta: 1 },
+  ],
+  // Forward-compat seed: maxMana not on ResolvedStats.
+  'asc_sor_ar_bank_reservoir': [
+    { kind: 'stat', stat: 'maxMana', delta: 20 },
+  ],
+  // "+5% damage vs shocked" rank-1 → +15% at rank 3.
+  'asc_sor_ar_spell_cascade': [
+    { kind: 'whileTag', tag: 'shock', stat: 'damageMult', mult: 1.05 },
+  ],
+
+  // ── Sorcerer — Specialist ─────────────────────────────────────────
+  // 7 of 8 wired today — heaviest wire-rate of any ascendancy so far,
+  // due to clean element-specific damage stats + whileTag for chill/
+  // shock/ignite. Avatar of Element capstone (chosen-element pick UI)
+  // is decorative until Phase F.
+  'asc_sor_sp_pyre_affinity': [
+    { kind: 'stat', stat: 'incFireDamage', delta: 2 },
+  ],
+  'asc_sor_sp_frost_affinity': [
+    { kind: 'stat', stat: 'incColdDamage', delta: 2 },
+  ],
+  'asc_sor_sp_storm_affinity': [
+    { kind: 'stat', stat: 'incLightningDamage', delta: 2 },
+  ],
+  // "+5% damage vs ignited" rank-1 → +25% at rank 5.
+  'asc_sor_sp_ignite_mastery': [
+    { kind: 'whileTag', tag: 'ignite', stat: 'damageMult', mult: 1.05 },
+  ],
+  'asc_sor_sp_chill_mastery': [
+    { kind: 'whileTag', tag: 'chill', stat: 'damageMult', mult: 1.05 },
+  ],
+  'asc_sor_sp_shock_mastery': [
+    { kind: 'whileTag', tag: 'shock', stat: 'damageMult', mult: 1.05 },
+  ],
+  'asc_sor_sp_element_crit': [
+    { kind: 'stat', stat: 'critMultiplier', delta: 5 },
+  ],
 };
 
 /** Lookup typed effects for an ascendancy node id. */
