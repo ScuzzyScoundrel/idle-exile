@@ -44,8 +44,16 @@ import {
   dispatchProcOnHit,
   dispatchProcOnCrit,
   dispatchProcOnKill,
+  dispatchProcOnMinionHit,
+  dispatchProcOnMinionCrit,
+  dispatchProcOnMinionDeath,
+  dispatchProcOnCompanionHit,
+  dispatchProcOnCompanionCrit,
+  dispatchProcOnCompanionDeath,
+  hasCompanionGrant,
   type TalentProcContext,
 } from '../classTalentDispatcher';
+import { SUMMON_CONFIGS, summonMinions, stepMinions } from './minions';
 import {
   evaluateConditionalMods,
   evaluateProcs,
@@ -173,6 +181,24 @@ export function runCombatTick(
   // Weapon maintenance: tick combo states + traps EVERY tick (not gated by GCD)
   let maintPatch: Partial<GameState> | null = null;
   let newActiveMinions = state.activeMinions ? [...state.activeMinions] : [];
+
+  // Phase F F4 follow-on (2026-05-06): companion-summon runtime.
+  // If player has any allocated `grantCompanion` node and no companion
+  // is currently alive, summon one via SUMMON_CONFIGS.companion. Runs
+  // before tickMaintenance so a freshly-summoned companion is included
+  // in the same-tick stepMinions pass for both staff (multi-class
+  // fusion) and non-staff classes.
+  if (hasCompanionGrant(talentEffects) && !newActiveMinions.some(m => m.type === 'companion')) {
+    const summonStats = resolveStats(state.character);
+    newActiveMinions = summonMinions(
+      newActiveMinions,
+      SUMMON_CONFIGS.companion,
+      summonStats.maxLife,
+      summonStats.spellPower ?? 0,
+      now,
+    );
+  }
+
   if (weaponMod?.tickMaintenance) {
     // Resolve real player stats early so maintenance-time summons
     // (permanentColony, fetishPermanentMode, locustKillSpawnsPermMinion via auto-revive)
@@ -258,6 +284,79 @@ export function runCombatTick(
     }
     state = { ...state, ...maintPatch };
   }
+
+  // Phase F F4 follow-on (2026-05-06): generic minion-tick path for
+  // non-staff classes. Staff has its own minion subsystem in
+  // staff.ts tickMaintenance with WD-specific talents (zombie dog
+  // pack power, fetish soul stacks etc.); here we run a basic
+  // stepMinions + damage-application + proc dispatch so companions
+  // (and any other future non-staff minions) actually attack and
+  // generate proc events. Gated on weapon !== 'staff' so we don't
+  // double-tick WD's pets.
+  const mainWeaponType = state.character.equipment.mainhand?.weaponType;
+  if (mainWeaponType !== 'staff' && newActiveMinions.length > 0) {
+    const prevAliveMinions = new Map(newActiveMinions.filter(m => m.hp > 0).map(m => [m.id, m]));
+    const { minions: postStep, attacks: minionAttacks } = stepMinions(newActiveMinions, dtSec, now);
+    newActiveMinions = postStep;
+
+    let aggMinionDmg = 0;
+    const minionLife = { value: state.currentHp, max: resolveStats(state.character).maxLife };
+    for (const a of minionAttacks) {
+      // Minions don't crit by default in this generic path; forcedCrit
+      // (e.g. Predator Pack cascade) carries a multiplier inline.
+      const isCrit = a.forcedCrit ?? false;
+      aggMinionDmg += a.damage * (isCrit ? 2.0 : 1.0);
+      if (talentEffects.length > 0) {
+        const procCtx: TalentProcContext = {
+          targetDebuffs,
+          life: minionLife,
+          sourceSkillId: a.sourceSkillId,
+        };
+        dispatchProcOnMinionHit(talentEffects, procCtx);
+        if (isCrit) dispatchProcOnMinionCrit(talentEffects, procCtx);
+        const attackerMinion = postStep.find(m => m.id === a.minionId);
+        if (attackerMinion?.type === 'companion') {
+          dispatchProcOnCompanionHit(talentEffects, procCtx);
+          if (isCrit) dispatchProcOnCompanionCrit(talentEffects, procCtx);
+        }
+      }
+    }
+
+    if (aggMinionDmg > 0) {
+      if (phase === 'boss_fight' && state.bossState) {
+        state.bossState.bossCurrentHp = Math.max(0, state.bossState.bossCurrentHp - aggMinionDmg);
+      } else if (state.packMobs.length > 0) {
+        state.packMobs[0].hp -= aggMinionDmg;
+      }
+    }
+
+    // Death detection: minions present pre-step but absent post-step.
+    const currentIds = new Set(postStep.map(m => m.id));
+    for (const [id, prev] of prevAliveMinions) {
+      if (currentIds.has(id)) continue;
+      if (talentEffects.length > 0) {
+        const deathCtx: TalentProcContext = {
+          targetDebuffs,
+          life: minionLife,
+          sourceSkillId: prev.sourceSkillId,
+        };
+        dispatchProcOnMinionDeath(talentEffects, deathCtx);
+        if (prev.type === 'companion') {
+          dispatchProcOnCompanionDeath(talentEffects, deathCtx);
+        }
+      }
+    }
+
+    // Apply healSelf side-effects accumulated through the proc dispatch.
+    if (minionLife.value > state.currentHp) {
+      state.currentHp = minionLife.value;
+    }
+
+    // Sync back to state — maintPatch is null on this path so the
+    // `state = { ...state, ...maintPatch }` step above didn't run.
+    state = { ...state, activeMinions: newActiveMinions };
+  }
+
   // out.patch wins over maintPatch — applyZoneDamage updates activeMinions/comboStates
   // (DoT-kill onKill procs spawn spirits, gen soul_stacks). Maintenance fields not in
   // out.patch (activeTraps, bladeWardExpiresAt, bladeWardHits) still pass through.

@@ -88,6 +88,22 @@ export const SUMMON_CONFIGS: Record<string, SummonConfig> = {
     element: 'cold',
     sourceSkillId: 'staff_haunt',
   },
+  // Phase F F4 follow-on (2026-05-06): companion archetype for Hunter
+  // Beastmaster (and any class allocating a `grantCompanion` node).
+  // Singleton — count: 1 — and effectively permanent (duration in
+  // years; the per-tick spawn check in tick.ts re-summons after death).
+  // damagePerSpellPowerRatio is high since Hunter has low spellPower;
+  // tuned for parity with WD pets in mid-game.
+  companion: {
+    type: 'companion',
+    count: 1,
+    hpPercentOfPlayer: 0.30,
+    attackInterval: 1.5,
+    damagePerSpellPowerRatio: 1.5,
+    duration: 31_536_000,  // 1 year — re-spawn handled per-tick if it dies
+    element: 'physical',
+    sourceSkillId: 'companion',
+  },
 };
 
 /** Re-cast while minions of this type are alive refreshes duration, does NOT add stacks.

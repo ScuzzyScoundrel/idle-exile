@@ -17,6 +17,9 @@ const MINION_STYLE: Record<string, { label: string; color: string }> = {
   hawk:       { label: 'Hawk',    color: 'bg-sky-800/70 text-sky-100' },
   wolf:       { label: 'Wolf',    color: 'bg-slate-700/70 text-slate-100' },
   panther:    { label: 'Panther', color: 'bg-zinc-800/70 text-zinc-100' },
+  // Phase F F4 follow-on (2026-05-06): Hunter Beastmaster companion.
+  companion:  { label: 'Pet',    color: 'bg-emerald-800/70 text-emerald-100' },
+  spirit_temp:{ label: 'Spirit', color: 'bg-cyan-700/70 text-cyan-100' },
 };
 
 // Player-facing labels + colors for each ailment debuff. Labels are
