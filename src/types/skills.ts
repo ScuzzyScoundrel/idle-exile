@@ -171,18 +171,17 @@ export type TalentEffect =
   | { kind: 'whileSelfHpBelow'; threshold: number; stat: string; mult: number; delta?: number }
   /** Conditional modifier: while TARGET's HP fraction is below threshold (0-1).
    *  E.g. threshold=0.5 → fires when struck target is below 50% HP. Phase F
-   *  (Brs Warlord execute-range / Hnt finisher nodes). */
-  | { kind: 'whileTargetHpBelow'; threshold: number; stat: string; mult: number }
+   *  (Brs Warlord execute-range / Hnt finisher nodes). `delta?` adds
+   *  additively when set; otherwise `mult` multiplies. */
+  | { kind: 'whileTargetHpBelow'; threshold: number; stat: string; mult: number; delta?: number }
   /** Conditional modifier: while the player's companion (singleton
-   *  type='companion' MinionState) is alive, multiply stat. Phase F F4
-   *  polish (2026-05-06): Hnt BM Pack Awareness / Pack Synergy. */
-  | { kind: 'whileCompanionAlive'; stat: string; mult: number }
+   *  type='companion' MinionState) is alive, multiply stat (or add
+   *  `delta` for additive percent stats). Phase F F4 polish. */
+  | { kind: 'whileCompanionAlive'; stat: string; mult: number; delta?: number }
   /** Conditional modifier: while the player has at least `threshold`
-   *  Crit Cascade stacks (`state.critStacks`), multiply stat. Phase F
-   *  F5a (2026-05-06): Assassin Crit Cascade — stacks accumulate per
-   *  player crit (max 5, decay window) and drive whileCritStacksAtLeast
-   *  + perStack(stack='critStack') effects. */
-  | { kind: 'whileCritStacksAtLeast'; threshold: number; stat: string; mult: number }
+   *  Crit Cascade stacks (`state.critStacks`), multiply stat (or add
+   *  `delta`). Phase F F5a — Assassin Crit Cascade. */
+  | { kind: 'whileCritStacksAtLeast'; threshold: number; stat: string; mult: number; delta?: number }
   /** Per-crit-stack additive bonus to a player stat (e.g. cooldown
    *  recovery, cast speed). Phase F F5a: parallel to `perStack` but
    *  reads `state.critStacks` instead of target debuff stacks. Bonus

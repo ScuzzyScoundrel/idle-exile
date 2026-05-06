@@ -399,6 +399,11 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'brs_wl_threshold_hunter': [
     { kind: 'whileTargetHpBelow', threshold: 0.5, stat: 'damageMult', mult: 1.02 },
   ],
+  // Phase F F5b/d delta variant on whileTargetHpBelow lets percent
+  // stats author cleanly. "+2/4/6/8/10% crit chance vs enemies <50% HP."
+  'brs_wl_execute_sense': [
+    { kind: 'whileTargetHpBelow', threshold: 0.5, stat: 'critChance', mult: 1, delta: 2 },
+  ],
   // "+10/20/30/40/50% damage to enemies below 25% HP" rank-1 → +50% at rank 5
   // (deeper execute scaling).
   'brs_wl_apex_predator': [
