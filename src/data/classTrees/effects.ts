@@ -175,6 +175,13 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'wd_sw_spirit_shield': [
     { kind: 'procOnMinionDeath', chance: 25, action: { kind: 'grantBuff', buffId: 'spirit_shield', duration: 3 } },
   ],
+  // Phase F polish (2026-05-06): summon TalentAction wired via
+  // SUMMON_CONFIGS lookup. "On enemy kill, +20/40/60% chance to summon
+  // a temporary spirit minion for 6 seconds." Uses the spirit_temp
+  // archetype (1 minion, 10% player HP, 1.5s attack interval, cold).
+  'wd_sw_necromantic_rite': [
+    { kind: 'procOnKill', chance: 20, action: { kind: 'summon', minionType: 'spirit_temp', count: 1, durationSec: 6 } },
+  ],
 
   // ====================================================================
   // ASSASSIN

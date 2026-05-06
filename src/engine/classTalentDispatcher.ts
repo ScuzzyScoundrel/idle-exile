@@ -24,6 +24,7 @@ import type {
 import { getNodeEffects } from '../data/classTrees';
 import { getAscendancyNodeEffects } from '../data/ascendancies';
 import { applyDebuffToList, mergeProcTempBuff } from './combat/helpers';
+import { SUMMON_CONFIGS, summonMinions, type MinionState } from './combat/minions';
 
 /** Phase F polish (2026-05-06): grantBuff TalentAction registry.
  *  Maps `buffId` → AbilityEffect + maxStacks. Keep this registry
@@ -413,6 +414,17 @@ export interface TalentProcContext {
    *  dispatcher pushes new buffs (or refreshes existing) via
    *  mergeProcTempBuff. Caller writes back to state.tempBuffs. */
   tempBuffsRef?: TempBuff[];
+  /** Mutable minion list + summon parameters for `summon` action.
+   *  Phase F polish (2026-05-06): caller exposes player maxLife +
+   *  spellPower so summonMinions can scale freshly-summoned units;
+   *  dispatcher pushes via in-place length=0 + push. Caller writes
+   *  list back to state.activeMinions. */
+  minionsRef?: {
+    list: MinionState[];
+    playerMaxLife: number;
+    playerSpellPower: number;
+    now: number;
+  };
 }
 
 /** Roll chance and dispatch action. chance is 0-100 (not 0-1). */
@@ -507,8 +519,30 @@ function executeAction(action: TalentAction, ctx: TalentProcContext): void {
       ctx.tempBuffsRef.push(...merged);
       break;
     }
-    // Deferred (Phase 4.1):
-    case 'summon':
+    case 'summon': {
+      // Phase F polish (2026-05-06): summon via SUMMON_CONFIGS lookup.
+      // Looks up the minionType, applies optional count / duration
+      // overrides, calls summonMinions with player scalings. No-op if
+      // caller didn't provide minionsRef or registry doesn't have the
+      // type.
+      if (!ctx.minionsRef) return;
+      const baseCfg = SUMMON_CONFIGS[action.minionType];
+      if (!baseCfg) return;
+      const cfg = {
+        ...baseCfg,
+        count: action.count ?? baseCfg.count,
+        duration: action.durationSec ?? baseCfg.duration,
+      };
+      const updated = summonMinions(
+        ctx.minionsRef.list, cfg,
+        ctx.minionsRef.playerMaxLife, ctx.minionsRef.playerSpellPower,
+        ctx.minionsRef.now,
+      );
+      ctx.minionsRef.list.length = 0;
+      ctx.minionsRef.list.push(...updated);
+      break;
+    }
+    // Deferred:
     case 'triggerSkill':
       break;
   }

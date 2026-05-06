@@ -2462,6 +2462,12 @@ export function runCombatTick(
       // as hit/crit ctx — kill procs can also broadcast tags and refund.
       const killBroadcast = state.packMobs.map(m => m.debuffs);
       const killManaRef = { current: state.character.mana.current, max: state.character.mana.max };
+      const killMinionsRef = {
+        list: newActiveMinions,
+        playerMaxLife: effectiveMaxLife,
+        playerSpellPower: effectiveStats.spellPower ?? 0,
+        now,
+      };
       const killProcCtx: TalentProcContext = {
         targetDebuffs: newDebuffs,
         life: { value: playerHp, max: effectiveMaxLife },
@@ -2470,12 +2476,14 @@ export function runCombatTick(
         broadcastDebuffLists: killBroadcast,
         skillTimers: state.skillTimers,
         mana: killManaRef,
+        minionsRef: killMinionsRef,
       };
       dispatchProcOnKill(talentEffects, killProcCtx);
       playerHp = killProcCtx.life.value;
       if (killManaRef.current !== state.character.mana.current) {
         state.character.mana.current = killManaRef.current;
       }
+      newActiveMinions = killMinionsRef.list;
     }
     {
       const totalLifeOnKill = (graphMod?.lifeOnKill ?? 0) + (effectiveStats.lifeOnKill ?? 0);
