@@ -1,41 +1,43 @@
 # Session Handoff — READ THIS FIRST
 
-**Last updated:** 2026-05-06 (**Phase F COMPLETE through F5e + all polish slices** — every TalentAction wired, every signature mechanic functional, full additive-conditional family with `delta?`, full `targetTag?` filter on procOnHit/Crit/Kill, procOnTag cascade, ~95 talent entries authored across all 5 classes. Phase F5e follow-on hex-can-crit landed via grantDotCrit kind + tickDebuffDoT crit roll. triggerSkill action wired — last remaining stub. Branch at b475a796 → 594150e7.).
+**Last updated:** 2026-05-06 (**Phase F COMPLETE through F5e + all polish slices** — every TalentAction wired, every signature mechanic functional, full additive-conditional family with `delta?`, full `targetTag?` filter on procOnHit/Crit/Kill, procOnTag cascade, ~95 talent entries authored across all 5 classes. Phase F5e follow-on hex-can-crit landed via grantDotCrit kind + tickDebuffDoT crit roll. triggerSkill action wired — last remaining stub. Branch at master `717ee378`.).
 **Purpose:** If you're resuming the idle-exile combat-and-class overhaul in a new session, read this doc first to refresh the full picture in <5 minutes. Then dive into whichever detailed doc the next-move section points to.
 
 ---
 
-## NEXT SESSION START HERE — Phase F sub-phase queue
+## NEXT SESSION START HERE — post-F-arc queue
 
-Branch is `master` at the latest F1c commit. Phase F's cheap-cluster (F1a + F1b + F1c) is shipped; F2 through F6 are queued in the order below. Each is its own focused session — start with F2.
+Branch is `master` at `717ee378`. **Phase F arc is COMPLETE through F5e first-slice for every signature mechanic, plus comprehensive polish.** Every TalentAction is wired (no stubs remain), every conditional kind has additive `delta?` discrimination, full `targetTag?` filter on procOnHit/Crit/Kill, procOnTag cascade live, ~95 talent entries authored.
 
-**Resume order:**
+**Pick one focused commit for next session:**
 
-1. **F2 follow-on — full minion-event coverage** (~1-2 days, ~16 more WD SW nodes; Hunter BM is companion-gated so deferred to F4)
-   • F2 first slice landed: 3 new `TalentEffect` kinds (procOnMinionHit/Crit/Death), dispatch helpers, hooks into `staff.ts` minion-attack consumer + death-detection loop, 9 WD SW entries authored.
-   • Remaining WD SW nodes need: (a) `summon` action wired (currently a stub) so `wd_sw_resilient_spirits` (Spirit Echo on death) and `wd_sw_eternal_court` (revive) work; (b) `grantBuff` action wired so `wd_sw_bone_armor` (DR shield), `wd_sw_spirit_shield` (next-cast bonus), `wd_sw_voodoo_roar` (3+ minions buff) work; (c) `mana` ref threaded into `WeaponTickContext` so `wd_sw_soul_ration` (5 mana on minion hit) actually restores mana; (d) per-source-skill filter on procOnMinion* so `wd_sw_fetish_frenzy` (Fetish-only) doesn't fire for dogs; (e) "double-strike" / "extra minion attack" action so `wd_sw_pack_mastery` and `wd_sw_spectral_edge` get accurate behavior instead of bleed/hex approximations; (f) "Necro Stack" / generic player-side stack mechanic for `wd_sw_death_mastery`.
+1. **F6 first slice — Multi-class fusion (`SkillToggleMorph`)** (multi-week total; this slice ~1-2 days)
+   • Goal: per-skill morph dropdown lets Sor with dagger toggle e.g. "fire→bleed" fusion.
+   • Approach: `SkillToggleMorph` schema in `src/types/skills.ts` (id, applies-to skill id, override AbilityEffect / damage / element). `Character.skillToggles: Record<string, string>` save migration. `getEffectiveSkillDef(skill, toggles)` in `engine/classAdjustment.ts` resolves base + morph. UI: per-skill dropdown next to skill picker.
+   • The 10 fused combo-state specs already exist in `src/data/comboStates.ts` (Phase C3 §8.1) — engine wiring of those is the F6 bulk.
 
-2. **F3 follow-on — full trap coverage** (~1-2 days, ~12 more Hunter Trapper nodes)
-   • F3 first slice landed: 2 new `TalentEffect` kinds (procOnTrapDetonate, procOnTrapChain), dispatch helpers, hook into `dagger.ts` onEnemyAttack trap-detonation site, 8 Hunter Trapper entries (3 live + 4 forward-compat seeds + 1 capstone analog).
-   • Remaining nodes need: (a) bow/crossbow trap mechanic so Hnt's primary-weapon traps actually exist (today only dagger's Blade Trap fires the F3 procs); (b) `'snare' / 'snared'` added to TalentTag union + TALENT_TAG_TO_DEBUFF map (currently approximated as `frozen`); (c) `rearmTrap` / "fire twice" action for Multi-Arming / Snare Detonation Mastery / Chain Reaction; (d) `mana` / `skillTimers` refs threaded into onEnemyAttack ctx so Trap-side refundCooldown / refundMana actions actually mutate state; (e) trap-tagged-source filter on procOn* so detonation-only effects don't double-fire on regular hits.
+2. **F5d expansion — `onConvergenceCast` event** (~2 days, ~10 sor_ar/sor_el nodes)
+   • Convergence skills are weapon-tied (`gauntlet_forge_convergence`, `wand_volley_convergence`, etc.). Need: detect "convergence" cast (id-pattern or new skill tag), fire new `procOnConvergenceCast` TalentEffect kind. Also missing: `onResonanceChargeGain` event for `sor_ar_charge_sense` / `sor_el_element_pulse`. ~10 nodes unlock.
 
-3. **F4 polish — proc inheritance + whileCompanionAlive + balance** (~2-3 days)
-   • F4 first slice + follow-on landed: companion-summon runtime is functional today. Hunter / Berserker / Sorcerer / Assassin players who allocate `hnt_bm_pack_leader_preview` (class-tree) or `asc_hnt_bm_pack_leader` (Beastmaster ascendancy capstone) automatically get a singleton type='companion' minion that ticks via the new generic minion-tick path in `tick.ts` (gated on weapon !== 'staff'). 11 Hunter BM entries activate immediately.
-   • Polish work remaining: (a) **proc inheritance** — `hnt_bm_packs_inheritance` / `hnt_bm_pack_inheritance_mastery` / `hnt_bm_pack_leader_preview` design intent is "companion attacks fire YOUR procOnHit etc. as if they were player attacks". Today companion attacks only fire procOnMinion*/procOnCompanion*. To unlock, route companion hits through `dispatchProcOnHit(talentEffects, ctx)` too with a configurable inheritance % (talent-driven 5/10/15/20/25%). (b) **`whileCompanionAlive` conditional kind** for `hnt_bm_pack_awareness` / `hnt_bm_pack_synergy` / `hnt_bm_companions_fury` (already authored as forward-compat seeds — needs the conditional kind + dispatcher case). (c) **mana / skillTimers ref threading** into tickMaintenance + non-staff tick so `wd_sw_soul_ration` (mana on minion hit) and `hnt_bm_hunt_pact` (cooldown refund on companion-kill) activate. (d) **balance pass** — companion `damagePerSpellPowerRatio: 1.5` is provisional; tune against Hunter mid-game targets. (e) **death/respawn polish** — currently companion respawns instantly when dead via the per-tick spawn check; consider adding a respawn cooldown (e.g., 5s) for tactical depth.
+3. **F5c sticky Frenzied state** (~1 day)
+   • Today's Brs Reaver entries use `whileSelfHpBelow` (non-sticky — fires only while HP < threshold). The design says Frenzied is sticky: enters at <50% HP, exits at >75% HP. Add `state.frenziedActive: boolean` + per-tick HP-threshold transition logic + `whileFrenzied` TalentEffect kind (or just shape it as a synonym for `whileSelfHpBelow` with state-driven gating).
 
-4. **F5 — Signature mechanics × 5** (~1 week each, ~80-100 nodes unlocked across all)
-   • F5a Crit Cascade (Assassin) — `state.critStacks: number` (max 5, decay timer); on every crit add 1 stack via existing dispatcher hook; `whileCritStacksAtLeast` and `perCritStack` TalentEffect kinds; consume on Shadow Mark application.
-   • F5b Mark & Execute (Hunter) — Mark already exists as a debuff tag. Need "Precision Payoff" mechanic: a separate skill cast that consumes Mark for bonus damage. New combat tick check + cast path.
-   • F5c Rage Threshold (Berserker) — Frenzied state when `currentHp / maxLife < threshold`. State enables conditional bonuses. New `state.frenzied: boolean` + `whileFrenzied` TalentEffect kind. Threshold-raise nodes modify the trigger %.
-   • F5d Resonance / Convergence (Sorcerer) — `state.resonanceCharges: { fire: number; cold: number; lightning: number; chaos: number }`. Charges added when matching elements deal damage. Convergence skill consumes all charges for 4-element burst. `onResonanceChargeGain` and `onConvergenceCast` proc kinds.
-   • F5e Pandemic / Hex-can-crit (Witchdoctor) — Pandemic mechanic on enemy death (transfer DoTs to other enemies). Hex-can-crit changes hex damage roll. Both mechanics need new combat-tick paths.
+4. **F2 follow-on — full WD Spirit Whisperer coverage** (~1-2 days, ~10 more nodes)
+   • Many WD SW nodes still need new mechanics: per-source-skill filter on procOnMinion* (so `wd_sw_fetish_frenzy` is fetish-only); "double-strike" action for `wd_sw_pack_mastery` / `wd_sw_spectral_edge` (currently approximated as bleed/hex applyTag); player-side stack state for `wd_sw_death_mastery` Necro Stack; minion-count conditional for `wd_sw_voodoo_roar`.
 
-5. **F6 — Multi-class fusion engineering** (multi-week, new system)
-   • Goal: Phase F-locked design (per `docs/design/MULTI_CLASS_PAIRS.md`) — 10 pair archetypes with toggle morphs + fusion mechanics
-   • Approach: `SkillToggleMorph` schema in `src/types/skills.ts`. `Character.skillToggles: Record<string, string>` (skill id → morph id). `getEffectiveSkillDef(skill, toggles)` resolves base + morph. Fusion-mechanic dispatch sites in `tick.ts` per-pair. UI: per-skill morph dropdown.
-   • The 10 fused combo-state specs already exist in `src/data/comboStates.ts` (Phase C3 §8.1) — engine wiring of those is the bulk of F6.
+5. **F3 follow-on — bow/crossbow trap modules** (~2-3 days, ~12 more Hnt Trapper nodes)
+   • Today only dagger's Blade Trap fires F3 procs. Need: traps.ts adoption in bow.ts / crossbow.ts (or extract trap-tick to tick.ts as I did with companion minions). Plus `'snare' / 'snared'` added to TalentTag union + TALENT_TAG_TO_DEBUFF (currently approximated as `frozen`). `rearmTrap` / "fire twice" action for Multi-Arming / Snare Detonation Mastery.
 
-**Each sub-phase is gated only by the previous one being solid (no compile errors, no broken combat tick).** Start a fresh session for each — context budget per phase is ~200-400k tokens.
+6. **F5e follow-on — Toxic Saint poison-decay-pause half** (~half-day)
+   • The grantDotCrit half landed; missing half: poison stacks don't decay while Shadow Mark is active. Needs new `whilePauseDebuffDecay: { tag, debuffId }` kind + tickDebuffDoT consumer.
+
+7. **F4 polish — companion balance / respawn cooldown / `whileSelfHpAbove`** (~half-day)
+   • `hnt_bm_companions_fury` is the lone forward-compat seed needing `whileSelfHpAbove`. Companion `damagePerSpellPowerRatio: 1.5` is provisional. Currently companion respawns instantly on death — consider 5s cooldown.
+
+8. **Author batch — Brs Juggernaut path (~20 nodes)** (~1 day)
+   • Many need new mechanics (offhand-slot conditional, AoE-target-count stat, Marked for Cleave debuff, Staggered debuff promotion from placeholder). Could pair with adding `whileNoOffhand` conditional for the 6 offhand-gated Juggernaut nodes.
+
+**Each item is gated only by tsc clean + visible UI behavior** — all 32 commits this session are tsc EXIT=0. Start a fresh session for each — context budget per phase is ~200-400k tokens.
 
 ---
 
