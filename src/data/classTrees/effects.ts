@@ -359,7 +359,65 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   ],
 
   // ── Beastmaster path ────────────────────────────────────────────────
-  // Companion-event nodes — no engine wiring today; left empty.
+  // Phase F F4 (2026-05-06): procOnCompanionHit / procOnCompanionCrit /
+  // procOnCompanionDeath unlocked + `grantCompanion` kind for tagging
+  // companion-permission nodes. The companion-summon RUNTIME (i.e.
+  // actually spawning + ticking the companion as a permanent type
+  // 'companion' MinionState for non-staff classes) is deferred to F4
+  // follow-on. Today these entries fire only when a companion-tagged
+  // minion exists in `state.activeMinions` (via WD multi-class fusion
+  // or future runtime). Engine fires from staff.ts minion-attack
+  // consumer (line ~230 — type filter on `attackingMinion.type`).
+  //
+  // Foundation stats — forward-compat seeds (companionDamage / Hp /
+  // AttackSpeed / SummonManaCost not on ResolvedStats today). Land
+  // automatically when the stats are added.
+  'hnt_bm_pack_bond': [
+    { kind: 'stat', stat: 'companionDamage', delta: 5 },
+  ],
+  'hnt_bm_companions_vigor': [
+    { kind: 'stat', stat: 'companionHp', delta: 5 },
+  ],
+  'hnt_bm_hunting_tempo': [
+    { kind: 'stat', stat: 'companionAttackSpeed', delta: 2 },
+  ],
+  'hnt_bm_hunters_loyalty': [
+    { kind: 'stat', stat: 'companionSummonManaCost', delta: -5 },
+  ],
+  // "Companion attacks have +5/10/15/20/25% chance to apply Mark."
+  'hnt_bm_pack_hunt': [
+    { kind: 'procOnCompanionHit', chance: 5, action: { kind: 'applyTag', tag: 'mark', stacks: 1, duration: 8 } },
+  ],
+  // "When you apply Mark, +5/10/15/20/25% chance the companion focuses
+  // the Marked target on its next attack." Approximated as
+  // procOnCompanionHit re-applying Mark — engine cannot retarget the
+  // companion's next attack today.
+  'hnt_bm_hunters_mark_bond': [
+    { kind: 'procOnCompanionHit', chance: 5, action: { kind: 'applyTag', tag: 'mark', stacks: 1, duration: 8 } },
+  ],
+  // "Companion attacks have +5/10/15/20/25% chance to apply Bleeding Out."
+  'hnt_bm_wild_strike': [
+    { kind: 'procOnCompanionHit', chance: 5, action: { kind: 'applyTag', tag: 'bleed', stacks: 1, duration: 4 } },
+  ],
+  // "Companion crits have +5/10/15/20/25% chance to land double crits."
+  // "Double crit" approximated as applyTag(bleed) for stacking damage
+  // pressure — engine cannot trigger a synthetic re-crit on the same
+  // attack today.
+  'hnt_bm_beastmasters_ferocity': [
+    { kind: 'procOnCompanionCrit', chance: 5, action: { kind: 'applyTag', tag: 'bleed', stacks: 1, duration: 4 } },
+  ],
+  // "Companion crits have +20/40/60% chance to crit twice." Same
+  // approximation pattern as Beastmaster's Ferocity.
+  'hnt_bm_pack_sovereign': [
+    { kind: 'procOnCompanionCrit', chance: 20, action: { kind: 'applyTag', tag: 'bleed', stacks: 1, duration: 4 } },
+  ],
+  // Pack Leader Preview — flag node that grants companion permission.
+  // Today this is a no-op marker; the deferred F4 follow-on companion-
+  // summon runtime checks `talentEffects.some(e => e.kind === 'grantCompanion')`
+  // to know whether to spawn / maintain the companion for this build.
+  'hnt_bm_pack_leader_preview': [
+    { kind: 'grantCompanion', minionType: 'companion' },
+  ],
 
   // ── Trapper path ────────────────────────────────────────────────────
   // Phase F F3 (2026-05-06): procOnTrapDetonate / procOnTrapChain

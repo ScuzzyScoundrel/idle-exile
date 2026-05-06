@@ -117,6 +117,28 @@ export type TalentEffect =
   /** Fires when a trap detonation chains into another trap (multi-trap
    *  burst). Phase F F3: Hnt Trapper Chain Trap. */
   | { kind: 'procOnTrapChain'; chance: number; action: TalentAction }
+  /** Fires when the player's companion hits an enemy. Phase F F4
+   *  (2026-05-06): Hnt Beastmaster Pack Hunt / Wild Strike etc. The
+   *  companion is a singleton MinionState with type='companion'; these
+   *  procs filter to just companion attacks (separate from generic
+   *  procOnMinionHit which fires for all minions). */
+  | { kind: 'procOnCompanionHit'; chance: number; action: TalentAction }
+  /** Fires when the player's companion crits. Phase F F4: Hnt BM Pack
+   *  Tactics / Beastmaster's Ferocity / Pack Sovereign / Soul Bond. */
+  | { kind: 'procOnCompanionCrit'; chance: number; action: TalentAction }
+  /** Fires when the player's companion dies (or kills, depending on
+   *  variant). Phase F F4: Hnt BM Hunt Cascade / Hunt Pact / Pack
+   *  Resilience. */
+  | { kind: 'procOnCompanionDeath'; chance: number; action: TalentAction }
+  /** Marks the player as having permission to spawn a permanent
+   *  companion. Phase F F4: presence-based, NOT event-driven — the
+   *  companion-summon runtime (deferred to F4 follow-on) checks for
+   *  this kind in `talentEffects` and ensures a `type: 'companion'`
+   *  MinionState is alive in `state.activeMinions`. Today this kind
+   *  is a no-op (the summon path doesn't exist yet); authoring it
+   *  on Hunter Pack Leader Preview / Beastmaster ascendancy capstone
+   *  enables the future runtime to find the right players. */
+  | { kind: 'grantCompanion'; minionType?: string }
   /** Conditional modifier: while target has tag, multiply stat. */
   | { kind: 'whileTag'; tag: TalentTag; stat: string; mult: number }
   /** Conditional modifier: while PLAYER's HP fraction is below threshold (0-1).

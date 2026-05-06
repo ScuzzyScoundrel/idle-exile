@@ -17,6 +17,7 @@ import {
 } from '../combo';
 import {
   dispatchProcOnMinionHit, dispatchProcOnMinionCrit, dispatchProcOnMinionDeath,
+  dispatchProcOnCompanionHit, dispatchProcOnCompanionCrit, dispatchProcOnCompanionDeath,
   type TalentProcContext,
 } from '../../classTalentDispatcher';
 import {
@@ -229,6 +230,16 @@ export const staffModule: WeaponModule = {
         };
         dispatchProcOnMinionHit(minionTalentEffects, minionProcCtx);
         if (isCrit) dispatchProcOnMinionCrit(minionTalentEffects, minionProcCtx);
+        // Phase F F4 (2026-05-06): if the attacking minion is a companion
+        // (singleton type='companion'), also fire procOnCompanion* so
+        // Hunter Beastmaster nodes can target companion-only behavior
+        // without affecting Witchdoctor's regular minions. Lookup via
+        // minionId against the post-step minion list.
+        const attackingMinion = updatedMinions.find(m => m.id === a.minionId);
+        if (attackingMinion?.type === 'companion') {
+          dispatchProcOnCompanionHit(minionTalentEffects, minionProcCtx);
+          if (isCrit) dispatchProcOnCompanionCrit(minionTalentEffects, minionProcCtx);
+        }
         // Apply healSelf side-effect by accumulating into healAmount
         const healDelta = minionProcCtx.life.value - state.currentHp;
         if (healDelta > 0) healAmount += healDelta;
@@ -497,6 +508,11 @@ export const staffModule: WeaponModule = {
           sourceSkillId: prev.sourceSkillId,
         };
         dispatchProcOnMinionDeath(deathTalentEffects, deathProcCtx);
+        // Phase F F4: if the dying minion is a companion, also fire
+        // procOnCompanionDeath (Hunter BM Pack Resilience etc.).
+        if (prev.type === 'companion') {
+          dispatchProcOnCompanionDeath(deathTalentEffects, deathProcCtx);
+        }
         const healDelta = deathProcCtx.life.value - state.currentHp;
         if (healDelta > 0) healAmount += healDelta;
       }

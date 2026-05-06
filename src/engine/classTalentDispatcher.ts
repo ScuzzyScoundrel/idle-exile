@@ -80,8 +80,12 @@ export function scaleTalentEffectByRank(effect: TalentEffect, rank: number): Tal
     case 'procOnMinionDeath':
     case 'procOnTrapDetonate':
     case 'procOnTrapChain':
+    case 'procOnCompanionHit':
+    case 'procOnCompanionCrit':
+    case 'procOnCompanionDeath':
       return { ...effect, chance: Math.min(100, effect.chance * rank) };
     case 'grantTagOnSkill':
+    case 'grantCompanion':
       return effect;
   }
 }
@@ -213,7 +217,11 @@ export function applyConditionalTalentEffects(
       case 'procOnMinionDeath':
       case 'procOnTrapDetonate':
       case 'procOnTrapChain':
+      case 'procOnCompanionHit':
+      case 'procOnCompanionCrit':
+      case 'procOnCompanionDeath':
       case 'grantTagOnSkill':
+      case 'grantCompanion':
         break;
     }
   }
@@ -381,4 +389,40 @@ export function dispatchProcOnTrapChain(effects: TalentEffect[], ctx: TalentProc
     if (eff.kind !== 'procOnTrapChain') continue;
     rollAndFire(eff.action, eff.chance, ctx);
   }
+}
+
+/** Fires when the player's companion (singleton minion with
+ *  `type: 'companion'`) hits an enemy. Phase F F4 (2026-05-06):
+ *  separate from generic procOnMinionHit so Hunter Beastmaster nodes
+ *  can target companion-only behavior. */
+export function dispatchProcOnCompanionHit(effects: TalentEffect[], ctx: TalentProcContext): void {
+  for (const eff of effects) {
+    if (eff.kind !== 'procOnCompanionHit') continue;
+    rollAndFire(eff.action, eff.chance, ctx);
+  }
+}
+
+/** Fires when the player's companion crits. */
+export function dispatchProcOnCompanionCrit(effects: TalentEffect[], ctx: TalentProcContext): void {
+  for (const eff of effects) {
+    if (eff.kind !== 'procOnCompanionCrit') continue;
+    rollAndFire(eff.action, eff.chance, ctx);
+  }
+}
+
+/** Fires when the player's companion dies. */
+export function dispatchProcOnCompanionDeath(effects: TalentEffect[], ctx: TalentProcContext): void {
+  for (const eff of effects) {
+    if (eff.kind !== 'procOnCompanionDeath') continue;
+    rollAndFire(eff.action, eff.chance, ctx);
+  }
+}
+
+/** Returns true if the player has at least one `grantCompanion` effect
+ *  allocated — used by the (deferred) companion-summon runtime to
+ *  decide whether to spawn / maintain a singleton companion. Today
+ *  this is consulted only in tests; the runtime that actually summons
+ *  the companion is the F4 follow-on. */
+export function hasCompanionGrant(effects: TalentEffect[]): boolean {
+  return effects.some(e => e.kind === 'grantCompanion');
 }
