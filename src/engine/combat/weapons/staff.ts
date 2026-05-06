@@ -510,11 +510,19 @@ export const staffModule: WeaponModule = {
       // actions no-op gracefully.
       const deathTalentEffects = ctx.talentEffects;
       if (deathTalentEffects && deathTalentEffects.length > 0) {
+        const deathMinionsRef = {
+          list: finalMinions,
+          playerMaxLife: ctx.effectiveMaxLife,
+          playerSpellPower: ctx.spellPower,
+          now,
+        };
         const deathProcCtx: TalentProcContext = {
           targetDebuffs: ctx.targetDebuffs,
           life: { value: state.currentHp, max: ctx.effectiveMaxLife },
           sourceSkillId: prev.sourceSkillId,
           mana: ctx.mana,
+          tempBuffsRef: state.tempBuffs ? [...state.tempBuffs] : [],
+          minionsRef: deathMinionsRef,
         };
         dispatchProcOnMinionDeath(deathTalentEffects, deathProcCtx);
         // Phase F F4: if the dying minion is a companion, also fire
@@ -524,6 +532,11 @@ export const staffModule: WeaponModule = {
         }
         const healDelta = deathProcCtx.life.value - state.currentHp;
         if (healDelta > 0) healAmount += healDelta;
+        // Write back grantBuff + summon mutations (Phase F polish).
+        if (deathProcCtx.tempBuffsRef && state.tempBuffs) {
+          state.tempBuffs = deathProcCtx.tempBuffsRef;
+        }
+        finalMinions = deathMinionsRef.list;
       }
 
       const deathMod = resolveMinionMod(prev.sourceSkillId);

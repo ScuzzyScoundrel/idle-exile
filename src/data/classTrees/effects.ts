@@ -182,6 +182,14 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'wd_sw_necromantic_rite': [
     { kind: 'procOnKill', chance: 20, action: { kind: 'summon', minionType: 'spirit_temp', count: 1, durationSec: 6 } },
   ],
+  // "When a minion dies, +25/50/75% chance to immediately spawn a
+  // 'Spirit Echo' (4s, 50% damage)." Approximated via spirit_temp
+  // archetype with 4s duration. The 50%-damage flavor is dropped
+  // (would need a custom config; spirit_temp's stock damage is fine
+  // for first slice).
+  'wd_sw_resilient_spirits': [
+    { kind: 'procOnMinionDeath', chance: 25, action: { kind: 'summon', minionType: 'spirit_temp', count: 1, durationSec: 4 } },
+  ],
 
   // ====================================================================
   // ASSASSIN
