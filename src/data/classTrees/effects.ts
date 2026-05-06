@@ -347,6 +347,26 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'brs_rv_hunger': [
     { kind: 'whileSelfHpBelow', threshold: 0.5, stat: 'damageMult', mult: 1.02 },
   ],
+  // Phase F F5c follow-on (2026-05-06): additive delta on whileSelfHpBelow
+  // unlocks percent-stat conditionals. Authoring with `mult: 1` (ignored)
+  // + `delta: N` so the dispatcher adds N to the stat additively.
+  // "+2/4/6/8/10% crit chance while below 50% HP" rank-1 → +10% at rank 5.
+  'brs_rv_reckless': [
+    { kind: 'whileSelfHpBelow', threshold: 0.5, stat: 'critChance', mult: 1, delta: 2 },
+  ],
+  // "+2/4/6/8/10% damage reduction while below 50% HP."
+  'brs_rv_iron_skin': [
+    { kind: 'whileSelfHpBelow', threshold: 0.5, stat: 'damageTakenReduction', mult: 1, delta: 2 },
+  ],
+  // "+10/20/30/40/50% crit damage while below 25% HP" — deep-execute crit
+  // multiplier scaler.
+  'brs_rv_reckless_surge': [
+    { kind: 'whileSelfHpBelow', threshold: 0.25, stat: 'critMultiplier', mult: 1, delta: 10 },
+  ],
+  // "+5/10/15% crit chance while below 25% HP."
+  'brs_rv_death_defiance': [
+    { kind: 'whileSelfHpBelow', threshold: 0.25, stat: 'critChance', mult: 1, delta: 5 },
+  ],
 
   // ── Juggernaut path ─────────────────────────────────────────────────
   'brs_jg_stalwart': [
