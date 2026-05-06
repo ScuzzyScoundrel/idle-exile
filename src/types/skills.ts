@@ -171,6 +171,16 @@ export type TalentEffect =
    *  reads `state.critStacks` instead of target debuff stacks. Bonus
    *  is `perStackDelta * critStacks`, optionally capped. */
   | { kind: 'perCritStack'; stat: string; perStackDelta: number; cap?: number }
+  /** Conditional modifier: while the player has at least `threshold`
+   *  total Resonance charges (sum across all elements), multiply
+   *  stat. Phase F F5d (2026-05-06): Sorcerer Resonance signature
+   *  mechanic. Per-element conditionals (e.g. "while you have a fire
+   *  charge") are F5d follow-on. */
+  | { kind: 'whileResonanceChargesAtLeast'; threshold: number; stat: string; mult: number }
+  /** Per-resonance-charge additive bonus, summed across all elements.
+   *  Phase F F5d: parallel to perCritStack — bonus is
+   *  `perStackDelta * totalCharges`, optionally capped. */
+  | { kind: 'perResonanceCharge'; stat: string; perStackDelta: number; cap?: number }
   /** Per-stack modifier (e.g. +5% damage per poison stack, capped). */
   | { kind: 'perStack'; stack: string; stat: string; perStackDelta: number; cap?: number }
   /** Adds a damage tag to skills matching a source tag

@@ -187,6 +187,15 @@ export function runCombatTick(
     state.critStacksExpiresAt = 0;
   }
 
+  // Phase F F5d (2026-05-06): Resonance — reset all element charges
+  // if the expiry window has elapsed without a fresh elemental hit.
+  // Charges accumulate at the dispatchProcOnHit site (see hitTag
+  // resonance accumulator below).
+  if (state.resonanceExpiresAt > 0 && now > state.resonanceExpiresAt) {
+    state.resonanceCharges = { fire: 0, cold: 0, lightning: 0, chaos: 0 };
+    state.resonanceExpiresAt = 0;
+  }
+
   // Weapon maintenance: tick combo states + traps EVERY tick (not gated by GCD)
   let maintPatch: Partial<GameState> | null = null;
   let newActiveMinions = state.activeMinions ? [...state.activeMinions] : [];
@@ -666,9 +675,10 @@ export function runCombatTick(
       ? (state.bossState.bossMaxHp > 0 ? state.bossState.bossCurrentHp / state.bossState.bossMaxHp : 1)
       : (frontMobMaxHp > 0 ? frontMobHp / frontMobMaxHp : 1);
     const companionAlive = (state.activeMinions ?? []).some(m => m.type === 'companion' && m.hp > 0);
+    const totalResonance = state.resonanceCharges.fire + state.resonanceCharges.cold + state.resonanceCharges.lightning + state.resonanceCharges.chaos;
     const talentConditional = applyConditionalTalentEffects(
       talentEffects, effectiveStats, targetDebuffs, selfHpFraction, targetHpFraction, companionAlive,
-      state.critStacks,
+      state.critStacks, totalResonance,
     );
     damageMult *= talentConditional.damageMult;
   }
@@ -982,6 +992,15 @@ export function runCombatTick(
       critStacksRef: { value: state.critStacks, max: 5, expiresAt: state.critStacksExpiresAt },
     };
     dispatchProcOnHit(talentEffects, procCtx);
+    // Phase F F5d (2026-05-06): Resonance charge accumulator. Each
+    // elemental player hit adds 1 charge of the matching element
+    // (capped at 5 per element) and refreshes the 6s decay window.
+    // Physical / Attack / Spell tags don't add charges.
+    if (hitTag === 'Fire' || hitTag === 'Cold' || hitTag === 'Lightning' || hitTag === 'Chaos') {
+      const elKey = hitTag.toLowerCase() as 'fire' | 'cold' | 'lightning' | 'chaos';
+      state.resonanceCharges[elKey] = Math.min(5, state.resonanceCharges[elKey] + 1);
+      state.resonanceExpiresAt = now + 6000;
+    }
     if (roll.isCrit) {
       dispatchProcOnCrit(talentEffects, procCtx);
       // Phase F F5a: Crit Cascade — every player crit adds 1 stack

@@ -996,6 +996,15 @@ export function runMigrations(
     if (raw.critStacksExpiresAt === undefined) raw.critStacksExpiresAt = 0;
   }
 
+  if (version < 72) {
+    // v72: Phase F F5d — Resonance for Sorcerer. Init the per-element
+    // charge bag + expiry. Default zero charges across all 4 elements.
+    if (raw.resonanceCharges === undefined) {
+      raw.resonanceCharges = { fire: 0, cold: 0, lightning: 0, chaos: 0 };
+    }
+    if (raw.resonanceExpiresAt === undefined) raw.resonanceExpiresAt = 0;
+  }
+
   if (version < 69) {
     // v69: Phase D — multi-rank class talent engine.
     // Convert flat `talentAllocations: string[]` → `talentRanks: Record<string, number>`

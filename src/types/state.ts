@@ -135,6 +135,14 @@ export interface GameState {
    *  `perCritStack` (via `perStack` with stack='critStack') effects. */
   critStacks: number;
   critStacksExpiresAt: number;
+  /** Phase F F5d (2026-05-06): Resonance — Sorcerer signature mechanic.
+   *  Each elemental player hit adds 1 charge to the matching element
+   *  (capped at 5 per element). Charges decay if no elemental hit
+   *  within the expiry window. Drives `whileResonanceChargesAtLeast`
+   *  and `perResonanceCharge` effects (currently consult the SUM of
+   *  all elements; per-element conditionals are a follow-on). */
+  resonanceCharges: { fire: number; cold: number; lightning: number; chaos: number };
+  resonanceExpiresAt: number;
 
   // Combo states (Dagger v2 — ephemeral, not persisted)
   comboStates: ComboState[];

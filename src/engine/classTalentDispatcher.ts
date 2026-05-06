@@ -79,6 +79,14 @@ export function scaleTalentEffectByRank(effect: TalentEffect, rank: number): Tal
         perStackDelta: effect.perStackDelta * rank,
         cap: effect.cap !== undefined ? effect.cap * rank : undefined,
       };
+    case 'whileResonanceChargesAtLeast':
+      return { ...effect, mult: 1 + (effect.mult - 1) * rank };
+    case 'perResonanceCharge':
+      return {
+        ...effect,
+        perStackDelta: effect.perStackDelta * rank,
+        cap: effect.cap !== undefined ? effect.cap * rank : undefined,
+      };
     case 'perStack':
       return {
         ...effect,
@@ -172,6 +180,7 @@ export function applyConditionalTalentEffects(
   targetHpFraction: number = 1,
   companionAlive: boolean = false,
   critStacks: number = 0,
+  resonanceCharges: number = 0,
 ): { damageMult: number } {
   let damageMult = 1;
   for (const eff of effects) {
@@ -236,6 +245,24 @@ export function applyConditionalTalentEffects(
       case 'perCritStack': {
         if (critStacks <= 0) break;
         const raw = critStacks * eff.perStackDelta;
+        const bonus = eff.cap ? Math.min(raw, eff.cap) : raw;
+        if (eff.stat === 'damageMult') damageMult *= (1 + bonus);
+        else if (typeof (stats as any)[eff.stat] === 'number') {
+          (stats as any)[eff.stat] += bonus;
+        }
+        break;
+      }
+      case 'whileResonanceChargesAtLeast':
+        if (resonanceCharges >= eff.threshold) {
+          if (eff.stat === 'damageMult') damageMult *= eff.mult;
+          else if (typeof (stats as any)[eff.stat] === 'number') {
+            (stats as any)[eff.stat] *= eff.mult;
+          }
+        }
+        break;
+      case 'perResonanceCharge': {
+        if (resonanceCharges <= 0) break;
+        const raw = resonanceCharges * eff.perStackDelta;
         const bonus = eff.cap ? Math.min(raw, eff.cap) : raw;
         if (eff.stat === 'damageMult') damageMult *= (1 + bonus);
         else if (typeof (stats as any)[eff.stat] === 'number') {

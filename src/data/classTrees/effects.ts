@@ -265,11 +265,34 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'sor_el_conduit_mastery': [
     { kind: 'stat', stat: 'spellPower', delta: 5 },
   ],
+  // Phase F F5d (2026-05-06): Resonance engine landed — charges
+  // accumulate per elemental hit (capped at 5/element, 6s decay).
+  // Total charges drive whileResonanceChargesAtLeast + perResonanceCharge.
+  // "Each unique element ailment on a target grants +2/4/6/8/10% damage."
+  // Approximated as perResonanceCharge damageMult — total charges
+  // (which require unique elements to be dealt) loosely tracks unique-
+  // ailment count for player-side accumulation.
+  'sor_el_catalyst': [
+    { kind: 'perResonanceCharge', stat: 'damageMult', perStackDelta: 0.02, cap: 0.10 },
+  ],
+  // "Skills dealing 2+ damage types deal +3/6/9/12/15% bonus damage."
+  // Approximated as whileResonanceChargesAtLeast threshold 2 (you have
+  // at least 2 charges → recently hit with 2+ elements).
+  'sor_el_hybrid_empowerment': [
+    { kind: 'whileResonanceChargesAtLeast', threshold: 2, stat: 'damageMult', mult: 1.03 },
+  ],
 
   // ── Arcanist path ───────────────────────────────────────────────────
   // Resonance bank-size seed (maxResonanceCharges not yet on ResolvedStats).
   'sor_ar_bank_mastery': [
     { kind: 'stat', stat: 'maxResonanceCharges', delta: 1 },
+  ],
+  // F5d follow-on candidate — at full bank, +X% spell power. Authoring
+  // as whileResonanceChargesAtLeast threshold 5 (1 charge in 4+ elements
+  // = "saturated bank"). Approximation since per-element threshold
+  // would need separate kind.
+  'sor_ar_saturation': [
+    { kind: 'whileResonanceChargesAtLeast', threshold: 5, stat: 'spellPower', mult: 1.20 },
   ],
   // Phase F F1b (2026-05-05): refundMana unlocks Arcanist crit-economy.
   // "On crit, +1/2/3 mana refunded" rank-1 → 100% chance, +1 mana per crit.
