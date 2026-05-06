@@ -60,7 +60,11 @@ export function scaleTalentEffectByRank(effect: TalentEffect, rank: number): Tal
     case 'statMult':
       return { ...effect, mult: 1 + (effect.mult - 1) * rank };
     case 'whileTag':
-      return { ...effect, mult: 1 + (effect.mult - 1) * rank };
+      return {
+        ...effect,
+        mult: 1 + (effect.mult - 1) * rank,
+        delta: effect.delta !== undefined ? effect.delta * rank : undefined,
+      };
     case 'whileSelfHpBelow':
       return {
         ...effect,
@@ -108,6 +112,8 @@ export function scaleTalentEffectByRank(effect: TalentEffect, rank: number): Tal
       return { ...effect, chance: Math.min(100, effect.chance * rank) };
     case 'companionProcInheritance':
       return { ...effect, percent: Math.min(100, effect.percent * rank) };
+    case 'precisionPayoff':
+      return { ...effect, bonusPercent: effect.bonusPercent * rank };
     case 'grantTagOnSkill':
     case 'grantCompanion':
     case 'grantPandemic':
@@ -200,8 +206,13 @@ export function applyConditionalTalentEffects(
         break;
       case 'whileTag':
         if (targetHasTag(targetDebuffs, eff.tag)) {
-          if (eff.stat === 'damageMult') damageMult *= eff.mult;
-          else if (typeof (stats as any)[eff.stat] === 'number') {
+          if (eff.delta !== undefined) {
+            if (typeof (stats as any)[eff.stat] === 'number') {
+              (stats as any)[eff.stat] += eff.delta;
+            }
+          } else if (eff.stat === 'damageMult') {
+            damageMult *= eff.mult;
+          } else if (typeof (stats as any)[eff.stat] === 'number') {
             (stats as any)[eff.stat] *= eff.mult;
           }
         }
@@ -301,6 +312,7 @@ export function applyConditionalTalentEffects(
       case 'grantCompanion':
       case 'grantPandemic':
       case 'companionProcInheritance':
+      case 'precisionPayoff':
         break;
     }
   }
@@ -548,6 +560,19 @@ export function hasCompanionGrant(effects: TalentEffect[]): boolean {
  *  debuffs to surviving enemies. */
 export function hasPandemicGrant(effects: TalentEffect[]): boolean {
   return effects.some(e => e.kind === 'grantPandemic');
+}
+
+/** Aggregates all `precisionPayoff` bonusPercents (already rank-scaled)
+ *  into a single damage multiplier bonus. Phase F F5b (2026-05-06):
+ *  consumed by tick.ts on Precision Payoff hits (a hit on a Marked
+ *  target by a skill different from the one that applied Mark).
+ *  Result is the raw percent (e.g. 35 → +35% damage). */
+export function getPrecisionPayoffBonus(effects: TalentEffect[]): number {
+  let total = 0;
+  for (const e of effects) {
+    if (e.kind === 'precisionPayoff') total += e.bonusPercent;
+  }
+  return total;
 }
 
 /** Aggregates all `companionProcInheritance` percents (already rank-

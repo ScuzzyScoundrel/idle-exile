@@ -462,6 +462,23 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'hnt_mm_mark_master': [
     { kind: 'stat', stat: 'ailmentDuration', delta: 15 },
   ],
+  // Phase F F5b (2026-05-06): Precision Payoff engine landed. A hit
+  // on a Marked target by a skill different from the one that applied
+  // Mark gets a damage bonus equal to the sum of all precisionPayoff
+  // bonusPercents and consumes the Mark.
+  // "+5/10/15/20/25% damage on Precision Payoff hits."
+  'hnt_mm_precision_payoff_mastery': [
+    { kind: 'precisionPayoff', bonusPercent: 5 },
+  ],
+  // F5b also unlocks whileTag.delta — additive variant so percent
+  // stats author cleanly. "+2/4/6/8/10% crit chance vs Marked targets."
+  'hnt_mm_critical_aim': [
+    { kind: 'whileTag', tag: 'mark', stat: 'critChance', mult: 1, delta: 2 },
+  ],
+  // "+5/10/15/20/25% crit damage vs Marked targets."
+  'hnt_mm_headshot_sense': [
+    { kind: 'whileTag', tag: 'mark', stat: 'critMultiplier', mult: 1, delta: 5 },
+  ],
 
   // ── Beastmaster path ────────────────────────────────────────────────
   // Phase F F4 (2026-05-06): procOnCompanionHit / procOnCompanionCrit /

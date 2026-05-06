@@ -41,6 +41,7 @@ import {
   collectTalentEffects,
   collectAscendancyEffects,
   applyConditionalTalentEffects,
+  getPrecisionPayoffBonus,
   dispatchProcOnHit,
   dispatchProcOnCrit,
   dispatchProcOnKill,
@@ -681,6 +682,21 @@ export function runCombatTick(
       state.critStacks, totalResonance,
     );
     damageMult *= talentConditional.damageMult;
+    // Phase F F5b (2026-05-06): Precision Payoff — a hit on a Marked
+    // target by a skill DIFFERENT from the one that applied Mark
+    // multiplies damage by the aggregated precisionPayoff bonus and
+    // consumes the Mark. Only fires when the player has any
+    // precisionPayoff effect allocated.
+    const ppBonus = getPrecisionPayoffBonus(talentEffects);
+    if (ppBonus > 0) {
+      const markIdx = targetDebuffs.findIndex(d =>
+        d.debuffId === 'marked' && d.appliedBySkillId !== skill.id,
+      );
+      if (markIdx >= 0) {
+        damageMult *= 1 + ppBonus / 100;
+        targetDebuffs.splice(markIdx, 1);  // consume the Mark
+      }
+    }
   }
 
   // Apply graph + conditional cast speed bonus

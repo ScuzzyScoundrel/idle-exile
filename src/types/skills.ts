@@ -152,8 +152,17 @@ export type TalentEffect =
    *  Multiple `grantPandemic` allocations don't compound — transfer
    *  fires once per qualifying death. */
   | { kind: 'grantPandemic' }
-  /** Conditional modifier: while target has tag, multiply stat. */
-  | { kind: 'whileTag'; tag: TalentTag; stat: string; mult: number }
+  /** Bonus damage on a Precision Payoff — a hit on a Marked target
+   *  by a skill DIFFERENT from the one that applied Mark. Phase F F5b
+   *  (2026-05-06): Hunter signature mechanic. Multiple nodes
+   *  (Precision Payoff Mastery / Precision Reaper / Tracker's Sigil)
+   *  contribute additively. tick.ts checks the Mark debuff's
+   *  `appliedBySkillId`; on a Precision Payoff hit, multiplies damage
+   *  by `(1 + total bonusPercent / 100)` and consumes the Mark. */
+  | { kind: 'precisionPayoff'; bonusPercent: number }
+  /** Conditional modifier: while target has tag, multiply stat (or
+   *  add `delta` for additive percent stats like critChance). */
+  | { kind: 'whileTag'; tag: TalentTag; stat: string; mult: number; delta?: number }
   /** Conditional modifier: while PLAYER's HP fraction is below threshold (0-1).
    *  E.g. threshold=0.5 → fires while currentHp/maxLife < 50%. Phase F (Brs
    *  Reaver / low-HP scaling). When `delta` is set, dispatcher adds it to
