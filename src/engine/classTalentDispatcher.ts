@@ -425,6 +425,14 @@ export interface TalentProcContext {
     playerSpellPower: number;
     now: number;
   };
+  /** Self-reference to all allocated talent effects so executeAction
+   *  can fire procOnTag cascades (Phase F polish, 2026-05-06).
+   *  When caller passes effects here, applyTag / applyTagAll actions
+   *  recursively fire `dispatchProcOnTag` with the applied tag —
+   *  enabling "on Mark application" / "on Hex application" nodes.
+   *  Internal `_inProcOnTag` guard prevents direct recursion. */
+  effects?: TalentEffect[];
+  _inProcOnTag?: boolean;
 }
 
 /** Roll chance and dispatch action. chance is 0-100 (not 0-1). */
@@ -439,6 +447,15 @@ function executeAction(action: TalentAction, ctx: TalentProcContext): void {
       const did = TALENT_TAG_TO_DEBUFF[action.tag];
       if (!did) return;
       applyDebuffToList(ctx.targetDebuffs, did, action.stacks ?? 1, action.duration ?? 4, ctx.sourceSkillId);
+      // Phase F polish (2026-05-06): cascade procOnTag (e.g. hnt_mm
+      // _hunters_eye fires on Mark application). Guard against direct
+      // recursion via the _inProcOnTag flag — chain probability decays
+      // naturally so 1-deep is sufficient for typical builds.
+      if (ctx.effects && !ctx._inProcOnTag) {
+        ctx._inProcOnTag = true;
+        dispatchProcOnTag(ctx.effects, action.tag, ctx);
+        ctx._inProcOnTag = false;
+      }
       break;
     }
     case 'applyTagAll': {
@@ -448,6 +465,12 @@ function executeAction(action: TalentAction, ctx: TalentProcContext): void {
       if (!lists) return; // graceful no-op when caller didn't provide refs
       for (const list of lists) {
         applyDebuffToList(list, did, action.stacks ?? 1, action.duration ?? 4, ctx.sourceSkillId);
+      }
+      // Cascade procOnTag once per broadcast (not per target).
+      if (ctx.effects && !ctx._inProcOnTag) {
+        ctx._inProcOnTag = true;
+        dispatchProcOnTag(ctx.effects, action.tag, ctx);
+        ctx._inProcOnTag = false;
       }
       break;
     }

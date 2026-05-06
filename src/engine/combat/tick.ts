@@ -1016,6 +1016,9 @@ export function runCombatTick(
       // Phase F polish (2026-05-06): expose temp buffs so grantBuff
       // action can push / refresh entries (wd_sw_bone_armor etc.).
       tempBuffsRef: [...activeTempBuffs],
+      // Phase F polish (2026-05-06): self-reference enables procOnTag
+      // cascades (hnt_mm_hunters_eye fires on Mark application etc.).
+      effects: talentEffects,
     };
     dispatchProcOnHit(talentEffects, procCtx);
     // Phase F F5d (2026-05-06): Resonance charge accumulator. Each

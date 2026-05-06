@@ -555,6 +555,16 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'hnt_mm_headshot_sense': [
     { kind: 'whileTag', tag: 'mark', stat: 'critMultiplier', mult: 1, delta: 5 },
   ],
+  // Phase F polish (2026-05-06): procOnTag cascade landed. "On Mark
+  // application, +5/10/15/20/25% chance to gain a guaranteed-crit
+  // charge for the follow-up Precision Payoff." Approximated as
+  // procOnTag(mark) → grantBuff(precision_charge) — buff grants
+  // critChanceBonus 100 for 4s (single-use semantics aren't precise
+  // since duration buffs don't auto-consume on first hit, but the
+  // crit-floor effect lands).
+  'hnt_mm_hunters_eye': [
+    { kind: 'procOnTag', tag: 'mark', chance: 5, action: { kind: 'grantBuff', buffId: 'precision_charge', duration: 4 } },
+  ],
   // "On crit, +1/2/3/4/5% chance to instantly Mark another enemy."
   // Approximated as procOnCrit applyTagAll(mark) — broader than
   // design's "another enemy" intent (broadcasts to all instead of
