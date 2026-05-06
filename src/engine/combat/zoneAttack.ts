@@ -377,7 +377,7 @@ export function applyZoneDamage(
             const csEffect = creator?.effect ?? {};
             const csMaxStacks = creator?.maxStacks ?? 5;
             for (let i = 0; i < cs.stacks; i++) {
-              newComboStates = createComboState(newComboStates, cs.stateId, skillId, csEffect, cs.duration, csMaxStacks);
+              newComboStates = createComboState(newComboStates, cs.stateId, skillId, csEffect, cs.duration, csMaxStacks, 1 + (killStats.ailmentDuration ?? 0) / 100);
             }
           }
         }
@@ -389,7 +389,7 @@ export function applyZoneDamage(
           const csEffect = creator?.effect ?? {};
           const csMaxStacks = creator?.maxStacks ?? 5;
           for (let i = 0; i < stacks; i++) {
-            newComboStates = createComboState(newComboStates, 'soul_stack', skillId, csEffect, creator?.duration ?? 8, csMaxStacks);
+            newComboStates = createComboState(newComboStates, 'soul_stack', skillId, csEffect, creator?.duration ?? 8, csMaxStacks, 1 + (killStats.ailmentDuration ?? 0) / 100);
           }
         }
         // locustHexedKillSpawnsSoulStacks — killed with hexed + locust → soul_stacks
@@ -401,7 +401,7 @@ export function applyZoneDamage(
           const csEffect = creator?.effect ?? {};
           const csMaxStacks = creator?.maxStacks ?? 5;
           for (let i = 0; i < stacks; i++) {
-            newComboStates = createComboState(newComboStates, 'soul_stack', skillId, csEffect, creator?.duration ?? 8, csMaxStacks);
+            newComboStates = createComboState(newComboStates, 'soul_stack', skillId, csEffect, creator?.duration ?? 8, csMaxStacks, 1 + (killStats.ailmentDuration ?? 0) / 100);
           }
         }
         // hexedDeathSpreadsHex — on hexed mob death, spread to pack

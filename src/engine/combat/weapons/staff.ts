@@ -216,6 +216,7 @@ export const staffModule: WeaponModule = {
           comboStates, 'haunted', a.sourceSkillId,
           { incDamage: 30, guaranteedCrit: true },
           HAUNTED_DURATION, 1,
+          1 + (ctx.effectiveStats.ailmentDuration ?? 0) / 100,
         );
       }
       // Signature ailment — uses effectiveElement (fetishPhysToChaos override takes precedence)
@@ -294,7 +295,7 @@ export const staffModule: WeaponModule = {
           const icdMs = (rb.dogBiteSoulStackICD ?? 2) * 1000;
           const lastAt = state.lastProcTriggerAt?.[icdKey] ?? 0;
           if (now >= lastAt + icdMs) {
-            comboStates = createComboState(comboStates, 'soul_stack', a.sourceSkillId, {}, 8, 1);
+            comboStates = createComboState(comboStates, 'soul_stack', a.sourceSkillId, {}, 8, 1, 1 + (ctx.effectiveStats.ailmentDuration ?? 0) / 100);
             if (state.lastProcTriggerAt) state.lastProcTriggerAt[icdKey] = now;
           }
         }
@@ -304,7 +305,7 @@ export const staffModule: WeaponModule = {
           const icdMs = (rb.dogCritSoulStackICD ?? 2) * 1000;
           const lastAt = state.lastProcTriggerAt?.[icdKey] ?? 0;
           if (now >= lastAt + icdMs) {
-            comboStates = createComboState(comboStates, 'soul_stack', a.sourceSkillId, {}, 8, 1);
+            comboStates = createComboState(comboStates, 'soul_stack', a.sourceSkillId, {}, 8, 1, 1 + (ctx.effectiveStats.ailmentDuration ?? 0) / 100);
             if (state.lastProcTriggerAt) state.lastProcTriggerAt[icdKey] = now;
           }
         }
@@ -385,7 +386,7 @@ export const staffModule: WeaponModule = {
           const icdMs = (rb.fetishHitSoulStackICD ?? 1) * 1000;
           const lastAt = state.lastProcTriggerAt?.[icdKey] ?? 0;
           if (now >= lastAt + icdMs) {
-            comboStates = createComboState(comboStates, 'soul_stack', a.sourceSkillId, {}, 8, 1);
+            comboStates = createComboState(comboStates, 'soul_stack', a.sourceSkillId, {}, 8, 1, 1 + (ctx.effectiveStats.ailmentDuration ?? 0) / 100);
             if (state.lastProcTriggerAt) state.lastProcTriggerAt[icdKey] = now;
           }
         }
@@ -395,7 +396,7 @@ export const staffModule: WeaponModule = {
           const icdMs = (rb.fetishCritSoulStackICD ?? 1.5) * 1000;
           const lastAt = state.lastProcTriggerAt?.[icdKey] ?? 0;
           if (now >= lastAt + icdMs) {
-            comboStates = createComboState(comboStates, 'soul_stack', a.sourceSkillId, {}, 8, 1);
+            comboStates = createComboState(comboStates, 'soul_stack', a.sourceSkillId, {}, 8, 1, 1 + (ctx.effectiveStats.ailmentDuration ?? 0) / 100);
             if (state.lastProcTriggerAt) state.lastProcTriggerAt[icdKey] = now;
           }
         }
@@ -440,6 +441,7 @@ export const staffModule: WeaponModule = {
       comboStates = createComboState(
         comboStates, 'spirit_link', 'staff_minion_subsystem',
         { incDamage: 0 }, SPIRIT_LINK_REFRESH, 1,
+        1 + (ctx.effectiveStats.ailmentDuration ?? 0) / 100,
       );
     }
 
@@ -595,6 +597,7 @@ export const staffModule: WeaponModule = {
         comboStates = createComboState(
           comboStates, 'dog_aura', 'staff_zombie_dogs',
           { incDamage: auraBonus }, 2, 1,
+          1 + (ctx.effectiveStats.ailmentDuration ?? 0) / 100,
         );
       }
     }
@@ -1037,6 +1040,7 @@ export const staffModule: WeaponModule = {
         comboStates = createComboState(
           comboStates, config.stateId, skill.id,
           config.effect, config.duration, maxStacks,
+          1 + (ctx.effectiveStats.ailmentDuration ?? 0) / 100,
         );
         // Soul Harvest: Double Harvest T4 — crits grant bonus soul_stacks
         if (config.stateId === 'soul_stack' && roll.isCrit && graphMod?.soulHarvestCritBonusStacks) {
@@ -1044,6 +1048,7 @@ export const staffModule: WeaponModule = {
             comboStates = createComboState(
               comboStates, config.stateId, skill.id,
               config.effect, config.duration, maxStacks,
+              1 + (ctx.effectiveStats.ailmentDuration ?? 0) / 100,
             );
           }
         }
@@ -1124,7 +1129,7 @@ export const staffModule: WeaponModule = {
           : stateId === 'hexed'
             ? { incDamage: 100 }
             : { incDamage: 0 };
-        comboStates = createComboState(comboStates, stateId, skill.id, effect, duration, 1);
+        comboStates = createComboState(comboStates, stateId, skill.id, effect, duration, 1, 1 + (ctx.effectiveStats.ailmentDuration ?? 0) / 100);
       }
     }
 

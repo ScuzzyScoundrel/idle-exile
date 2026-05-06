@@ -164,6 +164,7 @@ export function createStateFromSpec(
   stateId: string,
   sourceSkillId: string,
   overrides?: Partial<{ duration: number; maxStacks: number; effect: ComboStateEffect }>,
+  durationMult: number = 1,
 ): ComboState[] {
   const spec = getComboStateSpec(stateId);
   if (!spec) {
@@ -180,10 +181,14 @@ export function createStateFromSpec(
     overrides?.effect ?? spec.defaultEffect,
     overrides?.duration ?? spec.defaultDuration,
     overrides?.maxStacks ?? spec.maxStacks,
+    durationMult,
   );
 }
 
-/** Create or refresh a combo state. Returns updated array. */
+/** Create or refresh a combo state. Returns updated array.
+ *  `durationMult` (default 1) scales the final duration — caller passes
+ *  `1 + (effectiveStats.ailmentDuration ?? 0) / 100` so combo states benefit
+ *  from the same +Ailment Duration stat that scales DoT debuffs. */
 export function createComboState(
   states: ComboState[],
   stateId: string,
@@ -191,20 +196,21 @@ export function createComboState(
   effect: ComboStateEffect,
   duration: number,
   maxStacks: number = 1,
+  durationMult: number = 1,
 ): ComboState[] {
+  const finalDuration = duration * durationMult;
   const existing = states.find(s => s.stateId === stateId);
   if (existing) {
-    // Refresh duration, increment stacks up to max
     return states.map(s =>
       s.stateId === stateId
-        ? { ...s, remainingDuration: duration, stacks: Math.min(s.stacks + 1, maxStacks), sourceSkillId }
+        ? { ...s, remainingDuration: finalDuration, stacks: Math.min(s.stacks + 1, maxStacks), sourceSkillId }
         : s,
     );
   }
   return [...states, {
     stateId,
     sourceSkillId,
-    remainingDuration: duration,
+    remainingDuration: finalDuration,
     stacks: 1,
     maxStacks,
     effect,

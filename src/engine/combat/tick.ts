@@ -1175,7 +1175,7 @@ export function runCombatTick(
         const csEffect = creator?.effect ?? {};
         const csMaxStacks = creator?.maxStacks ?? 5;
         for (let i = 0; i < cs.stacks; i++) {
-          newComboStates = createComboState(newComboStates, cs.stateId, skill.id, csEffect, cs.duration, csMaxStacks);
+          newComboStates = createComboState(newComboStates, cs.stateId, skill.id, csEffect, cs.duration, csMaxStacks, 1 + (effectiveStats.ailmentDuration ?? 0) / 100);
         }
       }
       // fortifyOnProc: accumulate fortify stacks from proc results
@@ -1235,7 +1235,7 @@ export function runCombatTick(
       const csEffect = creator?.effect ?? {};
       const csMaxStacks = creator?.maxStacks ?? 5;
       for (let i = 0; i < cs.stacks; i++) {
-        newComboStates = createComboState(newComboStates, cs.stateId, skill.id, csEffect, cs.duration, csMaxStacks);
+        newComboStates = createComboState(newComboStates, cs.stateId, skill.id, csEffect, cs.duration, csMaxStacks, 1 + (effectiveStats.ailmentDuration ?? 0) / 100);
       }
     }
 
@@ -2095,7 +2095,7 @@ export function runCombatTick(
         const csEffect = creator?.effect ?? {};
         const csMaxStacks = creator?.maxStacks ?? 5;
         for (let i = 0; i < cs.stacks; i++) {
-          newComboStates = createComboState(newComboStates, cs.stateId, skill.id, csEffect, cs.duration, csMaxStacks);
+          newComboStates = createComboState(newComboStates, cs.stateId, skill.id, csEffect, cs.duration, csMaxStacks, 1 + (effectiveStats.ailmentDuration ?? 0) / 100);
         }
       }
       if (killPr.cooldownResets.length > 0) {
@@ -2313,7 +2313,7 @@ export function runCombatTick(
         const csEffect = creator?.effect ?? {};
         const csMaxStacks = creator?.maxStacks ?? 5;
         for (let i = 0; i < cs.stacks; i++) {
-          newComboStates = createComboState(newComboStates, cs.stateId, skill.id, csEffect, cs.duration, csMaxStacks);
+          newComboStates = createComboState(newComboStates, cs.stateId, skill.id, csEffect, cs.duration, csMaxStacks, 1 + (effectiveStats.ailmentDuration ?? 0) / 100);
         }
       }
       procCooldownResets.push(...aoeKillPr.cooldownResets);

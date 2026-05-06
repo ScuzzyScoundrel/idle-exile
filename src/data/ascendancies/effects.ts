@@ -110,7 +110,7 @@ export const ASCENDANCY_NODE_EFFECTS: Record<string, TalentEffect[]> = {
     { kind: 'stat', stat: 'incChaosDamage', delta: 1 },
   ],
   'asc_asn_vc_lingering_toxin': [
-    { kind: 'stat', stat: 'ailmentDuration', delta: 0.5 },
+    { kind: 'stat', stat: 'ailmentDuration', delta: 50 },
   ],
   'asc_asn_vc_vile_reservoir': [
     { kind: 'stat', stat: 'maxPoisonStacks', delta: 1 },
@@ -144,7 +144,7 @@ export const ASCENDANCY_NODE_EFFECTS: Record<string, TalentEffect[]> = {
     { kind: 'stat', stat: 'cooldownRecovery', delta: 1 },
   ],
   'asc_asn_sd_killers_grace': [
-    { kind: 'stat', stat: 'ailmentDuration', delta: 0.5 },
+    { kind: 'stat', stat: 'ailmentDuration', delta: 50 },
   ],
   // "+1% damage vs marked" rank-1 → +5% at rank 5.
   'asc_asn_sd_mark_stalker': [
@@ -324,7 +324,7 @@ export const ASCENDANCY_NODE_EFFECTS: Record<string, TalentEffect[]> = {
     { kind: 'stat', stat: 'critMultiplier', delta: 1 },
   ],
   'asc_hnt_mm_mark_tracker': [
-    { kind: 'stat', stat: 'ailmentDuration', delta: 0.5 },
+    { kind: 'stat', stat: 'ailmentDuration', delta: 50 },
   ],
   // "5% chance on crit to apply Mark" rank-1 → 25% at rank 5.
   'asc_hnt_mm_critical_aim': [

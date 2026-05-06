@@ -124,6 +124,7 @@ export const daggerModule: WeaponModule = {
         comboStates = createComboState(
           comboStates, markConfig.stateId, 'dagger_shadow_dash',
           markConfig.effect, markConfig.duration, markConfig.maxStacks,
+          1 + (ctx.effectiveStats.ailmentDuration ?? 0) / 100,
         );
       }
     }
@@ -350,6 +351,7 @@ export const daggerModule: WeaponModule = {
           comboStates = createComboState(
             comboStates, replace.to, skill.id,
             replace.effect, replace.duration, 1,
+            1 + (ctx.effectiveStats.ailmentDuration ?? 0) / 100,
           );
         } else {
           // comboModification: merge additionalEffect into created state
@@ -361,6 +363,7 @@ export const daggerModule: WeaponModule = {
           comboStates = createComboState(
             comboStates, comboConfig.stateId, skill.id,
             effect, comboConfig.duration, comboConfig.maxStacks,
+            1 + (ctx.effectiveStats.ailmentDuration ?? 0) / 100,
           );
         }
       }
@@ -384,6 +387,7 @@ export const daggerModule: WeaponModule = {
         comboStates = createComboState(
           comboStates, 'saturated', skill.id,
           { incDamage: 15 }, 4, 1,
+          1 + (ctx.effectiveStats.ailmentDuration ?? 0) / 100,
         );
       }
     }
@@ -455,6 +459,7 @@ export const daggerModule: WeaponModule = {
         comboStates = createComboState(
           comboStates, 'guarded', 'dagger_blade_ward',
           guardedEffect, 3, 1,
+          1 + (ctx.effectiveStats.ailmentDuration ?? 0) / 100,
         );
       }
     }
@@ -479,6 +484,7 @@ export const daggerModule: WeaponModule = {
             comboStates = createComboState(
               comboStates, 'primed', 'dagger_blade_trap',
               { incDamage: 25 }, 4, 1,
+              1 + (ctx.effectiveStats.ailmentDuration ?? 0) / 100,
             );
           }
         } else {
@@ -494,12 +500,14 @@ export const daggerModule: WeaponModule = {
             comboStates = createComboState(
               comboStates, od.applyDebuff.id ?? 'saturated', 'dagger_blade_trap',
               { incDamage: 15 }, od.applyDebuff.duration ?? 4, 1,
+              1 + (ctx.effectiveStats.ailmentDuration ?? 0) / 100,
             );
           }
           if (od.grantBuff) {
             comboStates = createComboState(
               comboStates, od.grantBuff.id ?? 'guarded', 'dagger_blade_trap',
               { incDamage: od.grantBuff.bonusDamage ?? 20 }, od.grantBuff.duration ?? 3, 1,
+              1 + (ctx.effectiveStats.ailmentDuration ?? 0) / 100,
             );
           }
         }

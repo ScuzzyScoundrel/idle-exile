@@ -69,6 +69,13 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'wd_pp_festering_wound': [
     { kind: 'whileTag', tag: 'hex', stat: 'damageMult', mult: 1.10 },
   ],
+  // Phase F F1c (2026-05-06): combo-state duration via global ailmentDuration
+  // (engine cannot filter by state id today). "+0.2s Plagued duration / rank"
+  // approximated as +5% ailment+combo-state duration / rank → +25% at rank 5.
+  // Broader than design intent (also extends poison/burn/bleed/combo states).
+  'wd_pp_pandemic_vector': [
+    { kind: 'stat', stat: 'ailmentDuration', delta: 5 },
+  ],
 
   // ── Voodoo Sovereign path ───────────────────────────────────────────
   // "Hexed enemies take +10% damage from chaos sources." — broadened to
@@ -80,6 +87,11 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   // procOnCrit + applyTag(hex) at 100% chance.
   'wd_vs_voodoo_mark': [
     { kind: 'procOnCrit', chance: 100, action: { kind: 'applyTag', tag: 'hex', stacks: 1, duration: 6 } },
+  ],
+  // "+1s Hex duration / rank" approximated as +10% ailment+combo duration / rank
+  // → +30% at rank 3. Global stat (broader than per-state design).
+  'wd_vs_branding_iron': [
+    { kind: 'stat', stat: 'ailmentDuration', delta: 10 },
   ],
 
   // ── Spirit Whisperer path ──────────────────────────────────────────
@@ -125,7 +137,7 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
     { kind: 'stat', stat: 'incChaosDamage', delta: 5 },
   ],
   'asn_vc_lingering_doom': [
-    { kind: 'stat', stat: 'ailmentDuration', delta: 0.5 },
+    { kind: 'stat', stat: 'ailmentDuration', delta: 50 },
   ],
   'asn_vc_vile_reservoir': [
     { kind: 'stat', stat: 'maxPoisonStacks', delta: 1 },
@@ -233,6 +245,12 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'brs_wl_apex_predator': [
     { kind: 'whileTargetHpBelow', threshold: 0.25, stat: 'damageMult', mult: 1.10 },
   ],
+  // "+1s Bloodied state duration / rank" approximated as +10% global ailment+combo
+  // duration / rank → +30% at rank 3. Bloodied is bleed-tagged (§8.3) so
+  // ailmentDuration covers it; broader than design intent (extends all DoTs).
+  'brs_wl_bloodied_mastery': [
+    { kind: 'stat', stat: 'ailmentDuration', delta: 10 },
+  ],
 
   // ── Reaver path ─────────────────────────────────────────────────────
   'brs_rv_wound_tolerance': [
@@ -278,12 +296,24 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'hnt_mm_snipers_tempo': [
     { kind: 'procOnCrit', chance: 100, action: { kind: 'refundMana', amount: 1 } },
   ],
+  // "+2s Mark duration / rank" approximated as +15% global ailment+combo
+  // duration / rank → +45% at rank 3. Mark is the highest-impact target since
+  // Hunter procOnCrit pipelines feed off it (Phase E ascendancy nodes).
+  'hnt_mm_mark_master': [
+    { kind: 'stat', stat: 'ailmentDuration', delta: 15 },
+  ],
 
   // ── Beastmaster path ────────────────────────────────────────────────
   // Companion-event nodes — no engine wiring today; left empty.
 
   // ── Trapper path ────────────────────────────────────────────────────
   // Trap-event nodes — no engine wiring today; left empty.
+  // Exception: Snare Mastery extends snare/trap-state durations via
+  // global ailmentDuration. "+1s Snare duration / rank" approximated as
+  // +8% / rank → +40% at rank 5.
+  'hnt_tp_snare_mastery': [
+    { kind: 'stat', stat: 'ailmentDuration', delta: 8 },
+  ],
 };
 
 /** Lookup typed effects for a node id. Returns [] for unwired nodes. */

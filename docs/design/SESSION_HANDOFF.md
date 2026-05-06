@@ -1,43 +1,38 @@
 # Session Handoff — READ THIS FIRST
 
-**Last updated:** 2026-05-05 (Phase A + B + C + §15.4 rename + §8.1 + archive sweep + Phase 2 cleanup + classTrees effects.ts pass 1 + Phase D multi-rank + **Phase E ALL 15 ASCENDANCIES** + Combat HUD wire-up + minion HUD pills + Phase F F1a HP-threshold conditionals + Phase F F1b broadcast/refund actions all COMPLETE).
+**Last updated:** 2026-05-06 (Phase A + B + C + §15.4 rename + §8.1 + archive sweep + Phase 2 cleanup + classTrees effects.ts pass 1 + Phase D multi-rank + **Phase E ALL 15 ASCENDANCIES** + Combat HUD wire-up + minion HUD pills + Phase F F1a HP-threshold conditionals + Phase F F1b broadcast/refund actions + **Phase F F1c combo-state duration stat** all COMPLETE).
 **Purpose:** If you're resuming the idle-exile combat-and-class overhaul in a new session, read this doc first to refresh the full picture in <5 minutes. Then dive into whichever detailed doc the next-move section points to.
 
 ---
 
 ## NEXT SESSION START HERE — Phase F sub-phase queue
 
-Branch is `master` at `d1c09530` (last commit: Phase F F1b broadcast/refund actions). Phase F's cheap-cluster (F1a + F1b) is shipped; F1c through F6 are queued in the order below. Each is its own focused session — start with F1c.
+Branch is `master` at the latest F1c commit. Phase F's cheap-cluster (F1a + F1b + F1c) is shipped; F2 through F6 are queued in the order below. Each is its own focused session — start with F2.
 
 **Resume order:**
 
-1. **F1c — Combo-state duration stat** (~1-2 hr)
-   • Goal: nodes like "Pandemic Vector +0.2/0.4/0.6/0.8/1.0s Plagued duration" and "Branding Iron Hex duration +1/2/3 seconds" become functional
-   • Approach: extend `createStateFromSpec` in `src/engine/combat/combo.ts` to accept an optional `durationBonus: number` (default 0); thread `effectiveStats.ailmentDuration` (or a new combo-state-specific stat) from combat tick to every callsite that creates combo states. Author 5-8 entries that use it.
-   • Files: `src/engine/combat/combo.ts`, ~5 caller sites in `src/engine/combat/weapons/*.ts` and `tick.ts`, `src/data/classTrees/effects.ts`, `src/data/ascendancies/effects.ts`.
-
-2. **F2 — Minion-event hooks** (~2-3 days, ~40 nodes unlocked)
+1. **F2 — Minion-event hooks** (~2-3 days, ~40 nodes unlocked)
    • Goal: Witchdoctor Spirit Whisperer + Hunter Beastmaster proc nodes (onMinionHit/Crit/Death) become functional
    • Approach: 3 new `TalentEffect` kinds (procOnMinionHit/Crit/Death). Find the minion-attack consumer in `src/engine/combat/weapons/staff.ts` (line ~171, inside `for (const a of attacks)` after `isCrit` is computed) and the death-detection site (line ~447, the `prev.hp <= 0` diff). Either thread `talentEffects` + ctx refs into `tickMaintenance`, or call `collectTalentEffects` from inside `staff.ts`. Add 3 `dispatchProcOnMinion*` helpers to `classTalentDispatcher.ts`. Author entries.
    • This needs `MinionAttack` shape extended to carry `isCrit` (currently the crit roll happens in staff.ts:185 inside the consumer loop — could be moved up into stepMinions or just kept where it is and proc fires from staff.ts).
 
-3. **F3 — Trap-event hooks** (~2-3 days, ~20 nodes unlocked)
+2. **F3 — Trap-event hooks** (~2-3 days, ~20 nodes unlocked)
    • Goal: Hunter Trapper proc nodes (onTrapDetonate / onTrapChain) become functional
    • Approach: same shape as F2 — new `TalentEffect` kinds, dispatch helpers, hook into `src/engine/combat/traps.ts` detonation site.
    • Note: depending on existing trap-state shape, may need to add trap-detonate event emission to traps.ts first.
 
-4. **F4 — Companion mechanic** (~1 week, ~25 nodes unlocked)
+3. **F4 — Companion mechanic** (~1 week, ~25 nodes unlocked)
    • Goal: Hunter Beastmaster's Pack Leader capstone (permanent companion + full proc inheritance) becomes functional
    • Approach: NEW system. Companion state shape (parallel to MinionState but persistent / level-bound). Summon path triggered by ascendancy capstone allocation. Companion attacks at independent timer. Proc inheritance — companion attacks fire `procOnHit` etc. as if they were player attacks. UI: companion sprite + duration/HP indicator (HUD pill already supports unknown types via fallback).
 
-5. **F5 — Signature mechanics × 5** (~1 week each, ~80-100 nodes unlocked across all)
+4. **F5 — Signature mechanics × 5** (~1 week each, ~80-100 nodes unlocked across all)
    • F5a Crit Cascade (Assassin) — `state.critStacks: number` (max 5, decay timer); on every crit add 1 stack via existing dispatcher hook; `whileCritStacksAtLeast` and `perCritStack` TalentEffect kinds; consume on Shadow Mark application.
    • F5b Mark & Execute (Hunter) — Mark already exists as a debuff tag. Need "Precision Payoff" mechanic: a separate skill cast that consumes Mark for bonus damage. New combat tick check + cast path.
    • F5c Rage Threshold (Berserker) — Frenzied state when `currentHp / maxLife < threshold`. State enables conditional bonuses. New `state.frenzied: boolean` + `whileFrenzied` TalentEffect kind. Threshold-raise nodes modify the trigger %.
    • F5d Resonance / Convergence (Sorcerer) — `state.resonanceCharges: { fire: number; cold: number; lightning: number; chaos: number }`. Charges added when matching elements deal damage. Convergence skill consumes all charges for 4-element burst. `onResonanceChargeGain` and `onConvergenceCast` proc kinds.
    • F5e Pandemic / Hex-can-crit (Witchdoctor) — Pandemic mechanic on enemy death (transfer DoTs to other enemies). Hex-can-crit changes hex damage roll. Both mechanics need new combat-tick paths.
 
-6. **F6 — Multi-class fusion engineering** (multi-week, new system)
+5. **F6 — Multi-class fusion engineering** (multi-week, new system)
    • Goal: Phase F-locked design (per `docs/design/MULTI_CLASS_PAIRS.md`) — 10 pair archetypes with toggle morphs + fusion mechanics
    • Approach: `SkillToggleMorph` schema in `src/types/skills.ts`. `Character.skillToggles: Record<string, string>` (skill id → morph id). `getEffectiveSkillDef(skill, toggles)` resolves base + morph. Fusion-mechanic dispatch sites in `tick.ts` per-pair. UI: per-skill morph dropdown.
    • The 10 fused combo-state specs already exist in `src/data/comboStates.ts` (Phase C3 §8.1) — engine wiring of those is the bulk of F6.
@@ -63,6 +58,8 @@ Branch is `master` at `d1c09530` (last commit: Phase F F1b broadcast/refund acti
 **Phase C step 2 — UI/engine cutover to JSON node ids: COMPLETE 2026-05-04.** Engine (`engine/classTalents.ts` + `engine/classTalentDispatcher.ts`) and UI (`ClassTalentPanel.tsx`) now read class talent trees from the JSON registry (`src/data/classTrees/index.ts`) instead of the legacy 24-point trees in `src/data/classTalents.ts`. Side-table `src/data/classTrees/effects.ts` provides typed `TalentEffect[]` for the subset of nodes whose engine wiring exists today; `getNodeEffects(classId, nodeId)` combines inline JSON `effects?` field + side-table lookups. Save migration v67 cleared legacy `talentAllocations` (different node id space — `wd_voodoo_1` ↔ `wd_pp_lingering_toxin`); players keep all talent points and re-spec into the new JSON tree. UI now renders JSON `theme` for path subtitles, `description` directly for nodes, with capstone/identity/multi-rank badges. Multi-rank engine support deferred (each node treated as 1-point allocate-once until Phase D adds it).
 
 **Archive sweep — per-skill talent system retired: COMPLETE 2026-05-04.** Per-skill talent graphs (`data/skillGraphs/` 28 files) and legacy 24-point trees (`data/classTalents.ts`) moved to `src/data/_archive/` (preserved for history; excluded from tsc via `tsconfig.app.json`). UI components `SkillGraphView.tsx` + `TalentTreeView.tsx` deleted; per-skill talent JSX blocks + inline `SkillTreeView` function stripped from `SkillPanel.tsx`. The class trees in `src/data/classTrees/` are now the sole talent layer.
+
+**Phase F F1c — combo-state duration stat: COMPLETE 2026-05-06.** `createComboState` and `createStateFromSpec` in `src/engine/combat/combo.ts` now accept an optional `durationMult: number = 1` final param applied as `duration * durationMult`. All 26 call sites updated: 4 in `tick.ts` (proc-spawned combo state generic creator path), 10 in `staff.ts` (haunted on dog hit, soul_stack ×4, spirit_link, dog_aura, generic creator + Double Harvest crit bonus, Cascading Doom crit refresh), 8 in `dagger.ts` (Shadow Mark passthrough, replace.to/comboConfig in preRoll, FoK Saturated, Blade Ward Guarded, trap Primed, comboModification onDetonation applyDebuff/grantBuff), 3 in `zoneAttack.ts` (DoT-kill proc creator + 2× hauntedDeath/locustHexedKill soul_stack). Each passes `1 + (effectiveStats.ailmentDuration ?? 0) / 100` so combo state durations now scale with the same `+Ailment Duration` stat that already scales DoT debuff durations. **4 buggy existing entries fixed** (`asn_vc_lingering_doom`, `asc_asn_vc_lingering_toxin`, `asc_asn_sd_killers_grace`, `asc_hnt_mm_mark_tracker` — all `delta: 0.5` → `50` to match the `/100` percent scale used in tick.ts). **5 new entries authored**: `wd_pp_pandemic_vector` (delta 5, +25% at rank 5), `wd_vs_branding_iron` (delta 10, +30% at rank 3), `brs_wl_bloodied_mastery` (delta 10, +30% at rank 3), `hnt_mm_mark_master` (delta 15, +45% at rank 3), `hnt_tp_snare_mastery` (delta 8, +40% at rank 5). All values use the global `ailmentDuration` stat as a per-state-specific approximation (broader than design intent — also extends DoTs and other combo states; per-state filtering deferred until later sub-phases). tsc EXIT=0.
 
 **Phase F F1b — multi-target broadcast + cooldown/mana refund actions: COMPLETE 2026-05-05.** Three new `TalentAction` kinds added to the union: `applyTagAll` (broadcast a tag to every enemy in encounter — pack-wide in clearing, boss-side in boss_fight), `refundCooldown` (zero out the consumed skill's `cooldownUntil`, optional `percent` 0-100 default 100), `refundMana` (add flat amount to player mana, capped at max). `TalentProcContext` extended with optional `broadcastDebuffLists`/`skillTimers`/`mana` refs — actions no-op gracefully when refs are missing. `executeAction` handlers in `engine/classTalentDispatcher.ts` mutate via the live refs (skillTimers in-place, mana via ctx.mana ref read back by tick.ts). Combat tick (`engine/combat/tick.ts`) populates the new fields at both proc-context construction sites (skill-cast hit/crit + kill); reads back mana mutations into `state.character.mana.current`. **6 class-tree entries** authored using the new actions: `asn_bm_sharpshot` (procOnCrit refundMana), `asn_bm_eviscerate` (procOnCrit refundCooldown), `asn_sd_stalkers_sigil` (procOnCrit applyTagAll mark), `sor_ar_mana_surge` (procOnCrit refundMana), `sor_sp_storm_crest` (procOnCrit applyTagAll shock), `hnt_mm_snipers_tempo` (procOnCrit refundMana). tsc EXIT=0.
 
