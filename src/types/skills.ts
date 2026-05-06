@@ -92,10 +92,12 @@ export type TalentEffect =
   | { kind: 'procOnTag'; tag: TalentTag; chance: number; action: TalentAction }
   /** Fires on killing with an optional damage-tag filter. */
   | { kind: 'procOnKill'; tag?: DamageTag; chance: number; action: TalentAction }
-  /** Fires on any hit (or filtered by damage tag). */
-  | { kind: 'procOnHit'; tag?: DamageTag; chance: number; action: TalentAction }
-  /** Fires on crit. */
-  | { kind: 'procOnCrit'; chance: number; action: TalentAction }
+  /** Fires on any hit. `tag` filters by damage tag (Fire/Cold etc.);
+   *  `targetTag` filters by target debuff (only fires when the target
+   *  has the specified TalentTag debuff). Both filters AND together. */
+  | { kind: 'procOnHit'; tag?: DamageTag; targetTag?: TalentTag; chance: number; action: TalentAction }
+  /** Fires on crit. `targetTag` filters by target debuff. */
+  | { kind: 'procOnCrit'; targetTag?: TalentTag; chance: number; action: TalentAction }
   /** Fires when one of the player's minions hits an enemy. Phase F F2
    *  (2026-05-06): WD Spirit Whisperer (Spirit Bond / Soul Ration / Pack
    *  Mastery / Fetish Frenzy etc.). */

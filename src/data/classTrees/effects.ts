@@ -221,12 +221,12 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'asn_bm_cascading_crit': [
     { kind: 'procOnCrit', chance: 1, action: { kind: 'addCritStack', amount: 1 } },
   ],
-  // "Hits against poisoned enemies have +2/4/6/8/10% chance to add a
-  // Crit Stack regardless of crit." Approximated as procOnHit (no
-  // target-poisoned filter today — fires against any target). Reduced
-  // base chance to 1% to compensate for broader trigger surface.
+  // F5b targetTag filter unlocks "vs poisoned" gating. "Hits against
+  // poisoned enemies have +2/4/6/8/10% chance to add a Crit Stack."
+  // Now correctly filtered to poisoned targets (back to design's 2%
+  // rank-1 since the trigger surface is no longer broader-than-intent).
   'asn_vc_withering_strike': [
-    { kind: 'procOnHit', chance: 1, action: { kind: 'addCritStack', amount: 1 } },
+    { kind: 'procOnHit', targetTag: 'poison', chance: 2, action: { kind: 'addCritStack', amount: 1 } },
   ],
 
   // ── Venomcraft path ─────────────────────────────────────────────────
@@ -284,12 +284,11 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'asn_sd_mark_spread': [
     { kind: 'procOnCrit', chance: 5, action: { kind: 'applyTagAll', tag: 'mark', stacks: 1, duration: 8 } },
   ],
-  // "Hits against Shadow Marked targets +2/4/6/8/10% chance to refresh
-  // Shadow Mark to full duration." Approximated as procOnHit applyTag
-  // mark (re-applies Mark; refresh-to-full semantics aren't precise
-  // since applyTag uses the action's duration, not the original).
+  // F5b targetTag filter — "Hits against Shadow Marked targets +X%
+  // chance to refresh Shadow Mark to full duration." Now correctly
+  // filtered to Marked targets only.
   'asn_sd_hunters_patience': [
-    { kind: 'procOnHit', chance: 2, action: { kind: 'applyTag', tag: 'mark', stacks: 1, duration: 8 } },
+    { kind: 'procOnHit', targetTag: 'mark', chance: 2, action: { kind: 'applyTag', tag: 'mark', stacks: 1, duration: 8 } },
   ],
 
   // ====================================================================
