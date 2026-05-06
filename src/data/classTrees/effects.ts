@@ -431,6 +431,25 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'sor_sp_element_mastery': [
     { kind: 'stat', stat: 'incElementalDamage', delta: 5 },
   ],
+  // Phase F polish (2026-05-06): whileTag.delta enables percent-stat
+  // conditional. "Chilled enemies take +1/2/3/4/5% crit damage from
+  // your skills."
+  'sor_sp_frost_bite': [
+    { kind: 'whileTag', tag: 'chill', stat: 'critMultiplier', mult: 1, delta: 1 },
+  ],
+  // procOnTag cascade — "On igniting a target, +10/20/30/40/50% chance
+  // to apply 2 Ignites instead of 1." Approximated as procOnTag(ignite)
+  // → applyTag(ignite) — fires when ignite is freshly applied,
+  // re-applies it (incrementing stacks). 1-deep recursion guard
+  // prevents runaway via the dispatcher's _inProcOnTag flag.
+  'sor_sp_conflagration': [
+    { kind: 'procOnTag', tag: 'ignite', chance: 10, action: { kind: 'applyTag', tag: 'ignite', stacks: 1, duration: 4 } },
+  ],
+  // "Ignites stack +1/2/3 times." Forward-compat seed (maxIgniteStacks
+  // not on ResolvedStats today).
+  'sor_sp_burning_hex': [
+    { kind: 'stat', stat: 'maxIgniteStacks', delta: 1 },
+  ],
 
   // ====================================================================
   // BERSERKER
