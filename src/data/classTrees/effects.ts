@@ -564,6 +564,40 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'brs_jg_bulwark': [
     { kind: 'stat', stat: 'maxLife', delta: 10 },
   ],
+  // "While no offhand equipped, +2/4/6/8/10% damage reduction." Class-First
+  // per §6.3: gates on equip slot, not weapon name.
+  'brs_jg_heavy_stance': [
+    { kind: 'whileOffhandAbsent', stat: 'damageTakenReduction', mult: 1, delta: 2 },
+  ],
+  // "AoE-tagged skills hit +1/2/3 additional enemies." Stat may silently
+  // ignore until aoeTargetCount lands in ResolvedStats.
+  'brs_jg_wide_sweep': [
+    { kind: 'stat', stat: 'aoeTargetCount', delta: 1 },
+  ],
+  // "+2/4/6/8/10% attack speed while no offhand equipped."
+  'brs_jg_mountain_tempo': [
+    { kind: 'whileOffhandAbsent', stat: 'attackSpeed', mult: 1, delta: 2 },
+  ],
+  // "+2/4/6/8/10% cooldown recovery while no offhand equipped."
+  'brs_jg_mountains_step': [
+    { kind: 'whileOffhandAbsent', stat: 'cooldownRecovery', mult: 1, delta: 2 },
+  ],
+  // "AoE skill radius/reach +5/10/15/20/25%." Silent-ignore safe.
+  'brs_jg_cleave_reach': [
+    { kind: 'stat', stat: 'aoeRadius', delta: 5 },
+  ],
+  // "+5/10/15% damage while no offhand equipped." mult=1.05 scales:
+  // rank 1 → 1.05, rank 3 → 1.15.
+  'brs_jg_mountains_wrath': [
+    { kind: 'whileOffhandAbsent', stat: 'damageMult', mult: 1.05 },
+  ],
+  // Capstone (1 rank): "While no offhand, damage taken −30% AND AoE
+  // radius +50%." Mirrors §10.1 Juggernaut keystone — Class-First per
+  // §6.3 (offhand-conditional, not weapon-conditional).
+  'brs_jg_mountain': [
+    { kind: 'whileOffhandAbsent', stat: 'damageTakenReduction', mult: 1, delta: 30 },
+    { kind: 'whileOffhandAbsent', stat: 'aoeRadius', mult: 1, delta: 50 },
+  ],
 
   // ====================================================================
   // HUNTER

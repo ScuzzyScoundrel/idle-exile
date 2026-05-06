@@ -191,6 +191,11 @@ export type TalentEffect =
    *  type='companion' MinionState) is alive, multiply stat (or add
    *  `delta` for additive percent stats). Phase F F4 polish. */
   | { kind: 'whileCompanionAlive'; stat: string; mult: number; delta?: number }
+  /** Conditional modifier: while no offhand is equipped (2H / unarmed
+   *  offhand stance), multiply stat (or add `delta`). Phase F — Brs
+   *  Juggernaut signature mechanic. Class-First per §6.3: gates on
+   *  equip slot, not weapon name. */
+  | { kind: 'whileOffhandAbsent'; stat: string; mult: number; delta?: number }
   /** Conditional modifier: while the player has at least `threshold`
    *  Crit Cascade stacks (`state.critStacks`), multiply stat (or add
    *  `delta`). Phase F F5a — Assassin Crit Cascade. */
