@@ -436,6 +436,14 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'hnt_bm_pack_inheritance_mastery': [
     { kind: 'companionProcInheritance', percent: 25 },
   ],
+  // "While companion is alive, +1/2/3/4/5% crit chance."
+  'hnt_bm_pack_awareness': [
+    { kind: 'whileCompanionAlive', stat: 'critChance', mult: 1.01 },
+  ],
+  // "While companion is alive, +5/10/15/20/25% damage to you."
+  'hnt_bm_pack_synergy': [
+    { kind: 'whileCompanionAlive', stat: 'damageMult', mult: 1.05 },
+  ],
 
   // ── Trapper path ────────────────────────────────────────────────────
   // Phase F F3 (2026-05-06): procOnTrapDetonate / procOnTrapChain

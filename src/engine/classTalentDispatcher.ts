@@ -65,6 +65,8 @@ export function scaleTalentEffectByRank(effect: TalentEffect, rank: number): Tal
       return { ...effect, mult: 1 + (effect.mult - 1) * rank };
     case 'whileTargetHpBelow':
       return { ...effect, mult: 1 + (effect.mult - 1) * rank };
+    case 'whileCompanionAlive':
+      return { ...effect, mult: 1 + (effect.mult - 1) * rank };
     case 'perStack':
       return {
         ...effect,
@@ -156,6 +158,7 @@ export function applyConditionalTalentEffects(
   targetDebuffs: ActiveDebuff[],
   selfHpFraction: number = 1,
   targetHpFraction: number = 1,
+  companionAlive: boolean = false,
 ): { damageMult: number } {
   let damageMult = 1;
   for (const eff of effects) {
@@ -190,6 +193,14 @@ export function applyConditionalTalentEffects(
         break;
       case 'whileTargetHpBelow':
         if (targetHpFraction < eff.threshold) {
+          if (eff.stat === 'damageMult') damageMult *= eff.mult;
+          else if (typeof (stats as any)[eff.stat] === 'number') {
+            (stats as any)[eff.stat] *= eff.mult;
+          }
+        }
+        break;
+      case 'whileCompanionAlive':
+        if (companionAlive) {
           if (eff.stat === 'damageMult') damageMult *= eff.mult;
           else if (typeof (stats as any)[eff.stat] === 'number') {
             (stats as any)[eff.stat] *= eff.mult;

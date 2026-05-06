@@ -642,8 +642,9 @@ export function runCombatTick(
     const targetHpFraction = phase === 'boss_fight' && state.bossState
       ? (state.bossState.bossMaxHp > 0 ? state.bossState.bossCurrentHp / state.bossState.bossMaxHp : 1)
       : (frontMobMaxHp > 0 ? frontMobHp / frontMobMaxHp : 1);
+    const companionAlive = (state.activeMinions ?? []).some(m => m.type === 'companion' && m.hp > 0);
     const talentConditional = applyConditionalTalentEffects(
-      talentEffects, effectiveStats, targetDebuffs, selfHpFraction, targetHpFraction,
+      talentEffects, effectiveStats, targetDebuffs, selfHpFraction, targetHpFraction, companionAlive,
     );
     damageMult *= talentConditional.damageMult;
   }

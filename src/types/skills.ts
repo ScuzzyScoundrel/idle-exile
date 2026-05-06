@@ -154,6 +154,10 @@ export type TalentEffect =
    *  E.g. threshold=0.5 → fires when struck target is below 50% HP. Phase F
    *  (Brs Warlord execute-range / Hnt finisher nodes). */
   | { kind: 'whileTargetHpBelow'; threshold: number; stat: string; mult: number }
+  /** Conditional modifier: while the player's companion (singleton
+   *  type='companion' MinionState) is alive, multiply stat. Phase F F4
+   *  polish (2026-05-06): Hnt BM Pack Awareness / Pack Synergy. */
+  | { kind: 'whileCompanionAlive'; stat: string; mult: number }
   /** Per-stack modifier (e.g. +5% damage per poison stack, capped). */
   | { kind: 'perStack'; stack: string; stat: string; perStackDelta: number; cap?: number }
   /** Adds a damage tag to skills matching a source tag
