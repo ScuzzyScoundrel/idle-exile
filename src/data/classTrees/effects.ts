@@ -293,6 +293,25 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'sor_el_hybrid_empowerment': [
     { kind: 'whileResonanceChargesAtLeast', threshold: 2, stat: 'damageMult', mult: 1.03 },
   ],
+  // F5d follow-on: addResonanceCharge action wired. "Crits +5/10/15/20/25%
+  // chance to add a Resonance charge of a random missing element."
+  // Element omitted → dispatcher picks first missing.
+  'sor_el_element_swap': [
+    { kind: 'procOnCrit', chance: 5, action: { kind: 'addResonanceCharge' } },
+  ],
+  // "Hits dealing a NEW element type (not yet in current Resonance bank)
+  // have +5/10/15/20/25% chance to deal +50% damage." Approximated as
+  // procOnHit applying addResonanceCharge — the "new element" gate is
+  // dropped (engine cannot inspect bank-vs-hit element today; broader
+  // than design intent).
+  'sor_el_spell_cycle': [
+    { kind: 'procOnHit', chance: 5, action: { kind: 'addResonanceCharge' } },
+  ],
+  // "On killing an enemy, +5/10/15/20/25% chance to gain a Resonance
+  // charge of a random missing element."
+  'sor_el_element_cycle': [
+    { kind: 'procOnKill', chance: 5, action: { kind: 'addResonanceCharge' } },
+  ],
 
   // ── Arcanist path ───────────────────────────────────────────────────
   // Resonance bank-size seed (maxResonanceCharges not yet on ResolvedStats).

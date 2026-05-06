@@ -990,6 +990,13 @@ export function runCombatTick(
       // dispatcher so addCritStack action (cascading_crit / withering_
       // strike / snakes_eye / cascade_conduit) can mutate them.
       critStacksRef: { value: state.critStacks, max: 5, expiresAt: state.critStacksExpiresAt },
+      // Phase F F5d follow-on (2026-05-06): expose resonance charges so
+      // addResonanceCharge action (Sor element_swap / element_pulse /
+      // element_cycle etc.) can mutate them.
+      resonanceRef: {
+        charges: { ...state.resonanceCharges },
+        expiresAt: state.resonanceExpiresAt,
+      },
     };
     dispatchProcOnHit(talentEffects, procCtx);
     // Phase F F5d (2026-05-06): Resonance charge accumulator. Each
@@ -1022,6 +1029,11 @@ export function runCombatTick(
     if (procCtx.critStacksRef) {
       state.critStacks = procCtx.critStacksRef.value;
       state.critStacksExpiresAt = procCtx.critStacksRef.expiresAt;
+    }
+    // Read back resonance mutations from addResonanceCharge action.
+    if (procCtx.resonanceRef) {
+      state.resonanceCharges = procCtx.resonanceRef.charges;
+      state.resonanceExpiresAt = procCtx.resonanceRef.expiresAt;
     }
   }
 

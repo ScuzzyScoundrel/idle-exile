@@ -334,6 +334,15 @@ export interface TalentProcContext {
    *  bumps `value` capped at `max`, refreshes `expiresAt`. Caller
    *  writes both back to state.critStacks / state.critStacksExpiresAt. */
   critStacksRef?: { value: number; max: number; expiresAt: number };
+  /** Resonance ref for `addResonanceCharge` (Phase F F5d follow-on,
+   *  2026-05-06). Caller builds the charge bag from state, dispatcher
+   *  bumps the chosen element capped at 5, refreshes expiresAt.
+   *  Caller writes back to state.resonanceCharges /
+   *  state.resonanceExpiresAt. */
+  resonanceRef?: {
+    charges: { fire: number; cold: number; lightning: number; chaos: number };
+    expiresAt: number;
+  };
 }
 
 /** Roll chance and dispatch action. chance is 0-100 (not 0-1). */
@@ -389,6 +398,21 @@ function executeAction(action: TalentAction, ctx: TalentProcContext): void {
       const amount = action.amount ?? 1;
       ctx.critStacksRef.value = Math.min(ctx.critStacksRef.max, ctx.critStacksRef.value + amount);
       ctx.critStacksRef.expiresAt = Date.now() + 4000;
+      break;
+    }
+    case 'addResonanceCharge': {
+      if (!ctx.resonanceRef) return;
+      const amount = action.amount ?? 1;
+      const charges = ctx.resonanceRef.charges;
+      // Resolve element: explicit pick > first missing > no-op if all full.
+      let el: 'fire' | 'cold' | 'lightning' | 'chaos' | null = action.element ?? null;
+      if (!el) {
+        const order: Array<'fire' | 'cold' | 'lightning' | 'chaos'> = ['fire', 'cold', 'lightning', 'chaos'];
+        el = order.find(k => charges[k] < 5) ?? null;
+      }
+      if (!el) return;
+      charges[el] = Math.min(5, charges[el] + amount);
+      ctx.resonanceRef.expiresAt = Date.now() + 6000;
       break;
     }
     // Deferred (Phase 4.1):

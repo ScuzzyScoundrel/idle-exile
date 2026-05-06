@@ -223,6 +223,13 @@ export type TalentAction =
    *  cascade_conduit, venom_sovereign etc. Mutates ctx.critStacksRef
    *  in-place — no-ops if the caller didn't provide the ref. */
   | { kind: 'addCritStack'; amount?: number }
+  /** Add Resonance charges to the player (capped at 5 per element).
+   *  Phase F F5d follow-on (2026-05-06): Sor element_swap / spell_cycle
+   *  / element_pulse / element_cycle / resonance_memory etc. If
+   *  `element` is omitted, picks the first missing element (preferring
+   *  fire → cold → lightning → chaos); if all 4 are full, no-ops.
+   *  Mutates ctx.resonanceRef in-place. */
+  | { kind: 'addResonanceCharge'; element?: 'fire' | 'cold' | 'lightning' | 'chaos'; amount?: number }
   /** Grant a buff by id. */
   | { kind: 'grantBuff'; buffId: string; duration: number };
 
