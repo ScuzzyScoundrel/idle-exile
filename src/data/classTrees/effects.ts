@@ -95,6 +95,30 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'wd_vs_brand_of_suffering': [
     { kind: 'whileTag', tag: 'hex', stat: 'damageMult', mult: 1.10 },
   ],
+  // Phase F polish (2026-05-06): targetTag filter on procOnHit/Kill
+  // unlocks per-target-debuff gating.
+  // "Curse-tagged skills +1/2/3/4/5% chance to crit." Approximated as
+  // global critChance delta (engine cannot filter critChance by skill
+  // tag today). Broader than design intent.
+  'wd_vs_curse_affinity': [
+    { kind: 'stat', stat: 'critChance', delta: 1 },
+  ],
+  // "Hits on cursed enemies +5/10/15/20/25% chance to apply additional
+  // Hex stack."
+  'wd_vs_curse_mastery': [
+    { kind: 'procOnHit', targetTag: 'hex', chance: 5, action: { kind: 'applyTag', tag: 'hex', stacks: 1, duration: 6 } },
+  ],
+  // "Hexed enemy hit +5/10/15/20/25% chance Hex spreads to one nearby."
+  // Approximated as broadcast hex (engine can't pick one nearby; AoE
+  // is the closest analog and feeds whileTag(hex) damage scaling).
+  'wd_vs_curse_spread': [
+    { kind: 'procOnHit', targetTag: 'hex', chance: 5, action: { kind: 'applyTagAll', tag: 'hex', stacks: 1, duration: 6 } },
+  ],
+  // "Hexed enemies that die +20/40/60/80/100% chance to chain-curse."
+  // Approximated as procOnKill targetTag(hex) applyTagAll(hex).
+  'wd_vs_bloodbound': [
+    { kind: 'procOnKill', targetTag: 'hex', chance: 20, action: { kind: 'applyTagAll', tag: 'hex', stacks: 1, duration: 6 } },
+  ],
   // "All your skills, regardless of weapon, apply Hexed on crit." —
   // procOnCrit + applyTag(hex) at 100% chance.
   'wd_vs_voodoo_mark': [

@@ -607,6 +607,7 @@ export function dispatchProcOnKill(effects: TalentEffect[], ctx: TalentProcConte
   for (const eff of effects) {
     if (eff.kind !== 'procOnKill') continue;
     if (eff.tag && eff.tag !== ctx.hitDamageTag) continue;
+    if (eff.targetTag && !targetHasTag(ctx.targetDebuffs, eff.targetTag)) continue;
     rollAndFire(eff.action, eff.chance, ctx);
   }
 }

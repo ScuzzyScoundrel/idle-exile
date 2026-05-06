@@ -90,8 +90,10 @@ export type TalentEffect =
   | { kind: 'statMult'; stat: string; mult: number }
   /** Fires on applying a matching tag to a target. */
   | { kind: 'procOnTag'; tag: TalentTag; chance: number; action: TalentAction }
-  /** Fires on killing with an optional damage-tag filter. */
-  | { kind: 'procOnKill'; tag?: DamageTag; chance: number; action: TalentAction }
+  /** Fires on killing. `tag` filters by damage tag (Fire/Cold etc.);
+   *  `targetTag` filters by target debuff (only fires when the dying
+   *  enemy has the specified TalentTag debuff). Both AND together. */
+  | { kind: 'procOnKill'; tag?: DamageTag; targetTag?: TalentTag; chance: number; action: TalentAction }
   /** Fires on any hit. `tag` filters by damage tag (Fire/Cold etc.);
    *  `targetTag` filters by target debuff (only fires when the target
    *  has the specified TalentTag debuff). Both filters AND together. */
