@@ -76,6 +76,18 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'wd_pp_pandemic_vector': [
     { kind: 'stat', stat: 'ailmentDuration', delta: 5 },
   ],
+  // Phase F F5e (2026-05-06): Pandemic capstone — DoTs spread on enemy
+  // death. zoneAttack.ts dyingMobs loop checks hasPandemicGrant once
+  // per tick and transfers each dying mob's DoT debuffs (bleeding /
+  // poisoned / burning / frostbite / locust_swarm_dot / haunt_dot /
+  // toads_dot) to up to 3 surviving pack mobs with snapshot damage
+  // and remaining duration preserved. The +15 poison stacks half of
+  // the design is the maxPoisonStacks forward-compat seed (won't
+  // activate until the stat lands on ResolvedStats).
+  'wd_pp_pandemic_plus': [
+    { kind: 'grantPandemic' },
+    { kind: 'stat', stat: 'maxPoisonStacks', delta: 15 },
+  ],
 
   // ── Voodoo Sovereign path ───────────────────────────────────────────
   // "Hexed enemies take +10% damage from chaos sources." — broadened to

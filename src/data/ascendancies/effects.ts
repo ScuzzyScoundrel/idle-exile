@@ -44,8 +44,11 @@ export const ASCENDANCY_NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'asc_wd_pp_plague_bearers_mark': [
     { kind: 'whileTag', tag: 'hex', stat: 'damageMult', mult: 1.02 },
   ],
-  // Capstone: forward-compat seed for max-poison-stacks +15.
+  // Capstone: Phase F F5e (2026-05-06) — grantPandemic + +15
+  // maxPoisonStacks (forward-compat seed). zoneAttack.ts dyingMobs
+  // loop spreads DoTs to surviving pack mobs when allocated.
   'asc_wd_pp_plague_sovereign': [
+    { kind: 'grantPandemic' },
     { kind: 'stat', stat: 'maxPoisonStacks', delta: 15 },
   ],
 
@@ -377,6 +380,7 @@ export const ASCENDANCY_NODE_EFFECTS: Record<string, TalentEffect[]> = {
     { kind: 'grantCompanion', minionType: 'companion' },
     { kind: 'companionProcInheritance', percent: 100 },
   ],
+
 
   // ── Hunter — Trapper ──────────────────────────────────────────────
   // 5 of 8 wired today. Multi-Arming / Heavy Trap / Snare Field

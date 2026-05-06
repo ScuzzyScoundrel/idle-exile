@@ -144,6 +144,14 @@ export type TalentEffect =
    *  dispatcher rolls per-attack and fires the existing
    *  procOnHit/procOnCrit pipeline on success. */
   | { kind: 'companionProcInheritance'; percent: number }
+  /** Marks the player as having Pandemic — when an enemy dies with
+   *  active DoT debuffs, those DoTs spread to surviving enemies in
+   *  the encounter (front mob in clearing, no-op in boss_fight since
+   *  there's only one target). Phase F F5e (2026-05-06): WD
+   *  Pandemic Priest capstone signature. Presence-based, no params.
+   *  Multiple `grantPandemic` allocations don't compound — transfer
+   *  fires once per qualifying death. */
+  | { kind: 'grantPandemic' }
   /** Conditional modifier: while target has tag, multiply stat. */
   | { kind: 'whileTag'; tag: TalentTag; stat: string; mult: number }
   /** Conditional modifier: while PLAYER's HP fraction is below threshold (0-1).

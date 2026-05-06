@@ -110,6 +110,7 @@ export function scaleTalentEffectByRank(effect: TalentEffect, rank: number): Tal
       return { ...effect, percent: Math.min(100, effect.percent * rank) };
     case 'grantTagOnSkill':
     case 'grantCompanion':
+    case 'grantPandemic':
       return effect;
   }
 }
@@ -298,6 +299,7 @@ export function applyConditionalTalentEffects(
       case 'procOnCompanionDeath':
       case 'grantTagOnSkill':
       case 'grantCompanion':
+      case 'grantPandemic':
       case 'companionProcInheritance':
         break;
     }
@@ -514,6 +516,14 @@ export function dispatchProcOnCompanionDeath(effects: TalentEffect[], ctx: Talen
  *  the companion is the F4 follow-on. */
 export function hasCompanionGrant(effects: TalentEffect[]): boolean {
   return effects.some(e => e.kind === 'grantCompanion');
+}
+
+/** Returns true if the player has at least one `grantPandemic` effect
+ *  allocated. Phase F F5e (2026-05-06): consulted by zoneAttack.ts
+ *  dying-mob loop to decide whether to spread the dying mob's DoT
+ *  debuffs to surviving enemies. */
+export function hasPandemicGrant(effects: TalentEffect[]): boolean {
+  return effects.some(e => e.kind === 'grantPandemic');
 }
 
 /** Aggregates all `companionProcInheritance` percents (already rank-

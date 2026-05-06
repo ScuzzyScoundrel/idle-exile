@@ -40,6 +40,11 @@ import { noResult } from './types';
 import { evaluateProcs } from '../combatHelpers';
 import { createComboState, COMBO_STATE_CREATORS } from './combo';
 import { getUnifiedSkillDef } from '../../data/skills';
+import {
+  collectTalentEffects,
+  collectAscendancyEffects,
+  hasPandemicGrant,
+} from '../classTalentDispatcher';
 import { getSkillGraphModifier } from '../unifiedSkills';
 import { absorbDamage } from './minions';
 
@@ -348,6 +353,16 @@ export function applyZoneDamage(
   const dyingMobs = updatedMobs.filter(m => m.hp <= 0);
   if (dyingMobs.length > 0) {
     const killStats = resolveStats(state.character);
+    // Phase F F5e (2026-05-06): Pandemic — when player has grantPandemic
+    // allocated, dying mobs' DoT debuffs spread to surviving pack mobs.
+    // Computed once per applyZoneDamage call (cheap).
+    const zoneTalentEffects = [
+      ...collectTalentEffects(state.character.class, state.talentRanks ?? {}),
+      ...collectAscendancyEffects(state.ascendancyId ?? null, state.ascendancyRanks ?? {}),
+    ];
+    const pandemicActive = hasPandemicGrant(zoneTalentEffects);
+    const PANDEMIC_DOT_IDS = ['bleeding', 'poisoned', 'burning', 'frostbite',
+      'locust_swarm_dot', 'haunt_dot', 'toads_dot'];
     for (const mob of dyingMobs) {
       const killingSkillIds = new Set<string>();
       for (const deb of mob.debuffs) {
@@ -481,6 +496,26 @@ export function applyZoneDamage(
               sourceSkillId: 'staff_haunt',
             };
             newActiveMinions.push(spiritCfg);
+          }
+        }
+      }
+      // Pandemic transfer — once per dying mob (after all skill-driven
+      // death effects). Transfers up to 3 surviving mobs' worth of
+      // each DoT debuff. Snapshot damage and remaining duration are
+      // preserved (so a high-stack DoT keeps its bite). No-op in boss
+      // phase (only one target).
+      if (pandemicActive) {
+        const surviving = updatedMobs.filter(m => m.hp > 0).slice(0, 3);
+        if (surviving.length > 0) {
+          for (const deb of mob.debuffs) {
+            if (!PANDEMIC_DOT_IDS.includes(deb.debuffId)) continue;
+            for (const tgt of surviving) {
+              applyDebuffToList(
+                tgt.debuffs, deb.debuffId, deb.stacks ?? 1,
+                deb.remainingDuration, deb.appliedBySkillId ?? 'pandemic',
+                (deb as any).snapshot ?? 0,
+              );
+            }
           }
         }
       }
