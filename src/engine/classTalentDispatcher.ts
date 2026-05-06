@@ -19,11 +19,28 @@
 
 import type {
   CharacterClass, TalentEffect, TalentAction, TalentTag, DamageTag,
-  ActiveDebuff, ResolvedStats, SkillTimerState,
+  ActiveDebuff, ResolvedStats, SkillTimerState, TempBuff, AbilityEffect,
 } from '../types';
 import { getNodeEffects } from '../data/classTrees';
 import { getAscendancyNodeEffects } from '../data/ascendancies';
-import { applyDebuffToList } from './combat/helpers';
+import { applyDebuffToList, mergeProcTempBuff } from './combat/helpers';
+
+/** Phase F polish (2026-05-06): grantBuff TalentAction registry.
+ *  Maps `buffId` → AbilityEffect + maxStacks. Keep this registry
+ *  small and player-facing — these are the talent-tree buffs
+ *  visible in HUD pills. Skill / proc / item buffs use other paths. */
+const TALENT_BUFF_REGISTRY: Record<string, { effect: AbilityEffect; maxStacks: number }> = {
+  // wd_sw_bone_armor — +20% damage reduction shield
+  bone_armor:    { effect: { defenseMult: 1.2 }, maxStacks: 1 },
+  // wd_sw_spirit_shield — next cast within window deals +50% damage
+  // (approximated as duration-only — every cast within window gets
+  // the buff, not just the first; broader than design intent)
+  spirit_shield: { effect: { damageMult: 1.5 }, maxStacks: 1 },
+  // hnt_mm_hunters_eye — guaranteed crit charge (consumed by next hit)
+  // Approximated as +crit-chance buff for the duration; not a true
+  // single-use guarantee. Lands cleanly when buff-consume hooks exist.
+  precision_charge: { effect: { critChanceBonus: 100 }, maxStacks: 1 },
+};
 
 /** Map TalentTag → debuff id registered in data/debuffs.ts. */
 const TALENT_TAG_TO_DEBUFF: Record<TalentTag, string> = {
@@ -391,6 +408,11 @@ export interface TalentProcContext {
     charges: { fire: number; cold: number; lightning: number; chaos: number };
     expiresAt: number;
   };
+  /** Mutable temp-buff list for `grantBuff` action. Phase F polish
+   *  (2026-05-06). Caller passes a copy of state.tempBuffs;
+   *  dispatcher pushes new buffs (or refreshes existing) via
+   *  mergeProcTempBuff. Caller writes back to state.tempBuffs. */
+  tempBuffsRef?: TempBuff[];
 }
 
 /** Roll chance and dispatch action. chance is 0-100 (not 0-1). */
@@ -463,10 +485,31 @@ function executeAction(action: TalentAction, ctx: TalentProcContext): void {
       ctx.resonanceRef.expiresAt = Date.now() + 6000;
       break;
     }
+    case 'grantBuff': {
+      // Phase F polish (2026-05-06): grantBuff via TALENT_BUFF_REGISTRY.
+      // Looks up the buffId, builds a TempBuff, merges via the existing
+      // mergeProcTempBuff helper. No-op when registry doesn't contain
+      // the buffId or caller didn't provide tempBuffsRef.
+      if (!ctx.tempBuffsRef) return;
+      const reg = TALENT_BUFF_REGISTRY[action.buffId];
+      if (!reg) return;
+      const buff: TempBuff = {
+        id: action.buffId,
+        effect: reg.effect,
+        expiresAt: Date.now() + action.duration * 1000,
+        sourceSkillId: ctx.sourceSkillId,
+        stacks: 1,
+        maxStacks: reg.maxStacks,
+      };
+      // Mutate the array in-place so caller's ref reflects merge.
+      const merged = mergeProcTempBuff(ctx.tempBuffsRef, buff);
+      ctx.tempBuffsRef.length = 0;
+      ctx.tempBuffsRef.push(...merged);
+      break;
+    }
     // Deferred (Phase 4.1):
     case 'summon':
     case 'triggerSkill':
-    case 'grantBuff':
       break;
   }
 }

@@ -228,6 +228,7 @@ export const staffModule: WeaponModule = {
           life: { value: state.currentHp, max: ctx.effectiveMaxLife },
           sourceSkillId: a.sourceSkillId,
           mana: ctx.mana,
+          tempBuffsRef: state.tempBuffs ? [...state.tempBuffs] : [],
         };
         dispatchProcOnMinionHit(minionTalentEffects, minionProcCtx);
         if (isCrit) dispatchProcOnMinionCrit(minionTalentEffects, minionProcCtx);
@@ -244,6 +245,12 @@ export const staffModule: WeaponModule = {
         // Apply healSelf side-effect by accumulating into healAmount
         const healDelta = minionProcCtx.life.value - state.currentHp;
         if (healDelta > 0) healAmount += healDelta;
+        // Write back grantBuff mutations into state.tempBuffs (mutates
+        // shared state directly since maintenance hook doesn't return
+        // a tempBuffs patch).
+        if (minionProcCtx.tempBuffsRef && state.tempBuffs) {
+          state.tempBuffs = minionProcCtx.tempBuffsRef;
+        }
       }
 
       if (a.createsComboStateOnHit === 'haunted') {

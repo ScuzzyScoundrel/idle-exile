@@ -1013,6 +1013,9 @@ export function runCombatTick(
         charges: { ...state.resonanceCharges },
         expiresAt: state.resonanceExpiresAt,
       },
+      // Phase F polish (2026-05-06): expose temp buffs so grantBuff
+      // action can push / refresh entries (wd_sw_bone_armor etc.).
+      tempBuffsRef: [...activeTempBuffs],
     };
     dispatchProcOnHit(talentEffects, procCtx);
     // Phase F F5d (2026-05-06): Resonance charge accumulator. Each
@@ -1050,6 +1053,10 @@ export function runCombatTick(
     if (procCtx.resonanceRef) {
       state.resonanceCharges = procCtx.resonanceRef.charges;
       state.resonanceExpiresAt = procCtx.resonanceRef.expiresAt;
+    }
+    // Read back temp-buff mutations from grantBuff action.
+    if (procCtx.tempBuffsRef) {
+      activeTempBuffs = procCtx.tempBuffsRef;
     }
   }
 

@@ -163,6 +163,18 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'wd_sw_pack_sovereign': [
     { kind: 'procOnMinionCrit', chance: 100, action: { kind: 'applyTagAll', tag: 'hex', stacks: 1, duration: 6 } },
   ],
+  // Phase F polish (2026-05-06): grantBuff action wired via TALENT_BUFF
+  // _REGISTRY. "Minion deaths +2/4/6/8/10% chance to grant brief +20%
+  // damage reduction shield (3s)."
+  'wd_sw_bone_armor': [
+    { kind: 'procOnMinionDeath', chance: 2, action: { kind: 'grantBuff', buffId: 'bone_armor', duration: 3 } },
+  ],
+  // "When a minion dies, your next cast within 3s deals +25/50/75% damage."
+  // Approximated as duration-only buff (every cast within window benefits,
+  // not just the first; broader than design intent).
+  'wd_sw_spirit_shield': [
+    { kind: 'procOnMinionDeath', chance: 25, action: { kind: 'grantBuff', buffId: 'spirit_shield', duration: 3 } },
+  ],
 
   // ====================================================================
   // ASSASSIN
