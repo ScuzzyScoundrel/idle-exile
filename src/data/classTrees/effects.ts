@@ -541,6 +541,10 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'brs_rv_iron_skin': [
     { kind: 'whileSelfHpBelow', threshold: 0.5, stat: 'damageTakenReduction', mult: 1, delta: 2 },
   ],
+  // "+1/2/3/4/5% damage reduction while above 50% HP (defensive ramp pre-Frenzied)."
+  'brs_rv_pain_tolerance': [
+    { kind: 'whileSelfHpAbove', threshold: 0.5, stat: 'damageTakenReduction', mult: 1, delta: 1 },
+  ],
   // "+10/20/30/40/50% crit damage while below 25% HP" — deep-execute crit
   // multiplier scaler.
   'brs_rv_reckless_surge': [
@@ -752,6 +756,12 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   // "While companion is alive, +5/10/15/20/25% damage to you."
   'hnt_bm_pack_synergy': [
     { kind: 'whileCompanionAlive', stat: 'damageMult', mult: 1.05 },
+  ],
+  // "+5/10/15/20/25% companion damage while you are above 75% HP." Stat
+  // companionDamage silent-ignores until ResolvedStats lands the field —
+  // forward-compat seed but the conditional gating fires correctly today.
+  'hnt_bm_companions_fury': [
+    { kind: 'whileSelfHpAbove', threshold: 0.75, stat: 'companionDamage', mult: 1, delta: 5 },
   ],
 
   // ── Trapper path ────────────────────────────────────────────────────

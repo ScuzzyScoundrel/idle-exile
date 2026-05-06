@@ -182,6 +182,11 @@ export type TalentEffect =
    *  the stat (additive — correct for percent stats like critChance). When
    *  only `mult` is set, dispatcher multiplies (correct for damageMult). */
   | { kind: 'whileSelfHpBelow'; threshold: number; stat: string; mult: number; delta?: number }
+  /** Conditional modifier: while SELF's HP fraction is at or above threshold (0-1).
+   *  E.g. threshold=0.75 → fires while you're at full-ish health (rewards
+   *  low-incoming-damage stance). Symmetric counterpart to whileSelfHpBelow.
+   *  Phase F F4 polish. */
+  | { kind: 'whileSelfHpAbove'; threshold: number; stat: string; mult: number; delta?: number }
   /** Conditional modifier: while TARGET's HP fraction is below threshold (0-1).
    *  E.g. threshold=0.5 → fires when struck target is below 50% HP. Phase F
    *  (Brs Warlord execute-range / Hnt finisher nodes). `delta?` adds
