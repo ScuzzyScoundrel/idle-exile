@@ -75,6 +75,9 @@ export function scaleTalentEffectByRank(effect: TalentEffect, rank: number): Tal
     case 'procOnKill':
     case 'procOnCrit':
     case 'procOnTag':
+    case 'procOnMinionHit':
+    case 'procOnMinionCrit':
+    case 'procOnMinionDeath':
       return { ...effect, chance: Math.min(100, effect.chance * rank) };
     case 'grantTagOnSkill':
       return effect;
@@ -203,6 +206,9 @@ export function applyConditionalTalentEffects(
       case 'procOnKill':
       case 'procOnCrit':
       case 'procOnTag':
+      case 'procOnMinionHit':
+      case 'procOnMinionCrit':
+      case 'procOnMinionDeath':
       case 'grantTagOnSkill':
         break;
     }
@@ -321,6 +327,34 @@ export function dispatchProcOnTag(
   for (const eff of effects) {
     if (eff.kind !== 'procOnTag') continue;
     if (eff.tag !== appliedTag) continue;
+    rollAndFire(eff.action, eff.chance, ctx);
+  }
+}
+
+/** Fires when one of the player's minions hits an enemy.
+ *  Phase F F2 (2026-05-06): caller passes `targetDebuffs` as the hit
+ *  target's debuff list so apply-tag actions land on the correct enemy. */
+export function dispatchProcOnMinionHit(effects: TalentEffect[], ctx: TalentProcContext): void {
+  for (const eff of effects) {
+    if (eff.kind !== 'procOnMinionHit') continue;
+    rollAndFire(eff.action, eff.chance, ctx);
+  }
+}
+
+/** Fires when one of the player's minions crits. */
+export function dispatchProcOnMinionCrit(effects: TalentEffect[], ctx: TalentProcContext): void {
+  for (const eff of effects) {
+    if (eff.kind !== 'procOnMinionCrit') continue;
+    rollAndFire(eff.action, eff.chance, ctx);
+  }
+}
+
+/** Fires when one of the player's minions dies. The dying minion's
+ *  position is irrelevant for now — actions like grantBuff / refundMana
+ *  apply to the player; applyTag/applyTagAll target enemies via ctx. */
+export function dispatchProcOnMinionDeath(effects: TalentEffect[], ctx: TalentProcContext): void {
+  for (const eff of effects) {
+    if (eff.kind !== 'procOnMinionDeath') continue;
     rollAndFire(eff.action, eff.chance, ctx);
   }
 }

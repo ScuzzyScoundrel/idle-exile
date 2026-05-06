@@ -163,6 +163,13 @@ export function runCombatTick(
   // Weapon module: hook-based weapon-specific combat logic (hoisted for tickMaintenance)
   const weaponMod = getWeaponModule(state.character.equipment.mainhand?.weaponType);
 
+  // Phase F F2 (2026-05-06): collect talent effects early so tickMaintenance
+  // can dispatch minion-event procs without recomputing.
+  const talentEffects = [
+    ...collectTalentEffects(state.character.class, state.talentRanks ?? {}),
+    ...collectAscendancyEffects(state.ascendancyId ?? null, state.ascendancyRanks ?? {}),
+  ];
+
   // Weapon maintenance: tick combo states + traps EVERY tick (not gated by GCD)
   let maintPatch: Partial<GameState> | null = null;
   let newActiveMinions = state.activeMinions ? [...state.activeMinions] : [];
@@ -175,6 +182,7 @@ export function runCombatTick(
       state, skill: { id: '' } as any, graphMod: null,
       effectiveStats: maintStats, effectiveMaxLife: maintStats.maxLife,
       dtSec, now, phase, avgDamage: 0, spellPower: maintStats.spellPower ?? 0, targetDebuffs,
+      talentEffects,
     });
     maintPatch = {};
     if (maint.comboStates) maintPatch.comboStates = maint.comboStates;
@@ -308,14 +316,7 @@ export function runCombatTick(
     return withMaint(applyNonSkillTickWithAuto(state, dtSec, now, zone, phase));
   }
 
-  // Phase 4 sub-phase 5: collect allocated class-talent TalentEffects.
-  // Phase D (2026-05-05): ranks-aware — effects scaled by allocated rank.
-  // Phase E (2026-05-05): ascendancy effects concat into the same pipeline.
-  const talentEffects = [
-    ...collectTalentEffects(state.character.class, state.talentRanks ?? {}),
-    ...collectAscendancyEffects(state.ascendancyId ?? null, state.ascendancyRanks ?? {}),
-  ];
-
+  // talentEffects already collected above (hoisted for tickMaintenance).
   const stats = resolveStats(state.character);
   const abilityEffect = getFullEffect(state, now, false);
 

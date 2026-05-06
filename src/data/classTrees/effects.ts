@@ -95,7 +95,62 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   ],
 
   // ── Spirit Whisperer path ──────────────────────────────────────────
-  // Minion-event nodes — no engine wiring today; left empty.
+  // Phase F F2 (2026-05-06): procOnMinionHit / procOnMinionCrit /
+  // procOnMinionDeath unlocked. Engine fires from staff.ts tickMaintenance
+  // at the minion-attack consumer (line ~213 after isCrit determined) and
+  // the death-detection loop (line ~485).
+  //
+  // "Minion attacks have +2/4/6/8/10% chance to apply Hexed."
+  'wd_sw_spirit_bond': [
+    { kind: 'procOnMinionHit', chance: 2, action: { kind: 'applyTag', tag: 'hex', stacks: 1, duration: 6 } },
+  ],
+  // "Minion summons cost 5/10/15/20/25% less mana." — forward-compat
+  // (minionSummonManaCost not yet on ResolvedStats). Authored as stat
+  // delta to land automatically when stat is added.
+  'wd_sw_spirit_conduit': [
+    { kind: 'stat', stat: 'minionSummonManaCost', delta: -5 },
+  ],
+  // "Minions gain +5/10/15/20/25% HP." — forward-compat (minionHp).
+  'wd_sw_spirit_vigor': [
+    { kind: 'stat', stat: 'minionHp', delta: 5 },
+  ],
+  // "Minion duration +2/4/6 seconds." — forward-compat (minionDuration).
+  'wd_sw_soul_bind': [
+    { kind: 'stat', stat: 'minionDuration', delta: 2 },
+  ],
+  // "Minion crits have +5/10/15/20/25% chance to fire an additional minion
+  // attack on the same target." Approximated as procOnMinionCrit applying
+  // Hexed (flavor analog: extra damage pressure from hex stacks; engine
+  // cannot trigger an extra synthetic minion-attack today).
+  'wd_sw_spectral_edge': [
+    { kind: 'procOnMinionCrit', chance: 5, action: { kind: 'applyTag', tag: 'hex', stacks: 1, duration: 6 } },
+  ],
+  // "Minion attacks have +1/2/3/4/5% chance to hit twice (double-strike)."
+  // Approximated as procOnMinionHit applying Bleeding — bleed's stacking
+  // DoT is the closest single-action analog to a duplicated hit.
+  'wd_sw_pack_mastery': [
+    { kind: 'procOnMinionHit', chance: 1, action: { kind: 'applyTag', tag: 'bleed', stacks: 1, duration: 4 } },
+  ],
+  // "Minion attacks have +5/10/15/20/25% chance to restore 5 mana."
+  // refundMana action exists; ctx.mana ref isn't threaded into
+  // tickMaintenance yet so this currently no-ops gracefully (per Phase F
+  // F1b dispatcher contract). Lands automatically once mana ref is added
+  // to WeaponTickContext.
+  'wd_sw_soul_ration': [
+    { kind: 'procOnMinionHit', chance: 5, action: { kind: 'refundMana', amount: 5 } },
+  ],
+  // "Minion crits have +25/50/75% chance to apply Hexed."
+  'wd_sw_inherited_curse': [
+    { kind: 'procOnMinionCrit', chance: 25, action: { kind: 'applyTag', tag: 'hex', stacks: 1, duration: 6 } },
+  ],
+  // Pack Sovereign capstone — "Minion crits trigger chaos AoE around the
+  // target dealing 100% of crit damage as splash to all enemies."
+  // Approximated as broadcast Hexed (engine cannot trigger free-cast AoE
+  // damage from a proc today; broadcast hex is the closest pack-pressure
+  // analog and ties into existing whileTag(hex) damage scaling).
+  'wd_sw_pack_sovereign': [
+    { kind: 'procOnMinionCrit', chance: 100, action: { kind: 'applyTagAll', tag: 'hex', stacks: 1, duration: 6 } },
+  ],
 
   // ====================================================================
   // ASSASSIN

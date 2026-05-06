@@ -16,6 +16,10 @@ import {
   consumeMultipleComboStates, createComboState, tickComboStates,
 } from '../combo';
 import {
+  dispatchProcOnMinionHit, dispatchProcOnMinionCrit, dispatchProcOnMinionDeath,
+  type TalentProcContext,
+} from '../../classTalentDispatcher';
+import {
   SUMMON_CONFIGS, summonMinions, stepMinions, absorbDamage, detonateMinions,
   type MinionState,
 } from '../minions';
@@ -210,6 +214,25 @@ export const staffModule: WeaponModule = {
       if (isCrit) damageMult *= 2.0; // minions crit for ×2 (no stat-driven multi yet)
       const finalDamage = a.damage * damageMult;
       minionAttackDamage += finalDamage;
+
+      // Phase F F2 (2026-05-06): minion-event proc dispatch.
+      // Each minion attack fires procOnMinionHit (always) and procOnMinionCrit
+      // (when isCrit). Target debuffs route through ctx.targetDebuffs (front
+      // mob in clearing / activeDebuffs in boss). Mana refund / skillTimers
+      // not threaded at maintenance time — those actions no-op here.
+      const minionTalentEffects = ctx.talentEffects;
+      if (minionTalentEffects && minionTalentEffects.length > 0) {
+        const minionProcCtx: TalentProcContext = {
+          targetDebuffs: ctx.targetDebuffs,
+          life: { value: state.currentHp, max: ctx.effectiveMaxLife },
+          sourceSkillId: a.sourceSkillId,
+        };
+        dispatchProcOnMinionHit(minionTalentEffects, minionProcCtx);
+        if (isCrit) dispatchProcOnMinionCrit(minionTalentEffects, minionProcCtx);
+        // Apply healSelf side-effect by accumulating into healAmount
+        const healDelta = minionProcCtx.life.value - state.currentHp;
+        if (healDelta > 0) healAmount += healDelta;
+      }
 
       if (a.createsComboStateOnHit === 'haunted') {
         comboStates = createComboState(
@@ -460,6 +483,24 @@ export const staffModule: WeaponModule = {
       // prev was alive last tick, now gone → either damage-killed (hp<=0) or expired this tick.
       const diedByDamage = prev.hp <= 0;
       const wasExpired = !diedByDamage && now >= prev.expiresAt;
+
+      // Phase F F2 (2026-05-06): minion-death proc dispatch (fires for
+      // any minion that vanished, regardless of whether its source skill
+      // has graphMod behaviors). targetDebuffs route applyTag actions to
+      // the front mob; mana / skillTimers refs not threaded here so those
+      // actions no-op gracefully.
+      const deathTalentEffects = ctx.talentEffects;
+      if (deathTalentEffects && deathTalentEffects.length > 0) {
+        const deathProcCtx: TalentProcContext = {
+          targetDebuffs: ctx.targetDebuffs,
+          life: { value: state.currentHp, max: ctx.effectiveMaxLife },
+          sourceSkillId: prev.sourceSkillId,
+        };
+        dispatchProcOnMinionDeath(deathTalentEffects, deathProcCtx);
+        const healDelta = deathProcCtx.life.value - state.currentHp;
+        if (healDelta > 0) healAmount += healDelta;
+      }
+
       const deathMod = resolveMinionMod(prev.sourceSkillId);
       const drb = deathMod?.rawBehaviors as Record<string, any> | undefined;
       if (!drb) continue;

@@ -18,6 +18,7 @@ import type { ResolvedSkillModifier } from '../../skillGraph';
 import type { ConditionContext } from '../../combatHelpers';
 import type { TrapState } from '../traps';
 import type { MinionState } from '../minions';
+import type { TalentEffect } from '../../../types';
 
 // ── Shared context available to all weapon hooks ──
 
@@ -33,6 +34,12 @@ export interface WeaponTickContext {
   avgDamage: number;
   spellPower: number;
   targetDebuffs: ActiveDebuff[];
+  /** Phase F F2 (2026-05-06): pre-collected scaled talent effects so
+   *  weapon hooks (e.g. minion-event procs in staff.tickMaintenance) can
+   *  dispatch event procs without re-resolving the tree. Optional so
+   *  legacy hook callers don't need to be updated; staff.ts treats
+   *  missing as no-procs. */
+  talentEffects?: TalentEffect[];
 }
 
 // ── Hook-specific context extensions ──

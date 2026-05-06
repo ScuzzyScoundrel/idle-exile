@@ -96,6 +96,17 @@ export type TalentEffect =
   | { kind: 'procOnHit'; tag?: DamageTag; chance: number; action: TalentAction }
   /** Fires on crit. */
   | { kind: 'procOnCrit'; chance: number; action: TalentAction }
+  /** Fires when one of the player's minions hits an enemy. Phase F F2
+   *  (2026-05-06): WD Spirit Whisperer (Spirit Bond / Soul Ration / Pack
+   *  Mastery / Fetish Frenzy etc.). */
+  | { kind: 'procOnMinionHit'; chance: number; action: TalentAction }
+  /** Fires when one of the player's minions crits. Phase F F2: WD SW
+   *  Spectral Edge / Inherited Curse / Pack Sovereign capstone. */
+  | { kind: 'procOnMinionCrit'; chance: number; action: TalentAction }
+  /** Fires when one of the player's minions dies. Phase F F2: WD SW
+   *  Bone Armor / Resilient Spirits / Spirit Shield / Echo Wail / Death
+   *  Mastery / Eternal Court. */
+  | { kind: 'procOnMinionDeath'; chance: number; action: TalentAction }
   /** Conditional modifier: while target has tag, multiply stat. */
   | { kind: 'whileTag'; tag: TalentTag; stat: string; mult: number }
   /** Conditional modifier: while PLAYER's HP fraction is below threshold (0-1).
