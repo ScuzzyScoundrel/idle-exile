@@ -44,6 +44,7 @@ import {
   collectTalentEffects,
   collectAscendancyEffects,
   hasPandemicGrant,
+  getDotCritByDebuffId,
 } from '../classTalentDispatcher';
 import { getSkillGraphModifier } from '../unifiedSkills';
 import { absorbDamage } from './minions';
@@ -208,6 +209,14 @@ export function applyZoneDamage(
 
   // --- Per-mob DoT and regen ---
   const zonePlayerStats = resolveStats(state.character);
+  // Phase F F5e follow-on (2026-05-06): per-debuff DoT crit chance map
+  // for talents like asn_vc_toxic_saint (Poison can crit). Computed
+  // once per applyZoneDamage call.
+  const zoneDotCritEffects = [
+    ...collectTalentEffects(state.character.class, state.talentRanks ?? {}),
+    ...collectAscendancyEffects(state.ascendancyId ?? null, state.ascendancyRanks ?? {}),
+  ];
+  const zoneDotCritMap = getDotCritByDebuffId(zoneDotCritEffects);
   let helperPoisonCount: number | undefined;
   // Cache DoT-source graphMods for per-tick rawBehaviors
   const dotSrcMod: Record<string, ReturnType<typeof getSkillGraphModifier> | null | undefined> = {};
@@ -223,7 +232,10 @@ export function applyZoneDamage(
     const mob = updatedMobs[mobIdx];
     if (mob.debuffs.length > 0) {
       const enemyMaxHp = mob.maxHp > 0 ? mob.maxHp : 1;
-      const dot = tickDebuffDoT(mob.debuffs, dt, 1, zonePlayerStats.incDoTDamage, enemyMaxHp);
+      const dot = tickDebuffDoT(mob.debuffs, dt, 1, zonePlayerStats.incDoTDamage, enemyMaxHp, {
+        byDebuffId: zoneDotCritMap,
+        critMultiplier: zonePlayerStats.critMultiplier ?? 200,
+      });
       const mobDamageTakenMult = mob.rare?.combinedDamageTakenMult ?? 1;
       let dotDmg = dot.damage * mobDamageTakenMult;
       // ── Per-tick rawBehaviors (Locust/Haunt/Toads) ──

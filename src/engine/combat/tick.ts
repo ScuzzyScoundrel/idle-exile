@@ -42,6 +42,7 @@ import {
   collectAscendancyEffects,
   applyConditionalTalentEffects,
   getPrecisionPayoffBonus,
+  getDotCritByDebuffId,
   dispatchProcOnHit,
   dispatchProcOnCrit,
   dispatchProcOnKill,
@@ -1312,7 +1313,11 @@ export function runCombatTick(
     ? state.bossState.bossMaxHp
     : (frontMobMaxHp > 0 ? frontMobMaxHp : 1);
   const combinedDoTDamage = stats.incDoTDamage + (effectiveStats.dotMultiplier ?? 0);
-  const dotResult = tickDebuffDoT(newDebuffs, dtSec, effectBonus, combinedDoTDamage, enemyMaxHp);
+  const dotCritParams = {
+    byDebuffId: getDotCritByDebuffId(talentEffects),
+    critMultiplier: effectiveStats.critMultiplier ?? 200,
+  };
+  const dotResult = tickDebuffDoT(newDebuffs, dtSec, effectBonus, combinedDoTDamage, enemyMaxHp, dotCritParams);
   // Unique: moreDotVsCursed — more DoT damage vs cursed targets (Marsh King's Crown)
   const isCursed = newDebuffs.some(d => d.debuffId === 'cursed');
   const dotVsCursedMult = (isCursed && effectiveStats.moreDotVsCursed > 0) ? (1 + effectiveStats.moreDotVsCursed / 100) : 1;

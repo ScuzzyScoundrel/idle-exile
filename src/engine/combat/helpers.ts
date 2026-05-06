@@ -158,11 +158,28 @@ export function tickDebuffDoT(
   effectBonus: number,
   incDoTDamage: number,
   enemyMaxHp: number,
+  /** Phase F F5e follow-on (2026-05-06): per-debuff crit chance map +
+   *  player crit multiplier. Caller (tick.ts / zoneAttack.ts) builds
+   *  via getDotCritByDebuffId(talentEffects). Empty map = no crits. */
+  dotCrit?: { byDebuffId: Record<string, number>; critMultiplier: number },
 ): { damage: number; updatedDebuffs: ActiveDebuff[]; poisonInstanceCount?: number } {
   const incDoTMult = 1 + (incDoTDamage ?? 0) / 100;
   let damage = 0;
   let poisonInstanceCount: number | undefined;
   const updated: ActiveDebuff[] = [];
+
+  // Resolve per-debuff crit chance closure once.
+  const dotCritFor = (debuffId: string): number => {
+    if (!dotCrit) return 0;
+    return dotCrit.byDebuffId[debuffId] ?? dotCrit.byDebuffId['*'] ?? 0;
+  };
+  const dotCritBonus = (debuffId: string): number => {
+    if (!dotCrit) return 1;
+    const chance = dotCritFor(debuffId);
+    if (chance <= 0) return 1;
+    if (Math.random() * 100 >= chance) return 1;
+    return Math.max(1, dotCrit.critMultiplier / 100);
+  };
 
   for (const debuff of debuffs) {
     const debuffDef = getDebuffDef(debuff.debuffId);
@@ -183,7 +200,8 @@ export function tickDebuffDoT(
       // When accumulator >= tickInterval, emit batched damage
       if (accumulator >= tickInterval) {
         const snapSum = livingInstances.reduce((a, inst) => a + inst.snapshot, 0);
-        damage += snapSum * (debuffDef.effect.snapshotPercent ?? 0) / 100 * effectBonus * incDoTMult * accumulator;
+        const tickCritMult = dotCritBonus(debuff.debuffId);
+        damage += snapSum * (debuffDef.effect.snapshotPercent ?? 0) / 100 * effectBonus * incDoTMult * accumulator * tickCritMult;
         poisonInstanceCount = livingInstances.length;
         accumulator -= tickInterval;
         // Prevent drift: if still over interval, clamp to remainder
@@ -206,14 +224,15 @@ export function tickDebuffDoT(
     const d = { ...debuff, remainingDuration: debuff.remainingDuration - dtSec };
     if (d.remainingDuration <= 0) continue;
 
+    const legacyCritMult = dotCritBonus(debuff.debuffId);
     if (debuffDef.dotType === 'snapshot' && debuff.debuffId !== 'bleeding') {
       // Legacy snapshot (shouldn't hit for poison anymore, but kept for safety)
       const snapSum = d.stackSnapshots?.reduce((a, b) => a + b, 0) ?? 0;
-      damage += snapSum * (debuffDef.effect.snapshotPercent ?? 0) / 100 * effectBonus * incDoTMult * dtSec;
+      damage += snapSum * (debuffDef.effect.snapshotPercent ?? 0) / 100 * effectBonus * incDoTMult * dtSec * legacyCritMult;
     } else if (debuffDef.dotType === 'percentMaxHp') {
-      damage += enemyMaxHp * (debuffDef.effect.percentMaxHp ?? 0) / 100 * effectBonus * incDoTMult * dtSec;
+      damage += enemyMaxHp * (debuffDef.effect.percentMaxHp ?? 0) / 100 * effectBonus * incDoTMult * dtSec * legacyCritMult;
     } else if (debuffDef.effect.dotDps) {
-      damage += debuffDef.effect.dotDps * d.stacks * effectBonus * incDoTMult * dtSec;
+      damage += debuffDef.effect.dotDps * d.stacks * effectBonus * incDoTMult * dtSec * legacyCritMult;
     }
     updated.push(d);
   }

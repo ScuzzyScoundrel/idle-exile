@@ -162,6 +162,15 @@ export type TalentEffect =
    *  `appliedBySkillId`; on a Precision Payoff hit, multiplies damage
    *  by `(1 + total bonusPercent / 100)` and consumes the Mark. */
   | { kind: 'precisionPayoff'; bonusPercent: number }
+  /** Grants the player a chance for DoT ticks to crit. Phase F F5e
+   *  follow-on (2026-05-06): Asn Toxic Saint capstone (poison can
+   *  crit), WD hex-can-crit nodes. `debuffId` filters by specific
+   *  DoT (e.g. 'poisoned' / 'hexed' / 'bleeding'); when omitted, all
+   *  DoTs can crit. `chanceBonus` is the crit chance percent applied
+   *  on each tick batch — multiple effects with the same debuffId
+   *  aggregate additively, capped at 100. On successful roll, tick
+   *  damage is multiplied by the player's critMultiplier / 100. */
+  | { kind: 'grantDotCrit'; debuffId?: string; chanceBonus: number }
   /** Conditional modifier: while target has tag, multiply stat (or
    *  add `delta` for additive percent stats like critChance). */
   | { kind: 'whileTag'; tag: TalentTag; stat: string; mult: number; delta?: number }

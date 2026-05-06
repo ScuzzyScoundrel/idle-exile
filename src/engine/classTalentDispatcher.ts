@@ -148,6 +148,8 @@ export function scaleTalentEffectByRank(effect: TalentEffect, rank: number): Tal
       return { ...effect, percent: Math.min(100, effect.percent * rank) };
     case 'precisionPayoff':
       return { ...effect, bonusPercent: effect.bonusPercent * rank };
+    case 'grantDotCrit':
+      return { ...effect, chanceBonus: Math.min(100, effect.chanceBonus * rank) };
     case 'grantTagOnSkill':
     case 'grantCompanion':
     case 'grantPandemic':
@@ -365,6 +367,7 @@ export function applyConditionalTalentEffects(
       case 'grantTagOnSkill':
       case 'grantCompanion':
       case 'grantPandemic':
+      case 'grantDotCrit':
       case 'companionProcInheritance':
       case 'precisionPayoff':
         break;
@@ -711,6 +714,22 @@ export function getPrecisionPayoffBonus(effects: TalentEffect[]): number {
     if (e.kind === 'precisionPayoff') total += e.bonusPercent;
   }
   return total;
+}
+
+/** Aggregates all `grantDotCrit` effects into a per-debuff crit-chance
+ *  map. Phase F F5e follow-on (2026-05-06): consumed by tickDebuffDoT
+ *  to roll for crit on each DoT batch tick. Effects without an explicit
+ *  `debuffId` apply to all DoTs (recorded under the wildcard key '*'
+ *  which the caller checks first). Multiple effects on the same key
+ *  aggregate additively, capped at 100. */
+export function getDotCritByDebuffId(effects: TalentEffect[]): Record<string, number> {
+  const acc: Record<string, number> = {};
+  for (const e of effects) {
+    if (e.kind !== 'grantDotCrit') continue;
+    const key = e.debuffId ?? '*';
+    acc[key] = Math.min(100, (acc[key] ?? 0) + e.chanceBonus);
+  }
+  return acc;
 }
 
 /** Aggregates all `companionProcInheritance` percents (already rank-
