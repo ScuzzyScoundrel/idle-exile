@@ -568,9 +568,21 @@ function executeAction(action: TalentAction, ctx: TalentProcContext): void {
       ctx.minionsRef.list.push(...updated);
       break;
     }
-    // Deferred:
-    case 'triggerSkill':
+    case 'triggerSkill': {
+      // Phase F polish (2026-05-06): minimal viable triggerSkill —
+      // refunds the named skill's cooldown (distinct from
+      // refundCooldown which targets the SOURCE skill that fired the
+      // proc). True free-cast semantics (synthetic damage roll +
+      // proc cascade) are deferred — for now this readies the named
+      // skill for instant manual recast. Mutates ctx.skillTimers
+      // in-place; no-ops if ref or timer missing.
+      const timers = ctx.skillTimers;
+      if (!timers) return;
+      const timer = timers.find(t => t.skillId === action.skillId);
+      if (!timer || timer.cooldownUntil === null) return;
+      timer.cooldownUntil = Date.now();
       break;
+    }
   }
 }
 
