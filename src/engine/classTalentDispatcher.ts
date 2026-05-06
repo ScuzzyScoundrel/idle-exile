@@ -291,6 +291,11 @@ export interface TalentProcContext {
   skillTimers?: SkillTimerState[];
   /** Player mana ref for `refundMana` (caller reads back into state). */
   mana?: { current: number; max: number };
+  /** Crit Cascade ref for `addCritStack` (Phase F F5a follow-on,
+   *  2026-05-06). Caller builds `{ value, max, expiresAt }`, dispatcher
+   *  bumps `value` capped at `max`, refreshes `expiresAt`. Caller
+   *  writes both back to state.critStacks / state.critStacksExpiresAt. */
+  critStacksRef?: { value: number; max: number; expiresAt: number };
 }
 
 /** Roll chance and dispatch action. chance is 0-100 (not 0-1). */
@@ -341,6 +346,13 @@ function executeAction(action: TalentAction, ctx: TalentProcContext): void {
       if (!ctx.mana) return;
       ctx.mana.current = Math.min(ctx.mana.max, ctx.mana.current + action.amount);
       break;
+    case 'addCritStack': {
+      if (!ctx.critStacksRef) return;
+      const amount = action.amount ?? 1;
+      ctx.critStacksRef.value = Math.min(ctx.critStacksRef.max, ctx.critStacksRef.value + amount);
+      ctx.critStacksRef.expiresAt = Date.now() + 4000;
+      break;
+    }
     // Deferred (Phase 4.1):
     case 'summon':
     case 'triggerSkill':

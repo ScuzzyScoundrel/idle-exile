@@ -204,6 +204,18 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'asn_bm_bladework_mastery': [
     { kind: 'perCritStack', stat: 'castSpeed', perStackDelta: 1 },
   ],
+  // F5a follow-on: addCritStack action wired. "Crits +1/2/3% chance
+  // to add an extra Crit Stack (signature accelerator)."
+  'asn_bm_cascading_crit': [
+    { kind: 'procOnCrit', chance: 1, action: { kind: 'addCritStack', amount: 1 } },
+  ],
+  // "Hits against poisoned enemies have +2/4/6/8/10% chance to add a
+  // Crit Stack regardless of crit." Approximated as procOnHit (no
+  // target-poisoned filter today — fires against any target). Reduced
+  // base chance to 1% to compensate for broader trigger surface.
+  'asn_vc_withering_strike': [
+    { kind: 'procOnHit', chance: 1, action: { kind: 'addCritStack', amount: 1 } },
+  ],
 
   // ── Venomcraft path ─────────────────────────────────────────────────
   // "+5% poison damage" — approximated as +5% chaos channel.

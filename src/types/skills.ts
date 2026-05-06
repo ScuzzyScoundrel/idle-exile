@@ -197,6 +197,12 @@ export type TalentAction =
    *  Sniper's Tempo / Sharpshot. Mutates ctx.mana in-place; caller
    *  reads back into state. */
   | { kind: 'refundMana'; amount: number }
+  /** Add Crit Cascade stacks to the player (capped at 5 today; future
+   *  maxCritStacks stat will gate the cap). Phase F F5a follow-on
+   *  (2026-05-06): Asn cascading_crit, withering_strike, snakes_eye,
+   *  cascade_conduit, venom_sovereign etc. Mutates ctx.critStacksRef
+   *  in-place — no-ops if the caller didn't provide the ref. */
+  | { kind: 'addCritStack'; amount?: number }
   /** Grant a buff by id. */
   | { kind: 'grantBuff'; buffId: string; duration: number };
 

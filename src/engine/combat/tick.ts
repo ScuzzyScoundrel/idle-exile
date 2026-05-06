@@ -976,18 +976,33 @@ export function runCombatTick(
       broadcastDebuffLists,
       skillTimers: state.skillTimers,
       mana: manaRef,
+      // Phase F F5a follow-on (2026-05-06): expose crit stacks to the
+      // dispatcher so addCritStack action (cascading_crit / withering_
+      // strike / snakes_eye / cascade_conduit) can mutate them.
+      critStacksRef: { value: state.critStacks, max: 5, expiresAt: state.critStacksExpiresAt },
     };
     dispatchProcOnHit(talentEffects, procCtx);
     if (roll.isCrit) {
       dispatchProcOnCrit(talentEffects, procCtx);
       // Phase F F5a: Crit Cascade — every player crit adds 1 stack
-      // (capped at 5) and resets the 4s decay window.
-      state.critStacks = Math.min(5, state.critStacks + 1);
-      state.critStacksExpiresAt = now + 4000;
+      // (capped at 5) and resets the 4s decay window. Done before
+      // reading back the ref so addCritStack from procs stacks too.
+      if (procCtx.critStacksRef) {
+        procCtx.critStacksRef.value = Math.min(5, procCtx.critStacksRef.value + 1);
+        procCtx.critStacksRef.expiresAt = now + 4000;
+      } else {
+        state.critStacks = Math.min(5, state.critStacks + 1);
+        state.critStacksExpiresAt = now + 4000;
+      }
     }
     // Read back mana mutations from refundMana action.
     if (manaRef.current !== state.character.mana.current) {
       state.character.mana.current = manaRef.current;
+    }
+    // Read back crit-stack mutations from addCritStack action / cascade.
+    if (procCtx.critStacksRef) {
+      state.critStacks = procCtx.critStacksRef.value;
+      state.critStacksExpiresAt = procCtx.critStacksRef.expiresAt;
     }
   }
 
