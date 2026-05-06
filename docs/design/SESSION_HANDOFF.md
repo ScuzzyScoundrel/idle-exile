@@ -1,6 +1,6 @@
 # Session Handoff — READ THIS FIRST
 
-**Last updated:** 2026-05-06 (Phase A + B + C + §15.4 rename + §8.1 + archive sweep + Phase 2 cleanup + Phase D multi-rank + **Phase E ALL 15 ASCENDANCIES** + Combat HUD + Phase F F1a/b/c + Phase F F2 (minion-event procs) + Phase F F3 (trap-event procs) + Phase F F4 (companion-event procs + summon runtime + proc inheritance + whileCompanionAlive) + Phase F F5a (Crit Cascade + addCritStack) + Phase F F5b (Precision Payoff + targetTag filter on procOn*) + Phase F F5c (additive whileSelfHpBelow.delta) + Phase F F5d (Resonance engine + addResonanceCharge) + **Phase F F5e (Pandemic transfer)** all COMPLETE. delta? on whileTag/SelfHpBelow/TargetHpBelow/CompanionAlive/CritStacksAtLeast/ResonanceChargesAtLeast — full additive-conditional family).
+**Last updated:** 2026-05-06 (**Phase F COMPLETE through F5e + all polish slices** — every TalentAction wired, every signature mechanic functional, full additive-conditional family with `delta?`, full `targetTag?` filter on procOnHit/Crit/Kill, procOnTag cascade, ~95 talent entries authored across all 5 classes. Phase F5e follow-on hex-can-crit landed via grantDotCrit kind + tickDebuffDoT crit roll. triggerSkill action wired — last remaining stub. Branch at b475a796 → 594150e7.).
 **Purpose:** If you're resuming the idle-exile combat-and-class overhaul in a new session, read this doc first to refresh the full picture in <5 minutes. Then dive into whichever detailed doc the next-move section points to.
 
 ---
