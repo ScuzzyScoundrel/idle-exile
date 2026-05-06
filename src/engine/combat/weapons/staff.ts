@@ -227,6 +227,7 @@ export const staffModule: WeaponModule = {
           targetDebuffs: ctx.targetDebuffs,
           life: { value: state.currentHp, max: ctx.effectiveMaxLife },
           sourceSkillId: a.sourceSkillId,
+          mana: ctx.mana,
         };
         dispatchProcOnMinionHit(minionTalentEffects, minionProcCtx);
         if (isCrit) dispatchProcOnMinionCrit(minionTalentEffects, minionProcCtx);
@@ -506,6 +507,7 @@ export const staffModule: WeaponModule = {
           targetDebuffs: ctx.targetDebuffs,
           life: { value: state.currentHp, max: ctx.effectiveMaxLife },
           sourceSkillId: prev.sourceSkillId,
+          mana: ctx.mana,
         };
         dispatchProcOnMinionDeath(deathTalentEffects, deathProcCtx);
         // Phase F F4: if the dying minion is a companion, also fire

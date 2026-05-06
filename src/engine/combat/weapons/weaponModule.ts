@@ -40,6 +40,12 @@ export interface WeaponTickContext {
    *  legacy hook callers don't need to be updated; staff.ts treats
    *  missing as no-procs. */
   talentEffects?: TalentEffect[];
+  /** Phase F F2 follow-on (2026-05-06): mutable mana ref for
+   *  refundMana actions fired during weapon-maintenance procs (e.g.
+   *  wd_sw_soul_ration — minion hits restoring player mana).
+   *  tick.ts writes this back to state.character.mana.current after
+   *  the hook returns. Optional — when missing, refundMana no-ops. */
+  mana?: { current: number; max: number };
 }
 
 // ── Hook-specific context extensions ──

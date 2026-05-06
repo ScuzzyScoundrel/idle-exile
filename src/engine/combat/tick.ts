@@ -200,6 +200,10 @@ export function runCombatTick(
     );
   }
 
+  // Phase F F2 follow-on (2026-05-06): mana ref threaded through
+  // tickMaintenance + non-staff minion tick so refundMana actions
+  // (wd_sw_soul_ration etc.) actually mutate player mana.
+  const maintManaRef = { current: state.character.mana.current, max: state.character.mana.max };
   if (weaponMod?.tickMaintenance) {
     // Resolve real player stats early so maintenance-time summons
     // (permanentColony, fetishPermanentMode, locustKillSpawnsPermMinion via auto-revive)
@@ -209,7 +213,7 @@ export function runCombatTick(
       state, skill: { id: '' } as any, graphMod: null,
       effectiveStats: maintStats, effectiveMaxLife: maintStats.maxLife,
       dtSec, now, phase, avgDamage: 0, spellPower: maintStats.spellPower ?? 0, targetDebuffs,
-      talentEffects,
+      talentEffects, mana: maintManaRef,
     });
     maintPatch = {};
     if (maint.comboStates) maintPatch.comboStates = maint.comboStates;
@@ -286,6 +290,11 @@ export function runCombatTick(
     state = { ...state, ...maintPatch };
   }
 
+  // Write back any mana refunded during weapon-maintenance procs.
+  if (maintManaRef.current !== state.character.mana.current) {
+    state.character.mana.current = maintManaRef.current;
+  }
+
   // Phase F F4 follow-on (2026-05-06): generic minion-tick path for
   // non-staff classes. Staff has its own minion subsystem in
   // staff.ts tickMaintenance with WD-specific talents (zombie dog
@@ -312,6 +321,7 @@ export function runCombatTick(
           targetDebuffs,
           life: minionLife,
           sourceSkillId: a.sourceSkillId,
+          mana: maintManaRef,
         };
         dispatchProcOnMinionHit(talentEffects, procCtx);
         if (isCrit) dispatchProcOnMinionCrit(talentEffects, procCtx);
@@ -362,6 +372,11 @@ export function runCombatTick(
     // Apply healSelf side-effects accumulated through the proc dispatch.
     if (minionLife.value > state.currentHp) {
       state.currentHp = minionLife.value;
+    }
+
+    // Write back refundMana side-effects (wd_sw_soul_ration etc.).
+    if (maintManaRef.current !== state.character.mana.current) {
+      state.character.mana.current = maintManaRef.current;
     }
 
     // Sync back to state — maintPatch is null on this path so the
