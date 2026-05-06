@@ -84,6 +84,8 @@ export function scaleTalentEffectByRank(effect: TalentEffect, rank: number): Tal
     case 'procOnCompanionCrit':
     case 'procOnCompanionDeath':
       return { ...effect, chance: Math.min(100, effect.chance * rank) };
+    case 'companionProcInheritance':
+      return { ...effect, percent: Math.min(100, effect.percent * rank) };
     case 'grantTagOnSkill':
     case 'grantCompanion':
       return effect;
@@ -222,6 +224,7 @@ export function applyConditionalTalentEffects(
       case 'procOnCompanionDeath':
       case 'grantTagOnSkill':
       case 'grantCompanion':
+      case 'companionProcInheritance':
         break;
     }
   }
@@ -425,4 +428,17 @@ export function dispatchProcOnCompanionDeath(effects: TalentEffect[], ctx: Talen
  *  the companion is the F4 follow-on. */
 export function hasCompanionGrant(effects: TalentEffect[]): boolean {
   return effects.some(e => e.kind === 'grantCompanion');
+}
+
+/** Aggregates all `companionProcInheritance` percents (already rank-
+ *  scaled) into a single roll-target capped at 100. Phase F F4 polish
+ *  (2026-05-06): consumed by tick.ts non-staff minion tick to decide
+ *  whether each companion attack also fires the player's procOnHit /
+ *  procOnCrit pipeline. */
+export function getCompanionInheritancePercent(effects: TalentEffect[]): number {
+  let total = 0;
+  for (const e of effects) {
+    if (e.kind === 'companionProcInheritance') total += e.percent;
+  }
+  return Math.min(100, total);
 }

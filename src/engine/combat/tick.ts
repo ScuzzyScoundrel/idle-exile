@@ -51,6 +51,7 @@ import {
   dispatchProcOnCompanionCrit,
   dispatchProcOnCompanionDeath,
   hasCompanionGrant,
+  getCompanionInheritancePercent,
   type TalentProcContext,
 } from '../classTalentDispatcher';
 import { SUMMON_CONFIGS, summonMinions, stepMinions } from './minions';
@@ -318,6 +319,17 @@ export function runCombatTick(
         if (attackerMinion?.type === 'companion') {
           dispatchProcOnCompanionHit(talentEffects, procCtx);
           if (isCrit) dispatchProcOnCompanionCrit(talentEffects, procCtx);
+          // Phase F F4 polish (2026-05-06): proc inheritance — companion
+          // attacks fire the player's procOnHit/procOnCrit at a chance
+          // equal to the aggregated `companionProcInheritance` percent
+          // (Pack's Inheritance / Pack Inheritance Mastery / Pack Leader
+          // capstone). At 100% (full Pack Leader) every companion attack
+          // also runs the full player proc pipeline.
+          const inheritPct = getCompanionInheritancePercent(talentEffects);
+          if (inheritPct > 0 && Math.random() * 100 < inheritPct) {
+            dispatchProcOnHit(talentEffects, procCtx);
+            if (isCrit) dispatchProcOnCrit(talentEffects, procCtx);
+          }
         }
       }
     }

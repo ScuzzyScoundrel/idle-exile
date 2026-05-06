@@ -132,13 +132,18 @@ export type TalentEffect =
   | { kind: 'procOnCompanionDeath'; chance: number; action: TalentAction }
   /** Marks the player as having permission to spawn a permanent
    *  companion. Phase F F4: presence-based, NOT event-driven — the
-   *  companion-summon runtime (deferred to F4 follow-on) checks for
-   *  this kind in `talentEffects` and ensures a `type: 'companion'`
-   *  MinionState is alive in `state.activeMinions`. Today this kind
-   *  is a no-op (the summon path doesn't exist yet); authoring it
-   *  on Hunter Pack Leader Preview / Beastmaster ascendancy capstone
-   *  enables the future runtime to find the right players. */
+   *  companion-summon runtime (F4 follow-on) checks for this kind in
+   *  `talentEffects` and ensures a `type: 'companion'` MinionState is
+   *  alive in `state.activeMinions`. Authored on Hunter Pack Leader
+   *  Preview / Beastmaster ascendancy capstone. */
   | { kind: 'grantCompanion'; minionType?: string }
+  /** Companion attacks fire `percent`% of the player's procOnHit/Crit
+   *  events as if they were player attacks. Phase F F4 polish
+   *  (2026-05-06): the headline Pack Leader feature. Multiple nodes
+   *  with this kind aggregate additively (sum capped at 100). The
+   *  dispatcher rolls per-attack and fires the existing
+   *  procOnHit/procOnCrit pipeline on success. */
+  | { kind: 'companionProcInheritance'; percent: number }
   /** Conditional modifier: while target has tag, multiply stat. */
   | { kind: 'whileTag'; tag: TalentTag; stat: string; mult: number }
   /** Conditional modifier: while PLAYER's HP fraction is below threshold (0-1).

@@ -412,11 +412,29 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
     { kind: 'procOnCompanionCrit', chance: 20, action: { kind: 'applyTag', tag: 'bleed', stacks: 1, duration: 4 } },
   ],
   // Pack Leader Preview — flag node that grants companion permission.
-  // Today this is a no-op marker; the deferred F4 follow-on companion-
-  // summon runtime checks `talentEffects.some(e => e.kind === 'grantCompanion')`
-  // to know whether to spawn / maintain the companion for this build.
+  // F4 follow-on landed the summon runtime, so this now actually spawns
+  // a singleton type='companion' MinionState. The Mark-auto-inheritance
+  // half of the design ("companion auto-inherits Mark application from
+  // your hits") is approximated by the inheritance % roll below — Mark
+  // is part of the player's procOnHit pipeline (Hunter Mark nodes), so
+  // inheritance % carries Mark application along automatically.
   'hnt_bm_pack_leader_preview': [
     { kind: 'grantCompanion', minionType: 'companion' },
+  ],
+  // "Companion inherits +5/10/15/20/25% of your on-hit procs."
+  // Phase F F4 polish (2026-05-06): the headline Beastmaster mechanic.
+  // Per-attack roll fires the player's procOnHit/procOnCrit pipeline
+  // through the companion's hits, so all Hunter procOnHit/procOnCrit
+  // entries (Mark application, refundMana, applyTagAll etc.) flow
+  // through the pet at the rolled chance.
+  'hnt_bm_packs_inheritance': [
+    { kind: 'companionProcInheritance', percent: 5 },
+  ],
+  // "Companion inherits +25/50/75% of your on-hit procs (scales)."
+  // Stacks additively with Pack's Inheritance — the cap (100%) is
+  // applied during dispatch in tick.ts.
+  'hnt_bm_pack_inheritance_mastery': [
+    { kind: 'companionProcInheritance', percent: 25 },
   ],
 
   // ── Trapper path ────────────────────────────────────────────────────

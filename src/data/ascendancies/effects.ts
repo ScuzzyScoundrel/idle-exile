@@ -367,15 +367,15 @@ export const ASCENDANCY_NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'asc_hnt_bm_bond_of_hunting': [
     { kind: 'whileTag', tag: 'mark', stat: 'damageMult', mult: 1.05 },
   ],
-  // Pack Leader capstone — Phase F F4 (2026-05-06): grantCompanion
-  // marks the player as having permission to spawn a permanent
-  // companion. Today this is a no-op marker; the deferred F4 follow-on
-  // companion-summon runtime checks for this kind to spawn / maintain
-  // a singleton type='companion' MinionState. Hunter BM proc nodes
-  // (procOnCompanionHit/Crit/Death) start firing automatically once
-  // the runtime lands.
+  // Pack Leader capstone — Phase F F4 (2026-05-06): grants companion
+  // permission + full proc inheritance. Summon runtime (F4 follow-on)
+  // spawns the singleton type='companion' MinionState; F4 polish proc
+  // inheritance routes 100% of player procOnHit/procOnCrit through
+  // every companion attack so capstone Beastmasters truly play "two
+  // characters at once" — the design intent of the keystone.
   'asc_hnt_bm_pack_leader': [
     { kind: 'grantCompanion', minionType: 'companion' },
+    { kind: 'companionProcInheritance', percent: 100 },
   ],
 
   // ── Hunter — Trapper ──────────────────────────────────────────────
