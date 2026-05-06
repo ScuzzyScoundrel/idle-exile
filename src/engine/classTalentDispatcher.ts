@@ -84,7 +84,11 @@ export function scaleTalentEffectByRank(effect: TalentEffect, rank: number): Tal
         cap: effect.cap !== undefined ? effect.cap * rank : undefined,
       };
     case 'whileResonanceChargesAtLeast':
-      return { ...effect, mult: 1 + (effect.mult - 1) * rank };
+      return {
+        ...effect,
+        mult: 1 + (effect.mult - 1) * rank,
+        delta: effect.delta !== undefined ? effect.delta * rank : undefined,
+      };
     case 'perResonanceCharge':
       return {
         ...effect,
@@ -266,8 +270,13 @@ export function applyConditionalTalentEffects(
       }
       case 'whileResonanceChargesAtLeast':
         if (resonanceCharges >= eff.threshold) {
-          if (eff.stat === 'damageMult') damageMult *= eff.mult;
-          else if (typeof (stats as any)[eff.stat] === 'number') {
+          if (eff.delta !== undefined) {
+            if (typeof (stats as any)[eff.stat] === 'number') {
+              (stats as any)[eff.stat] += eff.delta;
+            }
+          } else if (eff.stat === 'damageMult') {
+            damageMult *= eff.mult;
+          } else if (typeof (stats as any)[eff.stat] === 'number') {
             (stats as any)[eff.stat] *= eff.mult;
           }
         }

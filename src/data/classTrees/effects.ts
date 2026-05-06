@@ -325,6 +325,25 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'sor_ar_saturation': [
     { kind: 'whileResonanceChargesAtLeast', threshold: 5, stat: 'spellPower', mult: 1.20 },
   ],
+  // "+5/10/15/20/25 maximum mana." Forward-compat seed (maxMana stat
+  // exists; delta gets folded into the mana ceiling at character resolve).
+  'sor_ar_mana_reservoir': [
+    { kind: 'stat', stat: 'maxMana', delta: 5 },
+  ],
+  // "For each Resonance charge held, +1/2/3/4/5% spell power."
+  'sor_ar_bank_surge': [
+    { kind: 'perResonanceCharge', stat: 'spellPower', perStackDelta: 1 },
+  ],
+  // "Resonance charges grant +2/4/6/8/10% defense per charge."
+  // Approximated as damageTakenReduction (closest live defense stat).
+  'sor_ar_crystal_lattice': [
+    { kind: 'perResonanceCharge', stat: 'damageTakenReduction', perStackDelta: 2 },
+  ],
+  // F5b/F5d delta variants land — additive percent conditionals work.
+  // "Hits while at 4+ Resonance charges have +5/10/15/20/25% crit chance."
+  'sor_ar_resonance_sense': [
+    { kind: 'whileResonanceChargesAtLeast', threshold: 4, stat: 'critChance', mult: 1, delta: 5 },
+  ],
   // Phase F F1b (2026-05-05): refundMana unlocks Arcanist crit-economy.
   // "On crit, +1/2/3 mana refunded" rank-1 → 100% chance, +1 mana per crit.
   'sor_ar_mana_surge': [
@@ -478,6 +497,20 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   // "+5/10/15/20/25% crit damage vs Marked targets."
   'hnt_mm_headshot_sense': [
     { kind: 'whileTag', tag: 'mark', stat: 'critMultiplier', mult: 1, delta: 5 },
+  ],
+  // "On crit, +1/2/3/4/5% chance to instantly Mark another enemy."
+  // Approximated as procOnCrit applyTagAll(mark) — broader than
+  // design's "another enemy" intent (broadcasts to all instead of
+  // picking one).
+  'hnt_mm_critical_cycle': [
+    { kind: 'procOnCrit', chance: 1, action: { kind: 'applyTagAll', tag: 'mark', stacks: 1, duration: 8 } },
+  ],
+  // "On crit-killing a Marked target, +20/40/60% chance to instantly
+  // Mark all enemies." Approximated as procOnKill applyTagAll(mark)
+  // (the target-Marked + crit gates are dropped — fires on any crit-
+  // kill since procOnKill cannot filter by target debuff today).
+  'hnt_mm_mark_reset': [
+    { kind: 'procOnKill', chance: 20, action: { kind: 'applyTagAll', tag: 'mark', stacks: 1, duration: 8 } },
   ],
 
   // ── Beastmaster path ────────────────────────────────────────────────
