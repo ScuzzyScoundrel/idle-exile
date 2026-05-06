@@ -179,6 +179,14 @@ export function runCombatTick(
     ...collectAscendancyEffects(state.ascendancyId ?? null, state.ascendancyRanks ?? {}),
   ];
 
+  // Phase F F5a (2026-05-06): Crit Cascade — reset stacks if the
+  // expiry window has elapsed without a fresh crit. Stacks accumulate
+  // at the dispatchProcOnCrit site below; this just handles decay.
+  if (state.critStacks > 0 && now > state.critStacksExpiresAt) {
+    state.critStacks = 0;
+    state.critStacksExpiresAt = 0;
+  }
+
   // Weapon maintenance: tick combo states + traps EVERY tick (not gated by GCD)
   let maintPatch: Partial<GameState> | null = null;
   let newActiveMinions = state.activeMinions ? [...state.activeMinions] : [];
@@ -660,6 +668,7 @@ export function runCombatTick(
     const companionAlive = (state.activeMinions ?? []).some(m => m.type === 'companion' && m.hp > 0);
     const talentConditional = applyConditionalTalentEffects(
       talentEffects, effectiveStats, targetDebuffs, selfHpFraction, targetHpFraction, companionAlive,
+      state.critStacks,
     );
     damageMult *= talentConditional.damageMult;
   }
@@ -969,7 +978,13 @@ export function runCombatTick(
       mana: manaRef,
     };
     dispatchProcOnHit(talentEffects, procCtx);
-    if (roll.isCrit) dispatchProcOnCrit(talentEffects, procCtx);
+    if (roll.isCrit) {
+      dispatchProcOnCrit(talentEffects, procCtx);
+      // Phase F F5a: Crit Cascade — every player crit adds 1 stack
+      // (capped at 5) and resets the 4s decay window.
+      state.critStacks = Math.min(5, state.critStacks + 1);
+      state.critStacksExpiresAt = now + 4000;
+    }
     // Read back mana mutations from refundMana action.
     if (manaRef.current !== state.character.mana.current) {
       state.character.mana.current = manaRef.current;

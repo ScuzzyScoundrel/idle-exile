@@ -185,6 +185,25 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'asn_bm_eviscerate': [
     { kind: 'procOnCrit', chance: 5, action: { kind: 'refundCooldown' } },
   ],
+  // Phase F F5a (2026-05-06): Crit Cascade engine landed — Assassin
+  // signature mechanic. Every player crit adds 1 stack (capped at 5)
+  // to `state.critStacks` with a 4s decay window; stacks drive the
+  // perCritStack and whileCritStacksAtLeast effect kinds.
+  //
+  // "Each Crit Stack reduces all skill cooldowns by -0.1/-0.2/-0.3s."
+  // Approximated as +5% cooldownRecovery per stack (rank-scaled). At
+  // rank 3 + 5 stacks → 5*3*5 = +75% cooldown recovery — generous but
+  // illustrates the spike-empowerment fantasy of the node.
+  'asn_bm_bladestorm_tempo': [
+    { kind: 'perCritStack', stat: 'cooldownRecovery', perStackDelta: 5 },
+  ],
+  // "Skill cast intervals reduced by +1/2/3/4/5% per Crit Stack."
+  // Approximated globally (the design's "on Shadow Marked target"
+  // gate is dropped — engine cannot filter castSpeed by per-target
+  // condition today; broader than design intent but functional).
+  'asn_bm_bladework_mastery': [
+    { kind: 'perCritStack', stat: 'castSpeed', perStackDelta: 1 },
+  ],
 
   // ── Venomcraft path ─────────────────────────────────────────────────
   // "+5% poison damage" — approximated as +5% chaos channel.

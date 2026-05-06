@@ -128,6 +128,13 @@ export interface GameState {
   fortifyDRPerStack: number;  // copied from graphMod on hit, avoids graphMod lookup at damage sites
   deathStreak: number;        // consecutive deaths for streak penalty
   lastDeathTime: number;      // timestamp of last death for streak window
+  /** Phase F F5a (2026-05-06): Crit Cascade — Assassin signature
+   *  mechanic. Each player crit adds a stack (capped at 5); stacks
+   *  decay if no crit lands within the expiry window. Consumed by
+   *  Shadow Mark application. Drives `whileCritStacksAtLeast` and
+   *  `perCritStack` (via `perStack` with stack='critStack') effects. */
+  critStacks: number;
+  critStacksExpiresAt: number;
 
   // Combo states (Dagger v2 — ephemeral, not persisted)
   comboStates: ComboState[];

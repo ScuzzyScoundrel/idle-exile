@@ -158,6 +158,17 @@ export type TalentEffect =
    *  type='companion' MinionState) is alive, multiply stat. Phase F F4
    *  polish (2026-05-06): Hnt BM Pack Awareness / Pack Synergy. */
   | { kind: 'whileCompanionAlive'; stat: string; mult: number }
+  /** Conditional modifier: while the player has at least `threshold`
+   *  Crit Cascade stacks (`state.critStacks`), multiply stat. Phase F
+   *  F5a (2026-05-06): Assassin Crit Cascade — stacks accumulate per
+   *  player crit (max 5, decay window) and drive whileCritStacksAtLeast
+   *  + perStack(stack='critStack') effects. */
+  | { kind: 'whileCritStacksAtLeast'; threshold: number; stat: string; mult: number }
+  /** Per-crit-stack additive bonus to a player stat (e.g. cooldown
+   *  recovery, cast speed). Phase F F5a: parallel to `perStack` but
+   *  reads `state.critStacks` instead of target debuff stacks. Bonus
+   *  is `perStackDelta * critStacks`, optionally capped. */
+  | { kind: 'perCritStack'; stat: string; perStackDelta: number; cap?: number }
   /** Per-stack modifier (e.g. +5% damage per poison stack, capped). */
   | { kind: 'perStack'; stack: string; stat: string; perStackDelta: number; cap?: number }
   /** Adds a damage tag to skills matching a source tag

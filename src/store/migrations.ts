@@ -987,6 +987,15 @@ export function runMigrations(
     if (raw.ascendancyRanks === undefined) raw.ascendancyRanks = {};
   }
 
+  if (version < 71) {
+    // v71: Phase F F5a — Crit Cascade for Assassin. Init the two
+    // ephemeral stack fields. Both reset on combat-phase exit anyway,
+    // but persisting through this migration keeps tsc happy and means
+    // a player mid-cascade at save-time keeps their stacks on reload.
+    if (raw.critStacks === undefined) raw.critStacks = 0;
+    if (raw.critStacksExpiresAt === undefined) raw.critStacksExpiresAt = 0;
+  }
+
   if (version < 69) {
     // v69: Phase D — multi-rank class talent engine.
     // Convert flat `talentAllocations: string[]` → `talentRanks: Record<string, number>`
