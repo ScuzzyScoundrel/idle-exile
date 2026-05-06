@@ -265,6 +265,32 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'asn_sd_stalkers_sigil': [
     { kind: 'procOnCrit', chance: 1, action: { kind: 'applyTagAll', tag: 'mark', stacks: 1, duration: 8 } },
   ],
+  // F5b/d delta on whileTag enables percent-stat conditionals.
+  // "Hits on Shadow Marked targets have +1/2/3/4/5% chance to crit."
+  // Approximated via Mark debuff (Shadow Mark and Mark share the
+  // 'marked' debuff today; engine doesn't yet distinguish the two).
+  'asn_sd_stalkers_sense': [
+    { kind: 'whileTag', tag: 'mark', stat: 'critChance', mult: 1, delta: 1 },
+  ],
+  // "+1/2/3/4/5s Shadow Mark duration / rank" — global ailment+combo
+  // duration approximation (engine cannot filter to a specific debuff
+  // id today). Rank 5 → +50% all ailment durations.
+  'asn_sd_killers_grace': [
+    { kind: 'stat', stat: 'ailmentDuration', delta: 10 },
+  ],
+  // "Crits +5/10/15/20/25% chance to apply Shadow Mark to an additional
+  // enemy." Approximated via applyTagAll mark (broader — broadcasts
+  // instead of picking one).
+  'asn_sd_mark_spread': [
+    { kind: 'procOnCrit', chance: 5, action: { kind: 'applyTagAll', tag: 'mark', stacks: 1, duration: 8 } },
+  ],
+  // "Hits against Shadow Marked targets +2/4/6/8/10% chance to refresh
+  // Shadow Mark to full duration." Approximated as procOnHit applyTag
+  // mark (re-applies Mark; refresh-to-full semantics aren't precise
+  // since applyTag uses the action's duration, not the original).
+  'asn_sd_hunters_patience': [
+    { kind: 'procOnHit', chance: 2, action: { kind: 'applyTag', tag: 'mark', stacks: 1, duration: 8 } },
+  ],
 
   // ====================================================================
   // SORCERER
