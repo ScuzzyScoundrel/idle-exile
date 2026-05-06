@@ -107,6 +107,16 @@ export type TalentEffect =
    *  Bone Armor / Resilient Spirits / Spirit Shield / Echo Wail / Death
    *  Mastery / Eternal Court. */
   | { kind: 'procOnMinionDeath'; chance: number; action: TalentAction }
+  /** Fires when one of the player's traps detonates. Phase F F3
+   *  (2026-05-06): Hnt Trapper Multi-Arming / Trapper's Tempo /
+   *  Snare Detonation Mastery / Mark Trap / Chain Reaction / Trap Crit
+   *  / Snare Cascade. Wired in `dagger.ts` (Blade Trap) today; bow/
+   *  crossbow traps fire automatically once those modules adopt
+   *  `traps.ts`. */
+  | { kind: 'procOnTrapDetonate'; chance: number; action: TalentAction }
+  /** Fires when a trap detonation chains into another trap (multi-trap
+   *  burst). Phase F F3: Hnt Trapper Chain Trap. */
+  | { kind: 'procOnTrapChain'; chance: number; action: TalentAction }
   /** Conditional modifier: while target has tag, multiply stat. */
   | { kind: 'whileTag'; tag: TalentTag; stat: string; mult: number }
   /** Conditional modifier: while PLAYER's HP fraction is below threshold (0-1).

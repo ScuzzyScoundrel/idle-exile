@@ -362,12 +362,52 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   // Companion-event nodes — no engine wiring today; left empty.
 
   // ── Trapper path ────────────────────────────────────────────────────
-  // Trap-event nodes — no engine wiring today; left empty.
-  // Exception: Snare Mastery extends snare/trap-state durations via
-  // global ailmentDuration. "+1s Snare duration / rank" approximated as
-  // +8% / rank → +40% at rank 5.
+  // Phase F F3 (2026-05-06): procOnTrapDetonate / procOnTrapChain
+  // unlocked. Engine fires from `dagger.ts` onEnemyAttack at the trap
+  // detonation site (line ~470). Bow / crossbow trap modules will
+  // adopt the same hooks once those weapons gain trap mechanics.
+  //
+  // "+1s Snare duration / rank" approximated as +8% global ailment
+  // duration / rank → +40% at rank 5.
   'hnt_tp_snare_mastery': [
     { kind: 'stat', stat: 'ailmentDuration', delta: 8 },
+  ],
+  // "+5/10/15/20/25% trap-tagged skill damage." — forward-compat seed
+  // (incTrapDamage not on ResolvedStats today). Lands when stat is added.
+  'hnt_tp_trappers_hand': [
+    { kind: 'stat', stat: 'incTrapDamage', delta: 5 },
+  ],
+  // "Trap cooldowns -2/4/6/8/10%." Approximated as global
+  // cooldownRecovery (engine cannot filter trap-tagged today).
+  'hnt_tp_quick_reload': [
+    { kind: 'stat', stat: 'cooldownRecovery', delta: 2 },
+  ],
+  // "+2/4/6/8/10% trap detonation damage." — forward-compat seed
+  // (trapDetonationDamage stat not on ResolvedStats today).
+  'hnt_tp_heavy_trap': [
+    { kind: 'stat', stat: 'trapDetonationDamage', delta: 2 },
+  ],
+  // "+1/2/3 maximum traps active." — forward-compat seed (maxActiveTraps
+  // not on ResolvedStats today; trap cap is hard-coded in dagger.ts).
+  'hnt_tp_trap_stack': [
+    { kind: 'stat', stat: 'maxActiveTraps', delta: 1 },
+  ],
+  // "+2/4/6 maximum traps active (stacks with Trap Stack)."
+  'hnt_tp_trap_reservoir': [
+    { kind: 'stat', stat: 'maxActiveTraps', delta: 2 },
+  ],
+  // "On trap detonation hitting multiple enemies, all hit gain Snared."
+  // 'snare' isn't in TalentTag yet — using `frozen` (frostbite debuff) as
+  // the closest movement-impair analog. Triggers from dagger Blade Trap
+  // detonations today; bow/crossbow traps will inherit when wired.
+  'hnt_tp_snare_cascade': [
+    { kind: 'procOnTrapDetonate', chance: 100, action: { kind: 'applyTagAll', tag: 'frozen', stacks: 1, duration: 4 } },
+  ],
+  // "Multi-trap chains' damage escalation +5/10/15/20/25% per chained
+  // detonation." Approximated as procOnTrapChain applying Bleeding —
+  // bleed's stacking DoT mirrors the per-chain damage escalation curve.
+  'hnt_tp_chain_trap': [
+    { kind: 'procOnTrapChain', chance: 5, action: { kind: 'applyTag', tag: 'bleed', stacks: 1, duration: 4 } },
   ],
 };
 

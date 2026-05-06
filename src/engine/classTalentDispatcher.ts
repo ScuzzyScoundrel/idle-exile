@@ -78,6 +78,8 @@ export function scaleTalentEffectByRank(effect: TalentEffect, rank: number): Tal
     case 'procOnMinionHit':
     case 'procOnMinionCrit':
     case 'procOnMinionDeath':
+    case 'procOnTrapDetonate':
+    case 'procOnTrapChain':
       return { ...effect, chance: Math.min(100, effect.chance * rank) };
     case 'grantTagOnSkill':
       return effect;
@@ -209,6 +211,8 @@ export function applyConditionalTalentEffects(
       case 'procOnMinionHit':
       case 'procOnMinionCrit':
       case 'procOnMinionDeath':
+      case 'procOnTrapDetonate':
+      case 'procOnTrapChain':
       case 'grantTagOnSkill':
         break;
     }
@@ -355,6 +359,26 @@ export function dispatchProcOnMinionCrit(effects: TalentEffect[], ctx: TalentPro
 export function dispatchProcOnMinionDeath(effects: TalentEffect[], ctx: TalentProcContext): void {
   for (const eff of effects) {
     if (eff.kind !== 'procOnMinionDeath') continue;
+    rollAndFire(eff.action, eff.chance, ctx);
+  }
+}
+
+/** Fires when one of the player's traps detonates. Phase F F3
+ *  (2026-05-06): caller passes targetDebuffs as the detonation-impact
+ *  enemy's debuff list so applyTag actions land correctly. */
+export function dispatchProcOnTrapDetonate(effects: TalentEffect[], ctx: TalentProcContext): void {
+  for (const eff of effects) {
+    if (eff.kind !== 'procOnTrapDetonate') continue;
+    rollAndFire(eff.action, eff.chance, ctx);
+  }
+}
+
+/** Fires when a trap detonation chains into a nearby trap (multi-trap
+ *  burst). For now the chain detection is approximate — fires once per
+ *  detonation event when multiple traps were active beforehand. */
+export function dispatchProcOnTrapChain(effects: TalentEffect[], ctx: TalentProcContext): void {
+  for (const eff of effects) {
+    if (eff.kind !== 'procOnTrapChain') continue;
     rollAndFire(eff.action, eff.chance, ctx);
   }
 }

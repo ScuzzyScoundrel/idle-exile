@@ -14,6 +14,10 @@ import {
   tickComboStates, consumeComboState, consumeMultipleComboStates, createComboState,
 } from '../combo';
 import { tickTraps, detonateTrap } from '../traps';
+import {
+  dispatchProcOnTrapDetonate, dispatchProcOnTrapChain,
+  type TalentProcContext,
+} from '../../classTalentDispatcher';
 
 export const daggerModule: WeaponModule = {
   weaponType: 'dagger',
@@ -466,9 +470,28 @@ export const daggerModule: WeaponModule = {
 
     // Trap detonation: enemy attacking triggers armed traps
     if (activeTraps.length > 0) {
+      const trapsBefore = activeTraps.length;
       const { detonated, remaining } = detonateTrap(activeTraps);
       if (detonated) {
         activeTraps = remaining;
+
+        // Phase F F3 (2026-05-06): trap-event proc dispatch.
+        // procOnTrapDetonate fires every detonation; procOnTrapChain
+        // fires only when other traps were still active at detonation
+        // time (rough chain approximation until real chain logic lands).
+        // mana / skillTimers refs not threaded here — refundMana /
+        // refundCooldown actions no-op gracefully.
+        const trapTalentEffects = ctx.talentEffects;
+        if (trapTalentEffects && trapTalentEffects.length > 0) {
+          const trapProcCtx: TalentProcContext = {
+            targetDebuffs: ctx.targetDebuffs,
+            life: { value: ctx.state.currentHp, max: ctx.effectiveMaxLife },
+            sourceSkillId: 'dagger_blade_trap',
+          };
+          dispatchProcOnTrapDetonate(trapTalentEffects, trapProcCtx);
+          if (trapsBefore > 1) dispatchProcOnTrapChain(trapTalentEffects, trapProcCtx);
+        }
+
         const detonationBonus = 1 + (graphMod?.detonationDamageBonus ?? 0) / 100;
         let detDmg = detonated.damage * detonationBonus;
 
