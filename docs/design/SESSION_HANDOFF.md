@@ -1,13 +1,13 @@
 # Session Handoff — READ THIS FIRST
 
-**Last updated:** 2026-05-06 (**Phase F COMPLETE through F5e + all polish slices** — every TalentAction wired, every signature mechanic functional, full additive-conditional family with `delta?`, full `targetTag?` filter on procOnHit/Crit/Kill, procOnTag cascade, ~95 talent entries authored across all 5 classes. Phase F5e follow-on hex-can-crit landed via grantDotCrit kind + tickDebuffDoT crit roll. triggerSkill action wired — last remaining stub. Branch at master `717ee378`.).
+**Last updated:** 2026-05-06 (**Phase F COMPLETE through F5e + all polish slices** — every TalentAction wired, every signature mechanic functional, full additive-conditional family with `delta?`, full `targetTag?` filter on procOnHit/Crit/Kill, procOnTag cascade, ~102 talent entries authored across all 5 classes. New `whileOffhandAbsent` TalentEffect kind landed alongside Brs Juggernaut path first slice (4/28 → 11/28). Branch at master `ad8052fb`.).
 **Purpose:** If you're resuming the idle-exile combat-and-class overhaul in a new session, read this doc first to refresh the full picture in <5 minutes. Then dive into whichever detailed doc the next-move section points to.
 
 ---
 
 ## NEXT SESSION START HERE — post-F-arc queue
 
-Branch is `master` at `717ee378`. **Phase F arc is COMPLETE through F5e first-slice for every signature mechanic, plus comprehensive polish.** Every TalentAction is wired (no stubs remain), every conditional kind has additive `delta?` discrimination, full `targetTag?` filter on procOnHit/Crit/Kill, procOnTag cascade live, ~95 talent entries authored.
+Branch is `master` at `ad8052fb`. **Phase F arc is COMPLETE through F5e first-slice for every signature mechanic, plus comprehensive polish.** Every TalentAction is wired (no stubs remain), every conditional kind has additive `delta?` discrimination, full `targetTag?` filter on procOnHit/Crit/Kill, procOnTag cascade live, ~102 talent entries authored. **`whileOffhandAbsent` kind landed** in the Juggernaut first-slice commit — gates stat/damageMult on `!state.character.equipment.offhand`.
 
 **Pick one focused commit for next session:**
 
@@ -34,8 +34,17 @@ Branch is `master` at `717ee378`. **Phase F arc is COMPLETE through F5e first-sl
 7. **F4 polish — companion balance / respawn cooldown / `whileSelfHpAbove`** (~half-day)
    • `hnt_bm_companions_fury` is the lone forward-compat seed needing `whileSelfHpAbove`. Companion `damagePerSpellPowerRatio: 1.5` is provisional. Currently companion respawns instantly on death — consider 5s cooldown.
 
-8. **Author batch — Brs Juggernaut path (~20 nodes)** (~1 day)
-   • Many need new mechanics (offhand-slot conditional, AoE-target-count stat, Marked for Cleave debuff, Staggered debuff promotion from placeholder). Could pair with adding `whileNoOffhand` conditional for the 6 offhand-gated Juggernaut nodes.
+8. **Brs Juggernaut path follow-on (17 of 28 still need engine surface)** (~2-3 days)
+   • First slice landed `ad8052fb` — `whileOffhandAbsent` kind + 7 entries (Heavy Stance, Wide Sweep, Mountain Tempo, Mountain's Step, Cleave Reach, Mountain's Wrath, Mountain capstone). Path now 11/28.
+   • **Remaining 17 nodes need new engine surface:**
+     - **Marked-for-Cleave debuff system** — new TalentTag + tag-application via AoE hits + consume-payoff hook. Unlocks `marked_for_cleave`, `cleave_mastery`, `cleave_cascade`, `marked_slam`, and the `juggernaut_sovereign` capstone (5 nodes).
+     - **Staggered debuff** — new TalentTag (currently approximated as `stun`). Unlocks `stagger_sweep`, `concussive_force`, `stagger_cascade`, `mass_stagger` (4 nodes).
+     - **`onHitTaken` event hook** (defensive procs, missing entirely). Unlocks `stalwart_mastery`, `ironclad`, `stalwart_spirit` (3 nodes).
+     - **Bulwark charge state** — new player buff with consume-event. Unlocks `sustained_aegis` (1 node) + half of `juggernaut_sovereign` capstone.
+     - **`onMultiKillChain` event** — multi-target kills within 1s window. Unlocks `mass_slaughter` (1 node).
+     - **`perEnemyCount` conditional** — scaling damage by enemies in encounter. Unlocks `crowd_punisher` (1 node).
+     - **Cross-weapon Cleave identity** — `cross_weapon_cleave` (1 node, Phase F6 fusion territory).
+   • The cleanest sequencing is probably: defensive event hooks (onHitTaken first, biggest unlock) → Stagger TalentTag → Marked-for-Cleave debuff system → Bulwark charge → kill-chain detection.
 
 **Each item is gated only by tsc clean + visible UI behavior** — all 32 commits this session are tsc EXIT=0. Start a fresh session for each — context budget per phase is ~200-400k tokens.
 
@@ -70,6 +79,8 @@ Branch is `master` at `717ee378`. **Phase F arc is COMPLETE through F5e first-sl
 **Phase F F5d follow-on — `addResonanceCharge` TalentAction + 3 Sor Elementalist entries: COMPLETE 2026-05-06.** New `addResonanceCharge` action (`{ kind, element?: 'fire'|'cold'|'lightning'|'chaos', amount?: number }`) — if element omitted, picks first missing element (preferring fire→cold→lightning→chaos), no-op if all 4 are full. Mirrors addCritStack ergonomics: new `resonanceRef` on TalentProcContext exposes the charge bag + expiresAt; tick.ts skill-cast site builds, dispatches, writes back. Fires before the auto-stack so addResonanceCharge procs combine. **3 entries authored**: `sor_el_element_swap` (procOnCrit chance 5, addResonanceCharge — picks first missing), `sor_el_spell_cycle` (procOnHit chance 5, addResonanceCharge — broader than "new element" gate since engine can't inspect bank), `sor_el_element_cycle` (procOnKill chance 5, addResonanceCharge). tsc EXIT=0.
 
 **Phase F F4 polish — `whileCompanionAlive` + 2 Hnt BM entries: COMPLETE 2026-05-06.** New `whileCompanionAlive` TalentEffect kind (`{ kind, stat, mult, delta? }`) with same shape and rank-scaling as `whileTag`/`whileSelfHpBelow`. `applyConditionalTalentEffects` gained optional `companionAlive: boolean = false` last param threaded from tick.ts via `(state.activeMinions ?? []).some(m => m.type === 'companion' && m.hp > 0)` per skill cast. **2 entries authored**: `hnt_bm_pack_awareness` (whileCompanionAlive critChance mult 1.01 — rank 5 = +5% crit chance with companion), `hnt_bm_pack_synergy` (whileCompanionAlive damageMult mult 1.05 — rank 5 = +25% player damage). tsc EXIT=0.
+
+**Phase F — `whileOffhandAbsent` + Brs Juggernaut path first slice: COMPLETE 2026-05-06.** New `whileOffhandAbsent` TalentEffect kind (`{ kind, stat, mult, delta? }`) — exact mirror of `whileCompanionAlive` shape, rank-scales linearly via `scaleEffect`. `applyConditionalTalentEffects` gained optional `offhandAbsent: boolean = false` last param threaded from tick.ts via `!state.character.equipment.offhand` per skill cast. Class-First per §6.3: gates on equip slot, not weapon name (so a Sor with no offhand gets the same +damageReduction as a Brs with no offhand). **7 entries authored** (Brs Juggernaut path 4/28 → 11/28): `brs_jg_heavy_stance` (whileOffhandAbsent damageTakenReduction delta 2 — rank 5 = +10%), `brs_jg_mountain_tempo` (whileOffhandAbsent attackSpeed delta 2), `brs_jg_mountains_step` (whileOffhandAbsent cooldownRecovery delta 2), `brs_jg_mountains_wrath` (whileOffhandAbsent damageMult mult 1.05 — rank 3 = +15%), `brs_jg_mountain` capstone (whileOffhandAbsent damageTakenReduction delta 30 + aoeRadius delta 50, 1 rank), `brs_jg_wide_sweep` (stat aoeTargetCount delta 1 — silent-ignore until ResolvedStats lands the field), `brs_jg_cleave_reach` (stat aoeRadius delta 5 — silent-ignore-safe). tsc EXIT=0. **17 of 28 nodes deferred** pending engine surface — see queue item #8.
 
 **Phase F F2/F4 polish — mana ref threading through tickMaintenance: COMPLETE 2026-05-06.** Adds optional `mana?: { current: number; max: number }` to `WeaponTickContext` so refundMana TalentActions fired during weapon-maintenance proc dispatch (e.g. `wd_sw_soul_ration` — minion hits restoring 5 mana to the player) actually mutate state. tick.ts builds maintManaRef before tickMaintenance and writes back after; same ref also used in non-staff minion-tick path so Hunter's companion attacks can refund mana via inherited procs. staff.ts companion + minion proc contexts now thread `mana: ctx.mana`. Activates `wd_sw_soul_ration` today. tsc EXIT=0.
 
