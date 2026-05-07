@@ -45,6 +45,7 @@ import {
   collectAscendancyEffects,
   hasPandemicGrant,
   getDotCritByDebuffId,
+  getPausedDebuffIds,
 } from '../classTalentDispatcher';
 import { getSkillGraphModifier } from '../unifiedSkills';
 import { absorbDamage } from './minions';
@@ -232,10 +233,11 @@ export function applyZoneDamage(
     const mob = updatedMobs[mobIdx];
     if (mob.debuffs.length > 0) {
       const enemyMaxHp = mob.maxHp > 0 ? mob.maxHp : 1;
+      const mobPauseDebuffIds = getPausedDebuffIds(zoneDotCritEffects, mob.debuffs);
       const dot = tickDebuffDoT(mob.debuffs, dt, 1, zonePlayerStats.incDoTDamage, enemyMaxHp, {
         byDebuffId: zoneDotCritMap,
         critMultiplier: zonePlayerStats.critMultiplier ?? 200,
-      });
+      }, mobPauseDebuffIds);
       const mobDamageTakenMult = mob.rare?.combinedDamageTakenMult ?? 1;
       let dotDmg = dot.damage * mobDamageTakenMult;
       // ── Per-tick rawBehaviors (Locust/Haunt/Toads) ──

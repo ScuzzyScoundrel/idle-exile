@@ -165,6 +165,7 @@ export function scaleTalentEffectByRank(effect: TalentEffect, rank: number): Tal
     case 'grantTagOnSkill':
     case 'grantCompanion':
     case 'grantPandemic':
+    case 'whilePauseDebuffDecay':
       return effect;
   }
 }
@@ -780,6 +781,25 @@ export function getDotCritByDebuffId(effects: TalentEffect[]): Record<string, nu
     if (e.kind !== 'grantDotCrit') continue;
     const key = e.debuffId ?? '*';
     acc[key] = Math.min(100, (acc[key] ?? 0) + e.chanceBonus);
+  }
+  return acc;
+}
+
+/** Phase F F5e follow-on (2026-05-06): aggregates all `whilePauseDebuffDecay`
+ *  effects into a Set of debuff IDs whose duration decay should be paused
+ *  this tick. A pause fires when the gating tag (e.g. 'mark') is present
+ *  on the target. Used by tickDebuffDoT to skip the dtSec subtraction
+ *  for matching debuffs. Empty set = no pauses. */
+export function getPausedDebuffIds(
+  effects: TalentEffect[],
+  targetDebuffs: ActiveDebuff[],
+): Set<string> {
+  const acc = new Set<string>();
+  for (const e of effects) {
+    if (e.kind !== 'whilePauseDebuffDecay') continue;
+    if (targetHasTag(targetDebuffs, e.tag)) {
+      acc.add(e.debuffId);
+    }
   }
   return acc;
 }

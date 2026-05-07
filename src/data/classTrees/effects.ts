@@ -306,15 +306,19 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'asn_vc_curare': [
     { kind: 'whileTag', tag: 'poison', stat: 'damageMult', mult: 1.05 },
   ],
-  // Phase F F5e follow-on (2026-05-06): grantDotCrit kind landed.
+  // Phase F F5e follow-on (2026-05-06): grantDotCrit + whilePauseDebuffDecay.
   // Toxic Saint capstone (1 rank) — "Poison can crit. Your poison
   // stacks no longer decay while Shadow Mark is active on any target."
-  // First half wired: chanceBonus 30 means each poisoned tick rolls
-  // a 30% crit chance, multiplying the tick by player critMultiplier
-  // on success. The decay-pause half needs a separate mechanic and is
-  // F5e follow-on.
+  // BOTH HALVES WIRED:
+  //   1. grantDotCrit: each poisoned tick rolls a 30% crit chance,
+  //      multiplying the tick by player critMultiplier on success.
+  //   2. whilePauseDebuffDecay: while the target has any 'mark' tag
+  //      debuff active (Shadow Mark uses the generic 'mark' tag), the
+  //      'poisoned' debuff's duration stops counting down. Damage
+  //      still ticks; only the dtSec subtraction is skipped per tick.
   'asn_vc_toxic_saint': [
     { kind: 'grantDotCrit', debuffId: 'poisoned', chanceBonus: 30 },
+    { kind: 'whilePauseDebuffDecay', tag: 'mark', debuffId: 'poisoned' },
   ],
 
   // ── Shadowdancer path ───────────────────────────────────────────────

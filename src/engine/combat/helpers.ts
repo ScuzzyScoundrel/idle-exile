@@ -162,6 +162,13 @@ export function tickDebuffDoT(
    *  player crit multiplier. Caller (tick.ts / zoneAttack.ts) builds
    *  via getDotCritByDebuffId(talentEffects). Empty map = no crits. */
   dotCrit?: { byDebuffId: Record<string, number>; critMultiplier: number },
+  /** Phase F F5e follow-on (2026-05-06): set of debuff IDs whose
+   *  duration decay should be paused this tick (built by caller via
+   *  getPausedDebuffIds(talentEffects, targetDebuffs)). Damage still
+   *  ticks; only the dtSec subtraction is skipped. Used by Asn
+   *  Venomcaller Toxic Saint — pause poison decay while Shadow Mark
+   *  active on the target. */
+  pauseDebuffIds?: Set<string>,
 ): { damage: number; updatedDebuffs: ActiveDebuff[]; poisonInstanceCount?: number } {
   const incDoTMult = 1 + (incDoTDamage ?? 0) / 100;
   let damage = 0;
@@ -187,9 +194,12 @@ export function tickDebuffDoT(
 
     // Instance-based path (poison)
     if (debuffDef.instanceBased && debuff.instances) {
+      // Phase F F5e follow-on: pause decay for matching debuff IDs.
+      // Damage still ticks; only the duration subtraction is skipped.
+      const decayDt = pauseDebuffIds?.has(debuff.debuffId) ? 0 : dtSec;
       // Decrement each instance's duration independently, filter expired
       const livingInstances = debuff.instances
-        .map(inst => ({ ...inst, remainingDuration: inst.remainingDuration - dtSec }))
+        .map(inst => ({ ...inst, remainingDuration: inst.remainingDuration - decayDt }))
         .filter(inst => inst.remainingDuration > 0);
       if (livingInstances.length === 0) continue; // all expired, drop debuff
 
@@ -220,8 +230,9 @@ export function tickDebuffDoT(
       continue;
     }
 
-    // Legacy path (bleed/burning/flat) — unchanged
-    const d = { ...debuff, remainingDuration: debuff.remainingDuration - dtSec };
+    // Legacy path (bleed/burning/flat) — pauseable per pauseDebuffIds.
+    const legacyDecayDt = pauseDebuffIds?.has(debuff.debuffId) ? 0 : dtSec;
+    const d = { ...debuff, remainingDuration: debuff.remainingDuration - legacyDecayDt };
     if (d.remainingDuration <= 0) continue;
 
     const legacyCritMult = dotCritBonus(debuff.debuffId);

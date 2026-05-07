@@ -173,6 +173,13 @@ export type TalentEffect =
    *  aggregate additively, capped at 100. On successful roll, tick
    *  damage is multiplied by the player's critMultiplier / 100. */
   | { kind: 'grantDotCrit'; debuffId?: string; chanceBonus: number }
+  /** Pauses duration decay on a specific debuff (`debuffId`) while the
+   *  target has another debuff matching `tag` (TalentTag) active.
+   *  Phase F F5e follow-on — Asn Venomcaller Toxic Saint capstone:
+   *  poison stacks no longer decay while Shadow Mark (tag='mark') is
+   *  active. Caller (tick.ts / zoneAttack.ts) computes a Set of
+   *  paused debuff IDs each tick and passes to tickDebuffDoT. */
+  | { kind: 'whilePauseDebuffDecay'; tag: TalentTag; debuffId: string }
   /** Conditional modifier: while target has tag, multiply stat (or
    *  add `delta` for additive percent stats like critChance). */
   | { kind: 'whileTag'; tag: TalentTag; stat: string; mult: number; delta?: number }
