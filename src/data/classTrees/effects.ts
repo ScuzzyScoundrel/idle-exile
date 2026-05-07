@@ -445,6 +445,21 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'sor_ar_charge_sense': [
     { kind: 'procOnResonanceChargeGain', chance: 1, action: { kind: 'addResonanceCharge', amount: 1 } },
   ],
+  // "Convergence cast has +20/40/60/80/100% chance to refund 50% of its
+  // mana cost." Approximation: refundMana amount=4 (typical convergence
+  // skill costs ~8 mana, half = 4); chance scales linearly per rank.
+  // Rank 1 = 20% × 4 = +0.8 expected mana per cast (matches spec ~50%
+  // of avg cost). Rank 5 = 100% × 4 = +4 mana per cast.
+  'sor_ar_convergence_burst': [
+    { kind: 'procOnConvergenceCast', chance: 20, action: { kind: 'refundMana', amount: 4 } },
+  ],
+  // "On Convergence cast, gain +20/40/60% cast speed for 3s." Buff
+  // strength fixed at +40% (mid-rank); chance scales per rank
+  // instead. Saturation tempo buff uses attackSpeedMult since this
+  // engine treats attack/cast cadence under the same multiplier.
+  'sor_ar_saturation_tempo': [
+    { kind: 'procOnConvergenceCast', chance: 20, action: { kind: 'grantBuff', buffId: 'saturation_tempo', duration: 3 } },
+  ],
   // Phase F F1b (2026-05-05): refundMana unlocks Arcanist crit-economy.
   // "On crit, +1/2/3 mana refunded" rank-1 → 100% chance, +1 mana per crit.
   'sor_ar_mana_surge': [

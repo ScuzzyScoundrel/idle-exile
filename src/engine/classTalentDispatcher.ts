@@ -55,8 +55,15 @@ const TALENT_BUFF_REGISTRY: Record<string, { effect: AbilityEffect; maxStacks: n
   // brs_jg_marked_slam — +100% damage buff for ~0.5s window after a
   // hit lands on a Marked for Cleave target. Approximation of "this
   // hit deals +100%" — engine has no bonus-damage-on-triggering-hit
-  // action, so the buff applies to subsequent hits instead.
+  // action, so the buff applies to subsequent hits instead. Now
+  // unused since marked_slam was switched to bonusDamage action
+  // (commit dd7da033) — kept to avoid breaking save state.
   cleave_strike: { effect: { damageMult: 2.0 }, maxStacks: 1 },
+  // sor_ar_saturation_tempo — speed buff after Convergence cast.
+  // Approximation: attackSpeedMult covers both attack and cast cadence
+  // in this engine. Fixed +40% at any rank (chance scales per rank
+  // instead of buff strength).
+  saturation_tempo: { effect: { attackSpeedMult: 1.4 }, maxStacks: 1 },
 };
 
 /** Map TalentTag → debuff id registered in data/debuffs.ts. */
@@ -191,6 +198,8 @@ export function scaleTalentEffectByRank(effect: TalentEffect, rank: number): Tal
     case 'procOnMultiKillChain':
       return { ...effect, chance: Math.min(100, effect.chance * rank) };
     case 'procOnResonanceChargeGain':
+      return { ...effect, chance: Math.min(100, effect.chance * rank) };
+    case 'procOnConvergenceCast':
       return { ...effect, chance: Math.min(100, effect.chance * rank) };
     case 'companionProcInheritance':
       return { ...effect, percent: Math.min(100, effect.percent * rank) };
@@ -785,6 +794,21 @@ export function dispatchProcOnResonanceChargeGain(
   for (const eff of effects) {
     if (eff.kind !== 'procOnResonanceChargeGain') continue;
     if (eff.element !== undefined && eff.element !== element) continue;
+    rollAndFire(eff.action, eff.chance, ctx);
+  }
+}
+
+/** Phase F F5d expansion (2026-05-07): fires when a Convergence skill
+ *  is cast. Caller detects via `skill.id.includes('convergence')` at
+ *  the skill-cast site (covers gauntlet_forge_convergence,
+ *  wand_volley_convergence, crossbow_convergence_bolt). Used by Sor
+ *  Arcanist convergence-aware procs. */
+export function dispatchProcOnConvergenceCast(
+  effects: TalentEffect[],
+  ctx: TalentProcContext,
+): void {
+  for (const eff of effects) {
+    if (eff.kind !== 'procOnConvergenceCast') continue;
     rollAndFire(eff.action, eff.chance, ctx);
   }
 }

@@ -122,6 +122,10 @@ export type TalentEffect =
    *  element fires. Phase F F5d expansion — Sor Arcanist /
    *  Elementalist nodes (sor_ar_charge_sense, sor_el_element_pulse). */
   | { kind: 'procOnResonanceChargeGain'; element?: 'fire' | 'cold' | 'lightning' | 'chaos'; chance: number; action: TalentAction }
+  /** Fires when a Convergence skill is cast (skill.id contains
+   *  'convergence'). Phase F F5d expansion — Sor Arcanist nodes
+   *  (convergence_burst, spectral_echo, saturation_tempo). */
+  | { kind: 'procOnConvergenceCast'; chance: number; action: TalentAction }
   /** Fires when one of the player's minions hits an enemy. Phase F F2
    *  (2026-05-06): WD Spirit Whisperer (Spirit Bond / Soul Ration / Pack
    *  Mastery / Fetish Frenzy etc.). */

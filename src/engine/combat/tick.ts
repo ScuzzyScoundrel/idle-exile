@@ -48,6 +48,7 @@ import {
   dispatchProcOnHitTaken,
   dispatchProcOnMultiKillChain,
   dispatchProcOnResonanceChargeGain,
+  dispatchProcOnConvergenceCast,
   dispatchProcOnCrit,
   dispatchProcOnKill,
   dispatchProcOnMinionHit,
@@ -1051,6 +1052,17 @@ export function runCombatTick(
     if (procCtx.bonusDamageRef) {
       talentBonusDamage += procCtx.bonusDamageRef.value;
       procCtx.bonusDamageRef.value = 0;
+    }
+    // Phase F F5d expansion (2026-05-07): detect Convergence cast by
+    // skill id pattern (covers gauntlet_forge_convergence,
+    // wand_volley_convergence, crossbow_convergence_bolt). Fires once
+    // per cast, regardless of hit count.
+    if (skill.id.includes('convergence')) {
+      dispatchProcOnConvergenceCast(talentEffects, procCtx);
+      if (procCtx.bonusDamageRef) {
+        talentBonusDamage += procCtx.bonusDamageRef.value;
+        procCtx.bonusDamageRef.value = 0;
+      }
     }
     // Phase F F5d (2026-05-06): Resonance charge accumulator. Each
     // elemental player hit adds 1 charge of the matching element
