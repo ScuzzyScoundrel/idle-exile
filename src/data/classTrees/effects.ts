@@ -980,6 +980,16 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   // detonation site (line ~470). Bow / crossbow trap modules will
   // adopt the same hooks once those weapons gain trap mechanics.
   //
+  // "Snared enemies take +1/2/3/4/5% increased damage from your skills."
+  // 'snare' TalentTag landed 2026-05-07 — promoted to live whileTag
+  // gating instead of frozen-debuff approximation.
+  'hnt_tp_snare_sense': [
+    { kind: 'whileTag', tag: 'snare', stat: 'damageMult', mult: 1.01 },
+  ],
+  // "+5/10/15/20/25% crit chance against Snared targets."
+  'hnt_tp_snare_crit': [
+    { kind: 'whileTag', tag: 'snare', stat: 'critChance', mult: 1, delta: 5 },
+  ],
   // "+1s Snare duration / rank" approximated as +8% global ailment
   // duration / rank → +40% at rank 5.
   'hnt_tp_snare_mastery': [

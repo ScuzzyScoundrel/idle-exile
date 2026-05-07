@@ -89,6 +89,7 @@ const TALENT_TAG_TO_DEBUFF: Record<TalentTag, string> = {
   taunt: 'taunted',     // Placeholder — no matching debuff yet.
   staggered: 'staggered', // Phase F Brs — promoted to live (reducedAttackSpeed: 10).
   cleave: 'cleave_marked', // Phase F Brs Juggernaut — Marked for Cleave marker.
+  snare: 'snared', // Phase F Hnt Trapper — Snared marker (enemy action-speed slow).
 };
 
 /**

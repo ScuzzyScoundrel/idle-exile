@@ -152,6 +152,14 @@ export const DEBUFF_DEFS: DebuffDef[] = [
     effect: { incDamageTaken: 5 },
   },
   {
+    id: 'snared',
+    name: 'Snared',
+    description: 'Target attack speed reduced by 15% (snare marker — Hnt Trapper).',
+    stackable: false,
+    maxStacks: 1,
+    effect: { reducedAttackSpeed: 15 },
+  },
+  {
     id: 'corroded',
     name: 'Corroded',
     description: 'Target takes 20% more damage from all sources.',

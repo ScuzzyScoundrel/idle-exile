@@ -85,7 +85,10 @@ export type TalentTag =
   // Phase F (2026-05-06): Brs path tags. 'staggered' debuff promoted
   // 2026-05-06 (reducedAttackSpeed: 10). 'cleave' marks "Marked for
   // Cleave" — light AoE-vulnerability marker used by Brs Juggernaut.
-  | 'staggered' | 'cleave';
+  | 'staggered' | 'cleave'
+  // Phase F (2026-05-07): Hnt Trapper signature mark. Idle-game
+  // semantics: enemy action-speed slow (not movement lock).
+  | 'snare';
 
 export type TalentEffect =
   /** Flat stat add (e.g. +10% crit chance). */
