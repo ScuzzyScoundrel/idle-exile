@@ -417,6 +417,16 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'sor_el_element_swap': [
     { kind: 'procOnCrit', chance: 5, action: { kind: 'addResonanceCharge' } },
   ],
+  // "On Convergence cast, fire an extra elemental detonation of a
+  // random element to all enemies in encounter for 50% spell power."
+  // 1-rank identity. First-slice approximation: bonusDamage percent
+  // 50 fired always (chance 100) on Convergence cast — folds +50%
+  // damage into the same Convergence cast (loses "broadcast to all
+  // enemies" — only hits front mob via procDamage path). True
+  // broadcast detonation needs zone-wide bonusDamage application.
+  'sor_el_resonant_burst': [
+    { kind: 'procOnConvergenceCast', chance: 100, action: { kind: 'bonusDamage', percent: 50 } },
+  ],
   // "Hits dealing a NEW element type (not yet in current Resonance bank)
   // have +5/10/15/20/25% chance to deal +50% damage." Approximated as
   // procOnHit applying addResonanceCharge — the "new element" gate is
@@ -487,6 +497,15 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   // engine treats attack/cast cadence under the same multiplier.
   'sor_ar_saturation_tempo': [
     { kind: 'procOnConvergenceCast', chance: 20, action: { kind: 'grantBuff', buffId: 'saturation_tempo', duration: 3 } },
+  ],
+  // "Convergence has +20/40/60/80/100% chance to spawn a phantom-
+  // Convergence cast 1.5s later for 50% damage." First-slice
+  // approximation: bonusDamage percent 50 folded into the same
+  // Convergence cast (loses the "1.5s later" timing but preserves the
+  // +50% damage spirit). True delayed-cast queue is a Phase F follow-
+  // on requiring a new infrastructure (cast scheduler).
+  'sor_ar_spectral_echo': [
+    { kind: 'procOnConvergenceCast', chance: 20, action: { kind: 'bonusDamage', percent: 50 } },
   ],
   // Phase F F1b (2026-05-05): refundMana unlocks Arcanist crit-economy.
   // "On crit, +1/2/3 mana refunded" rank-1 → 100% chance, +1 mana per crit.
