@@ -52,6 +52,11 @@ const TALENT_BUFF_REGISTRY: Record<string, { effect: AbilityEffect; maxStacks: n
   // aegis (T6) needs a procOnBulwarkConsume event hook to detect the
   // consume moment, which doesn't exist yet.
   bulwark_charge: { effect: { defenseMult: 1.2 }, maxStacks: 3 },
+  // brs_jg_marked_slam — +100% damage buff for ~0.5s window after a
+  // hit lands on a Marked for Cleave target. Approximation of "this
+  // hit deals +100%" — engine has no bonus-damage-on-triggering-hit
+  // action, so the buff applies to subsequent hits instead.
+  cleave_strike: { effect: { damageMult: 2.0 }, maxStacks: 1 },
 };
 
 /** Map TalentTag → debuff id registered in data/debuffs.ts. */

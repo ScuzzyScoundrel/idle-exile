@@ -597,6 +597,16 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'brs_jg_marked_for_cleave': [
     { kind: 'procOnHit', tag: 'AoE', chance: 5, action: { kind: 'applyTag', tag: 'cleave' } },
   ],
+  // "Hits on Marked for Cleave targets have +5/10/15/20/25% chance to
+  // deal +100% damage." First-slice approximation: grantBuff cleave_strike
+  // (damageMult 2.0) for 0.5s on hit-to-marked. Buff applies to the NEXT
+  // hits (engine has no bonus-damage-on-triggering-hit action) — close
+  // to spec's spirit since most attack-skills land another hit within
+  // 0.5s. True "this hit deals +100%" needs a future bonusDamage proc
+  // action.
+  'brs_jg_marked_slam': [
+    { kind: 'procOnHit', targetTag: 'cleave', chance: 5, action: { kind: 'grantBuff', buffId: 'cleave_strike', duration: 0.5 } },
+  ],
   'brs_jg_bulwark': [
     { kind: 'stat', stat: 'maxLife', delta: 10 },
   ],
