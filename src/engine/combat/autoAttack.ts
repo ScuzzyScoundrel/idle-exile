@@ -33,7 +33,8 @@ import { WEAPON_TYPE_META } from '../../data/weapons';
 import { getWeaponDamageInfo, calcHitChance, resolveStats } from '../character';
 import { applyZoneDamage } from './zoneAttack';
 import { applyBossDamage } from './bossAttack';
-import { regenMana } from './manaTick';
+import { regenMana, tickManaWithCost } from './manaTick';
+import { CLASS_MANA_CONFIG } from '../../types/mana';
 import {
   AUTO_ATTACK_BASE_DMG_COEF,
   AUTO_ATTACK_MIN_INTERVAL,
@@ -168,6 +169,13 @@ export function applyNonSkillTickWithAuto(
 ): CombatTickOutput {
   let workingState: GameState = state;
   let newNextAuto = state.nextAutoAttackAt;
+  // Phase F follow-on (2026-05-07): track auto-hit + auto-kill events
+  // so we can feed them into tickManaWithCost (per-class onHitDealtGain
+  // / onKillGain). Critical for Berserker — startFull:false +
+  // passiveRegen:0 means autos are the ONLY mana source until skills
+  // can fire, but pre-2026-05-07 autos didn't trigger event-proc gain.
+  let autoHitLanded = false;
+  let autoKillCount = 0;
 
   if (shouldFireAutoAttack(state, now)) {
     const stats = resolveStats(state.character);
@@ -181,19 +189,24 @@ export function applyNonSkillTickWithAuto(
     }
 
     if (damage > 0) {
+      autoHitLanded = true;
       if (phase === 'boss_fight' && state.bossState) {
+        const newBossHp = Math.max(0, state.bossState.bossCurrentHp - damage);
+        if (state.bossState.bossCurrentHp > 0 && newBossHp <= 0) autoKillCount = 1;
         workingState = {
           ...state,
           bossState: {
             ...state.bossState,
-            bossCurrentHp: Math.max(0, state.bossState.bossCurrentHp - damage),
+            bossCurrentHp: newBossHp,
           },
         };
       } else if (state.packMobs.length > 0 && state.packMobs[0].hp > 0) {
+        const newFrontHp = Math.max(0, state.packMobs[0].hp - damage);
+        if (newFrontHp <= 0) autoKillCount = 1;
         workingState = {
           ...state,
           packMobs: state.packMobs.map((m, i) =>
-            i === 0 ? { ...m, hp: Math.max(0, m.hp - damage) } : m,
+            i === 0 ? { ...m, hp: newFrontHp } : m,
           ),
         };
       }
@@ -204,16 +217,25 @@ export function applyNonSkillTickWithAuto(
     ? applyBossDamage(workingState, dtSec, now)
     : applyZoneDamage(workingState, dtSec, now, zone);
 
-  // Phase A Change 4: passive mana regen also happens on non-skill ticks.
-  // Only emit character when mana actually changed (most ticks nothing happens).
-  const regenedMana = regenMana(state.character.mana, dtSec);
-  const manaChanged = regenedMana !== state.character.mana;
+  // Phase A Change 4 + Phase F follow-on (2026-05-07): passive regen
+  // PLUS auto-attack event-proc mana gain. Without onHitDealtGain on
+  // auto-hits, Berserker (startFull:false, passiveRegen:0) starves
+  // because skills cost mana but autos couldn't generate any —
+  // chicken-and-egg locked the player into auto-attack-only.
+  const cfg = CLASS_MANA_CONFIG[state.character.class];
+  const autoProcGain = cfg
+    ? (autoHitLanded ? cfg.onHitDealtGain : 0) + (autoKillCount > 0 ? cfg.onKillGain * autoKillCount : 0)
+    : 0;
+  const updatedMana = autoProcGain > 0
+    ? tickManaWithCost(state.character.mana, dtSec, 0, autoProcGain)
+    : regenMana(state.character.mana, dtSec);
+  const manaChanged = updatedMana !== state.character.mana;
 
   return {
     patch: {
       ...sub.patch,
       nextAutoAttackAt: newNextAuto,
-      ...(manaChanged ? { character: { ...state.character, mana: regenedMana } } : {}),
+      ...(manaChanged ? { character: { ...state.character, mana: updatedMana } } : {}),
     },
     result: sub.result,
   };
