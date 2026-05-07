@@ -34,6 +34,24 @@ const AILMENT_STYLE: Record<string, { label: string; color: string }> = {
   hexed:      { label: 'Hex', color: 'bg-pink-700/70 text-pink-100' },
   cursed:     { label: 'Curse', color: 'bg-purple-700/70 text-purple-100' },
   marked:     { label: 'Mark', color: 'bg-amber-700/70 text-amber-100' },
+  // Phase F (2026-05-06/07): new enemy debuffs from talent procs.
+  staggered:    { label: 'Stag', color: 'bg-orange-800/70 text-orange-100' },
+  cleave_marked:{ label: 'Cleave', color: 'bg-rose-700/70 text-rose-100' },
+  snared:       { label: 'Snare', color: 'bg-teal-800/70 text-teal-100' },
+};
+
+// Phase F (2026-05-07): player tempBuff styles. Sourced from
+// TALENT_BUFF_REGISTRY entries; one pill per stack-able buff. Display
+// label + stack count + soonest expiry.
+const PLAYER_BUFF_STYLE: Record<string, { label: string; color: string }> = {
+  bone_armor:        { label: 'Bone',   color: 'bg-slate-600/70 text-slate-100' },
+  spirit_shield:     { label: 'Shield', color: 'bg-cyan-600/70 text-cyan-100' },
+  precision_charge:  { label: 'Aim',    color: 'bg-amber-600/70 text-amber-100' },
+  ironclad_stance:   { label: 'Iron',   color: 'bg-stone-600/70 text-stone-100' },
+  bulwark_charge:    { label: 'Bulwark',color: 'bg-sky-700/70 text-sky-100' },
+  cleave_strike:     { label: 'CleaveStrike', color: 'bg-rose-600/70 text-rose-100' },
+  saturation_tempo:  { label: 'Saturation', color: 'bg-violet-600/70 text-violet-100' },
+  necro_stack:       { label: 'Necro',  color: 'bg-fuchsia-700/70 text-fuchsia-100' },
 };
 
 export default function CombatStatusBar() {
@@ -57,6 +75,13 @@ export default function CombatStatusBar() {
   const packMobs = useGameStore(s => s.packMobs);
   const activeDebuffs = useGameStore(s => s.activeDebuffs);
   const activeMinions = useGameStore(s => s.activeMinions);
+  // Phase F (2026-05-06/07): player-state subscriptions for new HUD pills.
+  const tempBuffs = useGameStore(s => s.tempBuffs);
+  const frenziedActive = useGameStore(s => s.frenziedActive);
+  const critStacks = useGameStore(s => s.critStacks);
+  const critStacksExpiresAt = useGameStore(s => s.critStacksExpiresAt);
+  const resonanceCharges = useGameStore(s => s.resonanceCharges);
+  const resonanceExpiresAt = useGameStore(s => s.resonanceExpiresAt);
 
   // Tick for smooth progress bar animation
   const [, setTick] = useState(0);
@@ -163,6 +188,68 @@ export default function CombatStatusBar() {
     remainingSec: Math.max(0, (group.soonestExpiry - Date.now()) / 1000),
   }));
 
+  // Phase F (2026-05-06/07): player-state pills for new talent-driven
+  // mechanics. Frenzied flag, Crit Cascade stacks, Resonance charges,
+  // active tempBuffs (Bulwark / Ironclad / Necro / etc).
+  const nowMsForPills = Date.now();
+  const totalResonance = resonanceCharges
+    ? resonanceCharges.fire + resonanceCharges.cold + resonanceCharges.lightning + resonanceCharges.chaos
+    : 0;
+  const playerStatePills: { id: string; label: string; color: string; count?: number; remainingSec?: number; title: string }[] = [];
+  if (frenziedActive) {
+    playerStatePills.push({
+      id: 'frenzied',
+      label: 'Frenzied',
+      color: 'bg-red-700/70 text-red-100',
+      title: 'Sticky Frenzied state — entered at <50% HP, exits at >75% HP',
+    });
+  }
+  if (critStacks > 0 && critStacksExpiresAt > nowMsForPills) {
+    playerStatePills.push({
+      id: 'critstacks',
+      label: 'Crit',
+      color: 'bg-yellow-600/70 text-yellow-100',
+      count: critStacks,
+      remainingSec: Math.max(0, (critStacksExpiresAt - nowMsForPills) / 1000),
+      title: `Crit Cascade × ${critStacks} (decays in 4s after last crit)`,
+    });
+  }
+  if (totalResonance > 0 && resonanceExpiresAt > nowMsForPills) {
+    const els: string[] = [];
+    if (resonanceCharges.fire) els.push(`F${resonanceCharges.fire}`);
+    if (resonanceCharges.cold) els.push(`C${resonanceCharges.cold}`);
+    if (resonanceCharges.lightning) els.push(`L${resonanceCharges.lightning}`);
+    if (resonanceCharges.chaos) els.push(`X${resonanceCharges.chaos}`);
+    playerStatePills.push({
+      id: 'resonance',
+      label: 'Res',
+      color: 'bg-indigo-700/70 text-indigo-100',
+      count: totalResonance,
+      remainingSec: Math.max(0, (resonanceExpiresAt - nowMsForPills) / 1000),
+      title: `Resonance ${els.join(' ')} (decays in 6s after last elemental hit)`,
+    });
+  }
+  // tempBuffs grouped by id, surfaced via PLAYER_BUFF_STYLE.
+  const buffGroups: Record<string, { stacks: number; expiresAt: number }> = {};
+  for (const b of tempBuffs ?? []) {
+    if (b.expiresAt <= nowMsForPills) continue;
+    if (!buffGroups[b.id]) buffGroups[b.id] = { stacks: 0, expiresAt: 0 };
+    buffGroups[b.id].stacks += b.stacks;
+    buffGroups[b.id].expiresAt = Math.max(buffGroups[b.id].expiresAt, b.expiresAt);
+  }
+  for (const [id, group] of Object.entries(buffGroups)) {
+    const style = PLAYER_BUFF_STYLE[id];
+    if (!style) continue;
+    playerStatePills.push({
+      id: `buff_${id}`,
+      label: style.label,
+      color: style.color,
+      count: group.stacks > 1 ? group.stacks : undefined,
+      remainingSec: Math.max(0, (group.expiresAt - nowMsForPills) / 1000),
+      title: `${style.label} × ${group.stacks}`,
+    });
+  }
+
   // Clear progress (mob HP)
   const nowMs = Date.now();
   const clearDurationMs = currentClearTime > 0 ? currentClearTime * 1000 : 1;
@@ -245,6 +332,26 @@ export default function CombatStatusBar() {
               >
                 {pill.style.label}<span className="font-bold ml-0.5">×{pill.count}</span>
                 {pill.remainingSec > 0 && pill.remainingSec < 60 && (
+                  <span className="text-[9px] opacity-70 ml-1">{pill.remainingSec.toFixed(0)}s</span>
+                )}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Phase F: player-state pills — Frenzied, Crit Cascade, Resonance,
+            and TALENT_BUFF_REGISTRY tempBuffs (Bulwark, Ironclad, Necro, etc.) */}
+        {playerStatePills.length > 0 && (
+          <div className="flex items-center gap-1 shrink-0">
+            {playerStatePills.map(pill => (
+              <span
+                key={pill.id}
+                className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${pill.color}`}
+                title={pill.title}
+              >
+                {pill.label}
+                {pill.count !== undefined && <span className="font-bold ml-0.5">×{pill.count}</span>}
+                {pill.remainingSec !== undefined && pill.remainingSec > 0 && pill.remainingSec < 60 && (
                   <span className="text-[9px] opacity-70 ml-1">{pill.remainingSec.toFixed(0)}s</span>
                 )}
               </span>
