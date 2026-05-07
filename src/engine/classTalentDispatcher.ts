@@ -46,6 +46,12 @@ const TALENT_BUFF_REGISTRY: Record<string, { effect: AbilityEffect; maxStacks: n
   // First-slice approximation — true "+X% damage reduction" needs
   // a flat damageTakenReduction stat-buff path.
   ironclad_stance: { effect: { defenseMult: 1.3 }, maxStacks: 1 },
+  // brs_jg_stalwart_spirit — Bulwark charges. First-slice approximation
+  // as a stackable defenseMult tempBuff (1.2 per stack, up to 3 = 1.6
+  // total). True "consume on next hit" semantic deferred — sustained_
+  // aegis (T6) needs a procOnBulwarkConsume event hook to detect the
+  // consume moment, which doesn't exist yet.
+  bulwark_charge: { effect: { defenseMult: 1.2 }, maxStacks: 3 },
 };
 
 /** Map TalentTag → debuff id registered in data/debuffs.ts. */

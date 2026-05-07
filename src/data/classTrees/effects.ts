@@ -655,6 +655,15 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'brs_jg_mass_slaughter': [
     { kind: 'procOnMultiKillChain', chance: 20, action: { kind: 'refundMana', amount: 5 } },
   ],
+  // "On taking a hit, +1/2/3/4/5% chance to gain a Bulwark charge
+  // (reduces next hit's damage by 50%)." First-slice approximation
+  // via grantBuff bulwark_charge — stackable defenseMult tempBuff
+  // (1.2 per stack, up to 3). True "consume on next hit" semantic
+  // deferred (would need procOnBulwarkConsume for sustained_aegis).
+  // procOnHitTaken with no critTaken filter = fires on any hit taken.
+  'brs_jg_stalwart_spirit': [
+    { kind: 'procOnHitTaken', chance: 1, action: { kind: 'grantBuff', buffId: 'bulwark_charge', duration: 5 } },
+  ],
   // "+5/10/15% damage while no offhand equipped." mult=1.05 scales:
   // rank 1 → 1.05, rank 3 → 1.15.
   'brs_jg_mountains_wrath': [
