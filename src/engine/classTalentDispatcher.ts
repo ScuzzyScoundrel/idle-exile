@@ -61,7 +61,8 @@ const TALENT_TAG_TO_DEBUFF: Record<TalentTag, string> = {
   frozen: 'frostbite',
   stun: 'stunned',      // Placeholder — no matching debuff yet.
   taunt: 'taunted',     // Placeholder — no matching debuff yet.
-  staggered: 'staggered', // Placeholder — no matching debuff yet (Phase F Brs).
+  staggered: 'staggered', // Phase F Brs — promoted to live (reducedAttackSpeed: 10).
+  cleave: 'cleave_marked', // Phase F Brs Juggernaut — Marked for Cleave marker.
 };
 
 /**

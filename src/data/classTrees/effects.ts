@@ -583,6 +583,16 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'brs_jg_stagger_sweep': [
     { kind: 'procOnCrit', tag: 'AoE', chance: 5, action: { kind: 'applyTagAll', tag: 'staggered' } },
   ],
+  // "On hitting a target with an AoE-tagged skill, +5/10/15/20/25%
+  // chance to apply Marked for Cleave (next AoE on this target deals
+  // +25% damage)." First-slice approximation: applyTag 'cleave'; the
+  // "+25% on consume" payoff is layered via brs_jg_cleave_mastery as
+  // a flat +damage-while-marked. True consume payoff (extra damage on
+  // the consuming hit specifically) needs a future bonusDamage proc
+  // action — Phase F follow-on.
+  'brs_jg_marked_for_cleave': [
+    { kind: 'procOnHit', tag: 'AoE', chance: 5, action: { kind: 'applyTag', tag: 'cleave' } },
+  ],
   'brs_jg_bulwark': [
     { kind: 'stat', stat: 'maxLife', delta: 10 },
   ],
@@ -605,6 +615,20 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   // Heavy-tagged hits only.
   'brs_jg_concussive_force': [
     { kind: 'procOnHit', tag: 'Heavy', chance: 5, action: { kind: 'applyTag', tag: 'staggered' } },
+  ],
+  // "Marked for Cleave consume payoffs deal +5/10/15/20/25% damage on
+  // AoE consumers." First-slice approximation as flat +damage-vs-cleave-
+  // marked-targets via whileTag (fires on every hit against a marked
+  // target, not just the AoE-consume hit). True consume-only payoff
+  // needs a consume hook — Phase F follow-on.
+  'brs_jg_cleave_mastery': [
+    { kind: 'whileTag', tag: 'cleave', stat: 'damageMult', mult: 1.05 },
+  ],
+  // "On killing a Marked for Cleave enemy, +20/40/60% chance to apply
+  // Marked for Cleave to all enemies in encounter." procOnKill's
+  // targetTag filter restricts the proc to kills on marked enemies.
+  'brs_jg_cleave_cascade': [
+    { kind: 'procOnKill', targetTag: 'cleave', chance: 20, action: { kind: 'applyTagAll', tag: 'cleave' } },
   ],
   // "+2/4/6/8/10% cooldown recovery while no offhand equipped."
   'brs_jg_mountains_step': [

@@ -82,10 +82,10 @@ export interface SkillTreeNode {
 export type TalentTag =
   | 'hex' | 'curse' | 'mark' | 'poison' | 'bleed' | 'ignite' | 'chill'
   | 'shock' | 'frozen' | 'stun' | 'taunt'
-  // Phase F (2026-05-06): Brs path tags. 'staggered' is currently a
-  // placeholder debuff (no live mechanic) — used by procOnHitTaken /
-  // procOnCrit applyTag actions to mark "this enemy was staggered."
-  | 'staggered';
+  // Phase F (2026-05-06): Brs path tags. 'staggered' debuff promoted
+  // 2026-05-06 (reducedAttackSpeed: 10). 'cleave' marks "Marked for
+  // Cleave" — light AoE-vulnerability marker used by Brs Juggernaut.
+  | 'staggered' | 'cleave';
 
 export type TalentEffect =
   /** Flat stat add (e.g. +10% crit chance). */

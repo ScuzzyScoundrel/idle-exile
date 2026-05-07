@@ -144,6 +144,14 @@ export const DEBUFF_DEFS: DebuffDef[] = [
     effect: { reducedAttackSpeed: 10 },
   },
   {
+    id: 'cleave_marked',
+    name: 'Marked for Cleave',
+    description: 'Target takes 5% more damage from all sources (cleave marker).',
+    stackable: false,
+    maxStacks: 1,
+    effect: { incDamageTaken: 5 },
+  },
+  {
     id: 'corroded',
     name: 'Corroded',
     description: 'Target takes 20% more damage from all sources.',
