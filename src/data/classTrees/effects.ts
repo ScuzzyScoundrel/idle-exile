@@ -665,8 +665,9 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'brs_jg_heavy_stance': [
     { kind: 'whileOffhandAbsent', stat: 'damageTakenReduction', mult: 1, delta: 2 },
   ],
-  // "AoE-tagged skills hit +1/2/3 additional enemies." Stat may silently
-  // ignore until aoeTargetCount lands in ResolvedStats.
+  // "AoE-tagged skills hit +1/2/3 additional enemies." aoeTargetCount
+  // landed in ResolvedStats 2026-05-07 — folded into skillChains at
+  // chain-resolution (tick.ts:2184) for AoE-tagged skills only.
   'brs_jg_wide_sweep': [
     { kind: 'stat', stat: 'aoeTargetCount', delta: 1 },
   ],

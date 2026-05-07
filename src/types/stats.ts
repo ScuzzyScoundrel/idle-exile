@@ -119,6 +119,10 @@ export type StatKey =
   | 'companionDamage'        // % bonus damage on companion attacks
   | 'companionHp'            // % bonus HP on companion summons
   | 'companionAttackSpeed'   // % bonus attack speed (fewer seconds between attacks)
-  | 'companionSummonManaCost'; // flat reduction to summon mana cost
+  | 'companionSummonManaCost' // flat reduction to summon mana cost
+  // Phase F (2026-05-07): AoE skills hit +N additional enemies.
+  // Folded into skillChains at chain-resolution site for AoE-tagged
+  // skills only.
+  | 'aoeTargetCount';
 
 export type ResolvedStats = Record<StatKey, number>;

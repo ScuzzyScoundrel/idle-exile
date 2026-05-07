@@ -2180,8 +2180,11 @@ export function runCombatTick(
       }
 
       // Skill-intrinsic chain: hit additional targets with decaying damage (e.g. Chain Strike)
-      // Merge base skill chains + talent-added chains (graphMod.chainCount)
-      const skillChains = ((skill as ActiveSkillDef).chainCount ?? 0) + (graphMod?.chainCount ?? 0);
+      // Merge base skill chains + talent-added chains (graphMod.chainCount).
+      // Phase F (2026-05-07): AoE-tagged skills also fold in
+      // effectiveStats.aoeTargetCount (Brs Juggernaut Wide Sweep).
+      const aoeBonus = skill.tags.includes('AoE') ? Math.floor(effectiveStats.aoeTargetCount ?? 0) : 0;
+      const skillChains = ((skill as ActiveSkillDef).chainCount ?? 0) + (graphMod?.chainCount ?? 0) + aoeBonus;
       if (skillChains > 0 && updatedPackMobs.length > 1) {
         const chainDecay = [0.7, 0.5, 0.35]; // 70%, 50%, 35% per successive chain
         for (let c = 0; c < skillChains && c + 1 < updatedPackMobs.length; c++) {
