@@ -155,17 +155,19 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
     { kind: 'stat', stat: 'minionDuration', delta: 2 },
   ],
   // "Minion crits have +5/10/15/20/25% chance to fire an additional minion
-  // attack on the same target." Approximated as procOnMinionCrit applying
-  // Hexed (flavor analog: extra damage pressure from hex stacks; engine
-  // cannot trigger an extra synthetic minion-attack today).
+  // "Minion crits have +5/10/15/20/25% chance to fire an additional
+  // minion attack on the same target." Now authentic via bonusDamage
+  // (percent 100 = full duplicate hit damage folded into the minion's
+  // attack damage that tick). bonusDamageRef threaded into minion
+  // procCtx 2026-05-07.
   'wd_sw_spectral_edge': [
-    { kind: 'procOnMinionCrit', chance: 5, action: { kind: 'applyTag', tag: 'hex', stacks: 1, duration: 6 } },
+    { kind: 'procOnMinionCrit', chance: 5, action: { kind: 'bonusDamage', percent: 100 } },
   ],
   // "Minion attacks have +1/2/3/4/5% chance to hit twice (double-strike)."
-  // Approximated as procOnMinionHit applying Bleeding — bleed's stacking
-  // DoT is the closest single-action analog to a duplicated hit.
+  // Now authentic via bonusDamage (percent 100 = exact duplicate hit
+  // damage on roll success). Replaces prior bleed-applyTag approximation.
   'wd_sw_pack_mastery': [
-    { kind: 'procOnMinionHit', chance: 1, action: { kind: 'applyTag', tag: 'bleed', stacks: 1, duration: 4 } },
+    { kind: 'procOnMinionHit', chance: 1, action: { kind: 'bonusDamage', percent: 100 } },
   ],
   // "Fetish Swarm warriors have +5/10/15/20/25% chance to deal +50%
   // damage on each attack." minionType filter routes the proc to

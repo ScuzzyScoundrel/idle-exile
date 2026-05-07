@@ -346,18 +346,26 @@ export function runCombatTick(
       // Minions don't crit by default in this generic path; forcedCrit
       // (e.g. Predator Pack cascade) carries a multiplier inline.
       const isCrit = a.forcedCrit ?? false;
-      aggMinionDmg += a.damage * (isCrit ? 2.0 : 1.0);
+      const minionHitDamage = a.damage * (isCrit ? 2.0 : 1.0);
+      aggMinionDmg += minionHitDamage;
       if (talentEffects.length > 0) {
         const procCtx: TalentProcContext = {
           targetDebuffs,
           life: minionLife,
           sourceSkillId: a.sourceSkillId,
           mana: maintManaRef,
+          // Phase F (2026-05-07): bonusDamage action accumulator —
+          // unlocks WD pack_mastery / spectral_edge "double-strike"
+          // semantics (procOnMinionHit chance N bonusDamage percent 100).
+          bonusDamageRef: { value: 0, baseDamage: minionHitDamage },
         };
         const attackerMinion = postStep.find(m => m.id === a.minionId);
         const attackerType = attackerMinion?.type;
         dispatchProcOnMinionHit(talentEffects, procCtx, attackerType);
         if (isCrit) dispatchProcOnMinionCrit(talentEffects, procCtx, attackerType);
+        if (procCtx.bonusDamageRef && procCtx.bonusDamageRef.value > 0) {
+          aggMinionDmg += procCtx.bonusDamageRef.value;
+        }
         if (attackerMinion?.type === 'companion') {
           dispatchProcOnCompanionHit(talentEffects, procCtx);
           if (isCrit) dispatchProcOnCompanionCrit(talentEffects, procCtx);

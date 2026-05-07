@@ -229,10 +229,17 @@ export const staffModule: WeaponModule = {
           sourceSkillId: a.sourceSkillId,
           mana: ctx.mana,
           tempBuffsRef: state.tempBuffs ? [...state.tempBuffs] : [],
+          // Phase F (2026-05-07): bonusDamage action accumulator —
+          // unlocks WD pack_mastery / spectral_edge "double-strike"
+          // semantics on the staff minion-attack path too.
+          bonusDamageRef: { value: 0, baseDamage: finalDamage },
         };
         const attackingMinionType = updatedMinions.find(m => m.id === a.minionId)?.type;
         dispatchProcOnMinionHit(minionTalentEffects, minionProcCtx, attackingMinionType);
         if (isCrit) dispatchProcOnMinionCrit(minionTalentEffects, minionProcCtx, attackingMinionType);
+        if (minionProcCtx.bonusDamageRef && minionProcCtx.bonusDamageRef.value > 0) {
+          minionAttackDamage += minionProcCtx.bonusDamageRef.value;
+        }
         // Phase F F4 (2026-05-06): if the attacking minion is a companion
         // (singleton type='companion'), also fire procOnCompanion* so
         // Hunter Beastmaster nodes can target companion-only behavior
