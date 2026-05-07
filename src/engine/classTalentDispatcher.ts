@@ -646,6 +646,7 @@ export function dispatchProcOnHit(effects: TalentEffect[], ctx: TalentProcContex
 export function dispatchProcOnCrit(effects: TalentEffect[], ctx: TalentProcContext): void {
   for (const eff of effects) {
     if (eff.kind !== 'procOnCrit') continue;
+    if (eff.tag && eff.tag !== ctx.hitDamageTag) continue;
     if (eff.targetTag && !targetHasTag(ctx.targetDebuffs, eff.targetTag)) continue;
     rollAndFire(eff.action, eff.chance, ctx);
   }

@@ -524,6 +524,13 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'brs_wl_bloodied_mastery': [
     { kind: 'stat', stat: 'ailmentDuration', delta: 10 },
   ],
+  // "Staggered enemies take +5/10/15/20/25% increased damage." Fires
+  // whenever the player attacks a target carrying the 'staggered' debuff
+  // (the Stagger debuff itself only adds reducedAttackSpeed: 10 — this
+  // talent layers the damage payoff on top).
+  'brs_wl_stagger_mastery': [
+    { kind: 'whileTag', tag: 'staggered', stat: 'damageMult', mult: 1.05 },
+  ],
 
   // ── Reaver path ─────────────────────────────────────────────────────
   'brs_rv_wound_tolerance': [
@@ -569,6 +576,13 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'brs_jg_battle_stance': [
     { kind: 'stat', stat: 'critMultiplier', delta: 2 },
   ],
+  // "AoE crits have +5/10/15/20/25% chance to apply Staggered to all
+  // enemies hit." procOnCrit gained tag?: DamageTag filter (parallel
+  // to procOnHit) so we can gate this to AoE-tagged crits only.
+  // applyTagAll broadcasts to every mob's debuff list this tick.
+  'brs_jg_stagger_sweep': [
+    { kind: 'procOnCrit', tag: 'AoE', chance: 5, action: { kind: 'applyTagAll', tag: 'staggered' } },
+  ],
   'brs_jg_bulwark': [
     { kind: 'stat', stat: 'maxLife', delta: 10 },
   ],
@@ -586,6 +600,12 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'brs_jg_mountain_tempo': [
     { kind: 'whileOffhandAbsent', stat: 'attackSpeed', mult: 1, delta: 2 },
   ],
+  // "Heavy-skill (Heavy-tagged) hits have +5/10/15/20/25% chance to
+  // apply Staggered." procOnHit's tag filter routes the proc to
+  // Heavy-tagged hits only.
+  'brs_jg_concussive_force': [
+    { kind: 'procOnHit', tag: 'Heavy', chance: 5, action: { kind: 'applyTag', tag: 'staggered' } },
+  ],
   // "+2/4/6/8/10% cooldown recovery while no offhand equipped."
   'brs_jg_mountains_step': [
     { kind: 'whileOffhandAbsent', stat: 'cooldownRecovery', mult: 1, delta: 2 },
@@ -598,6 +618,13 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   // rank 1 → 1.05, rank 3 → 1.15.
   'brs_jg_mountains_wrath': [
     { kind: 'whileOffhandAbsent', stat: 'damageMult', mult: 1.05 },
+  ],
+  // "On Stagger application, +25/50/75% chance to apply Stagger to all
+  // enemies in encounter." procOnTag fires whenever applyTag/applyTagAll
+  // adds a 'staggered' debuff (cascade is recursion-guarded by the
+  // dispatcher's _inProcOnTag flag — won't infinite loop).
+  'brs_jg_stagger_cascade': [
+    { kind: 'procOnTag', tag: 'staggered', chance: 25, action: { kind: 'applyTagAll', tag: 'staggered' } },
   ],
   // "On taking a non-crit hit, +1/2/3/4/5% chance to apply Staggered
   // to the attacker." procOnHitTaken with critTaken=false fires only

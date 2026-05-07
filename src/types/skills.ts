@@ -103,7 +103,7 @@ export type TalentEffect =
    *  has the specified TalentTag debuff). Both filters AND together. */
   | { kind: 'procOnHit'; tag?: DamageTag; targetTag?: TalentTag; chance: number; action: TalentAction }
   /** Fires on crit. `targetTag` filters by target debuff. */
-  | { kind: 'procOnCrit'; targetTag?: TalentTag; chance: number; action: TalentAction }
+  | { kind: 'procOnCrit'; tag?: DamageTag; targetTag?: TalentTag; chance: number; action: TalentAction }
   /** Fires when the player TAKES a hit (boss attack, mob attack, or
    *  boss-fight-phase boss attack). Suppressed on dodge — block still
    *  fires (a blocked hit is still a hit). `critTaken?` discriminator:

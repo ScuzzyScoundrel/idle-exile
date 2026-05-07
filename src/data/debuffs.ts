@@ -136,6 +136,14 @@ export const DEBUFF_DEFS: DebuffDef[] = [
     effect: { reducedAttackSpeed: 20 },
   },
   {
+    id: 'staggered',
+    name: 'Staggered',
+    description: 'Target attack speed reduced by 10% (stagger marker).',
+    stackable: false,
+    maxStacks: 1,
+    effect: { reducedAttackSpeed: 10 },
+  },
+  {
     id: 'corroded',
     name: 'Corroded',
     description: 'Target takes 20% more damage from all sources.',
