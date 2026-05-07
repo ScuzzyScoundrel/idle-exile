@@ -7,6 +7,7 @@ import { useGameStore } from '../../store/gameStore';
 import { useSkillStore } from '../../store/skillStore';
 import { CharacterClass } from '../../types';
 import { getClassTree } from '../../data/classTrees';
+import { formatTalentEffects } from '../format/talentEffectText';
 import {
   canAllocateTalentNode, getAvailableTalentPoints, getTalentRespecCost,
   getTotalAllocatedRanks,
@@ -136,6 +137,20 @@ export default function ClassTalentPanel() {
                         )}
                       </div>
                       <div className="text-xs text-gray-400">{node.description}</div>
+                      {/* Phase F (2026-05-07): formatted talent effects
+                          (engine-introspected). Rank-1 preview when
+                          unallocated, current-rank value when allocated. */}
+                      {(() => {
+                        const lines = formatTalentEffects(node.id, currentRank > 0 ? currentRank : 1);
+                        if (lines.length === 0) return null;
+                        return (
+                          <ul className="mt-0.5 text-[10px] text-emerald-400/80 leading-tight font-mono">
+                            {lines.map((line, i) => (
+                              <li key={i}>• {line}</li>
+                            ))}
+                          </ul>
+                        );
+                      })()}
                     </div>
                   </div>
                 </button>
