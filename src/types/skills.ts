@@ -240,6 +240,10 @@ export type TalentEffect =
    *  type='companion' MinionState) is alive, multiply stat (or add
    *  `delta` for additive percent stats). Phase F F4 polish. */
   | { kind: 'whileCompanionAlive'; stat: string; mult: number; delta?: number }
+  /** Conditional modifier: while at least `threshold` player minions
+   *  are alive (active+nonzero HP). Phase F F2 follow-on — WD SW
+   *  Voodoo Roar ("while 3+ minions alive, +X cast speed / damage"). */
+  | { kind: 'whileMinionCountAtLeast'; threshold: number; stat: string; mult: number; delta?: number }
   /** Conditional modifier: while no offhand is equipped (2H / unarmed
    *  offhand stance), multiply stat (or add `delta`). Phase F — Brs
    *  Juggernaut signature mechanic. Class-First per §6.3: gates on

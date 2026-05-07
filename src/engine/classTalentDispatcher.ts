@@ -138,6 +138,12 @@ export function scaleTalentEffectByRank(effect: TalentEffect, rank: number): Tal
         mult: 1 + (effect.mult - 1) * rank,
         delta: effect.delta !== undefined ? effect.delta * rank : undefined,
       };
+    case 'whileMinionCountAtLeast':
+      return {
+        ...effect,
+        mult: 1 + (effect.mult - 1) * rank,
+        delta: effect.delta !== undefined ? effect.delta * rank : undefined,
+      };
     case 'whileOffhandAbsent':
       return {
         ...effect,
@@ -287,6 +293,7 @@ export function applyConditionalTalentEffects(
   offhandAbsent: boolean = false,
   enemyCount: number = 0,
   frenziedActive: boolean = false,
+  minionCount: number = 0,
 ): { damageMult: number } {
   let damageMult = 1;
   for (const eff of effects) {
@@ -370,6 +377,19 @@ export function applyConditionalTalentEffects(
         break;
       case 'whileCompanionAlive':
         if (companionAlive) {
+          if (eff.delta !== undefined) {
+            if (typeof (stats as any)[eff.stat] === 'number') {
+              (stats as any)[eff.stat] += eff.delta;
+            }
+          } else if (eff.stat === 'damageMult') {
+            damageMult *= eff.mult;
+          } else if (typeof (stats as any)[eff.stat] === 'number') {
+            (stats as any)[eff.stat] *= eff.mult;
+          }
+        }
+        break;
+      case 'whileMinionCountAtLeast':
+        if (minionCount >= eff.threshold) {
           if (eff.delta !== undefined) {
             if (typeof (stats as any)[eff.stat] === 'number') {
               (stats as any)[eff.stat] += eff.delta;

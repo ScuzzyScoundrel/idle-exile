@@ -693,6 +693,7 @@ export function runCombatTick(
     const totalResonance = state.resonanceCharges.fire + state.resonanceCharges.cold + state.resonanceCharges.lightning + state.resonanceCharges.chaos;
     const offhandAbsent = !state.character.equipment.offhand;
     const enemyCount = phase === 'boss_fight' ? 1 : state.packMobs.length;
+    const minionCount = (state.activeMinions ?? []).filter(m => m.hp > 0).length;
     // Phase F F5c: sticky Frenzied state. Enter when HP < 50%, exit
     // when HP > 75% (hysteresis prevents flickering at the boundary).
     // Mutating state directly here so all subsequent ticks see the
@@ -704,7 +705,7 @@ export function runCombatTick(
     }
     const talentConditional = applyConditionalTalentEffects(
       talentEffects, effectiveStats, targetDebuffs, selfHpFraction, targetHpFraction, companionAlive,
-      state.critStacks, totalResonance, offhandAbsent, enemyCount, state.frenziedActive,
+      state.critStacks, totalResonance, offhandAbsent, enemyCount, state.frenziedActive, minionCount,
     );
     damageMult *= talentConditional.damageMult;
     // Phase F F5b (2026-05-06): Precision Payoff — a hit on a Marked

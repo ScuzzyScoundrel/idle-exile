@@ -196,6 +196,14 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'wd_sw_pack_sovereign': [
     { kind: 'procOnMinionCrit', chance: 100, action: { kind: 'applyTagAll', tag: 'hex', stacks: 1, duration: 6 } },
   ],
+  // "While 3+ minions are alive, +25% cast speed and +15% damage." 1
+  // rank — both effects apply when the minion-count threshold is met.
+  // Engine treats attack/cast cadence under attackSpeed (no separate
+  // castSpeed stat); +25% there covers spell rotation per spec.
+  'wd_sw_voodoo_roar': [
+    { kind: 'whileMinionCountAtLeast', threshold: 3, stat: 'attackSpeed', mult: 1, delta: 25 },
+    { kind: 'whileMinionCountAtLeast', threshold: 3, stat: 'damageMult', mult: 1.15 },
+  ],
   // Phase F polish (2026-05-06): grantBuff action wired via TALENT_BUFF
   // _REGISTRY. "Minion deaths +2/4/6/8/10% chance to grant brief +20%
   // damage reduction shield (3s)."
