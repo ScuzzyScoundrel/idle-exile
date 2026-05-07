@@ -645,6 +645,16 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'brs_jg_cleave_reach': [
     { kind: 'stat', stat: 'aoeRadius', delta: 5 },
   ],
+  // "Multi-target kills (kills with same skill within 1s) refund
+  // +1/2/3/4/5 rage per chained kill." This game has no rage —
+  // approximated as refundMana. Math: chance=20 scales linearly per
+  // rank to 100%, amount=5 fires once per chained kill. Rank 1 =
+  // 20% chance × 5 = +1 expected mana per chain (matches spec's
+  // +1 rage). Rank 5 = 100% × 5 = +5 mana per chain (matches +5
+  // rage). Mathematically equivalent in expectation.
+  'brs_jg_mass_slaughter': [
+    { kind: 'procOnMultiKillChain', chance: 20, action: { kind: 'refundMana', amount: 5 } },
+  ],
   // "+5/10/15% damage while no offhand equipped." mult=1.05 scales:
   // rank 1 → 1.05, rank 3 → 1.15.
   'brs_jg_mountains_wrath': [

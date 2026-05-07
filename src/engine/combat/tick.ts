@@ -46,6 +46,7 @@ import {
   getPausedDebuffIds,
   dispatchProcOnHit,
   dispatchProcOnHitTaken,
+  dispatchProcOnMultiKillChain,
   dispatchProcOnCrit,
   dispatchProcOnKill,
   dispatchProcOnMinionHit,
@@ -2620,6 +2621,24 @@ export function runCombatTick(
           pr.cooldownResets.includes(t.skillId) ? { ...t, cooldownUntil: null } : t,
         );
       }
+    }
+  }
+
+  // Phase F: talent-side procOnMultiKillChain — fires (mobKills - 1)
+  // times when 2+ kills land in this cast. Brs Juggernaut Mass
+  // Slaughter uses this for refundMana per chained kill.
+  if (mobKills >= 2 && talentEffects.length > 0) {
+    const chainManaRef = { current: state.character.mana.current, max: state.character.mana.max };
+    dispatchProcOnMultiKillChain(talentEffects, {
+      targetDebuffs: [],
+      life: { value: playerHp, max: effectiveMaxLife },
+      sourceSkillId: skill.id,
+      mana: chainManaRef,
+      tempBuffsRef: activeTempBuffs,
+      skillTimers: newTimers,
+    }, mobKills);
+    if (chainManaRef.current !== state.character.mana.current) {
+      state.character.mana.current = chainManaRef.current;
     }
   }
 

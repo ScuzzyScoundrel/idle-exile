@@ -110,6 +110,12 @@ export type TalentEffect =
    *  undefined = fires on any hit, true = crit-only, false = non-crit
    *  only. Phase F — Brs Juggernaut defensive procs. */
   | { kind: 'procOnHitTaken'; chance: number; action: TalentAction; critTaken?: boolean }
+  /** Fires once per CHAINED kill (kills 2..N within a single cast).
+   *  killCount-aware: dispatcher fires the action `(killCount - 1)`
+   *  times if `chance` rolls. Phase F — Brs Juggernaut Mass Slaughter
+   *  ("rage refund per chain kill"). Approximated via refundMana
+   *  since this game has no rage resource. */
+  | { kind: 'procOnMultiKillChain'; chance: number; action: TalentAction }
   /** Fires when one of the player's minions hits an enemy. Phase F F2
    *  (2026-05-06): WD Spirit Whisperer (Spirit Bond / Soul Ration / Pack
    *  Mastery / Fetish Frenzy etc.). */

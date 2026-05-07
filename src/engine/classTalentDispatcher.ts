@@ -171,6 +171,8 @@ export function scaleTalentEffectByRank(effect: TalentEffect, rank: number): Tal
       return { ...effect, chance: Math.min(100, effect.chance * rank) };
     case 'procOnHitTaken':
       return { ...effect, chance: Math.min(100, effect.chance * rank) };
+    case 'procOnMultiKillChain':
+      return { ...effect, chance: Math.min(100, effect.chance * rank) };
     case 'companionProcInheritance':
       return { ...effect, percent: Math.min(100, effect.percent * rank) };
     case 'precisionPayoff':
@@ -696,6 +698,27 @@ export function dispatchProcOnHitTaken(
     if (eff.kind !== 'procOnHitTaken') continue;
     if (eff.critTaken !== undefined && eff.critTaken !== isCrit) continue;
     rollAndFire(eff.action, eff.chance, ctx);
+  }
+}
+
+/** Phase F (2026-05-06): fires once per CHAINED kill within a cast
+ *  (kills 2..N — the first kill of the cast doesn't count as a chain).
+ *  Caller passes `killCount` (mobKills from per-cast counter); the
+ *  dispatcher rolls and fires `(killCount - 1)` times. Used by Brs
+ *  Juggernaut Mass Slaughter — "kills with same skill within 1s
+ *  refund X rage per chained kill." */
+export function dispatchProcOnMultiKillChain(
+  effects: TalentEffect[],
+  ctx: TalentProcContext,
+  killCount: number,
+): void {
+  if (killCount < 2) return;
+  const chains = killCount - 1;
+  for (const eff of effects) {
+    if (eff.kind !== 'procOnMultiKillChain') continue;
+    for (let i = 0; i < chains; i++) {
+      rollAndFire(eff.action, eff.chance, ctx);
+    }
   }
 }
 
