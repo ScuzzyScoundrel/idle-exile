@@ -116,6 +116,12 @@ export type TalentEffect =
    *  ("rage refund per chain kill"). Approximated via refundMana
    *  since this game has no rage resource. */
   | { kind: 'procOnMultiKillChain'; chance: number; action: TalentAction }
+  /** Fires when the player GAINS a Resonance charge (element-tagged
+   *  hit adds a charge to the matching bag, pre-cap). Optional
+   *  `element` filter — undefined = any element, set = only that
+   *  element fires. Phase F F5d expansion — Sor Arcanist /
+   *  Elementalist nodes (sor_ar_charge_sense, sor_el_element_pulse). */
+  | { kind: 'procOnResonanceChargeGain'; element?: 'fire' | 'cold' | 'lightning' | 'chaos'; chance: number; action: TalentAction }
   /** Fires when one of the player's minions hits an enemy. Phase F F2
    *  (2026-05-06): WD Spirit Whisperer (Spirit Bond / Soul Ration / Pack
    *  Mastery / Fetish Frenzy etc.). */

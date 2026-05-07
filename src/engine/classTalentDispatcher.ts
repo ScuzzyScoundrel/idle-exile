@@ -190,6 +190,8 @@ export function scaleTalentEffectByRank(effect: TalentEffect, rank: number): Tal
       return { ...effect, chance: Math.min(100, effect.chance * rank) };
     case 'procOnMultiKillChain':
       return { ...effect, chance: Math.min(100, effect.chance * rank) };
+    case 'procOnResonanceChargeGain':
+      return { ...effect, chance: Math.min(100, effect.chance * rank) };
     case 'companionProcInheritance':
       return { ...effect, percent: Math.min(100, effect.percent * rank) };
     case 'precisionPayoff':
@@ -766,6 +768,24 @@ export function dispatchProcOnMultiKillChain(
     for (let i = 0; i < chains; i++) {
       rollAndFire(eff.action, eff.chance, ctx);
     }
+  }
+}
+
+/** Phase F F5d expansion (2026-05-07): fires when the player GAINS a
+ *  Resonance charge (element-tagged hit added a charge pre-cap).
+ *  Caller passes the element of the charge gained; the kind's
+ *  optional `element?` filter restricts to a single element when
+ *  set, or any-element when undefined. Used by Sor Arcanist /
+ *  Elementalist Resonance-aware procs. */
+export function dispatchProcOnResonanceChargeGain(
+  effects: TalentEffect[],
+  ctx: TalentProcContext,
+  element: 'fire' | 'cold' | 'lightning' | 'chaos',
+): void {
+  for (const eff of effects) {
+    if (eff.kind !== 'procOnResonanceChargeGain') continue;
+    if (eff.element !== undefined && eff.element !== element) continue;
+    rollAndFire(eff.action, eff.chance, ctx);
   }
 }
 

@@ -434,6 +434,17 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'sor_ar_resonance_sense': [
     { kind: 'whileResonanceChargesAtLeast', threshold: 4, stat: 'critChance', mult: 1, delta: 5 },
   ],
+  // Phase F F5d expansion (2026-05-07): procOnResonanceChargeGain unlocks
+  // Sorcerer charge-aware procs. "On gaining a Resonance charge, +1/2/3/4/5%
+  // chance to add an additional charge of the same element." First-slice
+  // approximation: addResonanceCharge with no element picks the first
+  // non-full element (fire→cold→lightning→chaos), so the bonus charge may
+  // land on a different element if the triggering one is at cap. True
+  // "same element" needs the dispatcher to read the current proc's element
+  // from a new ctx field — Phase F follow-on.
+  'sor_ar_charge_sense': [
+    { kind: 'procOnResonanceChargeGain', chance: 1, action: { kind: 'addResonanceCharge', amount: 1 } },
+  ],
   // Phase F F1b (2026-05-05): refundMana unlocks Arcanist crit-economy.
   // "On crit, +1/2/3 mana refunded" rank-1 → 100% chance, +1 mana per crit.
   'sor_ar_mana_surge': [

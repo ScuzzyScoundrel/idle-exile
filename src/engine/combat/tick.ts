@@ -47,6 +47,7 @@ import {
   dispatchProcOnHit,
   dispatchProcOnHitTaken,
   dispatchProcOnMultiKillChain,
+  dispatchProcOnResonanceChargeGain,
   dispatchProcOnCrit,
   dispatchProcOnKill,
   dispatchProcOnMinionHit,
@@ -1057,8 +1058,19 @@ export function runCombatTick(
     // Physical / Attack / Spell tags don't add charges.
     if (hitTag === 'Fire' || hitTag === 'Cold' || hitTag === 'Lightning' || hitTag === 'Chaos') {
       const elKey = hitTag.toLowerCase() as 'fire' | 'cold' | 'lightning' | 'chaos';
-      state.resonanceCharges[elKey] = Math.min(5, state.resonanceCharges[elKey] + 1);
+      const preCharges = state.resonanceCharges[elKey];
+      state.resonanceCharges[elKey] = Math.min(5, preCharges + 1);
       state.resonanceExpiresAt = now + 6000;
+      // Phase F F5d expansion (2026-05-07): fire procOnResonanceChargeGain
+      // only when an actual gain happened (pre-cap). At-cap hits refresh
+      // the decay window but don't add a charge — no proc fire.
+      if (preCharges < 5) {
+        dispatchProcOnResonanceChargeGain(talentEffects, procCtx, elKey);
+        if (procCtx.bonusDamageRef) {
+          talentBonusDamage += procCtx.bonusDamageRef.value;
+          procCtx.bonusDamageRef.value = 0;
+        }
+      }
     }
     if (roll.isCrit) {
       dispatchProcOnCrit(talentEffects, procCtx);
