@@ -295,7 +295,14 @@ export type TalentAction =
    *  Mutates ctx.resonanceRef in-place. */
   | { kind: 'addResonanceCharge'; element?: 'fire' | 'cold' | 'lightning' | 'chaos'; amount?: number }
   /** Grant a buff by id. */
-  | { kind: 'grantBuff'; buffId: string; duration: number };
+  | { kind: 'grantBuff'; buffId: string; duration: number }
+  /** Phase F (2026-05-06): adds bonus damage to the triggering hit
+   *  (read by caller via ctx.bonusDamageRef). Percent of the hit's
+   *  base damage. Used by Brs Juggernaut Marked Slam ("+100% damage
+   *  on hit-to-marked"). Only fires when caller exposes
+   *  bonusDamageRef on the proc context (procOnHit / procOnCrit
+   *  paths). */
+  | { kind: 'bonusDamage'; percent: number };
 
 export interface SkillTreePath {
   id: 'A' | 'B' | 'C';

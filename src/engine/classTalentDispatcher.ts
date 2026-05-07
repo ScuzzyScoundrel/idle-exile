@@ -516,6 +516,13 @@ export interface TalentProcContext {
    *  dispatcher pushes new buffs (or refreshes existing) via
    *  mergeProcTempBuff. Caller writes back to state.tempBuffs. */
   tempBuffsRef?: TempBuff[];
+  /** Phase F (2026-05-06): bonus-damage accumulator for the
+   *  `bonusDamage` action. Caller initializes `value = 0` and sets
+   *  `baseDamage` = the triggering hit's damage; dispatcher adds
+   *  `(percent / 100) * baseDamage` to value on action. Caller reads
+   *  back into procDamage after dispatch. Used by Brs Juggernaut
+   *  Marked Slam. */
+  bonusDamageRef?: { value: number; baseDamage: number };
   /** Mutable minion list + summon parameters for `summon` action.
    *  Phase F polish (2026-05-06): caller exposes player maxLife +
    *  spellPower so summonMinions can scale freshly-summoned units;
@@ -642,6 +649,15 @@ function executeAction(action: TalentAction, ctx: TalentProcContext): void {
       const merged = mergeProcTempBuff(ctx.tempBuffsRef, buff);
       ctx.tempBuffsRef.length = 0;
       ctx.tempBuffsRef.push(...merged);
+      break;
+    }
+    case 'bonusDamage': {
+      // Phase F (2026-05-06): adds (percent / 100) * baseDamage to the
+      // caller's bonusDamageRef. No-op if caller didn't expose the ref
+      // (e.g. dispatchProcOnHitTaken — defensive procs don't pile bonus
+      // damage onto the incoming hit).
+      if (!ctx.bonusDamageRef) break;
+      ctx.bonusDamageRef.value += (action.percent / 100) * ctx.bonusDamageRef.baseDamage;
       break;
     }
     case 'summon': {

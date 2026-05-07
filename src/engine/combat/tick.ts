@@ -1039,6 +1039,9 @@ export function runCombatTick(
       // Phase F polish (2026-05-06): self-reference enables procOnTag
       // cascades (hnt_mm_hunters_eye fires on Mark application etc.).
       effects: talentEffects,
+      // Phase F (2026-05-06): bonusDamage action accumulator — read
+      // back into procDamage after dispatch.
+      bonusDamageRef: { value: 0, baseDamage: roll.damage },
     };
     dispatchProcOnHit(talentEffects, procCtx);
     // Phase F F5d (2026-05-06): Resonance charge accumulator. Each
