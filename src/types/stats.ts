@@ -112,6 +112,13 @@ export type StatKey =
   | 'ailmentChanceChill'
   | 'ailmentChanceShock'
   | 'ailmentChancePoison'
-  | 'ailmentChanceOnCrit';   // flat % added to every ailment chance on crit hits
+  | 'ailmentChanceOnCrit'    // flat % added to every ailment chance on crit hits
+  // Phase F (2026-05-06): companion-modifier stats. Sum across talent
+  // effects; consumed by minions.ts companion config + tick.ts companion
+  // tick path. Default 0 (no modifier).
+  | 'companionDamage'        // % bonus damage on companion attacks
+  | 'companionHp'            // % bonus HP on companion summons
+  | 'companionAttackSpeed'   // % bonus attack speed (fewer seconds between attacks)
+  | 'companionSummonManaCost'; // flat reduction to summon mana cost
 
 export type ResolvedStats = Record<StatKey, number>;

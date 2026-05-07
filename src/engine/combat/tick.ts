@@ -219,6 +219,11 @@ export function runCombatTick(
       summonStats.maxLife,
       summonStats.spellPower ?? 0,
       now,
+      {
+        damagePct: summonStats.companionDamage,
+        hpPct: summonStats.companionHp,
+        attackSpeedPct: summonStats.companionAttackSpeed,
+      },
     );
   }
 

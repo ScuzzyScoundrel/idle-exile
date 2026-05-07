@@ -1378,6 +1378,11 @@ const STAT_LABELS: Record<StatKey, string> = {
   ailmentChanceShock: '% Shock Chance',
   ailmentChancePoison: '% Poison Chance',
   ailmentChanceOnCrit: '% Ailment on Crit',
+  // Phase F (2026-05-06): companion-modifier stats — Hnt Beastmaster path.
+  companionDamage: '% Companion Damage',
+  companionHp: '% Companion Life',
+  companionAttackSpeed: '% Companion Attack Speed',
+  companionSummonManaCost: 'Summon Mana Cost',
 };
 
 function ComparisonPanel({ selected, equipped }: { selected: Item; equipped: Item }) {

@@ -288,6 +288,11 @@ export const BASE_STATS: ResolvedStats = {
   ailmentChancePoison: 0,
   ailmentChanceOnCrit: 0,
   ailmentTickSpeedMult: 0,
+  // Phase F (2026-05-06): companion modifiers — Hnt Beastmaster path.
+  companionDamage: 0,
+  companionHp: 0,
+  companionAttackSpeed: 0,
+  companionSummonManaCost: 0,
 };
 
 /** Flat physical damage gained per level beyond 1. */

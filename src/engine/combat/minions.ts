@@ -114,12 +114,24 @@ export function summonMinions(
   playerMaxHp: number,
   spellPower: number,
   now: number,
+  /** Phase F (2026-05-06): optional companion-only stat modifiers
+   *  (Hnt Beastmaster). Caller passes percent values (e.g. 25 = +25%);
+   *  applied as `* (1 + pct/100)` for damage/hp and inversely for
+   *  attackInterval. Only consulted when config.type === 'companion'. */
+  companionMods?: { damagePct?: number; hpPct?: number; attackSpeedPct?: number },
 ): MinionState[] {
   const sameType = existing.filter(m => m.type === config.type);
   const others = existing.filter(m => m.type !== config.type);
 
-  const hp = playerMaxHp * config.hpPercentOfPlayer;
-  const damage = spellPower * config.damagePerSpellPowerRatio;
+  const isCompanion = config.type === 'companion';
+  const dmgMult = isCompanion ? 1 + ((companionMods?.damagePct ?? 0) / 100) : 1;
+  const hpMult = isCompanion ? 1 + ((companionMods?.hpPct ?? 0) / 100) : 1;
+  const aspdMult = isCompanion && companionMods?.attackSpeedPct
+    ? 1 / (1 + companionMods.attackSpeedPct / 100)
+    : 1;
+  const hp = playerMaxHp * config.hpPercentOfPlayer * hpMult;
+  const damage = spellPower * config.damagePerSpellPowerRatio * dmgMult;
+  const attackInterval = config.attackInterval * aspdMult;
   const expiresAt = now + config.duration * 1000;
 
   if (sameType.length > 0) {
@@ -131,7 +143,7 @@ export function summonMinions(
       damage,                   // pick up new spell power
       expiresAt,
       // Stagger attacks so all N minions don't swing at once
-      nextAttackAt: now + (config.attackInterval * 1000 * (i / sameType.length)),
+      nextAttackAt: now + (attackInterval * 1000 * (i / sameType.length)),
     }));
     return [...others, ...refreshed];
   }
@@ -145,8 +157,8 @@ export function summonMinions(
       hp,
       maxHp: hp,
       damage,
-      attackInterval: config.attackInterval,
-      nextAttackAt: now + (config.attackInterval * 1000 * (i / config.count)),
+      attackInterval,
+      nextAttackAt: now + (attackInterval * 1000 * (i / config.count)),
       expiresAt,
       element: config.element,
       sourceSkillId: config.sourceSkillId,
