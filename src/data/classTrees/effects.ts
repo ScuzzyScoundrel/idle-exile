@@ -167,6 +167,15 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'wd_sw_pack_mastery': [
     { kind: 'procOnMinionHit', chance: 1, action: { kind: 'applyTag', tag: 'bleed', stacks: 1, duration: 4 } },
   ],
+  // "Fetish Swarm warriors have +5/10/15/20/25% chance to deal +50%
+  // damage on each attack." minionType filter routes the proc to
+  // fetish minions only — non-fetish minions ignore. Same applyTag
+  // 'bleed' approximation as pack_mastery (bleed = damage-pressure
+  // analog), but rank-1 chance is 5% (vs pack_mastery's 1%) since
+  // fetish-only is more restricted than all-minion.
+  'wd_sw_fetish_frenzy': [
+    { kind: 'procOnMinionHit', minionType: 'fetish', chance: 5, action: { kind: 'applyTag', tag: 'bleed', stacks: 1, duration: 4 } },
+  ],
   // "Minion attacks have +5/10/15/20/25% chance to restore 5 mana."
   // refundMana action exists; ctx.mana ref isn't threaded into
   // tickMaintenance yet so this currently no-ops gracefully (per Phase F

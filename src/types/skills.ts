@@ -129,14 +129,14 @@ export type TalentEffect =
   /** Fires when one of the player's minions hits an enemy. Phase F F2
    *  (2026-05-06): WD Spirit Whisperer (Spirit Bond / Soul Ration / Pack
    *  Mastery / Fetish Frenzy etc.). */
-  | { kind: 'procOnMinionHit'; chance: number; action: TalentAction }
+  | { kind: 'procOnMinionHit'; chance: number; action: TalentAction; minionType?: string }
   /** Fires when one of the player's minions crits. Phase F F2: WD SW
    *  Spectral Edge / Inherited Curse / Pack Sovereign capstone. */
-  | { kind: 'procOnMinionCrit'; chance: number; action: TalentAction }
+  | { kind: 'procOnMinionCrit'; chance: number; action: TalentAction; minionType?: string }
   /** Fires when one of the player's minions dies. Phase F F2: WD SW
    *  Bone Armor / Resilient Spirits / Spirit Shield / Echo Wail / Death
    *  Mastery / Eternal Court. */
-  | { kind: 'procOnMinionDeath'; chance: number; action: TalentAction }
+  | { kind: 'procOnMinionDeath'; chance: number; action: TalentAction; minionType?: string }
   /** Fires when one of the player's traps detonates. Phase F F3
    *  (2026-05-06): Hnt Trapper Multi-Arming / Trapper's Tempo /
    *  Snare Detonation Mastery / Mark Trap / Chain Reaction / Trap Crit

@@ -828,27 +828,33 @@ export function dispatchProcOnTag(
 /** Fires when one of the player's minions hits an enemy.
  *  Phase F F2 (2026-05-06): caller passes `targetDebuffs` as the hit
  *  target's debuff list so apply-tag actions land on the correct enemy. */
-export function dispatchProcOnMinionHit(effects: TalentEffect[], ctx: TalentProcContext): void {
+export function dispatchProcOnMinionHit(effects: TalentEffect[], ctx: TalentProcContext, minionType?: string): void {
   for (const eff of effects) {
     if (eff.kind !== 'procOnMinionHit') continue;
+    if (eff.minionType !== undefined && eff.minionType !== minionType) continue;
     rollAndFire(eff.action, eff.chance, ctx);
   }
 }
 
-/** Fires when one of the player's minions crits. */
-export function dispatchProcOnMinionCrit(effects: TalentEffect[], ctx: TalentProcContext): void {
+/** Fires when one of the player's minions crits.
+ *  Phase F F2 follow-on (2026-05-07): optional minionType filter
+ *  routes procs to specific summon archetypes (fetish, hound, etc.). */
+export function dispatchProcOnMinionCrit(effects: TalentEffect[], ctx: TalentProcContext, minionType?: string): void {
   for (const eff of effects) {
     if (eff.kind !== 'procOnMinionCrit') continue;
+    if (eff.minionType !== undefined && eff.minionType !== minionType) continue;
     rollAndFire(eff.action, eff.chance, ctx);
   }
 }
 
 /** Fires when one of the player's minions dies. The dying minion's
  *  position is irrelevant for now — actions like grantBuff / refundMana
- *  apply to the player; applyTag/applyTagAll target enemies via ctx. */
-export function dispatchProcOnMinionDeath(effects: TalentEffect[], ctx: TalentProcContext): void {
+ *  apply to the player; applyTag/applyTagAll target enemies via ctx.
+ *  Phase F F2 follow-on (2026-05-07): optional minionType filter. */
+export function dispatchProcOnMinionDeath(effects: TalentEffect[], ctx: TalentProcContext, minionType?: string): void {
   for (const eff of effects) {
     if (eff.kind !== 'procOnMinionDeath') continue;
+    if (eff.minionType !== undefined && eff.minionType !== minionType) continue;
     rollAndFire(eff.action, eff.chance, ctx);
   }
 }

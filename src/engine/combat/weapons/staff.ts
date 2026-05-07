@@ -230,8 +230,9 @@ export const staffModule: WeaponModule = {
           mana: ctx.mana,
           tempBuffsRef: state.tempBuffs ? [...state.tempBuffs] : [],
         };
-        dispatchProcOnMinionHit(minionTalentEffects, minionProcCtx);
-        if (isCrit) dispatchProcOnMinionCrit(minionTalentEffects, minionProcCtx);
+        const attackingMinionType = updatedMinions.find(m => m.id === a.minionId)?.type;
+        dispatchProcOnMinionHit(minionTalentEffects, minionProcCtx, attackingMinionType);
+        if (isCrit) dispatchProcOnMinionCrit(minionTalentEffects, minionProcCtx, attackingMinionType);
         // Phase F F4 (2026-05-06): if the attacking minion is a companion
         // (singleton type='companion'), also fire procOnCompanion* so
         // Hunter Beastmaster nodes can target companion-only behavior
@@ -524,7 +525,7 @@ export const staffModule: WeaponModule = {
           tempBuffsRef: state.tempBuffs ? [...state.tempBuffs] : [],
           minionsRef: deathMinionsRef,
         };
-        dispatchProcOnMinionDeath(deathTalentEffects, deathProcCtx);
+        dispatchProcOnMinionDeath(deathTalentEffects, deathProcCtx, prev.type);
         // Phase F F4: if the dying minion is a companion, also fire
         // procOnCompanionDeath (Hunter BM Pack Resilience etc.).
         if (prev.type === 'companion') {

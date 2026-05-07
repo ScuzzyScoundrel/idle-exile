@@ -352,9 +352,10 @@ export function runCombatTick(
           sourceSkillId: a.sourceSkillId,
           mana: maintManaRef,
         };
-        dispatchProcOnMinionHit(talentEffects, procCtx);
-        if (isCrit) dispatchProcOnMinionCrit(talentEffects, procCtx);
         const attackerMinion = postStep.find(m => m.id === a.minionId);
+        const attackerType = attackerMinion?.type;
+        dispatchProcOnMinionHit(talentEffects, procCtx, attackerType);
+        if (isCrit) dispatchProcOnMinionCrit(talentEffects, procCtx, attackerType);
         if (attackerMinion?.type === 'companion') {
           dispatchProcOnCompanionHit(talentEffects, procCtx);
           if (isCrit) dispatchProcOnCompanionCrit(talentEffects, procCtx);
@@ -391,7 +392,7 @@ export function runCombatTick(
           life: minionLife,
           sourceSkillId: prev.sourceSkillId,
         };
-        dispatchProcOnMinionDeath(talentEffects, deathCtx);
+        dispatchProcOnMinionDeath(talentEffects, deathCtx, prev.type);
         if (prev.type === 'companion') {
           dispatchProcOnCompanionDeath(talentEffects, deathCtx);
         }
