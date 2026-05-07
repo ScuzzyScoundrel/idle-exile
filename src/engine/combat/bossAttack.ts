@@ -53,7 +53,13 @@ export function applyBossDamage(
       ...collectTalentEffects(state.character.class, state.talentRanks ?? {}),
       ...collectAscendancyEffects(state.ascendancyId ?? null, state.ascendancyRanks ?? {}),
     ];
-    let bossActiveTempBuffs = state.tempBuffs ?? [];
+    // Phase F (2026-05-07): hoisted updatedTempBuffs above the
+    // procOnHitTaken dispatch so grantBuff actions persist back to
+    // the state patch returned at end of function. Was previously
+    // declared inline at the boss-attack-due block (line 123) AFTER
+    // dispatch — grantBuff fires went to a local copy that was never
+    // written back.
+    let updatedTempBuffs = [...(state.tempBuffs ?? [])];
     let playerHp = state.currentHp;
     let bossCurrentEs = state.currentEs;
     let bossAttackResult: CombatTickResult['bossAttack'] = null;
@@ -110,7 +116,7 @@ export function applyBossDamage(
             targetDebuffs: state.activeDebuffs,
             life: { value: playerHp, max: bossStats.maxLife },
             sourceSkillId: '_hit_taken',
-            tempBuffsRef: bossActiveTempBuffs,
+            tempBuffsRef: updatedTempBuffs,
             skillTimers: state.skillTimers,
           }, isBossCrit);
         }
@@ -119,8 +125,10 @@ export function applyBossDamage(
       }
     }
 
-    // Unique temp buffs from dodge/hit events during boss fight
-    let updatedTempBuffs = [...state.tempBuffs];
+    // Unique temp buffs from dodge/hit events during boss fight.
+    // Phase F (2026-05-07): no longer reset here — declared at top
+    // of function so procOnHitTaken grantBuff persists into the
+    // dodge/onHit merges below.
 
     // Unique: dodgeGrantsAttackSpeedPercent — on dodge, stack attack speed buff (Windsworn Greaves)
     if (bossAttackResult?.isDodged && bossStats.dodgeGrantsAttackSpeedPercent > 0) {
