@@ -49,6 +49,8 @@ import {
   dispatchProcOnMultiKillChain,
   dispatchProcOnResonanceChargeGain,
   dispatchProcOnConvergenceCast,
+  dispatchProcOnBulwarkConsume,
+  consumeBulwarkCharge,
   dispatchProcOnCrit,
   dispatchProcOnKill,
   dispatchProcOnMinionHit,
@@ -1799,19 +1801,33 @@ export function runCombatTick(
             activeTempBuffs = [...activeTempBuffs, { ...buff, expiresAt: now + buff.duration * 1000, sourceSkillId: skill.id }];
           }
         }
+        // Phase F: Bulwark consume happens BEFORE damage subtraction
+        // (suppressed on dodge — no hit, no consume).
+        let bossConsumeFired = false;
+        if (!bossRoll.isDodged && cappedBossDmg > 0) {
+          const consumed = consumeBulwarkCharge(activeTempBuffs, cappedBossDmg);
+          cappedBossDmg = consumed.damage;
+          bossConsumeFired = consumed.consumed;
+        }
         playerHp -= cappedBossDmg;
         // Phase F: procOnHitTaken — fire defensive procs on every
         // boss-fight-phase boss hit that lands (suppressed on dodge;
         // block still fires). targetDebuffs = boss's debuff list so
         // applyTag goes on the boss, not the player.
         if (!bossRoll.isDodged && talentEffects.length > 0) {
-          dispatchProcOnHitTaken(talentEffects, {
+          const hitTakenCtx = {
             targetDebuffs: state.activeDebuffs,
             life: { value: playerHp, max: effectiveMaxLife },
             sourceSkillId: '_hit_taken',
             tempBuffsRef: activeTempBuffs,
             skillTimers: state.skillTimers,
-          }, isBossCrit);
+          };
+          dispatchProcOnHitTaken(talentEffects, hitTakenCtx, isBossCrit);
+          // Phase F: procOnBulwarkConsume fires after hit-taken when
+          // a Bulwark stack was consumed this hit (Sustained Aegis).
+          if (bossConsumeFired) {
+            dispatchProcOnBulwarkConsume(talentEffects, hitTakenCtx);
+          }
         }
         bossAttackResult = { damage: cappedBossDmg, isDodged: bossRoll.isDodged, isBlocked: bossRoll.isBlocked, isCrit: isBossCrit };
         nextAttack = now + bs.bossAttackInterval * mainEnemyMods.atkSpeedSlowMult * 1000;

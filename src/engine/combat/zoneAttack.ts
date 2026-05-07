@@ -47,6 +47,8 @@ import {
   getDotCritByDebuffId,
   getPausedDebuffIds,
   dispatchProcOnHitTaken,
+  dispatchProcOnBulwarkConsume,
+  consumeBulwarkCharge,
 } from '../classTalentDispatcher';
 import { getSkillGraphModifier } from '../unifiedSkills';
 import { absorbDamage } from './minions';
@@ -78,6 +80,11 @@ export function applyZoneDamage(
     ...collectTalentEffects(state.character.class, state.talentRanks ?? {}),
     ...collectAscendancyEffects(state.ascendancyId ?? null, state.ascendancyRanks ?? {}),
   ];
+  // Phase F (2026-05-07): hoisted tempBuffs ref above mob-attack loop
+  // so Bulwark consume + procOnBulwarkConsume + procOnHitTaken grantBuff
+  // all mutate the same array that's returned to state. Was previously
+  // declared inline at line 161 AFTER dispatch.
+  let zoneActiveTempBuffs = [...(state.tempBuffs ?? [])];
 
   // --- Per-mob attack timers ---
   let currentDodgeEntropy = state.dodgeEntropy;
@@ -135,19 +142,30 @@ export function applyZoneDamage(
         state.activeMinions = absorb.minions;
         mobZoneDmg = absorb.remainingDamage;
       }
+      // Phase F: Bulwark consume BEFORE damage subtraction.
+      let mobConsumeFired = false;
+      if (!roll.isDodged && mobZoneDmg > 0) {
+        const consumed = consumeBulwarkCharge(zoneActiveTempBuffs, mobZoneDmg);
+        mobZoneDmg = consumed.damage;
+        mobConsumeFired = consumed.consumed;
+      }
       playerHp -= mobZoneDmg;
       // Phase F: procOnHitTaken — fire defensive procs on every
       // clearing-phase mob hit that lands (suppressed on dodge;
       // block still fires). targetDebuffs = this mob's debuff list
       // so applyTag goes on the attacker, not the player.
       if (!roll.isDodged && zoneDotCritEffects.length > 0) {
-        dispatchProcOnHitTaken(zoneDotCritEffects, {
+        const hitTakenCtx = {
           targetDebuffs: mob.debuffs,
           life: { value: playerHp, max: playerStats.maxLife },
           sourceSkillId: '_hit_taken',
-          tempBuffsRef: state.tempBuffs ?? [],
+          tempBuffsRef: zoneActiveTempBuffs,
           skillTimers: state.skillTimers,
-        }, isMobCrit);
+        };
+        dispatchProcOnHitTaken(zoneDotCritEffects, hitTakenCtx, isMobCrit);
+        if (mobConsumeFired) {
+          dispatchProcOnBulwarkConsume(zoneDotCritEffects, hitTakenCtx);
+        }
       }
       // Report last attacking mob's roll as the zone attack result
       zoneAttackResult = roll;
@@ -155,8 +173,11 @@ export function applyZoneDamage(
     }
   }
 
-  // Unique temp buffs from dodge/hit events
-  let updatedTempBuffs = [...state.tempBuffs];
+  // Unique temp buffs from dodge/hit events.
+  // Phase F (2026-05-07): use the hoisted zoneActiveTempBuffs so
+  // Bulwark consume / procOnHitTaken grantBuff additions persist
+  // through dodge/onHit merges into the returned state patch.
+  let updatedTempBuffs = zoneActiveTempBuffs;
   const playerStatsForUnique = resolveStats(state.character);
 
   // Unique: dodgeGrantsAttackSpeedPercent — on dodge, stack attack speed buff (Windsworn Greaves)

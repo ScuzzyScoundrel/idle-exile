@@ -126,6 +126,10 @@ export type TalentEffect =
    *  'convergence'). Phase F F5d expansion — Sor Arcanist nodes
    *  (convergence_burst, spectral_echo, saturation_tempo). */
   | { kind: 'procOnConvergenceCast'; chance: number; action: TalentAction }
+  /** Fires when a Bulwark charge is consumed (player took a hit with
+   *  bulwark_charge tempBuff active — damage halved, one stack
+   *  removed). Phase F — Brs Juggernaut Sustained Aegis. */
+  | { kind: 'procOnBulwarkConsume'; chance: number; action: TalentAction }
   /** Fires when one of the player's minions hits an enemy. Phase F F2
    *  (2026-05-06): WD Spirit Whisperer (Spirit Bond / Soul Ration / Pack
    *  Mastery / Fetish Frenzy etc.). */

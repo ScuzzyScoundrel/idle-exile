@@ -731,6 +731,16 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'brs_jg_stalwart_spirit': [
     { kind: 'procOnHitTaken', chance: 1, action: { kind: 'grantBuff', buffId: 'bulwark_charge', duration: 5 } },
   ],
+  // "On Bulwark charge consumed, +20/40/60% chance to grant another
+  // Bulwark charge instantly." procOnBulwarkConsume fires after a
+  // Bulwark stack absorbs a hit (damage halved + stack removed).
+  // Action grants a fresh bulwark_charge tempBuff via grantBuff —
+  // dispatcher's mergeProcTempBuff handles the stack-or-refresh
+  // logic. Net effect: at high ranks, Bulwark stacks self-sustain
+  // through extended fights.
+  'brs_jg_sustained_aegis': [
+    { kind: 'procOnBulwarkConsume', chance: 20, action: { kind: 'grantBuff', buffId: 'bulwark_charge', duration: 5 } },
+  ],
   // "+5/10/15% damage while no offhand equipped." mult=1.05 scales:
   // rank 1 → 1.05, rank 3 → 1.15.
   'brs_jg_mountains_wrath': [

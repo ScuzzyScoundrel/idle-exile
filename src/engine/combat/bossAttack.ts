@@ -27,6 +27,8 @@ import {
   getDotCritByDebuffId,
   getPausedDebuffIds,
   dispatchProcOnHitTaken,
+  dispatchProcOnBulwarkConsume,
+  consumeBulwarkCharge,
 } from '../classTalentDispatcher';
 import type { CombatTickOutput } from './types';
 import { noResult } from './types';
@@ -106,19 +108,30 @@ export function applyBossDamage(
           state.activeMinions = absorb.minions;
           cappedDmg = absorb.remainingDamage;
         }
+        // Phase F: Bulwark consume BEFORE damage subtraction.
+        let bossSubConsumeFired = false;
+        if (!roll.isDodged && cappedDmg > 0) {
+          const consumed = consumeBulwarkCharge(updatedTempBuffs, cappedDmg);
+          cappedDmg = consumed.damage;
+          bossSubConsumeFired = consumed.consumed;
+        }
         playerHp -= cappedDmg;
         // Phase F: procOnHitTaken — fire defensive procs on boss
         // attacks landed via applyBossDamage. Suppressed on dodge;
         // block still fires. targetDebuffs = boss's debuff list so
         // applyTag goes on the boss, not the player.
         if (!roll.isDodged && bossTalentEffects.length > 0) {
-          dispatchProcOnHitTaken(bossTalentEffects, {
+          const hitTakenCtx = {
             targetDebuffs: state.activeDebuffs,
             life: { value: playerHp, max: bossStats.maxLife },
             sourceSkillId: '_hit_taken',
             tempBuffsRef: updatedTempBuffs,
             skillTimers: state.skillTimers,
-          }, isBossCrit);
+          };
+          dispatchProcOnHitTaken(bossTalentEffects, hitTakenCtx, isBossCrit);
+          if (bossSubConsumeFired) {
+            dispatchProcOnBulwarkConsume(bossTalentEffects, hitTakenCtx);
+          }
         }
         bossAttackResult = { damage: cappedDmg, isDodged: roll.isDodged, isBlocked: roll.isBlocked, isCrit: isBossCrit };
         nextAttack = now + bs.bossAttackInterval * helperEnemyMods.atkSpeedSlowMult * 1000;

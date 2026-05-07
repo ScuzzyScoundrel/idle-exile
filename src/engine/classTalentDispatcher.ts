@@ -201,6 +201,8 @@ export function scaleTalentEffectByRank(effect: TalentEffect, rank: number): Tal
       return { ...effect, chance: Math.min(100, effect.chance * rank) };
     case 'procOnConvergenceCast':
       return { ...effect, chance: Math.min(100, effect.chance * rank) };
+    case 'procOnBulwarkConsume':
+      return { ...effect, chance: Math.min(100, effect.chance * rank) };
     case 'companionProcInheritance':
       return { ...effect, percent: Math.min(100, effect.percent * rank) };
     case 'precisionPayoff':
@@ -811,6 +813,41 @@ export function dispatchProcOnConvergenceCast(
     if (eff.kind !== 'procOnConvergenceCast') continue;
     rollAndFire(eff.action, eff.chance, ctx);
   }
+}
+
+/** Phase F (2026-05-07): fires when a Bulwark charge is consumed —
+ *  player took a hit with `bulwark_charge` tempBuff active, damage
+ *  halved, one stack removed. Used by Brs Juggernaut Sustained Aegis
+ *  ("on Bulwark consumed, +X% chance to grant another charge"). */
+export function dispatchProcOnBulwarkConsume(
+  effects: TalentEffect[],
+  ctx: TalentProcContext,
+): void {
+  for (const eff of effects) {
+    if (eff.kind !== 'procOnBulwarkConsume') continue;
+    rollAndFire(eff.action, eff.chance, ctx);
+  }
+}
+
+/** Phase F (2026-05-07): Bulwark consume helper — checks tempBuffs
+ *  for `bulwark_charge`, halves the incoming damage if found, removes
+ *  one stack (or splices if last), returns the new damage value AND
+ *  whether a consume happened. Caller fires procOnBulwarkConsume when
+ *  consumed=true. Mutates `tempBuffs` in place. */
+export function consumeBulwarkCharge(
+  tempBuffs: TempBuff[],
+  damage: number,
+): { damage: number; consumed: boolean } {
+  if (damage <= 0) return { damage, consumed: false };
+  const idx = tempBuffs.findIndex(b => b.id === 'bulwark_charge');
+  if (idx < 0) return { damage, consumed: false };
+  const buff = tempBuffs[idx];
+  if (buff.stacks > 1) {
+    tempBuffs[idx] = { ...buff, stacks: buff.stacks - 1 };
+  } else {
+    tempBuffs.splice(idx, 1);
+  }
+  return { damage: damage * 0.5, consumed: true };
 }
 
 export function dispatchProcOnTag(
