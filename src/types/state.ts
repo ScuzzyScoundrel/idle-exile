@@ -143,6 +143,11 @@ export interface GameState {
    *  all elements; per-element conditionals are a follow-on). */
   resonanceCharges: { fire: number; cold: number; lightning: number; chaos: number };
   resonanceExpiresAt: number;
+  /** Phase F F5c (2026-05-06): sticky Frenzied state — Brs Reaver
+   *  signature. Enters when player HP fraction drops below 50%, exits
+   *  when HP fraction rises above 75% (hysteresis prevents flickering
+   *  at the boundary). Drives `whileFrenzied` TalentEffect kind. */
+  frenziedActive: boolean;
 
   // Combo states (Dagger v2 — ephemeral, not persisted)
   comboStates: ComboState[];

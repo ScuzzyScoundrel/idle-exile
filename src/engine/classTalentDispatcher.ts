@@ -108,6 +108,12 @@ export function scaleTalentEffectByRank(effect: TalentEffect, rank: number): Tal
         mult: 1 + (effect.mult - 1) * rank,
         delta: effect.delta !== undefined ? effect.delta * rank : undefined,
       };
+    case 'whileFrenzied':
+      return {
+        ...effect,
+        mult: 1 + (effect.mult - 1) * rank,
+        delta: effect.delta !== undefined ? effect.delta * rank : undefined,
+      };
     case 'whileTargetHpBelow':
       return {
         ...effect,
@@ -262,6 +268,7 @@ export function applyConditionalTalentEffects(
   resonanceCharges: number = 0,
   offhandAbsent: boolean = false,
   enemyCount: number = 0,
+  frenziedActive: boolean = false,
 ): { damageMult: number } {
   let damageMult = 1;
   for (const eff of effects) {
@@ -306,6 +313,19 @@ export function applyConditionalTalentEffects(
         break;
       case 'whileSelfHpAbove':
         if (selfHpFraction >= eff.threshold) {
+          if (eff.delta !== undefined) {
+            if (typeof (stats as any)[eff.stat] === 'number') {
+              (stats as any)[eff.stat] += eff.delta;
+            }
+          } else if (eff.stat === 'damageMult') {
+            damageMult *= eff.mult;
+          } else if (typeof (stats as any)[eff.stat] === 'number') {
+            (stats as any)[eff.stat] *= eff.mult;
+          }
+        }
+        break;
+      case 'whileFrenzied':
+        if (frenziedActive) {
           if (eff.delta !== undefined) {
             if (typeof (stats as any)[eff.stat] === 'number') {
               (stats as any)[eff.stat] += eff.delta;

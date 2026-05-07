@@ -210,6 +210,13 @@ export type TalentEffect =
    *  low-incoming-damage stance). Symmetric counterpart to whileSelfHpBelow.
    *  Phase F F4 polish. */
   | { kind: 'whileSelfHpAbove'; threshold: number; stat: string; mult: number; delta?: number }
+  /** Conditional modifier: while sticky Frenzied state is active
+   *  (state.frenziedActive — entered when HP < 50%, exits when HP >
+   *  75%, hysteresis prevents flickering at the boundary). Phase F
+   *  F5c — Brs Reaver signature. Differs from `whileSelfHpBelow`
+   *  threshold:0.5 in that Frenzied is sticky: once entered, persists
+   *  through 50-75% HP until reset above 75%. */
+  | { kind: 'whileFrenzied'; stat: string; mult: number; delta?: number }
   /** Conditional modifier: while TARGET's HP fraction is below threshold (0-1).
    *  E.g. threshold=0.5 → fires when struck target is below 50% HP. Phase F
    *  (Brs Warlord execute-range / Hnt finisher nodes). `delta?` adds

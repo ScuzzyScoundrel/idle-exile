@@ -1005,6 +1005,13 @@ export function runMigrations(
     if (raw.resonanceExpiresAt === undefined) raw.resonanceExpiresAt = 0;
   }
 
+  if (version < 73) {
+    // v73: Phase F F5c — sticky Frenzied state for Brs Reaver. Default
+    // false; tick.ts transitions to true when HP < 50% and back to
+    // false when HP > 75% (hysteresis).
+    if (raw.frenziedActive === undefined) raw.frenziedActive = false;
+  }
+
   if (version < 69) {
     // v69: Phase D — multi-rank class talent engine.
     // Convert flat `talentAllocations: string[]` → `talentRanks: Record<string, number>`

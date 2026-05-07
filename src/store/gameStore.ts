@@ -313,6 +313,7 @@ function createInitialState(): GameState {
     fortifyStacks: 0, fortifyExpiresAt: 0, fortifyDRPerStack: 0,
     critStacks: 0, critStacksExpiresAt: 0,
     resonanceCharges: { fire: 0, cold: 0, lightning: 0, chaos: 0 }, resonanceExpiresAt: 0,
+    frenziedActive: false,
     deathStreak: 0, lastDeathTime: 0,
     comboStates: [],
     activeTraps: [],
@@ -1367,7 +1368,7 @@ export const useGameStore = create<GameState & GameActions>()(
     })) as import('zustand').StateCreator<GameState & GameActions, [['zustand/persist', unknown]], []>,
     {
       name: 'idle-exile-save',
-      version: 72,
+      version: 73,
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) return;
