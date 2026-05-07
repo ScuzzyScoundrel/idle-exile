@@ -544,6 +544,14 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'brs_wl_apex_predator': [
     { kind: 'whileTargetHpBelow', threshold: 0.25, stat: 'damageMult', mult: 1.10 },
   ],
+  // "+5/10/15/20/25% damage while in Frenzied state (Frenzied scaler)."
+  'brs_wl_frenzied_power': [
+    { kind: 'whileFrenzied', stat: 'damageMult', mult: 1.05 },
+  ],
+  // "Cooldown recovery +5/10/15% while in Frenzied state."
+  'brs_wl_kings_wrath': [
+    { kind: 'whileFrenzied', stat: 'cooldownRecovery', mult: 1, delta: 5 },
+  ],
   // "+1s Bloodied state duration / rank" approximated as +10% global ailment+combo
   // duration / rank → +30% at rank 3. Bloodied is bleed-tagged (§8.3) so
   // ailmentDuration covers it; broader than design intent (extends all DoTs).
@@ -585,6 +593,16 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   // "+1/2/3/4/5% damage reduction while above 50% HP (defensive ramp pre-Frenzied)."
   'brs_rv_pain_tolerance': [
     { kind: 'whileSelfHpAbove', threshold: 0.5, stat: 'damageTakenReduction', mult: 1, delta: 1 },
+  ],
+  // "Lifesteal: +1/2/3/4/5% of damage while Frenzied returns as healing."
+  // Approximation via lifeLeechPercent — engine may treat lifesteal/leech
+  // semantically equivalent. delta scales linearly per rank.
+  'brs_rv_wrath_sustain': [
+    { kind: 'whileFrenzied', stat: 'lifeLeechPercent', mult: 1, delta: 1 },
+  ],
+  // "+5/10/15/20/25% damage reduction while Frenzied."
+  'brs_rv_berserkers_resolve': [
+    { kind: 'whileFrenzied', stat: 'damageTakenReduction', mult: 1, delta: 5 },
   ],
   // "+10/20/30/40/50% crit damage while below 25% HP" — deep-execute crit
   // multiplier scaler.
