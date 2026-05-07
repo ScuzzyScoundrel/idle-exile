@@ -1000,6 +1000,9 @@ export function runCombatTick(
     }
   }
 
+  // Phase F (2026-05-06): bonus damage accumulator from talent procs
+  // (e.g. Brs Juggernaut Marked Slam). Folded into procDamage below.
+  let talentBonusDamage = 0;
   // Phase 4 sub-phase 5: class-talent procOnHit / procOnCrit dispatch.
   // Skill's element tag (after morph) filters procs like "Flurry Ascendant
   // — on Attack hit 15% → apply bleed".
@@ -1044,6 +1047,10 @@ export function runCombatTick(
       bonusDamageRef: { value: 0, baseDamage: roll.damage },
     };
     dispatchProcOnHit(talentEffects, procCtx);
+    if (procCtx.bonusDamageRef) {
+      talentBonusDamage += procCtx.bonusDamageRef.value;
+      procCtx.bonusDamageRef.value = 0;
+    }
     // Phase F F5d (2026-05-06): Resonance charge accumulator. Each
     // elemental player hit adds 1 charge of the matching element
     // (capped at 5 per element) and refreshes the 6s decay window.
@@ -1055,6 +1062,10 @@ export function runCombatTick(
     }
     if (roll.isCrit) {
       dispatchProcOnCrit(talentEffects, procCtx);
+      if (procCtx.bonusDamageRef) {
+        talentBonusDamage += procCtx.bonusDamageRef.value;
+        procCtx.bonusDamageRef.value = 0;
+      }
       // Phase F F5a: Crit Cascade — every player crit adds 1 stack
       // (capped at 5) and resets the 4s decay window. Done before
       // reading back the ref so addCritStack from procs stacks too.
@@ -1352,8 +1363,10 @@ export function runCombatTick(
   const expiredDebuffCount = targetDebuffs.length - dotResult.updatedDebuffs.length;
   newDebuffs = dotResult.updatedDebuffs;
 
-  // Proc evaluation (onHit + onCrit triggers)
-  let procDamage = 0;
+  // Proc evaluation (onHit + onCrit triggers).
+  // Phase F (2026-05-06): seed with talentBonusDamage from class-talent
+  // procOnHit/procOnCrit bonusDamage actions (e.g. Marked Slam).
+  let procDamage = talentBonusDamage;
   let procHeal = preRollHealAmount;
   let procCooldownResets: string[] = [...pendingCdResetSkills];
   let procGcdWasReset = false;
