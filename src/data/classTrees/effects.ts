@@ -990,6 +990,40 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'hnt_tp_snare_crit': [
     { kind: 'whileTag', tag: 'snare', stat: 'critChance', mult: 1, delta: 5 },
   ],
+  // "Snared enemies take +5/10/15% additional damage from your skills
+  // (stacks with Snare Sense)." Pure whileTag — pairs with snare_sense
+  // for layered Snared-target damage scaling.
+  'hnt_tp_trap_sovereignty': [
+    { kind: 'whileTag', tag: 'snare', stat: 'damageMult', mult: 1.05 },
+  ],
+  // "Trap detonations have +5/10/15/20/25% chance to crit at +50% bonus
+  // crit damage." Approximation: bonusDamage percent 50 fired on trap
+  // detonation — folds +50% of the detonation damage into detDmg
+  // before damage application. Loses crit-damage-stat semantics.
+  'hnt_tp_trap_crit': [
+    { kind: 'procOnTrapDetonate', chance: 5, action: { kind: 'bonusDamage', percent: 50 } },
+  ],
+  // "Trap detonations have +5/10/15/20/25% chance to trigger nearby
+  // active traps." Approximation: bonusDamage percent 100 — folds
+  // +100% damage into detonation (effectively double-trap damage on
+  // proc). True multi-trap chain detonation is Phase F follow-on.
+  'hnt_tp_chain_reaction': [
+    { kind: 'procOnTrapDetonate', chance: 5, action: { kind: 'bonusDamage', percent: 100 } },
+  ],
+  // "Traps have +1/2/3/4/5% chance to arm a second time on detonation."
+  // Approximation: bonusDamage percent 100 = "armed twice" reduces to
+  // double-detonation damage on proc. True rearmTrap action (re-add
+  // detonated trap to activeTraps) is Phase F follow-on.
+  'hnt_tp_multi_arming': [
+    { kind: 'procOnTrapDetonate', chance: 1, action: { kind: 'bonusDamage', percent: 100 } },
+  ],
+  // "On trap detonation, +5/10/15/20/25% chance for the next skill
+  // cast within 2s to be free (no mana cost)." Approximation:
+  // refundMana amount 5 fired on detonation. Lose "next-cast-free"
+  // semantics; refunded mana lets the next cast be effectively cheaper.
+  'hnt_tp_trappers_tempo': [
+    { kind: 'procOnTrapDetonate', chance: 5, action: { kind: 'refundMana', amount: 5 } },
+  ],
   // "+1s Snare duration / rank" approximated as +8% global ailment
   // duration / rank → +40% at rank 5.
   'hnt_tp_snare_mastery': [

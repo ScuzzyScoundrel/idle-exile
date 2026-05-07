@@ -475,25 +475,30 @@ export const daggerModule: WeaponModule = {
       if (detonated) {
         activeTraps = remaining;
 
-        // Phase F F3 (2026-05-06): trap-event proc dispatch.
-        // procOnTrapDetonate fires every detonation; procOnTrapChain
-        // fires only when other traps were still active at detonation
-        // time (rough chain approximation until real chain logic lands).
-        // mana / skillTimers refs not threaded here — refundMana /
-        // refundCooldown actions no-op gracefully.
+        const detonationBonus = 1 + (graphMod?.detonationDamageBonus ?? 0) / 100;
+        let detDmg = detonated.damage * detonationBonus;
+
+        // Phase F F3 (2026-05-06, expanded 2026-05-07): trap-event proc
+        // dispatch. procOnTrapDetonate fires every detonation; procOn-
+        // TrapChain fires only when other traps were still active at
+        // detonation time. Phase F (2026-05-07): bonusDamageRef + mana
+        // ref now threaded so trap_crit / chain_reaction (bonusDamage
+        // approx) and trappers_tempo (refundMana approx) function.
         const trapTalentEffects = ctx.talentEffects;
         if (trapTalentEffects && trapTalentEffects.length > 0) {
           const trapProcCtx: TalentProcContext = {
             targetDebuffs: ctx.targetDebuffs,
             life: { value: ctx.state.currentHp, max: ctx.effectiveMaxLife },
             sourceSkillId: 'dagger_blade_trap',
+            bonusDamageRef: { value: 0, baseDamage: detDmg },
+            mana: ctx.mana,
           };
           dispatchProcOnTrapDetonate(trapTalentEffects, trapProcCtx);
           if (trapsBefore > 1) dispatchProcOnTrapChain(trapTalentEffects, trapProcCtx);
+          if (trapProcCtx.bonusDamageRef && trapProcCtx.bonusDamageRef.value > 0) {
+            detDmg += trapProcCtx.bonusDamageRef.value;
+          }
         }
-
-        const detonationBonus = 1 + (graphMod?.detonationDamageBonus ?? 0) / 100;
-        let detDmg = detonated.damage * detonationBonus;
 
         if (isBossPhase) {
           // Boss: crit check + Primed combo state creation
