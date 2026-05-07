@@ -81,7 +81,11 @@ export interface SkillTreeNode {
  *  targets (not damage channels). */
 export type TalentTag =
   | 'hex' | 'curse' | 'mark' | 'poison' | 'bleed' | 'ignite' | 'chill'
-  | 'shock' | 'frozen' | 'stun' | 'taunt';
+  | 'shock' | 'frozen' | 'stun' | 'taunt'
+  // Phase F (2026-05-06): Brs path tags. 'staggered' is currently a
+  // placeholder debuff (no live mechanic) — used by procOnHitTaken /
+  // procOnCrit applyTag actions to mark "this enemy was staggered."
+  | 'staggered';
 
 export type TalentEffect =
   /** Flat stat add (e.g. +10% crit chance). */
@@ -100,6 +104,12 @@ export type TalentEffect =
   | { kind: 'procOnHit'; tag?: DamageTag; targetTag?: TalentTag; chance: number; action: TalentAction }
   /** Fires on crit. `targetTag` filters by target debuff. */
   | { kind: 'procOnCrit'; targetTag?: TalentTag; chance: number; action: TalentAction }
+  /** Fires when the player TAKES a hit (boss attack, mob attack, or
+   *  boss-fight-phase boss attack). Suppressed on dodge — block still
+   *  fires (a blocked hit is still a hit). `critTaken?` discriminator:
+   *  undefined = fires on any hit, true = crit-only, false = non-crit
+   *  only. Phase F — Brs Juggernaut defensive procs. */
+  | { kind: 'procOnHitTaken'; chance: number; action: TalentAction; critTaken?: boolean }
   /** Fires when one of the player's minions hits an enemy. Phase F F2
    *  (2026-05-06): WD Spirit Whisperer (Spirit Bond / Soul Ration / Pack
    *  Mastery / Fetish Frenzy etc.). */

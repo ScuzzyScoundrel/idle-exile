@@ -45,6 +45,7 @@ import {
   getDotCritByDebuffId,
   getPausedDebuffIds,
   dispatchProcOnHit,
+  dispatchProcOnHitTaken,
   dispatchProcOnCrit,
   dispatchProcOnKill,
   dispatchProcOnMinionHit,
@@ -1742,6 +1743,19 @@ export function runCombatTick(
           }
         }
         playerHp -= cappedBossDmg;
+        // Phase F: procOnHitTaken — fire defensive procs on every
+        // boss-fight-phase boss hit that lands (suppressed on dodge;
+        // block still fires). targetDebuffs = boss's debuff list so
+        // applyTag goes on the boss, not the player.
+        if (!bossRoll.isDodged && talentEffects.length > 0) {
+          dispatchProcOnHitTaken(talentEffects, {
+            targetDebuffs: state.activeDebuffs,
+            life: { value: playerHp, max: effectiveMaxLife },
+            sourceSkillId: '_hit_taken',
+            tempBuffsRef: activeTempBuffs,
+            skillTimers: state.skillTimers,
+          }, isBossCrit);
+        }
         bossAttackResult = { damage: cappedBossDmg, isDodged: bossRoll.isDodged, isBlocked: bossRoll.isBlocked, isCrit: isBossCrit };
         nextAttack = now + bs.bossAttackInterval * mainEnemyMods.atkSpeedSlowMult * 1000;
       }

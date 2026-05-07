@@ -41,6 +41,11 @@ const TALENT_BUFF_REGISTRY: Record<string, { effect: AbilityEffect; maxStacks: n
   // Approximated as +crit-chance buff for the duration; not a true
   // single-use guarantee. Lands cleanly when buff-consume hooks exist.
   precision_charge: { effect: { critChanceBonus: 100 }, maxStacks: 1 },
+  // brs_jg_ironclad — gain damage reduction on crit-taken. Mirrors
+  // bone_armor's defenseMult pattern (multiplies armor/evasion).
+  // First-slice approximation — true "+X% damage reduction" needs
+  // a flat damageTakenReduction stat-buff path.
+  ironclad_stance: { effect: { defenseMult: 1.3 }, maxStacks: 1 },
 };
 
 /** Map TalentTag → debuff id registered in data/debuffs.ts. */
@@ -56,6 +61,7 @@ const TALENT_TAG_TO_DEBUFF: Record<TalentTag, string> = {
   frozen: 'frostbite',
   stun: 'stunned',      // Placeholder — no matching debuff yet.
   taunt: 'taunted',     // Placeholder — no matching debuff yet.
+  staggered: 'staggered', // Placeholder — no matching debuff yet (Phase F Brs).
 };
 
 /**
@@ -155,6 +161,8 @@ export function scaleTalentEffectByRank(effect: TalentEffect, rank: number): Tal
     case 'procOnCompanionHit':
     case 'procOnCompanionCrit':
     case 'procOnCompanionDeath':
+      return { ...effect, chance: Math.min(100, effect.chance * rank) };
+    case 'procOnHitTaken':
       return { ...effect, chance: Math.min(100, effect.chance * rank) };
     case 'companionProcInheritance':
       return { ...effect, percent: Math.min(100, effect.percent * rank) };
@@ -648,6 +656,26 @@ export function dispatchProcOnKill(effects: TalentEffect[], ctx: TalentProcConte
     if (eff.kind !== 'procOnKill') continue;
     if (eff.tag && eff.tag !== ctx.hitDamageTag) continue;
     if (eff.targetTag && !targetHasTag(ctx.targetDebuffs, eff.targetTag)) continue;
+    rollAndFire(eff.action, eff.chance, ctx);
+  }
+}
+
+/** Phase F (2026-05-06): fires when the player TAKES a hit. Caller
+ *  passes `isCrit` (was the incoming hit a crit?). The kind's
+ *  `critTaken?` discriminator filters: undefined = any hit, true =
+ *  crits only, false = non-crits only. Callers should suppress on
+ *  dodge (no proc fire) but block still fires. ctx.targetDebuffs
+ *  should be the ATTACKER's debuff list (so applyTag goes on the
+ *  attacker, not the player). Used by Brs Juggernaut defensive
+ *  procs (stalwart_mastery, ironclad). */
+export function dispatchProcOnHitTaken(
+  effects: TalentEffect[],
+  ctx: TalentProcContext,
+  isCrit: boolean,
+): void {
+  for (const eff of effects) {
+    if (eff.kind !== 'procOnHitTaken') continue;
+    if (eff.critTaken !== undefined && eff.critTaken !== isCrit) continue;
     rollAndFire(eff.action, eff.chance, ctx);
   }
 }

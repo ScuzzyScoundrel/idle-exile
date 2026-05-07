@@ -46,6 +46,7 @@ import {
   hasPandemicGrant,
   getDotCritByDebuffId,
   getPausedDebuffIds,
+  dispatchProcOnHitTaken,
 } from '../classTalentDispatcher';
 import { getSkillGraphModifier } from '../unifiedSkills';
 import { absorbDamage } from './minions';
@@ -71,6 +72,12 @@ export function applyZoneDamage(
   const packSize = updatedMobs.length;
   // Per-mob damage scaling: divide per-mob zone damage by sqrt(packSize)
   const packDmgScale = packSize > 1 ? 1 / Math.sqrt(packSize) : 1;
+  // Phase F (2026-05-06): hoisted above mob-attack loop so procOnHitTaken
+  // can fire there too. Was previously local to the DoT-tick block.
+  const zoneDotCritEffects = [
+    ...collectTalentEffects(state.character.class, state.talentRanks ?? {}),
+    ...collectAscendancyEffects(state.ascendancyId ?? null, state.ascendancyRanks ?? {}),
+  ];
 
   // --- Per-mob attack timers ---
   let currentDodgeEntropy = state.dodgeEntropy;
@@ -129,6 +136,19 @@ export function applyZoneDamage(
         mobZoneDmg = absorb.remainingDamage;
       }
       playerHp -= mobZoneDmg;
+      // Phase F: procOnHitTaken — fire defensive procs on every
+      // clearing-phase mob hit that lands (suppressed on dodge;
+      // block still fires). targetDebuffs = this mob's debuff list
+      // so applyTag goes on the attacker, not the player.
+      if (!roll.isDodged && zoneDotCritEffects.length > 0) {
+        dispatchProcOnHitTaken(zoneDotCritEffects, {
+          targetDebuffs: mob.debuffs,
+          life: { value: playerHp, max: playerStats.maxLife },
+          sourceSkillId: '_hit_taken',
+          tempBuffsRef: state.tempBuffs ?? [],
+          skillTimers: state.skillTimers,
+        }, isMobCrit);
+      }
       // Report last attacking mob's roll as the zone attack result
       zoneAttackResult = roll;
       mob.nextAttackAt = now + ZONE_ATTACK_INTERVAL * mobEnemyMods.atkSpeedSlowMult * mobRareAtkMult * 1000;
@@ -213,10 +233,6 @@ export function applyZoneDamage(
   // Phase F F5e follow-on (2026-05-06): per-debuff DoT crit chance map
   // for talents like asn_vc_toxic_saint (Poison can crit). Computed
   // once per applyZoneDamage call.
-  const zoneDotCritEffects = [
-    ...collectTalentEffects(state.character.class, state.talentRanks ?? {}),
-    ...collectAscendancyEffects(state.ascendancyId ?? null, state.ascendancyRanks ?? {}),
-  ];
   const zoneDotCritMap = getDotCritByDebuffId(zoneDotCritEffects);
   let helperPoisonCount: number | undefined;
   // Cache DoT-source graphMods for per-tick rawBehaviors

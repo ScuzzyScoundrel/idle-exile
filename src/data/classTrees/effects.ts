@@ -599,6 +599,20 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'brs_jg_mountains_wrath': [
     { kind: 'whileOffhandAbsent', stat: 'damageMult', mult: 1.05 },
   ],
+  // "On taking a non-crit hit, +1/2/3/4/5% chance to apply Staggered
+  // to the attacker." procOnHitTaken with critTaken=false fires only
+  // on non-crit hits taken; applyTag 'staggered' is the placeholder
+  // debuff (no live mechanic yet — slot reserved for Phase F follow-on).
+  'brs_jg_stalwart_mastery': [
+    { kind: 'procOnHitTaken', critTaken: false, chance: 1, action: { kind: 'applyTag', tag: 'staggered' } },
+  ],
+  // "On taking a critical hit, +20/40/60/80/100% chance to gain
+  // Ironclad Stance (defenseMult buff for 2s)." procOnHitTaken with
+  // critTaken=true fires only on crits taken. ironclad_stance buff
+  // mirrors bone_armor — multiplies armor/evasion by 1.3.
+  'brs_jg_ironclad': [
+    { kind: 'procOnHitTaken', critTaken: true, chance: 20, action: { kind: 'grantBuff', buffId: 'ironclad_stance', duration: 2 } },
+  ],
   // Capstone (1 rank): "While no offhand, damage taken −30% AND AoE
   // radius +50%." Mirrors §10.1 Juggernaut keystone — Class-First per
   // §6.3 (offhand-conditional, not weapon-conditional).
