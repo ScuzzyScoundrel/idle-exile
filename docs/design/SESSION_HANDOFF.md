@@ -1,57 +1,54 @@
 # Session Handoff — READ THIS FIRST
 
-**Last updated:** 2026-05-07 (**Phase F COMPLETE through F5e + extended polish wave** — every TalentAction wired, every signature mechanic functional, full additive-conditional family, full DamageTag filter on procOnCrit, procOnTag cascade, bonusDamage TalentAction with read-back, **minionType filter on procOnMinion***, ~128 talent entries authored across all 5 classes. **9 new engine kinds + 1 new action + 1 procOnMinion filter landed in this wave**: `whileOffhandAbsent`, `whileSelfHpAbove`, `whilePauseDebuffDecay`, `procOnHitTaken`, `procOnMultiKillChain`, `perEnemyCount`, `whileFrenzied`, `procOnResonanceChargeGain`, `procOnConvergenceCast` + `bonusDamage` action + `minionType?` filter. **Boss path now fully consistent** — all 3 damage-taken paths fire procOnHitTaken with persistent tempBuff write-back. **Brs Juggernaut at 24/28 (86%)** — only 4 nodes need new engine surface (procOnBulwarkConsume / mass_stagger / cross-weapon Cleave / juggernaut_sovereign capstone). Branch at master `e2b7eec8`.).
+**Last updated:** 2026-05-07 (**Phase F COMPLETE — full F-queue closed except F6 + bow/crossbow trap module extraction** — every TalentAction wired, every signature mechanic functional, full additive-conditional family, full DamageTag filter on procOnCrit, procOnTag cascade, bonusDamage TalentAction with read-back across player/minion/trap dispatch sites, minionType filter on procOnMinion*, sticky Frenzied state with hysteresis, Bulwark consume mechanic with procOnBulwarkConsume event, ~141 talent entries authored across all 5 classes. **11 new engine kinds + 1 new action + 1 procOnMinion filter + 4 new debuffs + 5 new ResolvedStats keys landed in this wave**. **Brs Juggernaut at 25/28 (89%)**, Hnt Trapper ~14/24, Asn Venomcaller Toxic Saint complete, Sor Arcanist Convergence loop functional, WD Spirit Whisperer per-minion-type + double-strike + Necro Stack + Voodoo Roar all live. Branch at master `8dde0097`.).
 **Purpose:** If you're resuming the idle-exile combat-and-class overhaul in a new session, read this doc first to refresh the full picture in <5 minutes. Then dive into whichever detailed doc the next-move section points to.
 
 ---
 
 ## NEXT SESSION START HERE — post-F-arc queue
 
-Branch is `master` at `e2b7eec8`. **Phase F arc is COMPLETE through F5e first-slice for every signature mechanic, plus comprehensive polish.** Every TalentAction is wired (no stubs remain), every conditional kind has additive `delta?` discrimination, full `targetTag?` filter on procOnHit/Crit/Kill, procOnTag cascade live, ~104 talent entries authored. **`whileOffhandAbsent` + `whileSelfHpAbove` kinds landed** — the conditional family is now: whileTag, whileSelfHpBelow, whileSelfHpAbove, whileTargetHpBelow, whileCompanionAlive, whileOffhandAbsent, whileCritStacksAtLeast, whileResonanceChargesAtLeast (8 conditional kinds, all with `delta?` discriminator).
+Branch is `master` at `8dde0097`. **Phase F arc is COMPLETE through F5e first-slice for every signature mechanic, plus comprehensive polish.** Every TalentAction is wired (no stubs remain), every conditional kind has additive `delta?` discrimination, full `targetTag?` filter on procOnHit/Crit/Kill, procOnTag cascade live, ~104 talent entries authored. **`whileOffhandAbsent` + `whileSelfHpAbove` kinds landed** — the conditional family is now: whileTag, whileSelfHpBelow, whileSelfHpAbove, whileTargetHpBelow, whileCompanionAlive, whileOffhandAbsent, whileCritStacksAtLeast, whileResonanceChargesAtLeast (8 conditional kinds, all with `delta?` discriminator).
+
+**User priority (2026-05-07): F-queue closeout DONE except F6 + bow/crossbow trap modules. Next session goals stated by user:**
+- (a) Investigate **abilities not firing in-game** — only auto-attacks visible during play. Combat tick wires skill-cast paths but something is gating skill resolution. Likely a state-machine or mana/cooldown init issue. ~half-day of debugging.
+- (b) **Wire UI** to surface the new talent state (frenziedActive flag, bulwark/necro stacks via tempBuffs, Snared/Cleave/Staggered debuffs, Resonance charges) so the player can see what's happening.
+- (c) **Build a bot** to test combo states — automated cast loop that exercises each skill morph and validates expected debuff/buff/stack state transitions.
 
 **Pick one focused commit for next session:**
 
-1. **F6 first slice — Multi-class fusion (`SkillToggleMorph`)** (multi-week total; this slice ~1-2 days)
+1. **Investigate ability-fire gating bug** (~half-day, USER PRIORITY)
+   • Symptom: only auto-attacks fire during gameplay; skills (e.g. dagger_blade_trap, gauntlet_forge_convergence) don't resolve.
+   • Suspects: mana cost gate (`canAffordManaCost`), `skillTimers[].cooldownUntil` stuck, `skillKind` branching defaulting to auto, or `getEffectiveSkillDef` morph resolution missing for the active skill.
+   • Approach: log in tick.ts at the skill-cast eligibility check; trace why the fall-through to auto-attack is happening. Likely a single missing gate or stale state.
+
+2. **Bow/Crossbow trap module extraction** (~1 day)
+   • bow_bear_trap and crossbow_resonant_trap exist as skill defs but no weapon module ticks/places/detonates them. Cleanest fix: create `bow.ts` + `crossbow.ts` modules mirroring dagger.ts trap hooks (tickMaintenance via tickTraps, postCast trap-place gated on `skill.tags.includes('Trap')`, onEnemyAttack via detonateTrap with proc dispatch). Reuses existing traps.ts helpers + procOnTrapDetonate dispatch — no new TalentEffect kinds needed.
+   • Unlocks: snare_field capstone, trap_pulse passive emit, snare_cascade multi-hit detection, plus the 5 dagger-only trap procs (multi_arming, trap_crit, chain_reaction, trappers_tempo, trap_sovereignty) lighting up for ranged builds too.
+
+3. **UI wiring for new talent state** (~1-2 days, USER PRIORITY)
+   • Surface in CombatStatusBar / HUD: state.frenziedActive (sticky flag), bulwark_charge stacks (via tempBuffs), necro_stack stacks (via tempBuffs), Resonance charges per element, critStacks counter.
+   • Surface enemy debuffs in DebuffStack panel: 'staggered', 'cleave_marked', 'snared' (all light reducedAttackSpeed/incDamageTaken markers — currently registered but no UI rendering).
+   • Add talent-effect tooltip pass: each talent entry's effects are introspectable via collectTalentEffects → format human-readable text in talent picker.
+
+4. **Combo-state test bot** (~1-2 days, USER PRIORITY)
+   • Automated cast loop that exercises each skill morph against a deterministic dummy enemy.
+   • Validates: expected debuffs land + decay correctly, buffs stack/expire as authored, procs fire at expected rates over N iterations, sticky Frenzied transitions at 50/75% HP, Bulwark consume halves damage + decrements stack.
+   • Output: pass/fail per talent entry — surfaces silent-ignore stats, mis-wired actions, broken approximations.
+   • Bonus: regression test for "abilities not firing" bug once fixed.
+
+5. **F6 first slice — Multi-class fusion (`SkillToggleMorph`)** (multi-week total; this slice ~1-2 days)
    • Goal: per-skill morph dropdown lets Sor with dagger toggle e.g. "fire→bleed" fusion.
    • Approach: `SkillToggleMorph` schema in `src/types/skills.ts` (id, applies-to skill id, override AbilityEffect / damage / element). `Character.skillToggles: Record<string, string>` save migration. `getEffectiveSkillDef(skill, toggles)` in `engine/classAdjustment.ts` resolves base + morph. UI: per-skill dropdown next to skill picker.
    • The 10 fused combo-state specs already exist in `src/data/comboStates.ts` (Phase C3 §8.1) — engine wiring of those is the F6 bulk.
 
-2. **F5d expansion follow-on — remaining Sor convergence/element nodes** (~1 day)
-   • Both event hooks landed: `procOnResonanceChargeGain` (`37a574b5`) + `procOnConvergenceCast` (`849584c9`). 3 entries authored (charge_sense, convergence_burst, saturation_tempo). Remaining ~7 nodes need other engine work:
-     - `sor_el_resonant_burst` (T4 identity) — fire elemental detonation on Convergence cast (needs new triggerSkill-with-damage variant or extension to existing triggerSkill)
-     - `sor_el_apex_convergence` (T6) — next 3 casts within 4s benefit from all 4 element-ailment vulnerabilities (needs cast-window state + 4-element-vuln aggregation)
-     - `sor_ar_spectral_echo` (T3) — phantom-Convergence 1.5s later for 50% damage (needs delayed-cast queue)
-     - `sor_el_element_pulse` (T3) — refresh existing charge to full duration (needs per-element expiry, current model has shared expiresAt)
-     - Same-element addResonanceCharge — current charge_sense uses element-agnostic addResonanceCharge fallback to "first non-full element" (cleaner: read current proc's element from new ctx field)
+6. **Phase F deferred polish (low priority — engine surface gaps)**
+   • **Juggernaut residue (3 nodes)**: `mass_stagger` (modifyMechanic Staggered-counts-as-Bloodied — Bloodied is implicit via whileTargetHpBelow:0.5), `juggernaut_sovereign` capstone (broadcast bonusDamage to all enemies + Bulwark cd removal), `cross_weapon_cleave` (Phase F6 fusion territory).
+   • **F5d residue (2 nodes)**: `sor_el_apex_convergence` (cast-window state for next-3-casts vulnerability aggregation), `sor_el_element_pulse` (per-element expiry vs current shared expiresAt model).
+   • **F3 residue (~10 trap nodes)**: `snare_field` capstone, `trap_pulse` passive Snare emit, `snare_cascade` multi-hit detection, `pulse_mastery`, `trap_trigger`, `pierce_trap`, `snare_bound`, `mark_trap` variants — each needs distinct new infrastructure.
+   • **F4 residue**: companion respawn cooldown + companionSummonManaCost consumer path.
+   • **F5b**: WD Soul Harvest detection + 5-stack-consume scaling.
 
-3. **F5c follow-on — Reaver entry conversions + Frenzied-only entries** (~half-day)
-   • Sticky Frenzied state landed `071c5d38` (state.frenziedActive + hysteresis transition + `whileFrenzied` kind). 3 Reaver entries already converted (hunger, reckless, iron_skin). Remaining Reaver entries that should arguably also use whileFrenzied: `brs_rv_endless_wrath` ("each kill while Frenzied"), `brs_rv_berserkers_vow` ("while Frenzied, all hits deal +X% damage per hit you've taken"), `brs_rv_blood_frenzy` ("kills while Bloodied refresh Frenzied"). Plus the procOnKill entries with frenziedActive intent. Audit + convert. Also: forward-compat seeds blocked on Frenzied-aware actions (e.g. extending Frenzied duration, refreshing on event) need a new `extendFrenzied` action kind.
-
-4. **F2 follow-on — full WD Spirit Whisperer coverage** (~1 day, ~9 more nodes)
-   • minionType filter landed `988e6c4d` — fetish_frenzy authored authentically. Remaining gaps:
-     - "double-strike" action for `wd_sw_pack_mastery` / `wd_sw_spectral_edge` (currently approximated as bleed/hex applyTag — needs new TalentAction that triggers a synthetic minion-attack)
-     - player-side stack state for `wd_sw_death_mastery` Necro Stack
-     - minion-count conditional for `wd_sw_voodoo_roar` (needs `whileMinionCountAtLeast` kind, mirrors whileCritStacksAtLeast pattern)
-
-5. **F3 follow-on — bow/crossbow trap modules** (~2-3 days, ~12 more Hnt Trapper nodes)
-   • Today only dagger's Blade Trap fires F3 procs. Need: traps.ts adoption in bow.ts / crossbow.ts (or extract trap-tick to tick.ts as I did with companion minions). Plus `'snare' / 'snared'` added to TalentTag union + TALENT_TAG_TO_DEBUFF (currently approximated as `frozen`). `rearmTrap` / "fire twice" action for Multi-Arming / Snare Detonation Mastery.
-
-6. **F4 polish remaining — companion respawn cooldown + summonManaCost** (~half-hour)
-   • Companion stats landed `e8c63910` — companionDamage, companionHp, companionAttackSpeed all wired through summonMinions companionMods param. `companions_fury` is now LIVE (whileSelfHpAbove 0.75 → +companionDamage). Remaining: companion `damagePerSpellPowerRatio: 1.5` is provisional and may need play-test tuning. Currently companion respawns instantly on death — consider 5s cooldown to make companion-death feel meaningful. companionSummonManaCost still silent-ignores (no consumer path — companions auto-spawn, no mana cost yet); slot reserved for explicit summon-cast support.
-
-7. **F4 polish — companion balance + respawn cooldown** (~half-day)
-   • `whileSelfHpAbove` slice landed `2083d565` (`hnt_bm_companions_fury` + `brs_rv_pain_tolerance`). Remaining: companion `damagePerSpellPowerRatio: 1.5` is provisional — needs play-test tuning. Currently companion respawns instantly on death — consider 5s cooldown to make companion-death feel meaningful. Also: 3 companion-stat seeds still silent-ignore (companionHp, companionAttackSpeed, companionSummonManaCost) — wire them into ResolvedStats + minion-stat resolution.
-
-8. **Brs Juggernaut path follow-on (4 of 28 still need engine surface)** (~half-day each)
-   • Path 4/28 → 24/28 (86%) across 10 commits this wave: whileOffhandAbsent (`ad8052fb`), procOnHitTaken (`9d161aa5`), Stagger debuff (`212afd53`), Marked-for-Cleave (`0bb7c6d2`), perEnemyCount (`f2b1f6e3`), procOnMultiKillChain (`d29d9bb0`), Bulwark stalwart_spirit (`3facbac8`), marked_slam approximation (`93ef4718`), bonusDamage authentic (`dd7da033`), **aoeTargetCount stat live + Wide Sweep promoted (`26b9ff1f`)**.
-   • **Remaining 4 nodes still need new engine surface:**
-     - **procOnBulwarkConsume event** (`sustained_aegis`) — needs explicit Bulwark charge state with consume hook (today's stalwart_spirit uses generic stackable defenseMult, no consume event).
-     - **`mass_stagger` modifyMechanic** (1 node) — Staggered counts as Bloodied for consume bonus; needs Bloodied state.
-     - **Cross-weapon Cleave** (`cross_weapon_cleave`, Phase F6 fusion territory).
-     - **`juggernaut_sovereign` capstone supporting** — needs both bonusDamage broadcasted across all enemies hit AND Bulwark charge cooldown removal.
-   • Cleanest next sequencing: procOnBulwarkConsume event (1 node) → mass_stagger consume → cross-weapon Cleave (Phase F6) → juggernaut_sovereign.
-
-**Each item is gated only by tsc clean + visible UI behavior** — all 32 commits this session are tsc EXIT=0. Start a fresh session for each — context budget per phase is ~200-400k tokens.
+**Each item is gated only by tsc clean + visible UI behavior** — every commit in the F-arc this session is tsc EXIT=0. Start a fresh session for each — context budget per phase is ~200-400k tokens.
 
 ---
 
@@ -84,6 +81,20 @@ Branch is `master` at `e2b7eec8`. **Phase F arc is COMPLETE through F5e first-sl
 **Phase F F5d follow-on — `addResonanceCharge` TalentAction + 3 Sor Elementalist entries: COMPLETE 2026-05-06.** New `addResonanceCharge` action (`{ kind, element?: 'fire'|'cold'|'lightning'|'chaos', amount?: number }`) — if element omitted, picks first missing element (preferring fire→cold→lightning→chaos), no-op if all 4 are full. Mirrors addCritStack ergonomics: new `resonanceRef` on TalentProcContext exposes the charge bag + expiresAt; tick.ts skill-cast site builds, dispatches, writes back. Fires before the auto-stack so addResonanceCharge procs combine. **3 entries authored**: `sor_el_element_swap` (procOnCrit chance 5, addResonanceCharge — picks first missing), `sor_el_spell_cycle` (procOnHit chance 5, addResonanceCharge — broader than "new element" gate since engine can't inspect bank), `sor_el_element_cycle` (procOnKill chance 5, addResonanceCharge). tsc EXIT=0.
 
 **Phase F F4 polish — `whileCompanionAlive` + 2 Hnt BM entries: COMPLETE 2026-05-06.** New `whileCompanionAlive` TalentEffect kind (`{ kind, stat, mult, delta? }`) with same shape and rank-scaling as `whileTag`/`whileSelfHpBelow`. `applyConditionalTalentEffects` gained optional `companionAlive: boolean = false` last param threaded from tick.ts via `(state.activeMinions ?? []).some(m => m.type === 'companion' && m.hp > 0)` per skill cast. **2 entries authored**: `hnt_bm_pack_awareness` (whileCompanionAlive critChance mult 1.01 — rank 5 = +5% crit chance with companion), `hnt_bm_pack_synergy` (whileCompanionAlive damageMult mult 1.05 — rank 5 = +25% player damage). tsc EXIT=0.
+
+**Phase F F3 step 2 — trap proc context expansion + 5 entries: COMPLETE 2026-05-07.** dagger.ts onEnemyAttack trap-detonation site expanded with bonusDamageRef + mana ref on trapProcCtx. detDmg computed BEFORE proc dispatch so bonusDamage seeds with actual detonation damage; ref.value read back into detDmg after dispatch. **5 entries authored** (Hnt Trapper): `hnt_tp_trap_sovereignty` (whileTag 'snare' damageMult mult 1.05 — stacks with snare_sense), `hnt_tp_trap_crit` (procOnTrapDetonate chance 5 bonusDamage percent 50), `hnt_tp_chain_reaction` (procOnTrapDetonate chance 5 bonusDamage percent 100), `hnt_tp_multi_arming` (procOnTrapDetonate chance 1 bonusDamage percent 100 — "armed twice" approx), `hnt_tp_trappers_tempo` (procOnTrapDetonate chance 5 refundMana amount 5). All 5 fire on dagger trap detonations only — bow/crossbow trap modules pending. Hnt Trapper path now ~14/24 nodes authored. tsc EXIT=0.
+
+**Phase F F3 step 1 — 'snare' TalentTag + 'snared' DebuffDef + 2 entries: COMPLETE 2026-05-07.** 'snare' added to TalentTag + TALENT_TAG_TO_DEBUFF mapping ('snare' → 'snared'). New 'snared' DebuffDef in `data/debuffs.ts` (effect reducedAttackSpeed: 15, stackable false, maxStacks 1) — Hnt Trapper signature mark, idle-game semantics (action-speed slow, not movement lock). **2 entries authored**: `hnt_tp_snare_sense` (whileTag 'snare' damageMult mult 1.01 — rank 5 = +5% damage to Snared), `hnt_tp_snare_crit` (whileTag 'snare' critChance delta 5 — rank 5 = +25% crit chance). tsc EXIT=0.
+
+**Phase F F5d expansion — spectral_echo + resonant_burst (bonusDamage approx): COMPLETE 2026-05-07.** 2 entries leveraging bonusDamage on procOnConvergenceCast: `sor_ar_spectral_echo` (chance 20 bonusDamage percent 50 — rank 5 = 100% chance for +50% damage; lose 1.5s delay timing), `sor_el_resonant_burst` (chance 100 bonusDamage percent 50 — always fires on Convergence cast; lose broadcast-to-all-enemies semantics). Combined effect: Convergence cast at full ranks folds +100% bonus damage. tsc EXIT=0.
+
+**Phase F F2 follow-on — necro_stack buff + Death Mastery: COMPLETE 2026-05-07.** New `necro_stack` entry in TALENT_BUFF_REGISTRY (damageMult 1.06, maxStacks 5). Stacks via mergeProcTempBuff; 5 stacks at full = damageMult 1.30 (matches spec's +30% peak). Decays naturally via 8s expiresAt. **1 entry authored**: `wd_sw_death_mastery` (procOnMinionDeath chance 5 grantBuff necro_stack 8s). tsc EXIT=0.
+
+**Phase F F2 follow-on — bonusDamage on minion-attack path + double-strike authentic: COMPLETE 2026-05-07.** bonusDamageRef threaded into minion-attack procCtx at both call sites (tick.ts:355 generic non-staff path + staff.ts:226 WD-staff path). Seeds with `baseDamage = finalMinionDamage`, reads back into local minion damage accumulator. **2 entries switched from approximation to authentic**: `wd_sw_spectral_edge` (was applyTag 'hex', now bonusDamage percent 100 — rank 5 = 25% chance for +100% duplicate hit damage on minion crit), `wd_sw_pack_mastery` (was applyTag 'bleed', now bonusDamage percent 100 — rank 5 = 25% chance per minion hit for synthetic duplicate). tsc EXIT=0.
+
+**Phase F F2 follow-on — `whileMinionCountAtLeast` + Voodoo Roar: COMPLETE 2026-05-07.** New `whileMinionCountAtLeast` TalentEffect kind (`{ threshold, stat, mult, delta? }`) — mirrors whileCritStacksAtLeast pattern. Threaded as `minionCount: number = 0` last param on `applyConditionalTalentEffects`, computed at tick.ts call site as alive-minion count. **1 entry authored**: `wd_sw_voodoo_roar` (TWO effects with threshold 3: whileMinionCountAtLeast attackSpeed delta 25 + damageMult mult 1.15 — direct substitute for legacy Big Bad Voodoo active buff). tsc EXIT=0.
+
+**Phase F — `procOnBulwarkConsume` + Bulwark consume mechanic + Sustained Aegis: COMPLETE 2026-05-07.** New `procOnBulwarkConsume` TalentEffect kind (`{ chance, action }`). New `consumeBulwarkCharge(tempBuffs, damage)` helper — checks for 'bulwark_charge' tempBuff, halves damage and removes one stack if found, returns new damage + consumed flag. Wired at all 3 player-damage-taken sites with consistent ordering (consume → playerHp -= → procOnHitTaken → procOnBulwarkConsume if consumed). zoneAttack.ts hoisted zoneActiveTempBuffs above mob-attack loop (same fix as bossAttack tempBuff write-back). **1 entry authored** (Brs Juggernaut path 24/28 → 25/28): `brs_jg_sustained_aegis` (procOnBulwarkConsume chance 20 grantBuff bulwark_charge 5s — rank 1 = 20%, rank 3 = 60%). End-to-end Bulwark loop functional: hit → stalwart_spirit gain → consume on next hit → sustained_aegis re-grant. tsc EXIT=0.
 
 **Phase F — bossAttack tempBuff write-back fix: COMPLETE 2026-05-07.** Bug fix from commit 2a359754 (boss-polish wave): bossActiveTempBuffs was a local copy exposed to procOnHitTaken via tempBuffsRef but never returned to state — function used a separate `updatedTempBuffs` declared at line 129 that re-read state.tempBuffs from scratch. Result: Brs Juggernaut's stalwart_spirit / ironclad / cleave_strike grantBuff procs from boss-attack hits were silently dropped. Fix: hoisted updatedTempBuffs to top of function (before procOnHitTaken dispatch), use directly as tempBuffsRef, removed redundant inner declaration. End result: defensive procs from procOnHitTaken now persist into the returned state patch on all 3 player-damage-taken paths (`tick.ts:1744`, `zoneAttack.ts:131`, `bossAttack.ts:88`). Brs Juggernaut's defensive identity now functions identically across all phases. tsc EXIT=0.
 
