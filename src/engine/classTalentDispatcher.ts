@@ -64,6 +64,14 @@ const TALENT_BUFF_REGISTRY: Record<string, { effect: AbilityEffect; maxStacks: n
   // in this engine. Fixed +40% at any rank (chance scales per rank
   // instead of buff strength).
   saturation_tempo: { effect: { attackSpeedMult: 1.4 }, maxStacks: 1 },
+  // wd_sw_death_mastery — Necro Stack: each stack +6% damage, max 5.
+  // First-slice approximation as stackable damageMult tempBuff (1.06
+  // per stack via mergeProcTempBuff, max 5 stacks, decays naturally
+  // via 8s expiresAt). True per-stack scaling needs a custom buff
+  // resolution path; mergeProcTempBuff multiplies stacks by base
+  // effect, so 5 stacks × damageMult 1.06 = damageMult 1.30 (matches
+  // spec's +30% at full stack).
+  necro_stack: { effect: { damageMult: 1.06 }, maxStacks: 5 },
 };
 
 /** Map TalentTag → debuff id registered in data/debuffs.ts. */

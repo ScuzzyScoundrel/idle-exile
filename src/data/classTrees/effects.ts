@@ -206,6 +206,15 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
     { kind: 'whileMinionCountAtLeast', threshold: 3, stat: 'attackSpeed', mult: 1, delta: 25 },
     { kind: 'whileMinionCountAtLeast', threshold: 3, stat: 'damageMult', mult: 1.15 },
   ],
+  // "When a minion dies, +5/10/15/20/25% chance you gain a 'Necro
+  // Stack' (max 5, 8s); each stack +6% damage." Necro Stack approx-
+  // imated as stackable necro_stack tempBuff (damageMult 1.06 per
+  // stack, max 5, 8s duration). Stacks via mergeProcTempBuff; 5
+  // stacks at full = damageMult 1.30 (matches spec's +30% peak).
+  // Decays naturally when no minion dies within 8s.
+  'wd_sw_death_mastery': [
+    { kind: 'procOnMinionDeath', chance: 5, action: { kind: 'grantBuff', buffId: 'necro_stack', duration: 8 } },
+  ],
   // Phase F polish (2026-05-06): grantBuff action wired via TALENT_BUFF
   // _REGISTRY. "Minion deaths +2/4/6/8/10% chance to grant brief +20%
   // damage reduction shield (3s)."
