@@ -21,6 +21,13 @@ import {
   getFullEffect,
   mergeProcTempBuff,
 } from './helpers';
+import {
+  collectTalentEffects,
+  collectAscendancyEffects,
+  getDotCritByDebuffId,
+  getPausedDebuffIds,
+  dispatchProcOnHitTaken,
+} from '../classTalentDispatcher';
 import type { CombatTickOutput } from './types';
 import { noResult } from './types';
 
@@ -39,6 +46,14 @@ export function applyBossDamage(
     const bossStats = resolveStats(state.character);
     const abilEff = getFullEffect(state, now, false);
     const defStats = applyAbilityResists(bossStats, abilEff);
+    // Phase F (2026-05-06): collect talentEffects once per call so
+    // dotCrit + pauseDebuffIds + procOnHitTaken all fire on the boss
+    // path. Was missing entirely from bossAttack.ts pre-2026-05-06.
+    const bossTalentEffects = [
+      ...collectTalentEffects(state.character.class, state.talentRanks ?? {}),
+      ...collectAscendancyEffects(state.ascendancyId ?? null, state.ascendancyRanks ?? {}),
+    ];
+    let bossActiveTempBuffs = state.tempBuffs ?? [];
     let playerHp = state.currentHp;
     let bossCurrentEs = state.currentEs;
     let bossAttackResult: CombatTickResult['bossAttack'] = null;
@@ -86,6 +101,19 @@ export function applyBossDamage(
           cappedDmg = absorb.remainingDamage;
         }
         playerHp -= cappedDmg;
+        // Phase F: procOnHitTaken — fire defensive procs on boss
+        // attacks landed via applyBossDamage. Suppressed on dodge;
+        // block still fires. targetDebuffs = boss's debuff list so
+        // applyTag goes on the boss, not the player.
+        if (!roll.isDodged && bossTalentEffects.length > 0) {
+          dispatchProcOnHitTaken(bossTalentEffects, {
+            targetDebuffs: state.activeDebuffs,
+            life: { value: playerHp, max: bossStats.maxLife },
+            sourceSkillId: '_hit_taken',
+            tempBuffsRef: bossActiveTempBuffs,
+            skillTimers: state.skillTimers,
+          }, isBossCrit);
+        }
         bossAttackResult = { damage: cappedDmg, isDodged: roll.isDodged, isBlocked: roll.isBlocked, isCrit: isBossCrit };
         nextAttack = now + bs.bossAttackInterval * helperEnemyMods.atkSpeedSlowMult * 1000;
       }
@@ -137,7 +165,13 @@ export function applyBossDamage(
     let helperPoisonCount: number | undefined;
     let updatedDebuffs = state.activeDebuffs;
     if (state.activeDebuffs.length > 0) {
-      const dot = tickDebuffDoT(state.activeDebuffs, dtSec, 1, bossStats.incDoTDamage, bs.bossMaxHp);
+      // Phase F: dotCrit + pauseDebuffIds now fire on the boss path too.
+      const bossDotCritParams = {
+        byDebuffId: getDotCritByDebuffId(bossTalentEffects),
+        critMultiplier: bossStats.critMultiplier ?? 200,
+      };
+      const bossPauseDebuffIds = getPausedDebuffIds(bossTalentEffects, state.activeDebuffs);
+      const dot = tickDebuffDoT(state.activeDebuffs, dtSec, 1, bossStats.incDoTDamage, bs.bossMaxHp, bossDotCritParams, bossPauseDebuffIds);
       helperDotDamage = dot.damage;
       helperPoisonCount = dot.poisonInstanceCount;
       helperBossHp -= dot.damage;
