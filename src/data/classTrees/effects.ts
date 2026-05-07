@@ -596,6 +596,13 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'brs_jg_bulwark': [
     { kind: 'stat', stat: 'maxLife', delta: 10 },
   ],
+  // "+1/2/3/4/5% damage per enemy in encounter (max +25% with 5+
+  // enemies)." perEnemyCount scales perEnemyDelta linearly per rank;
+  // cap rank-5 at 25 = +25% damage with 5+ mobs. boss_fight phase
+  // counts as 1 enemy (so rank-5 gives +5% on bosses).
+  'brs_jg_crowd_punisher': [
+    { kind: 'perEnemyCount', stat: 'damageMult', perEnemyDelta: 0.01, cap: 0.05 },
+  ],
   // "While no offhand equipped, +2/4/6/8/10% damage reduction." Class-First
   // per §6.3: gates on equip slot, not weapon name.
   'brs_jg_heavy_stance': [

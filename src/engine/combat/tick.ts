@@ -681,9 +681,10 @@ export function runCombatTick(
     const companionAlive = (state.activeMinions ?? []).some(m => m.type === 'companion' && m.hp > 0);
     const totalResonance = state.resonanceCharges.fire + state.resonanceCharges.cold + state.resonanceCharges.lightning + state.resonanceCharges.chaos;
     const offhandAbsent = !state.character.equipment.offhand;
+    const enemyCount = phase === 'boss_fight' ? 1 : state.packMobs.length;
     const talentConditional = applyConditionalTalentEffects(
       talentEffects, effectiveStats, targetDebuffs, selfHpFraction, targetHpFraction, companionAlive,
-      state.critStacks, totalResonance, offhandAbsent,
+      state.critStacks, totalResonance, offhandAbsent, enemyCount,
     );
     damageMult *= talentConditional.damageMult;
     // Phase F F5b (2026-05-06): Precision Payoff — a hit on a Marked

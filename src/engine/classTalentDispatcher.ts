@@ -132,6 +132,12 @@ export function scaleTalentEffectByRank(effect: TalentEffect, rank: number): Tal
         perStackDelta: effect.perStackDelta * rank,
         cap: effect.cap !== undefined ? effect.cap * rank : undefined,
       };
+    case 'perEnemyCount':
+      return {
+        ...effect,
+        perEnemyDelta: effect.perEnemyDelta * rank,
+        cap: effect.cap !== undefined ? effect.cap * rank : undefined,
+      };
     case 'whileResonanceChargesAtLeast':
       return {
         ...effect,
@@ -247,6 +253,7 @@ export function applyConditionalTalentEffects(
   critStacks: number = 0,
   resonanceCharges: number = 0,
   offhandAbsent: boolean = false,
+  enemyCount: number = 0,
 ): { damageMult: number } {
   let damageMult = 1;
   for (const eff of effects) {
@@ -357,6 +364,16 @@ export function applyConditionalTalentEffects(
       case 'perCritStack': {
         if (critStacks <= 0) break;
         const raw = critStacks * eff.perStackDelta;
+        const bonus = eff.cap ? Math.min(raw, eff.cap) : raw;
+        if (eff.stat === 'damageMult') damageMult *= (1 + bonus);
+        else if (typeof (stats as any)[eff.stat] === 'number') {
+          (stats as any)[eff.stat] += bonus;
+        }
+        break;
+      }
+      case 'perEnemyCount': {
+        if (enemyCount <= 0) break;
+        const raw = enemyCount * eff.perEnemyDelta;
         const bonus = eff.cap ? Math.min(raw, eff.cap) : raw;
         if (eff.stat === 'damageMult') damageMult *= (1 + bonus);
         else if (typeof (stats as any)[eff.stat] === 'number') {

@@ -227,6 +227,11 @@ export type TalentEffect =
    *  reads `state.critStacks` instead of target debuff stacks. Bonus
    *  is `perStackDelta * critStacks`, optionally capped. */
   | { kind: 'perCritStack'; stat: string; perStackDelta: number; cap?: number }
+  /** Per-enemy-in-encounter additive bonus (e.g. +1% damage per
+   *  pack mob). Bonus is `perEnemyDelta * enemyCount`, optionally
+   *  capped. boss_fight phase counts as 1. Phase F — Brs Juggernaut
+   *  Crowd Punisher. */
+  | { kind: 'perEnemyCount'; stat: string; perEnemyDelta: number; cap?: number }
   /** Conditional modifier: while the player has at least `threshold`
    *  total Resonance charges (sum across all elements), multiply
    *  stat (or add `delta` for additive percent stats). Phase F F5d. */
