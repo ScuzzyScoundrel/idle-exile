@@ -30,10 +30,11 @@ const COMBO_STATE_META: Record<string, { label: string; abbr: string; color: str
   shadow_momentum:  { label: 'Shadow Momentum',   abbr: 'SPD', color: 'text-indigo-300 bg-indigo-900/70',  description: 'Next skill CD starts 2s earlier' },
 };
 
-export default function PlayerHpBar({ currentHp, maxHp, trailHp, fortifyStacks, fortifyDR, currentEs, maxEs, classResource, charClass, buffs, buffDisplay, rampingStacks, hideHpBars, lastFiredSkillId }: {
+export default function PlayerHpBar({ currentHp, maxHp, trailHp, fortifyStacks, fortifyDR, currentEs, maxEs, currentMana, maxMana, classResource, charClass, buffs, buffDisplay, rampingStacks, hideHpBars, lastFiredSkillId }: {
   currentHp: number; maxHp: number; trailHp?: number;
   fortifyStacks?: number; fortifyDR?: number;
   currentEs?: number; maxEs?: number;
+  currentMana?: number; maxMana?: number;
   classResource?: ClassResourceState; charClass?: string;
   buffs?: TempBuff[]; buffDisplay?: Record<string, BuffMeta>;
   rampingStacks?: number;
@@ -48,6 +49,11 @@ export default function PlayerHpBar({ currentHp, maxHp, trailHp, fortifyStacks, 
   const hasFortify = (fortifyDR ?? 0) > 0;
   const hasEs = (maxEs ?? 0) > 0;
   const esPct = hasEs ? Math.max(0, Math.min(100, ((currentEs ?? 0) / maxEs!) * 100)) : 0;
+  // Phase F follow-on (2026-05-07): mana bar — Berserker had no
+  // visibility here so the player couldn't tell why skills weren't
+  // firing.
+  const hasMana = (maxMana ?? 0) > 0;
+  const manaPct = hasMana ? Math.max(0, Math.min(100, ((currentMana ?? 0) / maxMana!) * 100)) : 0;
 
   // Active buffs
   const activeBuffs = (buffs ?? []).filter(b => b.expiresAt > Date.now());
@@ -164,6 +170,18 @@ export default function PlayerHpBar({ currentHp, maxHp, trailHp, fortifyStacks, 
             </div>
           </div>
         </>
+      )}
+      {/* Mana bar — always visible (clearing + boss fight) so player
+          can see why skills do/don't fire. */}
+      {hasMana && (
+        <div className="h-3 bg-gray-700 rounded-full overflow-hidden relative">
+          <div className="h-full bg-indigo-500 rounded-full transition-all duration-150"
+               style={{ width: `${manaPct}%` }} />
+          <span className="absolute inset-0 flex items-center justify-end pr-2 text-[10px] font-mono text-white"
+                style={{ textShadow: '0 1px 3px rgba(0,0,0,1), 0 0 6px rgba(0,0,0,0.8)' }}>
+            M {Math.ceil(currentMana ?? 0)}/{maxMana}
+          </span>
+        </div>
       )}
 
       {/* Active minions (Witch Doctor staff: dogs / fetishes / spirits) */}

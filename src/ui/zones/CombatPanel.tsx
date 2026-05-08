@@ -456,6 +456,7 @@ export default function CombatPanel() {
           currentHp={displayHp} maxHp={maxHp}
           fortifyStacks={fortifyStacks} fortifyDR={fortifyDR}
           currentEs={currentEs} maxEs={maxEs}
+          currentMana={character.mana?.current} maxMana={character.mana?.max}
           classResource={classResource} charClass={character.class}
           buffs={tempBuffs} buffDisplay={BUFF_DISPLAY} rampingStacks={rampingStacks}
           hideHpBars={combatPhase === 'boss_fight'}
