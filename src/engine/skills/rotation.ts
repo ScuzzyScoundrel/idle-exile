@@ -13,6 +13,7 @@ import { getUnifiedSkillDef, getSkillsForWeapon } from '../../data/skills';
 import { getSkillGraphModifier } from './resolution';
 import { calcSkillDps, calcSkillCastInterval } from './dps';
 import { estimateProcDps, type CombatContext } from '../procEstimation';
+import { canAffordManaCost } from '../combat/manaTick';
 
 /**
  * Calculate total rotation DPS across all equipped active skills.
@@ -130,13 +131,12 @@ export function getNextRotationSkill(
 
     // Phase F follow-on (2026-05-07): mana affordability check —
     // skip skills the player can't afford this tick so cheaper later
-    // slots can fire. Only when caller passed `mana` + `dtSec`.
+    // slots can fire. Uses canAffordManaCost so the rotation check
+    // matches the tick.ts:481 gate exactly (no drift between approval
+    // here vs rejection there).
     if (mana && dtSec !== undefined) {
       const cost = (skill as { manaCost?: number }).manaCost ?? 0;
-      if (cost > 0) {
-        const regened = Math.min(mana.max, mana.current + mana.regenPerSec * dtSec);
-        if (regened < cost) continue;
-      }
+      if (!canAffordManaCost(mana, dtSec, cost)) continue;
     }
 
     return { skill, slotIndex: i };

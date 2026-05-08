@@ -21,6 +21,10 @@
 // Exit code 1 on any failure (CI-friendly).
 
 import { NODE_EFFECTS } from '../src/data/classTrees/effects';
+import { getNextRotationSkill } from '../src/engine/skills/rotation';
+import { tickManaWithCost } from '../src/engine/combat/manaTick';
+import { CLASS_MANA_CONFIG } from '../src/types/mana';
+import type { SkillTimerState, EquippedSkill, CharacterClass, ManaState } from '../src/types';
 import {
   applyConditionalTalentEffects,
   scaleTalentEffectByRank,
@@ -362,6 +366,66 @@ function passProc() {
   }
 }
 
+// ─── Pass 5: rotation end-to-end ─────────────────────────────────────
+//
+// Simulates 30 ticks of combat with 3 dagger skills equipped on a
+// Berserker (the worst-case mana economy: startFull:false, regen:0,
+// onHitDealtGain:5). Verifies:
+//  - Rotation correctly skips skills the player can't afford.
+//  - Auto-attacks generate mana via onHitDealtGain so skills become
+//    castable.
+//  - All 3 slot skills fire at least once over the test window
+//    (the original "only first two" bug fix).
+
+function simulateRotation() {
+  const skills: EquippedSkill[] = [
+    { skillId: 'dagger_stab',          slot: 0, equippedAt: 0 } as unknown as EquippedSkill,
+    { skillId: 'dagger_blade_dance',   slot: 1, equippedAt: 0 } as unknown as EquippedSkill,
+    { skillId: 'dagger_fan_of_knives', slot: 2, equippedAt: 0 } as unknown as EquippedSkill,
+  ];
+  const cfg = CLASS_MANA_CONFIG['berserker' as CharacterClass];
+  const mana: ManaState = {
+    current: cfg.startFull ? cfg.maxMana : 0,
+    max: cfg.maxMana,
+    regenPerSec: cfg.passiveRegenPerSec,
+  };
+  const skillTimers: SkillTimerState[] = skills.map(s => ({
+    skillId: s.skillId, activatedAt: null, cooldownUntil: null,
+  }));
+  const fired = new Set<string>();
+  const dtSec = 0.1;
+  let now = Date.now();
+
+  for (let tick = 0; tick < 60; tick++) {
+    now += dtSec * 1000;
+    const result = getNextRotationSkill(skills, skillTimers, now, undefined, undefined, mana, dtSec);
+    if (result) {
+      // Fire: regen mana → deduct cost; set cooldown.
+      const cost = (result.skill as { manaCost?: number; cooldown?: number }).manaCost ?? 0;
+      const updated = tickManaWithCost(mana, dtSec, cost, 0);
+      mana.current = updated.current;
+      const cd = (result.skill as { cooldown?: number }).cooldown ?? 0;
+      const t = skillTimers.find(t => t.skillId === result.skill.id);
+      if (t) t.cooldownUntil = now + cd * 1000;
+      fired.add(result.skill.id);
+    } else {
+      // No skill — simulate auto-attack landing + onHitDealtGain.
+      const updated = tickManaWithCost(mana, dtSec, 0, cfg.onHitDealtGain);
+      mana.current = updated.current;
+    }
+  }
+
+  const expected = new Set(skills.map(s => s.skillId));
+  const missing = [...expected].filter(id => !fired.has(id));
+  if (missing.length === 0) {
+    record(true, '_rotation_all_fire', 'rotation', `all ${expected.size} slot skills fired over 60 ticks`);
+  } else {
+    record(false, '_rotation_all_fire', 'rotation',
+      `${missing.length} slot skill(s) never fired`,
+      `missing: ${missing.join(', ')}; final mana=${mana.current.toFixed(1)}; fired=${[...fired].join(', ')}`);
+  }
+}
+
 // ─── Bulwark consume sanity ──────────────────────────────────────────
 
 function passBulwark() {
@@ -424,4 +488,5 @@ passCoverage();
 passConditional();
 passProc();
 passBulwark();
+simulateRotation();
 summarize();
