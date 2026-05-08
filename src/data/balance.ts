@@ -294,6 +294,7 @@ export const BASE_STATS: ResolvedStats = {
   companionAttackSpeed: 0,
   companionSummonManaCost: 0,
   aoeTargetCount: 0,
+  aoeRadius: 0,
 };
 
 /** Flat physical damage gained per level beyond 1. */

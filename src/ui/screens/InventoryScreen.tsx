@@ -1384,6 +1384,7 @@ const STAT_LABELS: Record<StatKey, string> = {
   companionAttackSpeed: '% Companion Attack Speed',
   companionSummonManaCost: 'Summon Mana Cost',
   aoeTargetCount: 'AoE Bonus Targets',
+  aoeRadius: '% AoE Radius',
 };
 
 function ComparisonPanel({ selected, equipped }: { selected: Item; equipped: Item }) {

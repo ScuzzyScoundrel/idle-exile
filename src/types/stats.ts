@@ -123,6 +123,10 @@ export type StatKey =
   // Phase F (2026-05-07): AoE skills hit +N additional enemies.
   // Folded into skillChains at chain-resolution site for AoE-tagged
   // skills only.
-  | 'aoeTargetCount';
+  | 'aoeTargetCount'
+  // Phase F (2026-05-07): registered for talent authoring (Brs Jg
+  // cleave_reach / mountain capstone / etc.). Currently silent-ignore
+  // — wiring into AoE skill geometry is a follow-on slice.
+  | 'aoeRadius';
 
 export type ResolvedStats = Record<StatKey, number>;
