@@ -637,6 +637,15 @@ export const useGameStore = create<GameState & GameActions>()(
           currentClearTime: initialClearTime,
           currentHp: stats.maxLife,
           currentEs: stats.energyShield,
+          // Phase F follow-on (2026-05-07): refill mana on zone enter.
+          // Idle-game UX — each new run starts fresh. Real long-term
+          // class economies (Berserker rage from events, etc.) still
+          // ramp from there; this just smooths the OOC drain corner
+          // case where Berserker sits at 0 between zones.
+          character: {
+            ...state.character,
+            mana: { ...state.character.mana, current: state.character.mana.max },
+          },
           combatPhase: 'clearing' as CombatPhase,
           bossState: null,
           combatPhaseStartedAt: null,
