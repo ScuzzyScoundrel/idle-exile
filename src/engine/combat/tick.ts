@@ -439,7 +439,10 @@ export function runCombatTick(
   const targetHpPct = phase === 'boss_fight' && state.bossState
     ? (state.bossState.bossCurrentHp / state.bossState.bossMaxHp) * 100
     : (frontMobHp / frontMobMaxHp) * 100;
-  const rotationResult = getNextRotationSkill(state.skillBar ?? [], state.skillTimers, now, state.skillProgress, targetHpPct);
+  const rotationResult = getNextRotationSkill(
+    state.skillBar ?? [], state.skillTimers, now, state.skillProgress, targetHpPct,
+    state.character.mana, dtSec,
+  );
 
   // Fallback: if no rotation skill ready, check why
   let skill: SkillDef | ActiveSkillDef | null = rotationResult?.skill ?? null;

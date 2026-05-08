@@ -94,7 +94,11 @@ export function getPrimaryDamageSkill(
 
 /**
  * Get the next active skill ready to fire in the rotation.
- * Iterates slots 0→4 in priority order; returns first active skill off cooldown.
+ * Iterates slots 0→4 in priority order; returns first active skill off
+ * cooldown AND affordable. Phase F follow-on (2026-05-07): mana check
+ * added so unaffordable slot-0/1 skills don't block slot-2+ from
+ * firing. Pass `mana` + `dtSec` to enable; legacy callers omit and get
+ * the previous off-CD-only behavior.
  */
 export function getNextRotationSkill(
   skillBar: (EquippedSkill | null)[],
@@ -102,6 +106,8 @@ export function getNextRotationSkill(
   now: number,
   skillProgress?: Record<string, SkillProgress>,
   targetHpPercent?: number,
+  mana?: { current: number; max: number; regenPerSec: number },
+  dtSec?: number,
 ): { skill: SkillDef; slotIndex: number } | null {
   for (let i = 0; i < skillBar.length; i++) {
     const equipped = skillBar[i];
@@ -119,6 +125,17 @@ export function getNextRotationSkill(
       const graphMod = getSkillGraphModifier(skill, skillProgress[equipped.skillId]);
       if (graphMod?.executeOnly && targetHpPercent > graphMod.executeOnly.hpThreshold) {
         continue;
+      }
+    }
+
+    // Phase F follow-on (2026-05-07): mana affordability check —
+    // skip skills the player can't afford this tick so cheaper later
+    // slots can fire. Only when caller passed `mana` + `dtSec`.
+    if (mana && dtSec !== undefined) {
+      const cost = (skill as { manaCost?: number }).manaCost ?? 0;
+      if (cost > 0) {
+        const regened = Math.min(mana.max, mana.current + mana.regenPerSec * dtSec);
+        if (regened < cost) continue;
       }
     }
 
