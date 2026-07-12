@@ -95,6 +95,76 @@ export const BOW_MARKED_TEMPO_POLICY: RotationPolicy = {
   ],
 };
 
+// ── Wand "Attuned Tempo" — Wave E4, the GATE-E4a experiment policy.
+// Out-spend chassis (Marked Tempo's): dump Perfects at cap, take
+// Surges as bonuses; Essence Drain is ledger-free, cast it freely. ──
+export const WAND_ATTUNED_TEMPO_POLICY: RotationPolicy = {
+  version: 1,
+  rules: [
+    { id: 'wet_spend', enabled: true, when: { all: [
+      { stateCountAtLeast: { stateId: 'arcane_surge', count: 1 } },
+      { stateCountAtLeast: { stateId: 'attunement', count: 3 } },
+      { skillReady: 'wand_void_blast' },
+    ] }, action: { kind: 'castSkill', skillId: 'wand_void_blast' } },
+    // AoE arbitration (E4a iteration-4 — the parity lesson, third
+    // time): Volley is the kit's biggest cast in packs; blind casts it
+    // blindly even single-target, smart routes the ledger — Volley for
+    // 3+ enemies, Void Blast for single targets.
+    { id: 'volley_packs', enabled: true, when: { all: [
+      { enemyCountAtLeast: 3 },
+      { stateCountAtLeast: { stateId: 'attunement', count: 3 } },
+    ] }, action: { kind: 'castSkill', skillId: 'wand_volley_convergence' } },
+    // Cap-dump (E4a iteration-2: at ~10% spell crit the Surge windows
+    // are scarce — wand is an OUT-SPEND kit like bow, not withhold).
+    { id: 'cap_dump', enabled: true, when:
+      { stateCountAtLeast: { stateId: 'attunement', count: 5 } },
+      action: { kind: 'castSkill', skillId: 'wand_void_blast' } },
+    // Volley still fires single-target when Void Blast is on cooldown
+    // and the ledger is full (never idle a capped ledger with both
+    // spenders down).
+    { id: 'volley_overflow', enabled: true, when: { all: [
+      { stateCountAtLeast: { stateId: 'attunement', count: 5 } },
+      { not: { skillReady: 'wand_void_blast' } },
+    ] }, action: { kind: 'castSkill', skillId: 'wand_volley_convergence' } },
+    // Builders/park at full parity (dagger iteration-1 lesson).
+    { id: 'chain', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'wand_chain_lightning' } },
+    { id: 'frost', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'wand_frostbolt' } },
+    { id: 'park', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'wand_essence_drain' } },
+    { id: 'filler', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'wand_magic_missile', minMana: 24 } },
+  ],
+};
+
+// ── Staff "Soul Tempo" — Wave E4b, the GATE-E4b experiment policy.
+// Withhold-plus-pairs chassis: hold souls for Perfects/Frenzies, and
+// keep the setup-consume pairs primed (Hex doubles Soul Harvest,
+// Haunt guarantees Spirit Barrage crits → Ritual Frenzy windows). ──
+export const STAFF_SOUL_TEMPO_POLICY: RotationPolicy = {
+  version: 1,
+  rules: [
+    { id: 'wet_spend', enabled: true, when: { all: [
+      { stateCountAtLeast: { stateId: 'ritual_frenzy', count: 1 } },
+      { stateCountAtLeast: { stateId: 'soul_stack', count: 4 } },
+      { skillReady: 'staff_bouncing_skull' },
+    ] }, action: { kind: 'castSkill', skillId: 'staff_bouncing_skull' } },
+    { id: 'cap_dump', enabled: true, when:
+      { stateCountAtLeast: { stateId: 'soul_stack', count: 6 } },
+      action: { kind: 'castSkill', skillId: 'staff_bouncing_skull' } },
+    // Engines FIRST (E4b iteration-4 lesson — never bench the engine,
+    // third appearance): Harvest is the soul engine, Locust the window
+    // engine; both outrank pair upkeep.
+    { id: 'harvest', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'staff_soul_harvest' } },
+    { id: 'locust', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'staff_locust_swarm' } },
+    // Pair upkeep: Hex doubles Harvest, Haunt guarantees Barrage crits.
+    { id: 'haunt_upkeep', enabled: true, when:
+      { stateCountBelow: { stateId: 'haunted', count: 1 } },
+      action: { kind: 'castSkill', skillId: 'staff_haunt' } },
+    { id: 'barrage', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'staff_spirit_barrage' } },
+    { id: 'hex_upkeep', enabled: true, when:
+      { stateCountBelow: { stateId: 'hexed', count: 1 } },
+      action: { kind: 'castSkill', skillId: 'staff_hex' } },
+  ],
+};
+
 export const ROTATION_PRESETS: RotationPresetDef[] = [
   {
     id: 'slot_order',
@@ -109,6 +179,20 @@ export const ROTATION_PRESETS: RotationPresetDef[] = [
     blurb: 'Banks Momentum with builders and spends Assassinate only into Openings or the sub-30% execute band — never cap-dumps a full ledger.',
     weaponType: 'dagger',
     policy: DAGGER_TEMPO_POLICY,
+  },
+  {
+    id: 'wand_attuned_tempo',
+    name: 'Attuned Tempo',
+    blurb: 'Banks Attunement with elemental bolts, dumps Void Blast Perfects at cap, and doubles them inside Arcane Surges.',
+    weaponType: 'wand',
+    policy: WAND_ATTUNED_TEMPO_POLICY,
+  },
+  {
+    id: 'staff_soul_tempo',
+    name: 'Soul Tempo',
+    blurb: 'Keeps Hex and Haunt primed for their consume pairs, banks Soul Stacks, and spends Bouncing Skull at cap or into Ritual Frenzies.',
+    weaponType: 'staff',
+    policy: STAFF_SOUL_TEMPO_POLICY,
   },
   {
     id: 'bow_marked_tempo',

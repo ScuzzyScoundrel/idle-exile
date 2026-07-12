@@ -128,6 +128,8 @@ const WEAPON_MODULES: Record<string, WeaponModule> = {
   // Effect IR Wave 4: data-driven weapons share ONE generic module —
   // mechanics come from SkillDef.effects + TRAP_DEFS, no bespoke file.
   bow: dataDrivenFor('bow'),
+  // Wave E4a: sorcerer attunement economy — pure COMBO-table data.
+  wand: dataDrivenFor('wand'),
 };
 function getWeaponModule(wt: string | undefined): WeaponModule | null {
   return wt ? WEAPON_MODULES[wt] ?? null : null;

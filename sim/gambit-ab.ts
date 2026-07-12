@@ -34,9 +34,9 @@ import { runCombatTick } from '../src/engine/combat/tick';
 import { createCharacter, resolveStats } from '../src/engine/character';
 import { createResourceState } from '../src/engine/classResource';
 import { ZONE_DEFS } from '../src/data/zones';
-import type { GameState, ActiveDebuff, MobInPack, EquippedSkill } from '../src/types';
+import type { GameState, ActiveDebuff, MobInPack, EquippedSkill, CharacterClass } from '../src/types';
 import type { RotationPolicy } from '../src/types/rotation';
-import { DAGGER_TEMPO_POLICY, BOW_MARKED_TEMPO_POLICY } from '../src/data/rotationPresets';
+import { DAGGER_TEMPO_POLICY, BOW_MARKED_TEMPO_POLICY, WAND_ATTUNED_TEMPO_POLICY, STAFF_SOUL_TEMPO_POLICY } from '../src/data/rotationPresets';
 
 function createMobPack(count: number, hp: number): MobInPack[] {
   const now = getNow();
@@ -55,8 +55,8 @@ const ENCOUNTER_MIX: Array<[count: number, hp: number]> = [
 ];
 
 function createFixtureState(
-  cls: 'hunter' | 'assassin',
-  weaponType: 'bow' | 'dagger',
+  cls: CharacterClass,
+  weaponType: string,
   skills: string[],
   rotationPolicy: RotationPolicy | null,
 ): GameState {
@@ -181,6 +181,32 @@ function createFixtureState(
 //   4. Rapid Fire +3/flurry (the §3 value) beats +2: blind's spend
 //      count is contention-FIXED, so faster generation only widens the
 //      smart arm's cycle advantage (and blind wastes more at cap). ──
+//
+// 2026-07-12 GATE E4a (wand/sorcerer, 6 iterations): PASSED — smart vs
+// best blind (spender-first!): mean +23.0%, CI95 [+18.2, +27.7]; every
+// ordering ≥ 178% of pre-redesign. ERRATUM: resonance_charge has NO
+// consume path in the engine (accumulator read by conditionals only) —
+// the sorcerer ledger ships as the 'attunement' combo state; resonance
+// storage unification deferred. Lessons: (1) the wand had NO weapon
+// module registered (windows=0 until dataDrivenFor('wand') landed);
+// (2) U8 first — both new casters were drowning (belowCost 84-91%,
+// mass deaths) until costs were cut, and every other signal was noise
+// until mana stopped binding; (3) benching the AoE spender (Volley)
+// forfeited ~50k — the smart edge is ST-vs-AoE ARBITRATION (Volley in
+// packs, Void Blast single-target), which no fixed order can express.
+//
+// 2026-07-12 GATE E4b (staff/witchdoctor, 6 iterations): PASSED —
+// mean +16.6%, CI95 [+12.2, +20.9]; blind = 317% of pre-redesign.
+// Lessons: (1) a window creator ADJACENT to the spender in bar order
+// phase-locks windows onto blind spends (Barrage slot-5 crit → Skull
+// slot-6 wet, 80% free capture) — windows must ride a skill distant
+// from the spender (Locust); (2) without icd support in the staff
+// creation path the window spammed to ~80% uptime — uptime ≤ ~35%
+// (U4) is what makes capture a skill; (3) never bench the engine,
+// third appearance: Harvest (souls) and Locust (windows) outrank the
+// pair-upkeep rules; (4) the spender's damage SHARE bounds the gate —
+// Skull at ~15/bounce could not surface a 1.4× per-spend edge until
+// its base doubled. ──
 
 interface Telemetry {
   spenderSkillId: string | null;   // stack-at-spend + wet-rate tracking
@@ -199,8 +225,8 @@ interface ArmStats {
 }
 
 function runPolicy(
-  cls: 'hunter' | 'assassin',
-  weaponType: 'bow' | 'dagger',
+  cls: CharacterClass,
+  weaponType: string,
   bar: string[],
   rotationPolicy: RotationPolicy | null,
   ticks: number,
@@ -316,8 +342,8 @@ function summarize(arms: ArmStats[], tel: Telemetry): string {
 
 function experiment(
   label: string,
-  cls: 'hunter' | 'assassin',
-  weaponType: 'bow' | 'dagger',
+  cls: CharacterClass,
+  weaponType: string,
   bar: string[],
   gambit: RotationPolicy,
   tel: Telemetry,
@@ -347,7 +373,7 @@ function experiment(
 }
 
 /** Mean blind (slot-order) damage for an alternative bar ordering. */
-function blindOrdering(cls: 'hunter' | 'assassin', weaponType: 'bow' | 'dagger', bar: string[], tel: Telemetry): number {
+function blindOrdering(cls: CharacterClass, weaponType: string, bar: string[], tel: Telemetry): number {
   const runs: number[] = [];
   for (let i = 0; i < N_SEEDS; i++) {
     runs.push(runPolicy(cls, weaponType, bar, null, TICKS, SEED_BASE + i, tel).totalDamage);
@@ -416,8 +442,8 @@ function kitGate(
   cap: number,
   preRedesignDps: number,
   orderings: string[][],
-  cls: 'hunter' | 'assassin',
-  weaponType: 'bow' | 'dagger',
+  cls: CharacterClass,
+  weaponType: string,
   tel: Telemetry,
   model: 'withhold' | 'outspend',
 ): boolean {
@@ -480,9 +506,49 @@ const gateE3 = kitGate('GATE E3 (bow reference kit)', bow, 6, PRE_E3_BOW_DPS, [
   ['bow_rapid_fire', 'bow_snipe', 'bow_arrow_shot', 'bow_burning_arrow', 'bow_tracking_shot', 'bow_hunters_mark'], // mixed
 ], 'hunter', 'bow', BOW_TEL, 'outspend');
 
+// Experiment 3 — wand/sorcerer E4a REFERENCE KIT (Wave E4): attunement
+// ledger (bolts +1, Void Blast consume-all ×(1+0.30k), Perfect@5 ×2.5 +
+// advance 1s) + Arcane Surge window (bolt crits, icd 3s, ×2 + refund 3)
+// + Essence Drain park. Withhold model (dagger-shaped).
+// PRE-E4a baseline measured 2026-07-12 (blind, old wand data): 49,887.
+const WAND_TEL: Telemetry = { spenderSkillId: 'wand_void_blast', chargeStateId: 'attunement', windowStateId: 'arcane_surge', spendCost: 24 };
+// E18 principle (measured, E4a iteration 4): spender-first is the BEST
+// blind wand ordering (100,454 vs builder-first 87,594) — void/volley
+// on cooldown at low k̄ beats hoarding. It ships as the default and the
+// gambit is measured against it.
+const WAND_BAR = ['wand_void_blast', 'wand_volley_convergence', 'wand_chain_lightning', 'wand_frostbolt', 'wand_magic_missile', 'wand_essence_drain'];
+const wand = experiment('WAND (E4a reference kit: attunement + surge)', 'sorcerer', 'wand',
+  WAND_BAR,
+  WAND_ATTUNED_TEMPO_POLICY,
+  WAND_TEL);
+const PRE_E4_SORC_DPS = 49887 / 1200;
+const gateE4a = kitGate('GATE E4a (wand reference kit)', wand, 5, PRE_E4_SORC_DPS, [
+  WAND_BAR,                                                                                     // spender-first (shipped default — measured best blind)
+  ['wand_magic_missile', 'wand_chain_lightning', 'wand_frostbolt', 'wand_essence_drain', 'wand_volley_convergence', 'wand_void_blast'], // builder-first
+  ['wand_frostbolt', 'wand_void_blast', 'wand_magic_missile', 'wand_essence_drain', 'wand_chain_lightning', 'wand_volley_convergence'], // mixed
+], 'sorcerer', 'wand', WAND_TEL, 'withhold');
+
+// Experiment 4 — staff/witchdoctor E4b REFERENCE KIT (Wave E4b): soul
+// ledger (Harvest +2, Skull consume-all ×(1+0.30k) + bounce/stack,
+// Perfect@5 ×2.5 + advance 1s) + Ritual Frenzy window (spirit-skill
+// crits, ×2 + refund 3) + the Hex/Haunt setup-consume pairs.
+// PRE-E4b baseline measured 2026-07-12 (blind, old staff data): 25,403.
+const STAFF_TEL: Telemetry = { spenderSkillId: 'staff_bouncing_skull', chargeStateId: 'soul_stack', windowStateId: 'ritual_frenzy', spendCost: 16 };
+const STAFF_BAR = ['staff_soul_harvest', 'staff_hex', 'staff_haunt', 'staff_locust_swarm', 'staff_spirit_barrage', 'staff_bouncing_skull'];
+const staffExp = experiment('STAFF (E4b reference kit: souls + frenzy)', 'witchdoctor', 'staff',
+  STAFF_BAR,
+  STAFF_SOUL_TEMPO_POLICY,
+  STAFF_TEL);
+const PRE_E4_WD_DPS = 25403 / 1200;
+const gateE4b = kitGate('GATE E4b (staff reference kit)', staffExp, 6, PRE_E4_WD_DPS, [
+  STAFF_BAR,                                                                                    // builder-first (shipped default)
+  ['staff_bouncing_skull', 'staff_spirit_barrage', 'staff_soul_harvest', 'staff_hex', 'staff_haunt', 'staff_locust_swarm'], // spender-first
+  ['staff_haunt', 'staff_bouncing_skull', 'staff_hex', 'staff_locust_swarm', 'staff_soul_harvest', 'staff_spirit_barrage'], // mixed
+], 'witchdoctor', 'staff', STAFF_TEL, 'withhold');
+
 console.log(`\nGATE 4 (CI lower bound ≥ +10% on at least one build; < +5% everywhere = STOP and tune payoffs):`);
 const best = Math.max(bow.ciLow, dagger.ciLow);
-if (best >= 10 && gateE1 && gateE3) { console.log(`PASSED (best CI-low Δ ${best.toFixed(1)}%)`); process.exit(0); }
+if (best >= 10 && gateE1 && gateE3 && gateE4a && gateE4b) { console.log(`PASSED (best CI-low Δ ${best.toFixed(1)}%)`); process.exit(0); }
 if (best >= 5) { console.log(`MARGINAL (best CI-low Δ ${best.toFixed(1)}%) — investigate before UI work`); process.exit(1); }
 console.log(`FAILED (best CI-low Δ ${best.toFixed(1)}%) — do not build rotation UI; tune consume payoffs first`);
 process.exit(1);

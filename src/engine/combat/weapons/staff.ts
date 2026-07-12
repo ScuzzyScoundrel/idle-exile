@@ -12,8 +12,8 @@ import type {
   PreRollContext, PostCastContext, EnemyAttackContext,
 } from './weaponModule';
 import {
-  getCreatorConfigs, COMBO_STATE_CONSUMERS,
-  consumeMultipleComboStates, createComboState, tickComboStates,
+  getCreatorConfigs, COMBO_STATE_CONSUMERS, checkAndStampIcd,
+  consumeMultipleComboStates, createComboState, createStateFromSpec, tickComboStates,
 } from '../combo';
 import {
   dispatchProcOnMinionHit, dispatchProcOnMinionCrit, dispatchProcOnMinionDeath,
@@ -745,6 +745,10 @@ export const staffModule: WeaponModule = {
     let burstDamage = 0;
     let pandemicSpread = false;
     let cdRefundPercent = 0;
+    let advanceOtherCooldownsSec = 0;
+    let perfectSpend = false;
+    let wetSpend = false;
+    const pendingRefunds: { stateId: string; amount: number }[] = [];
     const consumedStateIds: string[] = [];
     let newComboStates = comboStates;
     let remainingMinions: MinionState[] | undefined;
@@ -763,6 +767,24 @@ export const staffModule: WeaponModule = {
         if (eff.incDamage) damageMult *= 1 + eff.incDamage / 100;
         if (eff.guaranteedCrit) guaranteedCrit = true;
         if (eff.extraChains && cs.stateId === 'soul_stack') extraChains += eff.extraChains * cs.stacks;
+
+        // ── COMBAT_ECONOMY_DESIGN E10 fields (Wave E4b) — mirrors the
+        // comboRuntime fold; duplicated until staff hoists onto it.
+        // Mass Sacrifice keeps its own specialized soul_stack per-stack
+        // branch below, so the generic one is skipped for that pair. ──
+        if (eff.incDamagePerStackConsumed && !(isMassSacrifice && cs.stateId === 'soul_stack')) {
+          damageMult *= (1 + (eff.incDamagePerStackConsumed * cs.stacks) / 100);
+        }
+        if (eff.capBonus && cs.stacks >= cs.maxStacks && !(isMassSacrifice && cs.stateId === 'soul_stack')) {
+          if (eff.capBonus.incDamage) damageMult *= (1 + eff.capBonus.incDamage / 100);
+          if (eff.capBonus.advanceOthersSec) advanceOtherCooldownsSec += eff.capBonus.advanceOthersSec;
+          if (eff.capBonus.guaranteedCrit) guaranteedCrit = true;
+          perfectSpend = true;
+        }
+        if (eff.refundStacks) {
+          pendingRefunds.push(eff.refundStacks);
+          wetSpend = true;
+        }
 
         if (isMassSacrifice) {
           // Per-state baseline bonuses
@@ -1094,11 +1116,20 @@ export const staffModule: WeaponModule = {
       damageMult *= 1 + 0.05 * pmStacks;
     }
 
+    // E10 refundStacks (Wave E4b): wet-spend tempo refund — re-create
+    // AFTER the consume so the refund seeds the next build cycle.
+    for (const refund of pendingRefunds) {
+      newComboStates = createStateFromSpec(
+        newComboStates, refund.stateId, skill.id, undefined, 1, refund.amount,
+      );
+    }
+
     return {
       ...EMPTY_PRE_ROLL,
       comboStates: newComboStates,
       damageMult, guaranteedCrit, extraChains, burstDamage,
       cdRefundPercent,
+      advanceOtherCooldownsSec, perfectSpend, wetSpend,
       consumedStateIds, pandemicSpread,
       activeMinions: remainingMinions,
       skillsToResetCd: skillsToResetCd.length > 0 ? skillsToResetCd : undefined,
@@ -1115,11 +1146,14 @@ export const staffModule: WeaponModule = {
     // Capture pre-create stack counts for talents that read "stacks active at cast time"
     const preCreateSoulStackCount = comboStates.find(s => s.stateId === 'soul_stack')?.stacks ?? 0;
 
-    // Combo state creator (staff skills author single configs)
-    const config = getCreatorConfigs(skill.id)[0];
-    if (config && roll.isHit) {
+    // Wave E4b: loop ALL creator configs (a skill may create several —
+    // Locust: Plagued on cast + Ritual Frenzy on crit) and honor icdSec
+    // (window decorrelation) — without the icd the Frenzy window spammed
+    // to ~80% uptime and blind captured it pro-rata for free.
+    if (roll.isHit) for (const config of getCreatorConfigs(skill.id)) {
       const createOn = config.createOn ?? 'onCast';
-      if (createOn === 'onCast' || (createOn === 'onCrit' && roll.isCrit)) {
+      if ((createOn === 'onCast' || (createOn === 'onCrit' && roll.isCrit))
+          && checkAndStampIcd(config.stateId, config.icdSec, ctx.now)) {
         // Endless Ritual T5A: override max stacks for soul_stack
         const maxStacks = (config.stateId === 'soul_stack' && graphMod?.soulStackCapOverride)
           ? graphMod.soulStackCapOverride
@@ -1128,6 +1162,7 @@ export const staffModule: WeaponModule = {
           comboStates, config.stateId, skill.id,
           config.effect, config.duration, maxStacks,
           1 + (ctx.effectiveStats.ailmentDuration ?? 0) / 100,
+          config.stacksPerGain ?? 1,
         );
         // Soul Harvest: Double Harvest T4 — crits grant bonus soul_stacks
         if (config.stateId === 'soul_stack' && roll.isCrit && graphMod?.soulHarvestCritBonusStacks) {

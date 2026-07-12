@@ -116,6 +116,26 @@ const VULNERABLE_EFFECT: ComboStateEffect = {
   refundStacks: { stateId: 'quiver', amount: 2 },
 };
 
+// ── COMBAT_ECONOMY_DESIGN §5 (Wave E4): the Sorcerer attunement economy ──
+// ERRATUM vs the E-doc: resonance_charge has NO consume path in the
+// engine (it is an accumulator read by talent conditionals; "Convergence"
+// is a skill-id substring proc). The sorcerer ledger therefore ships as
+// a proper combo state on the E2 grammar; resonance stays as the legacy
+// passive layer and storage unification is deferred.
+// Withhold-model kit (dagger-shaped): frequent crit windows, hold the
+// ledger, Void Blast spends only into Surges.
+const ATTUNEMENT_EFFECT: ComboStateEffect = {
+  incDamagePerStackConsumed: 30,
+  capBonus: { incDamage: 150, advanceOthersSec: 1 },
+  perSkillBonus: {
+    wand_volley_convergence: { incDamagePerStackConsumed: 15, capBonus: undefined },
+  },
+};
+const ARCANE_SURGE_EFFECT: ComboStateEffect = {
+  incDamage: 100,
+  refundStacks: { stateId: 'attunement', amount: 3 },
+};
+
 // Re-export the registry helpers so engine consumers have a single import surface.
 export { getComboStateSpec, getAllComboStateSpecs, getComboStateSpecsByPair, getComboStateSpecsBySide } from '../../data/comboStates';
 
@@ -198,19 +218,52 @@ export const COMBO_STATE_CREATORS: Record<string, ComboStateConfig | ComboStateC
     { stateId: 'vulnerable', duration: 3.0, maxStacks: 1, createOn: 'onCrit', icdSec: 3, requiresTargetTag: 'mark', effect: VULNERABLE_EFFECT },
   ],
 
+  // ── Wand (Sorcerer) — Wave E4: builders. Essence Drain is the
+  // ledger-free park skill; Void Blast / Volley Convergence spend. ──
+  wand_magic_missile: [
+    { stateId: 'attunement', duration: 10, maxStacks: 5, createOn: 'onCast', effect: ATTUNEMENT_EFFECT },
+    { stateId: 'arcane_surge', duration: 3.0, maxStacks: 1, createOn: 'onCrit', icdSec: 3, effect: ARCANE_SURGE_EFFECT },
+  ],
+  wand_chain_lightning: [
+    { stateId: 'attunement', duration: 10, maxStacks: 5, createOn: 'onCast', effect: ATTUNEMENT_EFFECT },
+    { stateId: 'arcane_surge', duration: 3.0, maxStacks: 1, createOn: 'onCrit', icdSec: 3, effect: ARCANE_SURGE_EFFECT },
+  ],
+  wand_frostbolt: [
+    { stateId: 'attunement', duration: 10, maxStacks: 5, createOn: 'onCast', effect: ATTUNEMENT_EFFECT },
+    { stateId: 'arcane_surge', duration: 3.0, maxStacks: 1, createOn: 'onCrit', icdSec: 3, effect: ARCANE_SURGE_EFFECT },
+  ],
+
   // ── Staff v2 (Witch Doctor) ──
   // Locust Swarm: creates Plagued — consumed by Plague of Toads for pandemic spread (wired in staff module)
-  staff_locust_swarm:   { stateId: 'plagued',          duration: 6, maxStacks: 1, createOn: 'onCast',
-                          effect: { incDamage: 0 } },
+  staff_locust_swarm: [
+    { stateId: 'plagued',          duration: 6, maxStacks: 1, createOn: 'onCast',
+      effect: { incDamage: 0 } },
+    // Wave E4b window rides Locust crits (see the iteration-4 note above).
+    { stateId: 'ritual_frenzy', duration: 3.0, maxStacks: 1, createOn: 'onCrit', icdSec: 5,
+      effect: { incDamage: 100, refundStacks: { stateId: 'soul_stack', amount: 3 } } },
+  ],
   // Haunt: creates Haunted — consumed by Spirit Barrage for guaranteed crit + 30% bonus damage
   staff_haunt:          { stateId: 'haunted',          duration: 5, maxStacks: 1, createOn: 'onCast',
                           effect: { incDamage: 30, guaranteedCrit: true } },
   // Hex: creates Hexed — consumed by Soul Harvest for 2x damage (+100%)
   staff_hex:            { stateId: 'hexed',            duration: 5, maxStacks: 1, createOn: 'onCast',
                           effect: { incDamage: 100 } },
-  // Soul Harvest: creates Soul Stack (max 5, refreshes on new stack) — consumed by Bouncing Skull / Mass Sacrifice
-  staff_soul_harvest:   { stateId: 'soul_stack',       duration: 10, maxStacks: 5, createOn: 'onCast',
-                          effect: { extraChains: 1 } },
+  // Soul Harvest: +2 Soul Stacks per cast (max 5) — consumed by Bouncing
+  // Skull (E10 payoffs, Wave E4b) / Mass Sacrifice (its own fold).
+  staff_soul_harvest:   { stateId: 'soul_stack',       duration: 10, maxStacks: 6, createOn: 'onCast',
+                          stacksPerGain: 2,
+                          effect: { extraChains: 1, incDamagePerStackConsumed: 30,
+                                    capBonus: { incDamage: 150, advanceOthersSec: 1 } } },
+  // Wave E4b iteration-4: the window creator must NOT sit adjacent to
+  // the spender in bar order (Barrage slot-5 crits phase-locked windows
+  // onto slot-6 Skull — blind captured 80% wet for free). Harvest, the
+  // BUILDER, opens the window instead: for a blind bar the spend comes
+  // ~4s later (window expired); a gambit reacts within one tick.
+  // Harvest cannot create two states via the staff path (single config
+  // per skill), so soul gain moves to a spec-driven second entry below
+  // is NOT possible — instead ritual_frenzy rides Locust Swarm crits
+  // (slot 4, damage filler — never adjacent to Skull in the default).
+
   // Note: haunted on dog-bite + spirit_link while minions alive are created by the minion subsystem, not on-cast.
 };
 
@@ -247,12 +300,16 @@ export const COMBO_STATE_CONSUMERS: Record<string, string[]> = {
   bow_snipe:         ['quiver', 'vulnerable'],
   bow_pierce_volley: ['quiver', 'vulnerable'],
 
+  // ── Wand (Sorcerer) — Wave E4: two spenders share the attunement pool ──
+  wand_void_blast:         ['attunement', 'arcane_surge'],
+  wand_volley_convergence: ['attunement', 'arcane_surge'],
+
   // ── Staff v2 (Witch Doctor) ──
   staff_spirit_barrage:  ['haunted'],
   staff_plague_of_toads: ['plagued'],
   staff_soul_harvest:    ['hexed'],
-  staff_bouncing_skull:  ['soul_stack'],
-  staff_mass_sacrifice:  ['haunted', 'plagued', 'hexed', 'soul_stack', 'spirit_link'],
+  staff_bouncing_skull:  ['soul_stack', 'ritual_frenzy'],
+  staff_mass_sacrifice:  ['haunted', 'plagued', 'hexed', 'soul_stack', 'spirit_link', 'ritual_frenzy'],
   // Creators (Zombie Dogs, Locust Swarm, Haunt, Hex, Fetish Swarm) do not consume.
 };
 
