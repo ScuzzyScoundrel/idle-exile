@@ -118,9 +118,9 @@ export default function SkillPanel() {
     <div className="panel-stone p-3 space-y-3">
       {/* Section 1: Equipped Skill Bar (compact overview) */}
       <div className="flex gap-1 overflow-x-auto scrollbar-thin">
-        {skillBar.slice(0, 5).map((equipped, idx) => {
+        {skillBar.slice(0, 6).map((equipped, idx) => {
           // Locked slots
-          if (idx > 0 && idx > unlockedSlots) {
+          if (idx > 0 && idx > unlockedSlots && !equipped) {
             const unlockLevel = ABILITY_SLOT_UNLOCKS[idx - 1] ?? 99;
             return (
               <div key={idx} className="flex-1 h-8 rounded border-2 border-dashed border-gray-700 flex items-center justify-center opacity-40">

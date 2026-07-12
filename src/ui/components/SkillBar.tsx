@@ -102,7 +102,7 @@ export default function SkillBar({ lastFiredSkillId, cdResetSkillId }: { lastFir
         // Slots 0-4: slot 0 always unlocked (active skill), slots 1-4 use ABILITY_SLOT_UNLOCKS
         // unlockedSlots is the count of ability slots (0-4 map to slots 1-4)
         // Slot 0 is always unlocked; slots 1-4 need idx <= unlockedSlots
-        if (idx > 0 && idx > unlockedSlots) {
+        if (idx > 0 && idx > unlockedSlots && !equipped) {
           const unlockLevel = ABILITY_SLOT_UNLOCKS[idx - 1] ?? 99;
           return (
             <div

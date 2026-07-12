@@ -33,6 +33,9 @@ export const ITEM_BASE_DEFS: ItemBaseDef[] = [
   { id: 'void_maul_1h',      name: 'Void Crusher',      slot: 'mainhand', weaponType: 'mace', baseStats: { armor: 22, baseAttackSpeed: 10, baseCritChance: 5 }, baseDamageMin: 52, baseDamageMax: 88, iLvl: 45 },
   { id: 'starforged_mace',   name: 'Starforged Mace',   slot: 'mainhand', weaponType: 'mace', baseStats: { armor: 30, baseAttackSpeed: 12, baseCritChance: 6 }, baseDamageMin: 72, baseDamageMax: 120, iLvl: 60 },
 
+  // ==================== Flails (1H Attack, fury builder — dev-kit starter; higher bands pending flail loot pass) ====================
+  { id: 'rusty_flail',       name: 'Rusty Flail',       slot: 'mainhand', weaponType: 'flail', baseStats: { baseAttackSpeed: 6, baseCritChance: 2 }, baseDamageMin: 7, baseDamageMax: 15, iLvl: 1 },
+
   // ==================== Greatswords (2H Attack) ====================
   { id: 'iron_greatsword',      name: 'Iron Greatsword',      slot: 'mainhand', weaponType: 'greatsword', baseStats: { baseAttackSpeed: 3, baseCritChance: 2 }, baseDamageMin: 16, baseDamageMax: 32, iLvl: 1 },
   { id: 'steel_greatsword',     name: 'Steel Greatsword',     slot: 'mainhand', weaponType: 'greatsword', baseStats: { baseAttackSpeed: 4, baseCritChance: 3 }, baseDamageMin: 30, baseDamageMax: 54, iLvl: 10 },

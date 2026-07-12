@@ -23,6 +23,7 @@ import {
   GemType,
   GemTier,
   AttributeKey,
+  WeaponType,
 } from '../types';
 import { createCharacter, resolveStats, addXp } from '../engine/character';
 import { meetsAttributeRequirement } from '../engine/attributes';
@@ -58,6 +59,8 @@ import { getDefaultSkillForWeapon } from '../engine/unifiedSkills';
 // classTalents import removed (Skill Tree Overhaul Phase 0)
 // canAllocateTalentRank, allocateTalentRank, respecTalentRanks, getTalentRespecCost imports moved to skillStore
 import { getUnifiedSkillDef } from '../data/skills';
+import { getRotationPreset } from '../data/rotationPresets';
+import { getDevKit, createKitWeapon } from '../data/devKits';
 import type { RotationPolicy } from '../types/rotation';
 // canAllocateGraphNode, allocateGraphNode, respecGraphNodes, getGraphRespecCost imports moved to skillStore
 import { getFullEffect } from '../engine/combat/helpers';
@@ -109,6 +112,8 @@ import { processClears, type ProcessClearsResult } from '../engine/zones/lootPro
 interface GameActions {
   // Class selection
   selectClass: (classId: CharacterClass) => void;
+  /** DEV only: equip a full weapon kit — starter weapon + kit skill bar + kit rotation preset. */
+  devStartKit: (weaponType: WeaponType) => void;
 
   // Character
   equipItem: (item: Item) => void;
@@ -380,6 +385,40 @@ export const useGameStore = create<GameState & GameActions>()(
         });
       },
 
+      devStartKit: (weaponType: WeaponType) => {
+        const kit = getDevKit(weaponType);
+        if (!kit) return;
+        const weapon = createKitWeapon(kit);
+        if (!weapon) return;
+        const preset = getRotationPreset(kit.presetId);
+        set((state) => {
+          const newChar: Character = {
+            ...state.character,
+            equipment: { ...state.character.equipment, mainhand: weapon },
+          };
+          newChar.stats = resolveStats(newChar);
+
+          const newSkillBar: (EquippedSkill | null)[] = kit.skills.map(id => ({ skillId: id, autoCast: true }));
+          const newProgress = { ...state.skillProgress };
+          const newTimers = state.skillTimers.filter(t => !kit.skills.includes(t.skillId));
+          for (const skillId of kit.skills) {
+            if (!newProgress[skillId]) newProgress[skillId] = { skillId, xp: 0, level: 0 };
+            const def = getUnifiedSkillDef(skillId);
+            if (def && (def.kind === 'active' || def.kind === 'buff' || def.kind === 'toggle' || def.kind === 'instant' || def.kind === 'ultimate')) {
+              newTimers.push({ skillId, activatedAt: null, cooldownUntil: null });
+            }
+          }
+
+          return {
+            character: newChar,
+            skillBar: newSkillBar,
+            skillProgress: newProgress,
+            skillTimers: newTimers,
+            rotationPolicy: preset?.policy ? JSON.parse(JSON.stringify(preset.policy)) as RotationPolicy : null,
+          };
+        });
+      },
+
       equipItem: (item: Item) => {
         set((state) => {
           // ── Attribute requirement gate ──
@@ -450,9 +489,9 @@ export const useGameStore = create<GameState & GameActions>()(
               newSkillBar[0] = null;
             }
 
-            // Clear weapon-incompatible skills from ability slots 1-4
+            // Clear weapon-incompatible skills from ability slots 1+
             if (newWeaponType) {
-              for (let i = 1; i <= 4; i++) {
+              for (let i = 1; i < newSkillBar.length; i++) {
                 const eq = newSkillBar[i];
                 if (!eq) continue;
                 const sDef = getUnifiedSkillDef(eq.skillId);

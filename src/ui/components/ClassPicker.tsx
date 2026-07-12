@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { CLASS_DEFS } from '../../data/classes';
-import type { CharacterClass, ClassDef, StatKey } from '../../types';
+import { DEV_WEAPON_KITS } from '../../data/devKits';
+import { getRotationPreset } from '../../data/rotationPresets';
+import type { CharacterClass, ClassDef, StatKey, WeaponType } from '../../types';
 
 const CLASS_ORDER: CharacterClass[] = ['witchdoctor', 'assassin', 'berserker', 'sorcerer', 'hunter'];
 
@@ -89,10 +91,15 @@ function ClassCard({ classDef, isSelected, onSelect }: {
 
 export default function ClassPicker() {
   const selectClass = useGameStore(s => s.selectClass);
+  const devStartKit = useGameStore(s => s.devStartKit);
   const [selected, setSelected] = useState<CharacterClass>('berserker');
+  const [devKit, setDevKit] = useState<WeaponType | null>(null);
 
   const handleConfirm = () => {
     selectClass(selected);
+    if (import.meta.env.DEV && devKit) {
+      devStartKit(devKit);
+    }
   };
 
   const colors = CLASS_COLORS[selected];
@@ -115,6 +122,40 @@ export default function ClassPicker() {
             />
           ))}
         </div>
+
+        {import.meta.env.DEV && (
+          <div className="rounded-xl border-2 border-dashed border-amber-700/60 bg-amber-950/20 p-3 space-y-2">
+            <div className="text-xs font-semibold text-amber-400">
+              DEV — start with a weapon kit (starter weapon + skill bar + rotation preset)
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setDevKit(null)}
+                className={`px-3 py-1.5 rounded-lg border text-xs ${
+                  devKit === null
+                    ? 'border-amber-500 bg-amber-900/40 text-amber-300'
+                    : 'border-gray-700 bg-gray-900/50 text-gray-400 hover:border-gray-500'
+                }`}
+              >
+                None
+              </button>
+              {DEV_WEAPON_KITS.map(kit => (
+                <button
+                  key={kit.weaponType}
+                  onClick={() => setDevKit(kit.weaponType)}
+                  title={`${kit.skills.length} skills + ${getRotationPreset(kit.presetId)?.name ?? kit.presetId}`}
+                  className={`px-3 py-1.5 rounded-lg border text-xs ${
+                    devKit === kit.weaponType
+                      ? 'border-amber-500 bg-amber-900/40 text-amber-300'
+                      : 'border-gray-700 bg-gray-900/50 text-gray-400 hover:border-gray-500'
+                  }`}
+                >
+                  {kit.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <button
           onClick={handleConfirm}
