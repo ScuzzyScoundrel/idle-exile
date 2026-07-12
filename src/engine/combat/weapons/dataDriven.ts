@@ -22,10 +22,11 @@
 // ============================================================
 
 import type {
-  WeaponModule, WeaponTickContext, MaintenanceResult,
+  WeaponModule, WeaponTickContext, MaintenanceResult, PreRollContext, PreRollResult,
   PostCastContext, PostCastResult, EnemyAttackContext, EnemyAttackResult,
 } from './weaponModule';
 import { tickComboStates } from '../combo';
+import { comboConsumePreRoll, comboCreatePostCast } from '../comboRuntime';
 import { tickTraps, detonateTrap } from '../traps';
 import { TRAP_DEFS_BY_SKILL } from '../../../data/trapDefs';
 import {
@@ -40,6 +41,14 @@ export const dataDrivenModule: WeaponModule = {
     const comboStates = tickComboStates([...ctx.state.comboStates], ctx.dtSec);
     const activeTraps = tickTraps([...ctx.state.activeTraps], ctx.dtSec, ctx.now);
     return { comboStates, activeTraps };
+  },
+
+  // Wave E2 (ask 8): the shared combo consume fold — any data-driven
+  // weapon with COMBO_STATE_CONSUMERS entries gets the full economy
+  // (E10 payoffs, Perfect jackpots, wet windows, refunds) for free.
+  preRoll(ctx: PreRollContext): PreRollResult {
+    const combo = comboConsumePreRoll(ctx);
+    return { ...combo, healAmount: 0, pandemicSpread: false };
   },
 
   postCast(ctx: PostCastContext): PostCastResult {
@@ -59,7 +68,9 @@ export const dataDrivenModule: WeaponModule = {
       });
     }
     return {
-      comboStates: [...ctx.comboStates],
+      // Wave E2 (ask 8): combo creation from COMBO_STATE_CREATORS —
+      // creator arrays + trigger/minTargetsHit/icd gates, shared runtime.
+      comboStates: comboCreatePostCast(ctx),
       bladeWardExpiresAt: ctx.bladeWardExpiresAt,
       bladeWardHits: ctx.bladeWardHits,
       activeTraps,

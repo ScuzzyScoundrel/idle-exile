@@ -22,6 +22,8 @@ import type {
 } from '../../types';
 import { applyDebuffToList, mergeProcTempBuff } from '../combat/helpers';
 import { SUMMON_CONFIGS, summonMinions, type MinionState } from '../combat/minions';
+import { getComboStateSpec, createStateFromSpec, consumeStacks } from '../combat/combo';
+import type { ComboState } from '../../types';
 import { evalCondition, TALENT_TAG_TO_DEBUFF, type ConditionContext } from './conditions';
 import { normalizeTalentEffect } from './normalize';
 
@@ -87,6 +89,18 @@ export interface TalentProcContext {
    *  cascades. `_inProcOnTag` guards direct recursion (1-deep). */
   effects?: TalentEffect[];
   _inProcOnTag?: boolean;
+  // ── Wave E2 (COMBAT_ECONOMY_DESIGN asks 6-7) ──
+  /** Mutable combo-state list: generic modifyState operates on it for
+   *  any registered stateId, and buildProcConditionCtx folds it into
+   *  stateCounts / targetStates. Caller writes .states back to state. */
+  comboStatesRef?: { states: ComboState[] };
+  /** Per-rule fire-timestamp store for EffectRule.icdSec — backed by
+   *  state.lastProcTriggerAt so it survives saves (offline-idempotent). */
+  procTimestampsRef?: Record<string, number>;
+  /** Event time for icd checks (sim-clock aware). */
+  now?: number;
+  /** Guards stateChange event recursion (1-deep, like _inProcOnTag). */
+  _inStateChange?: boolean;
 }
 
 /** Runtime event instance — same shape as Trigger, plus cast metadata. */
@@ -177,6 +191,22 @@ const NO_STATES: ReadonlySet<string> = new Set();
  *  hitDamageTag + targetHasTag, which are exact. */
 export function buildProcConditionCtx(ctx: TalentProcContext, ev: TriggerEvent): ConditionContext {
   const r = ctx.resonanceRef?.charges;
+  // Wave E2 (ask 8): combo states are visible to proc-time conditions
+  // exactly as buildRotationCond exposes them to gambits — stacks per
+  // stateId, plus target-side ids (per spec) for targetHasState.
+  const stateCounts: Record<string, number> = {
+    crit_stack: ctx.critStacksRef?.value ?? 0,
+    resonance_charge: r ? r.fire + r.cold + r.lightning + r.chaos : 0,
+  };
+  let targetStates: { defId: string; stacks: number; appliedBySkillId?: string }[] | undefined;
+  if (ctx.comboStatesRef) {
+    for (const cs of ctx.comboStatesRef.states) {
+      stateCounts[cs.stateId] = (stateCounts[cs.stateId] ?? 0) + cs.stacks;
+      if (getComboStateSpec(cs.stateId)?.side === 'target') {
+        (targetStates ??= []).push({ defId: cs.stateId, stacks: cs.stacks, appliedBySkillId: cs.sourceSkillId });
+      }
+    }
+  }
   return {
     targetDebuffs: ctx.targetDebuffs,
     selfHpFraction: ctx.life.max > 0 ? ctx.life.value / ctx.life.max : 1,
@@ -185,16 +215,29 @@ export function buildProcConditionCtx(ctx: TalentProcContext, ev: TriggerEvent):
     offhandAbsent: false,
     enemyCount: ctx.broadcastDebuffLists?.length ?? 0,
     minionCount: ctx.minionsRef ? ctx.minionsRef.list.filter(m => m.hp > 0).length : 0,
-    stateCounts: {
-      crit_stack: ctx.critStacksRef?.value ?? 0,
-      resonance_charge: r ? r.fire + r.cold + r.lightning + r.chaos : 0,
-    },
+    stateCounts,
+    targetStates,
     activeStates: NO_STATES,
     hitDamageTag: ctx.hitDamageTag,
     manaPct: ctx.mana && ctx.mana.max > 0 ? (100 * ctx.mana.current) / ctx.mana.max : undefined,
     skillId: (ev as { skillId?: string }).skillId ?? ctx.sourceSkillId,
     skillTags: ev.skillTags,
   };
+}
+
+/** Wave E2 (ask 6): emit a stateChange event through the same effects
+ *  pipeline. 1-deep guarded — a stateChange handler that modifies more
+ *  states does not re-cascade (mirrors the _inProcOnTag pattern).
+ *  RNG-neutral when no authored rule listens for stateChange. */
+export function emitStateChange(
+  ctx: TalentProcContext,
+  stateId: string,
+  change: 'gain' | 'consume' | 'expire' | 'capReached',
+): void {
+  if (!ctx.effects?.length || ctx._inStateChange) return;
+  ctx._inStateChange = true;
+  dispatchEvent({ on: 'stateChange', stateId, change }, ctx.effects, ctx);
+  ctx._inStateChange = false;
 }
 
 /** Roll chance and dispatch action. chance is 0-100 (not 0-1). */
@@ -217,9 +260,24 @@ export function dispatchEvent(ev: TriggerEvent, effects: TalentEffect[], ctx: Ta
         condCtx ??= buildProcConditionCtx(ctx, ev);
         if (!evalCondition(rule.if, condCtx)) continue;
       }
+      // Wave E2 (ask 7): EffectRule.icdSec — minimum spacing between
+      // FIRES of the same authored rule. Keyed by the rule's own JSON
+      // (rules are small literals; cost only paid when icdSec is set),
+      // stored in state.lastProcTriggerAt so it is offline-idempotent.
+      // Checked before the chance roll — an icd-blocked rule consumes
+      // no RNG (rules without icdSec keep the exact legacy RNG shape).
+      let icdKey: string | null = null;
+      if (rule.icdSec && ctx.procTimestampsRef && ctx.now !== undefined) {
+        icdKey = `icd:${JSON.stringify(rule)}`;
+        const last = ctx.procTimestampsRef[icdKey];
+        if (last !== undefined && ctx.now >= last && ctx.now - last < rule.icdSec * 1000) continue;
+      }
       const c = rule.chance;
       const chance = c === undefined ? 100 : Array.isArray(c) ? c[0] : c;
       if (Math.random() * 100 >= chance) continue;
+      if (icdKey && ctx.procTimestampsRef && ctx.now !== undefined) {
+        ctx.procTimestampsRef[icdKey] = ctx.now;
+      }
       for (const action of rule.actions) executeAction(action, ctx);
     }
   }
@@ -341,7 +399,50 @@ export function executeAction(action: TalentAction, ctx: TalentProcContext): voi
         }
         return;
       }
-      return; // unknown stateId — Wave 3 wires the generic registry
+      // ── Wave E2 (ask 6): generic StateInstance runtime ──
+      // Any id registered in COMBO_STATE_SPECS operates on the live
+      // combo-state list via comboStatesRef; stateChange events emit
+      // for gain / consume / capReached (expire emits at the tick.ts
+      // maintenance site). Ids without a spec (bulwark_charge,
+      // frenzied) keep their dedicated runtimes and no-op here.
+      {
+        const ref = ctx.comboStatesRef;
+        if (!ref || !getComboStateSpec(action.stateId)) return;
+        const before = ref.states.find(s => s.stateId === action.stateId);
+        const beforeStacks = before?.stacks ?? 0;
+        const amount = action.amount ?? 1;
+        switch (action.op) {
+          case 'add': {
+            ref.states = createStateFromSpec(ref.states, action.stateId, '(effect)', undefined, 1, amount);
+            const after = ref.states.find(s => s.stateId === action.stateId);
+            const afterStacks = after?.stacks ?? 0;
+            if (afterStacks > beforeStacks) emitStateChange(ctx, action.stateId, 'gain');
+            if (after && afterStacks >= after.maxStacks && beforeStacks < after.maxStacks) {
+              emitStateChange(ctx, action.stateId, 'capReached');
+            }
+            break;
+          }
+          case 'remove': case 'consume': {
+            if (beforeStacks === 0) return;
+            ref.states = consumeStacks(ref.states, action.stateId, amount);
+            emitStateChange(ctx, action.stateId, 'consume');
+            break;
+          }
+          case 'clear': {
+            if (beforeStacks === 0) return;
+            ref.states = ref.states.filter(s => s.stateId !== action.stateId);
+            emitStateChange(ctx, action.stateId, 'consume');
+            break;
+          }
+          case 'extend': {
+            ref.states = ref.states.map(s => s.stateId === action.stateId
+              ? { ...s, remainingDuration: s.remainingDuration + (action.seconds ?? 0) }
+              : s);
+            break;
+          }
+        }
+        return;
+      }
     }
     case 'grantBuff': {
       if (!ctx.tempBuffsRef) return;

@@ -61,6 +61,7 @@ import {
   hasCompanionGrant,
   getCompanionInheritancePercent,
   collectUniqueEffects,
+  emitStateChange,
   type TalentProcContext,
 } from '../classTalentDispatcher';
 import { CLASS_INNATE_EFFECTS } from '../../data/classTrees/effects';
@@ -267,7 +268,33 @@ export function runCombatTick(
       talentEffects, mana: maintManaRef,
     });
     maintPatch = {};
-    if (maint.comboStates) maintPatch.comboStates = maint.comboStates;
+    if (maint.comboStates) {
+      // Wave E2 (ask 6): stateChange 'expire' — a state present before
+      // the maintenance tick and gone after it ran out. RNG-neutral
+      // while no authored rule listens for stateChange. Handlers may
+      // modify states (modifyState), so the ref is re-read after.
+      let maintCombo = maint.comboStates;
+      if (talentEffects.length > 0 && maintCombo.length < state.comboStates.length) {
+        const alive = new Set(maintCombo.map(s => s.stateId));
+        const expireRef = { states: maintCombo };
+        for (const cs of state.comboStates) {
+          if (!alive.has(cs.stateId)) {
+            emitStateChange({
+              targetDebuffs,
+              life: { value: state.currentHp, max: maintStats.maxLife },
+              sourceSkillId: cs.sourceSkillId,
+              effects: talentEffects,
+              mana: maintManaRef,
+              comboStatesRef: expireRef,
+              procTimestampsRef: state.lastProcTriggerAt,
+              now,
+            }, cs.stateId, 'expire');
+          }
+        }
+        maintCombo = expireRef.states;
+      }
+      maintPatch.comboStates = maintCombo;
+    }
     if (maint.activeTraps) maintPatch.activeTraps = maint.activeTraps;
     if (maint.bladeWardExpiresAt !== undefined) maintPatch.bladeWardExpiresAt = maint.bladeWardExpiresAt;
     if (maint.bladeWardHits !== undefined) maintPatch.bladeWardHits = maint.bladeWardHits;
@@ -750,7 +777,7 @@ export function runCombatTick(
     const talentConditional = applyConditionalTalentEffects(
       talentEffects, effectiveStats, targetDebuffs, selfHpFraction, targetHpFraction, companionAlive,
       state.critStacks, totalResonance, offhandAbsent, enemyCount, state.frenziedActive, minionCount,
-      skill.id,
+      skill.id, state.comboStates,
     );
     damageMult *= talentConditional.damageMult;
     // Phase F F5b (2026-05-06): Precision Payoff — a hit on a Marked
@@ -833,6 +860,27 @@ export function runCombatTick(
     });
     if (pr.activeMinions) newActiveMinions = pr.activeMinions;
     newComboStates = pr.comboStates;
+    // Wave E2 (ask 6): stateChange 'consume' — spender consumption from
+    // the preRoll fold. RNG-neutral while no authored rule listens.
+    if (talentEffects.length > 0 && pr.consumedStateIds.length > 0) {
+      const consumeRef = { states: newComboStates };
+      const cMana = { current: state.character.mana.current, max: state.character.mana.max };
+      const cCtx: TalentProcContext = {
+        targetDebuffs,
+        life: { value: state.currentHp, max: effectiveMaxLife },
+        sourceSkillId: skill.id,
+        effects: talentEffects,
+        mana: cMana,
+        comboStatesRef: consumeRef,
+        procTimestampsRef: state.lastProcTriggerAt,
+        now,
+      };
+      for (const sid of pr.consumedStateIds) emitStateChange(cCtx, sid, 'consume');
+      newComboStates = consumeRef.states;
+      if (cMana.current !== state.character.mana.current) {
+        state.character.mana.current = cMana.current;
+      }
+    }
     damageMult *= pr.damageMult;
     effectiveStats.critChance += pr.critChanceBonus;
     effectiveStats.critMultiplier += pr.critMultiplierBonus;
@@ -1108,6 +1156,12 @@ export function runCombatTick(
       // Phase F (2026-05-06): bonusDamage action accumulator — read
       // back into procDamage after dispatch.
       bonusDamageRef: { value: 0, baseDamage: roll.damage },
+      // Wave E2 (ask 6): generic modifyState operates on the live
+      // combo-state list; conditions see stateCounts/targetStates.
+      comboStatesRef: { states: newComboStates },
+      // Wave E2 (ask 7): EffectRule.icdSec fire-stamps (persisted).
+      procTimestampsRef: state.lastProcTriggerAt,
+      now,
     };
     dispatchProcOnHit(castEffects, procCtx);
     if (procCtx.bonusDamageRef) {
@@ -1179,6 +1233,10 @@ export function runCombatTick(
     // Read back temp-buff mutations from grantBuff action.
     if (procCtx.tempBuffsRef) {
       activeTempBuffs = procCtx.tempBuffsRef;
+    }
+    // Wave E2: read back generic modifyState mutations.
+    if (procCtx.comboStatesRef) {
+      newComboStates = procCtx.comboStatesRef.states;
     }
   }
 
@@ -1410,7 +1468,42 @@ export function runCombatTick(
       activeMinions: newActiveMinions,
       ailmentSnapshot,
     });
-    newComboStates = pc.comboStates;
+    // Wave E2 (ask 6): stateChange gain/capReached from COMBO-LAYER
+    // creations (builder casts) — diff per-stateId stacks pre/post.
+    // RNG-neutral while no authored rule listens; handlers may modify
+    // states so the ref is re-read after. (E5 Overflow's prerequisite.)
+    if (talentEffects.length > 0) {
+      const preStacks = new Map(newComboStates.map(s => [s.stateId, s.stacks]));
+      const gained = pc.comboStates.filter(s => (preStacks.get(s.stateId) ?? 0) < s.stacks);
+      if (gained.length > 0) {
+        const gainRef = { states: pc.comboStates };
+        const gainMana = { current: state.character.mana.current, max: state.character.mana.max };
+        const gainCtx: TalentProcContext = {
+          targetDebuffs: newDebuffs,
+          life: { value: state.currentHp, max: effectiveMaxLife },
+          sourceSkillId: skill.id,
+          effects: talentEffects,
+          mana: gainMana,
+          comboStatesRef: gainRef,
+          procTimestampsRef: state.lastProcTriggerAt,
+          now,
+        };
+        for (const s of gained) {
+          emitStateChange(gainCtx, s.stateId, 'gain');
+          if (s.stacks >= s.maxStacks && (preStacks.get(s.stateId) ?? 0) < s.maxStacks) {
+            emitStateChange(gainCtx, s.stateId, 'capReached');
+          }
+        }
+        newComboStates = gainRef.states;
+        if (gainMana.current !== state.character.mana.current) {
+          state.character.mana.current = gainMana.current;
+        }
+      } else {
+        newComboStates = pc.comboStates;
+      }
+    } else {
+      newComboStates = pc.comboStates;
+    }
     newBladeWardExpiresAt = pc.bladeWardExpiresAt;
     newBladeWardHits = pc.bladeWardHits;
     newActiveTraps = pc.activeTraps;

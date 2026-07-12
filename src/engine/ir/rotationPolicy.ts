@@ -19,6 +19,7 @@ import type {
 } from '../../types';
 import type { RotationPolicy, RotationRule } from '../../types/rotation';
 import { evalCondition, type ConditionContext } from './conditions';
+import { getComboStateSpec } from '../../data/comboStates';
 import { getUnifiedSkillDef } from '../../data/skills';
 import { getSkillGraphModifier } from '../skills/resolution';
 import { canAffordManaCost } from '../combat/manaTick';
@@ -129,8 +130,15 @@ export function buildRotationCond(
     resonance_charge: state.resonanceCharges.fire + state.resonanceCharges.cold
       + state.resonanceCharges.lightning + state.resonanceCharges.chaos,
   };
+  // Wave E2 (ask 8): target-side combo states (per spec) populate
+  // targetStates — the targetHasState leaf is live for gambits now
+  // (E13's "declared DEAD" clause is discharged).
+  let targetStates: { defId: string; stacks: number; appliedBySkillId?: string }[] | undefined;
   for (const cs of state.comboStates) {
     stateCounts[cs.stateId] = (stateCounts[cs.stateId] ?? 0) + cs.stacks;
+    if (getComboStateSpec(cs.stateId)?.side === 'target') {
+      (targetStates ??= []).push({ defId: cs.stateId, stacks: cs.stacks, appliedBySkillId: cs.sourceSkillId });
+    }
   }
   const readySkillIds = new Set<string>();
   for (const eq of state.skillBar ?? []) {
@@ -149,6 +157,7 @@ export function buildRotationCond(
     enemyCount: phase === 'boss_fight' ? 1 : state.packMobs.length,
     minionCount: (state.activeMinions ?? []).filter(m => m.hp > 0).length,
     stateCounts,
+    targetStates,
     activeStates: state.frenziedActive ? new Set(['frenzied']) : EMPTY_SET,
     manaPct: state.character.mana.max > 0
       ? (100 * state.character.mana.current) / state.character.mana.max

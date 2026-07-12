@@ -314,6 +314,16 @@ export function consumeComboState(
   };
 }
 
+/** Partial consume (Wave E2, ask 4e — Dashweaver / generic modifyState):
+ *  remove up to `n` stacks from a state, dropping it at 0. */
+export function consumeStacks(states: ComboState[], stateId: string, n: number): ComboState[] {
+  return states.flatMap(s => {
+    if (s.stateId !== stateId) return [s];
+    const left = s.stacks - n;
+    return left > 0 ? [{ ...s, stacks: left }] : [];
+  });
+}
+
 /** Consume multiple combo states at once. Returns all consumed states and remaining. */
 export function consumeMultipleComboStates(
   states: ComboState[],

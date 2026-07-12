@@ -19,7 +19,7 @@
 
 import type {
   CharacterClass, Character, TalentEffect, TalentTag,
-  ActiveDebuff, ResolvedStats, TempBuff,
+  ActiveDebuff, ResolvedStats, TempBuff, ComboState,
 } from '../types';
 import { getNodeEffects } from '../data/classTrees';
 import { getAscendancyNodeEffects } from '../data/ascendancies';
@@ -37,7 +37,7 @@ import { dispatchEvent, type TalentProcContext } from './ir/dispatch';
 export { TALENT_TAG_TO_DEBUFF, evalCondition, type ConditionContext };
 export {
   dispatchEvent, matchTrigger, executeAction, rollAndFire,
-  buildProcConditionCtx, TALENT_BUFF_REGISTRY,
+  buildProcConditionCtx, emitStateChange, TALENT_BUFF_REGISTRY,
   type TalentProcContext, type TriggerEvent,
 } from './ir/dispatch';
 
@@ -285,6 +285,7 @@ export function applyConditionalTalentEffects(
   frenziedActive: boolean = false,
   minionCount: number = 0,
   castSkillId?: string,
+  comboStates?: readonly ComboState[],
 ): { damageMult: number } {
   let damageMult = 1;
 
@@ -300,7 +301,15 @@ export function applyConditionalTalentEffects(
     offhandAbsent,
     enemyCount,
     minionCount,
-    stateCounts: { crit_stack: critStacks, resonance_charge: resonanceCharges },
+    stateCounts: (() => {
+      // Wave E2 (ask 8): combo states visible to mod-fold conditions —
+      // same stacks-per-id fold buildRotationCond gives gambits.
+      const counts: Record<string, number> = { crit_stack: critStacks, resonance_charge: resonanceCharges };
+      if (comboStates) {
+        for (const cs of comboStates) counts[cs.stateId] = (counts[cs.stateId] ?? 0) + cs.stacks;
+      }
+      return counts;
+    })(),
     activeStates: frenziedActive ? FRENZIED_ACTIVE_SET : NO_ACTIVE_STATES,
   };
   /** while*-family apply body: delta adds, damageMult multiplies, other
