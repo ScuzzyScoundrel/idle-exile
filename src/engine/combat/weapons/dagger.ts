@@ -489,9 +489,15 @@ export const daggerModule: WeaponModule = {
           const trapProcCtx: TalentProcContext = {
             targetDebuffs: ctx.targetDebuffs,
             life: { value: ctx.state.currentHp, max: ctx.effectiveMaxLife },
-            sourceSkillId: 'dagger_blade_trap',
+            sourceSkillId: detonated.sourceSkillId,
             bonusDamageRef: { value: 0, baseDamage: detDmg },
             mana: ctx.mana,
+            // applyTagAll (snare_cascade) broadcasts to every enemy in the
+            // encounter; procOnTag cascades need the effects self-reference.
+            effects: trapTalentEffects,
+            broadcastDebuffLists: ctx.isBossPhase
+              ? [ctx.targetDebuffs]
+              : ctx.state.packMobs.map(m => m.debuffs),
           };
           dispatchProcOnTrapDetonate(trapTalentEffects, trapProcCtx);
           if (trapsBefore > 1) dispatchProcOnTrapChain(trapTalentEffects, trapProcCtx);

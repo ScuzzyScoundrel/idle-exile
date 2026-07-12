@@ -1797,6 +1797,9 @@ export function runCombatTick(
             bladeWardHits: newBladeWardHits, activeTraps: newActiveTraps,
             activeMinions: newActiveMinions,
             comboCounterDamageMult, isBossPhase: true,
+            // Trap-detonation talent procs (procOnTrapDetonate/Chain) fire
+            // inside this hook — without these two fields they can never run.
+            talentEffects, mana: maintManaRef,
           });
           cappedBossDmg *= bossWardResult.wardDamageMult;
           if (bossWardResult.activeMinions) newActiveMinions = bossWardResult.activeMinions;
@@ -1811,6 +1814,11 @@ export function runCombatTick(
           procHeal += bossWardResult.healAmount;
           for (const buff of bossWardResult.newTempBuffs) {
             activeTempBuffs = [...activeTempBuffs, { ...buff, expiresAt: now + buff.duration * 1000, sourceSkillId: skill.id }];
+          }
+          // Write back trap-proc mana refunds (trappers_tempo) so the
+          // final patch's tickManaWithCost sees them.
+          if (maintManaRef.current !== state.character.mana.current) {
+            state.character.mana.current = maintManaRef.current;
           }
         }
         // Phase F: Bulwark consume happens BEFORE damage subtraction
@@ -1904,6 +1912,7 @@ export function runCombatTick(
           bladeWardHits: newBladeWardHits, activeTraps: newActiveTraps,
           activeMinions: newActiveMinions,
           comboCounterDamageMult, isBossPhase: phase === 'boss_fight',
+          talentEffects, mana: maintManaRef,
         });
         newComboStates = spatialResult.comboStates;
         newBladeWardHits = spatialResult.bladeWardHits;
@@ -1915,8 +1924,23 @@ export function runCombatTick(
           totalDamage += spatialResult.counterDamage;
           weaponCounterDmg += spatialResult.counterDamage;
         }
+        // Spatial dodges/blocks still detonate armed traps — apply the
+        // detonation damage and buffs instead of discarding them.
+        if (spatialResult.trapDamage > 0) {
+          if (phase === 'boss_fight') { newBossHp -= spatialResult.trapDamage; }
+          else if (state.packMobs.length > 0) { state.packMobs[0].hp -= spatialResult.trapDamage; }
+          totalDamage += spatialResult.trapDamage;
+          weaponTrapDmg += spatialResult.trapDamage;
+        }
+        for (const buff of spatialResult.newTempBuffs) {
+          activeTempBuffs = [...activeTempBuffs, { ...buff, expiresAt: now + buff.duration * 1000, sourceSkillId: skill.id }];
+        }
         if (isSpatialDodge) newLastDodgeAt = now;
         else newLastBlockAt = now;
+      }
+      // Write back trap-proc mana refunds from spatial detonations.
+      if (maintManaRef.current !== state.character.mana.current) {
+        state.character.mana.current = maintManaRef.current;
       }
       // Evaluate defensive procs for spatial dodges
       if (graphMod?.skillProcs?.length) {
@@ -2017,8 +2041,36 @@ export function runCombatTick(
       cooldownResets: procCooldownResets.length > 0 ? procCooldownResets : undefined,
     };
 
+    // Per-class event-proc mana gains (hoisted above the outcome
+    // early-returns so the killing blow still pays cost + earns gains).
+    const bossManaCfg = CLASS_MANA_CONFIG[state.character.class];
+
     // Check outcomes
     if (newBossHp <= 0) {
+      // Class-talent procOnKill dispatch — boss kills count as kills.
+      // Minimal ctx: minions/tempBuffs are cleared or moot after victory.
+      if (talentEffects.length > 0) {
+        const bossKillManaRef = { current: state.character.mana.current, max: state.character.mana.max };
+        const bossKillCtx: TalentProcContext = {
+          targetDebuffs: newDebuffs,
+          life: { value: playerHp, max: effectiveMaxLife },
+          sourceSkillId: skill.id,
+          broadcastDebuffLists: [newDebuffs],
+          skillTimers: state.skillTimers,
+          mana: bossKillManaRef,
+          effects: talentEffects,
+        };
+        dispatchProcOnKill(talentEffects, bossKillCtx);
+        playerHp = bossKillCtx.life.value;
+        if (bossKillManaRef.current !== state.character.mana.current) {
+          state.character.mana.current = bossKillManaRef.current;
+        }
+      }
+      const victoryProcGain =
+        (roll.isHit ? bossManaCfg.onHitDealtGain : 0)
+        + (roll.isCrit ? bossManaCfg.onCritGain : 0)
+        + bossManaCfg.onKillGain
+        + ((bossAttackResult && bossAttackResult.damage > 0) ? bossManaCfg.onHitTakenGain : 0);
       return {
         patch: {
           ...trackingBoss,
@@ -2030,6 +2082,10 @@ export function runCombatTick(
           activeDebuffs: [], // Clear debuffs on boss death
           tempBuffs: [], // Clear temp buffs on boss death
           skillCharges: newSkillCharges,
+          character: {
+            ...state.character,
+            mana: tickManaWithCost(state.character.mana, dtSec, skillManaCost, victoryProcGain),
+          },
         },
         result: { ...bossResult, bossOutcome: 'victory' },
       };
@@ -2052,9 +2108,8 @@ export function runCombatTick(
     }
 
     // Phase A cleanup (2026-05-03): per-class event-proc mana gains
-    // (onHit/onCrit/onHitTaken). Boss path; onKill is paid in the
-    // bossOutcome:'defeat' early-return branch above (encounter ends, so moot).
-    const bossManaCfg = CLASS_MANA_CONFIG[state.character.class];
+    // (onHit/onCrit/onHitTaken). Boss ongoing path; onKillGain is paid in
+    // the bossOutcome:'victory' early-return branch above.
     const bossProcGain =
       (roll.isHit ? bossManaCfg.onHitDealtGain : 0)
       + (roll.isCrit ? bossManaCfg.onCritGain : 0)
@@ -2362,6 +2417,52 @@ export function runCombatTick(
     mobKills++;
     newKillStreak++;
 
+    // Class-talent procOnKill dispatch (front-mob path). Mirrors the
+    // splash-kill dispatch below — without this, single-target kills
+    // (the dominant kill path) never fire kill procs.
+    if (talentEffects.length > 0) {
+      const killTag = skill.tags.find(t =>
+        t === 'Physical' || t === 'Fire' || t === 'Cold' || t === 'Lightning' || t === 'Chaos'
+        || t === 'Attack' || t === 'Spell'
+      );
+      const killManaRef = { current: state.character.mana.current, max: state.character.mana.max };
+      const killMinionsRef = {
+        list: newActiveMinions,
+        playerMaxLife: effectiveMaxLife,
+        playerSpellPower: effectiveStats.spellPower ?? 0,
+        now,
+      };
+      const killProcCtx: TalentProcContext = {
+        targetDebuffs: updatedPackMobs[0].debuffs,
+        life: { value: playerHp, max: effectiveMaxLife },
+        sourceSkillId: skill.id,
+        hitDamageTag: killTag,
+        broadcastDebuffLists: updatedPackMobs.map(m => m.debuffs),
+        skillTimers: state.skillTimers,
+        mana: killManaRef,
+        minionsRef: killMinionsRef,
+        critStacksRef: { value: state.critStacks, max: 5, expiresAt: state.critStacksExpiresAt },
+        resonanceRef: { charges: { ...state.resonanceCharges }, expiresAt: state.resonanceExpiresAt },
+        tempBuffsRef: [...activeTempBuffs],
+        effects: talentEffects,
+      };
+      dispatchProcOnKill(talentEffects, killProcCtx);
+      playerHp = killProcCtx.life.value;
+      if (killManaRef.current !== state.character.mana.current) {
+        state.character.mana.current = killManaRef.current;
+      }
+      newActiveMinions = killMinionsRef.list;
+      if (killProcCtx.critStacksRef) {
+        state.critStacks = killProcCtx.critStacksRef.value;
+        state.critStacksExpiresAt = killProcCtx.critStacksRef.expiresAt;
+      }
+      if (killProcCtx.resonanceRef) {
+        state.resonanceCharges = killProcCtx.resonanceRef.charges;
+        state.resonanceExpiresAt = killProcCtx.resonanceRef.expiresAt;
+      }
+      if (killProcCtx.tempBuffsRef) activeTempBuffs = killProcCtx.tempBuffsRef;
+    }
+
     // Life on kill (graph + gear)
     {
       const totalLifeOnKill = (graphMod?.lifeOnKill ?? 0) + (effectiveStats.lifeOnKill ?? 0);
@@ -2573,7 +2674,9 @@ export function runCombatTick(
       );
       // Phase F F1b (2026-05-05): same broadcast / cooldown / mana refs
       // as hit/crit ctx — kill procs can also broadcast tags and refund.
-      const killBroadcast = state.packMobs.map(m => m.debuffs);
+      // Broadcast targets the LIVE mob copies (updatedPackMobs) — the
+      // state.packMobs debuff arrays are stale copies discarded by the patch.
+      const killBroadcast = updatedPackMobs.map(m => m.debuffs);
       const killManaRef = { current: state.character.mana.current, max: state.character.mana.max };
       const killMinionsRef = {
         list: newActiveMinions,
@@ -2590,6 +2693,10 @@ export function runCombatTick(
         skillTimers: state.skillTimers,
         mana: killManaRef,
         minionsRef: killMinionsRef,
+        critStacksRef: { value: state.critStacks, max: 5, expiresAt: state.critStacksExpiresAt },
+        resonanceRef: { charges: { ...state.resonanceCharges }, expiresAt: state.resonanceExpiresAt },
+        tempBuffsRef: [...activeTempBuffs],
+        effects: talentEffects,
       };
       dispatchProcOnKill(talentEffects, killProcCtx);
       playerHp = killProcCtx.life.value;
@@ -2597,6 +2704,15 @@ export function runCombatTick(
         state.character.mana.current = killManaRef.current;
       }
       newActiveMinions = killMinionsRef.list;
+      if (killProcCtx.critStacksRef) {
+        state.critStacks = killProcCtx.critStacksRef.value;
+        state.critStacksExpiresAt = killProcCtx.critStacksRef.expiresAt;
+      }
+      if (killProcCtx.resonanceRef) {
+        state.resonanceCharges = killProcCtx.resonanceRef.charges;
+        state.resonanceExpiresAt = killProcCtx.resonanceRef.expiresAt;
+      }
+      if (killProcCtx.tempBuffsRef) activeTempBuffs = killProcCtx.tempBuffsRef;
     }
     {
       const totalLifeOnKill = (graphMod?.lifeOnKill ?? 0) + (effectiveStats.lifeOnKill ?? 0);
@@ -2796,6 +2912,7 @@ export function runCombatTick(
           bladeWardExpiresAt: newBladeWardExpiresAt, bladeWardHits: newBladeWardHits,
           activeTraps: newActiveTraps, activeMinions: newActiveMinions,
           comboCounterDamageMult, isBossPhase: false,
+          talentEffects, mana: maintManaRef,
         });
         clearZoneDmg *= clearWpn.wardDamageMult;
         if (clearWpn.activeMinions) newActiveMinions = clearWpn.activeMinions;
@@ -2819,6 +2936,10 @@ export function runCombatTick(
           for (const buff of clearWpn.newTempBuffs) {
             activeTempBuffs = [...activeTempBuffs, { ...buff, expiresAt: now + buff.duration * 1000, sourceSkillId: skill.id }];
           }
+        // Write back trap-proc mana refunds (trappers_tempo).
+        if (maintManaRef.current !== state.character.mana.current) {
+          state.character.mana.current = maintManaRef.current;
+        }
       }
       if (newCurrentEs > 0 && clearZoneDmg > 0) {
         const esAbs = Math.min(newCurrentEs, clearZoneDmg);
@@ -2859,6 +2980,7 @@ export function runCombatTick(
         bladeWardHits: newBladeWardHits, activeTraps: newActiveTraps,
         activeMinions: newActiveMinions,
         comboCounterDamageMult, isBossPhase: false,
+        talentEffects, mana: maintManaRef,
       });
       newComboStates = spatialResult.comboStates;
       newBladeWardHits = spatialResult.bladeWardHits;
@@ -2869,8 +2991,25 @@ export function runCombatTick(
         totalDamage += spatialResult.counterDamage;
         weaponCounterDmg += spatialResult.counterDamage;
       }
+      // Spatial dodges/blocks still detonate armed traps — AoE the
+      // detonation across the pack (same rule as the main clearing site).
+      if (spatialResult.trapDamage > 0) {
+        for (const pm of updatedPackMobs) {
+          const pmDR = pm.rare?.combinedDamageTakenMult ?? 1;
+          pm.hp -= spatialResult.trapDamage * pmDR;
+        }
+        totalDamage += spatialResult.trapDamage * updatedPackMobs.length;
+        weaponTrapDmg += spatialResult.trapDamage;
+      }
+      for (const buff of spatialResult.newTempBuffs) {
+        activeTempBuffs = [...activeTempBuffs, { ...buff, expiresAt: now + buff.duration * 1000, sourceSkillId: skill.id }];
+      }
       if (isSpatialDodge) newLastDodgeAt = now;
       else newLastBlockAt = now;
+    }
+    // Write back trap-proc mana refunds from spatial detonations.
+    if (maintManaRef.current !== state.character.mana.current) {
+      state.character.mana.current = maintManaRef.current;
     }
     if (graphMod?.skillProcs?.length) {
       for (let si = 0; si < spatialCount; si++) {

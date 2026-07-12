@@ -1166,6 +1166,13 @@ export const useGameStore = create<GameState & GameActions>()(
             combatPhaseStartedAt: null,
             currentHp: Math.min(stats.maxLife, healedHp),
             currentEs: stats.energyShield,
+            // Mana refills like HP/ES — matches the startIdleRun zone-enter
+            // refill; without this a drained event-economy class (Berserker)
+            // respawns at 0 mana and can re-enter its skill deadlock.
+            character: {
+              ...state.character,
+              mana: { ...state.character.mana, current: state.character.mana.max },
+            },
             currentMobTypeId: recoveryMobId,
             nextActiveSkillAt: recoveryNow,
             packMobs: recoveryPack,

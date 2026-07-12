@@ -50,8 +50,9 @@ interface CombatTickOutput {
 
 /** Is a channel currently active (pauses autos)? */
 function channelIsActive(state: GameState, now: number): boolean {
+  // Loose != guards against undefined from pre-channel saves/harness states.
   const ch = state.channelState;
-  return ch !== null && now < ch.expiresAt;
+  return ch != null && now < ch.expiresAt;
 }
 
 /** Get the equipped mainhand weapon type, or null if unarmed / no mainhand. */
