@@ -17,7 +17,16 @@ export const UNIQUE_ITEM_DEFS: UniqueItemDef[] = [
     uniqueAffix: {
       slot: 'prefix',
       displayText: 'Poisons apply 2 instances at 50% damage each',
-      stats: { doublePoisonHalfDamage: 1 },
+      // Effect IR Wave 3c: first RULES-registry unique. NOTE: the old
+      // doublePoisonHalfDamage stat path only ran inside graphMod-gated
+      // branches — dead since the resolver was stubbed (a80fbe3f), so
+      // this unique did NOTHING in live play. The rule now threads into
+      // the live Phase A ailment roll (tick.ts), which is a fix, not
+      // just a port.
+      stats: {},
+      effects: [
+        { kind: 'rule', rule: 'poison.splitInstances' },
+      ],
     },
     craftCost: {
       trophyId: 'trophy_matriarch',

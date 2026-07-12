@@ -102,6 +102,7 @@ import { ZONE_DEFS } from '../../data/zones';
 import { getClassDef } from '../../data/classes';
 import { getDebuffDef } from '../../data/debuffs';
 import { STATE_DEFS } from '../../data/states';
+import { collectActiveRules } from '../../data/rules';
 import { getUnifiedSkillDef } from '../../data/skills';
 import { getMobTypeDef } from '../../data/mobTypes';
 import { pickCurrentMob } from '../zones/helpers';
@@ -192,6 +193,9 @@ export function runCombatTick(
     // through the same pipeline as talents/ascendancies.
     ...collectUniqueEffects(state.character),
   ];
+  // Effect IR Wave 3c (D15): engine rules active this tick (from any
+  // effect source). Consulted at the sites named in each RuleDef.
+  const activeRules = collectActiveRules(talentEffects);
 
   // Phase F F5a (2026-05-06): Crit Cascade — reset stacks if the
   // expiry window has elapsed without a fresh crit. Stacks accumulate
@@ -1020,7 +1024,7 @@ export function runCombatTick(
         if (effectiveStats.ailmentDuration > 0) {
           duration *= (1 + effectiveStats.ailmentDuration / 100);
         }
-        const isDoublePoisonHalf = effectiveStats.doublePoisonHalfDamage > 0 && debuffInfo.debuffId === 'poison';
+        const isDoublePoisonHalf = activeRules.has('poison.splitInstances') && debuffInfo.debuffId === 'poison';
         applyDebuffToList(newDebuffs, debuffInfo.debuffId, 1, duration, skill.id, ailmentSnapshot, isDoublePoisonHalf);
       }
     }
@@ -1155,7 +1159,7 @@ export function runCombatTick(
     if (effectiveStats.ailmentDuration > 0) {
       duration *= (1 + effectiveStats.ailmentDuration / 100);
     }
-    const isDoublePoisonHalfCrit = effectiveStats.doublePoisonHalfDamage > 0 && doc.debuffId === 'poison';
+    const isDoublePoisonHalfCrit = activeRules.has('poison.splitInstances') && doc.debuffId === 'poison';
     applyDebuffToList(newDebuffs, doc.debuffId, doc.stacks, duration, skill.id, ailmentSnapshot, isDoublePoisonHalfCrit);
   }
 
@@ -1237,7 +1241,11 @@ export function runCombatTick(
           const chance = chances[key];
           if (chance > 0 && Math.random() * 100 < chance) {
             const debuffId = AILMENT_TO_DEBUFF[key];
-            applyDebuffToList(newDebuffs, debuffId, 1, ailmentDur, skill.id, finalSnapshot);
+            // Effect IR Wave 3c: poison.splitInstances rule (Adder's
+            // Fang) — 2x instances at 50% snapshot each, on the LIVE
+            // ailment path (the old stat-flag sites were graphMod-dead).
+            const splitPoison = key === 'poison' && activeRules.has('poison.splitInstances');
+            applyDebuffToList(newDebuffs, debuffId, 1, ailmentDur, skill.id, finalSnapshot, splitPoison);
             const applied = newDebuffs.find(d => d.debuffId === debuffId);
             if (applied) castAilments.push({ ...applied });
           }

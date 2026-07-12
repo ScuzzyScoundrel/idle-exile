@@ -49,6 +49,7 @@ import { BASE_STATS } from '../src/data/balance';
 import { ASCENDANCY_NODE_EFFECTS } from '../src/data/ascendancies/effects';
 import { DEBUFF_DEFS } from '../src/data/debuffs';
 import { STATE_IDS } from '../src/data/states';
+import { RULE_IDS } from '../src/data/rules';
 import { SUMMON_CONFIGS } from '../src/engine/combat/minions';
 import { TALENT_TAG_TO_DEBUFF, TALENT_BUFF_REGISTRY } from '../src/engine/classTalentDispatcher';
 import { getUnifiedSkillDef } from '../src/data/skills';
@@ -617,7 +618,10 @@ function closureCheckEffect(eff: TalentEffect, issues: string[], pending: string
       if (eff.mod.if) closureCheckCondition(eff.mod.if, issues, pending);
       if (eff.mod.per && eff.mod.per.count === 'stateStacks') closureCheckState(eff.mod.per.stateId, issues);
       break;
-    default: break; // 'rule' (registry lands later in Wave 3), presence kinds
+    case 'rule':
+      if (!RULE_IDS.has(eff.rule)) issues.push(`unknown rule '${eff.rule}'`);
+      break;
+    default: break; // presence kinds (grantPandemic etc.) — no ids to close
   }
 }
 function passClosure() {

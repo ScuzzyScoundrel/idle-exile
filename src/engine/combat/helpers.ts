@@ -55,7 +55,9 @@ export function applyDebuffToList(
       };
     } else {
       debuffs.push({
-        debuffId, stacks, remainingDuration: duration,
+        // stacks = instances.length (matches the merge path above) —
+        // with split-instance rules the input `stacks` undercounts.
+        debuffId, stacks: newInstances.length, remainingDuration: duration,
         appliedBySkillId: skillId,
         stackSnapshots: newInstances.map(i => i.snapshot),
         instances: newInstances,
