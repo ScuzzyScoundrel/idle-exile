@@ -90,6 +90,91 @@ export type TalentTag =
   // semantics: enemy action-speed slow (not movement lock).
   | 'snare';
 
+// ============================================================
+// Effect IR (Phase 2 Wave 2, EFFECT_IR_DESIGN.md D1-D8)
+// Three new kinds — 'on' (trigger×condition×actions), 'mod' (scoped
+// stat modifier), 'rule' (registry-keyed engine rule) — evolve this
+// union in place. All legacy kinds below remain valid forever as
+// authoring sugar; normalizeTalentEffect (engine/ir/normalize.ts)
+// lowers them onto the IR.
+// ============================================================
+
+import type { Condition } from './conditions';
+
+/** Rank-scalable value: scalar scales like scaleTalentEffectByRank
+ *  (add/chance: v*rank; mult: 1+(v-1)*rank); array indexes
+ *  value[min(rank,len)-1] for non-linear curves (D7). */
+export type Value = number | number[];
+
+/** Who/what produced the event (defaults to 'self' when omitted). */
+export type ActorSel = 'self' | 'minion' | 'companion' | 'trap';
+
+/** Structured trigger union (D3) — payload filters, not flat event-id
+ *  strings. `interval` is schema-reserved: NO v1 engine support. */
+export type Trigger =
+  | { on: 'hit'; source?: ActorSel; minionType?: string }
+  | { on: 'crit'; source?: ActorSel; minionType?: string }
+  | { on: 'kill'; source?: ActorSel; chained?: boolean }
+  | { on: 'cast'; skillId?: string; skillTag?: DamageTag }
+  | { on: 'hitTaken'; critTaken?: boolean; blocked?: boolean }
+  | { on: 'dodge' }
+  | { on: 'block' }
+  | { on: 'dotTick'; debuffId?: string; crit?: boolean }
+  | { on: 'tagApplied'; tag?: TalentTag }
+  | { on: 'stateChange'; stateId: string; change: 'gain' | 'consume' | 'expire' | 'capReached'; key?: string }
+  | { on: 'minionEvent'; event: 'death' | 'summon'; minionType?: string; source?: 'minion' | 'companion' }
+  | { on: 'trapEvent'; event: 'place' | 'arm' | 'detonate' | 'chain' }
+  | { on: 'targetDeath'; withState?: string }
+  | { on: 'lethalHit' }
+  | { on: 'encounterStart' }
+  | { on: 'interval'; sec: number };
+
+/** Trigger × condition × actions (D2). Reuses the TalentAction union. */
+export interface EffectRule {
+  trigger: Trigger;
+  if?: Condition;
+  /** 0-100; default 100. Rank-scales like proc chance. */
+  chance?: Value;
+  /** Internal cooldown between fires (formalizes ICD precedent). */
+  icdSec?: number;
+  limit?: { per: 'cast' | 'encounter'; count: number };
+  actions: TalentAction[];
+}
+
+/** Damage-bucket / tag / skill scoping for stat modifiers (D5) — the
+ *  root-cause fix for the documented effects.ts mis-approximations.
+ *  Wave 2 implements slice A (skillId/skillTag/vsTag/vsState/stateId)
+ *  + damageBucket:'dot'; element and full hit-bucket folds are v2 (D6). */
+export interface ModScope {
+  damageBucket?: 'hit' | 'dot' | 'minion' | 'trap' | 'counter';
+  element?: DamageType;
+  skillTag?: DamageTag;
+  skillId?: string;
+  vsTag?: TalentTag;
+  vsState?: string;
+  stateId?: string;
+}
+
+/** Counter source for per-X scaling mods (D5) — subsumes the legacy
+ *  per* kinds. */
+export type PerCounter =
+  | { count: 'stateStacks'; stateId: string; side?: 'self' | 'target'; key?: string }
+  | { count: 'enemies' }
+  | { count: 'minions'; minionType?: string }
+  | { count: 'missingLifePercent' };
+
+/** Scoped stat modifier (D5). op 'gainAs' = gain value% of the scoped
+ *  amount as `stat` (e.g. 8% of hit added as chaos). */
+export interface ScopedMod {
+  stat: string;
+  op: 'add' | 'mult' | 'gainAs';
+  value: Value;
+  scope?: ModScope;
+  if?: Condition;
+  per?: PerCounter;
+  cap?: number;
+}
+
 export type TalentEffect =
   /** Flat stat add (e.g. +10% crit chance). */
   | { kind: 'stat'; stat: string; delta: number }
@@ -278,7 +363,16 @@ export type TalentEffect =
   | { kind: 'perStack'; stack: string; stat: string; perStackDelta: number; cap?: number }
   /** Adds a damage tag to skills matching a source tag
    *  (e.g. all 'Curse' skills gain 'DoT' tag). */
-  | { kind: 'grantTagOnSkill'; skillTag: DamageTag; addTag: DamageTag };
+  | { kind: 'grantTagOnSkill'; skillTag: DamageTag; addTag: DamageTag }
+  // ── Effect IR kinds (Phase 2 Wave 2, D1) — the canonical forms all
+  //    legacy kinds above normalize onto ──
+  /** Trigger × condition × actions. */
+  | { kind: 'on'; on: EffectRule }
+  /** Scoped stat modifier. */
+  | { kind: 'mod'; mod: ScopedMod }
+  /** Registry-keyed engine rule with params (RULES registry, Wave 3).
+   *  Covers boolean rule-changers and mechanic-param overrides. */
+  | { kind: 'rule'; rule: string; params?: Record<string, number> };
 
 export type TalentAction =
   /** Summon a minion (temporary or permanent). */
@@ -323,7 +417,25 @@ export type TalentAction =
    *  on hit-to-marked"). Only fires when caller exposes
    *  bonusDamageRef on the proc context (procOnHit / procOnCrit
    *  paths). */
-  | { kind: 'bonusDamage'; percent: number };
+  | { kind: 'bonusDamage'; percent: number }
+  // ── Effect IR actions (Phase 2 Wave 2, D8) ──
+  /** Generic state mutation — subsumes addCritStack / addResonanceCharge
+   *  (now aliases). Wave 2 backs 'crit_stack' / 'resonance_charge' via
+   *  the existing refs; Wave 3 generalizes to StateInstances. `target`
+   *  defaults from the StateDef's scope. */
+  | { kind: 'modifyState'; stateId: string; op: 'add' | 'remove' | 'consume' | 'clear' | 'extend'; amount?: number; seconds?: number; key?: string; target?: 'self' | 'target' | 'allEnemies' }
+  /** Deal damage from a proc: percent of the triggering hit and/or a
+   *  flat amount. aoe=true spreads to all enemies (broadcast refs). */
+  | { kind: 'dealDamage'; percentOfTrigger?: number; flat?: number; element?: DamageType; aoe?: boolean }
+  /** Self-damage cost (blood-magic style payoffs). */
+  | { kind: 'dealSelfDamage'; percentOfCurrentLife: number }
+  /** Spread the target's active DoT debuffs to up to maxTargets other
+   *  enemies (pandemic-style verb). */
+  | { kind: 'spreadDebuffs'; maxTargets: number; debuffIds?: string[] }
+  /** Advance cooldowns by N seconds — 'all' skills, the 'lowest'
+   *  remaining, or a specific skillId (Shadowdancer Momentum / Curse
+   *  Glutton true semantics). */
+  | { kind: 'advanceCooldowns'; seconds: number; scope: 'all' | 'lowest' | 'skillId'; skillId?: string };
 
 export interface SkillTreePath {
   id: 'A' | 'B' | 'C';

@@ -18,68 +18,29 @@
 //   • grantBuff  → STUB
 
 import type {
-  CharacterClass, TalentEffect, TalentAction, TalentTag, DamageTag,
-  ActiveDebuff, ResolvedStats, SkillTimerState, TempBuff, AbilityEffect,
+  CharacterClass, TalentEffect, TalentTag,
+  ActiveDebuff, ResolvedStats, TempBuff,
 } from '../types';
 import { getNodeEffects } from '../data/classTrees';
 import { getAscendancyNodeEffects } from '../data/ascendancies';
-import { applyDebuffToList, mergeProcTempBuff } from './combat/helpers';
-import { SUMMON_CONFIGS, summonMinions, type MinionState } from './combat/minions';
 import { evalCondition, TALENT_TAG_TO_DEBUFF, type ConditionContext } from './ir/conditions';
+import { resolveValue } from './ir/normalize';
+import { dispatchEvent, type TalentProcContext } from './ir/dispatch';
 
-// Phase 2 Wave 1 (2026-07-12): the canonical TALENT_TAG_TO_DEBUFF and the
-// shared Condition evaluator moved to ir/conditions.ts — one predicate
-// language for talent conditionals, EffectRule.if (Wave 2), and gambit
+// Phase 2 Waves 1-2 (2026-07-12): the canonical TALENT_TAG_TO_DEBUFF +
+// Condition evaluator live in ir/conditions.ts; TalentProcContext,
+// executeAction, rollAndFire and the event interpreter (dispatchEvent /
+// matchTrigger) live in ir/dispatch.ts. One predicate language + one
+// dispatch path for talent conditionals, EffectRule.if, and gambit
 // rotation policies (Wave 5). Re-exported here for legacy callers.
 export { TALENT_TAG_TO_DEBUFF, evalCondition, type ConditionContext };
+export {
+  dispatchEvent, matchTrigger, executeAction, rollAndFire,
+  buildProcConditionCtx, TALENT_BUFF_REGISTRY,
+  type TalentProcContext, type TriggerEvent,
+} from './ir/dispatch';
 
-/** Phase F polish (2026-05-06): grantBuff TalentAction registry.
- *  Maps `buffId` → AbilityEffect + maxStacks. Keep this registry
- *  small and player-facing — these are the talent-tree buffs
- *  visible in HUD pills. Skill / proc / item buffs use other paths. */
-const TALENT_BUFF_REGISTRY: Record<string, { effect: AbilityEffect; maxStacks: number }> = {
-  // wd_sw_bone_armor — +20% damage reduction shield
-  bone_armor:    { effect: { defenseMult: 1.2 }, maxStacks: 1 },
-  // wd_sw_spirit_shield — next cast within window deals +50% damage
-  // (approximated as duration-only — every cast within window gets
-  // the buff, not just the first; broader than design intent)
-  spirit_shield: { effect: { damageMult: 1.5 }, maxStacks: 1 },
-  // hnt_mm_hunters_eye — guaranteed crit charge (consumed by next hit)
-  // Approximated as +crit-chance buff for the duration; not a true
-  // single-use guarantee. Lands cleanly when buff-consume hooks exist.
-  precision_charge: { effect: { critChanceBonus: 100 }, maxStacks: 1 },
-  // brs_jg_ironclad — gain damage reduction on crit-taken. Mirrors
-  // bone_armor's defenseMult pattern (multiplies armor/evasion).
-  // First-slice approximation — true "+X% damage reduction" needs
-  // a flat damageTakenReduction stat-buff path.
-  ironclad_stance: { effect: { defenseMult: 1.3 }, maxStacks: 1 },
-  // brs_jg_stalwart_spirit — Bulwark charges. First-slice approximation
-  // as a stackable defenseMult tempBuff (1.2 per stack, up to 3 = 1.6
-  // total). True "consume on next hit" semantic deferred — sustained_
-  // aegis (T6) needs a procOnBulwarkConsume event hook to detect the
-  // consume moment, which doesn't exist yet.
-  bulwark_charge: { effect: { defenseMult: 1.2 }, maxStacks: 3 },
-  // brs_jg_marked_slam — +100% damage buff for ~0.5s window after a
-  // hit lands on a Marked for Cleave target. Approximation of "this
-  // hit deals +100%" — engine has no bonus-damage-on-triggering-hit
-  // action, so the buff applies to subsequent hits instead. Now
-  // unused since marked_slam was switched to bonusDamage action
-  // (commit dd7da033) — kept to avoid breaking save state.
-  cleave_strike: { effect: { damageMult: 2.0 }, maxStacks: 1 },
-  // sor_ar_saturation_tempo — speed buff after Convergence cast.
-  // Approximation: attackSpeedMult covers both attack and cast cadence
-  // in this engine. Fixed +40% at any rank (chance scales per rank
-  // instead of buff strength).
-  saturation_tempo: { effect: { attackSpeedMult: 1.4 }, maxStacks: 1 },
-  // wd_sw_death_mastery — Necro Stack: each stack +6% damage, max 5.
-  // First-slice approximation as stackable damageMult tempBuff (1.06
-  // per stack via mergeProcTempBuff, max 5 stacks, decays naturally
-  // via 8s expiresAt). True per-stack scaling needs a custom buff
-  // resolution path; mergeProcTempBuff multiplies stacks by base
-  // effect, so 5 stacks × damageMult 1.06 = damageMult 1.30 (matches
-  // spec's +30% at full stack).
-  necro_stack: { effect: { damageMult: 1.06 }, maxStacks: 5 },
-};
+// TALENT_BUFF_REGISTRY moved to ir/dispatch.ts (Wave 2, D10) — re-exported above.
 
 // (TALENT_TAG_TO_DEBUFF now lives in ir/conditions.ts — imported above.)
 
@@ -106,6 +67,15 @@ export function scaleTalentEffectByRank(effect: TalentEffect, rank: number): Tal
       return { ...effect, delta: effect.delta * rank };
     case 'statMult':
       return { ...effect, mult: 1 + (effect.mult - 1) * rank };
+    // ── Effect IR kinds (Wave 2, D7): resolve rank at scale time so
+    //    downstream dispatch stays rank-free. 'on' scales chance only
+    //    (parity with legacy proc scaling); 'rule' params don't scale in v1.
+    case 'on':
+      return { ...effect, on: { ...effect.on, chance: resolveValue(effect.on.chance ?? 100, rank, 'chance') } };
+    case 'mod':
+      return { ...effect, mod: { ...effect.mod, value: resolveValue(effect.mod.value, rank, effect.mod.op) } };
+    case 'rule':
+      return effect;
     case 'whileTag':
       return {
         ...effect,
@@ -403,6 +373,34 @@ export function applyConditionalTalentEffects(
         if (stacks > 0) applyPerBonus(eff.stat, stacks * eff.perStackDelta, eff.cap);
         break;
       }
+      // ── Effect IR 'mod' fold (Wave 2, D5/D6 slice A): if-condition +
+      //    per-counters + add/mult ops. Bucket/element scope folds land
+      //    with the damage-pipeline slices; 'gainAs' with them (Wave 3). ──
+      case 'mod': {
+        const m = eff.mod;
+        if (m.if && !evalCondition(m.if, condCtx)) break;
+        const raw = Array.isArray(m.value) ? m.value[0] : m.value;
+        if (m.per) {
+          const p = m.per;
+          const count = p.count === 'enemies' ? enemyCount
+            : p.count === 'minions' ? minionCount
+            : p.count === 'stateStacks'
+              ? (p.side === 'target'
+                ? countStacksById(targetDebuffs, TALENT_TAG_TO_DEBUFF[p.stateId as TalentTag] ?? p.stateId)
+                : (condCtx.stateCounts[p.stateId] ?? 0))
+              : 0; // missingLifePercent — Wave 3 (needs maxLife here)
+          if (count > 0) applyPerBonus(m.stat, count * raw, m.cap);
+          break;
+        }
+        if (m.op === 'mult') applyWhileBonus(m.stat, raw, undefined);
+        else if (m.op === 'add') applyWhileBonus(m.stat, 1, raw);
+        break;
+      }
+      case 'on':
+      case 'rule':
+        // 'on' rules fire via dispatchEvent at combat event sites;
+        // 'rule' entries are read by their registry consumers (Wave 3).
+        break;
       // Event-driven triggers handled by dispatchProc* below.
       case 'procOnHit':
       case 'procOnKill':
@@ -432,253 +430,22 @@ export function applyConditionalTalentEffects(
 // that need to know what conditional kinds fire on what state — kept
 // internal for now but the structure is here.
 
-export interface TalentProcContext {
-  /** Target debuffs at proc time. New debuffs from this proc append here. */
-  targetDebuffs: ActiveDebuff[];
-  /** Current player life — handlers may mutate to apply heals. */
-  life: { value: number; max: number };
-  /** Source skill id for applyDebuffToList attribution. */
-  sourceSkillId: string;
-  /** Skill tag (from the hit that triggered) for procOnHit/Kill filters. */
-  hitDamageTag?: DamageTag;
-  // Phase F F1b additions (2026-05-05) — optional refs for new actions.
-  // When omitted, the corresponding action becomes a no-op (graceful).
-  /** All enemy debuff lists for `applyTagAll` broadcast (each pack mob's
-   *  debuffs in clearing; `[activeDebuffs]` in boss_fight). */
-  broadcastDebuffLists?: ActiveDebuff[][];
-  /** Live skill-timer array for `refundCooldown` to mutate cooldownUntil. */
-  skillTimers?: SkillTimerState[];
-  /** Player mana ref for `refundMana` (caller reads back into state). */
-  mana?: { current: number; max: number };
-  /** Crit Cascade ref for `addCritStack` (Phase F F5a follow-on,
-   *  2026-05-06). Caller builds `{ value, max, expiresAt }`, dispatcher
-   *  bumps `value` capped at `max`, refreshes `expiresAt`. Caller
-   *  writes both back to state.critStacks / state.critStacksExpiresAt. */
-  critStacksRef?: { value: number; max: number; expiresAt: number };
-  /** Resonance ref for `addResonanceCharge` (Phase F F5d follow-on,
-   *  2026-05-06). Caller builds the charge bag from state, dispatcher
-   *  bumps the chosen element capped at 5, refreshes expiresAt.
-   *  Caller writes back to state.resonanceCharges /
-   *  state.resonanceExpiresAt. */
-  resonanceRef?: {
-    charges: { fire: number; cold: number; lightning: number; chaos: number };
-    expiresAt: number;
-  };
-  /** Mutable temp-buff list for `grantBuff` action. Phase F polish
-   *  (2026-05-06). Caller passes a copy of state.tempBuffs;
-   *  dispatcher pushes new buffs (or refreshes existing) via
-   *  mergeProcTempBuff. Caller writes back to state.tempBuffs. */
-  tempBuffsRef?: TempBuff[];
-  /** Phase F (2026-05-06): bonus-damage accumulator for the
-   *  `bonusDamage` action. Caller initializes `value = 0` and sets
-   *  `baseDamage` = the triggering hit's damage; dispatcher adds
-   *  `(percent / 100) * baseDamage` to value on action. Caller reads
-   *  back into procDamage after dispatch. Used by Brs Juggernaut
-   *  Marked Slam. */
-  bonusDamageRef?: { value: number; baseDamage: number };
-  /** Mutable minion list + summon parameters for `summon` action.
-   *  Phase F polish (2026-05-06): caller exposes player maxLife +
-   *  spellPower so summonMinions can scale freshly-summoned units;
-   *  dispatcher pushes via in-place length=0 + push. Caller writes
-   *  list back to state.activeMinions. */
-  minionsRef?: {
-    list: MinionState[];
-    playerMaxLife: number;
-    playerSpellPower: number;
-    now: number;
-  };
-  /** Self-reference to all allocated talent effects so executeAction
-   *  can fire procOnTag cascades (Phase F polish, 2026-05-06).
-   *  When caller passes effects here, applyTag / applyTagAll actions
-   *  recursively fire `dispatchProcOnTag` with the applied tag —
-   *  enabling "on Mark application" / "on Hex application" nodes.
-   *  Internal `_inProcOnTag` guard prevents direct recursion. */
-  effects?: TalentEffect[];
-  _inProcOnTag?: boolean;
-}
-
-/** Roll chance and dispatch action. chance is 0-100 (not 0-1). */
-function rollAndFire(action: TalentAction, chance: number, ctx: TalentProcContext): void {
-  if (Math.random() * 100 >= chance) return;
-  executeAction(action, ctx);
-}
-
-function executeAction(action: TalentAction, ctx: TalentProcContext): void {
-  switch (action.kind) {
-    case 'applyTag': {
-      const did = TALENT_TAG_TO_DEBUFF[action.tag];
-      if (!did) return;
-      applyDebuffToList(ctx.targetDebuffs, did, action.stacks ?? 1, action.duration ?? 4, ctx.sourceSkillId);
-      // Phase F polish (2026-05-06): cascade procOnTag (e.g. hnt_mm
-      // _hunters_eye fires on Mark application). Guard against direct
-      // recursion via the _inProcOnTag flag — chain probability decays
-      // naturally so 1-deep is sufficient for typical builds.
-      if (ctx.effects && !ctx._inProcOnTag) {
-        ctx._inProcOnTag = true;
-        dispatchProcOnTag(ctx.effects, action.tag, ctx);
-        ctx._inProcOnTag = false;
-      }
-      break;
-    }
-    case 'applyTagAll': {
-      const did = TALENT_TAG_TO_DEBUFF[action.tag];
-      if (!did) return;
-      const lists = ctx.broadcastDebuffLists;
-      if (!lists) return; // graceful no-op when caller didn't provide refs
-      for (const list of lists) {
-        applyDebuffToList(list, did, action.stacks ?? 1, action.duration ?? 4, ctx.sourceSkillId);
-      }
-      // Cascade procOnTag once per broadcast (not per target).
-      if (ctx.effects && !ctx._inProcOnTag) {
-        ctx._inProcOnTag = true;
-        dispatchProcOnTag(ctx.effects, action.tag, ctx);
-        ctx._inProcOnTag = false;
-      }
-      break;
-    }
-    case 'healSelf':
-      ctx.life.value = Math.min(ctx.life.max, ctx.life.value + action.amount);
-      break;
-    case 'refundCooldown': {
-      // Set the consumed skill's cooldownUntil to now (full refund) or
-      // shorten by `percent` of the original remaining window.
-      const timers = ctx.skillTimers;
-      if (!timers) return;
-      const timer = timers.find(t => t.skillId === ctx.sourceSkillId);
-      if (!timer || timer.cooldownUntil === null) return;
-      const now = Date.now();
-      const pct = action.percent ?? 100;
-      if (pct >= 100) {
-        timer.cooldownUntil = now;
-      } else {
-        const remaining = Math.max(0, timer.cooldownUntil - now);
-        timer.cooldownUntil = now + remaining * (1 - pct / 100);
-      }
-      break;
-    }
-    case 'refundMana':
-      if (!ctx.mana) return;
-      ctx.mana.current = Math.min(ctx.mana.max, ctx.mana.current + action.amount);
-      break;
-    case 'addCritStack': {
-      if (!ctx.critStacksRef) return;
-      const amount = action.amount ?? 1;
-      ctx.critStacksRef.value = Math.min(ctx.critStacksRef.max, ctx.critStacksRef.value + amount);
-      ctx.critStacksRef.expiresAt = Date.now() + 4000;
-      break;
-    }
-    case 'addResonanceCharge': {
-      if (!ctx.resonanceRef) return;
-      const amount = action.amount ?? 1;
-      const charges = ctx.resonanceRef.charges;
-      // Resolve element: explicit pick > first missing > no-op if all full.
-      let el: 'fire' | 'cold' | 'lightning' | 'chaos' | null = action.element ?? null;
-      if (!el) {
-        const order: Array<'fire' | 'cold' | 'lightning' | 'chaos'> = ['fire', 'cold', 'lightning', 'chaos'];
-        el = order.find(k => charges[k] < 5) ?? null;
-      }
-      if (!el) return;
-      charges[el] = Math.min(5, charges[el] + amount);
-      ctx.resonanceRef.expiresAt = Date.now() + 6000;
-      break;
-    }
-    case 'grantBuff': {
-      // Phase F polish (2026-05-06): grantBuff via TALENT_BUFF_REGISTRY.
-      // Looks up the buffId, builds a TempBuff, merges via the existing
-      // mergeProcTempBuff helper. No-op when registry doesn't contain
-      // the buffId or caller didn't provide tempBuffsRef.
-      if (!ctx.tempBuffsRef) return;
-      const reg = TALENT_BUFF_REGISTRY[action.buffId];
-      if (!reg) return;
-      const buff: TempBuff = {
-        id: action.buffId,
-        effect: reg.effect,
-        expiresAt: Date.now() + action.duration * 1000,
-        sourceSkillId: ctx.sourceSkillId,
-        stacks: 1,
-        maxStacks: reg.maxStacks,
-      };
-      // Mutate the array in-place so caller's ref reflects merge.
-      const merged = mergeProcTempBuff(ctx.tempBuffsRef, buff);
-      ctx.tempBuffsRef.length = 0;
-      ctx.tempBuffsRef.push(...merged);
-      break;
-    }
-    case 'bonusDamage': {
-      // Phase F (2026-05-06): adds (percent / 100) * baseDamage to the
-      // caller's bonusDamageRef. No-op if caller didn't expose the ref
-      // (e.g. dispatchProcOnHitTaken — defensive procs don't pile bonus
-      // damage onto the incoming hit).
-      if (!ctx.bonusDamageRef) break;
-      ctx.bonusDamageRef.value += (action.percent / 100) * ctx.bonusDamageRef.baseDamage;
-      break;
-    }
-    case 'summon': {
-      // Phase F polish (2026-05-06): summon via SUMMON_CONFIGS lookup.
-      // Looks up the minionType, applies optional count / duration
-      // overrides, calls summonMinions with player scalings. No-op if
-      // caller didn't provide minionsRef or registry doesn't have the
-      // type.
-      if (!ctx.minionsRef) return;
-      const baseCfg = SUMMON_CONFIGS[action.minionType];
-      if (!baseCfg) return;
-      const cfg = {
-        ...baseCfg,
-        count: action.count ?? baseCfg.count,
-        duration: action.durationSec ?? baseCfg.duration,
-      };
-      const updated = summonMinions(
-        ctx.minionsRef.list, cfg,
-        ctx.minionsRef.playerMaxLife, ctx.minionsRef.playerSpellPower,
-        ctx.minionsRef.now,
-      );
-      ctx.minionsRef.list.length = 0;
-      ctx.minionsRef.list.push(...updated);
-      break;
-    }
-    case 'triggerSkill': {
-      // Phase F polish (2026-05-06): minimal viable triggerSkill —
-      // refunds the named skill's cooldown (distinct from
-      // refundCooldown which targets the SOURCE skill that fired the
-      // proc). True free-cast semantics (synthetic damage roll +
-      // proc cascade) are deferred — for now this readies the named
-      // skill for instant manual recast. Mutates ctx.skillTimers
-      // in-place; no-ops if ref or timer missing.
-      const timers = ctx.skillTimers;
-      if (!timers) return;
-      const timer = timers.find(t => t.skillId === action.skillId);
-      if (!timer || timer.cooldownUntil === null) return;
-      timer.cooldownUntil = Date.now();
-      break;
-    }
-  }
-}
+// TalentProcContext, rollAndFire, executeAction and the event
+// interpreter (dispatchEvent/matchTrigger) live in ir/dispatch.ts as of
+// Wave 2 (D10) — re-exported above. The dispatchProcOn* functions below
+// are one-line event-descriptor shims kept so tick.ts / staff.ts /
+// dagger.ts / talent-bot call sites compile unchanged.
 
 export function dispatchProcOnHit(effects: TalentEffect[], ctx: TalentProcContext): void {
-  for (const eff of effects) {
-    if (eff.kind !== 'procOnHit') continue;
-    if (eff.tag && eff.tag !== ctx.hitDamageTag) continue;
-    if (eff.targetTag && !targetHasTag(ctx.targetDebuffs, eff.targetTag)) continue;
-    rollAndFire(eff.action, eff.chance, ctx);
-  }
+  dispatchEvent({ on: 'hit', source: 'self' }, effects, ctx);
 }
 
 export function dispatchProcOnCrit(effects: TalentEffect[], ctx: TalentProcContext): void {
-  for (const eff of effects) {
-    if (eff.kind !== 'procOnCrit') continue;
-    if (eff.tag && eff.tag !== ctx.hitDamageTag) continue;
-    if (eff.targetTag && !targetHasTag(ctx.targetDebuffs, eff.targetTag)) continue;
-    rollAndFire(eff.action, eff.chance, ctx);
-  }
+  dispatchEvent({ on: 'crit', source: 'self' }, effects, ctx);
 }
 
 export function dispatchProcOnKill(effects: TalentEffect[], ctx: TalentProcContext): void {
-  for (const eff of effects) {
-    if (eff.kind !== 'procOnKill') continue;
-    if (eff.tag && eff.tag !== ctx.hitDamageTag) continue;
-    if (eff.targetTag && !targetHasTag(ctx.targetDebuffs, eff.targetTag)) continue;
-    rollAndFire(eff.action, eff.chance, ctx);
-  }
+  dispatchEvent({ on: 'kill', source: 'self' }, effects, ctx);
 }
 
 /** Phase F (2026-05-06): fires when the player TAKES a hit. Caller
@@ -694,11 +461,7 @@ export function dispatchProcOnHitTaken(
   ctx: TalentProcContext,
   isCrit: boolean,
 ): void {
-  for (const eff of effects) {
-    if (eff.kind !== 'procOnHitTaken') continue;
-    if (eff.critTaken !== undefined && eff.critTaken !== isCrit) continue;
-    rollAndFire(eff.action, eff.chance, ctx);
-  }
+  dispatchEvent({ on: 'hitTaken', critTaken: isCrit }, effects, ctx);
 }
 
 /** Phase F (2026-05-06): fires once per CHAINED kill within a cast
@@ -713,12 +476,10 @@ export function dispatchProcOnMultiKillChain(
   killCount: number,
 ): void {
   if (killCount < 2) return;
-  const chains = killCount - 1;
-  for (const eff of effects) {
-    if (eff.kind !== 'procOnMultiKillChain') continue;
-    for (let i = 0; i < chains; i++) {
-      rollAndFire(eff.action, eff.chance, ctx);
-    }
+  // One chained-kill event per kill 2..N — each matching rule rolls
+  // once per event (legacy fired (killCount-1) rolls per effect).
+  for (let i = 1; i < killCount; i++) {
+    dispatchEvent({ on: 'kill', source: 'self', chained: true }, effects, ctx);
   }
 }
 
@@ -733,11 +494,7 @@ export function dispatchProcOnResonanceChargeGain(
   ctx: TalentProcContext,
   element: 'fire' | 'cold' | 'lightning' | 'chaos',
 ): void {
-  for (const eff of effects) {
-    if (eff.kind !== 'procOnResonanceChargeGain') continue;
-    if (eff.element !== undefined && eff.element !== element) continue;
-    rollAndFire(eff.action, eff.chance, ctx);
-  }
+  dispatchEvent({ on: 'stateChange', stateId: 'resonance_charge', change: 'gain', key: element }, effects, ctx);
 }
 
 /** Phase F F5d expansion (2026-05-07): fires when a Convergence skill
@@ -749,10 +506,10 @@ export function dispatchProcOnConvergenceCast(
   effects: TalentEffect[],
   ctx: TalentProcContext,
 ): void {
-  for (const eff of effects) {
-    if (eff.kind !== 'procOnConvergenceCast') continue;
-    rollAndFire(eff.action, eff.chance, ctx);
-  }
+  // NOTE: 'cast' events are only emitted at the convergence-gated call
+  // site today; new-form {on:'cast'} rules therefore fire on Convergence
+  // casts only until a general cast-event emit lands (Wave 4).
+  dispatchEvent({ on: 'cast', skillId: ctx.sourceSkillId }, effects, ctx);
 }
 
 /** Phase F (2026-05-07): fires when a Bulwark charge is consumed —
@@ -763,10 +520,7 @@ export function dispatchProcOnBulwarkConsume(
   effects: TalentEffect[],
   ctx: TalentProcContext,
 ): void {
-  for (const eff of effects) {
-    if (eff.kind !== 'procOnBulwarkConsume') continue;
-    rollAndFire(eff.action, eff.chance, ctx);
-  }
+  dispatchEvent({ on: 'stateChange', stateId: 'bulwark_charge', change: 'consume' }, effects, ctx);
 }
 
 /** Phase F (2026-05-07): Bulwark consume helper — checks tempBuffs
@@ -795,33 +549,21 @@ export function dispatchProcOnTag(
   appliedTag: TalentTag,
   ctx: TalentProcContext,
 ): void {
-  for (const eff of effects) {
-    if (eff.kind !== 'procOnTag') continue;
-    if (eff.tag !== appliedTag) continue;
-    rollAndFire(eff.action, eff.chance, ctx);
-  }
+  dispatchEvent({ on: 'tagApplied', tag: appliedTag }, effects, ctx);
 }
 
 /** Fires when one of the player's minions hits an enemy.
  *  Phase F F2 (2026-05-06): caller passes `targetDebuffs` as the hit
  *  target's debuff list so apply-tag actions land on the correct enemy. */
 export function dispatchProcOnMinionHit(effects: TalentEffect[], ctx: TalentProcContext, minionType?: string): void {
-  for (const eff of effects) {
-    if (eff.kind !== 'procOnMinionHit') continue;
-    if (eff.minionType !== undefined && eff.minionType !== minionType) continue;
-    rollAndFire(eff.action, eff.chance, ctx);
-  }
+  dispatchEvent({ on: 'hit', source: 'minion', minionType }, effects, ctx);
 }
 
 /** Fires when one of the player's minions crits.
  *  Phase F F2 follow-on (2026-05-07): optional minionType filter
  *  routes procs to specific summon archetypes (fetish, hound, etc.). */
 export function dispatchProcOnMinionCrit(effects: TalentEffect[], ctx: TalentProcContext, minionType?: string): void {
-  for (const eff of effects) {
-    if (eff.kind !== 'procOnMinionCrit') continue;
-    if (eff.minionType !== undefined && eff.minionType !== minionType) continue;
-    rollAndFire(eff.action, eff.chance, ctx);
-  }
+  dispatchEvent({ on: 'crit', source: 'minion', minionType }, effects, ctx);
 }
 
 /** Fires when one of the player's minions dies. The dying minion's
@@ -829,31 +571,21 @@ export function dispatchProcOnMinionCrit(effects: TalentEffect[], ctx: TalentPro
  *  apply to the player; applyTag/applyTagAll target enemies via ctx.
  *  Phase F F2 follow-on (2026-05-07): optional minionType filter. */
 export function dispatchProcOnMinionDeath(effects: TalentEffect[], ctx: TalentProcContext, minionType?: string): void {
-  for (const eff of effects) {
-    if (eff.kind !== 'procOnMinionDeath') continue;
-    if (eff.minionType !== undefined && eff.minionType !== minionType) continue;
-    rollAndFire(eff.action, eff.chance, ctx);
-  }
+  dispatchEvent({ on: 'minionEvent', event: 'death', minionType }, effects, ctx);
 }
 
 /** Fires when one of the player's traps detonates. Phase F F3
  *  (2026-05-06): caller passes targetDebuffs as the detonation-impact
  *  enemy's debuff list so applyTag actions land correctly. */
 export function dispatchProcOnTrapDetonate(effects: TalentEffect[], ctx: TalentProcContext): void {
-  for (const eff of effects) {
-    if (eff.kind !== 'procOnTrapDetonate') continue;
-    rollAndFire(eff.action, eff.chance, ctx);
-  }
+  dispatchEvent({ on: 'trapEvent', event: 'detonate' }, effects, ctx);
 }
 
 /** Fires when a trap detonation chains into a nearby trap (multi-trap
  *  burst). For now the chain detection is approximate — fires once per
  *  detonation event when multiple traps were active beforehand. */
 export function dispatchProcOnTrapChain(effects: TalentEffect[], ctx: TalentProcContext): void {
-  for (const eff of effects) {
-    if (eff.kind !== 'procOnTrapChain') continue;
-    rollAndFire(eff.action, eff.chance, ctx);
-  }
+  dispatchEvent({ on: 'trapEvent', event: 'chain' }, effects, ctx);
 }
 
 /** Fires when the player's companion (singleton minion with
@@ -861,26 +593,17 @@ export function dispatchProcOnTrapChain(effects: TalentEffect[], ctx: TalentProc
  *  separate from generic procOnMinionHit so Hunter Beastmaster nodes
  *  can target companion-only behavior. */
 export function dispatchProcOnCompanionHit(effects: TalentEffect[], ctx: TalentProcContext): void {
-  for (const eff of effects) {
-    if (eff.kind !== 'procOnCompanionHit') continue;
-    rollAndFire(eff.action, eff.chance, ctx);
-  }
+  dispatchEvent({ on: 'hit', source: 'companion' }, effects, ctx);
 }
 
 /** Fires when the player's companion crits. */
 export function dispatchProcOnCompanionCrit(effects: TalentEffect[], ctx: TalentProcContext): void {
-  for (const eff of effects) {
-    if (eff.kind !== 'procOnCompanionCrit') continue;
-    rollAndFire(eff.action, eff.chance, ctx);
-  }
+  dispatchEvent({ on: 'crit', source: 'companion' }, effects, ctx);
 }
 
 /** Fires when the player's companion dies. */
 export function dispatchProcOnCompanionDeath(effects: TalentEffect[], ctx: TalentProcContext): void {
-  for (const eff of effects) {
-    if (eff.kind !== 'procOnCompanionDeath') continue;
-    rollAndFire(eff.action, eff.chance, ctx);
-  }
+  dispatchEvent({ on: 'minionEvent', event: 'death', source: 'companion' }, effects, ctx);
 }
 
 /** Returns true if the player has at least one `grantCompanion` effect

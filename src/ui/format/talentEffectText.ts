@@ -6,7 +6,7 @@
 
 import { NODE_EFFECTS } from '../../data/classTrees/effects';
 import { scaleTalentEffectByRank } from '../../engine/classTalentDispatcher';
-import type { TalentEffect, TalentAction } from '../../types';
+import type { TalentEffect, TalentAction, Trigger } from '../../types';
 
 const STAT_LABEL: Record<string, string> = {
   damageMult: 'damage',
@@ -46,6 +46,40 @@ function actionText(action: TalentAction): string {
     case 'summon':      return `summon ${action.minionType}`;
     case 'triggerSkill': return `trigger ${action.skillId}`;
     case 'bonusDamage': return `${pct(action.percent)} bonus damage`;
+    // ── Effect IR actions (Wave 2) ──
+    case 'modifyState': return `${action.op} ${action.amount ?? 1} ${action.stateId}${action.key ? ` (${action.key})` : ''}`;
+    case 'dealDamage': {
+      const parts = [
+        action.percentOfTrigger ? `${action.percentOfTrigger}% of trigger` : '',
+        action.flat ? `${action.flat} flat` : '',
+      ].filter(Boolean).join(' + ');
+      return `deal ${parts || 'bonus'} damage${action.aoe ? ' to all enemies' : ''}`;
+    }
+    case 'dealSelfDamage': return `sacrifice ${action.percentOfCurrentLife}% current life`;
+    case 'spreadDebuffs': return `spread DoTs to ${action.maxTargets} enemies`;
+    case 'advanceCooldowns':
+      return `advance ${action.scope === 'all' ? 'all cooldowns' : action.scope === 'lowest' ? 'lowest cooldown' : (action.skillId ?? 'cooldown')} by ${action.seconds}s`;
+  }
+}
+
+function triggerText(t: Trigger): string {
+  switch (t.on) {
+    case 'hit': return `${t.source && t.source !== 'self' ? `${t.source} ` : ''}hit`;
+    case 'crit': return `${t.source && t.source !== 'self' ? `${t.source} ` : ''}crit`;
+    case 'kill': return t.chained ? 'chained kill' : 'kill';
+    case 'cast': return `cast${t.skillTag ? ` (${t.skillTag})` : ''}${t.skillId ? ` [${t.skillId}]` : ''}`;
+    case 'hitTaken': return t.critTaken ? 'crit taken' : 'hit taken';
+    case 'dodge': return 'dodge';
+    case 'block': return 'block';
+    case 'dotTick': return `${t.debuffId ?? 'DoT'} tick`;
+    case 'tagApplied': return `applying ${t.tag ?? 'a tag'}`;
+    case 'stateChange': return `${t.stateId} ${t.change}`;
+    case 'minionEvent': return `${t.minionType ?? 'minion'} ${t.event}`;
+    case 'trapEvent': return `trap ${t.event}`;
+    case 'targetDeath': return 'enemy death';
+    case 'lethalHit': return 'lethal hit';
+    case 'encounterStart': return 'encounter start';
+    case 'interval': return `every ${t.sec}s`;
   }
 }
 
@@ -55,6 +89,25 @@ function effectText(eff: TalentEffect): string {
       return `${pct(eff.delta)} ${statText(eff.stat)}`;
     case 'statMult':
       return `${statText(eff.stat)} ×${eff.mult.toFixed(2)}`;
+    // ── Effect IR kinds (Wave 2): generated text — new-form authoring
+    //    gets auto-descriptions; legacy entries keep their hand text. ──
+    case 'on': {
+      const r = eff.on;
+      const chance = typeof r.chance === 'number' ? r.chance : 100;
+      return `${chance < 100 ? `${chance.toFixed(0)}% chance ` : ''}on ${triggerText(r.trigger)}: ${r.actions.map(actionText).join(', ')}`;
+    }
+    case 'mod': {
+      const m = eff.mod;
+      const v = Array.isArray(m.value) ? m.value[0] : m.value;
+      const val = m.op === 'mult' ? `×${v.toFixed(2)}` : m.op === 'gainAs' ? `gain ${v.toFixed(0)}% as` : pct(v);
+      const scopeBits = [
+        m.scope?.damageBucket, m.scope?.element, m.scope?.skillTag,
+        m.scope?.vsTag ? `vs ${m.scope.vsTag}` : undefined,
+      ].filter(Boolean).join(' ');
+      return `${val} ${statText(m.stat)}${scopeBits ? ` (${scopeBits})` : ''}${m.per ? ' per stack' : ''}${m.if ? ' (conditional)' : ''}`;
+    }
+    case 'rule':
+      return `rule: ${eff.rule}${eff.params ? ` ${JSON.stringify(eff.params)}` : ''}`;
     case 'whileTag':
       return `vs ${eff.tag}: ${eff.delta !== undefined ? pct(eff.delta) : `×${eff.mult.toFixed(2)}`} ${statText(eff.stat)}`;
     case 'whileSelfHpBelow':
