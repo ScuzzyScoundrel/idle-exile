@@ -26,26 +26,98 @@ export interface ComboStateConfig {
   effect: ComboStateEffect;
   createOn?: 'onCast' | 'onCrit' | 'onKill';  // default: onCast
   minTargetsHit?: number;   // gate: only create if skill hits N+ distinct targets
+  // ── COMBAT_ECONOMY_DESIGN E1 combo-layer extensions ──
+  /** Internal cooldown (seconds) shared per stateId across all creators —
+   *  decorrelates stochastic windows from any fixed cast cadence (E5). */
+  icdSec?: number;
+  /** Stacks added per creation event (default 1). */
+  stacksPerGain?: number;
 }
+
+// Per-stateId ICD stamps. Ephemeral by design (resets on reload — an ICD
+// is sub-10s texture, not progression). `now < last` handles sim clock
+// rewinds between seeded runs.
+const _icdLastCreated: Record<string, number> = {};
+/** True (and stamps the ICD) if stateId may be created at `now`. */
+export function checkAndStampIcd(stateId: string, icdSec: number | undefined, now: number): boolean {
+  if (!icdSec) return true;
+  const last = _icdLastCreated[stateId];
+  if (last !== undefined && now >= last && now - last < icdSec * 1000) return false;
+  _icdLastCreated[stateId] = now;
+  return true;
+}
+
+/** All creator configs for a skill, normalized to an array. */
+export function getCreatorConfigs(skillId: string): ComboStateConfig[] {
+  const entry = COMBO_STATE_CREATORS[skillId];
+  if (!entry) return [];
+  return Array.isArray(entry) ? entry : [entry];
+}
+
+/** First creator config (any skill) that creates the given state. */
+export function findCreatorByStateId(stateId: string): ComboStateConfig | undefined {
+  for (const entry of Object.values(COMBO_STATE_CREATORS)) {
+    const configs = Array.isArray(entry) ? entry : [entry];
+    const hit = configs.find(c => c.stateId === stateId);
+    if (hit) return hit;
+  }
+  return undefined;
+}
+
+// ── COMBAT_ECONOMY_DESIGN §2: the Assassin ledger + window effects ──
+// Momentum: consume-ALL spender payoff — ×(1+0.35/stack), Perfect jackpot
+// at exactly cap (×1.8 + advance other CDs 1s). FoK spends the same pool
+// at a flatter rate with no jackpot (ST-vs-AoE arbitration).
+// Tuning log (GATE E1 iteration 1, 2026-07-12): per-stack 35 / Perfect
+// ×1.8 measured −13.2% — blind rides the linear term at k̄ 2.82, so the
+// anti-slot-order signal must live in the DISCONTINUITY (E3). Shifted
+// weight from linear (35→30) into the jackpot (×1.8→×2.5).
+const MOMENTUM_EFFECT: ComboStateEffect = {
+  incDamagePerStackConsumed: 30,
+  capBonus: { incDamage: 150, advanceOthersSec: 1 },
+  perSkillBonus: {
+    dagger_fan_of_knives: { incDamagePerStackConsumed: 20, capBonus: undefined },
+  },
+};
+// Opening: stochastic wet window (crit-created, ICD 3s) — wet spend ×2.0
+// and refunds 3 Momentum so waiting for the window is tempo-free (E5).
+// Tuning log (E1 iterations 2-5): wet ×1.5/refund-2 gave the smart arm
+// only a 25%-vs-21% capture edge; after builder de-saturation the smart
+// arm captures ~57% of windows vs blind ~10% — the window is the ONE
+// lever no fixed slot ordering can react to, so it carries the gate.
+const OPENING_EFFECT: ComboStateEffect = {
+  incDamage: 100,
+  refundStacks: { stateId: 'momentum', amount: 3 },
+};
 
 // Re-export the registry helpers so engine consumers have a single import surface.
 export { getComboStateSpec, getAllComboStateSpecs, getComboStateSpecsByPair, getComboStateSpecsBySide } from '../../data/comboStates';
 
 /** Default combo states created by dagger skills on cast.
- *  Talent trees can override/extend via SkillModifier.comboStateCreation. */
-export const COMBO_STATE_CREATORS: Record<string, ComboStateConfig> = {
-  // Stab: crit creates Exposed (3s) — consumed by any non-Stab skill for +25% damage
-  dagger_stab:          { stateId: 'exposed',          duration: 3, maxStacks: 1, createOn: 'onCrit',
-                          effect: { incDamage: 25 } },
-  // Blade Dance: all 3 hits on different targets → Dance Momentum (4s)
-  // Next single-target skill also splashes to 1 adjacent enemy for 50% damage
-  dagger_blade_dance:   { stateId: 'dance_momentum',   duration: 4, maxStacks: 1, createOn: 'onCast',
-                          effect: { incDamage: 15 }, minTargetsHit: 3 },
+ *  Talent trees can override/extend via SkillModifier.comboStateCreation.
+ *  COMBAT_ECONOMY_DESIGN E1: values may be arrays — a skill can create
+ *  several states (Stab: momentum on cast + opening on crit). */
+export const COMBO_STATE_CREATORS: Record<string, ComboStateConfig | ComboStateConfig[]> = {
+  // Stab: builder — +1 Momentum per cast; crits open the wet window
+  // (Opening, shared 6s ICD with Chain Strike).
+  dagger_stab: [
+    { stateId: 'momentum', duration: 10, maxStacks: 5, createOn: 'onCast', effect: MOMENTUM_EFFECT },
+    { stateId: 'opening',  duration: 3.0, maxStacks: 1, createOn: 'onCrit', icdSec: 3, effect: OPENING_EFFECT },
+  ],
+  // Blade Dance: builder — +1 Momentum, +1 more when hitting 3+ targets
+  // (two entries compose via refresh-on-gain stacking); keeps Dance
+  // Momentum (4s): next single-target skill splashes 1 adjacent enemy.
+  dagger_blade_dance: [
+    { stateId: 'momentum', duration: 10, maxStacks: 5, createOn: 'onCast', effect: MOMENTUM_EFFECT },
+    { stateId: 'momentum', duration: 10, maxStacks: 5, createOn: 'onCast', effect: MOMENTUM_EFFECT, minTargetsHit: 3 },
+    { stateId: 'dance_momentum', duration: 4, maxStacks: 1, createOn: 'onCast',
+      effect: { incDamage: 15 }, minTargetsHit: 3 },
+  ],
   // Fan of Knives: Saturated created conditionally in tick.ts (requires 3+ ailmented targets)
   // NOT auto-created here — see tick.ts FoK Saturated block
-  // Viper Strike: creates Deep Wound — consumed by Assassinate for instant burst
-  dagger_viper_strike:  { stateId: 'deep_wound',       duration: 5, maxStacks: 1, createOn: 'onCast',
-                          effect: { burstDamage: 50, burstElement: 'chaos' } },
+  // Viper Strike: PARK SKILL (E8) — zero Momentum generation, real DoT.
+  // Its own cooldown is the at-cap hold-timer. deep_wound RETIRED at
+  // baseline; reborn as a Venomcraft talent state (§4 Fester).
   // Shadow Mark: applies Shadow Mark debuff — empowers next skill per-skill
   dagger_shadow_mark:   { stateId: 'shadow_mark',      duration: 5, maxStacks: 1, createOn: 'onCast',
                           effect: { incDamage: 20, perSkillBonus: {
@@ -53,16 +125,22 @@ export const COMBO_STATE_CREATORS: Record<string, ComboStateConfig> = {
                             dagger_blade_dance:   { incDamage: 30, focusBurst: true },  // all 3 hits target same enemy
                             dagger_fan_of_knives: { incDamage: 30 },
                             dagger_viper_strike:  { ailmentPotency: 50 },
-                            dagger_assassinate:   { cdRefundPercent: 50 },
+                            // E4: cdRefundPercent 50 retired — it confounded the
+                            // spender-cd ≪ build-period cadence the jackpot rests on.
+                            dagger_assassinate:   { incDamage: 25 },
                             dagger_chain_strike:  { extraChains: 2 },
                             dagger_blade_ward:    { counterDamageMult: 2 },  // counter-hits deal double
                             dagger_blade_trap:    { burstDamage: 50 },  // +50% detonation damage
                             dagger_shadow_dash:   { markPassthrough: true },  // mark persists for next skill
                           } } },
-  // Chain Strike: chaining to 3+ targets creates Chain Surge (3s)
-  // Next single-target skill also chains to 1 additional enemy
-  dagger_chain_strike:  { stateId: 'chain_surge',      duration: 3, maxStacks: 1, createOn: 'onCast',
-                          effect: { incDamage: 10 }, minTargetsHit: 3 },
+  // Chain Strike: builder — +1 Momentum; crits open the wet window
+  // (shared ICD with Stab); chaining to 3+ targets keeps Chain Surge.
+  dagger_chain_strike: [
+    { stateId: 'momentum', duration: 10, maxStacks: 5, createOn: 'onCast', effect: MOMENTUM_EFFECT },
+    { stateId: 'opening',  duration: 3.0, maxStacks: 1, createOn: 'onCrit', icdSec: 3, effect: OPENING_EFFECT },
+    { stateId: 'chain_surge', duration: 3, maxStacks: 1, createOn: 'onCast',
+      effect: { incDamage: 10 }, minTargetsHit: 3 },
+  ],
   // Blade Ward: Guarded created conditionally in tick.ts (requires 3+ hits during ward window)
   // Blade Trap: Primed created conditionally in tick.ts (requires crit detonation after 3s armed)
   // Shadow Dash: creates Shadow Momentum (2s) — next skill CD starts 2s earlier
@@ -96,21 +174,22 @@ export const COMBO_STATE_CREATORS: Record<string, ComboStateConfig> = {
 const CROSS_SKILL_STATES = ['chain_surge', 'dance_momentum', 'contagion_surge', 'shadow_momentum'];
 
 export const COMBO_STATE_CONSUMERS: Record<string, string[]> = {
-  // Exposed: consumed by ANY non-Stab skill for +25% damage
-  // Deep Wound: consumed by Assassinate (+ Chain Strike) for burst
+  // COMBAT_ECONOMY_DESIGN §2.1: momentum + opening are consumed ONLY by
+  // the two spenders (Assassinate ST, Fan of Knives AoE) — builders must
+  // never eat the ledger or the window. exposed RETIRED (folded into
+  // opening); deep_wound RETIRED at baseline (Venomcraft talent state).
   // Shadow Mark: consumed by any skill on marked target
   // Cross-skill states: consumed by any skill EXCEPT the one that created them
-  dagger_assassinate:  ['exposed', 'deep_wound', 'shadow_mark', ...CROSS_SKILL_STATES],
-  dagger_chain_strike: ['exposed', 'shadow_mark', 'dance_momentum', 'shadow_momentum'],  // NOT chain_surge/contagion_surge (own states)
-  dagger_blade_dance:  ['exposed', 'shadow_mark', 'chain_surge', 'contagion_surge', 'shadow_momentum'],  // NOT dance_momentum (own state)
-  dagger_fan_of_knives:['exposed', 'shadow_mark', ...CROSS_SKILL_STATES],
-  dagger_viper_strike: ['exposed', 'shadow_mark', ...CROSS_SKILL_STATES],
-  dagger_blade_ward:   ['exposed', 'shadow_mark', ...CROSS_SKILL_STATES],
-  dagger_blade_trap:   ['exposed', 'shadow_mark', ...CROSS_SKILL_STATES],
-  dagger_shadow_dash:  ['exposed', 'shadow_mark', 'chain_surge', 'dance_momentum', 'contagion_surge'],  // NOT shadow_momentum (own state)
-  // Stab does NOT consume exposed (can't consume its own state)
+  dagger_assassinate:  ['momentum', 'opening', 'shadow_mark', ...CROSS_SKILL_STATES],
+  dagger_chain_strike: ['shadow_mark', 'dance_momentum', 'shadow_momentum'],  // NOT chain_surge/contagion_surge (own states)
+  dagger_blade_dance:  ['shadow_mark', 'chain_surge', 'contagion_surge', 'shadow_momentum'],  // NOT dance_momentum (own state)
+  dagger_fan_of_knives:['momentum', 'opening', 'shadow_mark', ...CROSS_SKILL_STATES],
+  dagger_viper_strike: ['shadow_mark', ...CROSS_SKILL_STATES],
+  dagger_blade_ward:   ['shadow_mark', ...CROSS_SKILL_STATES],
+  dagger_blade_trap:   ['shadow_mark', ...CROSS_SKILL_STATES],
+  dagger_shadow_dash:  ['shadow_mark', 'chain_surge', 'dance_momentum', 'contagion_surge'],  // NOT shadow_momentum (own state)
   dagger_stab:         ['shadow_mark', ...CROSS_SKILL_STATES],
-  // Shadow Mark does NOT consume exposed (setup skill, not a damage follow-up)
+  // Shadow Mark is a setup skill, not a damage follow-up
   dagger_shadow_mark:  ['shadow_mark', ...CROSS_SKILL_STATES],
 
   // ── Staff v2 (Witch Doctor) ──
@@ -165,6 +244,7 @@ export function createStateFromSpec(
   sourceSkillId: string,
   overrides?: Partial<{ duration: number; maxStacks: number; effect: ComboStateEffect }>,
   durationMult: number = 1,
+  stacksToAdd: number = 1,
 ): ComboState[] {
   const spec = getComboStateSpec(stateId);
   if (!spec) {
@@ -182,6 +262,7 @@ export function createStateFromSpec(
     overrides?.duration ?? spec.defaultDuration,
     overrides?.maxStacks ?? spec.maxStacks,
     durationMult,
+    stacksToAdd,
   );
 }
 
@@ -197,13 +278,14 @@ export function createComboState(
   duration: number,
   maxStacks: number = 1,
   durationMult: number = 1,
+  stacksToAdd: number = 1,
 ): ComboState[] {
   const finalDuration = duration * durationMult;
   const existing = states.find(s => s.stateId === stateId);
   if (existing) {
     return states.map(s =>
       s.stateId === stateId
-        ? { ...s, remainingDuration: finalDuration, stacks: Math.min(s.stacks + 1, maxStacks), sourceSkillId }
+        ? { ...s, remainingDuration: finalDuration, stacks: Math.min(s.stacks + stacksToAdd, maxStacks), sourceSkillId }
         : s,
     );
   }
@@ -211,7 +293,7 @@ export function createComboState(
     stateId,
     sourceSkillId,
     remainingDuration: finalDuration,
-    stacks: 1,
+    stacks: Math.min(stacksToAdd, maxStacks),
     maxStacks,
     effect,
   }];

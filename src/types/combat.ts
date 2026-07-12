@@ -192,6 +192,20 @@ export interface ComboStateEffect {
   focusBurst?: boolean;         // Blade Dance: all hits target same enemy
   counterDamageMult?: number;   // Blade Ward: multiply counter-hit damage
   markPassthrough?: boolean;    // Shadow Dash: re-create mark after consume
+  // ── COMBAT_ECONOMY_DESIGN E10: generic table-driven consume payoffs ──
+  // Any creator→consumer pair may use these; read once at the consume fold.
+  /** % damage per stack consumed (momentum ×(1+0.35k) → 35). */
+  incDamagePerStackConsumed?: number;
+  /** Perfect jackpot: applies ONLY when the consumed stacks == maxStacks. */
+  capBonus?: {
+    incDamage?: number;         // % damage (×1.8 → 80)
+    advanceOthersSec?: number;  // advance all OTHER skill CDs (self-excluded)
+  };
+  /** Wet-spend tempo refund: re-create stateId with N stacks after consume. */
+  refundStacks?: { stateId: string; amount: number };
+  /** Generic DoT detonation: % of remaining ailment ticks dealt as instant
+   *  burst (retires the deep_wound stateId hardcode). */
+  detonateDotPercent?: number;
 }
 
 export interface ComboState {

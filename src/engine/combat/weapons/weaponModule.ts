@@ -119,6 +119,9 @@ export interface PreRollResult {
   counterDamageMult: number;
   markPassthrough: boolean;
   cdAcceleration: number;
+  /** E10 capBonus.advanceOthersSec — Perfect spend advances all OTHER
+   *  skill cooldowns by this many seconds (self-excluded). */
+  advanceOtherCooldownsSec?: number;
   consumedStateIds: string[];
   healAmount: number;
   contagionSpreadCount: number;

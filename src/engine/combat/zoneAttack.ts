@@ -38,7 +38,7 @@ import {
 import type { CombatTickOutput } from './types';
 import { noResult } from './types';
 import { evaluateProcs } from '../combatHelpers';
-import { createComboState, COMBO_STATE_CREATORS } from './combo';
+import { createComboState, findCreatorByStateId } from './combo';
 import { getUnifiedSkillDef } from '../../data/skills';
 import {
   collectTalentEffects,
@@ -439,7 +439,7 @@ export function applyZoneDamage(
           dotKillProcDamage += killPr.bonusDamage;
           if (killPr.newMinions.length > 0) newActiveMinions.push(...killPr.newMinions);
           for (const cs of killPr.newComboStates) {
-            const creator = Object.values(COMBO_STATE_CREATORS).find(c => c.stateId === cs.stateId);
+            const creator = findCreatorByStateId(cs.stateId);
             const csEffect = creator?.effect ?? {};
             const csMaxStacks = creator?.maxStacks ?? 5;
             for (let i = 0; i < cs.stacks; i++) {
@@ -451,7 +451,7 @@ export function applyZoneDamage(
         // hauntedDeathSpawnsSoulStack — killed while haunted → soul_stack
         if (rb.hauntedDeathSpawnsSoulStack && mob.debuffs.some(d => d.debuffId === 'haunted' || d.debuffId === 'haunt_dot')) {
           const stacks = (typeof rb.hauntedDeathSpawnsSoulStack === 'number' ? rb.hauntedDeathSpawnsSoulStack : 1);
-          const creator = Object.values(COMBO_STATE_CREATORS).find(c => c.stateId === 'soul_stack');
+          const creator = findCreatorByStateId('soul_stack');
           const csEffect = creator?.effect ?? {};
           const csMaxStacks = creator?.maxStacks ?? 5;
           for (let i = 0; i < stacks; i++) {
@@ -463,7 +463,7 @@ export function applyZoneDamage(
             mob.debuffs.some(d => d.debuffId === 'hexed') &&
             mob.debuffs.some(d => d.debuffId === 'locust_swarm_dot')) {
           const stacks = (typeof rb.locustHexedKillSpawnsSoulStacks === 'number' ? rb.locustHexedKillSpawnsSoulStacks : 1);
-          const creator = Object.values(COMBO_STATE_CREATORS).find(c => c.stateId === 'soul_stack');
+          const creator = findCreatorByStateId('soul_stack');
           const csEffect = creator?.effect ?? {};
           const csMaxStacks = creator?.maxStacks ?? 5;
           for (let i = 0; i < stacks; i++) {

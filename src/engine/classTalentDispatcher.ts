@@ -284,6 +284,7 @@ export function applyConditionalTalentEffects(
   enemyCount: number = 0,
   frenziedActive: boolean = false,
   minionCount: number = 0,
+  castSkillId?: string,
 ): { damageMult: number } {
   let damageMult = 1;
 
@@ -394,6 +395,11 @@ export function applyConditionalTalentEffects(
       //    with the damage-pipeline slices; 'gainAs' with them (Wave 3). ──
       case 'mod': {
         const m = eff.mod;
+        // Skill scope (E14): a skillId-scoped mod folds only into casts
+        // of that skill; when the fold runs without a cast (castSkillId
+        // undefined), scoped mods stay inert. Other scope axes (bucket/
+        // element/tag) still land with the damage-pipeline slices.
+        if (m.scope?.skillId && m.scope.skillId !== castSkillId) break;
         if (m.if && !evalCondition(m.if, condCtx)) break;
         const raw = Array.isArray(m.value) ? m.value[0] : m.value;
         if (m.per) {

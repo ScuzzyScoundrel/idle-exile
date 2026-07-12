@@ -1104,3 +1104,19 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
 export function getNodeEffectsById(nodeId: string): TalentEffect[] {
   return NODE_EFFECTS[nodeId] ?? [];
 }
+
+// ── Class innate (covenant) passives — COMBAT_ECONOMY_DESIGN E14 ──
+// Always-on effects granted by the class itself, no allocation needed.
+// Flow through the same talentEffects pipeline as nodes/uniques.
+export const CLASS_INNATE_EFFECTS: Record<string, TalentEffect[]> = {
+  // Culling Strike — advertised in the class blurb since Phase A, dead
+  // until now. Assassinate deals +75% vs targets below 30% HP: the free
+  // second decision axis (execute band) for gambits.
+  assassin: [
+    { kind: 'mod', mod: {
+      stat: 'damageMult', op: 'mult', value: 1.75,
+      if: { targetHpBelow: 0.30 },
+      scope: { skillId: 'dagger_assassinate' },
+    } },
+  ],
+};

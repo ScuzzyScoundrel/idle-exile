@@ -63,6 +63,7 @@ import {
   collectUniqueEffects,
   type TalentProcContext,
 } from '../classTalentDispatcher';
+import { CLASS_INNATE_EFFECTS } from '../../data/classTrees/effects';
 import { SUMMON_CONFIGS, summonMinions, stepMinions } from './minions';
 import {
   evaluateConditionalMods,
@@ -82,7 +83,7 @@ import {
   mergeProcTempBuff,
   type SpreadResult,
 } from './helpers';
-import { CARRIER_DEATH_BEHAVIOR, createComboState, COMBO_STATE_CREATORS } from './combo';
+import { CARRIER_DEATH_BEHAVIOR, createComboState, findCreatorByStateId } from './combo';
 import { isSkillAoE, spawnPack } from '../packs';
 import { isZoneInvaded } from '../invasions';
 import {
@@ -194,6 +195,9 @@ export function runCombatTick(
   // Phase F F2 (2026-05-06): collect talent effects early so tickMaintenance
   // can dispatch minion-event procs without recomputing.
   const talentEffects = [
+    // COMBAT_ECONOMY_DESIGN E14: class innate (covenant) passives —
+    // always-on, same pipeline as everything else.
+    ...(CLASS_INNATE_EFFECTS[state.character.class] ?? []),
     ...collectTalentEffects(state.character.class, state.talentRanks ?? {}),
     ...collectAscendancyEffects(state.ascendancyId ?? null, state.ascendancyRanks ?? {}),
     // Effect IR Wave 3b (D17): equipped uniques contribute effects
@@ -746,6 +750,7 @@ export function runCombatTick(
     const talentConditional = applyConditionalTalentEffects(
       talentEffects, effectiveStats, targetDebuffs, selfHpFraction, targetHpFraction, companionAlive,
       state.critStacks, totalResonance, offhandAbsent, enemyCount, state.frenziedActive, minionCount,
+      skill.id,
     );
     damageMult *= talentConditional.damageMult;
     // Phase F F5b (2026-05-06): Precision Payoff — a hit on a Marked
@@ -811,6 +816,7 @@ export function runCombatTick(
   let comboFocusBurst = false;
   let comboCounterDamageMult = 1;
   let cdAcceleration = 0;
+  let comboAdvanceOtherCdSec = 0;
   let preRollHealAmount = 0;
   let comboContagionSpread = 0;
   let pandemicSpread = false;
@@ -837,6 +843,7 @@ export function runCombatTick(
     comboFocusBurst = pr.focusBurst;
     comboCounterDamageMult = pr.counterDamageMult;
     cdAcceleration = pr.cdAcceleration;
+    comboAdvanceOtherCdSec = pr.advanceOtherCooldownsSec ?? 0;
     consumedComboStateIds.push(...pr.consumedStateIds);
     preRollHealAmount = pr.healAmount;
     if (pr.contagionSpreadCount > 0) comboContagionSpread = pr.contagionSpreadCount;
@@ -1502,7 +1509,7 @@ export function runCombatTick(
       // Staff v2: proc-spawned minions + combo states
       if (pr.newMinions.length > 0) newActiveMinions.push(...pr.newMinions);
       for (const cs of pr.newComboStates) {
-        const creator = Object.values(COMBO_STATE_CREATORS).find(c => c.stateId === cs.stateId);
+        const creator = findCreatorByStateId(cs.stateId);
         const csEffect = creator?.effect ?? {};
         const csMaxStacks = creator?.maxStacks ?? 5;
         for (let i = 0; i < cs.stacks; i++) {
@@ -1562,7 +1569,7 @@ export function runCombatTick(
     for (const pd of tickPr.newDebuffs) applyDebuffToList(newDebuffs, pd.debuffId, pd.stacks, pd.duration, pd.skillId, ailmentSnapshot);
     if (tickPr.newMinions.length > 0) newActiveMinions.push(...tickPr.newMinions);
     for (const cs of tickPr.newComboStates) {
-      const creator = Object.values(COMBO_STATE_CREATORS).find(c => c.stateId === cs.stateId);
+      const creator = findCreatorByStateId(cs.stateId);
       const csEffect = creator?.effect ?? {};
       const csMaxStacks = creator?.maxStacks ?? 5;
       for (let i = 0; i < cs.stacks; i++) {
@@ -1702,6 +1709,18 @@ export function runCombatTick(
   if (procCooldownResets.length > 0) {
     newTimers = newTimers.map(t =>
       procCooldownResets.includes(t.skillId) ? { ...t, cooldownUntil: null } : t,
+    );
+  }
+
+  // E10 capBonus.advanceOthersSec: a Perfect spend advances all OTHER
+  // skill cooldowns. Self-excluded — the spender advancing itself would
+  // shorten its own cadence and unravel the cd ≪ build-period invariant.
+  if (comboAdvanceOtherCdSec > 0) {
+    const advMs = comboAdvanceOtherCdSec * 1000;
+    newTimers = newTimers.map(t =>
+      t.skillId !== skill!.id && t.cooldownUntil
+        ? { ...t, cooldownUntil: Math.max(now, t.cooldownUntil - advMs) }
+        : t,
     );
   }
 
@@ -2553,7 +2572,7 @@ export function runCombatTick(
       // Staff v2: proc-spawned minions + combo states on kill
       if (killPr.newMinions.length > 0) newActiveMinions.push(...killPr.newMinions);
       for (const cs of killPr.newComboStates) {
-        const creator = Object.values(COMBO_STATE_CREATORS).find(c => c.stateId === cs.stateId);
+        const creator = findCreatorByStateId(cs.stateId);
         const csEffect = creator?.effect ?? {};
         const csMaxStacks = creator?.maxStacks ?? 5;
         for (let i = 0; i < cs.stacks; i++) {
@@ -2794,7 +2813,7 @@ export function runCombatTick(
       // Staff v2: proc-spawned minions + combo states on AoE kill
       if (aoeKillPr.newMinions.length > 0) newActiveMinions.push(...aoeKillPr.newMinions);
       for (const cs of aoeKillPr.newComboStates) {
-        const creator = Object.values(COMBO_STATE_CREATORS).find(c => c.stateId === cs.stateId);
+        const creator = findCreatorByStateId(cs.stateId);
         const csEffect = creator?.effect ?? {};
         const csMaxStacks = creator?.maxStacks ?? 5;
         for (let i = 0; i < cs.stacks; i++) {

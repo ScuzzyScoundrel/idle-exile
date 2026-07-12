@@ -10,7 +10,8 @@ import type {
 } from './weaponModule';
 import type { ConditionContext } from '../../combatHelpers';
 import {
-  COMBO_STATE_CREATORS, COMBO_STATE_CONSUMERS,
+  COMBO_STATE_CONSUMERS,
+  getCreatorConfigs, checkAndStampIcd, createStateFromSpec,
   tickComboStates, consumeComboState, consumeMultipleComboStates, createComboState,
 } from '../combo';
 import { tickTraps, detonateTrap } from '../traps';
@@ -67,7 +68,9 @@ export const daggerModule: WeaponModule = {
     let markPassthrough = false;
     let healAmount = 0;
     let contagionSpreadCount = 0;
+    let advanceOtherCooldownsSec = 0;
     const consumedStateIds: string[] = [];
+    const pendingRefunds: { stateId: string; amount: number }[] = [];
 
     // Consume combo states for this skill
     const consumeIds = COMBO_STATE_CONSUMERS[skill.id];
@@ -88,8 +91,21 @@ export const daggerModule: WeaponModule = {
         if (eff.ailmentPotency) ailmentPotency += eff.ailmentPotency;
         if (eff.cdRefundPercent) cdRefundPercent += eff.cdRefundPercent;
 
-        // Deep Wound burst: consume remaining ailment ticks as instant damage
-        if (eff.burstDamage && cs.stateId === 'deep_wound') {
+        // ── COMBAT_ECONOMY_DESIGN E10: generic table-driven consume payoffs ──
+        // Per-stack scaling (consume-all spenders: momentum ×(1+0.35k))
+        if (eff.incDamagePerStackConsumed) {
+          damageMult *= (1 + (eff.incDamagePerStackConsumed * cs.stacks) / 100);
+        }
+        // Perfect jackpot: only when the spend consumed exactly cap stacks
+        if (eff.capBonus && cs.stacks >= cs.maxStacks) {
+          if (eff.capBonus.incDamage) damageMult *= (1 + eff.capBonus.incDamage / 100);
+          if (eff.capBonus.advanceOthersSec) advanceOtherCooldownsSec += eff.capBonus.advanceOthersSec;
+        }
+        // Wet-spend tempo refund (applied after the consume loop)
+        if (eff.refundStacks) pendingRefunds.push(eff.refundStacks);
+        // Generic DoT detonation (retires the deep_wound stateId hardcode):
+        // % of remaining ailment ticks dealt as instant burst
+        if (eff.detonateDotPercent) {
           let ailmentBurst = 0;
           for (const deb of targetDebuffs) {
             if ((deb as any).instances) {
@@ -101,7 +117,7 @@ export const daggerModule: WeaponModule = {
               ailmentBurst += stackTotal * (deb.remainingDuration ?? 0);
             }
           }
-          burstDamage += ailmentBurst * (eff.burstDamage / 100);
+          burstDamage += ailmentBurst * (eff.detonateDotPercent / 100);
         }
 
         // Dance Momentum: splash 50% damage to adjacent enemy
@@ -121,9 +137,18 @@ export const daggerModule: WeaponModule = {
       }
     }
 
+    // E10 refundStacks: wet-spend tempo refund — re-create AFTER the
+    // consume so the refund seeds the next build cycle (never consumed
+    // by the spend that granted it).
+    for (const refund of pendingRefunds) {
+      comboStates = createStateFromSpec(
+        comboStates, refund.stateId, skill.id, undefined, 1, refund.amount,
+      );
+    }
+
     // Shadow Mark passthrough: re-create mark for next skill
     if (markPassthrough) {
-      const markConfig = COMBO_STATE_CREATORS['dagger_shadow_mark'];
+      const markConfig = getCreatorConfigs('dagger_shadow_mark')[0];
       if (markConfig) {
         comboStates = createComboState(
           comboStates, markConfig.stateId, 'dagger_shadow_dash',
@@ -322,6 +347,7 @@ export const daggerModule: WeaponModule = {
       guaranteedCrit, ailmentPotency, cdRefundPercent, splashPercent,
       extraChains, burstDamage, focusBurst, counterDamageMult,
       markPassthrough, cdAcceleration, consumedStateIds, healAmount, contagionSpreadCount,
+      advanceOtherCooldownsSec,
       pandemicSpread: false,
     };
   },
@@ -334,41 +360,49 @@ export const daggerModule: WeaponModule = {
     let bladeWardExpiresAt = ctx.bladeWardExpiresAt;
     let bladeWardHits = ctx.bladeWardHits;
 
-    // Combo state creation: skill creates a state on cast/crit
-    const comboConfig = COMBO_STATE_CREATORS[skill.id];
-    if (comboConfig && roll.isHit) {
-      const trigger = comboConfig.createOn ?? 'onCast';
-      let shouldCreate = trigger === 'onCast'
-        || (trigger === 'onCrit' && roll.isCrit);
-      // onKill handled in kill block (not here)
+    // Combo state creation: a skill may create several states (E1:
+    // Stab = momentum on cast + opening on crit). Each config gates
+    // independently on trigger / minTargetsHit / icd.
+    if (roll.isHit) {
+      for (const comboConfig of getCreatorConfigs(skill.id)) {
+        const trigger = comboConfig.createOn ?? 'onCast';
+        let shouldCreate = trigger === 'onCast'
+          || (trigger === 'onCrit' && roll.isCrit);
+        // onKill handled in kill block (not here)
 
-      // Gate: minTargetsHit
-      if (shouldCreate && comboConfig.minTargetsHit) {
-        const totalHits = Math.max(1, ((skill as any).hitCount ?? 1) + ((skill as any).chainCount ?? 0) + (graphMod?.extraHits ?? 0));
-        const targetsHit = Math.min(totalHits, state.packMobs.length);
-        if (targetsHit < comboConfig.minTargetsHit) shouldCreate = false;
-      }
+        // Gate: minTargetsHit
+        if (shouldCreate && comboConfig.minTargetsHit) {
+          const totalHits = Math.max(1, ((skill as any).hitCount ?? 1) + ((skill as any).chainCount ?? 0) + (graphMod?.extraHits ?? 0));
+          const targetsHit = Math.min(totalHits, state.packMobs.length);
+          if (targetsHit < comboConfig.minTargetsHit) shouldCreate = false;
+        }
+        // Gate: per-stateId internal cooldown (E5 window decorrelation)
+        if (shouldCreate && !checkAndStampIcd(comboConfig.stateId, comboConfig.icdSec, now)) {
+          shouldCreate = false;
+        }
 
-      if (shouldCreate) {
-        const replace = graphMod?.comboStateReplace;
-        if (replace && replace.from === comboConfig.stateId) {
-          comboStates = createComboState(
-            comboStates, replace.to, skill.id,
-            replace.effect, replace.duration, 1,
-            1 + (ctx.effectiveStats.ailmentDuration ?? 0) / 100,
-          );
-        } else {
-          // comboModification: merge additionalEffect into created state
-          let effect = comboConfig.effect;
-          const pcm = graphMod?.rawBehaviors?.comboModification;
-          if (pcm?.state === comboConfig.stateId && pcm.additionalEffect) {
-            effect = { ...effect, ...pcm.additionalEffect };
+        if (shouldCreate) {
+          const replace = graphMod?.comboStateReplace;
+          if (replace && replace.from === comboConfig.stateId) {
+            comboStates = createComboState(
+              comboStates, replace.to, skill.id,
+              replace.effect, replace.duration, 1,
+              1 + (ctx.effectiveStats.ailmentDuration ?? 0) / 100,
+            );
+          } else {
+            // comboModification: merge additionalEffect into created state
+            let effect = comboConfig.effect;
+            const pcm = graphMod?.rawBehaviors?.comboModification;
+            if (pcm?.state === comboConfig.stateId && pcm.additionalEffect) {
+              effect = { ...effect, ...pcm.additionalEffect };
+            }
+            comboStates = createComboState(
+              comboStates, comboConfig.stateId, skill.id,
+              effect, comboConfig.duration, comboConfig.maxStacks,
+              1 + (ctx.effectiveStats.ailmentDuration ?? 0) / 100,
+              comboConfig.stacksPerGain ?? 1,
+            );
           }
-          comboStates = createComboState(
-            comboStates, comboConfig.stateId, skill.id,
-            effect, comboConfig.duration, comboConfig.maxStacks,
-            1 + (ctx.effectiveStats.ailmentDuration ?? 0) / 100,
-          );
         }
       }
     }

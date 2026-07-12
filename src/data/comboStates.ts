@@ -52,12 +52,36 @@ export const COMBO_STATE_SPECS: Record<string, ComboStateSpec> = {
   deep_wound: {
     id: 'deep_wound',
     name: 'Deep Wound',
-    description: 'Bleeding wound primed for execution. Consumed by Assassinate for +50 chaos burst.',
+    description: 'Bleeding wound primed for execution. Consuming it detonates 50% of remaining ailment ticks instantly.',
+    // COMBAT_ECONOMY_DESIGN §2.1: retired at baseline (no creator wires it);
+    // reborn as the Venomcraft "Fester" talent state. Effect converted to
+    // the generic E10 detonateDotPercent field (old: stateId-hardcoded burst).
     defaultDuration: 5,
     maxStacks: 1,
-    defaultEffect: { burstDamage: 50, burstElement: 'chaos' },
+    defaultEffect: { detonateDotPercent: 50, burstElement: 'chaos' },
     category: 'target',
     side: 'target',
+  },
+  // ── COMBAT_ECONOMY_DESIGN §2 (Wave E1): the Assassin economy ──
+  momentum: {
+    id: 'momentum',
+    name: 'Momentum',
+    description: 'The Assassin\'s ledger. Built +1 per builder cast (max 5, refreshed on gain). Assassinate consumes ALL stacks: +30% damage per stack, PERFECT at 5 (×2.5 + advances other cooldowns 1s). Fan of Knives spends the same pool at +20%/stack.',
+    defaultDuration: 10,
+    maxStacks: 5,
+    defaultEffect: { incDamagePerStackConsumed: 30, capBonus: { incDamage: 150, advanceOthersSec: 1 } },
+    category: 'stack',
+    side: 'player',
+  },
+  opening: {
+    id: 'opening',
+    name: 'Opening',
+    description: 'A fleeting gap in the enemy\'s guard (3s, opened by builder crits, 3s internal cooldown). Spending Momentum inside it: ×2 damage and refunds 3 Momentum.',
+    defaultDuration: 3.0,
+    maxStacks: 1,
+    defaultEffect: { incDamage: 100, refundStacks: { stateId: 'momentum', amount: 3 } },
+    category: 'self',
+    side: 'player',
   },
   shadow_mark: {
     id: 'shadow_mark',

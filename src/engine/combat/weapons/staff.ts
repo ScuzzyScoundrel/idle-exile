@@ -12,7 +12,7 @@ import type {
   PreRollContext, PostCastContext, EnemyAttackContext,
 } from './weaponModule';
 import {
-  COMBO_STATE_CREATORS, COMBO_STATE_CONSUMERS,
+  getCreatorConfigs, COMBO_STATE_CONSUMERS,
   consumeMultipleComboStates, createComboState, tickComboStates,
 } from '../combo';
 import {
@@ -1115,8 +1115,8 @@ export const staffModule: WeaponModule = {
     // Capture pre-create stack counts for talents that read "stacks active at cast time"
     const preCreateSoulStackCount = comboStates.find(s => s.stateId === 'soul_stack')?.stacks ?? 0;
 
-    // Combo state creator
-    const config = COMBO_STATE_CREATORS[skill.id];
+    // Combo state creator (staff skills author single configs)
+    const config = getCreatorConfigs(skill.id)[0];
     if (config && roll.isHit) {
       const createOn = config.createOn ?? 'onCast';
       if (createOn === 'onCast' || (createOn === 'onCrit' && roll.isCrit)) {
