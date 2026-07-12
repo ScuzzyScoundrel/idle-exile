@@ -58,6 +58,7 @@ import { getDefaultSkillForWeapon } from '../engine/unifiedSkills';
 // classTalents import removed (Skill Tree Overhaul Phase 0)
 // canAllocateTalentRank, allocateTalentRank, respecTalentRanks, getTalentRespecCost imports moved to skillStore
 import { getUnifiedSkillDef } from '../data/skills';
+import type { RotationPolicy } from '../types/rotation';
 // canAllocateGraphNode, allocateGraphNode, respecGraphNodes, getGraphRespecCost imports moved to skillStore
 import { getFullEffect } from '../engine/combat/helpers';
 import { runCombatTick } from '../engine/combat/tick';
@@ -173,6 +174,11 @@ interface GameActions {
 
   // Real-time combat (10K-A, extended 10K-B1 for boss)
   tickCombat: (dtSec: number) => CombatTickResult;
+
+  // Gambit rotation (RotationPanel v1) — null restores legacy slot-order.
+  // tick.ts reads state.rotationPolicy each decision, so changes apply
+  // on the next combat tick with no extra wiring.
+  setRotationPolicy: (policy: RotationPolicy | null) => void;
 
   // Combat / Boss
   startBossFight: () => void;
@@ -971,6 +977,13 @@ export const useGameStore = create<GameState & GameActions>()(
         const { patch, result } = runCombatTick(state, dtSec);
         if (Object.keys(patch).length > 0) set(patch);
         return result;
+      },
+
+      // ── Gambit Rotation (RotationPanel v1) ──
+      // tick.ts evaluates state.rotationPolicy ?? slotOrderPolicy(bar)
+      // every decision, so a new policy takes effect next tick.
+      setRotationPolicy: (policy: RotationPolicy | null) => {
+        set({ rotationPolicy: policy });
       },
 
       startBossFight: () => {

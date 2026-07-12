@@ -36,6 +36,7 @@ import { createResourceState } from '../src/engine/classResource';
 import { ZONE_DEFS } from '../src/data/zones';
 import type { GameState, ActiveDebuff, MobInPack, EquippedSkill } from '../src/types';
 import type { RotationPolicy } from '../src/types/rotation';
+import { DAGGER_TEMPO_POLICY } from '../src/data/rotationPresets';
 
 function createMobPack(count: number, hp: number): MobInPack[] {
   const now = getNow();
@@ -346,37 +347,13 @@ const DAGGER_TEL: Telemetry = { spenderSkillId: 'dagger_assassinate', chargeStat
 // express "build then spend"). It ships as the default, and the gambit
 // is measured against it — the honest bar, since players find this.
 const DAGGER_BAR = ['dagger_stab', 'dagger_chain_strike', 'dagger_blade_dance', 'dagger_viper_strike', 'dagger_assassinate'];
+// The gambit literal moved to src/data/rotationPresets.ts (RotationPanel
+// v1 ships it as the "Tempo Assassin" preset) — this import keeps the
+// gate-tested values and the shipped preset a single source of truth.
+// Rule rationale comments (no cap-dump, builder parity) live there now.
 const dagger = experiment('DAGGER (E1 reference kit: momentum + opening)', 'assassin', 'dagger',
   DAGGER_BAR,
-  {
-    version: 1,
-    rules: [
-      // 1. Wet spend — react to the Opening with a meaningful ledger
-      { id: 'wet_spend', enabled: true, when: { all: [
-        { stateCountAtLeast: { stateId: 'opening', count: 1 } },
-        { stateCountAtLeast: { stateId: 'momentum', count: 3 } },
-        { skillReady: 'dagger_assassinate' },
-      ] }, action: { kind: 'castSkill', skillId: 'dagger_assassinate' } },
-      // 2. Culling band — execute below 30% regardless of window
-      { id: 'culling_band', enabled: true, when: { all: [
-        { targetHpBelow: 0.30 },
-        { stateCountAtLeast: { stateId: 'momentum', count: 3 } },
-      ] }, action: { kind: 'castSkill', skillId: 'dagger_assassinate' } },
-      // NO cap-dump rule (iteration-8 lesson): holding a full ledger is
-      // FREE — overcap builder gains are already worthless, builders keep
-      // dealing damage while parked, and a dry Perfect (~450) preempts a
-      // wet Perfect (~900) that arrives with the next window. Spend ONLY
-      // into windows (rule 1) or the execute band (rule 2).
-      // 3-6. Builders at FULL parity with the blind arm (iteration-1
-      // lesson: benching Blade Dance/Viper starved throughput −13%;
-      // Viper builds no momentum so casting it is always ledger-free —
-      // the smart arm's edge must come from spend TIMING alone).
-      { id: 'dance', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'dagger_blade_dance' } },
-      { id: 'viper', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'dagger_viper_strike' } },
-      { id: 'builder', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'dagger_chain_strike', minMana: 22 } },
-      { id: 'filler', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'dagger_stab' } },
-    ],
-  },
+  DAGGER_TEMPO_POLICY,
   DAGGER_TEL);
 
 // GATE E0 null control — bow only (bow content unchanged until Wave E3).

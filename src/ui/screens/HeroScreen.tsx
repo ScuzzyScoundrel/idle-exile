@@ -10,6 +10,7 @@ import { calcBagCapacity, CURRENCY_DEFS } from '../../data/items';
 import CharacterHeader from '../components/CharacterHeader';
 import ClassSilhouette from '../components/ClassSilhouette';
 import SkillPanel from '../components/SkillPanel';
+import RotationPanel from '../components/RotationPanel';
 import AttributePanel from '../components/AttributePanel';
 import ClassTalentPanel from '../components/ClassTalentPanel';
 import AscendancyPanel from '../components/AscendancyPanel';
@@ -91,6 +92,7 @@ export default function HeroScreen() {
   const [selectedCurrency, setSelectedCurrency] = useState<CurrencyType | null>(null);
   const [bagsOpen, setBagsOpen] = useState(false);
   const [skillsOpen, setSkillsOpen] = useState(true);
+  const [rotationOpen, setRotationOpen] = useState(false);
   const selectedItem = selectedSlot ? character.equipment[selectedSlot] ?? null : null;
   const bagCapacity = calcBagCapacity(bagSlots);
   const hasCurrencies = Object.values(currencies).some(v => v > 0);
@@ -244,6 +246,19 @@ export default function HeroScreen() {
         {skillsOpen && (
           <div className="mt-2">
             <SkillPanel />
+          </div>
+        )}
+      </div>
+
+      {/* Rotation — collapsible (gambit presets, RotationPanel v1) */}
+      <div className={glassPanel}>
+        <button onClick={() => setRotationOpen(o => !o)} className="w-full flex items-center justify-between">
+          <h3 className="text-sm font-bold text-gray-300 heading-fantasy">Rotation</h3>
+          <span className="text-xs text-gray-500">{rotationOpen ? '▼' : '▶'}</span>
+        </button>
+        {rotationOpen && (
+          <div className="mt-2">
+            <RotationPanel />
           </div>
         )}
       </div>

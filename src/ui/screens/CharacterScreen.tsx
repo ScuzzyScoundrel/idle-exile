@@ -9,6 +9,7 @@ import { formatCorruptionAffix } from '../../data/corruptionAffixes';
 import { CLASS_DEFS } from '../../data/classes';
 import { calcSetBonuses, calcDefensiveEfficiency } from '../../engine/setBonus';
 import SkillPanel from '../components/SkillPanel';
+import RotationPanel from '../components/RotationPanel';
 import AttributePanel from '../components/AttributePanel';
 import ClassTalentPanel from '../components/ClassTalentPanel';
 import AscendancyPanel from '../components/AscendancyPanel';
@@ -375,6 +376,9 @@ export default function CharacterScreen() {
 
       {/* Skill Panel (handles both active skills + abilities) */}
       <SkillPanel />
+
+      {/* Gambit rotation presets + rule list (RotationPanel v1) */}
+      <RotationPanel />
 
       {/* Defense & Set Bonuses */}
       <DefensePanel />
