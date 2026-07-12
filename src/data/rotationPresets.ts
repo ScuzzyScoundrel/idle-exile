@@ -58,6 +58,43 @@ export const DAGGER_TEMPO_POLICY: RotationPolicy = {
   ],
 };
 
+// ── Bow "Marked Tempo" — COMBAT_ECONOMY_DESIGN §3, the GATE-E3
+// experiment policy (sim/gambit-ab.ts BOW experiment). Same chassis as
+// Tempo Assassin: no cap-dump, spend only into windows/execute; plus
+// the bow-specific axes — Mark upkeep gates the windows, and Rapid
+// Fire is held below cap to dodge the overcap trap. ──
+export const BOW_MARKED_TEMPO_POLICY: RotationPolicy = {
+  version: 1,
+  rules: [
+    // 1. Mark upkeep — table stakes: windows only open vs Marked targets
+    { id: 'mark_upkeep', enabled: true, when: { targetLacksTag: 'mark' }, action: { kind: 'castSkill', skillId: 'bow_hunters_mark' } },
+    // 2. Wet spend — Vulnerable window + a meaningful quiver
+    { id: 'wet_spend', enabled: true, when: { all: [
+      { stateCountAtLeast: { stateId: 'vulnerable', count: 1 } },
+      { stateCountAtLeast: { stateId: 'quiver', count: 4 } },
+      { skillReady: 'bow_snipe' },
+    ] }, action: { kind: 'castSkill', skillId: 'bow_snipe' } },
+    // 3. Execute band — Tracking Shot ×2 below 35% (hunter innate)
+    { id: 'execute_band', enabled: true, when: { targetHpBelow: 0.35 }, action: { kind: 'castSkill', skillId: 'bow_tracking_shot' } },
+    // 3b. CAP-DUMP (E3 iteration-3 — the dagger lesson MIRRORED):
+    // bow windows are scarce (~1 per 50s vs dagger's ~8s), while the
+    // blind bar under-spends (last-slot snipe fires every ~12.5s vs a
+    // ~7.5s build-to-cap). The bow edge is OUT-SPENDING blind at cap,
+    // not withholding: dump Perfects on cooldown, wet when lucky.
+    { id: 'cap_dump', enabled: true, when:
+      { stateCountAtLeast: { stateId: 'quiver', count: 6 } },
+      action: { kind: 'castSkill', skillId: 'bow_snipe' } },
+    // 4. Rapid Fire UNCONDITIONAL (E3 iteration-1 lesson, the dagger
+    // lesson mirrored): overcap GAINS are free to waste, but holding
+    // the kit's crit engine is not — gating rapid below cap starved
+    // crits → windows → spends (32 vs 192 casts, snipe ×23, −36%).
+    { id: 'rapid', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'bow_rapid_fire' } },
+    // 5-6. Builders/filler at parity (dagger iteration-1 lesson)
+    { id: 'builder', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'bow_arrow_shot', minMana: 25 } },
+    { id: 'filler', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'bow_burning_arrow' } },
+  ],
+};
+
 export const ROTATION_PRESETS: RotationPresetDef[] = [
   {
     id: 'slot_order',
@@ -72,6 +109,13 @@ export const ROTATION_PRESETS: RotationPresetDef[] = [
     blurb: 'Banks Momentum with builders and spends Assassinate only into Openings or the sub-30% execute band — never cap-dumps a full ledger.',
     weaponType: 'dagger',
     policy: DAGGER_TEMPO_POLICY,
+  },
+  {
+    id: 'bow_marked_tempo',
+    name: 'Marked Tempo',
+    blurb: 'Keeps Hunter\'s Mark up, holds Rapid Fire below cap to dodge the overcap trap, and spends Snipe only into Vulnerable windows or the sub-35% Tracking Shot band.',
+    weaponType: 'bow',
+    policy: BOW_MARKED_TEMPO_POLICY,
   },
 ];
 

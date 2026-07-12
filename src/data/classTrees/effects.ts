@@ -1119,4 +1119,13 @@ export const CLASS_INNATE_EFFECTS: Record<string, TalentEffect[]> = {
       scope: { skillId: 'dagger_assassinate' },
     } },
   ],
+  // Tracking Shot's "+100% below 50%" prose, finally wired (Wave E3,
+  // §3) — as a real conditional at 35%: the Hunter execute band.
+  hunter: [
+    { kind: 'mod', mod: {
+      stat: 'damageMult', op: 'mult', value: 2.0,
+      if: { targetHpBelow: 0.35 },
+      scope: { skillId: 'bow_tracking_shot' },
+    } },
+  ],
 };

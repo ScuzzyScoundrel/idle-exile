@@ -204,6 +204,7 @@ export interface ComboStateEffect {
   capBonus?: {
     incDamage?: number;         // % damage (×1.8 → 80)
     advanceOthersSec?: number;  // advance all OTHER skill CDs (self-excluded)
+    guaranteedCrit?: boolean;   // Wave E3 (bow Snipe Perfect): auto-crit
   };
   /** Wet-spend tempo refund: re-create stateId with N stacks after consume. */
   refundStacks?: { stateId: string; amount: number };

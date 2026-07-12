@@ -12,8 +12,9 @@
 // hoist must leave its verdict byte-identical.
 // ============================================================
 
-import type { ComboState } from '../../types';
+import type { ComboState, TalentTag } from '../../types';
 import type { PreRollContext, PostCastContext } from './weapons/weaponModule';
+import { TALENT_TAG_TO_DEBUFF } from '../ir/conditions';
 import {
   COMBO_STATE_CONSUMERS,
   getCreatorConfigs, checkAndStampIcd, createStateFromSpec,
@@ -101,6 +102,7 @@ export function comboConsumePreRoll(ctx: PreRollContext): ComboConsumeResult {
       if (eff.capBonus && cs.stacks >= cs.maxStacks) {
         if (eff.capBonus.incDamage) damageMult *= (1 + eff.capBonus.incDamage / 100);
         if (eff.capBonus.advanceOthersSec) advanceOtherCooldownsSec += eff.capBonus.advanceOthersSec;
+        if (eff.capBonus.guaranteedCrit) guaranteedCrit = true; // E3: Snipe Perfect
         perfectSpend = true; // E16: PERFECT floater tag
       }
       // Wet-spend tempo refund (applied after the consume loop).
@@ -203,6 +205,12 @@ export function comboCreatePostCast(ctx: PostCastContext): ComboState[] {
         const totalHits = Math.max(1, ((skill as any).hitCount ?? 1) + ((skill as any).chainCount ?? 0) + (graphMod?.extraHits ?? 0));
         const targetsHit = Math.min(totalHits, state.packMobs.length);
         if (targetsHit < comboConfig.minTargetsHit) shouldCreate = false;
+      }
+      // Gate: target must carry the tag's debuff (E3: quiver-vs-Marked,
+      // vulnerable on crit-vs-Marked)
+      if (shouldCreate && comboConfig.requiresTargetTag) {
+        const did = TALENT_TAG_TO_DEBUFF[comboConfig.requiresTargetTag as TalentTag] ?? comboConfig.requiresTargetTag;
+        if (!ctx.targetDebuffs.some(d => d.debuffId === did)) shouldCreate = false;
       }
       // Gate: per-stateId internal cooldown (E5 window decorrelation)
       if (shouldCreate && !checkAndStampIcd(comboConfig.stateId, comboConfig.icdSec, now)) {

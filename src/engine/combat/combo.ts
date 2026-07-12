@@ -32,6 +32,10 @@ export interface ComboStateConfig {
   icdSec?: number;
   /** Stacks added per creation event (default 1). */
   stacksPerGain?: number;
+  /** Wave E3: only create when the target carries this talent tag's
+   *  debuff (bow: +1 extra quiver vs Marked; vulnerable on crit-vs-
+   *  Marked). Resolved via TALENT_TAG_TO_DEBUFF at the creation gate. */
+  requiresTargetTag?: string;
 }
 
 // Per-stateId ICD stamps. Ephemeral by design (resets on reload — an ICD
@@ -88,6 +92,28 @@ const MOMENTUM_EFFECT: ComboStateEffect = {
 const OPENING_EFFECT: ComboStateEffect = {
   incDamage: 100,
   refundStacks: { stateId: 'momentum', amount: 3 },
+};
+
+// ── COMBAT_ECONOMY_DESIGN §3 (Wave E3): the Hunter quiver economy ──
+// Quiver: consume-all — Snipe ×(1+0.30/stack), Perfect at 6 = ×2.5 +
+// guaranteed crit; Pierce Volley spends the same pool flatter with no
+// jackpot (ST-vs-AoE arbitration, mirrors FoK).
+const QUIVER_EFFECT: ComboStateEffect = {
+  incDamagePerStackConsumed: 30,
+  capBonus: { incDamage: 150, guaranteedCrit: true, advanceOthersSec: 1 },
+  perSkillBonus: {
+    bow_pierce_volley: { incDamagePerStackConsumed: 15, capBonus: undefined },
+  },
+};
+// Vulnerable: the wet window — opened by crits ON A MARKED TARGET
+// (Mark upkeep is table stakes, window timing is the skill test; icd 3s
+// per the dagger E1 lesson: many small windows beat few large ones).
+// E3 iteration-6: ×2.5/refund-3 froze the mean and blew up variance
+// (scarce windows = noise) — reverted to ×2/refund-2; the mean lives
+// in deterministic levers (advanceOthersSec on Perfect, spender base).
+const VULNERABLE_EFFECT: ComboStateEffect = {
+  incDamage: 100,
+  refundStacks: { stateId: 'quiver', amount: 2 },
 };
 
 // Re-export the registry helpers so engine consumers have a single import surface.
@@ -147,6 +173,31 @@ export const COMBO_STATE_CREATORS: Record<string, ComboStateConfig | ComboStateC
   dagger_shadow_dash:   { stateId: 'shadow_momentum',  duration: 2, maxStacks: 1, createOn: 'onCast',
                           effect: { cooldownAcceleration: 2 } },
 
+  // ── Bow (Hunter) — Wave E3 (§3): builders. Elemental arrows are the
+  // chargeless park/filler; NOTE (measured deviation from §3): the
+  // "+1 extra quiver vs Marked" generation bonus is dropped — both arms
+  // run ~100% Mark uptime so it cancels, and it pushed builder supply
+  // into the cap-farming saturation that sank dagger iteration 3. ──
+  bow_arrow_shot: [
+    { stateId: 'quiver', duration: 10, maxStacks: 6, createOn: 'onCast', effect: QUIVER_EFFECT },
+    { stateId: 'vulnerable', duration: 3.0, maxStacks: 1, createOn: 'onCrit', icdSec: 3, requiresTargetTag: 'mark', effect: VULNERABLE_EFFECT },
+  ],
+  bow_rapid_fire: [
+    // +3 per flurry (one per arrow): the overcap trap — casting it near cap wastes gains,
+    // which only a gambit (quiver-below check) can avoid.
+    { stateId: 'quiver', duration: 10, maxStacks: 6, createOn: 'onCast', stacksPerGain: 3, effect: QUIVER_EFFECT },
+    { stateId: 'vulnerable', duration: 3.0, maxStacks: 1, createOn: 'onCrit', icdSec: 3, requiresTargetTag: 'mark', effect: VULNERABLE_EFFECT },
+  ],
+  // E3 iteration-3: windows were 10× rarer than modeled (fixture crit
+  // ~11-17%, Mark dies with each ~4s mob) — ANY bow attack critting a
+  // Marked target opens the killing angle, not just the builders.
+  bow_burning_arrow: [
+    { stateId: 'vulnerable', duration: 3.0, maxStacks: 1, createOn: 'onCrit', icdSec: 3, requiresTargetTag: 'mark', effect: VULNERABLE_EFFECT },
+  ],
+  bow_tracking_shot: [
+    { stateId: 'vulnerable', duration: 3.0, maxStacks: 1, createOn: 'onCrit', icdSec: 3, requiresTargetTag: 'mark', effect: VULNERABLE_EFFECT },
+  ],
+
   // ── Staff v2 (Witch Doctor) ──
   // Locust Swarm: creates Plagued — consumed by Plague of Toads for pandemic spread (wired in staff module)
   staff_locust_swarm:   { stateId: 'plagued',          duration: 6, maxStacks: 1, createOn: 'onCast',
@@ -191,6 +242,10 @@ export const COMBO_STATE_CONSUMERS: Record<string, string[]> = {
   dagger_stab:         ['shadow_mark', ...CROSS_SKILL_STATES],
   // Shadow Mark is a setup skill, not a damage follow-up
   dagger_shadow_mark:  ['shadow_mark', ...CROSS_SKILL_STATES],
+
+  // ── Bow (Hunter) — Wave E3: the two spenders share the quiver pool ──
+  bow_snipe:         ['quiver', 'vulnerable'],
+  bow_pierce_volley: ['quiver', 'vulnerable'],
 
   // ── Staff v2 (Witch Doctor) ──
   staff_spirit_barrage:  ['haunted'],

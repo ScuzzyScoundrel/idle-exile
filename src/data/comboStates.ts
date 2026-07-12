@@ -83,6 +83,27 @@ export const COMBO_STATE_SPECS: Record<string, ComboStateSpec> = {
     category: 'self',
     side: 'player',
   },
+  // ── COMBAT_ECONOMY_DESIGN §3 (Wave E3): the Hunter economy ──
+  quiver: {
+    id: 'quiver',
+    name: 'Quiver',
+    description: 'The Hunter\'s ledger. Arrow Shot +1, Rapid Fire +3 (max 6, refreshed on gain — gains past 6 are wasted). Snipe consumes ALL stacks: +30% damage per stack, PERFECT at 6 (×2.5, guaranteed crit, advances other cooldowns 1s). Pierce Volley spends the same pool at +15%/stack.',
+    defaultDuration: 10,
+    maxStacks: 6,
+    defaultEffect: { incDamagePerStackConsumed: 30, capBonus: { incDamage: 150, guaranteedCrit: true, advanceOthersSec: 1 } },
+    category: 'stack',
+    side: 'player',
+  },
+  vulnerable: {
+    id: 'vulnerable',
+    name: 'Vulnerable',
+    description: 'A killing angle on a Marked target (3s, opened by crits vs Marked, 3s internal cooldown). Spending Quiver inside it: ×2 damage and refunds 2 Quiver.',
+    defaultDuration: 3.0,
+    maxStacks: 1,
+    defaultEffect: { incDamage: 100, refundStacks: { stateId: 'quiver', amount: 2 } },
+    category: 'self',
+    side: 'player',
+  },
   shadow_mark: {
     id: 'shadow_mark',
     name: 'Shadow Mark',
