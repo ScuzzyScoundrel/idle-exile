@@ -119,7 +119,14 @@ export type { CombatTickOutput } from './types';
 import type { WeaponModule } from './weapons/weaponModule';
 import { daggerModule } from './weapons/dagger';
 import { staffModule } from './weapons/staff';
-const WEAPON_MODULES: Record<string, WeaponModule> = { dagger: daggerModule, staff: staffModule };
+import { dataDrivenFor } from './weapons/dataDriven';
+const WEAPON_MODULES: Record<string, WeaponModule> = {
+  dagger: daggerModule,
+  staff: staffModule,
+  // Effect IR Wave 4: data-driven weapons share ONE generic module —
+  // mechanics come from SkillDef.effects + TRAP_DEFS, no bespoke file.
+  bow: dataDrivenFor('bow'),
+};
 function getWeaponModule(wt: string | undefined): WeaponModule | null {
   return wt ? WEAPON_MODULES[wt] ?? null : null;
 }
@@ -1036,7 +1043,13 @@ export function runCombatTick(
   // Phase 4 sub-phase 5: class-talent procOnHit / procOnCrit dispatch.
   // Skill's element tag (after morph) filters procs like "Flurry Ascendant
   // — on Attack hit 15% → apply bleed".
-  if (roll.isHit && talentEffects.length > 0) {
+  // Effect IR Wave 4 (D17): the casting skill's own effects dispatch
+  // alongside talent effects — a skill's {on:'hit'} rules fire only
+  // during its own casts by construction.
+  const castEffects = (skill.effects && skill.effects.length > 0)
+    ? [...talentEffects, ...skill.effects]
+    : talentEffects;
+  if (roll.isHit && castEffects.length > 0) {
     const hitTag = skill.tags.find(t =>
       t === 'Physical' || t === 'Fire' || t === 'Cold' || t === 'Lightning' || t === 'Chaos'
       || t === 'Attack' || t === 'Spell'
@@ -1071,12 +1084,12 @@ export function runCombatTick(
       tempBuffsRef: [...activeTempBuffs],
       // Phase F polish (2026-05-06): self-reference enables procOnTag
       // cascades (hnt_mm_hunters_eye fires on Mark application etc.).
-      effects: talentEffects,
+      effects: castEffects,
       // Phase F (2026-05-06): bonusDamage action accumulator — read
       // back into procDamage after dispatch.
       bonusDamageRef: { value: 0, baseDamage: roll.damage },
     };
-    dispatchProcOnHit(talentEffects, procCtx);
+    dispatchProcOnHit(castEffects, procCtx);
     if (procCtx.bonusDamageRef) {
       talentBonusDamage += procCtx.bonusDamageRef.value;
       procCtx.bonusDamageRef.value = 0;
@@ -1086,7 +1099,7 @@ export function runCombatTick(
     // wand_volley_convergence, crossbow_convergence_bolt). Fires once
     // per cast, regardless of hit count.
     if (skill.id.includes('convergence')) {
-      dispatchProcOnConvergenceCast(talentEffects, procCtx);
+      dispatchProcOnConvergenceCast(castEffects, procCtx);
       if (procCtx.bonusDamageRef) {
         talentBonusDamage += procCtx.bonusDamageRef.value;
         procCtx.bonusDamageRef.value = 0;
@@ -1105,7 +1118,7 @@ export function runCombatTick(
       // only when an actual gain happened (pre-cap). At-cap hits refresh
       // the decay window but don't add a charge — no proc fire.
       if (preCharges < 5) {
-        dispatchProcOnResonanceChargeGain(talentEffects, procCtx, elKey);
+        dispatchProcOnResonanceChargeGain(castEffects, procCtx, elKey);
         if (procCtx.bonusDamageRef) {
           talentBonusDamage += procCtx.bonusDamageRef.value;
           procCtx.bonusDamageRef.value = 0;
@@ -1113,7 +1126,7 @@ export function runCombatTick(
       }
     }
     if (roll.isCrit) {
-      dispatchProcOnCrit(talentEffects, procCtx);
+      dispatchProcOnCrit(castEffects, procCtx);
       if (procCtx.bonusDamageRef) {
         talentBonusDamage += procCtx.bonusDamageRef.value;
         procCtx.bonusDamageRef.value = 0;

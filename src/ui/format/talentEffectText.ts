@@ -190,6 +190,14 @@ function effectText(eff: TalentEffect): string {
 /** Format the effects of a talent node at a given rank. Returns one
  *  string per TalentEffect — empty array if no effects registered (a
  *  forward-compat seed). */
+/** Effect IR Wave 4: generated tooltip lines for a skill's data-authored
+ *  effects (bow_hunters_mark etc.). Returns [] for skills without
+ *  effects. UI wiring lands with the Wave 6 panel work. */
+export function formatSkillEffects(effects: TalentEffect[] | undefined): string[] {
+  if (!effects || effects.length === 0) return [];
+  return effects.map(effectText);
+}
+
 export function formatTalentEffects(nodeId: string, rank: number): string[] {
   const effects = NODE_EFFECTS[nodeId];
   if (!effects || effects.length === 0) return [];

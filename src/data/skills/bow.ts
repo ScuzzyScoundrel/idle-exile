@@ -155,6 +155,12 @@ export const BOW_ACTIVE_SKILLS: ActiveSkillDef[] = [
     manaCost: 6,
     baseAilmentChance: 0,
     description: 'Mark a target for 8s. Marked targets grant +30% crit chance to your next attack and take +25% damage from you.',
+    // Effect IR Wave 4: first data-authored skill mechanic — the mark
+    // applies via the 'marked' DebuffDef (currently +15% damage taken;
+    // reconciling the prose numbers is content-overhaul work).
+    effects: [
+      { kind: 'on', on: { trigger: { on: 'hit' }, actions: [{ kind: 'applyTag', tag: 'mark', stacks: 1, duration: 8 }] } },
+    ],
     weaponType: 'bow',
     tags: ['Attack', 'Utility', 'Projectile'],
     baseDamage: 1,

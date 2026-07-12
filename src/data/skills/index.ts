@@ -112,6 +112,10 @@ const convertedActiveSkills: SkillDef[] = ACTIVE_SKILL_DEFS.map(s => ({
   manaCost: s.manaCost,
   // Phase A Change 3: carry ailment trigger chance
   baseAilmentChance: s.baseAilmentChance,
+  // Effect IR Wave 4 (D17): carry data-authored skill behaviors — the
+  // cast site dispatches these; dropping this line silently kills every
+  // data-authored skill mechanic.
+  effects: s.effects,
   // Per-skill talent graphs retired 2026-05-04 — class trees in src/data/classTrees/ are the new authoring layer.
 }));
 

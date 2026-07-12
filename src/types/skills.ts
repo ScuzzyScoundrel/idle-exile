@@ -771,6 +771,11 @@ export interface ActiveSkillDef {
   description: string;
   weaponType: WeaponType;
   tags: DamageTag[];
+  /** Effect IR Wave 4 (D17): skill behaviors as data — same
+   *  TalentEffect union as talents/ascendancies/uniques. Rules with
+   *  trigger {on:'hit'}/{on:'crit'} fire only during THIS skill's own
+   *  casts (dispatched at the cast site alongside talent effects). */
+  effects?: TalentEffect[];
   baseDamage: number;           // flat base damage from skill itself
   weaponDamagePercent: number;  // Attack skills: % of weapon phys damage added (1.0 = 100%)
   spellPowerRatio: number;      // Spell skills: % of spell power added (1.0 = 100%)
@@ -815,6 +820,9 @@ export interface SkillDef {
   weaponType: WeaponType;
   kind: SkillKind;
   tags: DamageTag[];
+  /** Effect IR Wave 4 (D17): skill behaviors as data — see
+   *  ActiveSkillDef.effects (carried through the unified projection). */
+  effects?: TalentEffect[];
   icon: string;
   levelRequired: number;
   // Damage fields (kind === 'active')
