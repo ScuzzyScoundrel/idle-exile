@@ -29,7 +29,6 @@ import {
 import {
   calcSkillCastInterval,
   rollSkillCast,
-  getNextRotationSkill,
   getDefaultSkillForWeapon,
   getSkillGraphModifier,
   aggregateTempBuffEffects,
@@ -103,6 +102,7 @@ import { getClassDef } from '../../data/classes';
 import { getDebuffDef } from '../../data/debuffs';
 import { STATE_DEFS } from '../../data/states';
 import { collectActiveRules } from '../../data/rules';
+import { evaluatePolicy, slotOrderPolicy, buildRotationCond, NEUTRAL_COND } from '../ir/rotationPolicy';
 import { getUnifiedSkillDef } from '../../data/skills';
 import { getMobTypeDef } from '../../data/mobTypes';
 import { pickCurrentMob } from '../zones/helpers';
@@ -451,13 +451,21 @@ export function runCombatTick(
     return withMaint(applyNonSkillTickWithAuto(state, dtSec, now, zone, phase));
   }
 
-  // Find next ready skill from rotation (slot-priority order)
+  // Find next ready skill — gambit policy when the player authored one,
+  // implicit slot-order policy otherwise (Effect IR Wave 5, D19).
   const targetHpPct = phase === 'boss_fight' && state.bossState
     ? (state.bossState.bossCurrentHp / state.bossState.bossMaxHp) * 100
     : (frontMobHp / frontMobMaxHp) * 100;
-  const rotationResult = getNextRotationSkill(
-    state.skillBar ?? [], state.skillTimers, now, state.skillProgress, targetHpPct,
-    state.character.mana, dtSec,
+  const rotationResult = evaluatePolicy(
+    state.rotationPolicy ?? slotOrderPolicy(state.skillBar ?? []),
+    {
+      skillBar: state.skillBar ?? [], skillTimers: state.skillTimers, now,
+      skillProgress: state.skillProgress, targetHpPercent: targetHpPct,
+      mana: state.character.mana, dtSec,
+      cond: state.rotationPolicy
+        ? buildRotationCond(state, phase, targetHpPct, resolveStats(state.character).maxLife, now)
+        : NEUTRAL_COND,
+    },
   );
 
   // Fallback: if no rotation skill ready, check why

@@ -13,7 +13,7 @@ import { getUnifiedSkillDef, getSkillsForWeapon } from '../../data/skills';
 import { getSkillGraphModifier } from './resolution';
 import { calcSkillDps, calcSkillCastInterval } from './dps';
 import { estimateProcDps, type CombatContext } from '../procEstimation';
-import { canAffordManaCost } from '../combat/manaTick';
+import { evaluatePolicy, slotOrderPolicy, NEUTRAL_COND } from '../ir/rotationPolicy';
 
 /**
  * Calculate total rotation DPS across all equipped active skills.
@@ -110,38 +110,16 @@ export function getNextRotationSkill(
   mana?: { current: number; max: number; regenPerSec: number },
   dtSec?: number,
 ): { skill: SkillDef; slotIndex: number } | null {
-  for (let i = 0; i < skillBar.length; i++) {
-    const equipped = skillBar[i];
-    if (!equipped) continue;
-    const skill = getUnifiedSkillDef(equipped.skillId);
-    if (!skill || skill.kind !== 'active') continue;
-
-    const timer = skillTimers.find(t => t.skillId === equipped.skillId);
-    if (timer && timer.cooldownUntil != null && now < timer.cooldownUntil) {
-      continue;
-    }
-
-    // Execute-lock: skip skill if target HP above execute threshold
-    if (skillProgress && targetHpPercent !== undefined) {
-      const graphMod = getSkillGraphModifier(skill, skillProgress[equipped.skillId]);
-      if (graphMod?.executeOnly && targetHpPercent > graphMod.executeOnly.hpThreshold) {
-        continue;
-      }
-    }
-
-    // Phase F follow-on (2026-05-07): mana affordability check —
-    // skip skills the player can't afford this tick so cheaper later
-    // slots can fire. Uses canAffordManaCost so the rotation check
-    // matches the tick.ts:481 gate exactly (no drift between approval
-    // here vs rejection there).
-    if (mana && dtSec !== undefined) {
-      const cost = (skill as { manaCost?: number }).manaCost ?? 0;
-      if (!canAffordManaCost(mana, dtSec, cost)) continue;
-    }
-
-    return { skill, slotIndex: i };
-  }
-  return null;
+  // Effect IR Wave 5 (D19): shim over the gambit policy evaluator with
+  // the implicit slot-order policy — byte-identical gate order to the
+  // old inline loop (equipped → active → cooldown → execute-lock →
+  // canAffordManaCost). Legacy callers (talent-bot, ArenaScreen)
+  // compile and behave unchanged.
+  const decision = evaluatePolicy(slotOrderPolicy(skillBar), {
+    skillBar, skillTimers, now, skillProgress, targetHpPercent, mana, dtSec,
+    cond: NEUTRAL_COND,
+  });
+  return decision ? { skill: decision.skill, slotIndex: decision.slotIndex } : null;
 }
 
 /**

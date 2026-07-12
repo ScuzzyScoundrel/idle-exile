@@ -149,6 +149,10 @@ export interface GameState {
    *  at the boundary). Drives `whileFrenzied` TalentEffect kind. */
   frenziedActive: boolean;
 
+  /** Effect IR Wave 5 (D19): player-authored gambit rotation policy.
+   *  null = implicit slot-order policy (legacy behavior). Persisted. */
+  rotationPolicy: import('./rotation').RotationPolicy | null;
+
   // Combo states (Dagger v2 — ephemeral, not persisted)
   comboStates: ComboState[];
 

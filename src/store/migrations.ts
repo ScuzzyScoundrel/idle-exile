@@ -1005,6 +1005,13 @@ export function runMigrations(
     if (raw.resonanceExpiresAt === undefined) raw.resonanceExpiresAt = 0;
   }
 
+  if (version < 74) {
+    // v74: Effect IR Wave 5 — gambit rotation policy. null = implicit
+    // slot-order policy (exact legacy behavior); players opt in via the
+    // rotation panel (Wave 6).
+    if (raw.rotationPolicy === undefined) raw.rotationPolicy = null;
+  }
+
   if (version < 73) {
     // v73: Phase F F5c — sticky Frenzied state for Brs Reaver. Default
     // false; tick.ts transitions to true when HP < 50% and back to
