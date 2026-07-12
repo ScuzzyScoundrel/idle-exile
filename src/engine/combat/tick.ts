@@ -3256,7 +3256,9 @@ export function runCombatTick(
   const packProcGain =
     (roll.isHit ? packManaCfg.onHitDealtGain : 0)
     + (roll.isCrit ? packManaCfg.onCritGain : 0)
-    + (mobKills * packManaCfg.onKillGain)
+    // COMBAT_ECONOMY_DESIGN E12: cap kill credit — big-pack ticks were an
+    // inverted-difficulty mana windfall (easiest content paid the most).
+    + (Math.min(mobKills, 3) * packManaCfg.onKillGain)
     + ((zoneAttackResult && zoneAttackResult.damage > 0) ? packManaCfg.onHitTakenGain : 0);
 
   return {

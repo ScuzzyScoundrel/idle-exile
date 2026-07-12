@@ -21,8 +21,10 @@ export function installRng(seed: number): void {
   Math.random = mulberry32;
 }
 
-/** Reset to the same seed (replay identical sequence). */
-export function resetRng(): void {
+/** Reset the sequence. No arg = replay the installed seed; with arg,
+ * re-seed (multi-seed harnesses like gambit-ab pass SEED_BASE + i). */
+export function resetRng(seed?: number): void {
+  if (seed !== undefined) _seed = seed;
   _state = _seed;
 }
 

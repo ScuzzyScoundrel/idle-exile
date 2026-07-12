@@ -44,7 +44,10 @@ export function gainMana(mana: ManaState, amount: number): ManaState {
 /** Can we afford a skill's mana cost this tick, accounting for this tick's regen? */
 export function canAffordManaCost(mana: ManaState, dtSec: number, cost: number): boolean {
   if (cost <= 0) return true;
-  const regened = regenMana(mana, dtSec).current;
+  // Clamp regen credit to one normal tick (COMBAT_ECONOMY_DESIGN E12):
+  // throttled background tabs deliver multi-second dtSec, which credited
+  // a whole second+ of regen and let unaffordable casts fire.
+  const regened = regenMana(mana, Math.min(dtSec, 0.25)).current;
   return regened >= cost;
 }
 
