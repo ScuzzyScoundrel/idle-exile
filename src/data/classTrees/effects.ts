@@ -1054,11 +1054,10 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
     { kind: 'stat', stat: 'maxActiveTraps', delta: 2 },
   ],
   // "On trap detonation hitting multiple enemies, all hit gain Snared."
-  // 'snare' isn't in TalentTag yet — using `frozen` (frostbite debuff) as
-  // the closest movement-impair analog. Triggers from dagger Blade Trap
-  // detonations today; bow/crossbow traps will inherit when wired.
+  // Triggers from dagger Blade Trap detonations today; bow/crossbow traps
+  // will inherit when wired.
   'hnt_tp_snare_cascade': [
-    { kind: 'procOnTrapDetonate', chance: 100, action: { kind: 'applyTagAll', tag: 'frozen', stacks: 1, duration: 4 } },
+    { kind: 'procOnTrapDetonate', chance: 100, action: { kind: 'applyTagAll', tag: 'snare', stacks: 1, duration: 4 } },
   ],
   // "Multi-trap chains' damage escalation +5/10/15/20/25% per chained
   // detonation." Approximated as procOnTrapChain applying Bleeding —

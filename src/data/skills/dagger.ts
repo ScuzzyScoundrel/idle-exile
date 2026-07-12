@@ -60,7 +60,10 @@ export const DAGGER_ACTIVE_SKILLS: ActiveSkillDef[] = [
     name: 'Viper Strike',
     skillKind: 'cast',
     manaCost: 14,
-    baseAilmentChance: 0,
+    // Guaranteed-DoT pattern (like greatsword_bleeding_edge) — 0 made the
+    // skill's entire poison identity unreachable while tooltips/DPS
+    // estimators still assumed it.
+    baseAilmentChance: 100,
     description: 'Heavy strike with +50% ailment potency — ailments snapshot at 1.5x damage. Creates Deep Wound (consumed by Assassinate for burst).',
     weaponType: 'dagger',
     tags: ['Attack', 'Melee', 'DoT'],
