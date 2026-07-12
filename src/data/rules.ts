@@ -42,15 +42,15 @@ export const RULES: Record<string, RuleDef> = {
   'momentum.perfectRefund': {
     id: 'momentum.perfectRefund',
     name: 'Perfect Rhythm',
-    blurb: 'A PERFECT Assassinate refunds 2 Momentum — tighter cap-cycling.',
-    params: { refund: 2 },
+    blurb: 'A PERFECT Assassinate refunds 1 Momentum — tighter cap-cycling.',
+    params: { refund: 1 },
     site: 'src/engine/combat/comboRuntime.ts:comboConsumePreRoll (capBonus branch)',
   },
   'momentum.flatSpender': {
     id: 'momentum.flatSpender',
     name: 'Ruthlessness',
-    blurb: 'Assassinate loses the per-stack ramp and Perfect jackpot; instead a flat ×2.6 whenever 3+ Momentum are consumed — spend on cooldown.',
-    params: { flatMult: 2.6, minStacks: 3 },
+    blurb: 'Assassinate loses the per-stack ramp and Perfect jackpot; instead a flat ×3.4 whenever 3+ Momentum are consumed, and every such spend advances other cooldowns 1s — spend on cooldown.',
+    params: { flatMult: 3.4, minStacks: 3, advanceOthersSec: 1 },
     site: 'src/engine/combat/comboRuntime.ts:comboConsumePreRoll (momentum fold replacement)',
   },
   'quiver.deadeye': {
@@ -63,8 +63,8 @@ export const RULES: Record<string, RuleDef> = {
   'quiver.splitburst': {
     id: 'quiver.splitburst',
     name: 'Splitburst',
-    blurb: 'Snipe per-stack reduced (20%), but the Perfect jackpot fires from 4+ Quiver — spend fast and often.',
-    params: { perStack: 20, capFrom: 4 },
+    blurb: 'Snipe per-stack reduced (26%), but the Perfect jackpot fires from 4+ Quiver — spend fast and often.',
+    params: { perStack: 26, capFrom: 4 },
     site: 'src/engine/combat/comboRuntime.ts:comboConsumePreRoll (quiver fold replacement)',
   },
 };

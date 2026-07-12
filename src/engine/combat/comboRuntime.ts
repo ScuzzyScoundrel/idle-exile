@@ -107,9 +107,14 @@ export function comboConsumePreRoll(ctx: PreRollContext): ComboConsumeResult {
       // FLIPS the optimal gambit for its spec (see src/data/rules.ts).
       const rules = ctx.activeRules;
       if (rules?.has('momentum.flatSpender') && cs.stateId === 'momentum') {
-        // Ruthlessness: flat ×1.9 at 3+ consumed replaces ramp + jackpot.
-        if (cs.stacks >= (rules.get('momentum.flatSpender')!.minStacks ?? 3)) {
-          damageMult *= (rules.get('momentum.flatSpender')!.flatMult ?? 2.6);
+        // Ruthlessness: flat mult at 3+ consumed replaces ramp + jackpot;
+        // each qualifying spend also advances other cooldowns — the
+        // deterministic throughput lever (spender share ~33% bounds what
+        // raw mult can close; see qa-variation balance pass).
+        const p = rules.get('momentum.flatSpender')!;
+        if (cs.stacks >= (p.minStacks ?? 3)) {
+          damageMult *= (p.flatMult ?? 2.6);
+          if (p.advanceOthersSec) advanceOtherCooldownsSec += p.advanceOthersSec;
         }
       } else if (rules?.has('quiver.splitburst') && cs.stateId === 'quiver') {
         // Splitburst: halved ramp, jackpot from 4+ instead of full cap.

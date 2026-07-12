@@ -1106,6 +1106,12 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   ],
   'asn_bm_doubled_stroke': [
     { kind: 'rule', rule: 'momentum.flatSpender' },
+    // Balance pass (2026-07-12): fork-neutral power floor. An unscoped
+    // unconditional mult scales BOTH preset cells equally, so the E5
+    // preference fork is preserved by construction while the flat-vs-
+    // shape power gap closes (was 37% under; spender share ~33% bounds
+    // what the flatMult param alone can recover).
+    { kind: 'mod', mod: { stat: 'damageMult', op: 'mult', value: 1.30 } },
   ],
   // Marksman pair:
   'hnt_mm_snipers_patience': [

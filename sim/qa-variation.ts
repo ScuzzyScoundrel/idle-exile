@@ -5,6 +5,18 @@
 // prefer a DIFFERENT shipped preset by ≥ 3% (10-seed means).
 // Dagger/Blademaster: Perfect Rhythm vs Ruthlessness.
 // Bow/Marksman: Deadeye vs Splitburst.
+//
+// GATE E5b — power parity (balance pass 2026-07-12): the two builds'
+// BEST-preset totals must sit within 1.10× of each other. Variation
+// nodes are sidegrades, not tiers — pre-pass the flat builds were
+// 37% (dagger) / 14% (bow) under. Levers used, in causal order:
+//   flatMult 2.6→3.4 (+10% — spender share ~33% bounds raw mult),
+//   flatSpender advanceOthersSec 1 (power +1% but fork 5.2→12.4% —
+//     it HURTS the hold preset via builder GCD saturation),
+//   perfectRefund 2→1 (shape −2.6% — refund is NOT the hot lever),
+//   asn_bm_doubled_stroke unscoped ×1.30 damageMult mod (the closer:
+//     fork-neutral by construction — multiplies both cells equally),
+//   splitburst perStack 20→26.
 // Usage: npx tsx sim/qa-variation.ts   (exit 1 on failure)
 // ============================================================
 
@@ -49,18 +61,22 @@ function gate(
   console.log(`\n── ${label} ──`);
   const buildNames = Object.keys(builds);
   const presetNames = Object.keys(presets);
-  const prefs: Record<string, { best: string; gapPct: number }> = {};
+  const prefs: Record<string, { best: string; gapPct: number; bestDmg: number }> = {};
   for (const b of buildNames) {
     const scores = presetNames.map(p => ({ p, dmg: cell(cls, weapon, bar, tel, presets[p], builds[b]) }));
     scores.sort((x, y) => y.dmg - x.dmg);
     const gapPct = ((scores[0].dmg - scores[1].dmg) / scores[1].dmg) * 100;
-    prefs[b] = { best: scores[0].p, gapPct };
+    prefs[b] = { best: scores[0].p, gapPct, bestDmg: scores[0].dmg };
     console.log(`  ${b}: ${scores.map(s => `${s.p}=${s.dmg.toFixed(0)}`).join('  ')} → prefers ${scores[0].p} (+${gapPct.toFixed(1)}%)`);
   }
   const distinct = new Set(buildNames.map(b => prefs[b].best)).size === buildNames.length;
   const gapsOk = buildNames.every(b => prefs[b].gapPct >= 3);
-  const ok = distinct && gapsOk;
-  console.log(`  distinct preferences: ${distinct ? 'PASS' : 'FAIL'}; each gap ≥ 3%: ${gapsOk ? 'PASS' : 'FAIL'} → ${ok ? 'PASS' : 'FAIL'}`);
+  // GATE E5b: best-vs-best power parity ≤ 1.10× (sidegrades, not tiers).
+  const bests = buildNames.map(b => prefs[b].bestDmg);
+  const parityRatio = Math.max(...bests) / Math.min(...bests);
+  const parityOk = parityRatio <= 1.10;
+  const ok = distinct && gapsOk && parityOk;
+  console.log(`  distinct preferences: ${distinct ? 'PASS' : 'FAIL'}; each gap ≥ 3%: ${gapsOk ? 'PASS' : 'FAIL'}; power parity ${parityRatio.toFixed(3)}× ≤ 1.10×: ${parityOk ? 'PASS' : 'FAIL'} → ${ok ? 'PASS' : 'FAIL'}`);
   if (ok) pass++; else fail++;
 }
 
@@ -90,5 +106,5 @@ gate('BOW / Marksman (Deadeye vs Splitburst)', 'hunter', 'bow',
     snap_shot: BOW_SNAP_SHOT_POLICY,
   });
 
-console.log(`\nGATE E5 (both kits: two same-spec builds prefer DIFFERENT presets by ≥3%): ${fail === 0 ? 'PASSED' : 'FAILED'} (${pass} pass, ${fail} fail)`);
+console.log(`\nGATE E5 + E5b (distinct preferences ≥3% AND best-vs-best power parity ≤1.10×): ${fail === 0 ? 'PASSED' : 'FAILED'} (${pass} pass, ${fail} fail)`);
 process.exit(fail > 0 ? 1 : 0);
