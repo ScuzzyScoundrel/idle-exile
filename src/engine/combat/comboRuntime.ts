@@ -49,6 +49,31 @@ export interface ComboConsumeResult {
 /** Consume combo states for the casting skill and fold their payoffs
  *  (legacy fields + the four generic E10 fields). Hoisted from
  *  daggerModule.preRoll — same order, same semantics. */
+// ── Payoff-shape rule tables (E17 + variation-pair wave 2026-07-12):
+// which rule intercepts each LEDGER's consume fold and in which flavor
+// ('flat' = flat mult at minStacks+, 'split' = reduced ramp + early
+// jackpot), which rule refunds on Perfect, and which rule amplifies
+// each WINDOW's wet spends. windowInert keys off the window's
+// refundStacks target ledger having an active flat-shape rule. ──
+// (Exported for the staff module, whose duplicated E10 fold consumes
+// the same tables until it hoists onto comboConsumePreRoll.)
+export const LEDGER_FLAT_RULE: Record<string, { rule: string; style: 'flat' | 'split' }> = {
+  momentum: { rule: 'momentum.flatSpender', style: 'flat' },
+  quiver: { rule: 'quiver.splitburst', style: 'split' },
+  attunement: { rule: 'attunement.voidHunger', style: 'flat' },
+  soul_stack: { rule: 'soul.deathTide', style: 'split' },
+  fury_charge: { rule: 'fury.bloodRush', style: 'flat' },
+};
+export const LEDGER_PERFECT_REFUND_RULE: Record<string, string> = {
+  momentum: 'momentum.perfectRefund',
+  attunement: 'attunement.perfectEcho',
+};
+export const WINDOW_WET_RULE: Record<string, string> = {
+  vulnerable: 'quiver.deadeye',
+  ritual_frenzy: 'soul.frenzySurge',
+  rampage: 'fury.windUp',
+};
+
 export function comboConsumePreRoll(ctx: PreRollContext): ComboConsumeResult {
   const { skill, graphMod, targetDebuffs } = ctx;
 
@@ -91,9 +116,8 @@ export function comboConsumePreRoll(ctx: PreRollContext): ComboConsumeResult {
       // hold-for-windows presets a pure loss for those builds (the
       // preference fork GATE E5 measures).
       const rulesPre = ctx.activeRules;
-      const windowInert = !!eff.refundStacks && (
-        (rulesPre?.has('momentum.flatSpender') && eff.refundStacks.stateId === 'momentum') ||
-        (rulesPre?.has('quiver.splitburst') && eff.refundStacks.stateId === 'quiver'));
+      const inertFlat = eff.refundStacks ? LEDGER_FLAT_RULE[eff.refundStacks.stateId] : undefined;
+      const windowInert = !!inertFlat && !!rulesPre?.has(inertFlat.rule);
 
       if (eff.incDamage && !windowInert) damageMult *= (1 + eff.incDamage / 100);
       if (eff.incCritChance) critChanceBonus += eff.incCritChance;
@@ -106,21 +130,23 @@ export function comboConsumePreRoll(ctx: PreRollContext): ComboConsumeResult {
       // Wave E5 payoff-shape rules (E17) intercept the fold — each rule
       // FLIPS the optimal gambit for its spec (see src/data/rules.ts).
       const rules = ctx.activeRules;
-      if (rules?.has('momentum.flatSpender') && cs.stateId === 'momentum') {
-        // Ruthlessness: flat mult at 3+ consumed replaces ramp + jackpot;
-        // each qualifying spend also advances other cooldowns — the
+      const flatDef = LEDGER_FLAT_RULE[cs.stateId];
+      const flatRule = flatDef && rules?.has(flatDef.rule) ? rules.get(flatDef.rule)! : undefined;
+      if (flatRule && flatDef.style === 'flat') {
+        // Flat-spender flavor (Ruthlessness / Void Hunger / Blood Rush):
+        // flat mult at minStacks+ replaces ramp + jackpot; each
+        // qualifying spend also advances other cooldowns — the
         // deterministic throughput lever (spender share ~33% bounds what
         // raw mult can close; see qa-variation balance pass).
-        const p = rules.get('momentum.flatSpender')!;
-        if (cs.stacks >= (p.minStacks ?? 3)) {
-          damageMult *= (p.flatMult ?? 2.6);
-          if (p.advanceOthersSec) advanceOtherCooldownsSec += p.advanceOthersSec;
+        if (cs.stacks >= (flatRule.minStacks ?? 3)) {
+          damageMult *= (flatRule.flatMult ?? 2.6);
+          if (flatRule.advanceOthersSec) advanceOtherCooldownsSec += flatRule.advanceOthersSec;
         }
-      } else if (rules?.has('quiver.splitburst') && cs.stateId === 'quiver') {
-        // Splitburst: halved ramp, jackpot from 4+ instead of full cap.
-        const p = rules.get('quiver.splitburst')!;
-        damageMult *= (1 + ((p.perStack ?? 20) * cs.stacks) / 100);
-        if (eff.capBonus && cs.stacks >= (p.capFrom ?? 4)) {
+      } else if (flatRule) {
+        // Split flavor (Splitburst / Death Tide): reduced ramp, jackpot
+        // from capFrom+ instead of full cap.
+        damageMult *= (1 + ((flatRule.perStack ?? 20) * cs.stacks) / 100);
+        if (eff.capBonus && cs.stacks >= (flatRule.capFrom ?? 4)) {
           if (eff.capBonus.incDamage) damageMult *= (1 + eff.capBonus.incDamage / 100);
           if (eff.capBonus.advanceOthersSec) advanceOtherCooldownsSec += eff.capBonus.advanceOthersSec;
           if (eff.capBonus.guaranteedCrit) guaranteedCrit = true;
@@ -137,9 +163,10 @@ export function comboConsumePreRoll(ctx: PreRollContext): ComboConsumeResult {
           if (eff.capBonus.advanceOthersSec) advanceOtherCooldownsSec += eff.capBonus.advanceOthersSec;
           if (eff.capBonus.guaranteedCrit) guaranteedCrit = true; // E3: Snipe Perfect
           perfectSpend = true; // E16: PERFECT floater tag
-          // Perfect Rhythm: a PERFECT spend also refunds the ledger.
-          if (rules?.has('momentum.perfectRefund') && cs.stateId === 'momentum') {
-            pendingRefunds.push({ stateId: 'momentum', amount: rules.get('momentum.perfectRefund')!.refund ?? 2 });
+          // Perfect Rhythm / Perfect Echo: a PERFECT spend refunds the ledger.
+          const refundRuleId = LEDGER_PERFECT_REFUND_RULE[cs.stateId];
+          if (refundRuleId && rules?.has(refundRuleId)) {
+            pendingRefunds.push({ stateId: cs.stateId, amount: rules.get(refundRuleId)!.refund ?? 1 });
           }
         }
       }
@@ -149,10 +176,11 @@ export function comboConsumePreRoll(ctx: PreRollContext): ComboConsumeResult {
       if (eff.refundStacks && !windowInert) {
         pendingRefunds.push(eff.refundStacks);
         wetSpend = true;
-        // Deadeye: window spends hit 75% harder (extra on TOP of the
-        // window's own incDamage, already folded above).
-        if (rules?.has('quiver.deadeye') && cs.stateId === 'vulnerable') {
-          damageMult *= (1 + (rules.get('quiver.deadeye')!.wetBonusMult ?? 0.75));
+        // Deadeye / Frenzy Surge / Wind-Up: window spends hit harder
+        // (extra on TOP of the window's own incDamage, folded above).
+        const wetRuleId = WINDOW_WET_RULE[cs.stateId];
+        if (wetRuleId && rules?.has(wetRuleId)) {
+          damageMult *= (1 + (rules.get(wetRuleId)!.wetBonusMult ?? 0.75));
         }
       }
       // Generic DoT detonation (retires the deep_wound stateId hardcode):

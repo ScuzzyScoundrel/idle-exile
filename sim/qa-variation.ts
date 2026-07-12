@@ -33,6 +33,9 @@ import { runPolicy, type Telemetry } from './kitFixture';
 import {
   DAGGER_TEMPO_POLICY, DAGGER_RUTHLESS_TEMPO_POLICY,
   BOW_MARKED_TEMPO_POLICY, BOW_SNAP_SHOT_POLICY,
+  WAND_ATTUNED_TEMPO_POLICY, WAND_VOID_HUNGER_POLICY,
+  STAFF_SOUL_TEMPO_POLICY, STAFF_DEATH_TIDE_POLICY,
+  FLAIL_RAMPAGE_TEMPO_POLICY, FLAIL_BLOOD_RUSH_POLICY,
 } from '../src/data/rotationPresets';
 import type { RotationPolicy } from '../src/types/rotation';
 import type { CharacterClass } from '../src/types';
@@ -104,6 +107,48 @@ gate('BOW / Marksman (Deadeye vs Splitburst)', 'hunter', 'bow',
   {
     marked_tempo: BOW_MARKED_TEMPO_POLICY,
     snap_shot: BOW_SNAP_SHOT_POLICY,
+  });
+
+// ── Variation-pair wave (2026-07-12): the remaining three classes,
+// same proven shapes (perfectEcho/frenzySurge/windUp = shape;
+// voidHunger/deathTide/bloodRush = flat). Bars from gambit-ab. ──
+const WAND_TEL: Telemetry = { spenderSkillId: 'wand_void_blast', chargeStateId: 'attunement', windowStateId: 'arcane_surge', spendCost: 22 };
+gate('WAND / Arcanist (Perfect Echo vs Void Hunger)', 'sorcerer', 'wand',
+  ['wand_void_blast', 'wand_volley_convergence', 'wand_chain_lightning', 'wand_frostbolt', 'wand_magic_missile', 'wand_essence_drain'],
+  WAND_TEL,
+  {
+    perfect_echo: { sor_ar_discharged_crit: 1 },
+    void_hunger: { sor_ar_convergence_mastery: 1 },
+  },
+  {
+    attuned_tempo: WAND_ATTUNED_TEMPO_POLICY,
+    void_hunger: WAND_VOID_HUNGER_POLICY,
+  });
+
+const STAFF_TEL: Telemetry = { spenderSkillId: 'staff_bouncing_skull', chargeStateId: 'soul_stack', windowStateId: 'ritual_frenzy', spendCost: 12 };
+gate('STAFF / Plague Priest (Frenzy Surge vs Death Tide)', 'witchdoctor', 'staff',
+  ['staff_soul_harvest', 'staff_hex', 'staff_haunt', 'staff_locust_swarm', 'staff_spirit_barrage', 'staff_bouncing_skull'],
+  STAFF_TEL,
+  {
+    frenzy_surge: { wd_pp_chaos_surge: 1 },
+    death_tide: { wd_pp_death_tide: 1 },
+  },
+  {
+    soul_tempo: STAFF_SOUL_TEMPO_POLICY,
+    death_tide: STAFF_DEATH_TIDE_POLICY,
+  });
+
+const FLAIL_TEL: Telemetry = { spenderSkillId: 'flail_crushing_blow', chargeStateId: 'fury_charge', windowStateId: 'rampage', spendCost: 12 };
+gate('FLAIL / Warlord (Wind-Up vs Blood Rush)', 'berserker', 'flail',
+  ['flail_arc_sweep', 'flail_hooked_strike', 'flail_disarming_strike', 'flail_bone_crusher', 'flail_crushing_blow'],
+  FLAIL_TEL,
+  {
+    wind_up: { brs_wl_wind_up_strike: 1 },
+    blood_rush: { brs_wl_reapers_touch: 1 },
+  },
+  {
+    rampage_tempo: FLAIL_RAMPAGE_TEMPO_POLICY,
+    blood_rush: FLAIL_BLOOD_RUSH_POLICY,
   });
 
 console.log(`\nGATE E5 + E5b (distinct preferences ≥3% AND best-vs-best power parity ≤1.10×): ${fail === 0 ? 'PASSED' : 'FAILED'} (${pass} pass, ${fail} fail)`);

@@ -67,6 +67,54 @@ export const RULES: Record<string, RuleDef> = {
     params: { perStack: 26, capFrom: 4 },
     site: 'src/engine/combat/comboRuntime.ts:comboConsumePreRoll (quiver fold replacement)',
   },
+
+  // ── Variation pairs for the remaining classes (2026-07-12): the two
+  // PROVEN flavors instanced per kit — perfectRefund/deadeye = shape,
+  // flatSpender/splitburst = flat. All consumed through the generic
+  // ledger/window rule tables in comboRuntime; gated by qa-variation
+  // (E5 forks + E5b power parity). ──
+  'attunement.perfectEcho': {
+    id: 'attunement.perfectEcho',
+    name: 'Perfect Echo',
+    blurb: 'A PERFECT Void Blast refunds 1 Attunement — tighter cap-cycling.',
+    params: { refund: 1 },
+    site: 'src/engine/combat/comboRuntime.ts:comboConsumePreRoll (capBonus branch)',
+  },
+  'attunement.voidHunger': {
+    id: 'attunement.voidHunger',
+    name: 'Void Hunger',
+    blurb: 'Void Blast loses the per-stack ramp and Perfect jackpot; instead a flat ×3.0 at 3+ Attunement consumed, and every such spend advances other cooldowns 1s — spend on cooldown.',
+    params: { flatMult: 3.0, minStacks: 3, advanceOthersSec: 1 },
+    site: 'src/engine/combat/comboRuntime.ts:comboConsumePreRoll (attunement fold replacement)',
+  },
+  'soul.frenzySurge': {
+    id: 'soul.frenzySurge',
+    name: 'Frenzy Surge',
+    blurb: 'Ritual Frenzy spends hit 75% harder — hunt the Frenzies.',
+    params: { wetBonusMult: 0.75 },
+    site: 'src/engine/combat/comboRuntime.ts:comboConsumePreRoll (window-consume branch)',
+  },
+  'soul.deathTide': {
+    id: 'soul.deathTide',
+    name: 'Death Tide',
+    blurb: 'Bouncing Skull per-stack reduced (24%), but the Perfect jackpot fires from 4+ Souls — spend fast and often.',
+    params: { perStack: 24, capFrom: 4 },
+    site: 'src/engine/combat/comboRuntime.ts:comboConsumePreRoll (soul_stack fold replacement)',
+  },
+  'fury.windUp': {
+    id: 'fury.windUp',
+    name: 'Wind-Up Strike',
+    blurb: 'Rampage spends hit 25% harder — feed the Rampage. (Rampage is cap-coupled and near-deterministic, so this dial reads like a global spender mult — kept small.)',
+    params: { wetBonusMult: 0.25 },
+    site: 'src/engine/combat/comboRuntime.ts:comboConsumePreRoll (window-consume branch)',
+  },
+  'fury.bloodRush': {
+    id: 'fury.bloodRush',
+    name: 'Blood Rush',
+    blurb: 'Crushing Blow loses the per-stack ramp and Perfect jackpot; instead a flat ×2.8 at 5+ Fury consumed, and every such spend advances other cooldowns 1s — spend on cooldown.',
+    params: { flatMult: 2.8, minStacks: 5, advanceOthersSec: 1 },
+    site: 'src/engine/combat/comboRuntime.ts:comboConsumePreRoll (fury_charge fold replacement)',
+  },
 };
 
 /** Collect active rules (with merged params) from a collected-effects

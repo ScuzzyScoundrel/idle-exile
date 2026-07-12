@@ -216,6 +216,57 @@ export const BOW_SNAP_SHOT_POLICY: RotationPolicy = {
   ],
 };
 
+// ── Variation-pair variant presets (2026-07-12): flat-shape builds
+// spend on cooldown at their rule's minStacks/capFrom threshold and
+// ignore windows (their rules render windows inert). Builder/engine/
+// upkeep structure copied from each kit's tempo preset (parity law). ──
+export const WAND_VOID_HUNGER_POLICY: RotationPolicy = {
+  version: 1,
+  rules: [
+    { id: 'spend', enabled: true, when:
+      { stateCountAtLeast: { stateId: 'attunement', count: 3 } },
+      action: { kind: 'castSkill', skillId: 'wand_void_blast' } },
+    // Keep the ST-vs-AoE arbitration — it's kit structure, not shape.
+    { id: 'volley_packs', enabled: true, when: { all: [
+      { enemyCountAtLeast: 3 },
+      { stateCountAtLeast: { stateId: 'attunement', count: 3 } },
+    ] }, action: { kind: 'castSkill', skillId: 'wand_volley_convergence' } },
+    { id: 'chain', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'wand_chain_lightning' } },
+    { id: 'frost', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'wand_frostbolt' } },
+    { id: 'park', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'wand_essence_drain' } },
+    { id: 'filler', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'wand_magic_missile', minMana: 24 } },
+  ],
+};
+export const STAFF_DEATH_TIDE_POLICY: RotationPolicy = {
+  version: 1,
+  rules: [
+    { id: 'spend', enabled: true, when:
+      { stateCountAtLeast: { stateId: 'soul_stack', count: 4 } },
+      action: { kind: 'castSkill', skillId: 'staff_bouncing_skull' } },
+    { id: 'harvest', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'staff_soul_harvest' } },
+    { id: 'locust', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'staff_locust_swarm' } },
+    { id: 'haunt_upkeep', enabled: true, when:
+      { stateCountBelow: { stateId: 'haunted', count: 1 } },
+      action: { kind: 'castSkill', skillId: 'staff_haunt' } },
+    { id: 'barrage', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'staff_spirit_barrage' } },
+    { id: 'hex_upkeep', enabled: true, when:
+      { stateCountBelow: { stateId: 'hexed', count: 1 } },
+      action: { kind: 'castSkill', skillId: 'staff_hex' } },
+  ],
+};
+export const FLAIL_BLOOD_RUSH_POLICY: RotationPolicy = {
+  version: 1,
+  rules: [
+    { id: 'spend', enabled: true, when:
+      { stateCountAtLeast: { stateId: 'fury_charge', count: 5 } },
+      action: { kind: 'castSkill', skillId: 'flail_crushing_blow' } },
+    { id: 'arc', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'flail_arc_sweep' } },
+    { id: 'hooked', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'flail_hooked_strike' } },
+    { id: 'bone', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'flail_bone_crusher' } },
+    { id: 'filler', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'flail_disarming_strike', minMana: 12 } },
+  ],
+};
+
 export const ROTATION_PRESETS: RotationPresetDef[] = [
   {
     id: 'slot_order',
@@ -272,6 +323,27 @@ export const ROTATION_PRESETS: RotationPresetDef[] = [
     blurb: 'Keeps Hunter\'s Mark up, holds Rapid Fire below cap to dodge the overcap trap, and spends Snipe only into Vulnerable windows or the sub-35% Tracking Shot band.',
     weaponType: 'bow',
     policy: BOW_MARKED_TEMPO_POLICY,
+  },
+  {
+    id: 'wand_void_hunger',
+    name: 'Void Hunger',
+    blurb: 'Spends Void Blast on cooldown at 3+ Attunement — built for Void Hunger (flat payoff) Arcanists.',
+    weaponType: 'wand',
+    policy: WAND_VOID_HUNGER_POLICY,
+  },
+  {
+    id: 'staff_death_tide',
+    name: 'Death Tide',
+    blurb: 'Spends Bouncing Skull at 4+ Souls on cooldown — built for Death Tide (early-jackpot) Plague Priests.',
+    weaponType: 'staff',
+    policy: STAFF_DEATH_TIDE_POLICY,
+  },
+  {
+    id: 'flail_blood_rush',
+    name: 'Blood Rush',
+    blurb: 'Spends Crushing Blow at 5+ Fury on cooldown, no Rampage-waiting — built for Blood Rush (flat payoff) Warlords.',
+    weaponType: 'flail',
+    policy: FLAIL_BLOOD_RUSH_POLICY,
   },
 ];
 

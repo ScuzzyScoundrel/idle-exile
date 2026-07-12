@@ -15,6 +15,7 @@ import {
   getCreatorConfigs, COMBO_STATE_CONSUMERS, checkAndStampIcd,
   consumeMultipleComboStates, createComboState, createStateFromSpec, tickComboStates,
 } from '../combo';
+import { LEDGER_FLAT_RULE, LEDGER_PERFECT_REFUND_RULE, WINDOW_WET_RULE } from '../comboRuntime';
 import {
   dispatchProcOnMinionHit, dispatchProcOnMinionCrit, dispatchProcOnMinionDeath,
   dispatchProcOnCompanionHit, dispatchProcOnCompanionCrit, dispatchProcOnCompanionDeath,
@@ -764,26 +765,56 @@ export const staffModule: WeaponModule = {
       for (const cs of consumed) {
         consumedStateIds.push(cs.stateId);
         const eff = cs.effect ?? {};
-        if (eff.incDamage) damageMult *= 1 + eff.incDamage / 100;
+        // ── COMBAT_ECONOMY_DESIGN E10 fields + payoff-shape rules —
+        // mirrors the comboRuntime fold via its exported tables;
+        // duplicated until staff hoists onto comboConsumePreRoll.
+        // Mass Sacrifice keeps its own specialized soul_stack per-stack
+        // branch below, so the generic ledger branch is skipped there. ──
+        const rules = ctx.activeRules;
+        const inertFlat = eff.refundStacks ? LEDGER_FLAT_RULE[eff.refundStacks.stateId] : undefined;
+        const windowInert = !!inertFlat && !!rules?.has(inertFlat.rule);
+        if (eff.incDamage && !windowInert) damageMult *= 1 + eff.incDamage / 100;
         if (eff.guaranteedCrit) guaranteedCrit = true;
         if (eff.extraChains && cs.stateId === 'soul_stack') extraChains += eff.extraChains * cs.stacks;
 
-        // ── COMBAT_ECONOMY_DESIGN E10 fields (Wave E4b) — mirrors the
-        // comboRuntime fold; duplicated until staff hoists onto it.
-        // Mass Sacrifice keeps its own specialized soul_stack per-stack
-        // branch below, so the generic one is skipped for that pair. ──
-        if (eff.incDamagePerStackConsumed && !(isMassSacrifice && cs.stateId === 'soul_stack')) {
-          damageMult *= (1 + (eff.incDamagePerStackConsumed * cs.stacks) / 100);
+        const suppressLedger = isMassSacrifice && cs.stateId === 'soul_stack';
+        const flatDef = LEDGER_FLAT_RULE[cs.stateId];
+        const flatRule = flatDef && rules?.has(flatDef.rule) ? rules.get(flatDef.rule)! : undefined;
+        if (flatRule && !suppressLedger && flatDef.style === 'flat') {
+          if (cs.stacks >= (flatRule.minStacks ?? 3)) {
+            damageMult *= (flatRule.flatMult ?? 2.6);
+            if (flatRule.advanceOthersSec) advanceOtherCooldownsSec += flatRule.advanceOthersSec;
+          }
+        } else if (flatRule && !suppressLedger) {
+          damageMult *= (1 + ((flatRule.perStack ?? 20) * cs.stacks) / 100);
+          if (eff.capBonus && cs.stacks >= (flatRule.capFrom ?? 4)) {
+            if (eff.capBonus.incDamage) damageMult *= (1 + eff.capBonus.incDamage / 100);
+            if (eff.capBonus.advanceOthersSec) advanceOtherCooldownsSec += eff.capBonus.advanceOthersSec;
+            if (eff.capBonus.guaranteedCrit) guaranteedCrit = true;
+            perfectSpend = true;
+          }
+        } else {
+          if (eff.incDamagePerStackConsumed && !suppressLedger) {
+            damageMult *= (1 + (eff.incDamagePerStackConsumed * cs.stacks) / 100);
+          }
+          if (eff.capBonus && cs.stacks >= cs.maxStacks && !suppressLedger) {
+            if (eff.capBonus.incDamage) damageMult *= (1 + eff.capBonus.incDamage / 100);
+            if (eff.capBonus.advanceOthersSec) advanceOtherCooldownsSec += eff.capBonus.advanceOthersSec;
+            if (eff.capBonus.guaranteedCrit) guaranteedCrit = true;
+            perfectSpend = true;
+            const refundRuleId = LEDGER_PERFECT_REFUND_RULE[cs.stateId];
+            if (refundRuleId && rules?.has(refundRuleId)) {
+              pendingRefunds.push({ stateId: cs.stateId, amount: rules.get(refundRuleId)!.refund ?? 1 });
+            }
+          }
         }
-        if (eff.capBonus && cs.stacks >= cs.maxStacks && !(isMassSacrifice && cs.stateId === 'soul_stack')) {
-          if (eff.capBonus.incDamage) damageMult *= (1 + eff.capBonus.incDamage / 100);
-          if (eff.capBonus.advanceOthersSec) advanceOtherCooldownsSec += eff.capBonus.advanceOthersSec;
-          if (eff.capBonus.guaranteedCrit) guaranteedCrit = true;
-          perfectSpend = true;
-        }
-        if (eff.refundStacks) {
+        if (eff.refundStacks && !windowInert) {
           pendingRefunds.push(eff.refundStacks);
           wetSpend = true;
+          const wetRuleId = WINDOW_WET_RULE[cs.stateId];
+          if (wetRuleId && rules?.has(wetRuleId)) {
+            damageMult *= (1 + (rules.get(wetRuleId)!.wetBonusMult ?? 0.75));
+          }
         }
 
         if (isMassSacrifice) {

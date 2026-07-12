@@ -1120,6 +1120,33 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'hnt_mm_precision_cascade': [
     { kind: 'rule', rule: 'quiver.splitburst' },
   ],
+  // ── Variation pairs, remaining classes (2026-07-12) — same proven
+  // shapes instanced per kit; gated by qa-variation E5+E5b. ──
+  // Arcanist pair (sorcerer/wand):
+  'sor_ar_discharged_crit': [
+    { kind: 'rule', rule: 'attunement.perfectEcho' },
+  ],
+  'sor_ar_convergence_mastery': [
+    { kind: 'rule', rule: 'attunement.voidHunger' },
+    // Fork-neutral power floor (E5b parity — dagger playbook).
+    { kind: 'mod', mod: { stat: 'damageMult', op: 'mult', value: 1.48 } },
+  ],
+  // Plague Priest pair (witchdoctor/staff):
+  'wd_pp_chaos_surge': [
+    { kind: 'rule', rule: 'soul.frenzySurge' },
+  ],
+  'wd_pp_death_tide': [
+    { kind: 'rule', rule: 'soul.deathTide' },
+  ],
+  // Warlord pair (berserker/flail):
+  'brs_wl_wind_up_strike': [
+    { kind: 'rule', rule: 'fury.windUp' },
+  ],
+  'brs_wl_reapers_touch': [
+    { kind: 'rule', rule: 'fury.bloodRush' },
+    // Fork-neutral power floor (E5b parity — dagger playbook).
+    { kind: 'mod', mod: { stat: 'damageMult', op: 'mult', value: 1.47 } },
+  ],
 };
 
 /** Lookup typed effects for a node id. Returns [] for unwired nodes. */
