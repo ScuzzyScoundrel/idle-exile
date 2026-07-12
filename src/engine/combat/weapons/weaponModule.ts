@@ -122,6 +122,12 @@ export interface PreRollResult {
   /** E10 capBonus.advanceOthersSec — Perfect spend advances all OTHER
    *  skill cooldowns by this many seconds (self-excluded). */
   advanceOtherCooldownsSec?: number;
+  /** E16 telegraphy: a capBonus jackpot fired — the spend consumed
+   *  exactly cap stacks (Perfect). */
+  perfectSpend?: boolean;
+  /** E16 telegraphy: a window state with a refundStacks payoff
+   *  (Opening) was consumed by this cast (wet spend). */
+  wetSpend?: boolean;
   consumedStateIds: string[];
   healAmount: number;
   contagionSpreadCount: number;

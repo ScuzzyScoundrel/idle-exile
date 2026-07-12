@@ -69,6 +69,8 @@ export const daggerModule: WeaponModule = {
     let healAmount = 0;
     let contagionSpreadCount = 0;
     let advanceOtherCooldownsSec = 0;
+    let perfectSpend = false;
+    let wetSpend = false;
     const consumedStateIds: string[] = [];
     const pendingRefunds: { stateId: string; amount: number }[] = [];
 
@@ -100,9 +102,15 @@ export const daggerModule: WeaponModule = {
         if (eff.capBonus && cs.stacks >= cs.maxStacks) {
           if (eff.capBonus.incDamage) damageMult *= (1 + eff.capBonus.incDamage / 100);
           if (eff.capBonus.advanceOthersSec) advanceOtherCooldownsSec += eff.capBonus.advanceOthersSec;
+          perfectSpend = true; // E16: PERFECT floater tag
         }
-        // Wet-spend tempo refund (applied after the consume loop)
-        if (eff.refundStacks) pendingRefunds.push(eff.refundStacks);
+        // Wet-spend tempo refund (applied after the consume loop).
+        // refundStacks is the wet-window payoff marker (E5/E10: Opening),
+        // so consuming it here IS the wet spend — E16 floater tag.
+        if (eff.refundStacks) {
+          pendingRefunds.push(eff.refundStacks);
+          wetSpend = true;
+        }
         // Generic DoT detonation (retires the deep_wound stateId hardcode):
         // % of remaining ailment ticks dealt as instant burst
         if (eff.detonateDotPercent) {
@@ -347,7 +355,7 @@ export const daggerModule: WeaponModule = {
       guaranteedCrit, ailmentPotency, cdRefundPercent, splashPercent,
       extraChains, burstDamage, focusBurst, counterDamageMult,
       markPassthrough, cdAcceleration, consumedStateIds, healAmount, contagionSpreadCount,
-      advanceOtherCooldownsSec,
+      advanceOtherCooldownsSec, perfectSpend, wetSpend,
       pandemicSpread: false,
     };
   },

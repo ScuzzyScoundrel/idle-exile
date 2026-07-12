@@ -25,7 +25,7 @@ import type { MapHudExtra, MapSprites } from './mapRendering';
 import { rollArenaLoot, rollBossArenaLoot } from '../arena/arenaLoot';
 import { calcXpScale } from '../../engine/zones/scaling';
 import { PLAYER_ATTACK_RANGE } from '../arena/arenaTypes';
-import { addDotFloater, addProcFloater } from '../arena/arenaCombatFeedback';
+import { addDotFloater, addProcFloater, addSpendFloaters } from '../arena/arenaCombatFeedback';
 import { placeArenaTrap, detonateOldestArenaTrap } from '../arena/arenaTraps';
 import { dashPlayerForward } from '../arena/arenaMovement';
 import {
@@ -888,6 +888,12 @@ export default function MapScreen() {
                 map.critFlashTimer = 0.03;
                 map.hitStopTimer = 0.03;
               }
+              // E16: PERFECT / wet spend telegraphy (charge-economy consume-all)
+              if (result.perfectSpend || result.wetSpend) {
+                addSpendFloaters(map as any, result.perfectSpend, result.wetSpend, { x: boss.x, y: boss.y - boss.radius });
+                if (result.perfectSpend) logCombat(map as any, 'PERFECT spend!', '#e879f9');
+                if (result.wetSpend) logCombat(map as any, 'Opening spent!', '#67e8f9');
+              }
             }
           }
         }
@@ -1028,6 +1034,13 @@ export default function MapScreen() {
             const dmgStr = result.damageDealt > 0 ? ` -> ${Math.round(result.damageDealt)}` : '';
             const critStr = result.isCrit ? ' CRIT!' : '';
             logCombat(map as any, `${visDef?.name ?? result.skillId}${dmgStr}${critStr}`, result.isCrit ? '#fbbf24' : '#e5e7eb');
+
+            // E16: PERFECT / wet spend telegraphy (charge-economy consume-all)
+            if ((result.perfectSpend || result.wetSpend) && visTarget) {
+              addSpendFloaters(map as any, result.perfectSpend, result.wetSpend, visTarget);
+              if (result.perfectSpend) logCombat(map as any, 'PERFECT spend!', '#e879f9');
+              if (result.wetSpend) logCombat(map as any, 'Opening spent!', '#67e8f9');
+            }
           }
 
           // DoT damage (poison + burning ticks)

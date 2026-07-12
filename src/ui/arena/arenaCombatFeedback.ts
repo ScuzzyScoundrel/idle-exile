@@ -424,6 +424,35 @@ export function addProcFloater(state: ArenaState, label: string, pos: Vec2): voi
   });
 }
 
+/** E16: oversized PERFECT! / Opening! tags for charge-economy spends
+ *  (consume-all spend at exactly cap stacks / spend inside a window). */
+export function addSpendFloaters(state: ArenaState, perfectSpend: boolean | undefined, wetSpend: boolean | undefined, pos: Vec2): void {
+  if (perfectSpend) {
+    state.floaters.push({
+      x: pos.x + (Math.random() - 0.5) * 20,
+      y: pos.y - 40,
+      text: 'PERFECT!',
+      color: '#e879f9',
+      age: 0,
+      maxAge: 1.2,
+      isCrit: true,
+      vy: -80,
+    });
+  }
+  if (wetSpend) {
+    state.floaters.push({
+      x: pos.x + (Math.random() - 0.5) * 20,
+      y: pos.y - (perfectSpend ? 55 : 40),
+      text: 'Opening!',
+      color: '#67e8f9',
+      age: 0,
+      maxAge: 1.0,
+      isCrit: false,
+      vy: -65,
+    });
+  }
+}
+
 export function addKillFloater(state: ArenaState, pos: Vec2): void {
   state.floaters.push({
     x: pos.x,

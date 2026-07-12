@@ -59,6 +59,10 @@ export interface CombatTickResult {
   conditionalModBonuses?: number;  // sum of non-zero conditional mod effects applied this tick
   counterHitDamage?: number;       // counter-hit damage from weapon hooks this tick
   trapDetonationDamage?: number;   // trap detonation damage from weapon hooks this tick
+
+  // COMBAT_ECONOMY_DESIGN E16: consume-all spend telegraphy
+  perfectSpend?: boolean;          // capBonus jackpot fired — spend consumed exactly cap stacks (Perfect)
+  wetSpend?: boolean;              // a window state (Opening) was consumed by this cast (wet spend)
 }
 
 export type CombatPhase = 'clearing' | 'boss_fight' | 'boss_victory' | 'boss_defeat' | 'zone_defeat';

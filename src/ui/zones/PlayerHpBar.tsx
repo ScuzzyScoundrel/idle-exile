@@ -7,6 +7,7 @@ import { useGameStore } from '../../store/gameStore';
 import { useSkillStore } from '../../store/skillStore';
 import { getUnifiedSkillDef } from '../../data/skills';
 import { getSkillEffectiveDuration, getSkillEffectiveCooldown, getSkillSpeedStat } from '../../engine/unifiedSkills';
+import StateChips, { isStateChipState } from './StateChips';
 
 // Visual metadata for each minion type
 const MINION_META: Record<string, { icon: string; label: string; color: string }> = {
@@ -58,9 +59,12 @@ export default function PlayerHpBar({ currentHp, maxHp, trailHp, fortifyStacks, 
   // Active buffs
   const activeBuffs = (buffs ?? []).filter(b => b.expiresAt > Date.now());
   const allComboStates = useGameStore(s => s.comboStates);
-  // Only show player-side combo states here (target-side shown on mob/boss)
+  // Only show player-side combo states here (target-side shown on mob/boss).
+  // States owned by StateChips (E16 pips/window chips) are excluded to
+  // avoid double-rendering; this row keeps legacy states without specs
+  // (guarded, primed).
   const TARGET_STATES = new Set(['exposed', 'deep_wound', 'shadow_mark', 'saturated']);
-  const comboStates = allComboStates.filter(cs => !TARGET_STATES.has(cs.stateId));
+  const comboStates = allComboStates.filter(cs => !TARGET_STATES.has(cs.stateId) && !isStateChipState(cs.stateId));
 
   // Class resource
   const classDef = charClass ? getClassDef(charClass as CharacterClass) : null;
@@ -138,6 +142,9 @@ export default function PlayerHpBar({ currentHp, maxHp, trailHp, fortifyStacks, 
           );
         })}
       </div>
+
+      {/* E16 StateChips: charge-economy pips + window chips (Momentum / Opening) */}
+      <StateChips comboStates={allComboStates} />
 
       {/* HP/ES bars — hidden during boss fight (BossFightDisplay has its own) */}
       {!hideHpBars && (

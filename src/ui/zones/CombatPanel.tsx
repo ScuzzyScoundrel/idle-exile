@@ -159,6 +159,8 @@ export default function CombatPanel() {
     isFree: boolean;
     timestamp: number;
     perHitDamages?: number[];
+    perfectSpend?: boolean;
+    wetSpend?: boolean;
   }>>({});
   const [events, setEvents] = useState<Array<{
     id: number;
@@ -233,6 +235,8 @@ export default function CombatPanel() {
               perHitDamages: combatResult.perHitDamages,
               isFree,
               timestamp: now,
+              perfectSpend: combatResult.perfectSpend,
+              wetSpend: combatResult.wetSpend,
             }}));
             // Shatter → events feed (frost overkill burst to next mob)
             if (combatResult.shatterDamage && combatResult.shatterDamage > 0) {
@@ -339,6 +343,8 @@ export default function CombatPanel() {
             procDamage: procTotal,
             isFree: false,
             timestamp: now,
+            perfectSpend: bossResult.perfectSpend,
+            wetSpend: bossResult.wetSpend,
           }}));
         }
         if (bossResult.bossAttack) {
@@ -613,6 +619,13 @@ export default function CombatPanel() {
                               }
                             </span>
                             {hit.isCrit && <span className="text-yellow-400 text-[10px]">CRIT</span>}
+                            {/* E16: consume-all spend telegraphy — oversized tags */}
+                            {hit.perfectSpend && (
+                              <span key={`p${hit.timestamp}`} className="animate-pop text-fuchsia-300 font-bold text-[13px]">PERFECT!</span>
+                            )}
+                            {hit.wetSpend && (
+                              <span key={`w${hit.timestamp}`} className="animate-pop text-cyan-300 font-semibold text-[11px]">Opening!</span>
+                            )}
                             {hit.procDamage > 0 && (
                               <span className="text-purple-400">+{Math.round(hit.procDamage)}</span>
                             )}

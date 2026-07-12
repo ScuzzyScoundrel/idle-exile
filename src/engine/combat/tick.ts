@@ -817,6 +817,8 @@ export function runCombatTick(
   let comboCounterDamageMult = 1;
   let cdAcceleration = 0;
   let comboAdvanceOtherCdSec = 0;
+  let comboPerfectSpend = false;
+  let comboWetSpend = false;
   let preRollHealAmount = 0;
   let comboContagionSpread = 0;
   let pandemicSpread = false;
@@ -844,6 +846,9 @@ export function runCombatTick(
     comboCounterDamageMult = pr.counterDamageMult;
     cdAcceleration = pr.cdAcceleration;
     comboAdvanceOtherCdSec = pr.advanceOtherCooldownsSec ?? 0;
+    // E16 telegraphy: PERFECT / wet spend flags for UI floaters
+    if (pr.perfectSpend) comboPerfectSpend = true;
+    if (pr.wetSpend) comboWetSpend = true;
     consumedComboStateIds.push(...pr.consumedStateIds);
     preRollHealAmount = pr.healAmount;
     if (pr.contagionSpreadCount > 0) comboContagionSpread = pr.contagionSpreadCount;
@@ -2091,6 +2096,8 @@ export function runCombatTick(
       conditionalModBonuses: condModBonuses > 0 ? condModBonuses : undefined,
       counterHitDamage: weaponCounterDmg > 0 ? weaponCounterDmg : undefined,
       trapDetonationDamage: weaponTrapDmg > 0 ? weaponTrapDmg : undefined,
+      perfectSpend: comboPerfectSpend || undefined,
+      wetSpend: comboWetSpend || undefined,
       // Structured events
       procEvents: allProcEvents.length > 0 ? allProcEvents : undefined,
       cooldownResets: procCooldownResets.length > 0 ? procCooldownResets : undefined,
@@ -3228,6 +3235,8 @@ export function runCombatTick(
     conditionalModBonuses: condModBonuses > 0 ? condModBonuses : undefined,
     counterHitDamage: weaponCounterDmg > 0 ? weaponCounterDmg : undefined,
     trapDetonationDamage: weaponTrapDmg > 0 ? weaponTrapDmg : undefined,
+    perfectSpend: comboPerfectSpend || undefined,
+    wetSpend: comboWetSpend || undefined,
     gcdWasReset: procGcdWasReset,
     didSpreadDebuffs,
     packSize: newCurrentPackSize,

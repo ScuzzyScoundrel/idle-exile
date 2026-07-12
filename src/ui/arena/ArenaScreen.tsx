@@ -14,6 +14,7 @@ import {
   renderArena,
   addDotFloater,
   addProcFloater,
+  addSpendFloaters,
   addPlayerHitFloater,
   getClosestMobInRange,
   triggerShake,
@@ -432,6 +433,13 @@ export default function ArenaScreen() {
           const critStr = result.isCrit ? ' CRIT!' : '';
           const stratStr = targetMobs.length > 1 ? ` [${strategyUsed} ×${targetMobs.length}]` : '';
           logCombat(arena, `${visDef?.name ?? result.skillId}${dmgStr}${critStr}${stratStr}`, result.isCrit ? '#fbbf24' : '#e5e7eb');
+
+          // E16: PERFECT / wet spend telegraphy (charge-economy consume-all)
+          if (result.perfectSpend || result.wetSpend) {
+            addSpendFloaters(arena, result.perfectSpend, result.wetSpend, visTarget ?? arena.player);
+            if (result.perfectSpend) logCombat(arena, 'PERFECT spend!', '#e879f9');
+            if (result.wetSpend) logCombat(arena, 'Opening spent!', '#67e8f9');
+          }
         }
 
         // DoT damage (poison + burning ticks)
