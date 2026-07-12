@@ -188,6 +188,34 @@ export const FLAIL_RAMPAGE_TEMPO_POLICY: RotationPolicy = {
   ],
 };
 
+// ── Wave E5 variant presets: the payoff-shape nodes flip which preset
+// wins (GATE E5). Ruthless Tempo suits flat-spender builds (spend on
+// cooldown at 3+); Snap Shot suits Splitburst bows (jackpot from 4+). ──
+export const DAGGER_RUTHLESS_TEMPO_POLICY: RotationPolicy = {
+  version: 1,
+  rules: [
+    { id: 'spend', enabled: true, when:
+      { stateCountAtLeast: { stateId: 'momentum', count: 3 } },
+      action: { kind: 'castSkill', skillId: 'dagger_assassinate' } },
+    { id: 'dance', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'dagger_blade_dance' } },
+    { id: 'viper', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'dagger_viper_strike' } },
+    { id: 'builder', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'dagger_chain_strike', minMana: 22 } },
+    { id: 'filler', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'dagger_stab' } },
+  ],
+};
+export const BOW_SNAP_SHOT_POLICY: RotationPolicy = {
+  version: 1,
+  rules: [
+    { id: 'mark_upkeep', enabled: true, when: { targetLacksTag: 'mark' }, action: { kind: 'castSkill', skillId: 'bow_hunters_mark' } },
+    { id: 'spend', enabled: true, when:
+      { stateCountAtLeast: { stateId: 'quiver', count: 4 } },
+      action: { kind: 'castSkill', skillId: 'bow_snipe' } },
+    { id: 'rapid', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'bow_rapid_fire' } },
+    { id: 'builder', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'bow_arrow_shot', minMana: 25 } },
+    { id: 'filler', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'bow_burning_arrow' } },
+  ],
+};
+
 export const ROTATION_PRESETS: RotationPresetDef[] = [
   {
     id: 'slot_order',
@@ -223,6 +251,20 @@ export const ROTATION_PRESETS: RotationPresetDef[] = [
     blurb: 'Builds Fury with strikes and the hits you take, then spends Crushing Blow into the Rampage that opens at full Fury.',
     weaponType: 'flail',
     policy: FLAIL_RAMPAGE_TEMPO_POLICY,
+  },
+  {
+    id: 'dagger_ruthless_tempo',
+    name: 'Ruthless Tempo',
+    blurb: 'Spends Assassinate on cooldown at 3+ Momentum — built for Ruthlessness (flat payoff) Blademasters.',
+    weaponType: 'dagger',
+    policy: DAGGER_RUTHLESS_TEMPO_POLICY,
+  },
+  {
+    id: 'bow_snap_shot',
+    name: 'Snap Shot',
+    blurb: 'Spends Snipe at 4+ Quiver on cooldown — built for Splitburst Marksmen.',
+    weaponType: 'bow',
+    policy: BOW_SNAP_SHOT_POLICY,
   },
   {
     id: 'bow_marked_tempo',

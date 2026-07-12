@@ -40,6 +40,9 @@ export interface WeaponTickContext {
    *  legacy hook callers don't need to be updated; staff.ts treats
    *  missing as no-procs. */
   talentEffects?: TalentEffect[];
+  /** Wave E5: active RULES (id → params) so the combo consume fold can
+   *  apply payoff-shape rules (Perfect Rhythm / Ruthlessness / etc.). */
+  activeRules?: ReadonlyMap<string, Record<string, number>>;
   /** Phase F F2 follow-on (2026-05-06): mutable mana ref for
    *  refundMana actions fired during weapon-maintenance procs (e.g.
    *  wd_sw_soul_ration — minion hits restoring player mana).

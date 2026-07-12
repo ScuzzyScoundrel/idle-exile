@@ -861,6 +861,7 @@ export function runCombatTick(
       dtSec, now, phase, avgDamage, spellPower, targetDebuffs,
       comboStates: state.comboStates, damageMult,
       activeMinions: newActiveMinions,
+      activeRules, // Wave E5: payoff-shape rules reach the consume fold
     });
     if (pr.activeMinions) newActiveMinions = pr.activeMinions;
     newComboStates = pr.comboStates;

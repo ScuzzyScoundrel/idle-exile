@@ -35,6 +35,38 @@ export const RULES: Record<string, RuleDef> = {
     params: { instanceMult: 2, damageMult: 0.5 },
     site: 'src/engine/combat/helpers.ts:applyDebuffToList (flag threaded from tick.ts ailment roll)',
   },
+
+  // ── Wave E5 payoff-shape rules (E17): each FLIPS the optimal gambit
+  // for its spec rather than nudging numbers. Consumed at the shared
+  // combo consume fold. ──
+  'momentum.perfectRefund': {
+    id: 'momentum.perfectRefund',
+    name: 'Perfect Rhythm',
+    blurb: 'A PERFECT Assassinate refunds 2 Momentum — tighter cap-cycling.',
+    params: { refund: 2 },
+    site: 'src/engine/combat/comboRuntime.ts:comboConsumePreRoll (capBonus branch)',
+  },
+  'momentum.flatSpender': {
+    id: 'momentum.flatSpender',
+    name: 'Ruthlessness',
+    blurb: 'Assassinate loses the per-stack ramp and Perfect jackpot; instead a flat ×2.6 whenever 3+ Momentum are consumed — spend on cooldown.',
+    params: { flatMult: 2.6, minStacks: 3 },
+    site: 'src/engine/combat/comboRuntime.ts:comboConsumePreRoll (momentum fold replacement)',
+  },
+  'quiver.deadeye': {
+    id: 'quiver.deadeye',
+    name: 'Deadeye',
+    blurb: 'Vulnerable-window spends hit 75% harder — hunt the windows.',
+    params: { wetBonusMult: 0.75 },
+    site: 'src/engine/combat/comboRuntime.ts:comboConsumePreRoll (window-consume branch)',
+  },
+  'quiver.splitburst': {
+    id: 'quiver.splitburst',
+    name: 'Splitburst',
+    blurb: 'Snipe per-stack reduced (20%), but the Perfect jackpot fires from 4+ Quiver — spend fast and often.',
+    params: { perStack: 20, capFrom: 4 },
+    site: 'src/engine/combat/comboRuntime.ts:comboConsumePreRoll (quiver fold replacement)',
+  },
 };
 
 /** Collect active rules (with merged params) from a collected-effects

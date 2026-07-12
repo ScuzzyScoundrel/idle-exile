@@ -1098,6 +1098,22 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'hnt_tp_chain_trap': [
     { kind: 'procOnTrapChain', chance: 5, action: { kind: 'applyTag', tag: 'bleed', stacks: 1, duration: 4 } },
   ],
+  // ── Wave E5 payoff-shape variation nodes (E17) — each is ONE rule
+  // that FLIPS the spec's optimal gambit (GATE E5 measures it). ──
+  // Blademaster pair (mutually exclusive in spirit — different builds):
+  'asn_bm_killing_tempo': [
+    { kind: 'rule', rule: 'momentum.perfectRefund' },
+  ],
+  'asn_bm_doubled_stroke': [
+    { kind: 'rule', rule: 'momentum.flatSpender' },
+  ],
+  // Marksman pair:
+  'hnt_mm_snipers_patience': [
+    { kind: 'rule', rule: 'quiver.deadeye' },
+  ],
+  'hnt_mm_precision_cascade': [
+    { kind: 'rule', rule: 'quiver.splitburst' },
+  ],
 };
 
 /** Lookup typed effects for a node id. Returns [] for unwired nodes. */

@@ -86,7 +86,16 @@ export function comboConsumePreRoll(ctx: PreRollContext): ComboConsumeResult {
       const enhance = graphMod?.comboStateEnhance?.[cs.stateId];
       const eff = { ...cs.effect, ...perSkill, ...enhance };
 
-      if (eff.incDamage) damageMult *= (1 + eff.incDamage / 100);
+      // Wave E5: the flat payoff shapes have "no finesse" — wet windows
+      // grant NOTHING (no mult, no refund), which is what makes the
+      // hold-for-windows presets a pure loss for those builds (the
+      // preference fork GATE E5 measures).
+      const rulesPre = ctx.activeRules;
+      const windowInert = !!eff.refundStacks && (
+        (rulesPre?.has('momentum.flatSpender') && eff.refundStacks.stateId === 'momentum') ||
+        (rulesPre?.has('quiver.splitburst') && eff.refundStacks.stateId === 'quiver'));
+
+      if (eff.incDamage && !windowInert) damageMult *= (1 + eff.incDamage / 100);
       if (eff.incCritChance) critChanceBonus += eff.incCritChance;
       if (eff.incCritMultiplier) critMultiplierBonus += eff.incCritMultiplier;
       if (eff.guaranteedCrit) guaranteedCrit = true;
@@ -94,23 +103,52 @@ export function comboConsumePreRoll(ctx: PreRollContext): ComboConsumeResult {
       if (eff.cdRefundPercent) cdRefundPercent += eff.cdRefundPercent;
 
       // ── COMBAT_ECONOMY_DESIGN E10: generic table-driven consume payoffs ──
-      // Per-stack scaling (consume-all spenders: momentum ×(1+0.30k))
-      if (eff.incDamagePerStackConsumed) {
-        damageMult *= (1 + (eff.incDamagePerStackConsumed * cs.stacks) / 100);
-      }
-      // Perfect jackpot: only when the spend consumed exactly cap stacks
-      if (eff.capBonus && cs.stacks >= cs.maxStacks) {
-        if (eff.capBonus.incDamage) damageMult *= (1 + eff.capBonus.incDamage / 100);
-        if (eff.capBonus.advanceOthersSec) advanceOtherCooldownsSec += eff.capBonus.advanceOthersSec;
-        if (eff.capBonus.guaranteedCrit) guaranteedCrit = true; // E3: Snipe Perfect
-        perfectSpend = true; // E16: PERFECT floater tag
+      // Wave E5 payoff-shape rules (E17) intercept the fold — each rule
+      // FLIPS the optimal gambit for its spec (see src/data/rules.ts).
+      const rules = ctx.activeRules;
+      if (rules?.has('momentum.flatSpender') && cs.stateId === 'momentum') {
+        // Ruthlessness: flat ×1.9 at 3+ consumed replaces ramp + jackpot.
+        if (cs.stacks >= (rules.get('momentum.flatSpender')!.minStacks ?? 3)) {
+          damageMult *= (rules.get('momentum.flatSpender')!.flatMult ?? 2.6);
+        }
+      } else if (rules?.has('quiver.splitburst') && cs.stateId === 'quiver') {
+        // Splitburst: halved ramp, jackpot from 4+ instead of full cap.
+        const p = rules.get('quiver.splitburst')!;
+        damageMult *= (1 + ((p.perStack ?? 20) * cs.stacks) / 100);
+        if (eff.capBonus && cs.stacks >= (p.capFrom ?? 4)) {
+          if (eff.capBonus.incDamage) damageMult *= (1 + eff.capBonus.incDamage / 100);
+          if (eff.capBonus.advanceOthersSec) advanceOtherCooldownsSec += eff.capBonus.advanceOthersSec;
+          if (eff.capBonus.guaranteedCrit) guaranteedCrit = true;
+          perfectSpend = true;
+        }
+      } else {
+        // Per-stack scaling (consume-all spenders: momentum ×(1+0.30k))
+        if (eff.incDamagePerStackConsumed) {
+          damageMult *= (1 + (eff.incDamagePerStackConsumed * cs.stacks) / 100);
+        }
+        // Perfect jackpot: only when the spend consumed exactly cap stacks
+        if (eff.capBonus && cs.stacks >= cs.maxStacks) {
+          if (eff.capBonus.incDamage) damageMult *= (1 + eff.capBonus.incDamage / 100);
+          if (eff.capBonus.advanceOthersSec) advanceOtherCooldownsSec += eff.capBonus.advanceOthersSec;
+          if (eff.capBonus.guaranteedCrit) guaranteedCrit = true; // E3: Snipe Perfect
+          perfectSpend = true; // E16: PERFECT floater tag
+          // Perfect Rhythm: a PERFECT spend also refunds the ledger.
+          if (rules?.has('momentum.perfectRefund') && cs.stateId === 'momentum') {
+            pendingRefunds.push({ stateId: 'momentum', amount: rules.get('momentum.perfectRefund')!.refund ?? 2 });
+          }
+        }
       }
       // Wet-spend tempo refund (applied after the consume loop).
       // refundStacks is the wet-window payoff marker (E5/E10: Opening),
       // so consuming it here IS the wet spend — E16 floater tag.
-      if (eff.refundStacks) {
+      if (eff.refundStacks && !windowInert) {
         pendingRefunds.push(eff.refundStacks);
         wetSpend = true;
+        // Deadeye: window spends hit 75% harder (extra on TOP of the
+        // window's own incDamage, already folded above).
+        if (rules?.has('quiver.deadeye') && cs.stateId === 'vulnerable') {
+          damageMult *= (1 + (rules.get('quiver.deadeye')!.wetBonusMult ?? 0.75));
+        }
       }
       // Generic DoT detonation (retires the deep_wound stateId hardcode):
       // % of remaining ailment ticks dealt as instant burst
