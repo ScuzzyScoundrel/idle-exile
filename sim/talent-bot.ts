@@ -43,8 +43,15 @@ import {
   type TalentProcContext,
 } from '../src/engine/classTalentDispatcher';
 import { formatTalentEffects } from '../src/ui/format/talentEffectText';
-import type { TalentEffect, ResolvedStats, ActiveDebuff, TempBuff } from '../src/types';
+import type { TalentEffect, TalentAction, TalentTag, ResolvedStats, ActiveDebuff, TempBuff } from '../src/types';
+import type { Condition } from '../src/types/conditions';
 import { BASE_STATS } from '../src/data/balance';
+import { ASCENDANCY_NODE_EFFECTS } from '../src/data/ascendancies/effects';
+import { DEBUFF_DEFS } from '../src/data/debuffs';
+import { STATE_IDS } from '../src/data/states';
+import { SUMMON_CONFIGS } from '../src/engine/combat/minions';
+import { TALENT_TAG_TO_DEBUFF, TALENT_BUFF_REGISTRY } from '../src/engine/classTalentDispatcher';
+import { getUnifiedSkillDef } from '../src/data/skills';
 
 interface TestResult {
   pass: boolean;
@@ -482,8 +489,161 @@ function summarize() {
   process.exit(fails.length > 0 ? 1 : 0);
 }
 
+// ─── Pass 0: registry id-closure (Effect IR Wave 3, D26) ────────────
+// Every stat / state / tag / buff / minion / skill id referenced by any
+// NODE_EFFECTS or ASCENDANCY_NODE_EFFECTS entry must resolve in its
+// registry — kills the aoeRadius class of silent no-op at author time.
+// Known forward-compat seeds are allowlisted with the reason inline.
+
+const DEBUFF_IDS = new Set(DEBUFF_DEFS.map(d => d.id));
+
+// Stats authored ahead of engine support — reported but not failures.
+// Anything appearing here is EXCLUDED from coverage claims until wired.
+const PENDING_STATS = new Set<string>([
+  'maxIgniteStacks',   // sor_sp_burning_hex — forward-compat seed
+  'maxActiveTraps',    // hnt_tp trap-cap nodes — trap cap not wired (audit)
+  'maxPoisonStacks',   // asn seed — no consumer yet
+  // ── Discovered by Pass 0's first run (2026-07-12) — 12 nodes were
+  //    silently dead. Each needs a StatKey + engine consumer: ──
+  'minionSummonManaCost', // wd_sw_spirit_conduit — no summon-cost path
+  'minionHp',             // wd_sw_spirit_vigor + asc_wd_sw_soul_anchor — only companion* variants registered
+  'minionDuration',       // wd_sw_soul_bind
+  'minionAttackSpeed',    // asc_wd_sw_pack_tempo
+  'maxCritStacks',        // asn_bm_cascade_reservoir — cap hardcoded 5 in dispatch
+  'maxResonanceCharges',  // sor_ar_bank_mastery + asc — cap hardcoded 5
+  'maxMana',              // sor_ar_mana_reservoir + asc_sor_ar_bank_reservoir — mana max not stat-driven
+  'incTrapDamage',        // hnt_tp_trappers_hand
+  'trapDetonationDamage', // hnt_tp_heavy_trap
+]);
+// Tags whose mapped debuff is a declared placeholder (no DebuffDef yet).
+const PENDING_TAGS = new Set<string>(['stun', 'taunt']);
+
+function closureCheckStat(stat: string, issues: string[], pending: string[]): void {
+  if (stat === 'damageMult') return;
+  if (stat in BASE_STATS) return;
+  if (PENDING_STATS.has(stat)) { pending.push(`stat:${stat}`); return; }
+  issues.push(`unknown stat '${stat}'`);
+}
+function closureCheckTag(tag: string, issues: string[], pending: string[]): void {
+  const did = TALENT_TAG_TO_DEBUFF[tag as TalentTag];
+  if (!did) { issues.push(`unknown tag '${tag}'`); return; }
+  if (!DEBUFF_IDS.has(did)) {
+    if (PENDING_TAGS.has(tag)) { pending.push(`tag:${tag}`); return; }
+    issues.push(`tag '${tag}' maps to unregistered debuff '${did}'`);
+  }
+}
+function closureCheckState(stateId: string, issues: string[]): void {
+  // stateIds may also be TalentTags (perStack legacy path counts target
+  // debuff stacks by tag) — accept either registry.
+  if (STATE_IDS.has(stateId)) return;
+  if (TALENT_TAG_TO_DEBUFF[stateId as TalentTag]) return;
+  issues.push(`unknown stateId '${stateId}'`);
+}
+function closureCheckSkill(skillId: string, issues: string[]): void {
+  if (!getUnifiedSkillDef(skillId)) issues.push(`unknown skillId '${skillId}'`);
+}
+function closureCheckAction(action: TalentAction, issues: string[], pending: string[]): void {
+  switch (action.kind) {
+    case 'applyTag': case 'applyTagAll': closureCheckTag(action.tag, issues, pending); break;
+    case 'grantBuff':
+      if (!TALENT_BUFF_REGISTRY[action.buffId]) issues.push(`unknown buffId '${action.buffId}'`);
+      break;
+    case 'summon':
+      if (!SUMMON_CONFIGS[action.minionType]) issues.push(`unknown minionType '${action.minionType}'`);
+      break;
+    case 'triggerSkill': closureCheckSkill(action.skillId, issues); break;
+    case 'advanceCooldowns':
+      if (action.scope === 'skillId' && action.skillId) closureCheckSkill(action.skillId, issues);
+      break;
+    case 'modifyState': closureCheckState(action.stateId, issues); break;
+    default: break;
+  }
+}
+function closureCheckCondition(cond: Condition, issues: string[], pending: string[]): void {
+  if ('all' in cond) { cond.all.forEach(c => closureCheckCondition(c, issues, pending)); return; }
+  if ('any' in cond) { cond.any.forEach(c => closureCheckCondition(c, issues, pending)); return; }
+  if ('not' in cond) { closureCheckCondition(cond.not, issues, pending); return; }
+  if ('targetHasTag' in cond) closureCheckTag(cond.targetHasTag, issues, pending);
+  if ('targetLacksTag' in cond) closureCheckTag(cond.targetLacksTag, issues, pending);
+  if ('targetHasState' in cond) closureCheckState(cond.targetHasState.stateId, issues);
+  if ('stateActive' in cond) closureCheckState(cond.stateActive, issues);
+  if ('stateMissing' in cond) closureCheckState(cond.stateMissing, issues);
+  if ('stateCountAtLeast' in cond) closureCheckState(cond.stateCountAtLeast.stateId, issues);
+  if ('stateCountBelow' in cond) closureCheckState(cond.stateCountBelow.stateId, issues);
+  if ('skillReady' in cond) closureCheckSkill(cond.skillReady, issues);
+}
+function closureCheckEffect(eff: TalentEffect, issues: string[], pending: string[]): void {
+  switch (eff.kind) {
+    case 'stat': case 'statMult':
+      closureCheckStat(eff.stat, issues, pending); break;
+    case 'whileTag':
+      closureCheckTag(eff.tag, issues, pending); closureCheckStat(eff.stat, issues, pending); break;
+    case 'whileSelfHpBelow': case 'whileSelfHpAbove': case 'whileFrenzied':
+    case 'whileTargetHpBelow': case 'whileCompanionAlive': case 'whileMinionCountAtLeast':
+    case 'whileOffhandAbsent': case 'whileCritStacksAtLeast': case 'whileResonanceChargesAtLeast':
+      closureCheckStat(eff.stat, issues, pending); break;
+    case 'perCritStack': case 'perEnemyCount': case 'perResonanceCharge':
+      closureCheckStat(eff.stat, issues, pending); break;
+    case 'perStack':
+      closureCheckTag(eff.stack, issues, pending); closureCheckStat(eff.stat, issues, pending); break;
+    case 'procOnHit': case 'procOnCrit': case 'procOnKill':
+      if (eff.targetTag) closureCheckTag(eff.targetTag, issues, pending);
+      closureCheckAction(eff.action, issues, pending); break;
+    case 'procOnTag':
+      closureCheckTag(eff.tag, issues, pending); closureCheckAction(eff.action, issues, pending); break;
+    case 'procOnHitTaken': case 'procOnMultiKillChain': case 'procOnResonanceChargeGain':
+    case 'procOnConvergenceCast': case 'procOnBulwarkConsume': case 'procOnCompanionHit':
+    case 'procOnCompanionCrit': case 'procOnCompanionDeath':
+    case 'procOnTrapDetonate': case 'procOnTrapChain':
+      closureCheckAction(eff.action, issues, pending); break;
+    case 'procOnMinionHit': case 'procOnMinionCrit': case 'procOnMinionDeath':
+      if (eff.minionType && !SUMMON_CONFIGS[eff.minionType]) issues.push(`unknown minionType '${eff.minionType}'`);
+      closureCheckAction(eff.action, issues, pending); break;
+    case 'grantDotCrit':
+      if (eff.debuffId && !DEBUFF_IDS.has(eff.debuffId)) issues.push(`unknown debuffId '${eff.debuffId}'`);
+      break;
+    case 'whilePauseDebuffDecay':
+      closureCheckTag(eff.tag, issues, pending);
+      if (!DEBUFF_IDS.has(eff.debuffId)) issues.push(`unknown debuffId '${eff.debuffId}'`);
+      break;
+    case 'on':
+      if (eff.on.trigger.on === 'stateChange') closureCheckState(eff.on.trigger.stateId, issues);
+      if (eff.on.trigger.on === 'tagApplied' && eff.on.trigger.tag) closureCheckTag(eff.on.trigger.tag, issues, pending);
+      if (eff.on.if) closureCheckCondition(eff.on.if, issues, pending);
+      eff.on.actions.forEach(a => closureCheckAction(a, issues, pending));
+      break;
+    case 'mod':
+      closureCheckStat(eff.mod.stat, issues, pending);
+      if (eff.mod.if) closureCheckCondition(eff.mod.if, issues, pending);
+      if (eff.mod.per && eff.mod.per.count === 'stateStacks') closureCheckState(eff.mod.per.stateId, issues);
+      break;
+    default: break; // 'rule' (registry lands later in Wave 3), presence kinds
+  }
+}
+function passClosure() {
+  const pendingAll: string[] = [];
+  const sources: Array<[string, Record<string, TalentEffect[]>]> = [
+    ['node', NODE_EFFECTS],
+    ['asc', ASCENDANCY_NODE_EFFECTS],
+  ];
+  for (const [label, table] of sources) {
+    for (const [nodeId, effects] of Object.entries(table)) {
+      const issues: string[] = [];
+      const pending: string[] = [];
+      for (const eff of effects) closureCheckEffect(eff, issues, pending);
+      pendingAll.push(...pending.map(p => `${nodeId}: ${p}`));
+      record(issues.length === 0, nodeId, `closure-${label}`,
+        issues.length === 0 ? 'all ids resolve' : issues.join('; '));
+    }
+  }
+  if (pendingAll.length > 0) {
+    console.log(`  [closure] ${pendingAll.length} pending (authored ahead of engine): ${[...new Set(pendingAll.map(p => p.split(': ')[1]))].join(', ')}`);
+  }
+}
+
 console.log('Running talent bot…');
 console.log(`NODE_EFFECTS entries: ${Object.keys(NODE_EFFECTS).length}`);
+passClosure();
 passCoverage();
 passConditional();
 passProc();

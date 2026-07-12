@@ -100,6 +100,7 @@ import {
 import { ZONE_DEFS } from '../../data/zones';
 import { getClassDef } from '../../data/classes';
 import { getDebuffDef } from '../../data/debuffs';
+import { STATE_DEFS } from '../../data/states';
 import { getUnifiedSkillDef } from '../../data/skills';
 import { getMobTypeDef } from '../../data/mobTypes';
 import { pickCurrentMob } from '../zones/helpers';
@@ -705,13 +706,18 @@ export function runCombatTick(
     const offhandAbsent = !state.character.equipment.offhand;
     const enemyCount = phase === 'boss_fight' ? 1 : state.packMobs.length;
     const minionCount = (state.activeMinions ?? []).filter(m => m.hp > 0).length;
-    // Phase F F5c: sticky Frenzied state. Enter when HP < 50%, exit
-    // when HP > 75% (hysteresis prevents flickering at the boundary).
-    // Mutating state directly here so all subsequent ticks see the
-    // updated value without a state patch round-trip.
-    if (!state.frenziedActive && selfHpFraction < 0.5) {
+    // Phase F F5c: sticky Frenzied state (hysteresis prevents boundary
+    // flicker). Wave 3: thresholds read from STATE_DEFS.frenzied.while —
+    // the registry is the single source of truth, so a future capstone
+    // can override them as a rule param instead of an engine edit.
+    // Comparison operators stay inline (enter strict <, exit strict >)
+    // to preserve exact legacy semantics.
+    const frzWhile = STATE_DEFS.frenzied.while;
+    const frzEnter = frzWhile && 'selfHpBelow' in frzWhile.enter ? frzWhile.enter.selfHpBelow : 0.5;
+    const frzExit = frzWhile && 'selfHpAbove' in frzWhile.exit ? frzWhile.exit.selfHpAbove : 0.75;
+    if (!state.frenziedActive && selfHpFraction < frzEnter) {
       state.frenziedActive = true;
-    } else if (state.frenziedActive && selfHpFraction > 0.75) {
+    } else if (state.frenziedActive && selfHpFraction > frzExit) {
       state.frenziedActive = false;
     }
     const talentConditional = applyConditionalTalentEffects(
