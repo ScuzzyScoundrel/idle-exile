@@ -41,7 +41,17 @@ export const UNIQUE_ITEM_DEFS: UniqueItemDef[] = [
     uniqueAffix: {
       slot: 'suffix',
       displayText: 'Hits always Chill. +10% damage vs Chilled',
-      stats: { alwaysChill: 1, incDamageVsChilled: 10 },
+      // Effect IR Wave 3b: first de-inlined unique — behaviors are data,
+      // the tick.ts '// Unique:' branches are deleted. Known micro-drifts
+      // vs the old inline code (accepted, documented): chill duration is
+      // a flat 5s (was 5s × ailmentDuration scaling), and the +10% folds
+      // against the front target's Chilled state for the whole cast
+      // (chained targets shared it in practice since every hit chills).
+      stats: {},
+      effects: [
+        { kind: 'on', on: { trigger: { on: 'hit' }, actions: [{ kind: 'applyTag', tag: 'chill', stacks: 1, duration: 5 }] } },
+        { kind: 'mod', mod: { stat: 'damageMult', op: 'mult', value: 1.10, if: { targetHasTag: 'chill' } } },
+      ],
     },
     craftCost: {
       trophyId: 'trophy_brambleback',

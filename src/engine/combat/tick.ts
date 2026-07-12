@@ -61,6 +61,7 @@ import {
   dispatchProcOnCompanionDeath,
   hasCompanionGrant,
   getCompanionInheritancePercent,
+  collectUniqueEffects,
   type TalentProcContext,
 } from '../classTalentDispatcher';
 import { SUMMON_CONFIGS, summonMinions, stepMinions } from './minions';
@@ -187,6 +188,9 @@ export function runCombatTick(
   const talentEffects = [
     ...collectTalentEffects(state.character.class, state.talentRanks ?? {}),
     ...collectAscendancyEffects(state.ascendancyId ?? null, state.ascendancyRanks ?? {}),
+    // Effect IR Wave 3b (D17): equipped uniques contribute effects
+    // through the same pipeline as talents/ascendancies.
+    ...collectUniqueEffects(state.character),
   ];
 
   // Phase F F5a (2026-05-06): Crit Cascade — reset stacks if the
@@ -927,10 +931,9 @@ export function runCombatTick(
       debuffCritBonusMult += (debuffDef.effect.incCritDamageTaken * debuff.stacks * effectBonus) / 100;
     }
   }
-  // Unique: incDamageVsChilled — bonus damage vs chilled targets (Frostbite Loop)
-  if (effectiveStats.incDamageVsChilled > 0 && targetDebuffs.some(d => d.debuffId === 'chilled')) {
-    debuffDamageMult += effectiveStats.incDamageVsChilled / 100;
-  }
+  // (Frostbite Loop's incDamageVsChilled branch removed — Effect IR
+  //  Wave 3b: the unique's def now carries a mod{if:targetHasTag chill}
+  //  that folds via applyConditionalTalentEffects.)
 
   // Unique: enhancedCurseEffect — double the curse resist reduction (Marsh King's Crown)
   if (effectiveStats.enhancedCurseEffect > 0) {
@@ -1156,11 +1159,9 @@ export function runCombatTick(
     applyDebuffToList(newDebuffs, doc.debuffId, doc.stacks, duration, skill.id, ailmentSnapshot, isDoublePoisonHalfCrit);
   }
 
-  // Unique: alwaysChill — hits always apply Chill debuff (Frostbite Loop)
-  if (roll.isHit && effectiveStats.alwaysChill > 0) {
-    const chillDuration = 5 * (1 + effectiveStats.ailmentDuration / 100);
-    applyDebuffToList(newDebuffs, 'chilled', 1, chillDuration, skill.id);
-  }
+  // (Frostbite Loop's alwaysChill branch removed — Effect IR Wave 3b:
+  //  the unique's def now carries an on-hit applyTag(chill) rule that
+  //  fires via the procOnHit dispatch below.)
 
   // Auto-ailment: ALL skills apply signature ailment based on current element.
   // Physical is default before level 5. Element transform overrides at level 5+.

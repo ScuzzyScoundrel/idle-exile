@@ -114,6 +114,12 @@ export interface UniqueItemDef {
     slot: 'prefix' | 'suffix';
     displayText: string;
     stats: Partial<Record<import('./stats').StatKey, number>>;
+    /** Effect IR Wave 3b (D17): unique behaviors as data. Collected at
+     *  runtime from the DEF via the equipped item's uniqueDefId — NOT
+     *  baked into item instances — so already-crafted uniques pick up
+     *  effect changes without a save migration. Replaces the bespoke
+     *  stat-key + inline engine branch pattern. */
+    effects?: import('./skills').TalentEffect[];
   };
   craftCost: {
     trophyId: string;

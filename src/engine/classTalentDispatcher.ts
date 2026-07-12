@@ -18,11 +18,12 @@
 //   • grantBuff  → STUB
 
 import type {
-  CharacterClass, TalentEffect, TalentTag,
+  CharacterClass, Character, TalentEffect, TalentTag,
   ActiveDebuff, ResolvedStats, TempBuff,
 } from '../types';
 import { getNodeEffects } from '../data/classTrees';
 import { getAscendancyNodeEffects } from '../data/ascendancies';
+import { getUniqueItemDef } from '../data/uniqueItems';
 import { evalCondition, TALENT_TAG_TO_DEBUFF, type ConditionContext } from './ir/conditions';
 import { resolveValue } from './ir/normalize';
 import { dispatchEvent, type TalentProcContext } from './ir/dispatch';
@@ -230,6 +231,21 @@ export function collectAscendancyEffects(
     for (const eff of effects) {
       result.push(scaleTalentEffectByRank(eff, rank));
     }
+  }
+  return result;
+}
+
+/** Effect IR Wave 3b (D17): collect TalentEffect[] from equipped
+ *  uniques' DEF-level uniqueAffix.effects (looked up by uniqueDefId so
+ *  existing crafted items inherit def changes — instance stats stay
+ *  untouched for save compat). No rank scaling — items have no ranks. */
+export function collectUniqueEffects(character: Character): TalentEffect[] {
+  const result: TalentEffect[] = [];
+  for (const item of Object.values(character.equipment)) {
+    const defId = item?.uniqueDefId ?? item?.uniqueAffix?.uniqueDefId;
+    if (!defId) continue;
+    const def = getUniqueItemDef(defId);
+    if (def?.uniqueAffix.effects) result.push(...def.uniqueAffix.effects);
   }
   return result;
 }
