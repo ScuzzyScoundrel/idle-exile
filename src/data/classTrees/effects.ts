@@ -1119,6 +1119,24 @@ export const CLASS_INNATE_EFFECTS: Record<string, TalentEffect[]> = {
       scope: { skillId: 'dagger_assassinate' },
     } },
   ],
+  // Wave E4c (owner Q6 = option b): the Berserker innates — both are
+  // plain IR rules through the Wave-E2 generic runtime, no engine code.
+  // 1. Taking a hit feeds Fury (the class identity; fires on the pack
+  //    path too since the E4c hitTaken dispatch fix).
+  // 2. Reaching full Fury opens the Rampage window (capReached event).
+  berserker: [
+    { kind: 'on', on: {
+      trigger: { on: 'hitTaken' },
+      // 2s icd (EffectRule.icdSec, Wave E2 — first live consumer):
+      // without it the 5-swarm hit firehose let the blind bar farm cap.
+      icdSec: 2,
+      actions: [{ kind: 'modifyState', stateId: 'fury_charge', op: 'add', amount: 1 }],
+    } },
+    { kind: 'on', on: {
+      trigger: { on: 'stateChange', stateId: 'fury_charge', change: 'capReached' },
+      actions: [{ kind: 'modifyState', stateId: 'rampage', op: 'add', amount: 1 }],
+    } },
+  ],
   // Tracking Shot's "+100% below 50%" prose, finally wired (Wave E3,
   // §3) — as a real conditional at 35%: the Hunter execute band.
   hunter: [

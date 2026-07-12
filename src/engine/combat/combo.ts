@@ -78,7 +78,10 @@ export function findCreatorByStateId(stateId: string): ComboStateConfig | undefi
 // weight from linear (35→30) into the jackpot (×1.8→×2.5).
 const MOMENTUM_EFFECT: ComboStateEffect = {
   incDamagePerStackConsumed: 30,
-  capBonus: { incDamage: 150, advanceOthersSec: 1 },
+  // E4c re-tune: autos were silently OFF in the harness for the first
+  // four gate runs; with them ON the shared auto damage diluted the
+  // dagger delta below the bar — jackpot ×2.5 → ×3.0 recovers it.
+  capBonus: { incDamage: 200, advanceOthersSec: 1 },
   perSkillBonus: {
     dagger_fan_of_knives: { incDamagePerStackConsumed: 20, capBonus: undefined },
   },
@@ -90,7 +93,7 @@ const MOMENTUM_EFFECT: ComboStateEffect = {
 // arm captures ~57% of windows vs blind ~10% — the window is the ONE
 // lever no fixed slot ordering can react to, so it carries the gate.
 const OPENING_EFFECT: ComboStateEffect = {
-  incDamage: 100,
+  incDamage: 125, // E4c autos-on re-tune: smart-weighted (57% vs 13% capture)
   refundStacks: { stateId: 'momentum', amount: 3 },
 };
 
@@ -233,6 +236,18 @@ export const COMBO_STATE_CREATORS: Record<string, ComboStateConfig | ComboStateC
     { stateId: 'arcane_surge', duration: 3.0, maxStacks: 1, createOn: 'onCrit', icdSec: 3, effect: ARCANE_SURGE_EFFECT },
   ],
 
+  // ── Flail (Berserker) — Wave E4c: builders. Fury-on-hit-taken and
+  // the Rampage-at-cap window are CLASS_INNATE_EFFECTS IR rules (the
+  // first live consumers of the Wave-E2 generic runtime + capReached). ──
+  flail_arc_sweep: [
+    { stateId: 'fury_charge', duration: 10, maxStacks: 8, createOn: 'onCast',
+      effect: { incDamagePerStackConsumed: 22, capBonus: { incDamage: 100, advanceOthersSec: 1 } } },
+  ],
+  flail_hooked_strike: [
+    { stateId: 'fury_charge', duration: 10, maxStacks: 8, createOn: 'onCast',
+      effect: { incDamagePerStackConsumed: 22, capBonus: { incDamage: 100, advanceOthersSec: 1 } } },
+  ],
+
   // ── Staff v2 (Witch Doctor) ──
   // Locust Swarm: creates Plagued — consumed by Plague of Toads for pandemic spread (wired in staff module)
   staff_locust_swarm: [
@@ -253,7 +268,7 @@ export const COMBO_STATE_CREATORS: Record<string, ComboStateConfig | ComboStateC
   staff_soul_harvest:   { stateId: 'soul_stack',       duration: 10, maxStacks: 6, createOn: 'onCast',
                           stacksPerGain: 2,
                           effect: { extraChains: 1, incDamagePerStackConsumed: 30,
-                                    capBonus: { incDamage: 150, advanceOthersSec: 1 } } },
+                                    capBonus: { incDamage: 200, advanceOthersSec: 1 } } },
   // Wave E4b iteration-4: the window creator must NOT sit adjacent to
   // the spender in bar order (Barrage slot-5 crits phase-locked windows
   // onto slot-6 Skull — blind captured 80% wet for free). Harvest, the
@@ -303,6 +318,9 @@ export const COMBO_STATE_CONSUMERS: Record<string, string[]> = {
   // ── Wand (Sorcerer) — Wave E4: two spenders share the attunement pool ──
   wand_void_blast:         ['attunement', 'arcane_surge'],
   wand_volley_convergence: ['attunement', 'arcane_surge'],
+
+  // ── Flail (Berserker) — Wave E4c ──
+  flail_crushing_blow: ['fury_charge', 'rampage'],
 
   // ── Staff v2 (Witch Doctor) ──
   staff_spirit_barrage:  ['haunted'],

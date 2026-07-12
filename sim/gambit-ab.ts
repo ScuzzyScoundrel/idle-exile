@@ -36,7 +36,7 @@ import { createResourceState } from '../src/engine/classResource';
 import { ZONE_DEFS } from '../src/data/zones';
 import type { GameState, ActiveDebuff, MobInPack, EquippedSkill, CharacterClass } from '../src/types';
 import type { RotationPolicy } from '../src/types/rotation';
-import { DAGGER_TEMPO_POLICY, BOW_MARKED_TEMPO_POLICY, WAND_ATTUNED_TEMPO_POLICY, STAFF_SOUL_TEMPO_POLICY } from '../src/data/rotationPresets';
+import { DAGGER_TEMPO_POLICY, BOW_MARKED_TEMPO_POLICY, WAND_ATTUNED_TEMPO_POLICY, STAFF_SOUL_TEMPO_POLICY, FLAIL_RAMPAGE_TEMPO_POLICY } from '../src/data/rotationPresets';
 
 function createMobPack(count: number, hp: number): MobInPack[] {
   const now = getNow();
@@ -109,6 +109,10 @@ function createFixtureState(
     comboStates: [], activeTraps: [], bladeWardExpiresAt: 0, bladeWardHits: 0,
     elementTransforms: {}, lastHitMobTypeId: null, freeCastUntil: {}, lastProcTriggerAt: {},
     lastClearResult: null, lastSkillActivation: 0, nextActiveSkillAt: 0,
+    // Autos were silently OFF for the first four gate runs (undefined
+    // timer => 'now >= undefined' is false). ON since E4c: live play has
+    // autos, and the Berserker bootstraps entirely through them.
+    nextAutoAttackAt: 0,
     packMobs: createMobPack(3, 600), currentPackSize: 3, targetedMobId: null,
     currentMobTypeId: 'thicket_crawler', mobKillCounts: {}, bossKillCounts: {}, totalZoneClears: {},
     dailyQuests: { questDate: '', quests: [], progress: {} },
@@ -181,6 +185,34 @@ function createFixtureState(
 //   4. Rapid Fire +3/flurry (the §3 value) beats +2: blind's spend
 //      count is contention-FIXED, so faster generation only widens the
 //      smart arm's cycle advantage (and blind wastes more at cap). ──
+//
+// 2026-07-12 AUTOS DISCOVERY + RE-BASELINE: the fixture never set
+// nextAutoAttackAt, so `now >= undefined` was false and AUTO-ATTACKS
+// NEVER FIRED in any harness run before E4c — the first four gates
+// measured a skills-only world (consistent across arms, but auto
+// damage dilutes live deltas). Autos are ON since E4c. Dagger and
+// staff re-tuned to re-clear under dilution: momentum/soul Perfect
+// capBonus 150→200 (×2.5→×3), Opening wet ×2→×2.25, and the dagger
+// culling rule raised k≥3→k≥4 — its k=3 spends on dying mobs were
+// VALUE-DESTRUCTIVE (that one preset change was worth ~9 CI points).
+// Autos-on all-five: dagger CI-low +17.3, bow +10.8, wand +15.1,
+// staff +14.3, flail +42.7.
+//
+// 2026-07-12 GATE E4c (flail/berserker, Q6 = option b, 4 iterations):
+// PASSED — mean +45%, CI-low +42.7% vs best blind. The kit is the
+// first live end-to-end exercise of the Wave-E2 generic runtime: fury
+// on hitTaken (innate IR rule w/ icdSec 2 — first EffectRule.icdSec
+// consumer; required adding the missing PACK-path hitTaken dispatch,
+// a deferred-audit fix) and the Rampage window opened by the
+// capReached stateChange event. Lessons: (1) a cap-coupled window is
+// DETERMINISTIC — smart hits 100% wet-Perfect, so payoffs must be
+// compressed (per-stack 22, Perfect ×2, wet ×1.5) or the gambit
+// becomes a mandate (+115% at first tuning); (2) capReached does not
+// re-fire while parked at cap — presets need a cap-dump deadlock
+// guard; (3) the berserker floor uses floorMult 1.1 because its
+// baseline is the only autos-INCLUSIVE one (like-for-like). Berserker
+// stays the most gambit-rewarding class (~+45%) — rage rewards
+// attention; E5 variation nodes are the lever if that needs taming. ──
 //
 // 2026-07-12 GATE E4a (wand/sorcerer, 6 iterations): PASSED — smart vs
 // best blind (spender-first!): mean +23.0%, CI95 [+18.2, +27.7]; every
@@ -446,11 +478,17 @@ function kitGate(
   weaponType: string,
   tel: Telemetry,
   model: 'withhold' | 'outspend',
+  // Floor multiplier vs the frozen pre-redesign baseline. 1.5 for the
+  // four legacy baselines measured with autos silently OFF (an easy bar
+  // against autos-ON blind arms); 1.1 for autos-INCLUSIVE baselines
+  // (flail onward) — like-for-like, the U6 core is "the worst ordering
+  // must still beat the old game".
+  floorMult: number = 1.5,
 ): boolean {
   const preRedesign = preRedesignDps * SIM_SEC;
   const orderingDamages = orderings.map((bar, i) => i === 0 ? exp.aDamage : blindOrdering(cls, weaponType, bar, tel));
   const worst = Math.min(...orderingDamages);
-  const floor = preRedesign * 1.5;
+  const floor = preRedesign * floorMult;
   const blindSpends = exp.aArms.flatMap(a => a.spendStacks);
   const blindKbar = blindSpends.length ? mean(blindSpends) : 0;
   const blindPerfect = blindSpends.length ? blindSpends.filter(k => k >= cap).length / blindSpends.length * 100 : 0;
@@ -464,7 +502,7 @@ function kitGate(
   console.log(`\n${label}:`);
   console.log(`  smart-vs-blind CI low ≥ +10%:        ${cDelta ? 'PASS' : 'FAIL'} (${exp.ciLow.toFixed(1)}%)`);
   console.log(`  blind ≥ 100% pre-redesign (${preRedesign.toFixed(0)}): ${cFloor ? 'PASS' : 'FAIL'} (${exp.aDamage.toFixed(0)})`);
-  console.log(`  worst-of-3 blind ≥ 150% pre-redesign: ${cWorst ? 'PASS' : 'FAIL'} (worst ${worst.toFixed(0)} vs floor ${floor.toFixed(0)}; orderings [${orderingDamages.map(d => d.toFixed(0)).join(', ')}])`);
+  console.log(`  worst-of-3 blind ≥ ${(floorMult * 100).toFixed(0)}% pre-redesign: ${cWorst ? 'PASS' : 'FAIL'} (worst ${worst.toFixed(0)} vs floor ${floor.toFixed(0)}; orderings [${orderingDamages.map(d => d.toFixed(0)).join(', ')}])`);
   let cA: boolean, cB: boolean;
   if (model === 'withhold') {
     cA = blindKbar <= kbarMax;
@@ -546,9 +584,27 @@ const gateE4b = kitGate('GATE E4b (staff reference kit)', staffExp, 6, PRE_E4_WD
   ['staff_haunt', 'staff_bouncing_skull', 'staff_hex', 'staff_locust_swarm', 'staff_soul_harvest', 'staff_spirit_barrage'], // mixed
 ], 'witchdoctor', 'staff', STAFF_TEL, 'withhold');
 
+// Experiment 5 — flail/berserker E4c REFERENCE KIT (owner Q6 option b):
+// fury ledger (strikes +1, hits TAKEN +1 via innate IR rule — the
+// first live generic-runtime consumer) + Rampage window opened by the
+// capReached stateChange event + Crushing Blow consume-all.
+// PRE-E4c baseline measured 2026-07-12 (blind, autos on): 120,189.
+const FLAIL_TEL: Telemetry = { spenderSkillId: 'flail_crushing_blow', chargeStateId: 'fury_charge', windowStateId: 'rampage', spendCost: 12 };
+const FLAIL_BAR = ['flail_arc_sweep', 'flail_hooked_strike', 'flail_disarming_strike', 'flail_bone_crusher', 'flail_crushing_blow'];
+const flail = experiment('FLAIL (E4c reference kit: fury + rampage)', 'berserker', 'flail',
+  FLAIL_BAR,
+  FLAIL_RAMPAGE_TEMPO_POLICY,
+  FLAIL_TEL);
+const PRE_E4C_BERSERKER_DPS = 120189 / 1200;
+const gateE4c = kitGate('GATE E4c (flail reference kit)', flail, 8, PRE_E4C_BERSERKER_DPS, [
+  FLAIL_BAR,                                                                                    // builder-first (shipped default)
+  ['flail_crushing_blow', 'flail_bone_crusher', 'flail_arc_sweep', 'flail_hooked_strike', 'flail_disarming_strike'], // spender-first
+  ['flail_hooked_strike', 'flail_crushing_blow', 'flail_disarming_strike', 'flail_arc_sweep', 'flail_bone_crusher'], // mixed
+], 'berserker', 'flail', FLAIL_TEL, 'withhold', 1.1);
+
 console.log(`\nGATE 4 (CI lower bound ≥ +10% on at least one build; < +5% everywhere = STOP and tune payoffs):`);
 const best = Math.max(bow.ciLow, dagger.ciLow);
-if (best >= 10 && gateE1 && gateE3 && gateE4a && gateE4b) { console.log(`PASSED (best CI-low Δ ${best.toFixed(1)}%)`); process.exit(0); }
+if (best >= 10 && gateE1 && gateE3 && gateE4a && gateE4b && gateE4c) { console.log(`PASSED (best CI-low Δ ${best.toFixed(1)}%)`); process.exit(0); }
 if (best >= 5) { console.log(`MARGINAL (best CI-low Δ ${best.toFixed(1)}%) — investigate before UI work`); process.exit(1); }
 console.log(`FAILED (best CI-low Δ ${best.toFixed(1)}%) — do not build rotation UI; tune consume payoffs first`);
 process.exit(1);

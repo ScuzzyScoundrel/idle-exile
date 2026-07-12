@@ -130,6 +130,8 @@ const WEAPON_MODULES: Record<string, WeaponModule> = {
   bow: dataDrivenFor('bow'),
   // Wave E4a: sorcerer attunement economy — pure COMBO-table data.
   wand: dataDrivenFor('wand'),
+  // Wave E4c: berserker fury economy — pure COMBO-table data + innates.
+  flail: dataDrivenFor('flail'),
 };
 function getWeaponModule(wt: string | undefined): WeaponModule | null {
   return wt ? WEAPON_MODULES[wt] ?? null : null;
@@ -1990,12 +1992,18 @@ export function runCombatTick(
         // block still fires). targetDebuffs = boss's debuff list so
         // applyTag goes on the boss, not the player.
         if (!bossRoll.isDodged && talentEffects.length > 0) {
-          const hitTakenCtx = {
+          const bossHitRef = { states: newComboStates };
+          const hitTakenCtx: TalentProcContext = {
             targetDebuffs: state.activeDebuffs,
             life: { value: playerHp, max: effectiveMaxLife },
             sourceSkillId: '_hit_taken',
             tempBuffsRef: activeTempBuffs,
             skillTimers: state.skillTimers,
+            // Wave E4c: generic modifyState (Berserker fury) + icd.
+            effects: talentEffects,
+            comboStatesRef: bossHitRef,
+            procTimestampsRef: state.lastProcTriggerAt,
+            now,
           };
           dispatchProcOnHitTaken(talentEffects, hitTakenCtx, isBossCrit);
           // Phase F: procOnBulwarkConsume fires after hit-taken when
@@ -2003,6 +2011,7 @@ export function runCombatTick(
           if (bossConsumeFired) {
             dispatchProcOnBulwarkConsume(talentEffects, hitTakenCtx);
           }
+          newComboStates = bossHitRef.states;
         }
         bossAttackResult = { damage: cappedBossDmg, isDodged: bossRoll.isDodged, isBlocked: bossRoll.isBlocked, isCrit: isBossCrit };
         nextAttack = now + bs.bossAttackInterval * mainEnemyMods.atkSpeedSlowMult * 1000;
@@ -3105,6 +3114,26 @@ export function runCombatTick(
       }
       playerHp -= clearZoneDmg;
       zoneAttackResult = zoneRoll;
+      // Wave E4c (deferred-audit fix): procOnHitTaken fires on the PACK
+      // path too — the boss path was the only dispatch site, leaving
+      // defensive procs (and the Berserker fury-on-hit-taken innate)
+      // dead in clearing. comboStatesRef threaded for modifyState.
+      if (!zoneRoll.isDodged && talentEffects.length > 0) {
+        const packHitRef = { states: newComboStates };
+        const packHitCtx: TalentProcContext = {
+          targetDebuffs: mob.debuffs,
+          life: { value: playerHp, max: effectiveMaxLife },
+          sourceSkillId: '_hit_taken',
+          tempBuffsRef: activeTempBuffs,
+          skillTimers: state.skillTimers,
+          effects: talentEffects,
+          comboStatesRef: packHitRef,
+          procTimestampsRef: state.lastProcTriggerAt,
+          now,
+        };
+        dispatchProcOnHitTaken(talentEffects, packHitCtx, (zoneRoll as any).isCrit ?? false);
+        newComboStates = packHitRef.states;
+      }
       // Proc trigger: onDodge (clearing)
       if (zoneRoll.isDodged && graphMod?.skillProcs?.length) {
         const dodgeProcCtx: ProcContext = {

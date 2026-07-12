@@ -102,7 +102,7 @@ export const DAGGER_ACTIVE_SKILLS: ActiveSkillDef[] = [
     skillKind: 'cast',
     manaCost: 22,
     baseAilmentChance: 35,
-    description: 'The spender. Consumes ALL Momentum: +30% damage per stack; PERFECT at 5 stacks (×2.5, advances other cooldowns 1s). Inside an Opening: ×2 and refunds 3 Momentum. Executes: +75% below 30% HP.',
+    description: 'The spender. Consumes ALL Momentum: +30% damage per stack; PERFECT at 5 stacks (×3, advances other cooldowns 1s). Inside an Opening: ×2.25 and refunds 3 Momentum. Executes: +75% below 30% HP.',
     weaponType: 'dagger',
     tags: ['Attack', 'Melee', 'Heavy'],
     baseDamage: 6,

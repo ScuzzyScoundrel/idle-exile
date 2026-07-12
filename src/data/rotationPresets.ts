@@ -40,7 +40,7 @@ export const DAGGER_TEMPO_POLICY: RotationPolicy = {
     // 2. Culling band — execute below 30% regardless of window
     { id: 'culling_band', enabled: true, when: { all: [
       { targetHpBelow: 0.30 },
-      { stateCountAtLeast: { stateId: 'momentum', count: 3 } },
+      { stateCountAtLeast: { stateId: 'momentum', count: 4 } },
     ] }, action: { kind: 'castSkill', skillId: 'dagger_assassinate' } },
     // NO cap-dump rule (iteration-8 lesson): holding a full ledger is
     // FREE — overcap builder gains are already worthless, builders keep
@@ -165,6 +165,29 @@ export const STAFF_SOUL_TEMPO_POLICY: RotationPolicy = {
   ],
 };
 
+// ── Flail "Rampage Tempo" — Wave E4c (owner Q6 option b). Rampage
+// opens ON crossing full Fury (capReached), so the wet rule usually
+// catches it; the cap-dump below is the deadlock guard — capReached
+// will not re-fire while parked at cap, so a missed window would
+// otherwise freeze the ledger. ──
+export const FLAIL_RAMPAGE_TEMPO_POLICY: RotationPolicy = {
+  version: 1,
+  rules: [
+    { id: 'wet_spend', enabled: true, when: { all: [
+      { stateCountAtLeast: { stateId: 'rampage', count: 1 } },
+      { stateCountAtLeast: { stateId: 'fury_charge', count: 5 } },
+      { skillReady: 'flail_crushing_blow' },
+    ] }, action: { kind: 'castSkill', skillId: 'flail_crushing_blow' } },
+    { id: 'cap_dump', enabled: true, when:
+      { stateCountAtLeast: { stateId: 'fury_charge', count: 8 } },
+      action: { kind: 'castSkill', skillId: 'flail_crushing_blow' } },
+    { id: 'arc', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'flail_arc_sweep' } },
+    { id: 'hooked', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'flail_hooked_strike' } },
+    { id: 'bone', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'flail_bone_crusher' } },
+    { id: 'filler', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'flail_disarming_strike', minMana: 12 } },
+  ],
+};
+
 export const ROTATION_PRESETS: RotationPresetDef[] = [
   {
     id: 'slot_order',
@@ -193,6 +216,13 @@ export const ROTATION_PRESETS: RotationPresetDef[] = [
     blurb: 'Keeps Hex and Haunt primed for their consume pairs, banks Soul Stacks, and spends Bouncing Skull at cap or into Ritual Frenzies.',
     weaponType: 'staff',
     policy: STAFF_SOUL_TEMPO_POLICY,
+  },
+  {
+    id: 'flail_rampage_tempo',
+    name: 'Rampage Tempo',
+    blurb: 'Builds Fury with strikes and the hits you take, then spends Crushing Blow into the Rampage that opens at full Fury.',
+    weaponType: 'flail',
+    policy: FLAIL_RAMPAGE_TEMPO_POLICY,
   },
   {
     id: 'bow_marked_tempo',
