@@ -25,6 +25,13 @@ import { getNodeEffects } from '../data/classTrees';
 import { getAscendancyNodeEffects } from '../data/ascendancies';
 import { applyDebuffToList, mergeProcTempBuff } from './combat/helpers';
 import { SUMMON_CONFIGS, summonMinions, type MinionState } from './combat/minions';
+import { evalCondition, TALENT_TAG_TO_DEBUFF, type ConditionContext } from './ir/conditions';
+
+// Phase 2 Wave 1 (2026-07-12): the canonical TALENT_TAG_TO_DEBUFF and the
+// shared Condition evaluator moved to ir/conditions.ts — one predicate
+// language for talent conditionals, EffectRule.if (Wave 2), and gambit
+// rotation policies (Wave 5). Re-exported here for legacy callers.
+export { TALENT_TAG_TO_DEBUFF, evalCondition, type ConditionContext };
 
 /** Phase F polish (2026-05-06): grantBuff TalentAction registry.
  *  Maps `buffId` → AbilityEffect + maxStacks. Keep this registry
@@ -74,23 +81,11 @@ const TALENT_BUFF_REGISTRY: Record<string, { effect: AbilityEffect; maxStacks: n
   necro_stack: { effect: { damageMult: 1.06 }, maxStacks: 5 },
 };
 
-/** Map TalentTag → debuff id registered in data/debuffs.ts. */
-const TALENT_TAG_TO_DEBUFF: Record<TalentTag, string> = {
-  hex: 'hexed',
-  curse: 'cursed',
-  mark: 'marked',       // Registered below as a lightweight debuff.
-  poison: 'poisoned',
-  bleed: 'bleeding',
-  ignite: 'burning',
-  chill: 'chilled',
-  shock: 'shocked',
-  frozen: 'frostbite',
-  stun: 'stunned',      // Placeholder — no matching debuff yet.
-  taunt: 'taunted',     // Placeholder — no matching debuff yet.
-  staggered: 'staggered', // Phase F Brs — promoted to live (reducedAttackSpeed: 10).
-  cleave: 'cleave_marked', // Phase F Brs Juggernaut — Marked for Cleave marker.
-  snare: 'snared', // Phase F Hnt Trapper — Snared marker (enemy action-speed slow).
-};
+// (TALENT_TAG_TO_DEBUFF now lives in ir/conditions.ts — imported above.)
+
+// Shared frozen sets so building a ConditionContext per call allocates nothing.
+const FRENZIED_ACTIVE_SET: ReadonlySet<string> = new Set(['frenzied']);
+const NO_ACTIVE_STATES: ReadonlySet<string> = new Set();
 
 /**
  * Scale a TalentEffect by an allocated rank.
@@ -305,6 +300,46 @@ export function applyConditionalTalentEffects(
   minionCount: number = 0,
 ): { damageMult: number } {
   let damageMult = 1;
+
+  // Phase 2 Wave 1 (2026-07-12): one ConditionContext + one evaluator
+  // replaces the per-kind guard clauses below. Legacy while* kinds map
+  // to Condition leaves with byte-identical semantics (D9: normalization
+  // preserves current global-front-target behavior).
+  const condCtx: ConditionContext = {
+    targetDebuffs,
+    selfHpFraction,
+    targetHpFraction,
+    companionAlive,
+    offhandAbsent,
+    enemyCount,
+    minionCount,
+    stateCounts: { crit_stack: critStacks, resonance_charge: resonanceCharges },
+    activeStates: frenziedActive ? FRENZIED_ACTIVE_SET : NO_ACTIVE_STATES,
+  };
+  /** while*-family apply body: delta adds, damageMult multiplies, other
+   *  stats multiply — exact legacy semantics. */
+  const applyWhileBonus = (stat: string, mult: number, delta?: number): void => {
+    if (delta !== undefined) {
+      if (typeof (stats as any)[stat] === 'number') {
+        (stats as any)[stat] += delta;
+      }
+    } else if (stat === 'damageMult') {
+      damageMult *= mult;
+    } else if (typeof (stats as any)[stat] === 'number') {
+      (stats as any)[stat] *= mult;
+    }
+  };
+  /** per*-family apply body: capped counter bonus, damageMult as
+   *  (1 + bonus) multiplier, other stats additive — exact legacy
+   *  semantics (cap of 0 means uncapped, matching `eff.cap ?`). */
+  const applyPerBonus = (stat: string, raw: number, cap?: number): void => {
+    const bonus = cap ? Math.min(raw, cap) : raw;
+    if (stat === 'damageMult') damageMult *= (1 + bonus);
+    else if (typeof (stats as any)[stat] === 'number') {
+      (stats as any)[stat] += bonus;
+    }
+  };
+
   for (const eff of effects) {
     switch (eff.kind) {
       case 'stat':
@@ -319,177 +354,53 @@ export function applyConditionalTalentEffects(
           (stats as any)[eff.stat] *= eff.mult;
         }
         break;
+      // ── while* family: legacy kind → Condition leaf → shared apply body.
+      //    Semantics preserved exactly (strict < for Below, >= for Above/AtLeast).
       case 'whileTag':
-        if (targetHasTag(targetDebuffs, eff.tag)) {
-          if (eff.delta !== undefined) {
-            if (typeof (stats as any)[eff.stat] === 'number') {
-              (stats as any)[eff.stat] += eff.delta;
-            }
-          } else if (eff.stat === 'damageMult') {
-            damageMult *= eff.mult;
-          } else if (typeof (stats as any)[eff.stat] === 'number') {
-            (stats as any)[eff.stat] *= eff.mult;
-          }
-        }
+        if (evalCondition({ targetHasTag: eff.tag }, condCtx)) applyWhileBonus(eff.stat, eff.mult, eff.delta);
         break;
       case 'whileSelfHpBelow':
-        if (selfHpFraction < eff.threshold) {
-          if (eff.delta !== undefined) {
-            if (typeof (stats as any)[eff.stat] === 'number') {
-              (stats as any)[eff.stat] += eff.delta;
-            }
-          } else if (eff.stat === 'damageMult') {
-            damageMult *= eff.mult;
-          } else if (typeof (stats as any)[eff.stat] === 'number') {
-            (stats as any)[eff.stat] *= eff.mult;
-          }
-        }
+        if (evalCondition({ selfHpBelow: eff.threshold }, condCtx)) applyWhileBonus(eff.stat, eff.mult, eff.delta);
         break;
       case 'whileSelfHpAbove':
-        if (selfHpFraction >= eff.threshold) {
-          if (eff.delta !== undefined) {
-            if (typeof (stats as any)[eff.stat] === 'number') {
-              (stats as any)[eff.stat] += eff.delta;
-            }
-          } else if (eff.stat === 'damageMult') {
-            damageMult *= eff.mult;
-          } else if (typeof (stats as any)[eff.stat] === 'number') {
-            (stats as any)[eff.stat] *= eff.mult;
-          }
-        }
+        if (evalCondition({ selfHpAbove: eff.threshold }, condCtx)) applyWhileBonus(eff.stat, eff.mult, eff.delta);
         break;
       case 'whileFrenzied':
-        if (frenziedActive) {
-          if (eff.delta !== undefined) {
-            if (typeof (stats as any)[eff.stat] === 'number') {
-              (stats as any)[eff.stat] += eff.delta;
-            }
-          } else if (eff.stat === 'damageMult') {
-            damageMult *= eff.mult;
-          } else if (typeof (stats as any)[eff.stat] === 'number') {
-            (stats as any)[eff.stat] *= eff.mult;
-          }
-        }
+        if (evalCondition({ stateActive: 'frenzied' }, condCtx)) applyWhileBonus(eff.stat, eff.mult, eff.delta);
         break;
       case 'whileTargetHpBelow':
-        if (targetHpFraction < eff.threshold) {
-          if (eff.delta !== undefined) {
-            if (typeof (stats as any)[eff.stat] === 'number') {
-              (stats as any)[eff.stat] += eff.delta;
-            }
-          } else if (eff.stat === 'damageMult') {
-            damageMult *= eff.mult;
-          } else if (typeof (stats as any)[eff.stat] === 'number') {
-            (stats as any)[eff.stat] *= eff.mult;
-          }
-        }
+        if (evalCondition({ targetHpBelow: eff.threshold }, condCtx)) applyWhileBonus(eff.stat, eff.mult, eff.delta);
         break;
       case 'whileCompanionAlive':
-        if (companionAlive) {
-          if (eff.delta !== undefined) {
-            if (typeof (stats as any)[eff.stat] === 'number') {
-              (stats as any)[eff.stat] += eff.delta;
-            }
-          } else if (eff.stat === 'damageMult') {
-            damageMult *= eff.mult;
-          } else if (typeof (stats as any)[eff.stat] === 'number') {
-            (stats as any)[eff.stat] *= eff.mult;
-          }
-        }
+        if (evalCondition({ companionAlive: true }, condCtx)) applyWhileBonus(eff.stat, eff.mult, eff.delta);
         break;
       case 'whileMinionCountAtLeast':
-        if (minionCount >= eff.threshold) {
-          if (eff.delta !== undefined) {
-            if (typeof (stats as any)[eff.stat] === 'number') {
-              (stats as any)[eff.stat] += eff.delta;
-            }
-          } else if (eff.stat === 'damageMult') {
-            damageMult *= eff.mult;
-          } else if (typeof (stats as any)[eff.stat] === 'number') {
-            (stats as any)[eff.stat] *= eff.mult;
-          }
-        }
+        if (evalCondition({ minionCountAtLeast: { count: eff.threshold } }, condCtx)) applyWhileBonus(eff.stat, eff.mult, eff.delta);
         break;
       case 'whileOffhandAbsent':
-        if (offhandAbsent) {
-          if (eff.delta !== undefined) {
-            if (typeof (stats as any)[eff.stat] === 'number') {
-              (stats as any)[eff.stat] += eff.delta;
-            }
-          } else if (eff.stat === 'damageMult') {
-            damageMult *= eff.mult;
-          } else if (typeof (stats as any)[eff.stat] === 'number') {
-            (stats as any)[eff.stat] *= eff.mult;
-          }
-        }
+        if (evalCondition({ offhandAbsent: true }, condCtx)) applyWhileBonus(eff.stat, eff.mult, eff.delta);
         break;
       case 'whileCritStacksAtLeast':
-        if (critStacks >= eff.threshold) {
-          if (eff.delta !== undefined) {
-            if (typeof (stats as any)[eff.stat] === 'number') {
-              (stats as any)[eff.stat] += eff.delta;
-            }
-          } else if (eff.stat === 'damageMult') {
-            damageMult *= eff.mult;
-          } else if (typeof (stats as any)[eff.stat] === 'number') {
-            (stats as any)[eff.stat] *= eff.mult;
-          }
-        }
+        if (evalCondition({ stateCountAtLeast: { stateId: 'crit_stack', count: eff.threshold } }, condCtx)) applyWhileBonus(eff.stat, eff.mult, eff.delta);
         break;
-      case 'perCritStack': {
-        if (critStacks <= 0) break;
-        const raw = critStacks * eff.perStackDelta;
-        const bonus = eff.cap ? Math.min(raw, eff.cap) : raw;
-        if (eff.stat === 'damageMult') damageMult *= (1 + bonus);
-        else if (typeof (stats as any)[eff.stat] === 'number') {
-          (stats as any)[eff.stat] += bonus;
-        }
-        break;
-      }
-      case 'perEnemyCount': {
-        if (enemyCount <= 0) break;
-        const raw = enemyCount * eff.perEnemyDelta;
-        const bonus = eff.cap ? Math.min(raw, eff.cap) : raw;
-        if (eff.stat === 'damageMult') damageMult *= (1 + bonus);
-        else if (typeof (stats as any)[eff.stat] === 'number') {
-          (stats as any)[eff.stat] += bonus;
-        }
-        break;
-      }
       case 'whileResonanceChargesAtLeast':
-        if (resonanceCharges >= eff.threshold) {
-          if (eff.delta !== undefined) {
-            if (typeof (stats as any)[eff.stat] === 'number') {
-              (stats as any)[eff.stat] += eff.delta;
-            }
-          } else if (eff.stat === 'damageMult') {
-            damageMult *= eff.mult;
-          } else if (typeof (stats as any)[eff.stat] === 'number') {
-            (stats as any)[eff.stat] *= eff.mult;
-          }
-        }
+        if (evalCondition({ stateCountAtLeast: { stateId: 'resonance_charge', count: eff.threshold } }, condCtx)) applyWhileBonus(eff.stat, eff.mult, eff.delta);
         break;
-      case 'perResonanceCharge': {
-        if (resonanceCharges <= 0) break;
-        const raw = resonanceCharges * eff.perStackDelta;
-        const bonus = eff.cap ? Math.min(raw, eff.cap) : raw;
-        if (eff.stat === 'damageMult') damageMult *= (1 + bonus);
-        else if (typeof (stats as any)[eff.stat] === 'number') {
-          (stats as any)[eff.stat] += bonus;
-        }
+      // ── per* family: counter × delta, capped, shared apply body ──
+      case 'perCritStack':
+        if (critStacks > 0) applyPerBonus(eff.stat, critStacks * eff.perStackDelta, eff.cap);
         break;
-      }
+      case 'perEnemyCount':
+        if (enemyCount > 0) applyPerBonus(eff.stat, enemyCount * eff.perEnemyDelta, eff.cap);
+        break;
+      case 'perResonanceCharge':
+        if (resonanceCharges > 0) applyPerBonus(eff.stat, resonanceCharges * eff.perStackDelta, eff.cap);
+        break;
       case 'perStack': {
         const did = TALENT_TAG_TO_DEBUFF[eff.stack as TalentTag];
         if (!did) break;
         const stacks = countStacksById(targetDebuffs, did);
-        if (stacks <= 0) break;
-        const raw = stacks * eff.perStackDelta;
-        const bonus = eff.cap ? Math.min(raw, eff.cap) : raw;
-        if (eff.stat === 'damageMult') damageMult *= (1 + bonus);
-        else if (typeof (stats as any)[eff.stat] === 'number') {
-          (stats as any)[eff.stat] += bonus;
-        }
+        if (stacks > 0) applyPerBonus(eff.stat, stacks * eff.perStackDelta, eff.cap);
         break;
       }
       // Event-driven triggers handled by dispatchProc* below.

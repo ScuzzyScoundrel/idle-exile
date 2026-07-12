@@ -119,6 +119,15 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'wd_vs_bloodbound': [
     { kind: 'procOnKill', targetTag: 'hex', chance: 20, action: { kind: 'applyTagAll', tag: 'hex', stacks: 1, duration: 6 } },
   ],
+  // "On-kill of a Hexed target, +5/10/15/20/25% chance to instantly
+  // refresh all your cooldowns by 0.5s each." Wave 1 approximation:
+  // refundCooldown fully refreshes the KILLING skill instead of
+  // advancing all cooldowns 0.5s — upgrade to the advanceCooldowns
+  // action when it lands (Effect IR Wave 2, D8). Curse-kill cycling
+  // identity is live either way.
+  'wd_vs_curse_glutton': [
+    { kind: 'procOnKill', targetTag: 'hex', chance: 5, action: { kind: 'refundCooldown', percent: 100 } },
+  ],
   // "All your skills, regardless of weapon, apply Hexed on crit." —
   // procOnCrit + applyTag(hex) at 100% chance.
   'wd_vs_voodoo_mark': [
@@ -241,6 +250,13 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   // for first slice).
   'wd_sw_resilient_spirits': [
     { kind: 'procOnMinionDeath', chance: 25, action: { kind: 'summon', minionType: 'spirit_temp', count: 1, durationSec: 4 } },
+  ],
+  // "When a minion dies, +5/10/15% chance it revives at full HP after
+  // 3 seconds." Approximated as a replacement spirit_temp summon (same
+  // pattern as resilient_spirits) — true type-preserving revive-after-
+  // delay needs minion-lifecycle support (Effect IR v2 deferral D32.6).
+  'wd_sw_eternal_court': [
+    { kind: 'procOnMinionDeath', chance: 5, action: { kind: 'summon', minionType: 'spirit_temp', count: 1, durationSec: 8 } },
   ],
 
   // ====================================================================
@@ -556,6 +572,14 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'sor_sp_conflagration': [
     { kind: 'procOnTag', tag: 'ignite', chance: 10, action: { kind: 'applyTag', tag: 'ignite', stacks: 1, duration: 4 } },
   ],
+  // "Ignites that kill have +25/50/75% chance to spawn an Ignite-pulse
+  // to all enemies in encounter for 50% Ignite damage." Approximated as
+  // procOnKill targetTag(ignite) → applyTagAll(ignite) — spreads the
+  // burn encounter-wide instead of a one-shot 50%-damage pulse (pulse
+  // needs the dealDamage action, Effect IR Wave 2 D8).
+  'sor_sp_pyre_bloom': [
+    { kind: 'procOnKill', targetTag: 'ignite', chance: 25, action: { kind: 'applyTagAll', tag: 'ignite', stacks: 1, duration: 4 } },
+  ],
   // "Ignites stack +1/2/3 times." Forward-compat seed (maxIgniteStacks
   // not on ResolvedStats today).
   'sor_sp_burning_hex': [
@@ -865,6 +889,15 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   // crit-floor effect lands).
   'hnt_mm_hunters_eye': [
     { kind: 'procOnTag', tag: 'mark', chance: 5, action: { kind: 'grantBuff', buffId: 'precision_charge', duration: 4 } },
+  ],
+  // "On Precision Payoff kill, refund the consumer skill's cooldown
+  // completely." Approximated as procOnKill targetTag(mark) →
+  // refundCooldown(100) on the killing skill — fires on any kill of a
+  // Marked target, slightly broader than the strict payoff-kill gate
+  // (needs appliedByDifferentSkill condition on the kill event, Wave 2).
+  // Execute-window cooldown loop identity is live.
+  'hnt_mm_precision_reaper': [
+    { kind: 'procOnKill', targetTag: 'mark', chance: 100, action: { kind: 'refundCooldown', percent: 100 } },
   ],
   // "On crit, +1/2/3/4/5% chance to instantly Mark another enemy."
   // Approximated as procOnCrit applyTagAll(mark) — broader than
