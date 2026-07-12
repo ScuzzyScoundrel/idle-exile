@@ -55,7 +55,7 @@ function createMobPack(count: number, hp: number = 500): MobInPack[] {
 }
 
 function createTestState(skills: string[], packSize: number = 3, packHp: number = 5000): GameState {
-  const char = createCharacter('RotationBot', 'rogue');
+  const char = createCharacter('RotationBot', 'assassin');
   char.level = 20;
   char.xpToNext = 99999;
 
@@ -114,7 +114,7 @@ function createTestState(skills: string[], packSize: number = 3, packHp: number 
     bossState: null,
     zoneClearCounts: {},
     combatPhaseStartedAt: now,
-    classResource: createResourceState('rogue'),
+    classResource: createResourceState('assassin'),
     classSelected: true,
     totalKills: 0,
     fastestClears: {},
@@ -133,6 +133,12 @@ function createTestState(skills: string[], packSize: number = 3, packHp: number 
     dodgeEntropy: 50,
     tempBuffs: [],
     skillCharges: {},
+    channelState: null,
+    critStacks: 0,
+    critStacksExpiresAt: 0,
+    resonanceCharges: { fire: 0, cold: 0, lightning: 0, chaos: 0 },
+    resonanceExpiresAt: 0,
+    frenziedActive: false,
     rampingStacks: 0,
     rampingLastHitAt: 0,
     fortifyStacks: 0,
