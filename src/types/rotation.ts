@@ -15,7 +15,10 @@ export type RotationAction =
   /** Cast this skill if it passes the standard gates (equipped →
    *  cooldown → execute-lock → mana), plus an optional mana floor
    *  (bank-and-burst builds). */
-  | { kind: 'castSkill'; skillId: string; minMana?: number }
+  | { kind: 'castSkill'; skillId: string; minMana?: number;
+      /** E20: this rule may spend into another rule's open mana claim
+       *  (bypasses the hold-for-priority reservation). */
+      ignoreReserve?: boolean }
   /** Intentionally cast nothing this tick — let auto-attacks run
    *  (mana banking / Berserker event-economy builds). */
   | { kind: 'autoAttackOnly' }

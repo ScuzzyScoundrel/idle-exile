@@ -112,7 +112,7 @@ import { pickCurrentMob } from '../zones/helpers';
 // ── Subsystem imports ──
 import { applyNonSkillTickWithAuto } from './autoAttack';
 import { canAffordManaCost, tickManaWithCost } from './manaTick';
-import { CLASS_MANA_CONFIG } from '../../types/mana';
+import { CLASS_MANA_CONFIG, classUsesMana } from '../../types/mana';
 import { noResult } from './types';
 import type { CombatTickOutput } from './types';
 export type { CombatTickOutput } from './types';
@@ -496,7 +496,9 @@ export function runCombatTick(
     {
       skillBar: state.skillBar ?? [], skillTimers: state.skillTimers, now,
       skillProgress: state.skillProgress, targetHpPercent: targetHpPct,
-      mana: state.character.mana, dtSec,
+      // E20: martial classes pace on ledgers + cooldowns — no mana gate,
+      // no minMana, no claims. Casters get the full mana walk.
+      mana: classUsesMana(state.character.class) ? state.character.mana : undefined, dtSec,
       cond: state.rotationPolicy
         ? buildRotationCond(state, phase, targetHpPct, resolveStats(state.character).maxLife, now)
         : NEUTRAL_COND,
@@ -539,7 +541,9 @@ export function runCombatTick(
   // we'll have even after this tick's regen, skip the skill entirely and
   // fall through to non-skill tick (autos still fire, mana still regens).
   // Channels too: each channel tick re-enters this path and must re-afford.
-  const skillManaCost = (skill as any).manaCost ?? 0;
+  // E20: martials pay NOTHING — zeroing the cost here also zeroes all
+  // three deduction sites downstream (they reuse skillManaCost).
+  const skillManaCost = classUsesMana(state.character.class) ? ((skill as any).manaCost ?? 0) : 0;
   if (skillManaCost > 0 && !canAffordManaCost(state.character.mana, dtSec, skillManaCost)) {
     return withMaint(applyNonSkillTickWithAuto(state, dtSec, now, zone, phase));
   }

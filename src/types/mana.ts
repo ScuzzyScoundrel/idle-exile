@@ -41,6 +41,10 @@ export interface ManaConfig {
   onHitDealtGain: number;
   onHitTakenGain: number;
   onCritGain: number;
+  /** E20 (owner decision 2026-07-12): martial classes pace on class
+   *  ledgers + cooldowns and do NOT use mana — no cast gate, no cost,
+   *  no mana bar. Casters keep mana as sustained-output pacing. */
+  usesMana: boolean;
 }
 
 /**
@@ -50,6 +54,7 @@ export interface ManaConfig {
 export const CLASS_MANA_CONFIG: Record<CharacterClass, ManaConfig> = {
   // MVP classes (per CLASS_SYSTEM_PLAN §Mana)
   witchdoctor: {
+    usesMana: true,
     maxMana: 150,
     startFull: true,
     passiveRegenPerSec: 6,
@@ -59,6 +64,7 @@ export const CLASS_MANA_CONFIG: Record<CharacterClass, ManaConfig> = {
     onCritGain: 0,
   },
   assassin: {
+    usesMana: false,
     maxMana: 50,
     startFull: true,
     passiveRegenPerSec: 10,
@@ -70,6 +76,7 @@ export const CLASS_MANA_CONFIG: Record<CharacterClass, ManaConfig> = {
 
   // Phase B classes (§15.4 rename 2026-05-04: warrior→berserker, mage→sorcerer, ranger→hunter; rogue absorbed into assassin).
   berserker: {
+    usesMana: false,
     maxMana: 100,
     startFull: false,
     passiveRegenPerSec: 0,
@@ -79,6 +86,7 @@ export const CLASS_MANA_CONFIG: Record<CharacterClass, ManaConfig> = {
     onCritGain: 0,
   },
   sorcerer: {
+    usesMana: true,
     maxMana: 130,
     startFull: true,
     passiveRegenPerSec: 8,
@@ -88,6 +96,7 @@ export const CLASS_MANA_CONFIG: Record<CharacterClass, ManaConfig> = {
     onCritGain: 4,
   },
   hunter: {
+    usesMana: false,
     maxMana: 80,
     startFull: true,
     passiveRegenPerSec: 9,
@@ -97,6 +106,11 @@ export const CLASS_MANA_CONFIG: Record<CharacterClass, ManaConfig> = {
     onCritGain: 6,
   },
 };
+
+/** E20: does this class pay/gate on mana at all? */
+export function classUsesMana(classId: CharacterClass): boolean {
+  return CLASS_MANA_CONFIG[classId]?.usesMana ?? true;
+}
 
 /** Create initial ManaState for a new character of the given class. */
 export function createInitialManaState(classId: CharacterClass): ManaState {

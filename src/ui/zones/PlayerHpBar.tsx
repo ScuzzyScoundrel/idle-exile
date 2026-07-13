@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import type { ClassResourceState, TempBuff, CharacterClass } from '../../types';
 import type { MinionState } from '../../engine/combat/minions';
 import { getClassDef } from '../../data/classes';
+import { classUsesMana } from '../../types/mana';
 import Tooltip from '../components/Tooltip';
 import { useGameStore } from '../../store/gameStore';
 import { useSkillStore } from '../../store/skillStore';
@@ -53,7 +54,10 @@ export default function PlayerHpBar({ currentHp, maxHp, trailHp, fortifyStacks, 
   // Phase F follow-on (2026-05-07): mana bar — Berserker had no
   // visibility here so the player couldn't tell why skills weren't
   // firing.
-  const hasMana = (maxMana ?? 0) > 0;
+  // E20: martial classes (berserker/assassin/hunter) don't use mana —
+  // their pacing resource is the class ledger shown in StateChips.
+  const hasMana = (maxMana ?? 0) > 0
+    && (!charClass || classUsesMana(charClass as import('../../types').CharacterClass));
   const manaPct = hasMana ? Math.max(0, Math.min(100, ((currentMana ?? 0) / maxMana!) * 100)) : 0;
 
   // Active buffs

@@ -1144,8 +1144,9 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   ],
   'brs_wl_reapers_touch': [
     { kind: 'rule', rule: 'fury.bloodRush' },
-    // Fork-neutral power floor (E5b parity — dagger playbook).
-    { kind: 'mod', mod: { stat: 'damageMult', op: 'mult', value: 1.47 } },
+    // Fork-neutral power floor (E5b parity — dagger playbook; re-nudged
+    // 1.47→1.49 after E20 freed martial mana and shifted both cells).
+    { kind: 'mod', mod: { stat: 'damageMult', op: 'mult', value: 1.49 } },
   ],
 };
 

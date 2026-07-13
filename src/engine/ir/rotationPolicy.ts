@@ -78,10 +78,24 @@ export function slotOrderPolicy(skillBar: (EquippedSkill | null)[]): RotationPol
   return { version: 1, rules };
 }
 
+/** COMBAT_ECONOMY_DESIGN E20 — mana claims (hold-for-priority).
+ *  The first rule blocked ONLY by mana CLAIMS the pool, iff regen can
+ *  close the deficit within maxHoldSec AND the cost fits under max
+ *  (guards claim-forever on cost-above-max skills). While a claim is
+ *  open, every lower-priority PAID rule is blocked — a HARD priority
+ *  hold, not surplus sharing; autos still fire via the null-decision
+ *  path. Cost-0 rules and `ignoreReserve` rules pass. Stateless per
+ *  evaluation, so offline sim inherits it exactly. maxHoldSec = 0 is
+ *  the kill-switch: byte-identical to pre-E20 fall-through (measured
+ *  in sim/qa-mana-recovery.ts GATE E6). Only caster classes reach
+ *  this gate at all — martials pass snap.mana = undefined (E20). */
+export const MANA_CLAIM = { maxHoldSec: 12 };
+
 /** First-match-wins policy evaluation. Returns the chosen skill, or
  *  null when nothing fires (all gated) — including an intentional
  *  hold when an autoAttackOnly/idle rule matches. */
 export function evaluatePolicy(policy: RotationPolicy, snap: RotationSnapshot): RotationDecision | null {
+  let claim = 0; // mana claimed by the highest-priority mana-blocked rule
   for (const rule of policy.rules) {
     if (!rule.enabled) continue;
     if (rule.when && !evalCondition(rule.when, snap.cond)) continue;
@@ -103,7 +117,21 @@ export function evaluatePolicy(policy: RotationPolicy, snap: RotationSnapshot): 
     }
     if (snap.mana && snap.dtSec !== undefined) {
       const cost = (skill as { manaCost?: number }).manaCost ?? 0;
-      if (!canAffordManaCost(snap.mana, snap.dtSec, cost)) continue;
+      if (!canAffordManaCost(snap.mana, snap.dtSec, cost)) {
+        // Hold-for-priority: the first rule blocked ONLY by mana claims
+        // the pool — iff regen can close the deficit within the budget
+        // and the cost is reachable at all (cost <= max).
+        if (claim === 0 && snap.mana.regenPerSec > 0 && cost <= snap.mana.max
+            && (cost - snap.mana.current) / snap.mana.regenPerSec <= MANA_CLAIM.maxHoldSec) {
+          claim = cost;
+        }
+        continue;
+      }
+      // Hard priority hold: while a claim is open, lower-priority PAID
+      // rules are blocked until the claimant is funded; free skills
+      // and ignoreReserve rules always pass.
+      if (claim > 0 && cost > 0 && !action.ignoreReserve
+          && !canAffordManaCost(snap.mana, snap.dtSec, cost + claim)) continue;
       if (action.minMana !== undefined && snap.mana.current < action.minMana) continue;
     }
     return { skill, slotIndex, ruleId: rule.id };
