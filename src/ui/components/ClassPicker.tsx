@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { CLASS_DEFS } from '../../data/classes';
-import { DEV_WEAPON_KITS } from '../../data/devKits';
+import { DEV_WEAPON_KITS, isDevMode } from '../../data/devKits';
 import { getRotationPreset } from '../../data/rotationPresets';
 import type { CharacterClass, ClassDef, StatKey, WeaponType } from '../../types';
 
@@ -97,7 +97,7 @@ export default function ClassPicker() {
 
   const handleConfirm = () => {
     selectClass(selected);
-    if (import.meta.env.DEV && devKit) {
+    if (isDevMode() && devKit) {
       devStartKit(devKit);
     }
   };
@@ -123,7 +123,7 @@ export default function ClassPicker() {
           ))}
         </div>
 
-        {import.meta.env.DEV && (
+        {isDevMode() && (
           <div className="rounded-xl border-2 border-dashed border-amber-700/60 bg-amber-950/20 p-3 space-y-2">
             <div className="text-xs font-semibold text-amber-400">
               DEV — start with a weapon kit (starter weapon + skill bar + rotation preset)

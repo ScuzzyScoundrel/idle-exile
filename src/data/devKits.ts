@@ -10,6 +10,20 @@ import type { Item, WeaponType } from '../types';
 import { ITEM_BASE_DEFS } from './items';
 import { generateId } from '../engine/items';
 
+/** Dev tooling gate: true in `npm run dev`, or on ANY build (including
+ *  production/live) when the browser has `localStorage.devMode = '1'`.
+ *  Flip it in the console: `localStorage.setItem('devMode', '1')` then
+ *  reload; remove with `localStorage.removeItem('devMode')`. Safe under
+ *  node/tsx sims (no top-level import.meta/localStorage access). */
+export function isDevMode(): boolean {
+  try {
+    if ((import.meta as any).env?.DEV === true) return true;
+    return typeof localStorage !== 'undefined' && localStorage.getItem('devMode') === '1';
+  } catch {
+    return false;
+  }
+}
+
 export interface DevWeaponKit {
   weaponType: WeaponType;
   label: string;
