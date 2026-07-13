@@ -4,6 +4,7 @@ import NavBar from './ui/components/NavBar';
 import TutorialOverlay from './ui/components/TutorialOverlay';
 import OfflineProgressModal from './ui/components/OfflineProgressModal';
 import ClassPicker from './ui/components/ClassPicker';
+import DevBadge from './ui/components/DevBadge';
 import WorldScreen from './ui/screens/WorldScreen';
 import HeroScreen from './ui/screens/HeroScreen';
 import CraftingScreen from './ui/screens/CraftingScreen';
@@ -153,6 +154,9 @@ function App() {
       {offlineProgress && <OfflineProgressModal />}
 
       <TutorialOverlay activeTab={activeTab} onTabChange={setActiveTab} />
+
+      {/* devMode only: reach character creation (weapon-kit picker) from an existing save */}
+      <DevBadge />
 
       {/* Main content area — padded for top and bottom bars + optional combat status bar.
           All screens stay mounted (hidden via CSS) so local state persists across tab switches. */}
