@@ -1138,6 +1138,15 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'wd_pp_death_tide': [
     { kind: 'rule', rule: 'soul.deathTide' },
   ],
+  // Claws pair (assassin second weapon, Wave A):
+  'asn_bm_bleeding_edge': [
+    { kind: 'rule', rule: 'frenzy.exsanguinate' },
+  ],
+  'asn_vc_wound_mastery': [
+    { kind: 'rule', rule: 'frenzy.rabid' },
+    // Fork-neutral power floor (E5b parity — dagger playbook).
+    { kind: 'mod', mod: { stat: 'damageMult', op: 'mult', value: 1.45 } },
+  ],
   // Warlord pair (berserker/flail):
   'brs_wl_wind_up_strike': [
     { kind: 'rule', rule: 'fury.windUp' },
@@ -1167,6 +1176,13 @@ export const CLASS_INNATE_EFFECTS: Record<string, TalentEffect[]> = {
       stat: 'damageMult', op: 'mult', value: 1.75,
       if: { targetHpBelow: 0.30 },
       scope: { skillId: 'dagger_assassinate' },
+    } },
+    // Claws Wave A: the same Culling covenant extends to the claws
+    // spender (1.75, dagger parity — iteration 13).
+    { kind: 'mod', mod: {
+      stat: 'damageMult', op: 'mult', value: 1.75,
+      if: { targetHpBelow: 0.30 },
+      scope: { skillId: 'claws_frenzy_strike' },
     } },
   ],
   // Wave E4c (owner Q6 = option b): the Berserker innates — both are

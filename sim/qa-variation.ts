@@ -36,6 +36,7 @@ import {
   WAND_ATTUNED_TEMPO_POLICY, WAND_VOID_HUNGER_POLICY,
   STAFF_SOUL_TEMPO_POLICY, STAFF_DEATH_TIDE_POLICY,
   FLAIL_RAMPAGE_TEMPO_POLICY, FLAIL_BLOOD_RUSH_POLICY,
+  CLAWS_RAVAGE_TEMPO_POLICY, CLAWS_RABID_TEMPO_POLICY,
 } from '../src/data/rotationPresets';
 import type { RotationPolicy } from '../src/types/rotation';
 import type { CharacterClass } from '../src/types';
@@ -149,6 +150,19 @@ gate('FLAIL / Warlord (Wind-Up vs Blood Rush)', 'berserker', 'flail',
   {
     rampage_tempo: FLAIL_RAMPAGE_TEMPO_POLICY,
     blood_rush: FLAIL_BLOOD_RUSH_POLICY,
+  });
+
+const CLAWS_TEL: Telemetry = { spenderSkillId: 'claws_frenzy_strike', chargeStateId: 'frenzy', windowStateId: 'arterial', spendCost: 12 };
+gate('CLAWS / Ravage (Exsanguinate vs Rabid)', 'assassin', 'claws',
+  ['claws_dual_strike', 'claws_razor_wind', 'claws_thousand_cuts', 'claws_bleeding_edge', 'claws_frenzy_strike', 'claws_crimson_tempest'],
+  CLAWS_TEL,
+  {
+    exsanguinate: { asn_bm_bleeding_edge: 1 },
+    rabid: { asn_vc_wound_mastery: 1 },
+  },
+  {
+    ravage_tempo: CLAWS_RAVAGE_TEMPO_POLICY,
+    rabid_tempo: CLAWS_RABID_TEMPO_POLICY,
   });
 
 console.log(`\nGATE E5 + E5b (distinct preferences ≥3% AND best-vs-best power parity ≤1.10×): ${fail === 0 ? 'PASSED' : 'FAILED'} (${pass} pass, ${fail} fail)`);

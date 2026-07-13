@@ -254,6 +254,81 @@ export const STAFF_DEATH_TIDE_POLICY: RotationPolicy = {
       action: { kind: 'castSkill', skillId: 'staff_hex' } },
   ],
 };
+// ── Claws "Ravage Tempo" — Wave A. The HOT ledger (frenzy rots 6s
+// after last gain) inverts the dagger no-cap-dump law: cap_dump is
+// MANDATORY here. Park (Bleeding Edge) stocks bleed for the Arterial
+// detonate; Thousand Cuts is the overcap trap (only cast below 4).
+// No minMana reserves: assassin is mana-free per E20. ──
+export const CLAWS_RAVAGE_TEMPO_POLICY: RotationPolicy = {
+  version: 1,
+  rules: [
+    // AoE arbitration FIRST (iteration-2, the wand volley lesson): in
+    // packs the pool belongs to Tempest — iteration 1 spent it on ST
+    // Frenzy Strikes (19 vs blind's 142 tempests) and lost −12%.
+    { id: 'tempest_aoe', enabled: true, when: { all: [
+      { enemyCountAtLeast: 3 },
+      { stateCountAtLeast: { stateId: 'frenzy', count: 3 } },
+    ] }, action: { kind: 'castSkill', skillId: 'claws_crimson_tempest' } },
+    { id: 'wet_spend', enabled: true, when: { all: [
+      { stateCountAtLeast: { stateId: 'arterial', count: 1 } },
+      { stateCountAtLeast: { stateId: 'frenzy', count: 4 } },
+      { skillReady: 'claws_frenzy_strike' },
+    ] }, action: { kind: 'castSkill', skillId: 'claws_frenzy_strike' } },
+    { id: 'culling', enabled: true, when: { all: [
+      { targetHpBelow: 0.30 },
+      { stateCountAtLeast: { stateId: 'frenzy', count: 6 } },
+    ] }, action: { kind: 'castSkill', skillId: 'claws_frenzy_strike' } },
+    { id: 'park', enabled: true, when: { all: [
+      { stateCountAtLeast: { stateId: 'frenzy', count: 7 } },
+      { stateCountBelow: { stateId: 'arterial', count: 1 } },
+    ] }, action: { kind: 'castSkill', skillId: 'claws_bleeding_edge' } },
+    // NO cap-dump (iteration-10 — the full dagger shape): frenzy
+    // refreshes on every gain, so parking a full ledger while builders
+    // keep casting is FREE; a dry Perfect preempts the wet Perfect that
+    // arrives with the next window/execute. Spend ONLY into windows
+    // (wet_spend), the execute band (culling), or packs (tempest_aoe).
+    // Bleeding Edge at FULL parity (iteration-3 — the never-bench-an-
+    // engine-skill law, 4th appearance): it is ledger-free (builds no
+    // frenzy, like dagger's Viper) and it IS the bleed engine that
+    // funds the Arterial detonate. Benching it cost 20%.
+    { id: 'edge', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'claws_bleeding_edge' } },
+    // Cuts UNCONDITIONAL (iteration-5 — the bow rapid-fire lesson,
+    // 5th appearance: overcap gains are free to waste, but holding the
+    // BLEED ENGINE starves windows and detonates).
+    { id: 'cuts', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'claws_thousand_cuts' } },
+    { id: 'razor', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'claws_razor_wind' } },
+    { id: 'filler', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'claws_dual_strike' } },
+    // idle_dump (iteration-7): smart idled ~260 GCDs that blind filled
+    // with "wasted" Tempests — a 0.65×wd cast beats an empty tick. Only
+    // when the pool is trivial (≤1) so the consume leaks nothing.
+    { id: 'idle_dump', enabled: true, when:
+      { stateCountBelow: { stateId: 'frenzy', count: 2 } },
+      action: { kind: 'castSkill', skillId: 'claws_crimson_tempest' } },
+  ],
+};
+export const CLAWS_RABID_TEMPO_POLICY: RotationPolicy = {
+  version: 1,
+  rules: [
+    { id: 'spend', enabled: true, when:
+      { stateCountAtLeast: { stateId: 'frenzy', count: 3 } },
+      action: { kind: 'castSkill', skillId: 'claws_frenzy_strike' } },
+    { id: 'tempest_aoe', enabled: true, when: { all: [
+      { enemyCountAtLeast: 3 },
+      { stateCountAtLeast: { stateId: 'frenzy', count: 3 } },
+    ] }, action: { kind: 'castSkill', skillId: 'claws_crimson_tempest' } },
+    // Engine parity with Ravage Tempo (never bench an engine skill —
+    // 6th appearance): edge/cuts/razor/dual all run; only the SPEND
+    // POLICY differs between the presets.
+    { id: 'edge', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'claws_bleeding_edge' } },
+    { id: 'cuts', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'claws_thousand_cuts' } },
+    { id: 'razor', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'claws_razor_wind' } },
+    { id: 'filler', enabled: true, when: null, action: { kind: 'castSkill', skillId: 'claws_dual_strike' } },
+    { id: 'idle_dump', enabled: true, when:
+      { stateCountBelow: { stateId: 'frenzy', count: 2 } },
+      action: { kind: 'castSkill', skillId: 'claws_crimson_tempest' } },
+  ],
+};
+
 export const FLAIL_BLOOD_RUSH_POLICY: RotationPolicy = {
   version: 1,
   rules: [
@@ -337,6 +412,20 @@ export const ROTATION_PRESETS: RotationPresetDef[] = [
     blurb: 'Spends Bouncing Skull at 4+ Souls on cooldown — built for Death Tide (early-jackpot) Plague Priests.',
     weaponType: 'staff',
     policy: STAFF_DEATH_TIDE_POLICY,
+  },
+  {
+    id: 'claws_ravage_tempo',
+    name: 'Ravage Tempo',
+    blurb: 'Rides the rotting Frenzy ledger — spends into Arterial Rips or the execute band, parks Bleeding Edge at cap to stock the detonate, and NEVER lets the ledger spoil.',
+    weaponType: 'claws',
+    policy: CLAWS_RAVAGE_TEMPO_POLICY,
+  },
+  {
+    id: 'claws_rabid_tempo',
+    name: 'Rabid Tempo',
+    blurb: 'Spends Frenzy Strike at 3+ on cooldown — built for Rabid (flat payoff) builds.',
+    weaponType: 'claws',
+    policy: CLAWS_RABID_TEMPO_POLICY,
   },
   {
     id: 'flail_blood_rush',

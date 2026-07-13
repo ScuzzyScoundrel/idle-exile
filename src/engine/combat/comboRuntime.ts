@@ -63,6 +63,7 @@ export const LEDGER_FLAT_RULE: Record<string, { rule: string; style: 'flat' | 's
   attunement: { rule: 'attunement.voidHunger', style: 'flat' },
   soul_stack: { rule: 'soul.deathTide', style: 'split' },
   fury_charge: { rule: 'fury.bloodRush', style: 'flat' },
+  frenzy: { rule: 'frenzy.rabid', style: 'flat' },
 };
 export const LEDGER_PERFECT_REFUND_RULE: Record<string, string> = {
   momentum: 'momentum.perfectRefund',
@@ -72,6 +73,7 @@ export const WINDOW_WET_RULE: Record<string, string> = {
   vulnerable: 'quiver.deadeye',
   ritual_frenzy: 'soul.frenzySurge',
   rampage: 'fury.windUp',
+  arterial: 'frenzy.exsanguinate',
 };
 
 export function comboConsumePreRoll(ctx: PreRollContext): ComboConsumeResult {

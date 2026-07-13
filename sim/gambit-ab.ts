@@ -39,9 +39,52 @@ import { createResourceState } from '../src/engine/classResource';
 import { ZONE_DEFS } from '../src/data/zones';
 import type { GameState, ActiveDebuff, MobInPack, EquippedSkill, CharacterClass } from '../src/types';
 import type { RotationPolicy } from '../src/types/rotation';
-import { DAGGER_TEMPO_POLICY, BOW_MARKED_TEMPO_POLICY, WAND_ATTUNED_TEMPO_POLICY, STAFF_SOUL_TEMPO_POLICY, FLAIL_RAMPAGE_TEMPO_POLICY } from '../src/data/rotationPresets';
+import { DAGGER_TEMPO_POLICY, BOW_MARKED_TEMPO_POLICY, WAND_ATTUNED_TEMPO_POLICY, STAFF_SOUL_TEMPO_POLICY, FLAIL_RAMPAGE_TEMPO_POLICY, CLAWS_RAVAGE_TEMPO_POLICY } from '../src/data/rotationPresets';
 
 // ── VERDICT LOG ──
+// 2026-07-12 E20 (mana identity split + claims): martials (brs/asn/hnt)
+// DROP mana entirely (classUsesMana=false — costs zeroed, snap.mana
+// undefined); casters keep mana + hold-for-priority CLAIMS in
+// evaluatePolicy (first mana-blocked rule reserves the pool; hard
+// priority hold; kill-switch MANA_CLAIM.maxHoldSec=0). Fixed the OOM
+// cheapest-skill lock (owner bug: 0 spender casts in 300s at regen 2 on
+// BOTH arms — the trickle was always intercepted by a cheaper skill;
+// the fixture's natural 10/s regen is why every gate missed it). Gated
+// by sim/qa-mana-recovery.ts (GATE E6, 22 checks). Post-E20: all five
+// kit CI-lows held; flail IMPROVED +42.8→+44.7 (berserker was
+// mana-throttled: startFull false, passiveRegen 0). LAW: bar priority
+// order IS the mana-allocation policy under fall-through — spender-
+// first recovers spends but starves the ledger; no ordering fixes both.
+//
+// 2026-07-12 WAVE A claws "Ravage" (13 iterations, GATE A CI-low +16.4,
+// mean +20.7): NEW LAWS —
+// (1) A 6-skill fast-cd bar makes blind slot-order a near-optimal
+//     builder-spender machine: blind farmed 26% Perfects at cap 6. The
+//     hot-ledger rot (6s expiry) NEVER bites a constantly-casting bar
+//     because gains refresh the clock — anti-hold dials only punish
+//     idling, which nobody does. "Outspend vs withhold" must be read
+//     off MEASUREMENT, not preset shape (the sprint judged outspend;
+//     the sim said withhold).
+// (2) Cap must exceed the blind chain's natural arrival (cap 7 vs the
+//     ~6 the five-skill chain reaches): the jackpot becomes GAMBIT-
+//     access, not chain-access (blind Perfects 26%→9%) — the E3/E4
+//     axiom, rediscovered the hard way.
+// (3) idle_dump: smart idled ~260 GCDs that blind filled with "wasted"
+//     spender casts — a weak cast beats an empty tick; dump the AoE
+//     spender only at trivial pool (≤1) so the consume leaks nothing.
+// (4) The full dagger hold shape (NO dry cap-dump, ever) was worth
+//     +6.4pts; EXECUTE DISCIPLINE (culling k≥6 + innate 1.75) was worth
+//     +10pts — the single biggest lever of the wave. Perfect-
+//     differential levers (capBonus, advanceOthersSec) only pay ~1pt
+//     per notch once both arms Perfect.
+// (5) Engine parity applies to VARIANT presets too: benching Bleeding
+//     Edge in Rabid Tempo flipped the E5 fork (rabid preferred Ravage
+//     +10.2%); with parity restored the fork is +36.8/+5.9 at 1.066×.
+// (6) LATENT BUG fixed by the refund-from fold change: refund-created
+//     stacks previously lost the creator's perSkillBonus (wand volley
+//     spent refunded attunement at 30%/stack + capBonus instead of
+//     15%/no-cap) — the old +15.1 wand gate partly rested on it;
+//     re-tuned honestly via Surge ×2.25 + refund 4 → +11.2.
 // 2026-07-12 first run (single seed, perpetual 3-packs, no death reset):
 // GATE 4 FAILED — bow Δ −63.0%, dagger Δ +0.5%. CONSEQUENCE per D28:
 // gambit MACHINERY ships; the RotationPanel UI does NOT until Phase 3
@@ -437,9 +480,45 @@ const gateE4c = kitGate('GATE E4c (flail reference kit)', flail, 8, PRE_E4C_BERS
   ['flail_hooked_strike', 'flail_crushing_blow', 'flail_disarming_strike', 'flail_arc_sweep', 'flail_bone_crusher'], // mixed
 ], 'berserker', 'flail', FLAIL_TEL, 'withhold', 1.1);
 
+// Experiment 6 — claws/assassin WAVE A "Ravage" (second weapon, sprint
+// 2026-07-12): HOT frenzy ledger (builders +1, Cuts +3, cap 6, ALL
+// stacks rot 6s after last gain — cap-dump is MANDATORY, inverting the
+// dagger law) + Arterial window (crit-vs-BLEEDING, icd 4s, ×2 + refund
+// 2 + detonate 40% of remaining bleed) + Bleeding Edge park (stocks the
+// detonate) + Frenzy Strike / Crimson Tempest sharing the pool.
+// Model CORRECTED to 'withhold' at iteration 4 (measurement beats the
+// judge's preset-shape inference): frenzy refreshes on every gain, so
+// the 6s rot never bites a constantly-casting blind bar — blind
+// builder-first farms 26% Perfects and out-spends any dump policy.
+// Claws' smart edge is Perfect QUALITY + window/execute timing.
+// BASELINE: claws had NO weapon module pre-Wave-A (the kit didn't
+// exist) — baseline = Wave-A iteration-1 blind measurement, frozen.
+const CLAWS_TEL: Telemetry = { spenderSkillId: 'claws_frenzy_strike', chargeStateId: 'frenzy', windowStateId: 'arterial', spendCost: 12 };
+const CLAWS_BAR = ['claws_dual_strike', 'claws_razor_wind', 'claws_thousand_cuts', 'claws_bleeding_edge', 'claws_frenzy_strike', 'claws_crimson_tempest'];
+const claws = experiment('CLAWS (Wave A: frenzy + arterial)', 'assassin', 'claws',
+  CLAWS_BAR,
+  CLAWS_RAVAGE_TEMPO_POLICY,
+  CLAWS_TEL);
+// FINAL Wave-A blind (builder-first default) measurement, frozen at
+// iteration 13. Claws had NO pre-redesign kit (no weapon module), so
+// the U6 anchor is the shipped kit's own blind arm — the real content
+// of this check is worst-of-3 ordering stability at 0.8×.
+const WAVE_A_CLAWS_BASELINE_DPS = 321481 / 1200;
+const gateA = kitGate('GATE A (claws Ravage kit)', claws, 7, WAVE_A_CLAWS_BASELINE_DPS, [
+  CLAWS_BAR,                                                                                    // builder-first (shipped default)
+  ['claws_frenzy_strike', 'claws_crimson_tempest', 'claws_dual_strike', 'claws_razor_wind', 'claws_thousand_cuts', 'claws_bleeding_edge'], // spender-first
+  ['claws_razor_wind', 'claws_frenzy_strike', 'claws_bleeding_edge', 'claws_dual_strike', 'claws_crimson_tempest', 'claws_thousand_cuts'], // mixed
+], 'assassin', 'claws', CLAWS_TEL, 'withhold', 0.8);
+// Iteration-1 tripwires (sprint G1): the window/detonate machinery must
+// be ALIVE before any tuning judgment — dead windows read as a fair
+// out-spend race and mask a wiring bug.
+const clawsWindows = claws.bArms.reduce((a, x) => a + x.windowsCreated, 0);
+const clawsSmartWet = claws.bArms.reduce((a, x) => a + x.wetSpends, 0);
+console.log(`  tripwires: windowsCreated=${clawsWindows} (must be >0), smart wet spends=${clawsSmartWet} (must be >0)`);
+
 console.log(`\nGATE 4 (CI lower bound ≥ +10% on at least one build; < +5% everywhere = STOP and tune payoffs):`);
 const best = Math.max(bow.ciLow, dagger.ciLow);
-if (best >= 10 && gateE1 && gateE3 && gateE4a && gateE4b && gateE4c) { console.log(`PASSED (best CI-low Δ ${best.toFixed(1)}%)`); process.exit(0); }
+if (best >= 10 && gateE1 && gateE3 && gateE4a && gateE4b && gateE4c && gateA && clawsWindows > 0 && clawsSmartWet > 0) { console.log(`PASSED (best CI-low Δ ${best.toFixed(1)}%)`); process.exit(0); }
 if (best >= 5) { console.log(`MARGINAL (best CI-low Δ ${best.toFixed(1)}%) — investigate before UI work`); process.exit(1); }
 console.log(`FAILED (best CI-low Δ ${best.toFixed(1)}%) — do not build rotation UI; tune consume payoffs first`);
 process.exit(1);

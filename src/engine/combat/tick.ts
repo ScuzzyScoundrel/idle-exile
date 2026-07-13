@@ -132,6 +132,9 @@ const WEAPON_MODULES: Record<string, WeaponModule> = {
   wand: dataDrivenFor('wand'),
   // Wave E4c: berserker fury economy — pure COMBO-table data + innates.
   flail: dataDrivenFor('flail'),
+  // Claws Wave A: assassin second weapon — hot frenzy ledger + arterial
+  // bleed-detonate window, pure COMBO-table data.
+  claws: dataDrivenFor('claws'),
 };
 function getWeaponModule(wt: string | undefined): WeaponModule | null {
   return wt ? WEAPON_MODULES[wt] ?? null : null;

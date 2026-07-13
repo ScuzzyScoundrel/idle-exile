@@ -36,6 +36,14 @@ export const ITEM_BASE_DEFS: ItemBaseDef[] = [
   // ==================== Flails (1H Attack, fury builder — dev-kit starter; higher bands pending flail loot pass) ====================
   { id: 'rusty_flail',       name: 'Rusty Flail',       slot: 'mainhand', weaponType: 'flail', baseStats: { baseAttackSpeed: 6, baseCritChance: 2 }, baseDamageMin: 7, baseDamageMax: 15, iLvl: 1 },
 
+  // ==================== Claws (1H Attack, fast + crit — Ravage kit, Wave A) ====================
+  { id: 'rusty_talons',      name: 'Rusty Talons',      slot: 'mainhand', weaponType: 'claws', baseStats: { baseAttackSpeed: 14, baseCritChance: 4 }, baseDamageMin: 6, baseDamageMax: 12, iLvl: 1 },
+  { id: 'steel_talons',      name: 'Steel Talons',      slot: 'mainhand', weaponType: 'claws', baseStats: { baseAttackSpeed: 16, baseCritChance: 5 }, baseDamageMin: 10, baseDamageMax: 20, iLvl: 10 },
+  { id: 'obsidian_talons',   name: 'Obsidian Talons',   slot: 'mainhand', weaponType: 'claws', baseStats: { baseAttackSpeed: 20, baseCritChance: 7 }, baseDamageMin: 17, baseDamageMax: 31, iLvl: 20 },
+  { id: 'mithril_talons',    name: 'Mithril Talons',    slot: 'mainhand', weaponType: 'claws', baseStats: { baseAttackSpeed: 24, baseCritChance: 9 }, baseDamageMin: 23, baseDamageMax: 43, iLvl: 30 },
+  { id: 'void_talons',       name: 'Void Talons',       slot: 'mainhand', weaponType: 'claws', baseStats: { baseAttackSpeed: 28, baseCritChance: 12 }, baseDamageMin: 34, baseDamageMax: 62, iLvl: 45 },
+  { id: 'starforged_talons', name: 'Starforged Talons', slot: 'mainhand', weaponType: 'claws', baseStats: { baseAttackSpeed: 34, baseCritChance: 15 }, baseDamageMin: 47, baseDamageMax: 84, iLvl: 60 },
+
   // ==================== Greatswords (2H Attack) ====================
   { id: 'iron_greatsword',      name: 'Iron Greatsword',      slot: 'mainhand', weaponType: 'greatsword', baseStats: { baseAttackSpeed: 3, baseCritChance: 2 }, baseDamageMin: 16, baseDamageMax: 32, iLvl: 1 },
   { id: 'steel_greatsword',     name: 'Steel Greatsword',     slot: 'mainhand', weaponType: 'greatsword', baseStats: { baseAttackSpeed: 4, baseCritChance: 3 }, baseDamageMin: 30, baseDamageMax: 54, iLvl: 10 },

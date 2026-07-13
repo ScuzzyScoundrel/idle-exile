@@ -108,6 +108,20 @@ export const RULES: Record<string, RuleDef> = {
     params: { wetBonusMult: 0.25 },
     site: 'src/engine/combat/comboRuntime.ts:comboConsumePreRoll (window-consume branch)',
   },
+  'frenzy.exsanguinate': {
+    id: 'frenzy.exsanguinate',
+    name: 'Exsanguinate',
+    blurb: 'Arterial spends hit 50% harder and detonate 90% of remaining bleed instead of 40% — hunt the windows, stock the bleed.',
+    params: { wetBonusMult: 0.5, wetDetonatePercent: 90 },
+    site: 'src/engine/combat/comboRuntime.ts:comboConsumePreRoll (window-consume branch, wetDetonatePercent override)',
+  },
+  'frenzy.rabid': {
+    id: 'frenzy.rabid',
+    name: 'Rabid',
+    blurb: 'Frenzy Strike loses the per-stack ramp and Perfect jackpot; instead a flat ×2.8 at 3+ Frenzy consumed, and every such spend advances other cooldowns 1s — spend on cooldown.',
+    params: { flatMult: 2.8, minStacks: 3, advanceOthersSec: 1 },
+    site: 'src/engine/combat/comboRuntime.ts:comboConsumePreRoll (frenzy fold replacement)',
+  },
   'fury.bloodRush': {
     id: 'fury.bloodRush',
     name: 'Blood Rush',

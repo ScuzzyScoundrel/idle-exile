@@ -56,6 +56,10 @@ export const DEV_WEAPON_KITS: DevWeaponKit[] = [
     weaponType: 'flail', label: 'Flail', baseId: 'rusty_flail', presetId: 'flail_rampage_tempo',
     skills: ['flail_arc_sweep', 'flail_hooked_strike', 'flail_disarming_strike', 'flail_bone_crusher', 'flail_crushing_blow'],
   },
+  {
+    weaponType: 'claws', label: 'Claws', baseId: 'rusty_talons', presetId: 'claws_ravage_tempo',
+    skills: ['claws_dual_strike', 'claws_razor_wind', 'claws_thousand_cuts', 'claws_bleeding_edge', 'claws_frenzy_strike', 'claws_crimson_tempest'],
+  },
 ];
 
 export function getDevKit(weaponType: WeaponType): DevWeaponKit | undefined {

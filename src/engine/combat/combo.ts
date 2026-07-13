@@ -134,6 +134,29 @@ const ATTUNEMENT_EFFECT: ComboStateEffect = {
     wand_volley_convergence: { incDamagePerStackConsumed: 15, capBonus: undefined },
   },
 };
+// ── Claws (Assassin second weapon) — Wave A "Ravage": the hot ledger.
+// Crimson Tempest spends the same pool at 15%/stack (wand's volley
+// pattern) — perSkillBonus rides the instance through refunds now that
+// the fold carries consumed-instance effects.
+const FRENZY_EFFECT: ComboStateEffect = {
+  // Iteration-6 compression (the flail lesson): smart's identity is
+  // Perfect QUALITY (74% vs blind 26%) — enrich the jackpot, trim the
+  // ramp, so the payoff tracks the thing only a gambit does reliably.
+  incDamagePerStackConsumed: 26,
+  // advance 2s (iteration-8): smart Perfects 1136 vs blind 681 per 10
+  // seeds — the advance engine is the most differential lever the kit
+  // has, and it compounds (more casts -> more builders -> more Perfects).
+  capBonus: { incDamage: 280, advanceOthersSec: 3 },
+  perSkillBonus: {
+    claws_crimson_tempest: { incDamagePerStackConsumed: 15, capBonus: undefined },
+  },
+};
+const ARTERIAL_EFFECT: ComboStateEffect = {
+  incDamage: 100,
+  refundStacks: { stateId: 'frenzy', amount: 2 },
+  detonateDotPercent: 40,
+};
+
 const ARCANE_SURGE_EFFECT: ComboStateEffect = {
   // 100->125 (claws Wave A step 2 retune): the refund-from fold fix
   // removed volley's double-strength refunded stacks (a latent bug the
@@ -252,6 +275,25 @@ export const COMBO_STATE_CREATORS: Record<string, ComboStateConfig | ComboStateC
       effect: { incDamagePerStackConsumed: 22, capBonus: { incDamage: 100, advanceOthersSec: 1 } } },
   ],
 
+  // ── Claws (Assassin) — Wave A "Ravage": hot ledger (frenzy, 6s
+  // expiry) + bleed-gated Arterial window. Bleeding Edge appears in
+  // NEITHER table (park purity); Pounce must NEVER create arterial
+  // (guaranteed-crit opener would make windows deterministic — the
+  // E5-rejected phase-lock). Thousand Cuts is the overcap trap and is
+  // deliberately NOT a window creator. ──
+  claws_dual_strike: [
+    { stateId: 'frenzy', duration: 6, maxStacks: 7, createOn: 'onCast', effect: FRENZY_EFFECT },
+    { stateId: 'arterial', duration: 3.0, maxStacks: 1, createOn: 'onCrit', icdSec: 4, requiresTargetTag: 'bleed', effect: ARTERIAL_EFFECT },
+  ],
+  claws_razor_wind: [
+    { stateId: 'frenzy', duration: 6, maxStacks: 7, createOn: 'onCast', effect: FRENZY_EFFECT },
+    { stateId: 'frenzy', duration: 6, maxStacks: 7, createOn: 'onCast', minTargetsHit: 3, effect: FRENZY_EFFECT },
+    { stateId: 'arterial', duration: 3.0, maxStacks: 1, createOn: 'onCrit', icdSec: 4, requiresTargetTag: 'bleed', effect: ARTERIAL_EFFECT },
+  ],
+  claws_thousand_cuts: [
+    { stateId: 'frenzy', duration: 6, maxStacks: 7, createOn: 'onCast', stacksPerGain: 3, effect: FRENZY_EFFECT },
+  ],
+
   // ── Staff v2 (Witch Doctor) ──
   // Locust Swarm: creates Plagued — consumed by Plague of Toads for pandemic spread (wired in staff module)
   staff_locust_swarm: [
@@ -325,6 +367,10 @@ export const COMBO_STATE_CONSUMERS: Record<string, string[]> = {
 
   // ── Flail (Berserker) — Wave E4c ──
   flail_crushing_blow: ['fury_charge', 'rampage'],
+
+  // ── Claws (Assassin) — Wave A: two spenders share the frenzy pool ──
+  claws_frenzy_strike:   ['frenzy', 'arterial'],
+  claws_crimson_tempest: ['frenzy', 'arterial'],
 
   // ── Staff v2 (Witch Doctor) ──
   staff_spirit_barrage:  ['haunted'],

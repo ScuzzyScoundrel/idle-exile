@@ -279,15 +279,19 @@ export const COMBO_STATE_SPECS: Record<string, ComboStateSpec> = {
   frenzy: {
     id: 'frenzy',
     name: 'Frenzy',
-    description: 'The claws ledger — bloodlust that spoils. Built +1 per claw builder (+3 from Death by 1000 Cuts), max 6; ALL stacks expire 6s after the last gain. Frenzy Strike consumes ALL stacks: +30% damage per stack, PERFECT at 6 (+150% and other cooldowns advance 1s). Crimson Tempest spends the same pool against every enemy.',
+    description: 'The claws ledger — bloodlust that spoils. Built +1 per claw builder (+3 from Death by 1000 Cuts), max 7; ALL stacks expire 6s after the last gain. Frenzy Strike consumes ALL stacks: +26% damage per stack, PERFECT at 7 (+280% and other cooldowns advance 3s). Crimson Tempest spends the same pool against every enemy.',
     // Ravage kit (claws Wave A): duration 6 is THE claws twist — the
     // anti-hold clock. Blind/offline refresh it by casting; only a
     // policy that WAITS gets bitten, which is why claws REQUIRES a
     // cap-dump rule (inverts the dagger no-cap-dump law, which was
     // derived from a 10s free-hold ledger).
     defaultDuration: 6,
-    maxStacks: 6,
-    defaultEffect: { incDamagePerStackConsumed: 30, capBonus: { incDamage: 150, advanceOthersSec: 1 } },
+    // Cap 7 (iteration-9 — the E3/E4 axiom this kit was missing): the
+    // five-skill blind chain ARRIVES at 6 naturally (26% blind Perfects);
+    // 7 is only reachable by deliberately sequencing Cuts' +3 — the
+    // jackpot becomes gambit-access, not chain-access.
+    maxStacks: 7,
+    defaultEffect: { incDamagePerStackConsumed: 26, capBonus: { incDamage: 280, advanceOthersSec: 3 } },
     category: 'stack',
     side: 'player',
   },
