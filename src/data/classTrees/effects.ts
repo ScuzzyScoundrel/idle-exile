@@ -1111,7 +1111,7 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
     // preference fork is preserved by construction while the flat-vs-
     // shape power gap closes (was 37% under; spender share ~33% bounds
     // what the flatMult param alone can recover).
-    { kind: 'mod', mod: { stat: 'damageMult', op: 'mult', value: 1.30 } },
+    { kind: 'mod', mod: { stat: 'damageMult', op: 'mult', value: 1.32 } },
   ],
   // Marksman pair:
   'hnt_mm_snipers_patience': [
@@ -1119,6 +1119,8 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   ],
   'hnt_mm_precision_cascade': [
     { kind: 'rule', rule: 'quiver.splitburst' },
+    // Fork-neutral power floor (E5b parity, GATE P repair).
+    { kind: 'mod', mod: { stat: 'damageMult', op: 'mult', value: 1.06 } },
   ],
   // ── Variation pairs, remaining classes (2026-07-12) — same proven
   // shapes instanced per kit; gated by qa-variation E5+E5b. ──
@@ -1129,7 +1131,7 @@ export const NODE_EFFECTS: Record<string, TalentEffect[]> = {
   'sor_ar_convergence_mastery': [
     { kind: 'rule', rule: 'attunement.voidHunger' },
     // Fork-neutral power floor (E5b parity — dagger playbook).
-    { kind: 'mod', mod: { stat: 'damageMult', op: 'mult', value: 1.48 } },
+    { kind: 'mod', mod: { stat: 'damageMult', op: 'mult', value: 1.44 } },
   ],
   // Plague Priest pair (witchdoctor/staff):
   'wd_pp_chaos_surge': [
@@ -1177,8 +1179,10 @@ export const CLASS_INNATE_EFFECTS: Record<string, TalentEffect[]> = {
       if: { targetHpBelow: 0.30 },
       scope: { skillId: 'dagger_assassinate' },
     } },
-    // Claws Wave A: the same Culling covenant extends to the claws
-    // spender (1.75, dagger parity — iteration 13).
+    // Claws Wave A: the Culling covenant extends to the claws spender
+    // (1.75, dagger parity — the GATE P pass tried 1.65 and it cost
+    // 4.8 CI points for a 1.4% total trim: execute heat is nearly pure
+    // smart-edge, NOT a parity lever).
     { kind: 'mod', mod: {
       stat: 'damageMult', op: 'mult', value: 1.75,
       if: { targetHpBelow: 0.30 },

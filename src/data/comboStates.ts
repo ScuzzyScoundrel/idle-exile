@@ -90,15 +90,15 @@ export const COMBO_STATE_SPECS: Record<string, ComboStateSpec> = {
     description: 'The Hunter\'s ledger. Arrow Shot +1, Rapid Fire +3 (max 6, refreshed on gain — gains past 6 are wasted). Snipe consumes ALL stacks: +30% damage per stack, PERFECT at 6 (×2.5, guaranteed crit, advances other cooldowns 1s). Pierce Volley spends the same pool at +15%/stack.',
     defaultDuration: 10,
     maxStacks: 6,
-    defaultEffect: { incDamagePerStackConsumed: 30, capBonus: { incDamage: 150, guaranteedCrit: true, advanceOthersSec: 1 } },
+    defaultEffect: { incDamagePerStackConsumed: 30, capBonus: { incDamage: 175, guaranteedCrit: true, advanceOthersSec: 2 } },
     category: 'stack',
     side: 'player',
   },
   vulnerable: {
     id: 'vulnerable',
     name: 'Vulnerable',
-    description: 'A killing angle on a Marked target (3s, opened by crits vs Marked, 3s internal cooldown). Spending Quiver inside it: ×2 damage and refunds 2 Quiver.',
-    defaultDuration: 3.0,
+    description: 'A killing angle on a Marked target (3.5s, opened by crits vs Marked, 3s internal cooldown). Spending Quiver inside it: ×2 damage and refunds 2 Quiver.',
+    defaultDuration: 3.5,
     maxStacks: 1,
     defaultEffect: { incDamage: 100, refundStacks: { stateId: 'quiver', amount: 2 } },
     category: 'self',
@@ -279,7 +279,7 @@ export const COMBO_STATE_SPECS: Record<string, ComboStateSpec> = {
   frenzy: {
     id: 'frenzy',
     name: 'Frenzy',
-    description: 'The claws ledger — bloodlust that spoils. Built +1 per claw builder (+3 from Death by 1000 Cuts), max 7; ALL stacks expire 6s after the last gain. Frenzy Strike consumes ALL stacks: +26% damage per stack, PERFECT at 7 (+280% and other cooldowns advance 3s). Crimson Tempest spends the same pool against every enemy.',
+    description: 'The claws ledger — bloodlust that spoils. Built +1 per claw builder (+3 from Death by 1000 Cuts), max 7; ALL stacks expire 6s after the last gain. Frenzy Strike consumes ALL stacks: +26% damage per stack, PERFECT at 7 (+200% and other cooldowns advance 3s). Crimson Tempest spends the same pool against every enemy.',
     // Ravage kit (claws Wave A): duration 6 is THE claws twist — the
     // anti-hold clock. Blind/offline refresh it by casting; only a
     // policy that WAITS gets bitten, which is why claws REQUIRES a
@@ -291,7 +291,7 @@ export const COMBO_STATE_SPECS: Record<string, ComboStateSpec> = {
     // 7 is only reachable by deliberately sequencing Cuts' +3 — the
     // jackpot becomes gambit-access, not chain-access.
     maxStacks: 7,
-    defaultEffect: { incDamagePerStackConsumed: 26, capBonus: { incDamage: 280, advanceOthersSec: 3 } },
+    defaultEffect: { incDamagePerStackConsumed: 24, capBonus: { incDamage: 200, advanceOthersSec: 3 } },
     category: 'stack',
     side: 'player',
   },

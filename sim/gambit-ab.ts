@@ -42,6 +42,23 @@ import type { RotationPolicy } from '../src/types/rotation';
 import { DAGGER_TEMPO_POLICY, BOW_MARKED_TEMPO_POLICY, WAND_ATTUNED_TEMPO_POLICY, STAFF_SOUL_TEMPO_POLICY, FLAIL_RAMPAGE_TEMPO_POLICY, CLAWS_RAVAGE_TEMPO_POLICY } from '../src/data/rotationPresets';
 
 // ── VERDICT LOG ──
+// 2026-07-12 GATE P cross-kit parity pass (owner: "aren't casters
+// severely gimped?" — measured YES: staff 102k vs claws 388k, 3.79×;
+// casters at HALF the martial floor; cross-kit power had never been
+// gated). Landed 1.29× via uniform per-kit damage scalers (staff
+// ×2.71, wand ×2.26, bow ×~1.25 net, flail ×1.13, dagger ×1.13 —
+// uniform scaling preserves each kit's smart-vs-blind ratio) + bow
+// quiver Perfect 150→175. LAWS: (1) mana was NOT the caster gap —
+// belowCost ~0% in fixtures; the gap was unanchored throughput tuning.
+// (2) OVERKILL SATURATION: claws is cast-rate-bound vs 360-600hp pack
+// mobs — full-kit ×0.635 moved totals only 9%; damage scalers respond
+// sub-linearly near one-shot thresholds, so parity must come from
+// LIFTING the floor, not cutting the saturated ceiling. (3) Execute
+// heat is nearly pure smart-edge: culling 1.75→1.65 cost 4.8 CI points
+// for a 1.4% total trim — never use it as a parity lever. (4) The
+// fixture weapon is ONE synthetic item shared by all kits
+// (kitFixture.ts:45) — item-base changes are INVISIBLE to these gates;
+// live-drop balance is a separate axis.
 // 2026-07-12 E20 (mana identity split + claims): martials (brs/asn/hnt)
 // DROP mana entirely (classUsesMana=false — costs zeroed, snap.mana
 // undefined); casters keep mana + hold-for-priority CLAIMS in
@@ -503,7 +520,7 @@ const claws = experiment('CLAWS (Wave A: frenzy + arterial)', 'assassin', 'claws
 // iteration 13. Claws had NO pre-redesign kit (no weapon module), so
 // the U6 anchor is the shipped kit's own blind arm — the real content
 // of this check is worst-of-3 ordering stability at 0.8×.
-const WAVE_A_CLAWS_BASELINE_DPS = 321481 / 1200;
+const WAVE_A_CLAWS_BASELINE_DPS = 278929 / 1200; // re-frozen after the GATE P trims
 const gateA = kitGate('GATE A (claws Ravage kit)', claws, 7, WAVE_A_CLAWS_BASELINE_DPS, [
   CLAWS_BAR,                                                                                    // builder-first (shipped default)
   ['claws_frenzy_strike', 'claws_crimson_tempest', 'claws_dual_strike', 'claws_razor_wind', 'claws_thousand_cuts', 'claws_bleeding_edge'], // spender-first
@@ -516,9 +533,28 @@ const clawsWindows = claws.bArms.reduce((a, x) => a + x.windowsCreated, 0);
 const clawsSmartWet = claws.bArms.reduce((a, x) => a + x.wetSpends, 0);
 console.log(`  tripwires: windowsCreated=${clawsWindows} (must be >0), smart wet spends=${clawsSmartWet} (must be >0)`);
 
+// ── GATE P — CROSS-KIT power parity (2026-07-12, owner: "aren't
+// casters severely gimped?" — measured YES: staff 102k vs claws 388k,
+// 3.79× spread; casters ran at HALF the martial floor because every
+// kit was only ever tuned against its own blind arm). All six shipped-
+// preset totals must sit within a 1.30× band. Uniform per-kit damage
+// scalers preserve each kit's smart-vs-blind ratio, so this gate is
+// orthogonal to the per-kit CI gates. Anchor: dagger (the reference
+// redesign). ──
+const kitTotals: Array<[string, number]> = [
+  ['dagger', dagger.bDamage], ['bow', bow.bDamage], ['wand', wand.bDamage],
+  ['staff', staffExp.bDamage], ['flail', flail.bDamage], ['claws', claws.bDamage],
+];
+const pMax = Math.max(...kitTotals.map(([, d]) => d));
+const pMin = Math.min(...kitTotals.map(([, d]) => d));
+const pRatio = pMax / pMin;
+const gateP = pRatio <= 1.30;
+console.log(`\nGATE P (cross-kit parity, shipped presets, max/min ≤ 1.30×): ${gateP ? 'PASSED' : 'FAILED'} (${pRatio.toFixed(2)}×)`);
+for (const [k, d] of [...kitTotals].sort((a, b) => b[1] - a[1])) console.log(`  ${k.padEnd(6)} ${d.toFixed(0)}`);
+
 console.log(`\nGATE 4 (CI lower bound ≥ +10% on at least one build; < +5% everywhere = STOP and tune payoffs):`);
 const best = Math.max(bow.ciLow, dagger.ciLow);
-if (best >= 10 && gateE1 && gateE3 && gateE4a && gateE4b && gateE4c && gateA && clawsWindows > 0 && clawsSmartWet > 0) { console.log(`PASSED (best CI-low Δ ${best.toFixed(1)}%)`); process.exit(0); }
+if (best >= 10 && gateE1 && gateE3 && gateE4a && gateE4b && gateE4c && gateA && gateP && clawsWindows > 0 && clawsSmartWet > 0) { console.log(`PASSED (best CI-low Δ ${best.toFixed(1)}%)`); process.exit(0); }
 if (best >= 5) { console.log(`MARGINAL (best CI-low Δ ${best.toFixed(1)}%) — investigate before UI work`); process.exit(1); }
 console.log(`FAILED (best CI-low Δ ${best.toFixed(1)}%) — do not build rotation UI; tune consume payoffs first`);
 process.exit(1);

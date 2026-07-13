@@ -69,9 +69,13 @@ export const BOW_MARKED_TEMPO_POLICY: RotationPolicy = {
     // 1. Mark upkeep — table stakes: windows only open vs Marked targets
     { id: 'mark_upkeep', enabled: true, when: { targetLacksTag: 'mark' }, action: { kind: 'castSkill', skillId: 'bow_hunters_mark' } },
     // 2. Wet spend — Vulnerable window + a meaningful quiver
+    // Wet threshold 4→3 (GATE P repair): the parity lifts changed kill
+    // pacing and smart's wet-capture ratio slipped below 2× — capturing
+    // windows with a smaller pool restores the count edge without
+    // paying blind's accidental captures (window damage stays ×2).
     { id: 'wet_spend', enabled: true, when: { all: [
       { stateCountAtLeast: { stateId: 'vulnerable', count: 1 } },
-      { stateCountAtLeast: { stateId: 'quiver', count: 4 } },
+      { stateCountAtLeast: { stateId: 'quiver', count: 3 } },
       { skillReady: 'bow_snipe' },
     ] }, action: { kind: 'castSkill', skillId: 'bow_snipe' } },
     // 3. Execute band — Tracking Shot ×2 below 35% (hunter innate)

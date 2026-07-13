@@ -103,7 +103,7 @@ const OPENING_EFFECT: ComboStateEffect = {
 // jackpot (ST-vs-AoE arbitration, mirrors FoK).
 const QUIVER_EFFECT: ComboStateEffect = {
   incDamagePerStackConsumed: 30,
-  capBonus: { incDamage: 150, guaranteedCrit: true, advanceOthersSec: 1 },
+  capBonus: { incDamage: 175, guaranteedCrit: true, advanceOthersSec: 2 },
   perSkillBonus: {
     bow_pierce_volley: { incDamagePerStackConsumed: 15, capBonus: undefined },
   },
@@ -142,11 +142,11 @@ const FRENZY_EFFECT: ComboStateEffect = {
   // Iteration-6 compression (the flail lesson): smart's identity is
   // Perfect QUALITY (74% vs blind 26%) — enrich the jackpot, trim the
   // ramp, so the payoff tracks the thing only a gambit does reliably.
-  incDamagePerStackConsumed: 26,
+  incDamagePerStackConsumed: 24,
   // advance 2s (iteration-8): smart Perfects 1136 vs blind 681 per 10
   // seeds — the advance engine is the most differential lever the kit
   // has, and it compounds (more casts -> more builders -> more Perfects).
-  capBonus: { incDamage: 280, advanceOthersSec: 3 },
+  capBonus: { incDamage: 200, advanceOthersSec: 3 },
   perSkillBonus: {
     claws_crimson_tempest: { incDamagePerStackConsumed: 15, capBonus: undefined },
   },
@@ -230,22 +230,22 @@ export const COMBO_STATE_CREATORS: Record<string, ComboStateConfig | ComboStateC
   // into the cap-farming saturation that sank dagger iteration 3. ──
   bow_arrow_shot: [
     { stateId: 'quiver', duration: 10, maxStacks: 6, createOn: 'onCast', effect: QUIVER_EFFECT },
-    { stateId: 'vulnerable', duration: 3.0, maxStacks: 1, createOn: 'onCrit', icdSec: 3, requiresTargetTag: 'mark', effect: VULNERABLE_EFFECT },
+    { stateId: 'vulnerable', duration: 3.5, maxStacks: 1, createOn: 'onCrit', icdSec: 3, requiresTargetTag: 'mark', effect: VULNERABLE_EFFECT },
   ],
   bow_rapid_fire: [
     // +3 per flurry (one per arrow): the overcap trap — casting it near cap wastes gains,
     // which only a gambit (quiver-below check) can avoid.
     { stateId: 'quiver', duration: 10, maxStacks: 6, createOn: 'onCast', stacksPerGain: 3, effect: QUIVER_EFFECT },
-    { stateId: 'vulnerable', duration: 3.0, maxStacks: 1, createOn: 'onCrit', icdSec: 3, requiresTargetTag: 'mark', effect: VULNERABLE_EFFECT },
+    { stateId: 'vulnerable', duration: 3.5, maxStacks: 1, createOn: 'onCrit', icdSec: 3, requiresTargetTag: 'mark', effect: VULNERABLE_EFFECT },
   ],
   // E3 iteration-3: windows were 10× rarer than modeled (fixture crit
   // ~11-17%, Mark dies with each ~4s mob) — ANY bow attack critting a
   // Marked target opens the killing angle, not just the builders.
   bow_burning_arrow: [
-    { stateId: 'vulnerable', duration: 3.0, maxStacks: 1, createOn: 'onCrit', icdSec: 3, requiresTargetTag: 'mark', effect: VULNERABLE_EFFECT },
+    { stateId: 'vulnerable', duration: 3.5, maxStacks: 1, createOn: 'onCrit', icdSec: 3, requiresTargetTag: 'mark', effect: VULNERABLE_EFFECT },
   ],
   bow_tracking_shot: [
-    { stateId: 'vulnerable', duration: 3.0, maxStacks: 1, createOn: 'onCrit', icdSec: 3, requiresTargetTag: 'mark', effect: VULNERABLE_EFFECT },
+    { stateId: 'vulnerable', duration: 3.5, maxStacks: 1, createOn: 'onCrit', icdSec: 3, requiresTargetTag: 'mark', effect: VULNERABLE_EFFECT },
   ],
 
   // ── Wand (Sorcerer) — Wave E4: builders. Essence Drain is the

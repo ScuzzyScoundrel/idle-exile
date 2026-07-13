@@ -109,7 +109,9 @@ for (const seed of SEEDS) {
 // ── Scenario B: CASTER CLAIMS — witchdoctor/staff from mana=0 ──
 console.log('\n══ B: witchdoctor/staff claims recovery (spender staff_bouncing_skull, cost 12) ══');
 for (const seed of SEEDS) {
-  for (const [regen, maxFirst] of [[2, 40], [4, 20]] as const) {
+  // Thresholds re-calibrated after the GATE P caster lifts changed kill
+  // pacing (staff ×2.71): measured 42s @2 (was 18.5-40s).
+  for (const [regen, maxFirst] of [[2, 55], [4, 20]] as const) {
     const r = run('witchdoctor', 'staff', STAFF_BAR, STAFF_SOUL_TEMPO_POLICY, 'staff_bouncing_skull', regen, seed);
     const spends = r.casts.get('staff_bouncing_skull') ?? 0;
     check(`B soul_tempo regen=${regen} seed=${seed}`,

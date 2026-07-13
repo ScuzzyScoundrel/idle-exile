@@ -63,8 +63,8 @@ export const RULES: Record<string, RuleDef> = {
   'quiver.splitburst': {
     id: 'quiver.splitburst',
     name: 'Splitburst',
-    blurb: 'Snipe per-stack reduced (26%), but the Perfect jackpot fires from 4+ Quiver — spend fast and often.',
-    params: { perStack: 26, capFrom: 4 },
+    blurb: 'Snipe per-stack reduced (28%), but the Perfect jackpot fires from 4+ Quiver — spend fast and often.',
+    params: { perStack: 28, capFrom: 4 },
     site: 'src/engine/combat/comboRuntime.ts:comboConsumePreRoll (quiver fold replacement)',
   },
 
