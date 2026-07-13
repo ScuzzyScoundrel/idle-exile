@@ -32,13 +32,31 @@ see §5).
 ## 2. Signature riders (the multiclass mechanic)
 
 Every class defines ONE rider. When that class is your SECONDARY, its
-rider attaches to all your primary skills:
+rider attaches to all your primary skills.
 
-- Witch Doctor — Hex/poison rider
-- Berserker — Rage / low-life scaling rider
-- Sorcerer — elemental conversion rider
-- (future) Paladin — Consecrate rider
-- Assassin / Hunter — TBD in the identity sprint
+**THE RIDER BAR (owner refinement, 2026-07-12): a rider must never
+GRANT a tool — tool access (poison, bleed, ailments, procs) belongs to
+weapons and especially UNIQUES ("granted from uniques if people can't
+gain them naturally"). A rider is a RULE that warps how you build and
+play, and it gets STRONGER the more tools you stack — a force
+multiplier, not an affix.** "Your skills apply poison" fails the bar;
+"your DoTs spread on kill" passes it, because a unique that grants
+poison suddenly matters twice as much to that pairing.
+
+Rider sketches AT the bar (to be re-judged in the riders wave):
+
+- Witch Doctor — Pandemic: your DoTs/debuffs spread to nearby enemies
+  on kill (or detonate on expiry) — multiplies ANY ailment source.
+- Berserker — Bloodrage: damage scales as your life drops — changes
+  how you gear and where you fight.
+- Sorcerer — Conversion: your damage changes type/element — re-wires
+  every gear and tree interaction.
+- Assassin — Shadow cadence: consuming resources/crits opens echo
+  windows — a timing game layered on any kit.
+- Hunter — Predator economy: marks + precision payoffs — a target-
+  selection game layered on any kit.
+- (future) Paladin — Consecrate: kills sanctify ground with standing
+  effects — a positioning/uptime game.
 
 Example: Witch Doctor/Paladin with a scythe — Reap detonates poison on
 kill (WD lens) and every kill consecrates ground that heals you
@@ -54,6 +72,14 @@ hand-authoring N×N hybrids.
 - Secondary trees are CAPPED — no capstones from the off-class.
 - Ascendancy is primary-only.
 - Prior art: Grim Dawn dual-mastery.
+
+## 3b. Uniques are the TOOL-ACCESS layer
+
+Placeholder uniques get replaced with designed build-arounds (planned
+since Phase 2). Their job in this architecture: grant tools and bend
+rules — give poison to a class that lacks it, give a second window
+type, break a cap. Riders and lenses then multiply what uniques grant.
+This is what makes item hunting matter in an idle game.
 
 ## 4. Idle-genre hook
 
