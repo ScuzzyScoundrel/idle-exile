@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import type { ClassResourceState, TempBuff, CharacterClass } from '../../types';
+import type { ClassResourceState, TempBuff } from '../../types';
 import type { MinionState } from '../../engine/combat/minions';
-import { getClassDef } from '../../data/classes';
 import { classUsesMana } from '../../types/mana';
 import Tooltip from '../components/Tooltip';
 import { useGameStore } from '../../store/gameStore';
@@ -32,7 +31,7 @@ const COMBO_STATE_META: Record<string, { label: string; abbr: string; color: str
   shadow_momentum:  { label: 'Shadow Momentum',   abbr: 'SPD', color: 'text-indigo-300 bg-indigo-900/70',  description: 'Next skill CD starts 2s earlier' },
 };
 
-export default function PlayerHpBar({ currentHp, maxHp, trailHp, fortifyStacks, fortifyDR, currentEs, maxEs, currentMana, maxMana, classResource, charClass, buffs, buffDisplay, rampingStacks, hideHpBars, lastFiredSkillId }: {
+export default function PlayerHpBar({ currentHp, maxHp, trailHp, fortifyStacks, fortifyDR, currentEs, maxEs, currentMana, maxMana, charClass, buffs, buffDisplay, rampingStacks, hideHpBars, lastFiredSkillId }: {
   currentHp: number; maxHp: number; trailHp?: number;
   fortifyStacks?: number; fortifyDR?: number;
   currentEs?: number; maxEs?: number;
@@ -70,10 +69,6 @@ export default function PlayerHpBar({ currentHp, maxHp, trailHp, fortifyStacks, 
   const TARGET_STATES = new Set(['exposed', 'deep_wound', 'shadow_mark', 'saturated']);
   const comboStates = allComboStates.filter(cs => !TARGET_STATES.has(cs.stateId) && !isStateChipState(cs.stateId));
 
-  // Class resource
-  const classDef = charClass ? getClassDef(charClass as CharacterClass) : null;
-  const resourceStacks = classResource ? Math.floor(classResource.stacks) : 0;
-  const resourceMax = classDef?.resourceMax ?? 0;
 
   return (
     <div
@@ -198,9 +193,10 @@ export default function PlayerHpBar({ currentHp, maxHp, trailHp, fortifyStacks, 
       {/* Active minions (Witch Doctor staff: dogs / fetishes / spirits) */}
       <ActiveMinionsRow />
 
-      {/* Class resource (compact inline) */}
-      {classDef && classResource && <CompactResource classDef={classDef} stacks={resourceStacks} max={resourceMax} />}
-
+      {/* Legacy class-resource widget REMOVED (E20 cleanup): the engine
+          was neutralized in Phase 2g (stacks pinned at 0 forever), so the
+          rage/arcane/track bars showed dead zeros. The LIVE resources are
+          the combo ledgers rendered by StateChips above. */}
       {/* Compact skill icons */}
       <CompactSkills lastFiredSkillId={lastFiredSkillId} />
     </div>
@@ -283,61 +279,6 @@ function MinionBadge({ minion, now }: { minion: MinionState; now: number }) {
       </div>
     </Tooltip>
   );
-}
-
-function CompactResource({ classDef, stacks, max }: {
-  classDef: { resourceType: string; resourceMax: number | null };
-  stacks: number; max: number;
-}) {
-  if (classDef.resourceType === 'rage') {
-    const pct = max ? Math.min(100, (stacks / max) * 100) : 0;
-    return (
-      <div className="flex items-center gap-2">
-        <span className="text-red-400 text-[10px] font-semibold w-10 shrink-0">Rage</span>
-        <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden flex-1">
-          <div className="h-full bg-red-600 rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
-        </div>
-        <span className="text-white font-mono text-[10px] w-14 text-right">{stacks}/{max} <span className="text-red-300">+{Math.floor(stacks * 2)}%</span></span>
-      </div>
-    );
-  }
-  if (classDef.resourceType === 'arcane_charges') {
-    const pips = max || 10;
-    return (
-      <div className="flex items-center gap-2">
-        <span className="text-blue-400 text-[10px] font-semibold w-10 shrink-0">Arcane</span>
-        <div className="flex gap-0.5 flex-1">
-          {Array.from({ length: pips }).map((_, i) => (
-            <div key={i} className={`flex-1 h-1.5 rounded-full transition-all duration-200 ${
-              i < stacks ? 'bg-blue-500' : 'bg-gray-700'
-            }`} />
-          ))}
-        </div>
-        <span className="text-white font-mono text-[10px] w-14 text-right">{stacks}/{pips} <span className="text-blue-300">+{stacks * 5}%</span></span>
-      </div>
-    );
-  }
-  if (classDef.resourceType === 'tracking') {
-    const pct = max ? Math.min(100, (stacks / max) * 100) : 0;
-    return (
-      <div className="flex items-center gap-2">
-        <span className="text-green-400 text-[10px] font-semibold w-10 shrink-0">Track</span>
-        <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden flex-1">
-          <div className="h-full bg-green-500 rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
-        </div>
-        <span className="text-white font-mono text-[10px] w-14 text-right">{stacks}/{max} <span className="text-green-300">+{(stacks * 0.5).toFixed(0)}%</span></span>
-      </div>
-    );
-  }
-  if (classDef.resourceType === 'momentum') {
-    return (
-      <div className="flex items-center gap-2">
-        <span className="text-purple-400 text-[10px] font-semibold w-10 shrink-0">Mntm</span>
-        <span className="text-white font-mono text-[10px]">{stacks} <span className="text-purple-300">+{stacks}% spd</span></span>
-      </div>
-    );
-  }
-  return null;
 }
 
 function CompactSkills({ lastFiredSkillId }: { lastFiredSkillId?: string | null }) {

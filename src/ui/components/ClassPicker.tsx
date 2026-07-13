@@ -23,6 +23,16 @@ const CLASS_COLORS: Record<CharacterClass, { border: string; bg: string; text: s
   assassin: { border: 'border-teal-600', bg: 'bg-teal-950/40', text: 'text-teal-400', ring: 'ring-teal-500/50' },
 };
 
+// E20: the live class resources are the combo LEDGERS; the legacy
+// resourceType strings (rage/arcane_charges/tracking) are dead.
+const LEDGER_LABELS: Record<CharacterClass, string> = {
+  berserker: 'FURY',
+  sorcerer: 'ATTUNEMENT',
+  hunter: 'QUIVER',
+  witchdoctor: 'SOULS',
+  assassin: 'MOMENTUM',
+};
+
 const RESOURCE_COLORS: Record<CharacterClass, string> = {
   berserker: 'text-red-400',
   sorcerer: 'text-blue-400',
@@ -81,7 +91,7 @@ function ClassCard({ classDef, isSelected, onSelect }: {
 
       {/* Resource mechanic */}
       <div className={`text-xs ${RESOURCE_COLORS[classDef.id]} bg-gray-900/40 rounded-lg p-2`}>
-        <span className="font-semibold">{classDef.resourceType.replace(/_/g, ' ').toUpperCase()}</span>
+        <span className="font-semibold">{LEDGER_LABELS[classDef.id]}</span>
         <span className="text-gray-400"> &mdash; </span>
         {classDef.resourceDescription}
       </div>

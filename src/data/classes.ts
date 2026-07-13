@@ -18,7 +18,7 @@ export const CLASS_DEFS: Record<CharacterClass, ClassDef> = {
     resourceDecayOnZoneSwitch: false,
     resourceDecayOnStop: false,
     resourceDecayOnGearSwap: false,
-    resourceDescription: 'Rage builds per clear (+1), decays while idle. +2% damage per stack.',
+    resourceDescription: 'FURY — flail strikes build it and hits you TAKE feed it (max 8). Crushing Blow spends the whole pool; full Fury opens a Rampage. Berserkers use no mana.',
   },
   sorcerer: {
     id: 'sorcerer',
@@ -36,7 +36,7 @@ export const CLASS_DEFS: Record<CharacterClass, ClassDef> = {
     resourceDecayOnZoneSwitch: false,
     resourceDecayOnStop: false,
     resourceDecayOnGearSwap: false,
-    resourceDescription: 'Charges build on ability use. At max (10), discharge for bonus clears. +5% spell damage, +3% ability haste per charge.',
+    resourceDescription: 'ATTUNEMENT — elemental bolts build it (max 5); Void Blast consumes ALL stacks, Perfect at 5. Mana paces casting (8/s regen + on-crit chunks).',
   },
   hunter: {
     id: 'hunter',
@@ -54,7 +54,7 @@ export const CLASS_DEFS: Record<CharacterClass, ClassDef> = {
     resourceDecayOnZoneSwitch: true,   // resets on zone switch
     resourceDecayOnStop: false,
     resourceDecayOnGearSwap: false,
-    resourceDescription: 'Tracking builds per clear in the same zone. Resets on zone switch. +0.5% rare find, +0.3% material yield per stack.',
+    resourceDescription: 'QUIVER — Arrow Shot +1, Rapid Fire +3 (max 6); Snipe consumes ALL stacks, guaranteed-crit Perfect at 6. Hunters use no mana.',
   },
   // MVP launch classes. Legacy resource fields are placeholders until Phase 2d
   // replaces the per-class resource system with universal Mana + class-flavored regen.
@@ -74,7 +74,7 @@ export const CLASS_DEFS: Record<CharacterClass, ClassDef> = {
     resourceDecayOnZoneSwitch: false,
     resourceDecayOnStop: false,
     resourceDecayOnGearSwap: false,
-    resourceDescription: 'Universal mana with slow passive regen + chunk on kill (Phase 2d).',
+    resourceDescription: 'SOULS — Soul Harvest banks 2 per cast (max 6); Bouncing Skull spends the pool, Perfect at 6. Mana paces casting (6/s regen + big on-kill chunks).',
     startingAttributes: { strength: 0, dexterity: 0, intelligence: 3, spirit: 4 },
   },
   assassin: {
@@ -93,7 +93,7 @@ export const CLASS_DEFS: Record<CharacterClass, ClassDef> = {
     resourceDecayOnZoneSwitch: true,
     resourceDecayOnStop: true,
     resourceDecayOnGearSwap: true,
-    resourceDescription: 'Universal mana with fast regen + gain on crit (Phase 2d).',
+    resourceDescription: 'MOMENTUM — builders stack it (max 5); Assassinate consumes ALL stacks, Perfect at 5. Crits open 3s Openings. Assassins use no mana.',
     startingAttributes: { strength: 0, dexterity: 4, intelligence: 0, spirit: 3 },
   },
 };

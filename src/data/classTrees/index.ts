@@ -78,6 +78,16 @@ export function getClassTreeAllNodes(classId: CharacterClass): ClassTreeNodeData
   return tree.paths.flatMap(p => p.nodes);
 }
 
+/** All nodes in the path containing nodeId (tier-gate lookup). */
+export function getClassTreePathNodes(classId: CharacterClass, nodeId: string): ClassTreeNodeData[] | null {
+  const tree = CLASS_TREES[classId];
+  if (!tree) return null;
+  for (const path of tree.paths) {
+    if (path.nodes.some(n => n.id === nodeId)) return path.nodes;
+  }
+  return null;
+}
+
 /** Find a node by id within a class tree. Returns null if missing. */
 export function findClassTreeNode(classId: CharacterClass, nodeId: string): ClassTreeNodeData | null {
   const tree = CLASS_TREES[classId];

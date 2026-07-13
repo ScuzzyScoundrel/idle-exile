@@ -15,7 +15,7 @@
 // (`scaleTalentEffectByRank`); this file only handles allocation rules.
 
 import { CharacterClass, AbilityEffect, SkillTreeNode } from '../types';
-import { findClassTreeNode, getClassTreeAllNodes } from '../data/classTrees';
+import { findClassTreeNode, getClassTreeAllNodes, getClassTreePathNodes } from '../data/classTrees';
 
 /** Sum of all rank values — total talent points spent. */
 export function getTotalAllocatedRanks(ranks: Record<string, number>): number {
@@ -68,6 +68,19 @@ export function canAllocateTalentNode(
 
   // Points available
   if (getAvailableTalentPoints(characterLevel, getTotalAllocatedRanks(ranks)) <= 0) return false;
+
+  // Tier gate (2026-07-12, owner report: any node was allocatable with
+  // zero pathing — the trees have tier structure but NO authored
+  // requiresNodeId edges). Until the talent-tree design pass authors
+  // real edges, a tier-N node requires (N-1) x 2 points already spent
+  // in the SAME path. Sims are unaffected (they set ranks directly).
+  if ((node.tier ?? 1) > 1) {
+    const pathNodes = getClassTreePathNodes(charClass, nodeId);
+    if (pathNodes) {
+      const spentInPath = pathNodes.reduce((a, pn) => a + (ranks[pn.id] ?? 0), 0);
+      if (spentInPath < (node.tier - 1) * 2) return false;
+    }
+  }
 
   // Prerequisite at max rank
   if (node.requiresNodeId) {
