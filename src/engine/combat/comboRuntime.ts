@@ -97,7 +97,10 @@ export function comboConsumePreRoll(ctx: PreRollContext): ComboConsumeResult {
   let perfectSpend = false;
   let wetSpend = false;
   const consumedStateIds: string[] = [];
-  const pendingRefunds: { stateId: string; amount: number }[] = [];
+  // `from` carries the CONSUMED instance so the refund re-creates the
+  // state with ITS effect/maxStacks (not spec defaults) — required once
+  // two kits share a stateId with different caps (scythe/staff souls).
+  const pendingRefunds: { stateId: string; amount: number; from?: ComboState }[] = [];
 
   // Consume combo states for this skill
   const consumeIds = COMBO_STATE_CONSUMERS[skill.id];
@@ -166,26 +169,36 @@ export function comboConsumePreRoll(ctx: PreRollContext): ComboConsumeResult {
           // Perfect Rhythm / Perfect Echo: a PERFECT spend refunds the ledger.
           const refundRuleId = LEDGER_PERFECT_REFUND_RULE[cs.stateId];
           if (refundRuleId && rules?.has(refundRuleId)) {
-            pendingRefunds.push({ stateId: cs.stateId, amount: rules.get(refundRuleId)!.refund ?? 1 });
+            pendingRefunds.push({ stateId: cs.stateId, amount: rules.get(refundRuleId)!.refund ?? 1, from: cs });
           }
         }
       }
       // Wet-spend tempo refund (applied after the consume loop).
       // refundStacks is the wet-window payoff marker (E5/E10: Opening),
       // so consuming it here IS the wet spend — E16 floater tag.
+      let detonatePctOverride: number | undefined;
       if (eff.refundStacks && !windowInert) {
-        pendingRefunds.push(eff.refundStacks);
+        pendingRefunds.push({
+          ...eff.refundStacks,
+          from: consumed.find(c => c.stateId === eff.refundStacks!.stateId),
+        });
         wetSpend = true;
         // Deadeye / Frenzy Surge / Wind-Up: window spends hit harder
         // (extra on TOP of the window's own incDamage, folded above).
         const wetRuleId = WINDOW_WET_RULE[cs.stateId];
         if (wetRuleId && rules?.has(wetRuleId)) {
-          damageMult *= (1 + (rules.get(wetRuleId)!.wetBonusMult ?? 0.75));
+          const wp = rules.get(wetRuleId)!;
+          damageMult *= (1 + (wp.wetBonusMult ?? 0.75));
+          // Exsanguinate-class shape rules deepen the wet DETONATE too.
+          if (wp.wetDetonatePercent) detonatePctOverride = wp.wetDetonatePercent;
         }
       }
       // Generic DoT detonation (retires the deep_wound stateId hardcode):
-      // % of remaining ailment ticks dealt as instant burst
-      if (eff.detonateDotPercent) {
+      // % of remaining ailment ticks dealt as instant burst. Inert for
+      // flat-shape builds (windowInert) — "no finesse" includes the
+      // detonate, or the E5 preference fork collapses.
+      const detonatePct = detonatePctOverride ?? eff.detonateDotPercent;
+      if (detonatePct && !windowInert) {
         let ailmentBurst = 0;
         for (const deb of targetDebuffs) {
           if ((deb as any).instances) {
@@ -197,7 +210,7 @@ export function comboConsumePreRoll(ctx: PreRollContext): ComboConsumeResult {
             ailmentBurst += stackTotal * (deb.remainingDuration ?? 0);
           }
         }
-        burstDamage += ailmentBurst * (eff.detonateDotPercent / 100);
+        burstDamage += ailmentBurst * (detonatePct / 100);
       }
 
       // Dance Momentum: splash 50% damage to adjacent enemy
@@ -222,7 +235,9 @@ export function comboConsumePreRoll(ctx: PreRollContext): ComboConsumeResult {
   // by the spend that granted it).
   for (const refund of pendingRefunds) {
     comboStates = createStateFromSpec(
-      comboStates, refund.stateId, skill.id, undefined, 1, refund.amount,
+      comboStates, refund.stateId, skill.id,
+      refund.from ? { effect: refund.from.effect, maxStacks: refund.from.maxStacks } : undefined,
+      1, refund.amount,
     );
   }
 

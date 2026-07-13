@@ -135,8 +135,12 @@ const ATTUNEMENT_EFFECT: ComboStateEffect = {
   },
 };
 const ARCANE_SURGE_EFFECT: ComboStateEffect = {
-  incDamage: 100,
-  refundStacks: { stateId: 'attunement', amount: 3 },
+  // 100->125 (claws Wave A step 2 retune): the refund-from fold fix
+  // removed volley's double-strength refunded stacks (a latent bug the
+  // old +15.1 gate partly rested on) — the wet window is the honest
+  // lever that restores the smart edge.
+  incDamage: 125,
+  refundStacks: { stateId: 'attunement', amount: 4 },
 };
 
 // Re-export the registry helpers so engine consumers have a single import surface.

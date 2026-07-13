@@ -11,6 +11,7 @@ import type {
   WeaponModule, PreRollResult, PostCastResult, EnemyAttackResult, KillResult, MaintenanceResult,
   PreRollContext, PostCastContext, EnemyAttackContext,
 } from './weaponModule';
+import type { ComboState } from '../../../types';
 import {
   getCreatorConfigs, COMBO_STATE_CONSUMERS, checkAndStampIcd,
   consumeMultipleComboStates, createComboState, createStateFromSpec, tickComboStates,
@@ -749,7 +750,7 @@ export const staffModule: WeaponModule = {
     let advanceOtherCooldownsSec = 0;
     let perfectSpend = false;
     let wetSpend = false;
-    const pendingRefunds: { stateId: string; amount: number }[] = [];
+    const pendingRefunds: { stateId: string; amount: number; from?: ComboState }[] = [];
     const consumedStateIds: string[] = [];
     let newComboStates = comboStates;
     let remainingMinions: MinionState[] | undefined;
@@ -804,12 +805,15 @@ export const staffModule: WeaponModule = {
             perfectSpend = true;
             const refundRuleId = LEDGER_PERFECT_REFUND_RULE[cs.stateId];
             if (refundRuleId && rules?.has(refundRuleId)) {
-              pendingRefunds.push({ stateId: cs.stateId, amount: rules.get(refundRuleId)!.refund ?? 1 });
+              pendingRefunds.push({ stateId: cs.stateId, amount: rules.get(refundRuleId)!.refund ?? 1, from: cs });
             }
           }
         }
         if (eff.refundStacks && !windowInert) {
-          pendingRefunds.push(eff.refundStacks);
+          pendingRefunds.push({
+            ...eff.refundStacks,
+            from: consumed.find(c => c.stateId === eff.refundStacks!.stateId),
+          });
           wetSpend = true;
           const wetRuleId = WINDOW_WET_RULE[cs.stateId];
           if (wetRuleId && rules?.has(wetRuleId)) {
@@ -1151,7 +1155,9 @@ export const staffModule: WeaponModule = {
     // AFTER the consume so the refund seeds the next build cycle.
     for (const refund of pendingRefunds) {
       newComboStates = createStateFromSpec(
-        newComboStates, refund.stateId, skill.id, undefined, 1, refund.amount,
+        newComboStates, refund.stateId, skill.id,
+        refund.from ? { effect: refund.from.effect, maxStacks: refund.from.maxStacks } : undefined,
+        1, refund.amount,
       );
     }
 

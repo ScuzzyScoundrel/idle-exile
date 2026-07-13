@@ -118,10 +118,10 @@ export const COMBO_STATE_SPECS: Record<string, ComboStateSpec> = {
   arcane_surge: {
     id: 'arcane_surge',
     name: 'Arcane Surge',
-    description: 'Raw power crackles loose (3s, opened by bolt crits, 3s internal cooldown). Spending Attunement inside it: ×2 damage and refunds 3 Attunement.',
+    description: 'Raw power crackles loose (3s, opened by bolt crits, 3s internal cooldown). Spending Attunement inside it: ×2.25 damage and refunds 4 Attunement.',
     defaultDuration: 3.0,
     maxStacks: 1,
-    defaultEffect: { incDamage: 100, refundStacks: { stateId: 'attunement', amount: 3 } },
+    defaultEffect: { incDamage: 125, refundStacks: { stateId: 'attunement', amount: 4 } },
     category: 'self',
     side: 'player',
   },
@@ -279,11 +279,26 @@ export const COMBO_STATE_SPECS: Record<string, ComboStateSpec> = {
   frenzy: {
     id: 'frenzy',
     name: 'Frenzy',
-    description: 'Bloodlust building. Each stack: +5% attack speed. Decays after 3s without a hit.',
-    defaultDuration: 3,
-    maxStacks: 5,
-    defaultEffect: { incDamage: 0 },
+    description: 'The claws ledger — bloodlust that spoils. Built +1 per claw builder (+3 from Death by 1000 Cuts), max 6; ALL stacks expire 6s after the last gain. Frenzy Strike consumes ALL stacks: +30% damage per stack, PERFECT at 6 (+150% and other cooldowns advance 1s). Crimson Tempest spends the same pool against every enemy.',
+    // Ravage kit (claws Wave A): duration 6 is THE claws twist — the
+    // anti-hold clock. Blind/offline refresh it by casting; only a
+    // policy that WAITS gets bitten, which is why claws REQUIRES a
+    // cap-dump rule (inverts the dagger no-cap-dump law, which was
+    // derived from a 10s free-hold ledger).
+    defaultDuration: 6,
+    maxStacks: 6,
+    defaultEffect: { incDamagePerStackConsumed: 30, capBonus: { incDamage: 150, advanceOthersSec: 1 } },
     category: 'stack',
+    side: 'player',
+  },
+  arterial: {
+    id: 'arterial',
+    name: 'Arterial Rip',
+    description: 'A torn artery (3s), opened by claw crits against a BLEEDING target (4s internal cooldown). Spending Frenzy inside it: double damage, refunds 2 Frenzy, and detonates 40% of the target\'s remaining bleed as an instant burst.',
+    defaultDuration: 3.0,
+    maxStacks: 1,
+    defaultEffect: { incDamage: 100, refundStacks: { stateId: 'frenzy', amount: 2 }, detonateDotPercent: 40 },
+    category: 'self',
     side: 'player',
   },
   marked: {
